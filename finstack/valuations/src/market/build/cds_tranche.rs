@@ -33,7 +33,7 @@ use finstack_core::{Error, InputError, Result};
 /// overrides.payment_frequency = Some("3M".parse().unwrap());
 /// overrides.day_count = Some(finstack_core::dates::DayCount::Act360);
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CdsTrancheBuildOverrides {
     /// Index series number.
     ///

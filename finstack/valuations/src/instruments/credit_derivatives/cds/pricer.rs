@@ -78,8 +78,7 @@
 // Key items: CDSPricer, CDSPricerConfig, IntegrationMethod, CDSBootstrapper.
 #![allow(dead_code)]
 use crate::constants::{
-    credit, isda, numerical, time as time_constants, BASIS_POINTS_PER_UNIT, NUMERICAL_TOLERANCE,
-    ONE_BASIS_POINT,
+    credit, isda, numerical, time as time_constants, BASIS_POINTS_PER_UNIT, ONE_BASIS_POINT,
 };
 use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
@@ -110,7 +109,7 @@ use time::Duration;
 /// | `AdaptiveSimpson` | ★★☆☆☆ | ★★★★★ | Long tenors, complex curves |
 /// | `IsdaExact` | ★★★★☆ | ★★★★☆ | Standard market quotes |
 /// | `IsdaStandardModel` | ★★★★★ | ★★★★★ | ISDA compliance, production |
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IntegrationMethod {
     /// Simple midpoint rule with fixed steps (non-ISDA).
     ///
@@ -209,7 +208,7 @@ impl IntegrationMethod {
 /// Controls numerical integration, day count conventions, and par spread calculation
 /// methodology. Use factory methods like [`isda_standard()`](Self::isda_standard) for
 /// pre-configured setups.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CDSPricerConfig {
     /// Number of integration steps per year for protection leg (used with Midpoint method).
     /// For adaptive integration, use `min_steps_per_year` and `adaptive_steps` instead.
@@ -273,7 +272,7 @@ impl CDSPricerConfig {
             min_steps_per_year: isda::STANDARD_INTEGRATION_POINTS,
             adaptive_steps: true,
             include_accrual: true,
-            tolerance: NUMERICAL_TOLERANCE,
+            tolerance: numerical::ZERO_TOLERANCE,
             integration_method: IntegrationMethod::IsdaStandardModel,
             use_isda_coupon_dates: true,
             par_spread_uses_full_premium: false,
@@ -2080,7 +2079,7 @@ fn approx_default_density(surv: &HazardCurve, t: f64, h: f64, t_start: f64, t_en
 ///
 /// Controls how synthetic CDS instruments are constructed during hazard curve
 /// bootstrapping to match market quote conventions.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BootstrapConvention {
     /// CDS convention (determines day count, frequency, etc.)
     pub convention: crate::instruments::credit_derivatives::cds::CDSConvention,

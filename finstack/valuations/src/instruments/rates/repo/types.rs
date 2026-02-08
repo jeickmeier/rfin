@@ -14,8 +14,8 @@ use finstack_core::{Error, Result};
 use std::any::Any;
 
 /// Type of repurchase agreement.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum RepoType {
     /// Term repo with fixed maturity date
     #[default]
@@ -50,8 +50,8 @@ impl std::str::FromStr for RepoType {
 }
 
 /// Classification of collateral for repos.
-#[derive(Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum CollateralType {
     /// General collateral (standard market rates)
     #[default]
@@ -66,8 +66,7 @@ pub enum CollateralType {
 }
 
 /// Specification of collateral backing a repo.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CollateralSpec {
     /// Type of collateral (general vs special)
     pub collateral_type: CollateralType,
@@ -153,9 +152,10 @@ impl CollateralSpec {
 }
 
 /// Repurchase Agreement instrument.
-#[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Debug, Clone, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct Repo {
     /// Unique instrument identifier
     pub id: InstrumentId,

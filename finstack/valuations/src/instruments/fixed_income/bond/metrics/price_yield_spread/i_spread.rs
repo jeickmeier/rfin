@@ -7,7 +7,7 @@ use finstack_core::dates::{Date, DayCount, DayCountCtx, StubKind, Tenor};
 ///
 /// Controls the proxy swap fixed leg used to derive the par rate that is
 /// subtracted from the bond's YTM.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ISpreadConfig {
     /// Day-count convention for the proxy fixed leg used in the par rate.
     pub fixed_leg_day_count: DayCount,
@@ -55,7 +55,7 @@ impl Default for ISpreadConfig {
 /// // I-spread is computed automatically when requesting bond metrics
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ISpreadCalculator {
     config: ISpreadConfig,
 }

@@ -61,7 +61,7 @@ use finstack_core::math::distributions::binomial_distribution;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct HazardCurveDefault {
     /// The underlying hazard curve
     hazard_curve: HazardCurve,

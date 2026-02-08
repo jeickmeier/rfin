@@ -295,7 +295,7 @@ pub fn price_bs_unit(
 }
 
 /// Cash greeks for an equity option (scaled by contract size; vega per 1% vol).
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct EquityOptionGreeks {
     /// Delta: sensitivity to underlying price (scaled by contract size)
     pub delta: f64,

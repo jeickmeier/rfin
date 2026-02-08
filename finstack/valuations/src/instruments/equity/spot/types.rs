@@ -24,9 +24,10 @@ pub type Ticker = String;
 /// underlying fundamentals.
 ///
 /// See unit tests and `examples/` for usage.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 // Note: JsonSchema derive requires finstack-core types to implement JsonSchema
 // #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct Equity {

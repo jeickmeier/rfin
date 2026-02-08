@@ -266,7 +266,6 @@ fn test_ndf_is_fixed() {
     assert!(ndf_fixed.is_fixed());
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_ndf_serde_roundtrip() {
     let ndf = Ndf::example();

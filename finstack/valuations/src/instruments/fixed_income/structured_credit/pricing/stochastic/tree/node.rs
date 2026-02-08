@@ -7,8 +7,7 @@
 use std::fmt;
 
 /// Unique identifier for a scenario node.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct ScenarioNodeId(pub usize);
 
 impl ScenarioNodeId {
@@ -28,8 +27,7 @@ impl fmt::Display for ScenarioNodeId {
 ///
 /// Contains all state information needed for structured credit valuation
 /// at this point in time and scenario.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ScenarioNode {
     /// Unique node identifier
     pub id: ScenarioNodeId,
@@ -233,7 +231,7 @@ impl ScenarioNode {
 }
 
 /// A path through the scenario tree from root to a terminal node.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ScenarioPath {
     /// Node IDs along the path (root to terminal)
     pub nodes: Vec<ScenarioNodeId>,

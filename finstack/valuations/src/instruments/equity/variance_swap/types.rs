@@ -13,8 +13,7 @@ use time::macros::date;
 use crate::{cashflow::traits::CashflowProvider, instruments::common::traits::Attributes};
 
 /// Side of the variance swap (pay or receive variance).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PayReceive {
     /// Pay variance (short variance)
     Pay,
@@ -97,9 +96,10 @@ impl PayReceive {
 ///
 /// - Demeterfi, K. et al. (1999). "More Than You Ever Wanted to Know About Volatility Swaps."
 /// - Carr, P. & Madan, D. (1998). "Towards a Theory of Volatility Trading."
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct VarianceSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,

@@ -13,6 +13,28 @@ use syn::{parse_macro_input, Data, DeriveInput, Expr, Fields};
 /// - Validation on build (e.g., start_date < maturity)
 /// - Ergonomic setter methods
 ///
+/// # Builder pattern: no-args entry point
+///
+/// The generated `builder()` method takes **no arguments**. All fields —
+/// including required ones — are set through individual setter methods.
+/// This is an intentional design choice for instrument types where the number
+/// of required fields is large (e.g. `Bond` has 7+ required fields).
+/// Passing them all as positional arguments would be error-prone and
+/// unreadable; setters give each value a name and allow any call order.
+///
+/// This differs from the hand-written builders in `finstack-core` for
+/// market-data curves (e.g. `DiscountCurve::builder(id)`), which accept a
+/// single required key — the curve identifier — as a constructor argument.
+/// Curves have a natural unique key and few other required parameters,
+/// making the args-based entry point both practical and ergonomic.
+///
+/// **Summary of the two patterns:**
+///
+/// | Layer | Pattern | Example | Rationale |
+/// |-------|---------|---------|-----------|
+/// | `finstack-core` curves | `Type::builder(id)` | `DiscountCurve::builder("USD-OIS")` | Curves have a single natural key; remaining params have sensible defaults. |
+/// | `finstack-valuations` instruments | `Type::builder()` | `Bond::builder().id(id).notional(n)…` | Many required fields; named setters are clearer than positional args. |
+///
 /// # Example
 ///
 /// ```text

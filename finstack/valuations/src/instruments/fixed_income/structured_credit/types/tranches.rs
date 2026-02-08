@@ -9,28 +9,25 @@ use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
 use rust_decimal::prelude::ToPrimitive;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::enums::{TrancheSeniority, TriggerConsequence};
 use finstack_core::types::CreditRating;
 
 /// Tranche behavioral types (simplified to standard only)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum TrancheBehaviorType {
     /// Standard bond (pays interest and principal)
     Standard,
 }
 
-#[cfg(feature = "serde")]
 fn default_behavior_type() -> TrancheBehaviorType {
     TrancheBehaviorType::Standard
 }
 
 /// Coverage test trigger specification
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoverageTrigger {
     /// Trigger threshold level (e.g., 1.20 for 120% OC)
     pub trigger_level: f64,
@@ -75,8 +72,7 @@ impl CoverageTrigger {
 }
 
 /// Credit enhancement mechanisms for a tranche
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreditEnhancement {
     /// Subordination amount (sum of junior tranches)
     pub subordination: Money,
@@ -105,8 +101,8 @@ impl Default for CreditEnhancement {
 /// Tranche coupon specification
 ///
 /// Supports fixed and floating rate coupons used in standard structured credit instruments.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum TrancheCoupon {
     /// Fixed rate coupon (rate as decimal, e.g., 0.05 for 5%)
     Fixed {
@@ -207,9 +203,8 @@ impl TrancheCoupon {
 }
 
 /// Structured credit tranche with attachment/detachment points
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Tranche {
     /// Unique tranche identifier
     pub id: InstrumentId,
@@ -220,7 +215,7 @@ pub struct Tranche {
     pub detachment_point: f64, // Upper bound (e.g., 10% for equity, 15% for mezz)
 
     /// Behavioral classification for specialized handling
-    #[cfg_attr(feature = "serde", serde(default = "default_behavior_type"))]
+    #[serde(default = "default_behavior_type")]
     pub behavior_type: TrancheBehaviorType,
 
     /// Tranche characteristics
@@ -552,8 +547,7 @@ impl Default for TrancheBuilder {
 }
 
 /// Collection of tranches forming the capital structure
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrancheStructure {
     /// Ordered tranches (typically sorted by payment priority)
     pub tranches: Vec<Tranche>,

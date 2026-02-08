@@ -30,7 +30,7 @@ use rust_decimal::prelude::ToPrimitive;
 ///     fixed_leg_stub: Some(StubKind::ShortFront),
 /// };
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct AssetSwapConfig {
     /// Day-count convention for the ASW fixed leg (annuity).
     pub fixed_leg_day_count: Option<DayCount>,
@@ -67,7 +67,7 @@ pub struct AssetSwapConfig {
 /// // Par ASW is computed automatically when requesting bond metrics
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct AssetSwapParCalculator {
     config: AssetSwapConfig,
 }
@@ -98,7 +98,7 @@ pub struct AssetSwapParCalculator {
 /// // Market ASW is computed automatically when requesting bond metrics
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct AssetSwapMarketCalculator {
     config: AssetSwapConfig,
 }

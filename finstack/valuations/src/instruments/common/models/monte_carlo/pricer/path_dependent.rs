@@ -19,7 +19,7 @@ use finstack_core::currency::Currency;
 use finstack_core::Result;
 
 /// Configuration for path-dependent option pricing.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PathDependentPricerConfig {
     /// Number of Monte Carlo paths
     pub num_paths: usize,

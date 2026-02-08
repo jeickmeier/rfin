@@ -32,7 +32,7 @@ use finstack_core::HashMap;
 /// let expected_balance = tree.expected_value(|n| n.pool_balance);
 /// # let _ = expected_balance;
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ScenarioTree {
     /// All nodes in the tree (index 0 = root)
     nodes: Vec<ScenarioNode>,

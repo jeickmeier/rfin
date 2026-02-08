@@ -253,7 +253,6 @@ impl BasketCalculator {
         as_of: Date,
     ) -> Result<Money> {
         match &constituent.reference {
-            #[cfg(feature = "serde")]
             ConstituentReference::Instrument(instr_json) => {
                 // Clone the InstrumentJson, convert to boxed instrument, and price it
                 let boxed_instrument = instr_json.as_ref().clone().into_boxed()?;

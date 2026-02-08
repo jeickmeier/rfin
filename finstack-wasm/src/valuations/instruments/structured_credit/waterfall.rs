@@ -54,6 +54,7 @@ impl From<RustAllocationMode> for JsAllocationMode {
         match value {
             RustAllocationMode::Sequential => JsAllocationMode::Sequential,
             RustAllocationMode::ProRata => JsAllocationMode::ProRata,
+            _ => unreachable!("unknown AllocationMode variant"),
         }
     }
 }
@@ -92,6 +93,7 @@ impl From<RustPaymentType> for JsPaymentType {
             RustPaymentType::Interest => JsPaymentType::Interest,
             RustPaymentType::Principal => JsPaymentType::Principal,
             RustPaymentType::Residual => JsPaymentType::Residual,
+            _ => unreachable!("unknown PaymentType variant"),
         }
     }
 }

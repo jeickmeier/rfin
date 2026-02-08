@@ -27,7 +27,7 @@ pub mod state_indices {
 ///
 /// Used to distinguish different cashflow categories in Monte Carlo simulations,
 /// particularly for complex instruments like revolving credit facilities.
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CashflowType {
     /// Principal deployment (draws) or repayment
     Principal,
@@ -59,7 +59,7 @@ pub enum CashflowType {
 /// The `state` vector contains all state variable values in a compact, fixed-size allocation.
 /// For standard single-asset models, see `state_indices` for the expected layout.
 /// For multi-asset models, consult `PathDataset::process_params.factor_names` to interpret indices.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathPoint {
     /// Time step index (0 = initial, N = final)
     pub step: usize,
@@ -192,7 +192,7 @@ impl PathPoint {
 ///
 /// Contains all time steps for a single Monte Carlo path, along with
 /// metadata and the final payoff value.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulatedPath {
     /// Path identifier (0-indexed)
     pub path_id: usize,
@@ -298,7 +298,7 @@ impl SimulatedPath {
 }
 
 /// Method used to sample paths from the full simulation.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PathSamplingMethod {
     /// All paths were captured
     All,
@@ -325,7 +325,7 @@ impl std::fmt::Display for PathSamplingMethod {
 /// Process parameters for metadata.
 ///
 /// This will be populated by the ProcessMetadata trait implementations.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessParams {
     /// Process type name (e.g., "GBM", "Heston", "MultiGBM")
     pub process_type: String,
@@ -377,7 +377,7 @@ impl ProcessParams {
 ///
 /// This structure holds captured paths along with information about
 /// the simulation parameters and sampling method used.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathDataset {
     /// Captured paths
     pub paths: Vec<SimulatedPath>,

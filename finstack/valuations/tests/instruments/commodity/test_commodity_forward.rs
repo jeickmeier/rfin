@@ -431,7 +431,6 @@ fn test_commodity_forward_delta_analytical() {
     );
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_commodity_forward_serialization() {
     let forward = CommodityForward::example();

@@ -15,7 +15,7 @@ use super::tree_framework::{
 use super::tree_framework::NodeState;
 
 /// Trinomial tree types
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrinomialTreeType {
     /// Standard trinomial model with moment matching
     Standard,
@@ -24,7 +24,7 @@ pub enum TrinomialTreeType {
 }
 
 /// Trinomial tree for option pricing
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TrinomialTree {
     /// Number of time steps
     pub steps: usize,

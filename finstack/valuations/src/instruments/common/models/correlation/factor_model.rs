@@ -36,7 +36,7 @@ use finstack_core::math::linalg::{
 const CORRELATION_TOLERANCE: f64 = 1e-10;
 
 /// Error types for correlation matrix validation.
-#[derive(Clone, Debug, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum CorrelationMatrixError {
     /// Matrix size does not match expected n×n.
@@ -211,10 +211,10 @@ pub trait FactorModel: Send + Sync + std::fmt::Debug {
 }
 
 /// Factor model specification for configuration and serialization.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type", deny_unknown_fields))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", deny_unknown_fields)]
 #[allow(clippy::enum_variant_names)]
+#[non_exhaustive]
 pub enum FactorSpec {
     /// Single factor model (common market factor).
     SingleFactor {
@@ -322,7 +322,7 @@ impl FactorSpec {
 ///
 /// Models all correlation through a single systematic factor.
 /// Suitable for simple correlation structures.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct SingleFactorModel {
     volatility: f64,
     mean_reversion: f64,
@@ -388,7 +388,7 @@ impl FactorModel for SingleFactorModel {
 ///
 /// Models prepayment and credit behavior through two correlated factors.
 /// Captures the empirical negative correlation between prepayment and default.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TwoFactorModel {
     prepay_vol: f64,
     credit_vol: f64,
@@ -526,7 +526,7 @@ impl FactorModel for TwoFactorModel {
 ///
 /// Invalid matrices will be replaced with the identity matrix.
 /// Use [`MultiFactorModel::validated`] for explicit validation.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct MultiFactorModel {
     num_factors: usize,
     volatilities: Vec<f64>,

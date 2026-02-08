@@ -16,7 +16,7 @@ use super::RecoveryModel;
 ///
 /// Recovery is fixed and does not vary with market conditions.
 /// This is the baseline model compatible with standard Gaussian copula.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ConstantRecovery {
     /// Fixed recovery rate ∈ [0, 1]
     rate: f64,

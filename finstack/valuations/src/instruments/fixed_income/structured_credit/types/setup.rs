@@ -11,7 +11,6 @@ use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_core::HashMap;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -19,8 +18,7 @@ use serde::{Deserialize, Serialize};
 // ============================================================================
 
 /// Complete deal configuration for structured credit instruments
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DealConfig {
     /// Key deal dates
     pub dates: DealDates,
@@ -31,13 +29,12 @@ pub struct DealConfig {
     /// Default prepayment and default assumptions
     pub default_assumptions: DefaultAssumptions,
     /// Hedge swaps (leveraging existing IRS infrastructure)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub hedge_swaps: Vec<InterestRateSwap>,
 }
 
 /// Key dates for a structured credit deal
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DealDates {
     /// Deal closing date
     pub closing_date: Date,
@@ -76,8 +73,7 @@ impl DealDates {
 }
 
 /// Fee structure for structured credit deals
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DealFees {
     /// Annual trustee fee (fixed amount)
     pub trustee_fee_annual: Money,
@@ -144,8 +140,7 @@ impl DealFees {
 }
 
 /// Coverage test configuration
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoverageTestConfig {
     /// OC trigger levels by tranche ID
     pub oc_triggers: HashMap<String, f64>,
@@ -211,8 +206,7 @@ impl Default for CoverageTestConfig {
 }
 
 /// Default assumptions for structured credit modeling
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DefaultAssumptions {
     /// Base annual CDR (Constant Default Rate)
     pub base_cdr_annual: f64,
@@ -227,13 +221,13 @@ pub struct DefaultAssumptions {
     /// ABS monthly prepayment speed (for auto ABS)
     pub abs_speed_monthly: Option<f64>,
     /// Asset-type specific annual CPRs
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub cpr_by_asset_type: HashMap<String, f64>,
     /// Asset-type specific annual CDRs
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub cdr_by_asset_type: HashMap<String, f64>,
     /// Asset-type specific recovery rates
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub recovery_by_asset_type: HashMap<String, f64>,
 }
 

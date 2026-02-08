@@ -39,9 +39,8 @@ pub const MIN_IMPLIED_VOL: f64 = 0.0;
 pub const MAX_IMPLIED_VOL: f64 = 5.0;
 
 /// Credit option instrument (option on CDS spread)
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CdsOption {
     /// Unique instrument identifier
     pub id: InstrumentId,

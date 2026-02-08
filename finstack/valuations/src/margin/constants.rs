@@ -5,8 +5,8 @@
 
 /// Standard days per year for year fraction calculations.
 ///
-/// Uses ACT/365 convention common in swap markets.
-pub const DAYS_PER_YEAR: f64 = 365.0;
+/// Re-exported from `finstack_core::dates::CALENDAR_DAYS_PER_YEAR` (ACT/365 Fixed).
+pub use finstack_core::dates::CALENDAR_DAYS_PER_YEAR as DAYS_PER_YEAR;
 
 /// Duration approximation factor.
 ///

@@ -532,6 +532,7 @@ impl JsXccySwap {
             let principal_sign = match leg.side {
                 LegSide::Receive => (-1.0, 1.0), // pay at start, receive at end
                 LegSide::Pay => (1.0, -1.0),
+                _ => unreachable!("unknown LegSide variant"),
             };
 
             if matches!(
@@ -602,6 +603,7 @@ impl JsXccySwap {
             let coupon_sign = match leg.side {
                 LegSide::Receive => 1.0,
                 LegSide::Pay => -1.0,
+                _ => unreachable!("unknown LegSide variant"),
             };
 
             for i in 1..dates.len() {

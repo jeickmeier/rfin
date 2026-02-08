@@ -17,7 +17,6 @@ use std::sync::Arc;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::results::ValuationResult;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Attribution methodology for decomposing P&L.
@@ -26,8 +25,7 @@ use serde::{Deserialize, Serialize};
 /// - **Parallel**: Independent factor isolation (may not sum due to cross-effects)
 /// - **Waterfall**: Sequential application (guarantees sum = total, order matters)
 /// - **MetricsBased**: Linear approximation using existing metrics (fast but approximate)
-#[derive(Clone, Debug, PartialEq, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum AttributionMethod {
     /// Independent factor isolation (may not sum due to cross-effects).
     ///
@@ -61,8 +59,7 @@ pub enum AttributionMethod {
 /// - **Fx**: FxMatrix
 /// - **Volatility**: surfaces (VolSurface)
 /// - **MarketScalars**: prices, series, inflation_indices, dividends
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AttributionFactor {
     /// Time decay and accruals (Theta).
     Carry,
@@ -279,8 +276,7 @@ pub struct AttributionInput<'a> {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PnlAttribution {
     /// Total P&L (val_t1 - val_t0).
     pub total_pnl: Money,
@@ -348,8 +344,7 @@ pub struct PnlAttribution {
 ///
 /// Provides aggregate and per-curve/per-tenor breakdown for discount
 /// and forward curves.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RatesCurvesAttribution {
     /// P&L by curve ID.
     pub by_curve: IndexMap<CurveId, Money>,
@@ -367,8 +362,7 @@ pub struct RatesCurvesAttribution {
 /// Detailed attribution for credit hazard curves.
 ///
 /// Provides per-curve and per-tenor breakdown for credit spread risk.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreditCurvesAttribution {
     /// P&L by curve ID.
     pub by_curve: IndexMap<CurveId, Money>,
@@ -381,8 +375,7 @@ pub struct CreditCurvesAttribution {
 ///
 /// Provides per-curve breakdown with optional tenor detail for
 /// term-structured inflation curves.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InflationCurvesAttribution {
     /// P&L by curve ID.
     pub by_curve: IndexMap<CurveId, Money>,
@@ -394,8 +387,7 @@ pub struct InflationCurvesAttribution {
 /// Detailed attribution for base correlation curves.
 ///
 /// Used for structured credit products (CDO tranches, synthetic credit).
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CorrelationsAttribution {
     /// P&L by correlation curve ID.
     pub by_curve: IndexMap<CurveId, Money>,
@@ -404,8 +396,7 @@ pub struct CorrelationsAttribution {
 /// Detailed attribution for FX rate changes.
 ///
 /// Provides per-currency-pair breakdown.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FxAttribution {
     /// P&L by (from_currency, to_currency) pair.
     pub by_pair: IndexMap<(Currency, Currency), Money>,
@@ -414,8 +405,7 @@ pub struct FxAttribution {
 /// Detailed attribution for implied volatility changes.
 ///
 /// Provides per-surface breakdown.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VolAttribution {
     /// P&L by volatility surface ID.
     pub by_surface: IndexMap<CurveId, Money>,
@@ -425,8 +415,7 @@ pub struct VolAttribution {
 ///
 /// Extensible structure for instrument-specific model parameters
 /// (prepayment speeds, default rates, recovery rates, etc.).
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelParamsAttribution {
     /// Prepayment speed changes (for MBS/ABS).
     pub prepayment: Option<Money>,
@@ -441,38 +430,36 @@ pub struct ModelParamsAttribution {
     pub conversion_ratio: Option<Money>,
 
     /// Other model-specific parameters.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub other: IndexMap<String, Money>,
 }
 
 /// Detailed attribution for market scalars.
 ///
 /// Includes dividends, equity/commodity prices, inflation indices, etc.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScalarsAttribution {
     /// Dividend changes by equity ID.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub dividends: IndexMap<CurveId, Money>,
 
     /// Inflation index changes.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub inflation: IndexMap<CurveId, Money>,
 
     /// Equity price changes.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub equity_prices: IndexMap<CurveId, Money>,
 
     /// Commodity price changes.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub commodity_prices: IndexMap<CurveId, Money>,
 }
 
 /// Attribution metadata.
 ///
 /// Records methodology, dates, repricing count, and residual statistics.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttributionMeta {
     /// Attribution method used.
     pub method: AttributionMethod,
@@ -502,11 +489,11 @@ pub struct AttributionMeta {
     pub rounding: RoundingContext,
 
     /// FX policy metadata (if FX conversions were applied).
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fx_policy: Option<FxPolicyMeta>,
 
     /// Diagnostic notes and warnings.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub notes: Vec<String>,
 }
 
@@ -996,7 +983,6 @@ impl PnlAttribution {
     }
 }
 
-#[cfg(feature = "serde")]
 impl JsonEnvelope for PnlAttribution {
     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
         finstack_core::Error::Calibration {
@@ -1209,7 +1195,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "serde")]
     fn test_pnl_attribution_json_envelope_trait() {
         let total = Money::new(1000.0, Currency::USD);
         let mut attr = PnlAttribution::new(
@@ -1324,7 +1309,6 @@ mod tests {
 ///
 /// JSON serialization is not optimized for performance. For high-throughput scenarios,
 /// consider binary formats (bincode, MessagePack) or zero-copy alternatives (flatbuffers).
-#[cfg(feature = "serde")]
 pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
     /// Convert a JSON parsing error to the domain error type.
     ///
@@ -1549,7 +1533,7 @@ mod json_envelope_tests {
     use super::*;
 
     /// Test envelope type to verify JsonEnvelope trait functionality.
-    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     struct TestEnvelope {
         schema: String,
         data: String,

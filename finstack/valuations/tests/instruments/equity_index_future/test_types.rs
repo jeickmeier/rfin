@@ -226,7 +226,6 @@ fn test_curve_dependencies() {
     assert_eq!(deps.discount_curves[0].as_str(), "USD-OIS");
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_serde_roundtrip() {
     let future = EquityIndexFuture::example();

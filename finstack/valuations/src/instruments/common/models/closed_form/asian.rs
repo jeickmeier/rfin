@@ -146,7 +146,7 @@
 use finstack_core::math::special_functions::norm_cdf;
 
 /// Pricing result for Asian options.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct AsianPriceResult {
     /// Option price
     pub price: f64,
@@ -156,7 +156,7 @@ pub struct AsianPriceResult {
 
 /// Greeks for Asian options.
 /// Greeks for Asian options
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct AsianGreeks {
     /// Delta: sensitivity to underlying price
     pub delta: f64,

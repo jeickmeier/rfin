@@ -56,8 +56,7 @@ use time::macros::date;
 /// assert_eq!(es_specs.tick_size, 0.25);
 /// assert_eq!(es_specs.tick_value, 12.50);
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct EquityFutureSpecs {
     /// Contract multiplier (USD per index point).
     /// E-mini S&P 500: 50.0 (each point = $50)
@@ -218,9 +217,10 @@ impl EquityFutureSpecs {
 ///     .build()
 ///     .expect("Valid future");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct EquityIndexFuture {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -741,7 +741,6 @@ mod tests {
         assert_eq!(future.notional_value(4500.0), 2_250_000.0);
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_serde_round_trip() {
         let future = EquityIndexFuture::example();

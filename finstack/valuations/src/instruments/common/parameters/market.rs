@@ -4,13 +4,11 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, Percentage, Rate};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Option type for pricing
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum OptionType {
     /// Call option
     Call,
@@ -40,9 +38,8 @@ impl std::str::FromStr for OptionType {
 }
 
 /// Exercise style for options
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ExerciseStyle {
     /// European exercise (only at expiry)
     #[default]
@@ -77,9 +74,8 @@ impl std::str::FromStr for ExerciseStyle {
 }
 
 /// Settlement type for options
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SettlementType {
     /// Physical delivery
     Physical,
@@ -90,9 +86,8 @@ pub enum SettlementType {
 /// Position direction for futures and forwards.
 ///
 /// Indicates whether the holder is long (buyer) or short (seller) of the contract.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Position {
     /// Long position (buyer of futures/forward contract).
     ///
@@ -159,8 +154,7 @@ impl std::str::FromStr for SettlementType {
 }
 
 /// Market parameters for equity options
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EquityOptionParams {
     /// Option strike price
     pub strike: f64,
@@ -213,8 +207,7 @@ impl EquityOptionParams {
 }
 
 /// Market parameters for FX options
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FxOptionParams {
     /// Strike rate (FX rate)
     pub strike: f64,
@@ -267,8 +260,7 @@ impl FxOptionParams {
 }
 
 /// Credit parameters for CDS instruments
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreditParams {
     /// Reference entity (issuer being protected)
     pub reference_entity: String,
@@ -323,8 +315,7 @@ impl CreditParams {
 }
 
 /// Interest rate option parameters (caps/floors)
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InterestRateOptionParams {
     /// Strike rate for the option
     pub strike: f64,

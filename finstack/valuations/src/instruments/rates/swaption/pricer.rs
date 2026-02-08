@@ -155,7 +155,7 @@ impl Pricer for SimpleSwaptionBlackPricer {
 // ========================= BERMUDAN SWAPTION PRICER =========================
 
 /// Pricing method for Bermudan swaptions.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BermudanPricingMethod {
     /// Hull-White trinomial tree (industry standard, faster)
     #[default]
@@ -203,7 +203,7 @@ pub enum BermudanPricingMethod {
 ///   *Review of Financial Studies*, 3(4), 573-592.
 /// - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models - Theory and Practice*.
 ///   Chapter 4: One-factor Short-Rate Models.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct HullWhiteParams {
     /// Mean reversion speed (κ).
     ///
@@ -249,7 +249,7 @@ impl HullWhiteParams {
 }
 
 /// Opaque calibrated Hull-White model for Bermudan swaption pricing.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CalibratedHullWhiteModel {
     tree: Arc<HullWhiteTree>,
 }

@@ -13,9 +13,8 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// CMO tranche type enumeration.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CmoTrancheType {
     /// Sequential pay - receives principal in order
     Sequential,
@@ -42,8 +41,7 @@ impl std::fmt::Display for CmoTrancheType {
 }
 
 /// PAC collar boundaries.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PacCollar {
     /// Lower PSA bound
     pub lower_psa: f64,
@@ -67,8 +65,7 @@ impl PacCollar {
 }
 
 /// CMO tranche definition.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CmoTranche {
     /// Tranche identifier (e.g., "A", "B", "IO")
     pub id: String,
@@ -173,8 +170,7 @@ impl CmoTranche {
 }
 
 /// CMO waterfall configuration.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CmoWaterfall {
     /// Tranches in the deal (ordered by priority for sequential)
     pub tranches: Vec<CmoTranche>,
@@ -224,9 +220,10 @@ impl CmoWaterfall {
 ///
 /// Represents a CMO deal backed by agency MBS collateral with multiple
 /// tranches that receive cashflows according to waterfall rules.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct AgencyCmo {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -242,7 +239,7 @@ pub struct AgencyCmo {
     pub reference_tranche_id: String,
     /// Collateral pool (optional - for detailed cashflow projection)
     #[builder(optional)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub collateral: Option<Box<AgencyMbsPassthrough>>,
     /// Collateral WAC (if no explicit collateral)
     #[builder(optional)]
@@ -262,7 +259,7 @@ pub struct AgencyCmo {
     pub discount_curve_id: CurveId,
     /// Pricing overrides.
     #[builder(default)]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for tagging and selection.
     #[builder(default)]

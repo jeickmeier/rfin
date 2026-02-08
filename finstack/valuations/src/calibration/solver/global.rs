@@ -494,7 +494,7 @@ mod tests {
     use finstack_core::Error;
     use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
-    #[derive(Clone, Debug)]
+    #[derive(Debug, Clone)]
     struct DummyCurve(#[allow(dead_code)] Vec<f64>);
 
     struct TestTarget {

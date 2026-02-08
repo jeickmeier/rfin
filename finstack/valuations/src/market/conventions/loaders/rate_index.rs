@@ -9,7 +9,7 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::Error;
 use finstack_core::HashMap;
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RateIndexConventionsRecord {
     currency: Currency,
@@ -29,7 +29,7 @@ struct RateIndexConventionsRecord {
     default_fixed_leg_frequency: String,
 }
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum OisCompoundingSpec {
     Sofr,

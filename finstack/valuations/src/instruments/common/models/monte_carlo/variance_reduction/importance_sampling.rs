@@ -42,7 +42,7 @@ pub fn exponential_tilt(theta: f64, z: f64) -> (f64, f64) {
 }
 
 /// Result of importance sampling estimation with ESS diagnostics.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ImportanceSamplingResult {
     /// Weighted mean estimate
     pub mean: f64,

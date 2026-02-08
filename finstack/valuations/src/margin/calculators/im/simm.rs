@@ -41,8 +41,10 @@ use finstack_core::HashMap;
 use finstack_core::Result;
 
 /// SIMM version identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
+#[non_exhaustive]
 pub enum SimmVersion {
     /// SIMM v2.5 (2022)
     V2_5,

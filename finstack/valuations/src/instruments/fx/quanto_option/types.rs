@@ -12,9 +12,10 @@ use finstack_core::types::{CurveId, InstrumentId};
 ///
 /// Quanto options have payoffs that depend on an underlying asset in one currency
 /// but are settled in another currency, creating FX exposure.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct QuantoOption {
     /// Unique instrument identifier
     pub id: InstrumentId,

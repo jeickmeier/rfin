@@ -23,7 +23,7 @@ use finstack_core::money::Money;
 ///
 /// For mid-life valuations, use `new_with_history` to include past observations
 /// that were known to be in or out of range.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct RangeAccrualPayoff {
     /// Observation dates (time in years, must be sorted, future only)
     pub observation_dates: Vec<f64>,

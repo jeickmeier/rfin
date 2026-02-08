@@ -10,8 +10,7 @@ use finstack_core::money::Money;
 ///
 /// Describes how principal amortizes or is exchanged during the life of the contract.
 /// Used by instruments (e.g., bonds) and cashflow legs for consistent behavior.
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum AmortizationSpec {
     /// No amortization – principal remains constant until final redemption.
     #[default]
@@ -44,8 +43,7 @@ pub enum AmortizationSpec {
 ///
 /// Combines initial principal with amortization behavior for complete
 /// notional lifecycle management.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Notional {
     /// Initial principal amount outstanding at leg inception.
     pub initial: Money,

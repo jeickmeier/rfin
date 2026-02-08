@@ -11,8 +11,8 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
 
 /// Direction from the perspective of paying fixed real vs receiving inflation
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum PayReceiveInflation {
     /// Pay fixed (real) leg, receive inflation leg
     PayFixed,
@@ -61,9 +61,10 @@ impl std::str::FromStr for PayReceiveInflation {
 /// # Validation
 ///
 /// Call [`validate()`](Self::validate) to check structural invariants before pricing.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct InflationSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -510,9 +511,10 @@ impl crate::instruments::common_impl::traits::CurveDependencies for InflationSwa
 /// Year-on-year (YoY) Inflation Swap instrument.
 ///
 /// Pays periodic inflation rates (CPI ratios over each period) versus a fixed rate.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct YoYInflationSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,

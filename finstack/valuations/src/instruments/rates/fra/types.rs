@@ -48,9 +48,8 @@ const MAX_REASONABLE_RATE: f64 = 0.50;
 ///
 /// Use `receive_fixed` to indicate the fixed leg direction. This field is required
 /// in JSON inputs.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder, serde::Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ForwardRateAgreement {
     /// Unique identifier
     pub id: InstrumentId,
@@ -105,7 +104,6 @@ pub struct ForwardRateAgreement {
 }
 
 /// Custom deserializer for ForwardRateAgreement that requires `receive_fixed`.
-#[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where

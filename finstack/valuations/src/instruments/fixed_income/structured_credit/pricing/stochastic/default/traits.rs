@@ -7,7 +7,7 @@
 ///
 /// These are economy-wide factors that influence default behavior,
 /// distinct from individual loan-level `CreditFactors` in the types module.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct MacroCreditFactors {
     /// Unemployment rate (e.g., 0.05 for 5%)
     pub unemployment: f64,

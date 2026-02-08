@@ -18,13 +18,11 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 use time::Duration;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Waterfall allocation style.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum WaterfallStyle {
     /// European style: aggregate all events at fund level
     #[default]
@@ -34,9 +32,8 @@ pub enum WaterfallStyle {
 }
 
 /// Catch-up mode for GP profit sharing.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CatchUpMode {
     /// Full catch-up: GP gets 100% until target split is reached
     #[default]
@@ -46,9 +43,8 @@ pub enum CatchUpMode {
 }
 
 /// Hurdle types for waterfall tiers.
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Hurdle {
     /// IRR-based hurdle (annual rate)
     Irr {
@@ -59,9 +55,8 @@ pub enum Hurdle {
 }
 
 /// Individual tranche in the waterfall.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Tranche {
     /// Return LP capital contributions before any profit sharing
     ReturnOfCapital,
@@ -87,9 +82,8 @@ pub enum Tranche {
 }
 
 /// Clawback settlement trigger.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ClawbackSettle {
     /// Settle at fund termination
     FundEnd,
@@ -98,9 +92,8 @@ pub enum ClawbackSettle {
 }
 
 /// Clawback specification for GP carry reconciliation.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ClawbackSpec {
     /// Whether clawback is enabled
     pub enable: bool,
@@ -121,9 +114,8 @@ impl Default for ClawbackSpec {
 }
 
 /// Complete waterfall specification.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WaterfallSpec {
     /// Allocation style (European vs American)
     pub style: WaterfallStyle,
@@ -277,9 +269,8 @@ impl WaterfallSpecBuilder {
 }
 
 /// Type of fund event.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum FundEventKind {
     /// Capital contribution from LP
     Contribution,
@@ -290,9 +281,8 @@ pub enum FundEventKind {
 }
 
 /// Single fund cash flow event.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FundEvent {
     /// Date of the event
     pub date: Date,
@@ -354,9 +344,8 @@ impl FundEvent {
 }
 
 /// Single row in the allocation ledger.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AllocationRow {
     /// Date of allocation
     pub date: Date,
@@ -381,16 +370,15 @@ pub struct AllocationRow {
 }
 
 /// Complete allocation ledger with metadata.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AllocationLedger {
     /// Allocation rows
     pub rows: Vec<AllocationRow>,
     /// Result metadata
     pub meta: ResultsMeta,
     /// LP contribution events stored as negative flows for cashflow reconstruction
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     contributions: Vec<(Date, Money)>,
 }
 

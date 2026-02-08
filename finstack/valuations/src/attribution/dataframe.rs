@@ -16,7 +16,6 @@ impl PnlAttribution {
     /// # Errors
     ///
     /// Returns error if JSON serialization fails.
-    #[cfg(feature = "serde")]
     pub fn to_json(&self) -> finstack_core::Result<String> {
         serde_json::to_string_pretty(self).map_err(|e| {
             finstack_core::Error::Validation(format!("JSON serialization failed: {}", e))
@@ -155,7 +154,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "serde")]
     fn test_to_json() {
         let total = Money::new(1000.0, Currency::USD);
         let attribution = PnlAttribution::new(

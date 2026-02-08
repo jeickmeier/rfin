@@ -41,8 +41,8 @@ use finstack_core::Result;
 ///
 /// This is less common but may be used in some markets or for consistency with
 /// other FX instruments that quote in this direction.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum NdfQuoteConvention {
     /// Rate quoted as base currency per settlement currency (e.g., 7.25 CNY per USD).
     /// Settlement = Notional_base × (1/F_contract - 1/F_fixing)
@@ -122,8 +122,8 @@ impl std::str::FromStr for NdfQuoteConvention {
 ///     .build()
 ///     .expect("Valid NDF");
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum NdfFixingSource {
     /// PBOC - People's Bank of China CNY/USD fixing.
     /// Published daily at 9:15 AM Beijing time.
@@ -284,9 +284,10 @@ impl std::str::FromStr for NdfFixingSource {
 ///     .build()
 ///     .expect("Valid NDF");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct Ndf {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -835,7 +836,6 @@ mod tests {
         assert_eq!(deps.discount_curves.len(), 2);
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_ndf_serde_roundtrip() {
         let ndf = Ndf::example();

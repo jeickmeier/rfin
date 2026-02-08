@@ -82,8 +82,7 @@ use super::super::traits::StochasticProcess;
 use super::metadata::ProcessMetadata;
 
 /// Geometric Brownian Motion parameters.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GbmParams {
     /// Risk-free rate (annual)
     pub r: f64,
@@ -115,7 +114,7 @@ impl GbmParams {
 ///
 /// State: S (spot price)
 /// Factor: 1 Brownian motion
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct GbmProcess {
     params: GbmParams,
 }
@@ -192,7 +191,7 @@ impl ProcessMetadata for GbmProcess {
 /// ```
 ///
 /// where W_i are correlated via a correlation matrix ρ.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct MultiGbmProcess {
     /// Parameters for each asset
     params: Vec<GbmParams>,

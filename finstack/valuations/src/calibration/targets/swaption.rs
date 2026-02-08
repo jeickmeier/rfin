@@ -879,7 +879,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
 type QuotesByExpiryTenor<'a> = BTreeMap<(u64, u64), Vec<&'a VolQuote>>;
 type SABRParamsByExpiryTenor = BTreeMap<(u64, u64), SABRParameters>;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 struct SwaptionLegConventions<'a> {
     fixed_freq: Tenor,
     float_freq: Tenor,

@@ -107,7 +107,6 @@ use finstack_core::Error as CoreError;
 use finstack_core::HashMap;
 use std::any::Any;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -115,8 +114,7 @@ use serde::{Deserialize, Serialize};
 // ============================================================================
 
 /// Market conditions that affect prepayment behavior.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketConditions {
     /// Current refinancing rate.
     pub refi_rate: f64,
@@ -146,8 +144,7 @@ impl Default for MarketConditions {
 }
 
 /// Credit factors affecting default probability.
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CreditFactors {
     /// Current FICO/credit score.
     pub credit_score: Option<u32>,
@@ -168,8 +165,7 @@ pub struct CreditFactors {
 // ============================================================================
 
 /// Deal metadata (counterparties and identifiers).
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Metadata {
     /// Manager identifier (for CLO).
     pub manager_id: Option<String>,
@@ -184,8 +180,7 @@ pub struct Metadata {
 }
 
 /// Behavioral overrides for prepayment, default, and recovery assumptions.
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Overrides {
     /// Override prepayment with constant annual CPR.
     pub cpr_annual: Option<f64>,
@@ -213,9 +208,8 @@ pub struct Overrides {
 ///
 /// This single type handles CLO, ABS, CMBS, and RMBS instruments using
 /// composition for deal-specific differences.
-#[derive(Clone, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Clone, finstack_valuations_macros::FinancialBuilder, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StructuredCredit {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -292,15 +286,15 @@ pub struct StructuredCredit {
     pub credit_factors: CreditFactors,
 
     /// Deal metadata (counterparties, identifiers).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub deal_metadata: Metadata,
 
     /// Behavioral assumption overrides.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub behavior_overrides: Overrides,
 
     /// Default behavioral assumptions for the deal.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub default_assumptions: DefaultAssumptions,
 
     /// Optional stochastic prepayment model specification.
@@ -325,7 +319,7 @@ pub struct StructuredCredit {
     pub correlation_structure: Option<CorrelationStructure>,
 
     /// Interest rate swaps used to hedge basis or interest rate risk.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub hedge_swaps: Vec<InterestRateSwap>,
 }
 
@@ -690,17 +684,14 @@ impl StructuredCredit {
         None
     }
 
-    #[cfg(feature = "serde")]
     fn default_prepayment_spec() -> PrepaymentModelSpec {
         PrepaymentModelSpec::constant_cpr(0.10)
     }
 
-    #[cfg(feature = "serde")]
     fn default_default_spec() -> DefaultModelSpec {
         DefaultModelSpec::constant_cdr(0.02)
     }
 
-    #[cfg(feature = "serde")]
     fn default_recovery_spec() -> RecoveryModelSpec {
         RecoveryModelSpec::with_lag(0.40, 12)
     }

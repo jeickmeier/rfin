@@ -11,8 +11,8 @@ use std::fmt;
 ///
 /// Classifies the nature of a margin call for proper processing
 /// and accounting treatment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum MarginCallType {
     /// Initial margin posting requirement
     ///
@@ -75,8 +75,7 @@ impl std::str::FromStr for MarginCallType {
 ///
 /// Represents a single margin call with all relevant details for
 /// processing and settlement.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MarginCall {
     /// Date the margin call is issued
     pub call_date: Date,

@@ -60,7 +60,7 @@ pub const DEFAULT_TREE_STEPS: usize = 50;
 /// Delta calculator for Bermudan swaptions.
 ///
 /// Computes sensitivity to parallel rate shifts via bump-and-revalue.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BermudanDeltaCalculator {
     /// Rate bump size in basis points
     pub bump_bp: f64,
@@ -202,7 +202,7 @@ impl MetricCalculator for BermudanDeltaCalculator {
 /// Vega calculator for Bermudan swaptions.
 ///
 /// Computes sensitivity to Hull-White volatility changes.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BermudanVegaCalculator {
     /// Volatility bump (percentage)
     pub bump_pct: f64,
@@ -316,7 +316,7 @@ impl MetricCalculator for BermudanVegaCalculator {
 /// Gamma calculator for Bermudan swaptions.
 ///
 /// Computes second-order rate sensitivity via bump-and-revalue.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BermudanGammaCalculator {
     /// Rate bump size in basis points
     pub bump_bp: f64,
@@ -449,7 +449,7 @@ impl MetricCalculator for BermudanGammaCalculator {
 /// Exercise probability profile for Bermudan swaptions.
 ///
 /// Shows the risk-neutral probability of exercise at each exercise date.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ExerciseProbabilityProfile {
     /// Exercise dates (year fractions)
     pub exercise_times: Vec<f64>,
@@ -529,7 +529,7 @@ impl ExerciseProbabilityProfile {
 }
 
 /// Calculator for exercise probability metrics.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ExerciseProbabilityCalculator {
     /// Hull-White mean reversion
     pub kappa: f64,

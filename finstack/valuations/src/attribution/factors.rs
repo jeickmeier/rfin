@@ -187,7 +187,7 @@ use std::sync::Arc;
 ///     // ... restore discount curves
 /// }
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct CurveRestoreFlags {
     /// Restore discount curves from snapshot
     pub discount: bool,
@@ -346,7 +346,7 @@ impl std::ops::Not for CurveRestoreFlags {
 }
 
 /// Snapshot of all discount and forward curves from a market context.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct RatesCurvesSnapshot {
     /// Discount curves indexed by curve ID
     pub discount_curves: HashMap<CurveId, Arc<DiscountCurve>>,
@@ -355,7 +355,7 @@ pub struct RatesCurvesSnapshot {
 }
 
 /// Snapshot of all credit hazard curves from a market context.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CreditCurvesSnapshot {
     /// Hazard curves indexed by curve ID
     pub hazard_curves: HashMap<CurveId, Arc<HazardCurve>>,
@@ -363,7 +363,7 @@ pub struct CreditCurvesSnapshot {
 
 /// Snapshot of all inflation curves from a market context.
 #[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct InflationCurvesSnapshot {
     /// Inflation curves indexed by curve ID
     pub inflation_curves: HashMap<CurveId, Arc<InflationCurve>>,
@@ -371,7 +371,7 @@ pub struct InflationCurvesSnapshot {
 
 /// Snapshot of all base correlation curves from a market context.
 #[allow(dead_code)] // Public API, used in tests
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CorrelationsSnapshot {
     /// Base correlation curves indexed by curve ID
     pub base_correlation_curves: HashMap<CurveId, Arc<BaseCorrelationCurve>>,
@@ -385,7 +385,7 @@ pub struct VolatilitySnapshot {
 }
 
 /// Snapshot of market scalars from a market context.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ScalarsSnapshot {
     /// Market scalar prices indexed by ID
     pub prices: HashMap<CurveId, MarketScalar>,
@@ -425,7 +425,7 @@ pub struct ScalarsSnapshot {
 ///     CurveRestoreFlags::all() & !CurveRestoreFlags::HAZARD
 /// );
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct MarketSnapshot {
     /// Discount curves indexed by curve ID
     pub discount_curves: HashMap<CurveId, Arc<DiscountCurve>>,

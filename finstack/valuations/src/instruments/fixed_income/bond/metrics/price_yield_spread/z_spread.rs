@@ -76,7 +76,7 @@ use std::cell::RefCell;
 ///     max_bracket_bp: 5000.0,
 /// };
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ZSpreadSolverConfig {
     /// Convergence tolerance for the Z-spread solver (on the spread axis, decimal).
     ///
@@ -151,7 +151,7 @@ impl Default for ZSpreadSolverConfig {
 /// // Z-spread is computed automatically when requesting bond metrics
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ZSpreadCalculator {
     config: ZSpreadSolverConfig,
 }

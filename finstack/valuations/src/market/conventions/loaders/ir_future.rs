@@ -6,7 +6,7 @@ use crate::market::conventions::ids::{IndexId, IrFutureContractId};
 use finstack_core::Error;
 use finstack_core::HashMap;
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct IrFutureConventionsRecord {
     index_id: String,

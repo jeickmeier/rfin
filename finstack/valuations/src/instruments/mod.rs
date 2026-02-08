@@ -296,8 +296,6 @@ pub mod pricing_overrides;
 pub use pricing_overrides::PricingOverrides;
 
 // === JSON Import/Export ===
-#[cfg(feature = "serde")]
 pub mod json_loader;
 
-#[cfg(feature = "serde")]
 pub use json_loader::{InstrumentEnvelope, InstrumentJson};

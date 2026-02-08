@@ -121,8 +121,7 @@ use super::super::traits::StochasticProcess;
 use super::metadata::ProcessMetadata;
 
 /// Heston model parameters.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct HestonParams {
     /// Risk-free rate
     pub r: f64,
@@ -182,7 +181,7 @@ impl HestonParams {
 ///
 /// State: [S, v] (spot and variance)
 /// Factors: 2 correlated Brownian motions
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct HestonProcess {
     params: HestonParams,
 }

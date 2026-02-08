@@ -115,6 +115,8 @@ pub mod money;
 pub mod prelude;
 /// Core type definitions (phantom-typed IDs, rates, etc.)
 pub mod types;
+/// Generic validation helpers for checking invariants.
+pub mod validation;
 
 /// Hash map type alias used across Finstack.
 ///

@@ -72,9 +72,10 @@ use time::macros::date;
 ///     .build()
 ///     .expect("Valid future");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct VolatilityIndexFuture {
     /// Unique identifier.
     pub id: InstrumentId,
@@ -108,8 +109,7 @@ pub struct VolatilityIndexFuture {
 /// - Standard multiplier: $1,000 per index point
 /// - Minimum tick: 0.05 index points ($50)
 /// - Weekly and monthly expiries available
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct VolIndexContractSpecs {
     /// Contract multiplier (USD per index point).
     /// VIX standard: 1000 (each point = $1,000)
@@ -501,7 +501,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_serde_round_trip() {
         let future = VolatilityIndexFuture::example();

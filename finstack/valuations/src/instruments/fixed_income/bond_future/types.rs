@@ -45,8 +45,7 @@ pub use crate::instruments::rates::ir_future::Position;
 ///     conversion_factor: 0.8234,  // Must match CME-published value
 /// };
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DeliverableBond {
     /// Identifier of the deliverable bond
     pub bond_id: InstrumentId,
@@ -73,8 +72,7 @@ pub struct DeliverableBond {
 /// assert_eq!(specs.contract_size, 100_000.0);
 /// assert_eq!(specs.standard_coupon, 0.06);
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BondFutureSpecs {
     /// Face value of a single contract (e.g., $100,000 for UST)
     pub contract_size: f64,
@@ -92,7 +90,7 @@ pub struct BondFutureSpecs {
     ///
     /// Defaults to "nyse" for US Treasury futures.
     /// Use "target2" for European government bond futures.
-    #[cfg_attr(feature = "serde", serde(default = "default_calendar_id"))]
+    #[serde(default = "default_calendar_id")]
     pub calendar_id: String,
 }
 
@@ -372,9 +370,10 @@ impl BondFutureSpecs {
 ///     .build()
 ///     .expect("Valid bond future");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct BondFuture {
     /// Unique identifier for the contract
     pub id: InstrumentId,

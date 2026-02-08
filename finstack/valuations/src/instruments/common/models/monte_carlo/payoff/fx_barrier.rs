@@ -26,7 +26,7 @@ use finstack_core::money::Money;
 /// When barrier monitoring and payoff settlement are in different currencies,
 /// the correlation between FX rate and underlying affects pricing. This is
 /// handled via quanto adjustment in the drift of the FX process.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct FxBarrierCall {
     /// Underlying barrier call (reuses existing infrastructure)
     inner: BarrierOptionPayoff,

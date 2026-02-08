@@ -58,8 +58,7 @@ fn rate_index_defaults(index_id: &CurveId) -> Option<RateIndexConventions> {
 /// providing convenience constructors with sensible defaults for common bond use cases.
 /// This ensures parity with all builder features (floors/caps, BDC, calendars, PIK, etc.)
 /// while keeping the bond API simple.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum CashflowSpec {
     /// Fixed-rate bond using the canonical `FixedCouponSpec`.
     Fixed(FixedCouponSpec),

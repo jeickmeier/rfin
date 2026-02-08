@@ -8,7 +8,7 @@ use finstack_core::{
 /// Inflation-linked bond specific parameters.
 ///
 /// Groups parameters specific to inflation-linked bonds.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct InflationLinkedBondParams {
     /// Notional amount
     pub notional: Money,

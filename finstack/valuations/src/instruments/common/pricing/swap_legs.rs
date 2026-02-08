@@ -29,7 +29,6 @@ use finstack_core::math::NeumaierAccumulator;
 use finstack_core::types::{Bps, Rate};
 use finstack_core::Result;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Compounding method for floating rate legs.
@@ -55,9 +54,9 @@ use serde::{Deserialize, Serialize};
 /// - ISDA IBOR Fallbacks Protocol (2021)
 /// - ARRC SOFR Conventions (2020)
 /// - Bank of England SONIA Conventions (2019)
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum CompoundingMethod {
     /// Simple rate - no compounding within the accrual period.
     ///
@@ -171,26 +170,6 @@ impl CompoundingMethod {
         }
     }
 }
-
-/// Minimum threshold for discount factor values to avoid numerical instability.
-///
-/// Set to 1e-10 to protect against division by near-zero discount factors
-/// that can arise from extreme rate scenarios or very long time horizons.
-///
-/// # Numerical Justification
-///
-/// For extreme rate scenarios:
-/// - At +50% rates over 50 years: DF ≈ exp(-0.50 × 50) = exp(-25) ≈ 1.4e-11
-/// - At +60% rates over 50 years: DF ≈ exp(-0.60 × 50) = exp(-30) ≈ 9.4e-14
-///
-/// The threshold of 1e-10 catches pathological cases while allowing reasonable
-/// stress testing up to ~48% rates over 50 years or ~96% over 25 years.
-/// This aligns with ISDA stress testing requirements for rates ranging
-/// from -10% to +50%.
-pub const DF_EPSILON: f64 = 1e-10;
-
-/// Basis points to decimal conversion factor.
-pub const BP_TO_DECIMAL: f64 = 1e-4;
 
 /// Minimum threshold for annuity values to avoid divide-by-zero in par spread calculations.
 ///

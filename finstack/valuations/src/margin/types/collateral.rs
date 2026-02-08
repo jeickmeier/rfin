@@ -25,6 +25,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// Annex A: Standardized haircut schedule
 #[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[non_exhaustive]
 pub enum CollateralAssetClass {
     /// Cash in eligible currency
     #[default]
@@ -149,8 +150,7 @@ impl CollateralAssetClass {
 ///
 /// Some CSAs restrict collateral based on remaining maturity to limit
 /// duration risk in the collateral portfolio.
-#[derive(Debug, Clone, PartialEq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub struct MaturityConstraints {
     /// Minimum remaining years to maturity (if any)
     pub min_remaining_years: Option<f64>,
@@ -188,8 +188,7 @@ impl MaturityConstraints {
 /// Single collateral eligibility entry.
 ///
 /// Defines eligibility criteria and haircut for a specific type of collateral.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CollateralEligibility {
     /// Asset class
     pub asset_class: CollateralAssetClass,
@@ -216,7 +215,7 @@ pub struct CollateralEligibility {
     /// Additional FX haircut for currency mismatch (decimal)
     ///
     /// Applied when collateral currency differs from settlement currency.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub fx_haircut_addon: f64,
 
     /// Concentration limit as fraction of total collateral (optional)
@@ -294,8 +293,7 @@ impl CollateralEligibility {
 /// let schedule = EligibleCollateralSchedule::bcbs_standard();
 /// # let _ = schedule;
 /// ```
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EligibleCollateralSchedule {
     /// List of eligible collateral types with haircuts
     pub eligible: Vec<CollateralEligibility>,
@@ -313,7 +311,7 @@ pub struct EligibleCollateralSchedule {
     ///
     /// For IM under BCBS-IOSCO rules, rehypothecation is prohibited.
     /// For VM, rehypothecation may be permitted by bilateral agreement.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub rehypothecation_allowed: bool,
 }
 

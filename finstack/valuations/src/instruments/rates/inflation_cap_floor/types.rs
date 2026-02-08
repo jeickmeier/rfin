@@ -46,8 +46,8 @@ use finstack_core::types::{CurveId, InstrumentId, Rate};
 use time::Duration;
 
 /// Inflation option type.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum InflationCapFloorType {
     /// Cap (portfolio of caplets).
     Cap,
@@ -102,9 +102,10 @@ impl std::str::FromStr for InflationCapFloorType {
 }
 
 /// YoY inflation cap/floor instrument.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct InflationCapFloor {
     /// Unique instrument identifier.
     pub id: InstrumentId,

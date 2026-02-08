@@ -278,6 +278,7 @@ impl JsInflationSwap {
         let (infl_sign, fixed_sign) = match self.inner.side {
             PayReceiveInflation::PayFixed => (1.0, -1.0),
             PayReceiveInflation::ReceiveFixed => (-1.0, 1.0),
+            _ => unreachable!("unknown PayReceiveInflation variant"),
         };
 
         let result = Array::new();

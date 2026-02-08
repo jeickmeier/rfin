@@ -8,7 +8,7 @@ use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
 use finstack_core::Result;
 
 /// Pool allocation result.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct AllocationResult {
     /// Allocated pool
     pub pool: AgencyMbsPassthrough,
@@ -56,7 +56,7 @@ pub fn allocate_generic_pool(tba: &AgencyTba) -> Result<AllocationResult> {
 }
 
 /// Pool characteristics that affect deliverability and value.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PoolCharacteristics {
     /// Weighted average coupon
     pub wac: f64,

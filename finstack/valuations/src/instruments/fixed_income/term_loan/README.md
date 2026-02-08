@@ -595,7 +595,7 @@ pub struct CovenantSpec {
 1. **Define event struct**:
 
 ```rust
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct YourEvent {

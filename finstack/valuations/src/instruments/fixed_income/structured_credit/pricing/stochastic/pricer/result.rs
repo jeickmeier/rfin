@@ -3,7 +3,7 @@
 use finstack_core::money::Money;
 
 /// Stochastic pricing result for a structured credit deal.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct StochasticPricingResult {
     /// Net present value of the deal
     pub npv: Money,
@@ -85,7 +85,7 @@ impl StochasticPricingResult {
 }
 
 /// Tranche-level pricing result.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TranchePricingResult {
     /// Tranche identifier
     pub tranche_id: String,

@@ -18,9 +18,8 @@ use finstack_core::Error as CoreError;
 use std::any::Any;
 
 /// Terminal value calculation method for DCF.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "snake_case"))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum TerminalValueSpec {
     /// Gordon Growth Model: TV = FCF_terminal × (1 + g) / (WACC - g)
     GordonGrowth {
@@ -40,9 +39,10 @@ pub enum TerminalValueSpec {
 ///
 /// DCF values a company by discounting projected free cash flows and terminal value.
 /// The equity value is calculated as: Enterprise Value - Net Debt.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct DiscountedCashFlow {
     /// Unique identifier for the DCF.
     pub id: InstrumentId,

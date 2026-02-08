@@ -9,7 +9,7 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
 /// Swaption type (payer or receiver).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SwaptionType {
     /// Payer swaption: right to pay fixed rate
     Payer,
@@ -21,7 +21,7 @@ pub enum SwaptionType {
 ///
 /// Stores payment dates and accrual fractions for computing swap rates
 /// and annuities from Hull-White short rate simulations.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct SwapSchedule {
     /// Payment dates (time in years from valuation date)
     pub payment_dates: Vec<f64>,
@@ -104,7 +104,7 @@ impl SwapSchedule {
 /// - Receiver: Receive fixed rate K, pay floating → value = (K - S(t)) * A(t) * N
 ///
 /// where S(t) is the forward swap rate and A(t) is the annuity.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BermudanSwaptionPayoff {
     /// Exercise dates (time in years from valuation date)
     pub exercise_dates: Vec<f64>,

@@ -38,7 +38,7 @@ use crate::instruments::fixed_income::structured_credit::pricing::stochastic::pr
 /// // Richard-Roll with refi incentive
 /// let refi_model = AgencyPrepaymentModel::richard_roll(0.045, 2.0);
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct AgencyPrepaymentModel {
     /// Base deterministic prepayment specification.
     base_spec: PrepaymentModelSpec,

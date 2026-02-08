@@ -7,7 +7,6 @@ use crate::instruments::common_impl::validation;
 use finstack_core::Result;
 use std::collections::{HashMap, HashSet};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -15,8 +14,8 @@ use serde::{Deserialize, Serialize};
 // ============================================================================
 
 /// Condition that triggers a diversion.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum DiversionCondition {
     /// Triggered when a coverage test fails.
     CoverageTestFailed {
@@ -33,8 +32,7 @@ pub enum DiversionCondition {
 }
 
 /// A diversion rule that redirects cash from one tier to another.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiversionRule {
     /// Unique identifier for this rule.
     pub id: String,
@@ -103,8 +101,7 @@ impl DiversionRule {
 // ============================================================================
 
 /// Engine for managing and validating diversion rules.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiversionEngine {
     /// Collection of diversion rules.
     rules: Vec<DiversionRule>,

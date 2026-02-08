@@ -25,8 +25,8 @@ use finstack_core::{Error, Result};
 use super::parameters::SwaptionParams;
 
 /// Volatility model for pricing
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum VolatilityModel {
     /// Black (Lognormal) model (1976)
     #[default]
@@ -36,8 +36,7 @@ pub enum VolatilityModel {
 }
 
 /// Public SABR parameters for swaption volatility modeling.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SABRParameters {
     /// Initial volatility (alpha)
     pub alpha: f64,
@@ -144,8 +143,8 @@ impl std::fmt::Display for VolatilityModel {
 }
 
 /// Swaption settlement method
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum SwaptionSettlement {
     /// Physical settlement (enter into underlying swap)
     Physical,
@@ -186,9 +185,9 @@ pub enum SwaptionSettlement {
 /// - ISDA 2006 Definitions, Section 18.2
 /// - "Interest Rate Models" by Brigo & Mercurio, Chapter 6
 /// - Bloomberg VCUB/SWPM: Uses ISDA Par-Par for production
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum CashSettlementMethod {
     /// Par yield approximation using flat forward rate.
     ///
@@ -267,8 +266,8 @@ impl std::str::FromStr for SwaptionSettlement {
 }
 
 /// Swaption exercise style
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum SwaptionExercise {
     /// European exercise (only at expiry)
     European,
@@ -309,8 +308,7 @@ impl std::str::FromStr for SwaptionExercise {
 ///
 /// Defines the exercise dates and constraints for a Bermudan swaption.
 /// Exercise dates are typically aligned with swap coupon dates.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BermudanSchedule {
     /// Exercise dates (must be sorted, typically on swap coupon dates)
     pub exercise_dates: Vec<Date>,
@@ -418,8 +416,8 @@ impl BermudanSchedule {
 /// This distinction affects pricing methodology and calibration:
 /// - Co-terminal: All exercise dates lead to the same swap end date
 /// - Non-co-terminal: Each exercise date may have a different remaining swap tenor
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum BermudanType {
     /// All exercise dates lead to same swap end date (most common)
     #[default]
@@ -438,9 +436,10 @@ impl std::fmt::Display for BermudanType {
 }
 
 /// Swaption instrument
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct Swaption {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -471,10 +470,10 @@ pub struct Swaption {
     /// - `ParYield` (default): Fast approximation using flat forward rate
     /// - `IsdaParPar`: Uses actual swap annuity from discount curve (ISDA compliant)
     /// - `ZeroCoupon`: Discounts to swap maturity (rarely used)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub cash_settlement_method: CashSettlementMethod,
     /// Volatility model (Black or Normal)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub vol_model: VolatilityModel,
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
@@ -495,7 +494,7 @@ pub struct Swaption {
     /// let swaption = Swaption::example()
     ///     .with_calendar("nyse");
     /// ```
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub calendar_id: Option<String>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
@@ -1116,7 +1115,7 @@ impl Swaption {
 ///
 /// This struct contains the common values needed by delta, gamma, vega,
 /// and other Greek calculators, avoiding redundant computation.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct GreekInputs {
     /// Forward swap rate
     pub forward: f64,
@@ -1254,9 +1253,8 @@ impl crate::instruments::common_impl::traits::CurveDependencies for Swaption {
 /// // Create a 10NC2 (10-year swap, callable after 2 years)
 /// let swaption = BermudanSwaption::example();
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BermudanSwaption {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -1293,13 +1291,13 @@ pub struct BermudanSwaption {
     /// Controls business day adjustment for the underlying swap schedule.
     /// When `None`, uses weekends-only calendar. For production use, set to
     /// the appropriate currency calendar (e.g., `"nyse"` for USD).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub calendar_id: Option<String>,
     /// Pricing overrides (manual price, yield, spread)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

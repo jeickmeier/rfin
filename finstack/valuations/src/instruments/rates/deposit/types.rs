@@ -44,9 +44,10 @@ use crate::instruments::common_impl::validation;
 /// When these fields are set, the effective start date is computed as
 /// `start + spot_lag` adjusted by the business day convention. In this case,
 /// `start` is treated as the trade date; otherwise it is the accrual start date.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct Deposit {
     /// Unique identifier for the deposit.
     pub id: InstrumentId,
@@ -83,7 +84,7 @@ pub struct Deposit {
     /// Used to adjust the effective start/end dates to valid business days.
     /// Default: `ModifiedFollowing` (standard money market convention).
     #[builder(optional)]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub bdc: Option<BusinessDayConvention>,
 
     /// Optional holiday calendar identifier for business day logic.

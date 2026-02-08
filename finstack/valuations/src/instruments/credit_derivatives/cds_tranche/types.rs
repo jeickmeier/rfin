@@ -14,8 +14,7 @@ use super::parameters::CDSTrancheParams;
 use super::pricer;
 
 /// Buyer/seller perspective for CDS tranche premium/protection
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TrancheSide {
     /// Buy protection on the tranche (pay running, receive protection)
     BuyProtection,
@@ -46,9 +45,10 @@ impl std::str::FromStr for TrancheSide {
 }
 
 /// CDS Tranche instrument definition (boilerplate)
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct CdsTranche {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -87,7 +87,7 @@ pub struct CdsTranche {
     /// Whether to enforce standard IMM dates (20th of Mar, Jun, Sep, Dec)
     pub standard_imm_dates: bool,
     /// Optional upfront payment (date, amount). Positive means paid by protection buyer.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub upfront: Option<(Date, Money)>,
     /// Attributes for tagging and selection
     pub attributes: Attributes,

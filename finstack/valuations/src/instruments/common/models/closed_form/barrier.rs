@@ -130,7 +130,7 @@
 use finstack_core::math::special_functions::norm_cdf;
 
 /// Parameters for barrier option pricing.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct BarrierParams {
     /// Current underlying spot price
     pub spot: f64,
@@ -172,7 +172,7 @@ impl BarrierParams {
 }
 
 /// Barrier option type.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BarrierType {
     /// Up-and-in barrier option (activates when spot rises above barrier)
     UpIn,

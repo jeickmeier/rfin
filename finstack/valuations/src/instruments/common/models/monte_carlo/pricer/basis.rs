@@ -12,7 +12,7 @@ pub trait BasisFunctions: Send + Sync {
 }
 
 /// Polynomial basis: {1, x, x², ...}.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PolynomialBasis {
     degree: usize,
 }
@@ -47,7 +47,7 @@ impl BasisFunctions for PolynomialBasis {
 }
 
 /// Laguerre basis normalized by strike for option-style payoffs.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct LaguerreBasis {
     degree: usize,
     strike: f64,

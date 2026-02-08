@@ -10,7 +10,7 @@ use super::date_generation::build_dates;
 use super::emission::compute_reset_date;
 
 /// A standardized accrual/payment period for rates instruments.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct SchedulePeriod {
     /// Start of the accrual period.
     pub accrual_start: Date,

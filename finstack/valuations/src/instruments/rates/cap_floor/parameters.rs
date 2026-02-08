@@ -13,7 +13,7 @@ use finstack_core::{
 /// Interest rate option specific parameters.
 ///
 /// Groups parameters specific to interest rate options (caps/floors).
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct InterestRateOptionParams {
     /// Type of rate option (Cap/Floor)
     pub rate_option_type: RateOptionType,

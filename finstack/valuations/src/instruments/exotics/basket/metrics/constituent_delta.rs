@@ -71,7 +71,6 @@ fn get_constituent_price_money(
     as_of: finstack_core::dates::Date,
 ) -> Result<Money> {
     match &constituent.reference {
-        #[cfg(feature = "serde")]
         ConstituentReference::Instrument(instr_json) => {
             let price = instrument_price_and_type(instr_json, context, as_of)?.0;
             Ok(price)
@@ -99,7 +98,6 @@ fn bump_and_measure_delta(
     let mut bumped_ctx = context.curves.as_ref().clone();
 
     let (current_price, pv_bumped) = match &constituent.reference {
-        #[cfg(feature = "serde")]
         ConstituentReference::Instrument(instr_json) => {
             let (price, asset_type) = instrument_price_and_type(instr_json, context, as_of)?;
             let bumped_price = price.amount() * (1.0 + PRICE_BUMP_PCT);
@@ -156,7 +154,6 @@ fn bump_and_measure_delta(
     Ok(delta)
 }
 
-#[cfg(feature = "serde")]
 fn instrument_price_and_type(
     instr_json: &crate::instruments::json_loader::InstrumentJson,
     context: &MetricContext,
@@ -168,7 +165,6 @@ fn instrument_price_and_type(
     Ok((price, asset_type))
 }
 
-#[cfg(feature = "serde")]
 fn asset_type_for_instrument_key(key: crate::pricer::InstrumentType) -> AssetType {
     use crate::pricer::InstrumentType;
 
@@ -241,7 +237,6 @@ mod tests {
     use std::sync::Arc;
     use test_utils::flat_discount;
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_constituent_delta_mixed_references() {
         let as_of = test_utils::date(2024, 1, 2);

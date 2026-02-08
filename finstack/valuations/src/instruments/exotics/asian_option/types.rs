@@ -8,8 +8,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// Averaging method for Asian options.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AveragingMethod {
     /// Arithmetic average: (1/n) Σ S_i
     Arithmetic,
@@ -65,9 +64,10 @@ pub enum AveragingMethod {
 ///     .map(|d| adjust_business_day(d, ModifiedFollowing, &nyse_calendar))
 ///     .collect();
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct AsianOption {
     /// Unique instrument identifier
     pub id: InstrumentId,

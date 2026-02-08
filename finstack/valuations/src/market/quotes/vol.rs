@@ -53,7 +53,7 @@ use ts_rs::TS;
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 #[allow(clippy::large_enum_variant)]
 pub enum VolQuote {

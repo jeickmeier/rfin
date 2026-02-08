@@ -6,8 +6,10 @@ use std::fmt;
 ///
 /// Determines how often margin calls are made and collateral is exchanged.
 /// Industry standard for OTC derivatives is daily under BCBS-IOSCO rules.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
+#[non_exhaustive]
 pub enum MarginTenor {
     /// Daily margin calls (standard for OTC derivatives post-2016)
     #[default]
@@ -55,8 +57,10 @@ impl std::str::FromStr for MarginTenor {
 /// For bilateral (uncleared) OTC derivatives, either SIMM or the regulatory
 /// schedule approach may be used. SIMM is the industry standard for large
 /// dealers due to its risk-sensitivity.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
+#[non_exhaustive]
 pub enum ImMethodology {
     /// Haircut-based IM calculation (standard for repos and securities financing)
     ///
@@ -130,8 +134,8 @@ impl std::str::FromStr for ImMethodology {
 ///
 /// Determines whether a trade is cleared through a CCP or remains bilateral
 /// under a CSA agreement.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum ClearingStatus {
     /// Bilateral (uncleared) trade governed by CSA
     ///

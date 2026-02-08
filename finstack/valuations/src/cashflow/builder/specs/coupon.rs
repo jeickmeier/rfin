@@ -10,8 +10,7 @@ use rust_decimal::Decimal;
 /// - `Cash`: 100% paid in cash.
 /// - `PIK`: 100% capitalized into principal.
 /// - `Split { cash_pct, pik_pct }`: percentages applied to the coupon amount.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum CouponType {
     /// Cash variant.
     Cash,
@@ -62,8 +61,7 @@ impl CouponType {
 }
 
 /// Fixed coupon specification.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FixedCouponSpec {
     /// coupon type.
     pub coupon_type: CouponType,
@@ -104,7 +102,7 @@ pub struct FixedCouponSpec {
 ///
 /// - ISDA (2021). "IBOR Fallbacks Supplement." Section 7.
 /// - ARRC (2020). "SOFR: A User's Guide." Federal Reserve Bank of New York.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum OvernightCompoundingMethod {
     /// Simple average of daily rates (non-standard, for reference only).
     SimpleAverage,
@@ -211,8 +209,7 @@ fn default_reset_lag() -> i32 {
 ///     payment_lag_days: 0,
 /// };
 /// ```
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FloatingRateSpec {
     /// Forward curve identifier (e.g., "USD-SOFR-3M", "EUR-EURIBOR-6M").
     pub index_id: CurveId,
@@ -223,43 +220,43 @@ pub struct FloatingRateSpec {
     /// Gearing/leverage multiplier applied to the all-in rate (default: 1.0).
     ///
     /// Example: gearing = 2.0 means the rate is doubled.
-    #[cfg_attr(feature = "serde", serde(default = "default_gearing"))]
+    #[serde(default = "default_gearing")]
     pub gearing: Decimal,
 
     /// Whether gearing includes the spread (default: true).
     ///
     /// - `true`: `rate = (index + spread) * gearing`
     /// - `false`: `rate = (index * gearing) + spread` (Affine model)
-    #[cfg_attr(feature = "serde", serde(default = "default_gearing_includes_spread"))]
+    #[serde(default = "default_gearing_includes_spread")]
     pub gearing_includes_spread: bool,
 
     /// Floor on index rate in basis points (applied to index component).
     ///
     /// Example: floor_bp = Some(0.0) ensures index rate >= 0%.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub floor_bp: Option<Decimal>,
 
     /// Floor on all-in rate in basis points (Min Coupon).
     ///
     /// Applied to the final calculated rate after gearing and spread.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub all_in_floor_bp: Option<Decimal>,
 
     /// Cap on all-in rate in basis points (applied after spread and gearing).
     ///
     /// Example: cap_bp = Some(1000.0) ensures all-in rate <= 10%.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub cap_bp: Option<Decimal>,
 
     /// Cap on index rate in basis points (applied to index component).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub index_cap_bp: Option<Decimal>,
 
     /// Reset frequency for rate fixings.
     pub reset_freq: Tenor,
 
     /// Reset lag in business days (e.g., 2 for T-2 SOFR convention).
-    #[cfg_attr(feature = "serde", serde(default = "default_reset_lag"))]
+    #[serde(default = "default_reset_lag")]
     pub reset_lag_days: i32,
 
     /// Day count convention for accrual calculations.
@@ -274,7 +271,7 @@ pub struct FloatingRateSpec {
     /// Optional calendar for rate fixing (reset lag).
     ///
     /// If not provided, defaults to `calendar_id`.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub fixing_calendar_id: Option<String>,
     /// End-of-month rolling.
     pub end_of_month: bool,
@@ -304,8 +301,7 @@ fn default_gearing_includes_spread() -> bool {
 /// Used by the cashflow builder for instruments with floating rate coupons.
 /// Embeds the canonical `FloatingRateSpec` for rate projection and adds
 /// coupon-specific settings like payment frequency and PIK behavior.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FloatingCouponSpec {
     /// Floating rate specification (contains index, spread, floor, cap, etc).
     pub rate_spec: FloatingRateSpec,

@@ -78,7 +78,7 @@ pub fn standard_ir_dv01_buckets() -> Vec<f64> {
 // =============================================================================
 
 /// DV01 calculation mode.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Dv01ComputationMode {
     /// Single scalar from parallel bump of all curves together.
     ParallelCombined,

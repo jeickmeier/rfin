@@ -86,7 +86,7 @@ pub const DEFAULT_LOGNORMAL_VOL: f64 = 0.20; // 20%
 /// |-------|----------|----------------|----------------|----------|
 /// | Ho-Lee | Normal | ✅ Yes | ❌ No | Low/negative rate environments |
 /// | BDT | Lognormal | ❌ No | ✅ Yes | Traditional positive rate environments |
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShortRateModel {
     /// Ho-Lee model: Gaussian/normal short rates.
     ///
@@ -173,7 +173,7 @@ pub enum ShortRateModel {
 /// let bdt_default = ShortRateTreeConfig::default_bdt(100);
 /// assert_eq!(bdt_default.volatility, DEFAULT_LOGNORMAL_VOL);
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ShortRateTreeConfig {
     /// Number of time steps in the tree.
     ///
@@ -367,7 +367,7 @@ use std::sync::Arc;
 ///
 /// Provides diagnostic information about calibration quality, allowing
 /// users to assess whether the tree is suitable for their use case.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct CalibrationResult {
     /// Maximum calibration error in basis points.
     pub max_error_bps: f64,
@@ -394,7 +394,7 @@ impl CalibrationResult {
 }
 
 /// Short-rate tree for valuing bonds with embedded options
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ShortRateTree {
     config: ShortRateTreeConfig,
     /// Calibrated short rates at each node: rates[step][node]

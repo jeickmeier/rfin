@@ -26,7 +26,7 @@ use crate::instruments::common_impl::mc::process::ou::HullWhite1FParams;
 use crate::instruments::common_impl::mc::traits::StochasticProcess;
 
 /// Parameters for utilization process (mean-reverting OU).
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct UtilizationParams {
     /// Mean reversion speed (κ_U)
     pub kappa: f64,
@@ -55,7 +55,7 @@ impl UtilizationParams {
 }
 
 /// Parameters for credit spread process (CIR).
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CreditSpreadParams {
     /// CIR parameters
     pub cir: CirParams,
@@ -76,7 +76,7 @@ impl CreditSpreadParams {
 }
 
 /// Interest rate process specification.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub enum InterestRateSpec {
     /// Fixed rate (constant, no dynamics)
     Fixed {
@@ -101,7 +101,7 @@ pub enum InterestRateSpec {
 }
 
 /// Revolving credit multi-factor process parameters.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct RevolvingCreditProcessParams {
     /// Utilization process parameters
     pub utilization: UtilizationParams,
@@ -174,7 +174,7 @@ impl RevolvingCreditProcessParams {
 ///
 /// When using correlation, the Cholesky decomposition should be applied
 /// in the discretization scheme.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct RevolvingCreditProcess {
     params: RevolvingCreditProcessParams,
 }

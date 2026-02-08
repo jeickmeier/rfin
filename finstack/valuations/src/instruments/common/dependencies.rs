@@ -7,11 +7,10 @@ use crate::instruments::common_impl::traits::{
 use finstack_core::currency::Currency;
 use finstack_core::types::CurveId;
 
-#[cfg(feature = "serde")]
 use crate::instruments::json_loader::InstrumentJson;
 
 /// FX pair identifier using base/quote currency ordering.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FxPair {
     /// Base currency (numerator).
     pub base: Currency,
@@ -27,7 +26,7 @@ impl FxPair {
 }
 
 /// Unified dependency container for instrument market data requirements.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct MarketDependencies {
     /// Curve dependencies grouped by type.
     pub curves: InstrumentCurves,
@@ -137,7 +136,6 @@ impl MarketDependencies {
     }
 
     /// Build dependencies from a JSON-tagged instrument representation.
-    #[cfg(feature = "serde")]
     pub fn from_instrument_json(instrument: &InstrumentJson) -> Self {
         match instrument {
             // Fixed Income

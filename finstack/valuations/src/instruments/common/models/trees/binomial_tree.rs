@@ -20,7 +20,7 @@ use super::tree_framework::{
 };
 
 /// Binomial tree types
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum TreeType {
     /// Cox-Ross-Rubinstein (standard binomial)
@@ -34,7 +34,7 @@ pub enum TreeType {
 }
 
 /// Binomial tree for option pricing
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BinomialTree {
     /// Number of time steps
     pub steps: usize,
@@ -700,7 +700,7 @@ impl BinomialTree {
 }
 
 /// Greeks calculated from binomial tree
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BinomialGreeks {
     /// Option price
     pub price: f64,

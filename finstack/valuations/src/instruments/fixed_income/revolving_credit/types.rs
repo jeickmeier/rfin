@@ -21,9 +21,10 @@ use rust_decimal::prelude::ToPrimitive;
 /// deterministic schedules and stochastic utilization via Monte Carlo.
 ///
 /// See unit tests and `examples/` for usage.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct RevolvingCredit {
     /// Unique identifier for the facility.
     pub id: InstrumentId,
@@ -62,7 +63,7 @@ pub struct RevolvingCredit {
     ///
     /// When provided, survival probabilities from the hazard curve are applied
     /// to discount cashflows, adjusting for default risk.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub hazard_curve_id: Option<CurveId>,
 
     /// Recovery rate on default (used when hazard_curve_id is present).
@@ -71,7 +72,7 @@ pub struct RevolvingCredit {
     /// Typical values: 0.30-0.50 for senior secured facilities.
     /// Defaults to 0.0 if not specified.
     #[builder(default)]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub recovery_rate: f64,
 
     /// Stub rule for schedule generation when dates don't align with frequency.
@@ -85,7 +86,7 @@ pub struct RevolvingCredit {
     ///
     /// Defaults to `ShortFront` for maximum flexibility with unaligned dates.
     #[builder(default = StubKind::ShortFront)]
-    #[cfg_attr(feature = "serde", serde(default = "default_stub_kind"))]
+    #[serde(default = "default_stub_kind")]
     pub stub_rule: StubKind,
 
     /// Attributes for scenario selection and tagging.
@@ -188,8 +189,7 @@ impl RevolvingCredit {
 ///
 /// Defines whether the facility pays a fixed rate or a floating rate
 /// tied to a market index plus margin.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum BaseRateSpec {
     /// Fixed rate (annualized).
     Fixed {
@@ -222,20 +222,19 @@ impl BaseRateSpec {
 /// - Facility: annual fee on total commitment
 ///
 /// For backwards compatibility, flat fees can be represented as single-tier vectors.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RevolvingCreditFees {
     /// One-time upfront fee paid by borrower to lender at commitment.
     pub upfront_fee: Option<Money>,
 
     /// Commitment fee tiers (utilization-based). Empty vector means no commitment fee.
     /// Tiers should be sorted by threshold ascending.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub commitment_fee_tiers: Vec<FeeTier>,
 
     /// Usage fee tiers (utilization-based). Empty vector means no usage fee.
     /// Tiers should be sorted by threshold ascending.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub usage_fee_tiers: Vec<FeeTier>,
 
     /// Annual facility fee rate on total commitment (basis points).
@@ -328,8 +327,7 @@ impl RevolvingCreditFees {
 ///
 /// Determines whether the facility uses a known (deterministic) schedule
 /// or stochastic utilization for Monte Carlo pricing.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum DrawRepaySpec {
     /// Deterministic schedule of draws and repayments.
     Deterministic(Vec<DrawRepayEvent>),
@@ -339,8 +337,7 @@ pub enum DrawRepaySpec {
 }
 
 /// A single draw or repayment event.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DrawRepayEvent {
     /// Date of the draw or repayment.
     pub date: Date,
@@ -357,8 +354,7 @@ pub struct DrawRepayEvent {
 /// Defines the stochastic process and simulation parameters for
 /// Monte Carlo pricing with uncertain draw/repayment patterns. Credit risk is
 /// incorporated via hazard-rate survival weighting (no explicit default events).
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct StochasticUtilizationSpec {
     /// Utilization process specification.
     pub utilization_process: UtilizationProcess,
@@ -370,11 +366,11 @@ pub struct StochasticUtilizationSpec {
     pub seed: Option<u64>,
 
     /// Use antithetic variance reduction when simulating paths (default: false).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub antithetic: bool,
 
     /// Use Sobol quasi-Monte Carlo RNG instead of Philox (default: false).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub use_sobol_qmc: bool,
 
     /// Advanced Monte Carlo configuration (optional).
@@ -390,8 +386,7 @@ pub struct StochasticUtilizationSpec {
 /// Enables multi-factor modeling with credit risk, interest rate dynamics,
 /// correlation between factors, and default modeling.
 #[cfg(feature = "mc")]
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct McConfig {
     /// Correlation matrix (3x3) between [utilization, rate, credit].
     ///
@@ -422,7 +417,7 @@ pub struct McConfig {
     ///   [ [1, 0, rho], [0, 1, 0], [rho, 0, 1] ]
     /// representing correlation between utilization and credit, with the rate
     /// factor uncorrelated (kept fixed in 2‑factor mode).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub util_credit_corr: Option<f64>,
 }
 
@@ -513,8 +508,7 @@ impl McConfig {
 
 /// Credit spread process specification.
 #[cfg(feature = "mc")]
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum CreditSpreadProcessSpec {
     /// CIR process for stochastic credit spread/hazard rate.
     ///
@@ -546,15 +540,14 @@ pub enum CreditSpreadProcessSpec {
         /// Annualized CDS (index) option implied volatility for spreads.
         implied_vol: f64,
         /// Optional tenor in years; if None, uses facility maturity horizon.
-        #[cfg_attr(feature = "serde", serde(default))]
+        #[serde(default)]
         tenor_years: Option<f64>,
     },
 }
 
 /// Interest rate process specification (for floating rates).
 #[cfg(feature = "mc")]
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum InterestRateProcessSpec {
     /// Hull-White 1-factor model for short rate.
     ///
@@ -576,8 +569,7 @@ pub enum InterestRateProcessSpec {
 /// For the 80/20 implementation, we support a single mean-reverting process.
 /// This can be extended in the future to support other processes (jump-diffusion,
 /// regime-switching, etc.).
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum UtilizationProcess {
     /// Mean-reverting utilization rate process.
     ///

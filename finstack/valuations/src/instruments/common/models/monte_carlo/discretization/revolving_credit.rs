@@ -26,7 +26,7 @@ use finstack_core::math::linalg::CholeskyError;
 /// - Credit spread: QeCir for CIR process
 ///
 /// Correlation is handled via Cholesky decomposition when present.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct RevolvingCreditDiscretization {
     /// Cholesky factor of correlation matrix (if correlation is used)
     cholesky_factor: Option<Vec<f64>>,

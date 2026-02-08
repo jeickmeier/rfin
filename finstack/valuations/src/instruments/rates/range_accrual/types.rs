@@ -8,8 +8,8 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
 
 /// Specifies how the range bounds are interpreted.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum BoundsType {
     /// Bounds are absolute price levels (e.g., 4500.0 for SPX).
     /// This is the market standard for rate-linked range accruals.
@@ -36,9 +36,10 @@ pub enum BoundsType {
 ///
 /// For mid-life valuations, use `past_fixings_in_range` to specify how many past
 /// observations were in range. The pricer will add this to expected future fixings.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct RangeAccrual {
     /// Unique instrument identifier
     pub id: InstrumentId,

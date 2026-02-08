@@ -4,7 +4,7 @@ use finstack_core::Error;
 use finstack_core::HashMap;
 
 /// A registry JSON file containing entries with alias IDs.
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegistryFile<R> {
     /// Optional schema identifier.
@@ -24,7 +24,7 @@ pub struct RegistryFile<R> {
 }
 
 /// One registry record plus its set of alias IDs.
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegistryEntry<R> {
     /// List of alias IDs.

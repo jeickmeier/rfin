@@ -84,9 +84,9 @@ pub trait Copula: Send + Sync {
 ///
 /// Allows copula selection without constructing the full model,
 /// enabling deferred construction with market data.
-#[derive(Clone, Debug, PartialEq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type", deny_unknown_fields))]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", deny_unknown_fields)]
+#[non_exhaustive]
 pub enum CopulaSpec {
     /// One-factor Gaussian copula (market standard default).
     ///

@@ -2,11 +2,33 @@
 //!
 //! This module centralizes numerical constants to improve maintainability
 //! and clarity across the codebase.
+//!
+//! # Rate Conversion: Type-Safe vs Raw Constants
+//!
+//! For rate/spread conversions, prefer the type-safe types from `finstack_core::types`:
+//! - [`finstack_core::types::Rate`] — `Rate::from_percent(5.0)`, `Rate::from_bps(500)`
+//! - [`finstack_core::types::Bps`] — `Bps::new(500).as_decimal()`
+//! - [`finstack_core::types::Percentage`] — `Percentage::new(5.0).as_decimal()`
+//!
+//! The raw `f64` constants below (`ONE_BASIS_POINT`, `BASIS_POINTS_PER_UNIT`,
+//! `PERCENT_TO_DECIMAL`, `DECIMAL_TO_PERCENT`) exist for use in **performance-sensitive
+//! inner loops** where:
+//! - Values are already `f64` (e.g., from `Decimal::to_f64()` or curve interpolation)
+//! - The `Rate`/`Bps` types are not in scope or would require `i32` truncation
+//!   (e.g., fractional basis point spreads)
+//! - Avoiding newtype construction overhead matters (tight pricing loops)
+//!
+//! When writing new code outside hot paths, prefer the core types for clarity and
+//! compile-time unit safety.
 
 /// One basis point (0.01%) as a decimal.
 ///
 /// Use this constant instead of hardcoded `0.0001` or `1e-4` for clarity
 /// when calculating sensitivity to 1bp changes in rates, spreads, etc.
+///
+/// **Prefer [`finstack_core::types::Bps`]** for type-safe basis point arithmetic
+/// outside hot paths. This raw constant is appropriate for sensitivity bumps
+/// (DV01, CS01) and conversions in tight pricing loops where values are already `f64`.
 ///
 /// # Examples
 /// ```rust
@@ -22,7 +44,11 @@ pub const ONE_BASIS_POINT: f64 = 0.0001;
 
 /// Basis points per unit (inverse of ONE_BASIS_POINT).
 ///
-/// Use this to convert decimals to basis points.
+/// Use this to convert decimals to basis points in performance-sensitive code.
+///
+/// **Prefer [`finstack_core::types::Rate::as_bps()`]** or
+/// [`finstack_core::types::Bps`] for type-safe conversions outside hot paths.
+///
 /// # Examples
 /// ```rust
 /// use finstack_valuations::constants::BASIS_POINTS_PER_UNIT;
@@ -34,7 +60,10 @@ pub const BASIS_POINTS_PER_UNIT: f64 = 10_000.0;
 
 /// Convert percentage to decimal (1% = 0.01).
 ///
-/// Use this constant when converting percentage values to decimal form.
+/// **Prefer [`finstack_core::types::Rate::from_percent()`]** or
+/// [`finstack_core::types::Percentage::as_decimal()`] for type-safe conversions
+/// outside hot paths.
+///
 /// # Examples
 /// ```rust
 /// use finstack_valuations::constants::PERCENT_TO_DECIMAL;
@@ -46,7 +75,9 @@ pub const PERCENT_TO_DECIMAL: f64 = 0.01;
 
 /// Convert decimal to percentage (0.01 = 1%).
 ///
-/// Use this constant when converting decimal values to percentage form.
+/// **Prefer [`finstack_core::types::Rate::as_percent()`]** or
+/// [`finstack_core::types::Percentage`] for type-safe conversions outside hot paths.
+///
 /// # Examples
 /// ```rust
 /// use finstack_valuations::constants::DECIMAL_TO_PERCENT;
@@ -56,8 +87,12 @@ pub const PERCENT_TO_DECIMAL: f64 = 0.01;
 /// ```
 pub const DECIMAL_TO_PERCENT: f64 = 100.0;
 
-/// Tolerance for numerical calculations
-pub const NUMERICAL_TOLERANCE: f64 = 1e-10;
+/// Tolerance for numerical calculations.
+///
+/// **Deprecated**: Use [`numerical::ZERO_TOLERANCE`] instead. This alias exists for
+/// backward compatibility and will be removed in a future release.
+#[deprecated(note = "Use numerical::ZERO_TOLERANCE instead")]
+pub const NUMERICAL_TOLERANCE: f64 = numerical::ZERO_TOLERANCE;
 
 /// Numerical constants for floating-point comparisons and integration.
 ///
@@ -116,6 +151,23 @@ pub mod numerical {
     /// Value: 1e-9 (provides ~9 significant digits of precision).
     #[allow(dead_code)]
     pub const RELATIVE_TOLERANCE: f64 = 1e-9;
+
+    /// Minimum threshold for discount factor values to avoid numerical instability.
+    ///
+    /// Set to 1e-10 to protect against division by near-zero discount factors
+    /// that can arise from extreme rate scenarios or very long time horizons.
+    ///
+    /// # Numerical Justification
+    ///
+    /// For extreme rate scenarios:
+    /// - At +50% rates over 50 years: DF ≈ exp(-0.50 × 50) = exp(-25) ≈ 1.4e-11
+    /// - At +60% rates over 50 years: DF ≈ exp(-0.60 × 50) = exp(-30) ≈ 9.4e-14
+    ///
+    /// The threshold of 1e-10 catches pathological cases while allowing reasonable
+    /// stress testing up to ~48% rates over 50 years or ~96% over 25 years.
+    /// This aligns with ISDA stress testing requirements for rates ranging
+    /// from -10% to +50%.
+    pub const DF_EPSILON: f64 = 1e-10;
 }
 
 /// ISDA 2014 standard constants used by the engine
@@ -208,6 +260,6 @@ pub mod credit {
 
     /// Calendar days per year for settlement delay calculations.
     ///
-    /// Used when converting business days to calendar days without a calendar.
-    pub const CALENDAR_DAYS_PER_YEAR: f64 = 365.0;
+    /// Re-exported from `finstack_core::dates::CALENDAR_DAYS_PER_YEAR` (ACT/365 Fixed).
+    pub use finstack_core::dates::CALENDAR_DAYS_PER_YEAR;
 }

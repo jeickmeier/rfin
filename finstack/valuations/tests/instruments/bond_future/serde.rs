@@ -87,7 +87,6 @@ fn create_bond_future_with_basket() -> BondFuture {
 // ============================================================================
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_deliverable_bond_serde_roundtrip() {
     let deliverable = create_test_deliverable_bond();
 
@@ -103,7 +102,6 @@ fn test_deliverable_bond_serde_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_deliverable_bond_json_structure() {
     let deliverable = create_test_deliverable_bond();
     let json = serde_json::to_string_pretty(&deliverable).expect("Serialization failed");
@@ -116,7 +114,6 @@ fn test_deliverable_bond_json_structure() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_deliverable_bond_array_roundtrip() {
     let basket = vec![
         DeliverableBond {
@@ -145,7 +142,6 @@ fn test_deliverable_bond_array_roundtrip() {
 // ============================================================================
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_specs_default_roundtrip() {
     let specs = BondFutureSpecs::default();
 
@@ -165,7 +161,6 @@ fn test_bond_future_specs_default_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_specs_ust_10y_roundtrip() {
     let specs = BondFutureSpecs::ust_10y();
     let json = serde_json::to_string(&specs).expect("Serialization failed");
@@ -177,7 +172,6 @@ fn test_bond_future_specs_ust_10y_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_specs_ust_5y_roundtrip() {
     let specs = BondFutureSpecs::ust_5y();
     let json = serde_json::to_string(&specs).expect("Serialization failed");
@@ -189,7 +183,6 @@ fn test_bond_future_specs_ust_5y_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_specs_ust_2y_roundtrip() {
     let specs = BondFutureSpecs::ust_2y();
     let json = serde_json::to_string(&specs).expect("Serialization failed");
@@ -200,7 +193,6 @@ fn test_bond_future_specs_ust_2y_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_specs_bund_roundtrip() {
     let specs = BondFutureSpecs::bund();
     let json = serde_json::to_string(&specs).expect("Serialization failed");
@@ -212,7 +204,6 @@ fn test_bond_future_specs_bund_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_specs_gilt_roundtrip() {
     let specs = BondFutureSpecs::gilt();
     let json = serde_json::to_string(&specs).expect("Serialization failed");
@@ -223,7 +214,6 @@ fn test_bond_future_specs_gilt_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_specs_json_structure() {
     let specs = BondFutureSpecs::ust_10y();
     let json = serde_json::to_string_pretty(&specs).expect("Serialization failed");
@@ -242,7 +232,6 @@ fn test_bond_future_specs_json_structure() {
 // ============================================================================
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_minimal_roundtrip() {
     let future = create_test_bond_future();
 
@@ -265,7 +254,6 @@ fn test_bond_future_minimal_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_with_basket_roundtrip() {
     let future = create_bond_future_with_basket();
 
@@ -294,7 +282,6 @@ fn test_bond_future_with_basket_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_long_position_roundtrip() {
     let future = BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
@@ -322,7 +309,6 @@ fn test_bond_future_long_position_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_short_position_roundtrip() {
     let future = BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
@@ -350,7 +336,6 @@ fn test_bond_future_short_position_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_with_attributes_roundtrip() {
     let attrs = Attributes::new()
         .with_meta("exchange", "CBOT")
@@ -388,7 +373,6 @@ fn test_bond_future_with_attributes_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_json_structure() {
     let future = create_test_bond_future();
     let json = serde_json::to_string_pretty(&future).expect("Serialization failed");
@@ -409,7 +393,6 @@ fn test_bond_future_json_structure() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_different_currencies() {
     let currencies = vec![
         (Currency::USD, "USD-TREASURY"),
@@ -447,7 +430,6 @@ fn test_bond_future_different_currencies() {
 // ============================================================================
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_deny_unknown_fields() {
     // JSON with an unknown field "unknown_field"
     let json = r#"{
@@ -501,7 +483,6 @@ fn test_bond_future_deny_unknown_fields() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_specs_unknown_field_allowed() {
     // BondFutureSpecs does NOT have deny_unknown_fields,
     // so unknown fields should be silently ignored
@@ -528,7 +509,6 @@ fn test_bond_future_specs_unknown_field_allowed() {
 // ============================================================================
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_minimal_json() {
     // Test that BondFuture can be deserialized from minimal JSON
     // (this ensures defaults work for optional fields if any are added in the future)
@@ -578,7 +558,6 @@ fn test_bond_future_minimal_json() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_pretty_json() {
     // Test that pretty-printed JSON round-trips correctly
     let future = create_test_bond_future();
@@ -591,7 +570,6 @@ fn test_bond_future_pretty_json() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_compact_json() {
     // Test that compact JSON (no whitespace) works
     let future = create_test_bond_future();
@@ -608,7 +586,6 @@ fn test_bond_future_compact_json() {
 // ============================================================================
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_large_notional() {
     let future = BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
@@ -637,7 +614,6 @@ fn test_bond_future_large_notional() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_fractional_price() {
     let future = BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
@@ -665,7 +641,6 @@ fn test_bond_future_fractional_price() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_bond_future_empty_attributes() {
     let future = BondFuture::builder()
         .id(InstrumentId::new("TYH5"))

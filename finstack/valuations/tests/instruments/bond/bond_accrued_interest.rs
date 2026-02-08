@@ -317,7 +317,6 @@ fn test_accrued_interest_amortizing_schedule_driven() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_accrual_method_serialization() {
     // Test that accrual method survives JSON roundtrip
     let mut bond = Bond::fixed(

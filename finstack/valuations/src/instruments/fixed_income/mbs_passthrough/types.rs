@@ -17,9 +17,8 @@ use finstack_core::Result;
 ///
 /// Identifies the government-sponsored enterprise (GSE) or government agency
 /// that guarantees the mortgage-backed security.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "SCREAMING_SNAKE_CASE"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AgencyProgram {
     /// Fannie Mae (Federal National Mortgage Association)
     Fnma,
@@ -70,9 +69,10 @@ impl std::fmt::Display for AgencyProgram {
 ///
 /// Distinguishes between generic (TBA-eligible) pools and specified pools
 /// with known characteristics.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum PoolType {
     /// Generic pool (TBA-eligible, standard assumptions)
     #[default]
@@ -135,9 +135,10 @@ pub enum PoolType {
 ///     .build()
 ///     .expect("Valid MBS");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct AgencyMbsPassthrough {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -183,7 +184,7 @@ pub struct AgencyMbsPassthrough {
     pub day_count: DayCount,
     /// Pricing overrides (including quoted price for OAS).
     #[builder(default)]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and tagging.
     #[builder(default)]
@@ -429,7 +430,6 @@ mod tests {
         assert!(smm > 0.0 && smm < 0.02);
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_mbs_serde_roundtrip() {
         let mbs = AgencyMbsPassthrough::example();

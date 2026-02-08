@@ -15,7 +15,7 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 
 /// Generated MBS cashflow for a single period.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct MbsCashflow {
     /// Accrual period start date
     pub period_start: Date,
@@ -280,7 +280,7 @@ pub fn price_with_spread(
 /// Agency MBS discounting pricer.
 ///
 /// Implements the `Pricer` trait for registry-based dispatch.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct AgencyMbsDiscountingPricer;
 
 impl Pricer for AgencyMbsDiscountingPricer {

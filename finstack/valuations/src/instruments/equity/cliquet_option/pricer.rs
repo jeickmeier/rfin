@@ -42,7 +42,7 @@ use finstack_core::Result;
 /// Piecewise constant GBM process for cliquet options.
 /// Handles term structure of volatility and rates between reset dates.
 #[cfg(feature = "mc")]
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 struct PiecewiseGbmProcess {
     /// End times of intervals (sorted)
     times: Vec<f64>,
@@ -99,7 +99,7 @@ impl ProcessMetadata for PiecewiseGbmProcess {
 
 /// Exact discretization for Piecewise GBM.
 #[cfg(feature = "mc")]
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 struct PiecewiseExactGbm;
 
 #[cfg(feature = "mc")]

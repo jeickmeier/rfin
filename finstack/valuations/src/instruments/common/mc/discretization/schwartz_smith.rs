@@ -19,7 +19,7 @@ use finstack_core::math::linalg::CholeskyError;
 ///
 /// Uses analytical solutions for both X (OU) and Y (arithmetic Brownian motion)
 /// with correlation handled via Cholesky decomposition.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ExactSchwartzSmith {
     /// Precomputed Cholesky factor for correlation [1, ρ; ρ, 1]
     cholesky_factor: [f64; 4], // 2x2 matrix stored as [L_00, L_01, L_10, L_11]

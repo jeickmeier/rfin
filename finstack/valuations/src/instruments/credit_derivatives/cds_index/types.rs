@@ -27,8 +27,7 @@ use super::parameters::CDSIndexConstituentParam;
 use super::parameters::{CDSIndexConstructionParams, CDSIndexParams};
 
 /// Pricing mode for CDS indices.
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum IndexPricing {
     /// Price the index against a single index hazard curve (synthetic CDS)
     SingleCurve,
@@ -38,7 +37,7 @@ pub enum IndexPricing {
 
 /// Par spread denominator method for indices in constituents mode.
 /// Method for computing par spread of a CDS index.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParSpreadMethod {
     /// Par spread computed using risky annuity (RPV01) method
     RiskyAnnuity,
@@ -47,8 +46,7 @@ pub enum ParSpreadMethod {
 }
 
 /// Constituent in a CDS index with weight and credit parameters.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CDSIndexConstituent {
     /// Credit configuration for the issuer (includes hazard curve id and recovery)
     pub credit: CreditParams,
@@ -58,12 +56,12 @@ pub struct CDSIndexConstituent {
     /// premium leg but their settled protection payment is already reflected in `index_factor`.
     /// Per O'Kane (2008) Ch. 7: "On default, the protection payment is settled and the
     /// name is removed from the index. The index factor adjusts to reflect the reduced notional."
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub defaulted: bool,
 }
 
 /// Per-constituent result entry for index-level analytics.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ConstituentResult<T> {
     /// Hazard curve identifier for the constituent.
     pub credit_curve_id: CurveId,
@@ -80,7 +78,7 @@ pub struct ConstituentResult<T> {
 /// Aggregate result for index-level analytics.
 ///
 /// In `SingleCurve` mode, `constituents` is empty.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct IndexResult<T> {
     /// Total aggregated value.
     pub total: T,
@@ -101,7 +99,7 @@ impl<T> IndexResult<T> {
 /// Detailed par spread result for CDS indices.
 ///
 /// Note: constituent par spreads are informational and are not additive.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct IndexParSpreadResult {
     /// Total par spread in basis points.
     pub total_spread_bp: f64,
@@ -116,9 +114,10 @@ pub struct IndexParSpreadResult {
 }
 
 /// CDS Index instrument definition
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct CDSIndex {
     /// Unique instrument identifier
     pub id: InstrumentId,

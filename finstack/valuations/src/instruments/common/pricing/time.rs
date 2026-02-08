@@ -35,11 +35,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::Result;
 
-/// Minimum threshold for discount factor values to avoid numerical instability.
-///
-/// Set to 1e-10 to protect against division by near-zero discount factors.
-/// See [`crate::instruments::common::pricing::swap_legs::DF_EPSILON`] for derivation.
-pub const DF_EPSILON: f64 = 1e-10;
+use crate::constants::numerical::DF_EPSILON;
 
 // ---------------------------------------------------------------------------
 // Discount Curve Helpers

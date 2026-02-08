@@ -127,7 +127,7 @@ impl<Q> PreparedQuote<Q> {
 }
 
 /// Policy for resolving swap pillars.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PillarPolicy {
     /// When true, swap pillars use payment-delay-adjusted end dates (matches discount target).
     pub swap_use_payment_delay: bool,

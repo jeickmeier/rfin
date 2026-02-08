@@ -6,7 +6,7 @@ use finstack_core::types::{Percentage, Rate};
 /// Option market parameters for pricing models.
 ///
 /// Groups market data parameters commonly used in option pricing functions.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct OptionMarketParams {
     /// Current spot/forward price
     pub spot: f64,

@@ -33,7 +33,7 @@ fn make_spot_keys(num_assets: usize) -> Vec<&'static str> {
 }
 
 /// Type of basket aggregation for multi-asset payoffs.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BasketType {
     /// Sum of all asset values
     Sum,
@@ -51,7 +51,7 @@ pub enum BasketType {
 /// The basket value is computed according to the `basket_type`.
 ///
 /// See unit tests and `examples/` for usage.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BasketCall {
     /// Strike price
     pub strike: f64,
@@ -157,7 +157,7 @@ impl Payoff for BasketCall {
 /// Basket put option payoff.
 ///
 /// A put option where the underlying is a basket of multiple assets.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BasketPut {
     /// Strike price
     pub strike: f64,
@@ -252,7 +252,7 @@ impl Payoff for BasketPut {
 ///
 /// Option to exchange asset 2 for asset 1: max(S_1 - S_2, 0).
 /// This is a special case of a basket option with exact analytical pricing.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ExchangeOption {
     /// Index of first asset
     pub asset1_idx: usize,

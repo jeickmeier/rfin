@@ -38,8 +38,7 @@ use finstack_core::Result;
 /// // Cleared derivative
 /// let cleared_spec = OtcMarginSpec::cleared("LCH", finstack_core::currency::Currency::USD);
 /// ```
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct OtcMarginSpec {
     /// Full CSA specification (for bilateral trades)
     ///

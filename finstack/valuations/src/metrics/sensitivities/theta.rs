@@ -234,7 +234,7 @@
 use crate::instruments::common_impl::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DateExt};
 use finstack_core::Result;
 use std::marker::PhantomData;
 
@@ -358,34 +358,6 @@ fn parse_theta_period(period: &str) -> Result<ThetaPeriod> {
     }
 }
 
-fn last_day_of_month(year: i32, month: time::Month) -> u8 {
-    // Conservative and simple: try from 31 down to 28.
-    for d in (28_u8..=31_u8).rev() {
-        if Date::from_calendar_date(year, month, d).is_ok() {
-            return d;
-        }
-    }
-    28
-}
-
-fn add_months_calendar(date: Date, months: i32) -> Result<Date> {
-    let (y, m, d) = date.to_calendar_date();
-    let m0: i32 = i32::from(m as u8) - 1;
-    let total = y * 12 + m0 + months;
-    let ny = total.div_euclid(12);
-    let nm0 = total.rem_euclid(12);
-    let nm = time::Month::try_from((nm0 + 1) as u8)
-        .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
-
-    let last_src = last_day_of_month(y, m);
-    let last_dst = last_day_of_month(ny, nm);
-    let is_eom = d == last_src;
-    let nd = if is_eom { last_dst } else { d.min(last_dst) };
-
-    Date::from_calendar_date(ny, nm, nd)
-        .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))
-}
-
 /// Calculate the rolled forward date for theta calculation.
 ///
 /// Advances the base date by the specified period, but caps at the expiry date if the
@@ -409,8 +381,8 @@ pub fn calculate_theta_date(
 ) -> Result<Date> {
     let rolled_date = match parse_theta_period(period_str)? {
         ThetaPeriod::Days(n) => base_date + time::Duration::days(n),
-        ThetaPeriod::Months(n) => add_months_calendar(base_date, n)?,
-        ThetaPeriod::Years(n) => add_months_calendar(base_date, n * 12)?,
+        ThetaPeriod::Months(n) => base_date.add_months(n),
+        ThetaPeriod::Years(n) => base_date.add_months(n * 12),
     };
 
     // Cap at expiry if instrument expires before the rolled date

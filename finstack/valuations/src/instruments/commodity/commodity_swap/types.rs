@@ -51,9 +51,10 @@ use finstack_core::Result;
 ///     .build()
 ///     .expect("Valid swap");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct CommoditySwap {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -644,7 +645,6 @@ mod tests {
         assert_eq!(deps.forward_curves.len(), 1);
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_commodity_swap_serde_roundtrip() {
         let swap = CommoditySwap::example();

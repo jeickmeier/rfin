@@ -20,7 +20,7 @@ pub use rates::{bump_discount_curve, bump_discount_curve_synthetic};
 ///
 /// Defines the type and magnitude of a shift to be applied to market quotes
 /// before re-calibration.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BumpRequest {
     /// Parallel shift in basis points (additive to rates/spreads).
     ///

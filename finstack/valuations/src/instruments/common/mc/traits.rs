@@ -85,7 +85,7 @@ pub mod state_keys {
 ///
 /// This struct captures all relevant state variables at a specific time step,
 /// analogous to `NodeState` in the tree framework but for MC paths.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PathState {
     /// Time step index (0 = initial, N = final)
     pub step: usize,

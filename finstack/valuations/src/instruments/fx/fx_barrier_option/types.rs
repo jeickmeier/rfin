@@ -18,9 +18,10 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// FX barrier option instrument.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct FxBarrierOption {
     /// Unique instrument identifier
     pub id: InstrumentId,

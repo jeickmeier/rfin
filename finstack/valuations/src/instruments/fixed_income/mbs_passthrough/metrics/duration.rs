@@ -14,7 +14,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
 /// Duration and convexity result.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct DurationResult {
     /// Effective duration (years)
     pub duration: f64,

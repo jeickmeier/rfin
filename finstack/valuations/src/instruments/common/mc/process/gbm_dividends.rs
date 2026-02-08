@@ -21,7 +21,7 @@ use super::super::traits::StochasticProcess;
 use super::gbm::GbmParams;
 
 /// Dividend payment specification.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Dividend {
     /// Cash dividend: fixed dollar amount
     Cash(f64),
@@ -50,7 +50,7 @@ impl Dividend {
 /// GBM process with discrete dividends.
 ///
 /// See unit tests and `examples/` for usage.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct GbmWithDividends {
     /// Base GBM parameters (note: q should typically be 0 since dividends are explicit)
     params: GbmParams,

@@ -12,9 +12,9 @@ use finstack_core::market_data::term_structures::HazardCurve;
 ///
 /// Allows default model selection and configuration without
 /// constructing the full model.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "model", deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "model", deny_unknown_fields)]
+#[non_exhaustive]
 pub enum StochasticDefaultSpec {
     /// Use deterministic default model (no stochastic component).
     Deterministic(DefaultModelSpec),
@@ -44,7 +44,7 @@ pub enum StochasticDefaultSpec {
         /// Intensity volatility
         volatility: f64,
         /// Asset correlation
-        #[cfg_attr(feature = "serde", serde(default = "default_correlation"))]
+        #[serde(default = "default_correlation")]
         correlation: f64,
     },
 
@@ -67,7 +67,7 @@ pub enum StochasticDefaultSpec {
     ///
     /// Note: This variant cannot be serialized/deserialized directly as it
     /// contains a HazardCurve. Use `build_from_hazard_curve` for construction.
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     HazardCurveBased {
         /// The calibrated hazard curve
         hazard_curve: Box<HazardCurve>,
@@ -80,7 +80,6 @@ pub enum StochasticDefaultSpec {
     },
 }
 
-#[cfg(feature = "serde")]
 fn default_correlation() -> f64 {
     0.20
 }

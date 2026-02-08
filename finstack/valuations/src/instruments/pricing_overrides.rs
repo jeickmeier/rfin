@@ -15,9 +15,9 @@ use finstack_core::types::{Bps, Percentage};
 /// - **Clamp**: Simple flat extrapolation; common for quick prototyping.
 /// - **LinearInVariance**: Market-standard for equity/FX; preserves no-arbitrage conditions
 ///   better than linear-in-vol by extrapolating in total variance space (σ²T).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum VolSurfaceExtrapolation {
     /// Fail fast if `(expiry, strike)` is out of bounds.
     #[default]
@@ -50,9 +50,8 @@ pub enum VolSurfaceExtrapolation {
 }
 
 /// Optional parameters that override model pricing with market quotes.
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PricingOverrides {
     /// Quoted clean price for bond yield calculations
     pub quoted_clean_price: Option<f64>,
@@ -67,7 +66,7 @@ pub struct PricingOverrides {
     /// Implied volatility (overrides vol surface)
     pub implied_volatility: Option<f64>,
     /// Volatility surface extrapolation policy when `implied_volatility` is not set.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub vol_surface_extrapolation: VolSurfaceExtrapolation,
     /// Quoted spread (for credit instruments)
     pub quoted_spread_bp: Option<f64>,
@@ -125,7 +124,7 @@ pub struct PricingOverrides {
     /// Used by CS01 calculations that bump par spreads / hazard calibration quotes.
     pub credit_spread_bump_bp: Option<f64>,
     /// Term loan specific overrides
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub term_loan: Option<TermLoanOverrides>,
 
     // ----- Tree Pricing Overrides -----
@@ -140,14 +139,14 @@ pub struct PricingOverrides {
     ///
     /// When set, the model price is multiplied by (1 + scenario_price_shock_pct).
     /// This allows scenario analysis to apply uniform price shocks to instruments.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub scenario_price_shock_pct: Option<f64>,
 
     /// Scenario spread shock in basis points (e.g., 50.0 for +50bp spread shock).
     ///
     /// When set, this spread shock is added to the instrument's pricing spread.
     /// For credit instruments, this translates to a wider/tighter spread.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub scenario_spread_shock_bp: Option<f64>,
 }
 
@@ -457,9 +456,8 @@ impl PricingOverrides {
 }
 
 /// Term loan specific overrides for covenants and schedule adjustments.
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TermLoanOverrides {
     /// Additional margin step-ups by date (bps)
     pub margin_add_bp_by_date: Vec<(Date, i32)>,
@@ -525,7 +523,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "serde")]
     fn test_vol_surface_extrapolation_serde() {
         // Test serialization roundtrip for all policies
         for policy in [

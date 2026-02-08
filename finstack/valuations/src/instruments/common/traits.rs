@@ -190,7 +190,7 @@ pub type CurveIdVec = SmallVec<[CurveId; 2]>;
 /// assert!(attrs.matches_selector("meta:issuer=AAPL"));
 /// assert!(!attrs.matches_selector("tag:high-yield"));
 /// ```
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Attributes {
     /// User-defined tags for categorization (e.g., "high-yield", "energy").

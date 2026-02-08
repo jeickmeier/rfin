@@ -9,8 +9,7 @@ use super::super::traits::StochasticProcess;
 use super::metadata::ProcessMetadata;
 
 /// Parameters for multi-dimensional OU.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MultiOuParams {
     /// Mean reversion speeds κ_i (>0)
     pub kappas: Vec<f64>,
@@ -46,7 +45,7 @@ impl MultiOuParams {
 }
 
 /// Multi-dimensional OU process.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct MultiOuProcess {
     params: MultiOuParams,
 }

@@ -4,7 +4,6 @@ use finstack_core::currency::Currency;
 use finstack_core::types::CurveId;
 use finstack_core::types::IndexId;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Base trait for underlying parameters to enable polymorphic behavior
@@ -20,8 +19,7 @@ pub trait UnderlyingParams {
 ///
 /// This struct encapsulates the market data curve identifiers and
 /// currency pair information needed for pricing FX-related instruments.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FxUnderlyingParams {
     /// Base currency (being priced)
     pub base_currency: Currency,
@@ -76,8 +74,7 @@ impl UnderlyingParams for FxUnderlyingParams {
 }
 
 /// Equity underlying parameters for options and equity-linked swaps.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EquityUnderlyingParams {
     /// Underlying ticker/identifier
     pub ticker: String,
@@ -137,8 +134,7 @@ impl UnderlyingParams for EquityUnderlyingParams {
 }
 
 /// Index underlying parameters for total return swaps and index-linked instruments.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexUnderlyingParams {
     /// Index identifier (e.g., "CDX.IG", "HY.BOND.INDEX")
     pub index_id: IndexId,

@@ -501,7 +501,7 @@ To add a new top-level field to `ValuationResult`:
 1. **Add the field** to `ValuationResult` struct in `valuation_result.rs`:
 
 ```rust
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ValuationResult {
     // ... existing fields ...

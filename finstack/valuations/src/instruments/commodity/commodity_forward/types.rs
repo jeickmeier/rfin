@@ -85,9 +85,10 @@ pub use crate::instruments::common_impl::parameters::Position;
 ///     .build()
 ///     .expect("Valid forward");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct CommodityForward {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -117,7 +118,7 @@ pub struct CommodityForward {
     /// - Long: buyer of the commodity at settlement
     /// - Short: seller of the commodity at settlement
     #[builder(default)]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub position: Position,
     /// Contract price (entry/trade price K).
     ///
@@ -896,7 +897,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_commodity_forward_serde_roundtrip() {
         let forward = CommodityForward::example();

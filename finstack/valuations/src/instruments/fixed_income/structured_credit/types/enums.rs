@@ -6,7 +6,6 @@
 
 use finstack_core::dates::Date;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -14,8 +13,8 @@ use serde::{Deserialize, Serialize};
 // ============================================================================
 
 /// Primary structured credit deal classification
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum DealType {
     /// Collateralized Loan Obligation
     CLO,
@@ -48,8 +47,8 @@ impl core::fmt::Display for DealType {
 }
 
 /// Tranche seniority levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum TrancheSeniority {
     /// Most senior debt tranche
     Senior = 0,
@@ -77,9 +76,9 @@ impl core::fmt::Display for TrancheSeniority {
 // ============================================================================
 
 /// Asset type classification for pool composition (flattened hierarchy)
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type"))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type")]
+#[non_exhaustive]
 pub enum AssetType {
     // ========== LOAN TYPES ==========
     /// First lien corporate loan
@@ -236,15 +235,15 @@ pub enum AssetType {
 // ============================================================================
 
 /// Payment distribution modes
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "mode"))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "mode")]
+#[non_exhaustive]
 pub enum PaymentMode {
     /// Normal pro-rata payments to all tranches
-    #[cfg_attr(feature = "serde", serde(alias = "pro_rata"))]
+    #[serde(alias = "pro_rata")]
     ProRata,
     /// Sequential payment (turbo) due to trigger breach
-    #[cfg_attr(feature = "serde", serde(alias = "sequential"))]
+    #[serde(alias = "sequential")]
     Sequential {
         /// Triggered by.
         triggered_by: String,
@@ -252,7 +251,7 @@ pub enum PaymentMode {
         trigger_date: Date,
     },
     /// Hybrid mode with custom rules
-    #[cfg_attr(feature = "serde", serde(alias = "hybrid"))]
+    #[serde(alias = "hybrid")]
     Hybrid {
         /// Description.
         description: String,
@@ -289,8 +288,8 @@ impl AssetType {
 }
 
 /// Consequences when triggers are breached
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum TriggerConsequence {
     /// Divert Cash Flow variant.
     DivertCashFlow,

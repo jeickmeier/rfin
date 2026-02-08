@@ -5,8 +5,7 @@ use finstack_core::types::CurveId;
 use rust_decimal::Decimal;
 
 /// Schedule Params structure.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct ScheduleParams {
     /// freq.
     pub freq: Tenor,

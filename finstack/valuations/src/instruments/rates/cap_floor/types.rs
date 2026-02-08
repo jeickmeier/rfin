@@ -36,9 +36,9 @@ use super::parameters::InterestRateOptionParams;
 ///
 /// Always verify the vol convention with your data provider as using
 /// the wrong type will produce materially incorrect prices.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum CapFloorVolType {
     /// Lognormal (Black) volatility - percentage of forward rate.
     ///
@@ -76,8 +76,8 @@ impl std::fmt::Display for CapFloorVolType {
 const MIN_VOL_LOOKUP_TIME: f64 = 1e-6;
 
 /// Type of interest rate option
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum RateOptionType {
     /// Cap (series of caplets)
     Cap,
@@ -90,9 +90,10 @@ pub enum RateOptionType {
 }
 
 /// Interest rate option instrument
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct InterestRateOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -134,7 +135,7 @@ pub struct InterestRateOption {
     ///
     /// - `Lognormal` (default): Standard Black model, requires positive rates/strikes
     /// - `Normal`: Bachelier model, handles negative rates
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub vol_type: CapFloorVolType,
     /// Pricing overrides (including implied volatility)
     pub pricing_overrides: PricingOverrides,

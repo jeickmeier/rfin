@@ -81,9 +81,10 @@ use time::macros::date;
 ///     .build()
 ///     .expect("Valid option");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct VolatilityIndexOption {
     /// Unique identifier.
     pub id: InstrumentId,
@@ -122,8 +123,7 @@ pub struct VolatilityIndexOption {
 }
 
 /// Contract specifications for volatility index options.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct VolIndexOptionSpecs {
     /// Contract multiplier (USD per index point).
     /// VIX options standard: 100 (each point = $100)
@@ -861,7 +861,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_serde_round_trip() {
         let option = VolatilityIndexOption::example();

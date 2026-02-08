@@ -9,7 +9,6 @@ use rust_decimal::prelude::ToPrimitive;
 
 use finstack_core::HashMap;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::enums::{AssetType, DealType};
@@ -17,8 +16,7 @@ use crate::instruments::fixed_income::structured_credit::types::constants::BASIS
 use finstack_core::types::CreditRating;
 
 /// Individual asset in the structured credit pool
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoolAsset {
     /// Unique asset identifier
     pub id: InstrumentId,
@@ -52,10 +50,10 @@ pub struct PoolAsset {
     /// Day count convention for interest calculation
     pub day_count: DayCount,
     /// Optional override for Single Monthly Mortality (SMM)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub smm_override: Option<f64>,
     /// Optional override for Monthly Default Rate (MDR)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub mdr_override: Option<f64>,
 }
 
@@ -294,8 +292,7 @@ impl PoolAsset {
 }
 
 /// Reinvestment period and rules
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReinvestmentPeriod {
     /// End date of reinvestment period
     pub end_date: Date,
@@ -306,8 +303,7 @@ pub struct ReinvestmentPeriod {
 }
 
 /// Criteria for reinvestment during revolving period
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReinvestmentCriteria {
     /// Maximum purchase price (% of par)
     pub max_price: f64,
@@ -334,8 +330,7 @@ impl Default for ReinvestmentCriteria {
 }
 
 /// Pool-level performance statistics
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PoolStats {
     /// Weighted average coupon
     pub weighted_avg_coupon: f64,
@@ -345,7 +340,7 @@ pub struct PoolStats {
     /// For accurate WAL, use weighted_avg_life_from_cashflows()
     pub weighted_avg_life: f64,
     /// Weighted average maturity (WAM) in years
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub weighted_avg_maturity: f64,
     /// Weighted average rating factor
     pub weighted_avg_rating_factor: f64,
@@ -364,9 +359,8 @@ pub struct PoolStats {
 }
 
 /// Main asset pool structure
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AssetPool {
     /// Pool identifier
     pub id: InstrumentId,
@@ -386,7 +380,7 @@ pub struct AssetPool {
     pub cumulative_prepayments: Money,
     /// Cumulative scheduled amortization (level-pay principal for amortizing assets).
     /// `None` means not tracked (legacy data); treated as zero in loss calculations.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub cumulative_scheduled_amortization: Option<Money>,
 
     /// Reinvestment management
@@ -407,8 +401,7 @@ pub struct AssetPool {
 }
 
 /// Representative line for aggregated pool modeling
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepLine {
     /// Unique identifier for the rep line
     pub id: String,

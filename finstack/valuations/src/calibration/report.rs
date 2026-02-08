@@ -109,7 +109,7 @@ fn compute_residual_diagnostics(residuals: &BTreeMap<String, f64>) -> ResidualDi
 /// assert!(report.success);
 /// assert!(report.max_residual <= 1e-12);
 /// ```
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalibrationReport {
     /// User-facing success flag. True only if both fitting and validation passed.
     pub success: bool,

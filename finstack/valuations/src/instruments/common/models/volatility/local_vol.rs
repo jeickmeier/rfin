@@ -19,7 +19,7 @@ pub trait Interp2D: Send + Sync + Debug {
 }
 
 /// Bilinear Interpolation in 2D.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BilinearInterp {
     xs: Vec<f64>,
     ys: Vec<f64>,
@@ -109,7 +109,7 @@ impl Interp2D for BilinearInterp {
 /// Local Volatility Surface.
 ///
 /// Represents the instantaneous volatility $\sigma(S, t)$ as a function of spot price and time.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct LocalVolSurface {
     /// Base date of the surface
     pub base_date: Date,

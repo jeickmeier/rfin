@@ -6,7 +6,7 @@ use finstack_core::money::Money;
 use serde::{Deserialize, Serialize};
 
 /// Estimate with currency information.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MoneyEstimate {
     /// Point estimate
     pub mean: Money,
@@ -59,7 +59,7 @@ impl std::fmt::Display for MoneyEstimate {
 ///
 /// This structure wraps the statistical estimate along with optionally captured
 /// paths for visualization and debugging.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonteCarloResult {
     /// Statistical estimate (mean, stderr, CI)
     pub estimate: MoneyEstimate,
@@ -68,7 +68,7 @@ pub struct MonteCarloResult {
 }
 
 /// Monte Carlo Greeks (subset) computed via simulation-based estimators.
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MonteCarloGreeks {
     /// Delta estimate
     pub delta: Option<f64>,

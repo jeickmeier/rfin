@@ -7,7 +7,7 @@ use super::DollarRoll;
 use finstack_core::Result;
 
 /// Carry calculation result.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CarryResult {
     /// Implied financing rate (annualized)
     pub implied_rate: f64,

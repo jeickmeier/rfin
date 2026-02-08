@@ -54,9 +54,10 @@ use finstack_core::types::{CurveId, InstrumentId};
 ///     .build()
 ///     .expect("Valid dollar roll");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct DollarRoll {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -91,7 +92,7 @@ pub struct DollarRoll {
     pub discount_curve_id: CurveId,
     /// Pricing overrides.
     #[builder(default)]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for tagging and selection.
     #[builder(default)]

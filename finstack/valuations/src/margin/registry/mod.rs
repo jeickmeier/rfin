@@ -21,7 +21,7 @@ mod wire;
 pub use merge::merge_json;
 
 /// Fully resolved, ready-to-use margin registry.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct MarginRegistry {
     pub defaults: MarginDefaults,
     pub schedule_im: HashMap<String, ScheduleImSchedule>,
@@ -33,7 +33,7 @@ pub struct MarginRegistry {
     pub simm_default: Option<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct MarginDefaults {
     pub vm: VmDefaults,
     pub im: ImDefaults,
@@ -41,7 +41,7 @@ pub struct MarginDefaults {
     pub cleared_settlement: ClearedSettlementDefaults,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct VmDefaults {
     pub threshold: f64,
     pub mta: f64,
@@ -51,7 +51,7 @@ pub struct VmDefaults {
     pub settlement_lag: u32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ImDefaults {
     pub simm: ImMethodDefaults,
     pub schedule: ImMethodDefaults,
@@ -59,7 +59,7 @@ pub struct ImDefaults {
     pub repo_haircut: ImMethodDefaults,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ImMethodDefaults {
     pub mpor_days: u32,
     pub threshold: f64,
@@ -67,20 +67,20 @@ pub struct ImMethodDefaults {
     pub segregated: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TimingDefaults {
     pub standard: MarginCallTiming,
     pub regulatory_vm: MarginCallTiming,
     pub ccp: MarginCallTiming,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ClearedSettlementDefaults {
     pub rounding: f64,
     pub settlement_lag: u32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ScheduleImSchedule {
     pub boundaries: ScheduleBucketBoundaries,
     pub default_rate: f64,
@@ -90,25 +90,25 @@ pub struct ScheduleImSchedule {
     pub rates: HashMap<(ScheduleAssetClass, MaturityBucket), f64>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ScheduleBucketBoundaries {
     pub short_to_medium: f64,
     pub medium_to_long: f64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct AssetClassDefault {
     pub standard_haircut: f64,
     pub fx_addon: f64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CcpParams {
     pub mpor_days: u32,
     pub conservative_rate: f64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct SimmParams {
     pub version: SimmVersion,
     pub mpor_days: u32,

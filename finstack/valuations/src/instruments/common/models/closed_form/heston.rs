@@ -32,7 +32,7 @@ use std::f64::consts::PI;
 
 // Standalone Heston parameters for when mc feature is not enabled
 #[cfg(not(feature = "mc"))]
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 /// Heston stochastic volatility model parameters.
 ///
 /// # References
@@ -75,7 +75,7 @@ impl HestonParams {
 /// Configuration for Heston Fourier integration.
 ///
 /// Provides tuning knobs for the numerical integration.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct HestonFourierSettings {
     /// Upper limit for Fourier integral (default: 100)
     pub u_max: f64,

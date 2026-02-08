@@ -34,7 +34,7 @@ pub fn default_rate_bounds_policy_for_serde() -> RateBoundsPolicy {
 /// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RateBounds {
     /// Minimum allowed rate (decimal, e.g., -0.02 for -2%)
     pub min_rate: f64,
@@ -160,7 +160,7 @@ impl RateBounds {
 /// explicit and avoids relying on `RateBounds::default()` as an implicit assumption.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RateBoundsPolicy {
     /// Pick currency-specific bounds via `RateBounds::for_currency(currency)`.
@@ -173,7 +173,7 @@ pub enum RateBoundsPolicy {
 /// Runtime validation behavior for arbitrage/consistency checks.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ValidationMode {
     /// Emit warnings (non-fatal) when validations fail.
     /// Useful for exploratory analysis or legacy data.
@@ -190,7 +190,7 @@ pub enum ValidationMode {
 /// for specific arbitrage and monotonicity checks.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationConfig {
     /// Enable forward rate positivity check
     pub check_forward_positivity: bool,

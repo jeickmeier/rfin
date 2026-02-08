@@ -8,7 +8,7 @@ use finstack_core::money::Money;
 use finstack_core::HashMap;
 
 /// Cashflow allocation for a single period.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TrancheAllocation {
     /// Tranche ID
     pub tranche_id: String,
@@ -23,7 +23,7 @@ pub struct TrancheAllocation {
 }
 
 /// Waterfall execution result for a single period.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct WaterfallPeriodResult {
     /// Allocations by tranche
     pub allocations: Vec<TrancheAllocation>,

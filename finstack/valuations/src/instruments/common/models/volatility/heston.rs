@@ -23,8 +23,7 @@ use std::f64::consts::PI;
 use tracing::warn;
 
 /// Heston model parameters.
-#[derive(Clone, Debug, Copy)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct HestonParameters {
     /// Initial variance ($v_0$)
     pub v0: f64,

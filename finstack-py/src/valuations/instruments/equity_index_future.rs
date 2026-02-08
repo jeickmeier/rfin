@@ -44,6 +44,7 @@ impl PyPosition {
         match self.inner {
             Position::Long => "FuturePosition.LONG",
             Position::Short => "FuturePosition.SHORT",
+            _ => unreachable!("unknown Position variant"),
         }
     }
 
@@ -51,6 +52,7 @@ impl PyPosition {
         match self.inner {
             Position::Long => "long",
             Position::Short => "short",
+            _ => unreachable!("unknown Position variant"),
         }
     }
 }
@@ -631,6 +633,7 @@ impl PyEquityIndexFuture {
             match self.inner.position {
                 Position::Long => "long",
                 Position::Short => "short",
+                _ => unreachable!("unknown Position variant"),
             },
             self.inner.expiry_date
         )

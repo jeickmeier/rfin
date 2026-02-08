@@ -25,9 +25,9 @@ use finstack_core::Result;
 const EXTREME_NEGATIVE_RATE_THRESHOLD: f64 = -0.05;
 
 /// Whether the holder pays or receives a leg.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum LegSide {
     /// Receive the leg's coupons (and final notional, if exchanged).
     Receive,
@@ -77,11 +77,11 @@ impl LegSide {
 }
 
 /// Notional exchange convention for XCCY swaps.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "ts_export", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts_export", ts(export, rename_all = "snake_case"))]
+#[non_exhaustive]
 pub enum NotionalExchange {
     /// No principal exchange.
     None,
@@ -93,9 +93,8 @@ pub enum NotionalExchange {
 }
 
 /// One floating leg of an XCCY swap.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct XccySwapLeg {
     /// Leg currency.
     pub currency: Currency,
@@ -114,10 +113,10 @@ pub struct XccySwapLeg {
     /// Business day convention for schedule dates.
     pub bdc: BusinessDayConvention,
     /// Spread added to the forward rate (decimal, e.g. 0.0001 = 1bp).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub spread: f64,
     /// Payment lag in business days after period end (default: 0).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub payment_lag_days: i32,
     /// Calendar identifier for schedule generation and lags.
     #[cfg_attr(
@@ -128,7 +127,7 @@ pub struct XccySwapLeg {
     /// Allow calendar-day fallback when the calendar cannot be resolved.
     ///
     /// When `false` (default), missing calendars are treated as input errors.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub allow_calendar_fallback: bool,
 }
 

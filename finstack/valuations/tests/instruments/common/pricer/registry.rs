@@ -904,7 +904,6 @@ fn test_expect_inst_success() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_instrument_type_serde_roundtrip() {
     let original = InstrumentType::StructuredCredit;
     let json = serde_json::to_string(&original).unwrap();

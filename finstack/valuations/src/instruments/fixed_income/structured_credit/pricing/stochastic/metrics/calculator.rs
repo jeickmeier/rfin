@@ -8,7 +8,7 @@ use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tr
 };
 
 /// Stochastic risk metrics for structured credit.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct StochasticMetrics {
     // === Loss metrics ===
     /// Expected loss (probability-weighted average)

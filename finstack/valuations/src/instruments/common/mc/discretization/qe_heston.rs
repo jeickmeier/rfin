@@ -12,7 +12,7 @@ use super::super::traits::Discretization;
 ///
 /// Controls how the integrated variance ∫_t^{t+Δt} v_s ds is computed
 /// for the log-Euler spot evolution.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum IntegratedVarianceMethod {
     /// Trapezoidal (midpoint) approximation: (v_t + v_{t+Δt}) / 2 × Δt
     ///
@@ -59,7 +59,7 @@ pub enum IntegratedVarianceMethod {
 /// - [`IntegratedVarianceMethod::Exact`]: Uses conditional expectation formula
 ///
 /// The exact method is more accurate for high mean-reversion or coarse time steps.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct QeHeston {
     /// Critical value for ψ (default 1.5)
     psi_c: f64,

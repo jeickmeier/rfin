@@ -161,7 +161,7 @@ fn test_implied_rate_calculation() {
     let implied = future.implied_rate();
 
     assert!(
-        (implied - 0.025).abs() < 1e-10,
+        (implied.as_decimal() - 0.025).abs() < 1e-10,
         "Expected 2.5%, got {}",
         implied
     );
@@ -184,7 +184,7 @@ fn test_implied_rate_various_prices() {
         let implied = future.implied_rate();
 
         assert!(
-            (implied - expected_rate).abs() < 1e-10,
+            (implied.as_decimal() - expected_rate).abs() < 1e-10,
             "Price {} should imply rate {}, got {}",
             price,
             expected_rate,

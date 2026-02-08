@@ -1,11 +1,9 @@
 //! Contract specifications and general parameter types.
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Contract size information for derivatives
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContractSpec {
     /// Number of units per contract
     pub contract_size: f64,
@@ -41,8 +39,7 @@ impl Default for ContractSpec {
 }
 
 /// Schedule specification for payment periods
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScheduleSpec {
     /// Start date for the schedule
     pub start: Date,

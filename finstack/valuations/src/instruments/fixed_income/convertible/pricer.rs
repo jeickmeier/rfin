@@ -28,7 +28,7 @@ use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::convertible::{ConversionPolicy, ConvertibleBond};
 
 /// Tree model type selection for convertible bond pricing
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConvertibleTreeType {
     /// Use binomial tree (CRR)
     Binomial(usize), // number of steps

@@ -111,8 +111,7 @@
 /// In the IRS instrument implementation, the RFR-style variant
 /// (`CompoundedInArrears`) is also used to classify swaps as OIS for
 /// discount-only float-leg pricing; see `InterestRateSwap::is_single_curve_ois` for details.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum FloatingLegCompounding {
     /// Simple interest compounding (term-rate style).
@@ -261,7 +260,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "serde")]
     fn test_serde_roundtrip() {
         let methods = vec![
             FloatingLegCompounding::Simple,

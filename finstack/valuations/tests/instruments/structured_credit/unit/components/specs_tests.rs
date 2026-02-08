@@ -79,7 +79,6 @@ fn test_recovery_spec() {
 // JSON Serialization Tests
 // ============================================================================
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_prepayment_spec_json_roundtrip() {
     let specs = vec![
@@ -94,7 +93,6 @@ fn test_prepayment_spec_json_roundtrip() {
     }
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_default_spec_json_roundtrip() {
     let specs = vec![
@@ -109,7 +107,6 @@ fn test_default_spec_json_roundtrip() {
     }
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_recovery_spec_json_roundtrip() {
     let specs = vec![

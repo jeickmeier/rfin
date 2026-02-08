@@ -12,7 +12,7 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
 /// Asian averaging method.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AveragingMethod {
     /// Arithmetic average: (1/n) Σ S_i
     Arithmetic,
@@ -28,7 +28,7 @@ pub enum AveragingMethod {
 ///
 /// Uses Kahan summation for arithmetic averaging to maintain numerical
 /// stability when there are many fixing dates (e.g., daily monitoring).
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct AsianCall {
     /// Strike price
     pub strike: f64,
@@ -178,7 +178,7 @@ impl Payoff for AsianCall {
 ///
 /// Uses Kahan summation for arithmetic averaging to maintain numerical
 /// stability when there are many fixing dates (e.g., daily monitoring).
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct AsianPut {
     /// Strike price
     pub strike: f64,

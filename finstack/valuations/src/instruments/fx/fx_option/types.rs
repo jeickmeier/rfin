@@ -63,9 +63,10 @@ fn default_fx_underlying(base_currency: Currency, quote_currency: Currency) -> F
 }
 
 /// FX option instrument (Garman-Kohlhagen model)
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct FxOption {
     /// Unique instrument identifier
     pub id: InstrumentId,

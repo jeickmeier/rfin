@@ -295,7 +295,7 @@ pub struct BondQuoteSet {
 /// | `TreasuryActual` | US Treasury new issues with stubs | Simple interest for first period |
 /// | `Simple` | Money market instruments | `1/(1 + y*t)` |
 /// | `Continuous` | Theoretical/academic | `exp(-y*t)` |
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum YieldCompounding {
     /// Simple interest: `DF = 1 / (1 + y * t)`
     ///

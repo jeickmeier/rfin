@@ -119,9 +119,9 @@ use super::types::RateSpec;
 /// // $50,000 fixed OID
 /// let oid_fixed = OidPolicy::WithheldAmount(Money::new(50_000.0, Currency::USD));
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
 pub enum OidPolicy {
     /// Discount as percentage (basis points) withheld from funded proceeds
     WithheldPct(i32),
@@ -149,9 +149,8 @@ impl OidPolicy {
 ///
 /// When enabled, EIR amortization schedules are computed for reporting using
 /// the loan's full cashflow schedule (including OID effects).
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields, default)]
 pub struct OidEirSpec {
     /// Include fee cashflows (upfront, commitment, usage) in the EIR schedule.
     ///
@@ -169,9 +168,8 @@ impl Default for OidEirSpec {
 ///
 /// Represents a scheduled or actual draw against the commitment, reducing
 /// available capacity and increasing outstanding principal.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DrawEvent {
     /// Date of the draw
     pub date: Date,
@@ -183,9 +181,8 @@ pub struct DrawEvent {
 ///
 /// Reduces the total commitment limit at a specified date, typically used
 /// to match construction completion or covenant requirements.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CommitmentStepDown {
     /// Effective date of the step-down
     pub date: Date,
@@ -197,9 +194,9 @@ pub struct CommitmentStepDown {
 ///
 /// Determines the denominator for commitment fee calculations on
 /// revolving or delayed-draw facilities.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
 pub enum CommitmentFeeBase {
     /// Fee based on total undrawn amount only
     Undrawn,
@@ -255,9 +252,8 @@ pub enum CommitmentFeeBase {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DdtlSpec {
     /// Total commitment limit available for draws
     pub commitment_limit: Money,
@@ -297,9 +293,8 @@ impl DdtlSpec {
 ///
 /// Increases the interest margin by a fixed amount at a specified date,
 /// typically triggered by covenant breach or scheduled rating migration.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MarginStepUp {
     /// Effective date of margin increase
     pub date: Date,
@@ -321,9 +316,8 @@ impl MarginStepUp {
 ///
 /// Enables or disables PIK interest at a specified date. When enabled,
 /// a portion of interest may be capitalized rather than paid in cash.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PikToggle {
     /// Date PIK feature is toggled
     pub date: Date,
@@ -335,9 +329,8 @@ pub struct PikToggle {
 ///
 /// Represents scheduled or covenant-triggered prepayment from borrower's
 /// excess cash flow, reducing outstanding principal.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CashSweepEvent {
     /// Date of cash sweep prepayment
     pub date: Date,
@@ -350,9 +343,8 @@ pub struct CashSweepEvent {
 /// Aggregates all covenant-triggered or scheduled events that modify
 /// loan terms, including margin increases, PIK toggles, cash sweeps,
 /// and draw restrictions.
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CovenantSpec {
     /// Margin step-up schedule
     pub margin_stepups: Vec<MarginStepUp>,
@@ -368,9 +360,9 @@ pub struct CovenantSpec {
 ///
 /// Defines how the loan principal is amortized over its life,
 /// from no amortization (bullet) to custom schedules.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
 pub enum AmortizationSpec {
     /// Bullet loan with no scheduled amortization
     None,
@@ -469,9 +461,8 @@ impl AmortizationSpec {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TermLoanSpec {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -521,12 +512,12 @@ pub struct TermLoanSpec {
     /// Pricing overrides (yield, price, etc.)
     pub pricing_overrides: PricingOverrides,
     /// Optional EIR amortization settings for reporting schedules
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub oid_eir: Option<OidEirSpec>,
     /// Optional call schedule (borrower callability)
     pub call_schedule: Option<LoanCallSchedule>,
     /// Settlement days (T+n). Default is 1 for leveraged loans per LSTA conventions.
-    #[cfg_attr(feature = "serde", serde(default = "default_settlement_days"))]
+    #[serde(default = "default_settlement_days")]
     pub settlement_days: u32,
 }
 
@@ -539,9 +530,8 @@ fn default_settlement_days() -> u32 {
 /// Represents the borrower's right to prepay the loan at a specified
 /// redemption price (typically at premium to par for early calls,
 /// approaching par near maturity).
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LoanCall {
     /// Call date (earliest prepayment date for this call provision)
     pub date: Date,
@@ -581,9 +571,8 @@ pub struct LoanCall {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LoanCallSchedule {
     /// Ordered call provisions (typically sorted by date with descending premiums)
     pub calls: Vec<LoanCall>,

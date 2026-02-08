@@ -42,8 +42,7 @@ use finstack_core::config::FinstackConfig;
 ///     settlement_lag: 1,
 /// };
 /// ```
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct VmParameters {
     /// Threshold amount below which no margin is exchanged.
     ///
@@ -201,8 +200,7 @@ impl Default for VmParameters {
 ///     segregated: true,
 /// };
 /// ```
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ImParameters {
     /// IM calculation methodology.
     ///

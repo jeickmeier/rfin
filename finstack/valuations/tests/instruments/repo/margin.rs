@@ -257,7 +257,6 @@ fn test_margin_spec_serialization_roundtrip() {
     };
 
     // Test serde roundtrip if feature is enabled
-    #[cfg(feature = "serde")]
     {
         let json = serde_json::to_string(&spec).expect("serialization succeeds");
         let deserialized: RepoMarginSpec =

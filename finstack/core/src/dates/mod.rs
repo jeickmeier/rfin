@@ -37,6 +37,36 @@
 //! ```
 
 // ----------------------------------------------------------------------------------
+// Time constants – canonical "days per year" values
+// ----------------------------------------------------------------------------------
+
+/// Calendar days per year under the ACT/365 Fixed day-count convention.
+///
+/// This is the standard denominator for most derivative day-count calculations
+/// (swaps, bonds, CDS, XVA, margin). Use this as the default unless a model
+/// explicitly requires leap-year adjustment.
+///
+/// # Convention
+///
+/// ACT/365 Fixed always divides by 365.0, regardless of whether the accrual
+/// period contains a leap day. This is the most common convention in swap
+/// and credit derivative markets.
+pub const CALENDAR_DAYS_PER_YEAR: f64 = 365.0;
+
+/// Average calendar days per year including leap-year adjustment (365.25).
+///
+/// Used in models that need an average year length over long horizons where
+/// leap years materially affect the calculation (e.g., multi-year structured
+/// credit cashflow projections, amortisation schedules).
+///
+/// # Convention
+///
+/// ACT/365.25 — divides by 365.25, the mean Gregorian calendar year length.
+/// This is less common than [`CALENDAR_DAYS_PER_YEAR`] (ACT/365 Fixed) and
+/// should only be used when the model explicitly calls for it.
+pub const AVERAGE_DAYS_PER_YEAR: f64 = 365.25;
+
+// ----------------------------------------------------------------------------------
 // Re-exports – keep list short & focused
 // ----------------------------------------------------------------------------------
 

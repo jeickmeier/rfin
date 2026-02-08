@@ -8,8 +8,7 @@ use super::super::traits::StochasticProcess;
 use super::metadata::ProcessMetadata;
 
 /// Parameters for 1D Brownian motion with drift.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BrownianParams {
     /// Constant drift (μ)
     pub mu: f64,
@@ -25,7 +24,7 @@ impl BrownianParams {
 }
 
 /// 1D Brownian motion (additive) with constant drift and diffusion.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BrownianProcess {
     params: BrownianParams,
 }
@@ -85,7 +84,7 @@ impl ProcessMetadata for BrownianProcess {
 }
 
 /// Multi-dimensional Brownian motion with optional correlation handled upstream.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct MultiBrownianProcess {
     mus: Vec<f64>,
     sigmas: Vec<f64>,

@@ -5,7 +5,6 @@
 
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Standard bond market conventions by region/issuer.
@@ -25,9 +24,9 @@ use serde::{Deserialize, Serialize};
 /// | UK Gilt | ACT/ACT ICMA | Semi-annual | T+1 | DMO |
 /// | French OAT | ACT/ACT ICMA | Annual | T+2 | AFT |
 /// | JGB | ACT/365F | Semi-annual | T+2 | MOF Japan |
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum BondConvention {
     /// US Treasury: Semi-annual, ACT/ACT ICMA, T+1 settlement
     USTreasury,
@@ -229,9 +228,9 @@ impl std::str::FromStr for BondConvention {
 /// - ISDA 2021 IBOR Fallbacks Protocol
 /// - Bloomberg SWDF function
 /// - QuantLib OvernightIndexedSwap conventions
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum IRSConvention {
     /// USD SOFR OIS: Semi-annual fixed, annual float, ACT/360
     ///
@@ -514,9 +513,9 @@ impl std::str::FromStr for IRSConvention {
 /// - CME Group rulebooks
 /// - ICE Futures exchange rules
 /// - LME trading procedures
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum CommodityConvention {
     /// WTI Crude Oil: T+2, Following, NYMEX calendar
     WTICrude,

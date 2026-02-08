@@ -13,9 +13,9 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// TBA term enumeration (original loan term).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum TbaTerm {
     /// 15-year original term
     FifteenYear,
@@ -52,8 +52,7 @@ impl std::fmt::Display for TbaTerm {
 }
 
 /// TBA settlement information.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TbaSettlement {
     /// Good delivery (settlement) date
     pub settlement_date: Date,
@@ -105,9 +104,10 @@ pub struct TbaSettlement {
 ///     .build()
 ///     .expect("Valid TBA");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct AgencyTba {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -143,13 +143,13 @@ pub struct AgencyTba {
     /// Optional assumed pool for valuation.
     /// If not provided, generic pool characteristics are assumed.
     #[builder(optional)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub assumed_pool: Option<Box<AgencyMbsPassthrough>>,
     /// Discount curve identifier.
     pub discount_curve_id: CurveId,
     /// Pricing overrides.
     #[builder(default)]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for tagging and selection.
     #[builder(default)]

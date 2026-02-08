@@ -12,12 +12,10 @@ use finstack_core::money::Money;
 use finstack_core::HashMap;
 use finstack_core::Result;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Result containing tranche-specific cashflows and metadata.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrancheCashflows {
     /// Tranche identifier.
     pub tranche_id: String,
@@ -42,8 +40,7 @@ pub struct TrancheCashflows {
 }
 
 /// Tranche-specific valuation result.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrancheValuation {
     /// Tranche identifier.
     pub tranche_id: String,

@@ -143,6 +143,7 @@ impl From<TbaTerm> for PyTbaTerm {
             TbaTerm::FifteenYear => PyTbaTerm::FifteenYear,
             TbaTerm::TwentyYear => PyTbaTerm::TwentyYear,
             TbaTerm::ThirtyYear => PyTbaTerm::ThirtyYear,
+            _ => unreachable!("unknown TbaTerm variant"),
         }
     }
 }

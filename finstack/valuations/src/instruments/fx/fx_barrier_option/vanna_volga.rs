@@ -37,7 +37,7 @@ use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
 use crate::instruments::common_impl::parameters::OptionType;
 
 /// Market quotes for the Vanna-Volga method (three-point smile).
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct VannaVolgaQuotes {
     /// 25-delta put volatility
     pub vol_25d_put: f64,

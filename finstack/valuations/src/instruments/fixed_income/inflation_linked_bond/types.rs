@@ -20,8 +20,7 @@ use time::Duration;
 use super::parameters::InflationLinkedBondParams;
 
 /// Indexation method for inflation adjustment
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum IndexationMethod {
     /// Canadian model (real yield, indexed principal and coupons)
     Canadian,
@@ -133,8 +132,7 @@ impl IndexationMethod {
 }
 
 /// Deflation protection type
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum DeflationProtection {
     /// No deflation protection
     None,
@@ -193,9 +191,10 @@ impl InflationSource {
 }
 
 /// Inflation-Linked Bond instrument
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct InflationLinkedBond {
     /// Unique instrument identifier
     pub id: InstrumentId,

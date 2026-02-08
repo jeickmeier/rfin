@@ -6,7 +6,7 @@ use finstack_core::money::Money;
 use finstack_core::types::Bps;
 
 /// Constituent definition for CDS Index parameters (credit + weight).
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CDSIndexConstituentParam {
     /// Credit configuration for the issuer
     pub credit: CreditParams,
@@ -17,7 +17,7 @@ pub struct CDSIndexConstituentParam {
 /// CDS Index specific parameters.
 ///
 /// Groups parameters specific to CDS indices.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CDSIndexParams {
     /// Index name (e.g., "CDX.NA.IG", "iTraxx Europe")
     pub index_name: String,
@@ -137,7 +137,7 @@ impl CDSIndexParams {
 /// Complete CDS Index construction parameters.
 ///
 /// Groups all parameters needed for CDS Index construction to reduce argument count.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CDSIndexConstructionParams {
     /// Notional amount
     pub notional: Money,

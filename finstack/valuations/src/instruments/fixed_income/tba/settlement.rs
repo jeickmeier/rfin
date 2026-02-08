@@ -8,7 +8,7 @@ use finstack_core::Result;
 use time::{Duration, Month, Weekday};
 
 /// TBA settlement information.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TbaSettlementDates {
     /// Settlement month
     pub settlement_month: Date,

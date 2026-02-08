@@ -91,7 +91,7 @@ use finstack_core::dates::DayCountCtx;
 /// let calculator = EmbeddedOptionValueCalculator::new();
 /// // Use via MetricRegistry for proper context management
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct EmbeddedOptionValueCalculator {
     /// Number of tree steps (default: 100)
     tree_steps: usize,

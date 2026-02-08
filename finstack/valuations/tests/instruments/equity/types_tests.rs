@@ -363,7 +363,6 @@ fn test_equity_fractional_shares() {
 }
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_equity_serde_roundtrip() {
     let equity = Equity::new("AAPL", "AAPL", Currency::USD)
         .with_shares(100.0)

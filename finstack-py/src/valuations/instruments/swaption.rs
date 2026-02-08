@@ -159,6 +159,7 @@ impl PySwaption {
         match self.inner.settlement {
             SwaptionSettlement::Physical => "physical",
             SwaptionSettlement::Cash => "cash",
+            _ => unreachable!("unknown SwaptionSettlement variant"),
         }
     }
 
@@ -168,6 +169,7 @@ impl PySwaption {
             SwaptionExercise::European => "european",
             SwaptionExercise::Bermudan => "bermudan",
             SwaptionExercise::American => "american",
+            _ => unreachable!("unknown SwaptionExercise variant"),
         }
     }
 

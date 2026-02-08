@@ -98,9 +98,9 @@ use crate::instruments::pricing_overrides::PricingOverrides;
 ///     payment_lag_days: 0,
 /// });
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[allow(clippy::large_enum_variant)]
+#[non_exhaustive]
 pub enum RateSpec {
     /// Fixed annual rate in basis points
     Fixed {
@@ -178,9 +178,10 @@ impl RateSpec {
 /// # Thread Safety
 ///
 /// This type is `Send + Sync` as all fields are thread-safe.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct TermLoan {
     /// Unique instrument identifier
     pub id: InstrumentId,

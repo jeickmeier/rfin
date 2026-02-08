@@ -13,16 +13,13 @@ use finstack_core::money::{fx::FxConversionPolicy, Money};
 use finstack_core::types::{InstrumentId, PriceId};
 use finstack_core::Result;
 
-#[cfg(feature = "serde")]
 use crate::instruments::json_loader::InstrumentJson;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Type of asset in the basket
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AssetType {
     /// Equity security
     Equity,
@@ -39,10 +36,9 @@ pub enum AssetType {
 }
 
 /// Reference to a constituent asset in the basket
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub enum ConstituentReference {
     /// Direct reference to an existing instrument (serializable via InstrumentJson)
-    #[cfg(feature = "serde")]
     Instrument(Box<InstrumentJson>),
     /// Market data reference for simple price lookups
     MarketData {
@@ -55,7 +51,6 @@ pub enum ConstituentReference {
 
 // Debug is now derived automatically on ConstituentReference
 
-#[cfg(feature = "serde")]
 impl Serialize for ConstituentReference {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -93,7 +88,6 @@ impl Serialize for ConstituentReference {
     }
 }
 
-#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for ConstituentReference {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
@@ -127,8 +121,7 @@ impl<'de> Deserialize<'de> for ConstituentReference {
 }
 
 /// Individual constituent in a basket
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BasketConstituent {
     /// Unique identifier for the constituent
     pub id: String,
@@ -143,8 +136,7 @@ pub struct BasketConstituent {
 }
 
 /// Configuration for basket pricing behaviour.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BasketPricingConfig {
     /// Day basis used for fee accrual (e.g., 365.0 or 365.25). Avoid hardcoding in logic.
     pub days_in_year: f64,
@@ -166,9 +158,8 @@ impl Default for BasketPricingConfig {
 /// This basket represents a collection of financial instruments or market data references
 /// that can be valued as a portfolio. It focuses purely on pricing functionality without
 /// ETF-specific operational features like creation/redemption mechanics.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Basket {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -182,7 +173,7 @@ pub struct Basket {
     /// Discount curve identifier for present value calculations
     pub discount_curve_id: finstack_core::types::CurveId,
     /// Attributes for scenario selection and tagging
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub attributes: Attributes,
     /// Pricing configuration
     pub pricing_config: BasketPricingConfig,
@@ -230,7 +221,6 @@ impl Basket {
     }
 
     /// Create an example basket with instrument-backed constituents.
-    #[cfg(feature = "serde")]
     pub fn example_with_instruments() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::money::Money;

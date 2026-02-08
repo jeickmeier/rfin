@@ -9,7 +9,7 @@ use finstack_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 /// Internal parameter bundle for derivative calculations.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 struct SABRDerivParams {
     alpha: f64,
     nu: f64,
@@ -17,7 +17,7 @@ struct SABRDerivParams {
 }
 
 /// Market data for SABR calibration.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SABRMarketData {
     /// Forward price
     pub forward: f64,

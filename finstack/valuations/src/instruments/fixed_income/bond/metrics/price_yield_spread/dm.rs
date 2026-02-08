@@ -66,7 +66,7 @@ use std::cell::RefCell;
 ///     max_bracket_bp: 2000.0,
 /// };
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct DiscountMarginSolverConfig {
     /// Convergence tolerance for the DM root finder (on the DM axis, decimal).
     ///
@@ -135,7 +135,7 @@ impl Default for DiscountMarginSolverConfig {
 /// // Discount margin is computed automatically when requesting bond metrics for FRNs
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct DiscountMarginCalculator {
     config: DiscountMarginSolverConfig,
 }

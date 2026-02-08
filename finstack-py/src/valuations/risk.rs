@@ -49,6 +49,7 @@ impl PyVarMethod {
         match self.inner {
             VarMethod::FullRevaluation => "VarMethod.FULL_REVALUATION",
             VarMethod::TaylorApproximation => "VarMethod.TAYLOR_APPROXIMATION",
+            _ => unreachable!("unknown VarMethod variant"),
         }
     }
 }

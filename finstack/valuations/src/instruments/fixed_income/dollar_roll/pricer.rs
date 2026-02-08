@@ -50,7 +50,7 @@ pub fn price_dollar_roll(roll: &DollarRoll, market: &MarketContext, as_of: Date)
 }
 
 /// Dollar roll discounting pricer.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct DollarRollDiscountingPricer;
 
 impl Pricer for DollarRollDiscountingPricer {

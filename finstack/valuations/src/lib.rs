@@ -293,10 +293,8 @@
 
 extern crate self as finstack_valuations;
 
-// The valuations crate’s public contracts (schemas/envelopes) and the UI/bindings assume serde is
-// available. The codebase historically had partial `cfg(feature="serde")` gating that could
-// compile-break in no-serde builds. Make the requirement explicit until a full non-serde surface
-// is designed.
+// Serde is used unconditionally throughout valuations (derives, envelopes, JSON loader).
+// This guard gives a clear message instead of hundreds of derive errors.
 #[cfg(not(feature = "serde"))]
 compile_error!("finstack-valuations requires the `serde` feature (enabled by default).");
 

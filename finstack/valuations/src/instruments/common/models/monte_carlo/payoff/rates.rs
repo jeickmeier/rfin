@@ -40,7 +40,7 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
 /// Direction of the interest rate payoff (cap vs floor).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RatesPayoffType {
     /// Cap payoff: max(L - K, 0)
     Cap,
@@ -52,7 +52,7 @@ pub enum RatesPayoffType {
 ///
 /// These parameters are used to compute forward rates from simulated short rates
 /// using the Hull-White bond pricing formula.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct HullWhiteParams {
     /// Mean reversion speed (a > 0)
     pub mean_reversion: f64,
@@ -174,7 +174,7 @@ impl HullWhiteParams {
 /// # State Requirements
 ///
 /// Expects `PathState` to contain "short_rate" at fixing dates.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct RatesPayoff {
     /// Type of payoff (cap or floor)
     pub payoff_type: RatesPayoffType,

@@ -130,7 +130,7 @@ pub fn estimate_fail_cost(position_value: f64, fail_rate: f64, fail_days: u32) -
 }
 
 /// Agency TBA discounting pricer.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct AgencyTbaDiscountingPricer;
 
 impl Pricer for AgencyTbaDiscountingPricer {

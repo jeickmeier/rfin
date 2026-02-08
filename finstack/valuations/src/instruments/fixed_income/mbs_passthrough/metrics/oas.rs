@@ -13,7 +13,7 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 
 /// OAS calculation result.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct OasResult {
     /// Option-adjusted spread in decimal (e.g., 0.01 for 100 bps)
     pub oas: f64,

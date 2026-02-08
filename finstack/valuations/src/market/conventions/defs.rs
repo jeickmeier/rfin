@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 /// let overnight = RateIndexKind::OvernightRfr;
 /// let term = RateIndexKind::Term;
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RateIndexKind {
     /// Overnight Risk-Free Rate index (e.g., SOFR, SONIA, ESTR).
@@ -53,7 +53,7 @@ pub enum RateIndexKind {
 /// // In practice, conventions are loaded from the registry
 /// // let conv = registry.require_rate_index(&IndexId::new("USD-SOFR-OIS"))?;
 /// ```
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RateIndexConventions {
     /// Operating currency of the index.
     pub currency: Currency,
@@ -100,7 +100,7 @@ pub struct RateIndexConventions {
 /// // In practice, conventions are loaded from the registry
 /// // let conv = registry.require_cds(&CdsConventionKey { ... })?;
 /// ```
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CdsConventions {
     /// The calendar used for business day adjustments.
     pub calendar_id: String,
@@ -119,7 +119,7 @@ pub struct CdsConventions {
 /// Defines market-standard parameters for option instruments, including settlement calendars,
 /// business day conventions, and settlement lags. Used by option builders to construct
 /// instruments with correct market conventions.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OptionConventions {
     /// Calendar for exercise and settlement.
     pub calendar_id: String,
@@ -134,7 +134,7 @@ pub struct OptionConventions {
 /// Defines market-standard parameters for swaption instruments, including exercise calendars,
 /// business day conventions, fixed leg conventions, and floating leg index references. Used
 /// by swaption builders to construct instruments with correct market conventions.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SwaptionConventions {
     /// Calendar for exercise and settlement.
     pub calendar_id: String,
@@ -155,7 +155,7 @@ pub struct SwaptionConventions {
 /// Defines market-standard parameters for inflation swap instruments, including payment
 /// calendars, business day conventions, day count conventions, and inflation lag periods.
 /// Used by inflation swap builders to construct instruments with correct market conventions.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InflationSwapConventions {
     /// Calendar for payment/fixing.
     pub calendar_id: String,
@@ -175,7 +175,7 @@ pub struct InflationSwapConventions {
 /// specifications (face value, tick size, tick value), delivery months, settlement lags, and
 /// optional convexity adjustments. Used by futures builders to construct instruments with
 /// correct market conventions.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IrFutureConventions {
     /// Underlying rate index identifier.
     pub index_id: IndexId,

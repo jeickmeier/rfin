@@ -7,8 +7,8 @@ use finstack_core::types::Percentage;
 ///
 /// Different margin mechanisms offer varying levels of protection
 /// and operational complexity.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum RepoMarginType {
     /// No margining - fixed haircut only.
     ///
@@ -92,8 +92,7 @@ impl std::str::FromStr for RepoMarginType {
 /// - Paragraph 5: Income Payments
 /// - Paragraph 8: Substitution
 /// - Annex I: Margin Ratio and Haircut
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RepoMarginSpec {
     /// Type of margin mechanism.
     pub margin_type: RepoMarginType,

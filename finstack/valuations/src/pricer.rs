@@ -11,13 +11,14 @@ use finstack_core::market_data::context::MarketContext as Market;
 
 // ========================= KEYS =========================
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[repr(u16)]
 /// Strongly-typed instrument classification for pricer dispatch.
 ///
 /// Each variant represents a distinct instrument type with its own pricing
 /// logic and risk characteristics. Used by the pricing registry to route
 /// instruments to appropriate pricer implementations.
+#[non_exhaustive]
 pub enum InstrumentType {
     /// Fixed or floating-rate bond (plain vanilla, callable, amortizing).
     Bond = 1,
@@ -429,7 +430,8 @@ impl std::str::FromStr for InstrumentType {
 /// let model: ModelKey = "black76".parse().unwrap();
 /// assert_eq!(model, ModelKey::Black76);
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 #[repr(u16)]
 pub enum ModelKey {
     /// Present value discounting of projected cashflows.
@@ -591,7 +593,7 @@ impl std::str::FromStr for ModelKey {
 /// assert_eq!(key.model, ModelKey::Black76);
 /// ```
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PricerKey {
     /// The instrument type being priced.
     pub instrument: InstrumentType,

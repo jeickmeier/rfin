@@ -1,5 +1,3 @@
-#![cfg(feature = "serde")]
-
 use finstack_core::config::FinstackConfig;
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationMethod, RateBounds, RateBoundsPolicy, SolverConfig,

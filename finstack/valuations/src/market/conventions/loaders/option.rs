@@ -7,7 +7,7 @@ use finstack_core::dates::BusinessDayConvention;
 use finstack_core::Error;
 use finstack_core::HashMap;
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct OptionConventionRecord {
     calendar_id: String,

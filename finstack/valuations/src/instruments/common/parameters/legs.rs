@@ -4,21 +4,19 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Teno
 use finstack_core::types::{CurveId, Percentage};
 use rust_decimal::Decimal;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Direction for instrument legs (universal for IRS, CDS, etc.)
 ///
 /// For interest rate swaps: Pay = pay fixed/receive floating, Receive = receive fixed/pay floating
 /// For credit default swaps: Pay = buy protection (pay premium), Receive = sell protection (receive premium)
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PayReceive {
     /// Pay the primary leg (fixed rate in IRS, protection premium in CDS)
-    #[cfg_attr(feature = "serde", serde(rename = "pay_fixed"))]
+    #[serde(rename = "pay_fixed")]
     PayFixed,
     /// Receive the primary leg (fixed rate in IRS, protection premium in CDS)
-    #[cfg_attr(feature = "serde", serde(rename = "receive_fixed"))]
+    #[serde(rename = "receive_fixed")]
     ReceiveFixed,
 }
 
@@ -59,9 +57,9 @@ impl std::str::FromStr for PayReceive {
 }
 
 /// Method for calculating par rates in swaps
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum ParRateMethod {
     /// Use forward-curve based float PV over the schedule (market standard)
     ForwardBased,
@@ -70,8 +68,7 @@ pub enum ParRateMethod {
 }
 
 /// Specification for fixed rate legs in interest rate swaps
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FixedLegSpec {
     /// Discount curve identifier for pricing
     pub discount_curve_id: CurveId,
@@ -100,7 +97,7 @@ pub struct FixedLegSpec {
     /// Bloomberg OIS swaps typically use 2 business days payment delay.
     /// The actual payment date is adjusted from the period end date by
     /// this many business days using the leg's calendar.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub payment_delay_days: i32,
     /// End-of-month roll convention (default: false).
     ///
@@ -113,13 +110,12 @@ pub struct FixedLegSpec {
     /// Per ISDA 2006 Definitions Section 4.18, the End-of-Month convention should
     /// be applied when the effective date is the last business day of a month.
     /// Most professional systems (QuantLib, Bloomberg SWDF) default to `true`.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub end_of_month: bool,
 }
 
 /// Specification for floating rate legs in interest rate swaps
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FloatLegSpec {
     /// Discount curve identifier for pricing
     pub discount_curve_id: CurveId,
@@ -140,7 +136,7 @@ pub struct FloatLegSpec {
     /// Reset lag in business days for floating rate
     pub reset_lag_days: i32,
     /// Optional calendar for rate fixing (reset lag)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub fixing_calendar_id: Option<String>,
     /// Start date of the floating leg
     pub start: Date,
@@ -158,14 +154,14 @@ pub struct FloatLegSpec {
     /// support for lookback and observation shift conventions. For seasoned (already
     /// started) compounded swaps, pricing requires explicit fixings for observation
     /// dates prior to `as_of`.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub compounding: crate::instruments::rates::irs::FloatingLegCompounding,
     /// Payment delay in business days after period end (default: 0).
     ///
     /// Bloomberg OIS swaps typically use 2 business days payment delay.
     /// The actual payment date is adjusted from the period end date by
     /// this many business days using the leg's calendar.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub payment_delay_days: i32,
     /// End-of-month roll convention (default: false).
     ///
@@ -178,7 +174,7 @@ pub struct FloatLegSpec {
     /// Per ISDA 2006 Definitions Section 4.18, the End-of-Month convention should
     /// be applied when the effective date is the last business day of a month.
     /// Most professional systems (QuantLib, Bloomberg SWDF) default to `true`.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub end_of_month: bool,
 }
 
@@ -187,8 +183,7 @@ pub struct FloatLegSpec {
 /// A basis swap leg represents one side of a floating-for-floating interest rate swap,
 /// where two parties exchange payments linked to different floating rate indices
 /// (e.g., 3M SOFR vs 6M SOFR).
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BasisSwapLeg {
     /// Forward curve identifier for this leg
     pub forward_curve_id: CurveId,
@@ -234,20 +229,19 @@ pub struct BasisSwapLeg {
     ///
     /// E.g., `payment_lag_days: 2` means payment occurs 2 business days after the
     /// accrual period end date.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub payment_lag_days: i32,
     /// Reset lag in business days before period start (default: 0).
     ///
     /// E.g., `reset_lag_days: 2` means the rate fixing occurs 2 business days before
     /// the accrual period start date. This follows standard market convention where
     /// fixing typically precedes the accrual period.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub reset_lag_days: i32,
 }
 
 /// Specification for CDS premium legs
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PremiumLegSpec {
     /// Start date of protection
     pub start: Date,
@@ -270,8 +264,7 @@ pub struct PremiumLegSpec {
 }
 
 /// Specification for CDS protection legs
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProtectionLegSpec {
     /// Credit curve identifier for default probabilities
     pub credit_curve_id: CurveId,
@@ -348,8 +341,7 @@ impl ProtectionLegSpec {
 // instrument `Attributes`.
 
 /// Specification for TRS financing legs
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FinancingLegSpec {
     /// Discount curve identifier for present value calculations
     pub discount_curve_id: CurveId,
@@ -379,8 +371,7 @@ impl FinancingLegSpec {
 }
 
 /// Specification for TRS total return legs
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TotalReturnLegSpec {
     /// Reference index or asset identifier
     pub reference_id: String,

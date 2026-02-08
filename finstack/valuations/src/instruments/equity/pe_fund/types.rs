@@ -13,9 +13,10 @@ use finstack_core::types::{CurveId, InstrumentId};
 use time::macros::date;
 
 /// Private markets fund investment instrument.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct PrivateMarketsFund {
     /// id.
     pub id: InstrumentId,
@@ -28,7 +29,7 @@ pub struct PrivateMarketsFund {
     /// disc id.
     pub discount_curve_id: Option<CurveId>,
     /// Attributes.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

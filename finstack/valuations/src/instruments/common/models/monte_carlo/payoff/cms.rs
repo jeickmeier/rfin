@@ -12,7 +12,7 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
 /// CMS payoff type (cap or floor).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CmsType {
     /// CMS cap (pays max(S - K, 0))
     Cap,
@@ -21,7 +21,7 @@ pub enum CmsType {
 }
 
 /// CMS cap/floor payoff (portfolio of caplets/floorlets).
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CmsPayoff {
     /// Strike rate (e.g., 0.04 for 4%)
     pub strike_rate: f64,

@@ -6,5 +6,4 @@
 //! - [`result_roundtrip`]: ValuationResult serialization
 
 pub mod instrument_roundtrip;
-#[cfg(feature = "serde")]
 pub mod result_roundtrip;

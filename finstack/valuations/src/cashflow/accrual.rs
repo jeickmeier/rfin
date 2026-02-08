@@ -120,8 +120,7 @@ fn advance_business_days<C: HolidayCalendar + ?Sized>(cal: &C, mut date: Date, d
 /// This mirrors the semantics of bond accrual methods but is defined at the
 /// cashflow layer so it can be reused by any instrument that exposes a
 /// `CashFlowSchedule`.
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum AccrualMethod {
     /// Linear accrual (simple interest interpolation).
@@ -138,7 +137,7 @@ pub enum AccrualMethod {
 }
 
 /// Ex-coupon convention applied to coupon flows.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ExCouponRule {
     /// Number of days before coupon date that go ex.
     pub days_before_coupon: u32,
@@ -150,7 +149,7 @@ pub struct ExCouponRule {
 }
 
 /// Generic configuration for schedule-driven interest accrual.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct AccrualConfig {
     /// Accrual method (Linear or Compounded).
     pub method: AccrualMethod,
@@ -199,7 +198,7 @@ pub fn accrued_interest_amount(
 }
 
 /// Aggregated coupon information for a single payment date.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 struct CouponBucket {
     date: Date,
     cash_amount: f64,
@@ -209,7 +208,7 @@ struct CouponBucket {
 }
 
 /// A single coupon period derived from the schedule.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 struct Period {
     start: Date,
     end: Date,
@@ -218,7 +217,7 @@ struct Period {
 }
 
 /// Inputs required to apply the accrual formula for a single period.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 struct PeriodInputs {
     start: Date,
     end: Date,

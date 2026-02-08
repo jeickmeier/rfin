@@ -9,7 +9,7 @@ use finstack_core::types::Rate;
 /// Swaption-specific parameters.
 ///
 /// Groups swaption parameters beyond basic option parameters.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct SwaptionParams {
     /// Notional amount
     pub notional: Money,

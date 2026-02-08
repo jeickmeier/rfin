@@ -344,7 +344,7 @@ impl FxOptionCalculator {
 }
 
 /// Cash greeks for an FX option (scaled by notional amount).
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 #[allow(dead_code)] // Public API: fields exposed for external bindings and downstream crates
 pub struct FxOptionGreeks {
     /// Delta: sensitivity to spot FX rate (spot delta convention).

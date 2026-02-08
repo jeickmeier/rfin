@@ -57,7 +57,7 @@ pub enum LookbackDirection {
 /// // Seasoned: observed max so far is 120
 /// let seasoned_call = Lookback::with_initial_extremum(LookbackDirection::Call, 100.0, 1.0, 10, 120.0);
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Lookback {
     /// Direction (call or put)
     pub direction: LookbackDirection,
@@ -157,7 +157,7 @@ impl Payoff for Lookback {
 ///
 /// For seasoned options, use [`with_initial_min`](FloatingStrikeLookbackCall::with_initial_min)
 /// to seed the historical minimum.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct FloatingStrikeLookbackCall {
     /// Notional amount
     pub notional: f64,
@@ -229,7 +229,7 @@ impl Payoff for FloatingStrikeLookbackCall {
 ///
 /// For seasoned options, use [`with_initial_max`](FloatingStrikeLookbackPut::with_initial_max)
 /// to seed the historical maximum.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct FloatingStrikeLookbackPut {
     /// Notional amount
     pub notional: f64,

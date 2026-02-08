@@ -87,7 +87,6 @@ fn test_recovery_spec_all_variants_serialize() {
 // Full Instrument Serialization Tests
 // ============================================================================
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_clo_json_roundtrip() {
     // Arrange
@@ -126,7 +125,6 @@ fn test_clo_json_roundtrip() {
     assert_eq!(original.default_spec, deserialized.default_spec);
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_rmbs_with_overrides_serialization() {
     // Arrange
@@ -218,7 +216,6 @@ fn test_recovery_spec_json_format() {
     assert!(json.contains("12"));
 }
 
-#[cfg(feature = "serde")]
 fn build_full_feature_structured_credit() -> StructuredCredit {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
@@ -440,7 +437,6 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
     deal
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_structured_credit_full_feature_json_roundtrip() {
     let original = build_full_feature_structured_credit();
@@ -560,7 +556,6 @@ fn test_structured_credit_full_feature_json_roundtrip() {
     assert_eq!(original.hedge_swaps[0].id, parsed.hedge_swaps[0].id);
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_structured_credit_instrument_envelope_roundtrip() {
     let instrument = build_full_feature_structured_credit();
@@ -589,7 +584,6 @@ fn test_structured_credit_instrument_envelope_roundtrip() {
     }
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_structured_credit_full_example_json_file_roundtrip() {
     let json = include_str!("../../json_examples/structured_credit_full.json");

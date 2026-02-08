@@ -49,9 +49,10 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// F_avg = (Σ_realized + Σ F(t_i)) / n
 /// ```
 /// where the sum includes both realized fixings and projected forwards.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct CommodityAsianOption {
     /// Unique instrument identifier.
     pub id: InstrumentId,

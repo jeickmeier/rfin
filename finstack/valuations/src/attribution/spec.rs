@@ -27,7 +27,7 @@ pub const ATTRIBUTION_SCHEMA_V1: &str = "finstack.attribution/1";
 ///
 /// Mirrors the calibration and instrument envelope patterns with schema versioning
 /// and strict field validation for long-term JSON stability.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttributionEnvelope {
     /// Schema version identifier (currently "finstack.attribution/1")
@@ -72,7 +72,7 @@ impl JsonEnvelope for AttributionEnvelope {
 ///
 /// Contains all data needed to perform attribution: instrument, market snapshots,
 /// dates, and methodology.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttributionSpec {
     /// Instrument to attribute (as JSON envelope)
@@ -98,7 +98,7 @@ pub struct AttributionSpec {
 /// Optional configuration for attribution runs.
 ///
 /// Allows overriding default tolerances and metrics for attribution calculations.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttributionConfig {
     /// Absolute tolerance for residual validation (optional)
@@ -289,7 +289,7 @@ pub fn default_attribution_metrics() -> Vec<MetricId> {
 }
 
 /// Complete attribution result with P&L attribution and metadata.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttributionResult {
     /// P&L attribution with factor decomposition
@@ -299,7 +299,7 @@ pub struct AttributionResult {
 }
 
 /// Top-level envelope for attribution results.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttributionResultEnvelope {
     /// Schema version identifier

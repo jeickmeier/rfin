@@ -30,7 +30,7 @@ use finstack_core::{Error, Result};
 
 /// Configuration for CDS Index pricing. Wraps the underlying CDS config and adds
 /// index-specific policy controls.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CDSIndexPricerConfig {
     /// Underlying CDS pricer config to ensure parity on legs/AoD/schedules.
     pub cds_config: CDSPricerConfig,
@@ -62,7 +62,7 @@ pub struct CDSIndexPricer {
     config: CDSIndexPricerConfig,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 struct ResolvedConstituent {
     cds: CreditDefaultSwap,
     credit_curve_id: CurveId,

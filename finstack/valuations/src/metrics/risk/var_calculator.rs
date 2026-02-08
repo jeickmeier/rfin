@@ -19,8 +19,8 @@ use finstack_core::Result;
 use std::sync::Arc;
 
 /// VaR calculation method.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum VarMethod {
     /// Full revaluation of instrument under each historical scenario.
     ///
@@ -40,7 +40,7 @@ pub enum VarMethod {
 ///
 /// Controls statistical properties such as confidence level and pricing method.
 /// The historical window/observation count is derived from [`MarketHistory`].
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct VarConfig {
     /// Confidence level (e.g., 0.95 for 95% VaR, 0.99 for 99% VaR)
     pub confidence_level: f64,
@@ -80,7 +80,7 @@ impl VarConfig {
 }
 
 /// VaR calculation results.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct VarResult {
     /// Value-at-Risk at specified confidence level (always positive)
     pub var: f64,

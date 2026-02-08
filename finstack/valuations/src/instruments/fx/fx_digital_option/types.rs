@@ -9,8 +9,8 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// Payout type for digital (binary) options.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum DigitalPayoutType {
     /// Pays a fixed cash amount in the payout currency if ITM at expiry.
     CashOrNothing,
@@ -39,9 +39,10 @@ pub enum DigitalPayoutType {
 /// - Reiner, E., & Rubinstein, M. (1991). "Unscrambling the Binary Code."
 ///   *Risk Magazine*, 4(9), 75-83.
 /// - Wystup, U. (2006). *FX Options and Structured Products*. Wiley.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct FxDigitalOption {
     /// Unique instrument identifier
     pub id: InstrumentId,

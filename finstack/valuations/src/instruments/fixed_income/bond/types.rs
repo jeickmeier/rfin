@@ -28,9 +28,10 @@ pub use crate::cashflow::builder::AmortizationSpec;
 /// Supports call/put schedules, quoted prices for yield-to-maturity calculations,
 /// and custom cashflow schedule overrides. Uses a clean `CashflowSpec` that wraps
 /// the canonical builder coupon specs for maximum flexibility and parity.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 // Note: JsonSchema derive requires finstack-core types to implement JsonSchema
 // #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct Bond {
@@ -50,14 +51,14 @@ pub struct Bond {
     /// credit-rate pricing is enabled.
     pub credit_curve_id: Option<CurveId>,
     /// Pricing overrides (including quoted clean price)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Optional call/put schedule (dates and redemption prices as % of par amount).
     pub call_put: Option<CallPutSchedule>,
     /// Optional pre-built cashflow schedule. If provided, this will be used instead of
     /// generating cashflows from the cashflow_spec.
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub custom_cashflows: Option<CashFlowSchedule>,
     /// Accrual method for interest calculation between coupon dates.
     ///
@@ -65,7 +66,7 @@ pub struct Bond {
     /// - `Linear` (default): Simple interest interpolation (most bonds)
     /// - `Compounded`: Actuarial accrual per ICMA Rule 251 (some European bonds)
     /// - `Indexed`: Index ratio interpolation (inflation-linked bonds like TIPS)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     #[builder(default)]
     pub accrual_method: crate::cashflow::accrual::AccrualMethod,
     /// Attributes for scenario selection and tagging.
@@ -99,8 +100,7 @@ pub struct Bond {
 ///     price_pct_of_par: 102.0,
 /// };
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CallPut {
     /// Exercise date of the option.
     pub date: Date,
@@ -126,8 +126,7 @@ pub struct CallPut {
 ///     price_pct_of_par: 102.0,
 /// });
 /// ```
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct CallPutSchedule {
     /// Call options (issuer can redeem early).
     pub calls: Vec<CallPut>,

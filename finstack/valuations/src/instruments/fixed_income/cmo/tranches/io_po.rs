@@ -6,7 +6,7 @@
 use crate::instruments::fixed_income::cmo::types::CmoTranche;
 
 /// IO strip characteristics.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct IoStripCharacteristics {
     /// Notional amount (used for interest calculation)
     pub notional: f64,
@@ -43,7 +43,7 @@ impl IoStripCharacteristics {
 }
 
 /// PO strip characteristics.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PoStripCharacteristics {
     /// Face amount
     pub face: f64,

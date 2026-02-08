@@ -50,7 +50,7 @@ use finstack_core::Result;
 // ============================================================================
 
 /// Time grid specification for swaption LSMC.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub enum TimeGridSpec {
     /// Use a uniform grid with specified number of steps.
     Uniform {
@@ -78,7 +78,7 @@ impl Default for TimeGridSpec {
 /// | basis_degree | 3 | Polynomial degree for regression |
 /// | antithetic | true | Use antithetic variates |
 /// | control_variate | false | Use European as control |
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct SwaptionLsmcConfig {
     /// Number of Monte Carlo paths.
     ///
@@ -257,7 +257,7 @@ impl SwaptionLsmcConfig {
 ///
 /// Including the annuity as a state variable can improve regression quality
 /// for swaptions where both rate level and annuity affect option value.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ExtendedSwaptionBasis {
     /// Polynomial degree for swap rate
     degree: usize,

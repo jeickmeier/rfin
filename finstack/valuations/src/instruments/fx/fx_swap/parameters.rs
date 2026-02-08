@@ -5,7 +5,7 @@ use finstack_core::{dates::Date, money::Money};
 /// FX Swap specific parameters.
 ///
 /// Groups parameters specific to FX swaps.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct FxSwapParams {
     /// Near leg date
     pub near_date: Date,

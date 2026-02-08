@@ -602,7 +602,7 @@ pub fn build_dated_flows(schedule: &CashFlowSchedule) -> DatedFlows {
 }
 
 /// Period-level EIR amortization outputs for reporting.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct OidEirPeriod {
     /// Period end date.
     pub date: Date,
@@ -621,7 +621,7 @@ pub struct OidEirPeriod {
 }
 
 /// EIR amortization schedule output.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct OidEirSchedule {
     /// Effective interest rate.
     pub effective_rate: f64,

@@ -858,6 +858,21 @@ impl DiscountCurve {
 
     /// Builder entry-point.
     ///
+    /// Takes the curve identifier as a required argument because every curve
+    /// is uniquely keyed by its `CurveId`, and the remaining parameters
+    /// (`base`, `day_count`, interpolation, etc.) all have sensible defaults.
+    /// This makes `DiscountCurve::builder("USD-OIS")` both concise and
+    /// self-documenting.
+    ///
+    /// **Design note:** This `Type::builder(id)` pattern is used consistently
+    /// across all `finstack-core` term structures (discount, forward, hazard,
+    /// inflation, price, vol-index, vol-surface, base-correlation). Instrument
+    /// types in `finstack-valuations` use a different convention —
+    /// `Type::builder()` with no args — because instruments have many
+    /// required fields where named setters are more practical than positional
+    /// arguments. See the `FinancialBuilder` derive macro docs for the full
+    /// rationale.
+    ///
     /// **Note:** Monotonic discount factor validation is enabled by default to ensure
     /// no-arbitrage conditions. Use `.allow_non_monotonic()` if you need to disable this
     /// validation (not recommended for production use).

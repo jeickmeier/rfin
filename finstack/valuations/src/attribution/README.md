@@ -483,7 +483,7 @@ Total P&L: 125430.00 USD
 Edit `types.rs`:
 
 ```rust
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum AttributionFactor {
     Carry,
@@ -533,7 +533,7 @@ pub struct PnlAttribution {
 Define detailed attribution struct:
 
 ```rust
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CorrelationSkewAttribution {
     pub by_curve: IndexMap<CurveId, Money>,
@@ -608,7 +608,7 @@ pub fn validate_currencies(&self) -> Result<()> {
 Edit `factors.rs`:
 
 ```rust
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CorrelationSkewSnapshot {
     pub skew_params: HashMap<CurveId, SkewParameters>,
 }
@@ -863,7 +863,7 @@ fn test_skew_detail_export() {
 Edit `model_params.rs`:
 
 ```rust
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ModelParamsSnapshot {
     StructuredCredit { /* ... */ },

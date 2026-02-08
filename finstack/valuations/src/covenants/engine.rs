@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 // Covenant type definitions were previously under loan; re-introduce minimal versions locally
 /// Whether a covenant is tested periodically or only upon an action.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CovenantScope {
     /// Tested on a schedule (e.g., quarterly leverage tests).
     Maintenance,
@@ -21,7 +21,7 @@ pub enum CovenantScope {
 }
 
 /// Optional activation condition for springing covenants.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpringingCondition {
     /// Metric that controls activation (e.g., revolver utilization).
     pub metric_id: MetricId,
@@ -30,7 +30,7 @@ pub struct SpringingCondition {
 }
 
 /// Financial covenant specification with test frequency and consequences.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Covenant {
     /// Type of covenant (leverage, coverage, etc.)
     pub covenant_type: CovenantType,
@@ -123,7 +123,7 @@ fn describe_covenant_type(covenant_type: &CovenantType) -> String {
 }
 
 /// Type of financial or operational covenant
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CovenantType {
     /// Maximum debt-to-EBITDA ratio
     MaxDebtToEBITDA {
@@ -182,7 +182,7 @@ pub enum CovenantType {
 }
 
 /// Threshold test type (maximum or minimum bound)
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum ThresholdTest {
     /// Maximum allowed value
     Maximum(f64),
@@ -191,7 +191,7 @@ pub enum ThresholdTest {
 }
 
 /// Direction of inequality for numeric covenants.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BoundKind {
     /// Covenant passes when the metric is less than or equal to the threshold.
     AtMost,
@@ -257,7 +257,7 @@ impl CovenantType {
 }
 
 /// Consequence of covenant breach
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CovenantConsequence {
     /// Event of default
     Default,
@@ -353,7 +353,7 @@ impl CovenantSpec {
 /// This is a serialization-friendly envelope used by higher-level tooling.
 /// The `CovenantEngine` does not currently evaluate `CovenantTestSpec`
 /// instances directly.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CovenantTestSpec {
     /// Covenant specifications to test
     pub specs: Vec<CovenantSpec>,
@@ -364,7 +364,7 @@ pub struct CovenantTestSpec {
 }
 
 /// Covenant window for scheduled testing.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CovenantWindow {
     /// Start date of the window
     pub start: Date,
@@ -380,7 +380,7 @@ pub struct CovenantWindow {
 }
 
 /// Covenant breach tracking.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CovenantBreach {
     /// Covenant that was breached
     pub covenant_type: String,
@@ -795,7 +795,7 @@ pub(crate) fn headroom_for(cov: &CovenantType, value: f64, threshold: f64) -> f6
 }
 
 /// Result of applying a covenant consequence.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConsequenceApplication {
     /// Type of consequence applied
     pub consequence_type: String,

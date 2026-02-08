@@ -15,7 +15,7 @@ use finstack_core::Result;
 ///
 /// Represents the change in a market variable from its base value.
 /// For example, a +15bp shift in 5Y USD rates.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct RiskFactorShift {
     /// Risk factor being shifted
     pub factor: RiskFactorType,
@@ -30,7 +30,7 @@ pub struct RiskFactorShift {
 ///
 /// Represents a complete market scenario that can be applied to revalue
 /// a portfolio. Each scenario contains shifts for all relevant risk factors.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct MarketScenario {
     /// Historical date this scenario represents
     pub date: Date,
@@ -105,7 +105,7 @@ fn parallel_bp_bump(curve_id: &CurveId, shift: f64) -> (CurveId, BumpSpec) {
 ///
 /// Stores a time series of market scenarios representing historical market
 /// shifts over a lookback window (e.g., last 500 days).
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct MarketHistory {
     /// Base date (current market state reference point)
     pub base_date: Date,

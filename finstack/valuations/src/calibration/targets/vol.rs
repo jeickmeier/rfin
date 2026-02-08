@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 /// A newtype wrapper for f64 that implements Ord for use as BTreeMap keys.
 /// Uses total ordering where NaN values are treated as greater than all other values.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct OrderedF64(f64);
 
 impl Eq for OrderedF64 {}

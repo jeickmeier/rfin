@@ -11,12 +11,11 @@ use finstack_core::HashMap;
 use finstack_core::Result;
 use finstack_core::{Error as CoreError, InputError};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Coverage test type (OC/IC).
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum CoverageTest {
     /// Overcollateralization test.
     OC {
@@ -338,8 +337,7 @@ pub struct TestContext<'a> {
 }
 
 /// Result of a coverage test calculation.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestResult {
     /// Test identifier.
     pub test_id: String,

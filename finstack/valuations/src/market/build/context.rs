@@ -44,7 +44,7 @@ use finstack_core::HashMap;
 ///     HashMap::default(), // Empty - builders will use currency-based defaults
 /// );
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BuildCtx {
     /// The valuation date for which the instrument is being built.
     ///

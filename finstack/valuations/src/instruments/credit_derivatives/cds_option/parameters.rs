@@ -34,8 +34,7 @@ pub const MAX_STRIKE_SPREAD_BP: f64 = 10000.0;
 /// - `strike_spread_bp`: Must be in (0, 10000] bp
 /// - `expiry`: Must be before `cds_maturity`
 /// - `index_factor`: Must be in (0, 1] when specified
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CdsOptionParams {
     /// Strike spread in basis points (must be > 0)
     pub strike_spread_bp: f64,

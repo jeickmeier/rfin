@@ -45,9 +45,10 @@ use time::macros::date;
 /// let trs = EquityTotalReturnSwap::example();
 /// // let pv = trs.value(&market_context, as_of_date)?;
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct EquityTotalReturnSwap {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -86,7 +87,7 @@ pub struct EquityTotalReturnSwap {
     /// - US qualified dividends: typically 0% for domestic investors
     /// - US non-qualified: up to 30% for foreign investors (varies by treaty)
     /// - European: varies by country (15-30% typical)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     #[builder(default)]
     pub dividend_tax_rate: f64,
     /// Attributes for scenario selection and tagging.

@@ -44,7 +44,7 @@ use super::super::traits::Discretization;
 ///   E[r_{t+Δt}|r_t] = r_t e^{-κΔt} + θ(1 - e^{-κΔt})
 ///   Std[r_{t+Δt}|r_t] = σ√[(1 - e^{-2κΔt}) / (2κ)]
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ExactHullWhite1F;
 
 impl ExactHullWhite1F {

@@ -22,7 +22,7 @@ use finstack_core::math::special_functions::norm_cdf;
 /// - Compute ψ = s²/m² (scaled variance)
 /// - If ψ ≤ ψ_c: use power/gamma approximation
 /// - If ψ > ψ_c: use exponential/uniform mixture
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct QeCir {
     /// Critical value for ψ (default 1.5)
     psi_c: f64,

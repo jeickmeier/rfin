@@ -9,12 +9,10 @@ use finstack_core::money::Money;
 
 use super::pool::{AssetPool, PoolAsset};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Manages reinvestment during the reinvestment period (price-only selection)
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReinvestmentManager {
     /// End date of reinvestment period
     pub end_date: Date,

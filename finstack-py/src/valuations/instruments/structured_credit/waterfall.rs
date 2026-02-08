@@ -47,6 +47,7 @@ impl From<RustAllocationMode> for PyAllocationMode {
         match value {
             RustAllocationMode::Sequential => PyAllocationMode::Sequential,
             RustAllocationMode::ProRata => PyAllocationMode::ProRata,
+            _ => unreachable!("unknown AllocationMode variant"),
         }
     }
 }
@@ -87,6 +88,7 @@ impl From<RustPaymentType> for PyPaymentType {
             RustPaymentType::Interest => PyPaymentType::Interest,
             RustPaymentType::Principal => PyPaymentType::Principal,
             RustPaymentType::Residual => PyPaymentType::Residual,
+            _ => unreachable!("unknown PaymentType variant"),
         }
     }
 }

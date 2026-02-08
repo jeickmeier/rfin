@@ -63,7 +63,7 @@ use ts_rs::TS;
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "class", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MarketQuote {
     /// Interest rate instruments
@@ -79,7 +79,7 @@ pub enum MarketQuote {
 }
 
 /// Explicit bump units for market quotes.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum MarketQuoteBump {
     /// Rate expressed in decimal units (e.g., 0.0001 = 1bp).
     RateDecimal(f64),

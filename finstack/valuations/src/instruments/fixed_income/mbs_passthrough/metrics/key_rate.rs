@@ -13,8 +13,11 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::HashMap;
 use finstack_core::Result;
 
-/// Standard key rate tenors for MBS analysis.
-pub const STANDARD_TENORS: &[(&str, f64)] = &[
+/// Standard key-rate DV01 tenors for MBS analysis.
+///
+/// Note: this differs from `finstack_core::market_data::diff::STANDARD_TENORS`
+/// which provides swap curve sampling tenors.
+pub const KEY_RATE_TENORS: &[(&str, f64)] = &[
     ("2Y", 2.0),
     ("5Y", 5.0),
     ("10Y", 10.0),
@@ -23,7 +26,7 @@ pub const STANDARD_TENORS: &[(&str, f64)] = &[
 ];
 
 /// Key-rate DV01 result.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct KeyRateDv01Result {
     /// DV01 by tenor (map from tenor label to DV01 value)
     pub dv01_by_tenor: HashMap<String, f64>,
@@ -73,7 +76,7 @@ pub fn key_rate_dv01(
     market: &MarketContext,
     as_of: Date,
 ) -> Result<KeyRateDv01Result> {
-    key_rate_dv01_with_tenors(mbs, market, as_of, STANDARD_TENORS)
+    key_rate_dv01_with_tenors(mbs, market, as_of, KEY_RATE_TENORS)
 }
 
 /// Calculate key-rate DV01 for custom tenors.
@@ -264,7 +267,7 @@ mod tests {
         let result = key_rate_dv01(&mbs, &market, as_of).expect("key rate dv01");
 
         // Should have all standard tenors
-        assert_eq!(result.dv01_by_tenor.len(), STANDARD_TENORS.len());
+        assert_eq!(result.dv01_by_tenor.len(), KEY_RATE_TENORS.len());
 
         // Each DV01 should be a reasonable value
         for (tenor, dv01) in &result.dv01_by_tenor {

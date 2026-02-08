@@ -15,9 +15,8 @@ use std::io::Read;
 ///
 /// This wrapper allows for future schema evolution while maintaining
 /// compatibility with existing JSON files.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 // Note: JsonSchema derive requires finstack-core types to implement JsonSchema
 // #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct InstrumentEnvelope {
@@ -49,6 +48,7 @@ pub struct InstrumentEnvelope {
 // Note: JsonSchema derive requires finstack-core types to implement JsonSchema
 // #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(tag = "type", content = "spec", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum InstrumentJson {
     // Fixed Income
     /// Fixed or floating rate bond

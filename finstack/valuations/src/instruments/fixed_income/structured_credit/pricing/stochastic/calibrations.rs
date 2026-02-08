@@ -20,7 +20,7 @@
 /// RMBS standard calibration parameters.
 ///
 /// Suitable for agency and prime non-agency RMBS pools.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RmbsCalibration {
     /// Base annual conditional default rate (CDR)
     pub base_cdr: f64,
@@ -67,7 +67,7 @@ pub const RMBS_STANDARD: RmbsCalibration = RmbsCalibration {
 /// CLO standard calibration parameters.
 ///
 /// Suitable for broadly syndicated loan CLOs.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CloCalibration {
     /// Base annual conditional default rate (CDR)
     pub base_cdr: f64,
@@ -107,7 +107,7 @@ pub const CLO_STANDARD: CloCalibration = CloCalibration {
 /// CMBS standard calibration parameters.
 ///
 /// Suitable for conduit CMBS transactions.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CmbsCalibration {
     /// Base annual conditional default rate (CDR)
     pub base_cdr: f64,

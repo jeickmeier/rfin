@@ -399,7 +399,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
 }
 
 /// Result of Bermudan swaption pricing with additional analytics.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BermudanSwaptionPriceResult {
     /// Present value
     pub pv: f64,

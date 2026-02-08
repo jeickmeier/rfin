@@ -135,7 +135,7 @@ pub fn check_barrier_hit(
 }
 
 /// Barrier direction.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BarrierDirection {
     /// Up barrier (knocked out/in when S >= B)
     Up,

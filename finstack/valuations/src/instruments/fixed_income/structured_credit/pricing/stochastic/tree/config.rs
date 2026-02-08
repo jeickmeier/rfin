@@ -14,9 +14,9 @@ use crate::instruments::common_impl::models::correlation::recovery::RecoverySpec
 const MAX_NODE_CAPACITY: usize = 50_000_000;
 
 /// Branching specification for scenario tree generation.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type", deny_unknown_fields))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", deny_unknown_fields)]
+#[non_exhaustive]
 pub enum BranchingSpec {
     /// Fixed branching factor at each node.
     ///
@@ -123,8 +123,7 @@ impl BranchingSpec {
 }
 
 /// Configuration for scenario tree generation.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ScenarioTreeConfig {
     /// Number of time periods (typically monthly)
     pub num_periods: usize,

@@ -13,8 +13,8 @@ use finstack_core::HashMap;
 use finstack_core::Result;
 
 /// Risk classes for SIMM categorization.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum SimmRiskClass {
     /// Interest rate risk
     InterestRate,
@@ -65,8 +65,7 @@ impl std::fmt::Display for SimmRiskClass {
 /// // Add credit delta
 /// sensitivities.add_credit_delta("CDX.NA.IG", true, "5Y", 50_000.0);
 /// ```
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SimmSensitivities {
     /// Base currency for the sensitivities
     pub base_currency: Currency,
@@ -263,8 +262,7 @@ impl SimmSensitivities {
 /// Instruments in the same netting set can offset each other for margin
 /// calculation purposes. The netting set is typically defined by the
 /// CSA agreement or CCP membership.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct NettingSetId {
     /// Counterparty identifier
     pub counterparty_id: String,
@@ -374,8 +372,7 @@ pub trait Marginable: Instrument {
 }
 
 /// Result of calculating margin for an instrument.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct InstrumentMarginResult {
     /// Instrument identifier
     pub instrument_id: String,

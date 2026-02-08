@@ -34,7 +34,7 @@ use finstack_core::math::standard_normal_inv_cdf;
 ///
 /// Allows applying seasoning-dependent multipliers to base CDR,
 /// following industry-standard curves like SDA for mortgages.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub enum SeasoningCurve {
     /// No seasoning adjustment (constant CDR).
     #[default]
@@ -125,7 +125,7 @@ impl SeasoningCurve {
 ///
 /// Uses the shared copula infrastructure for default correlation modeling.
 /// Supports seasoning-adjusted default rates via optional seasoning curve.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CopulaBasedDefault {
     /// Base annual CDR
     base_cdr: f64,

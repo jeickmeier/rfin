@@ -113,8 +113,7 @@ use indexmap::IndexMap;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ValuationResult {
     /// Unique identifier for the priced instrument.
     pub instrument_id: String,
@@ -180,7 +179,7 @@ pub struct ValuationResult {
     ///
     /// Enabled via `ExplainOpts` in configuration. Provides step-by-step
     /// trace of calculations for debugging and auditability.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub explanation: Option<ExplanationTrace>,
 }
 

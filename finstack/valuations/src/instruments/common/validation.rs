@@ -12,41 +12,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
-/// Require a condition to be true, otherwise return a validation error.
-#[inline]
-pub fn require(condition: bool, message: impl Into<String>) -> finstack_core::Result<()> {
-    if condition {
-        Ok(())
-    } else {
-        Err(finstack_core::Error::Validation(message.into()))
-    }
-}
-
-/// Require a condition to be true, otherwise return the provided error.
-#[inline]
-pub fn require_or(
-    condition: bool,
-    err: impl Into<finstack_core::Error>,
-) -> finstack_core::Result<()> {
-    if condition {
-        Ok(())
-    } else {
-        Err(err.into())
-    }
-}
-
-/// Require a condition to be true, lazily constructing the error message.
-#[inline]
-pub fn require_with(
-    condition: bool,
-    message: impl FnOnce() -> String,
-) -> finstack_core::Result<()> {
-    if condition {
-        Ok(())
-    } else {
-        Err(finstack_core::Error::Validation(message()))
-    }
-}
+// Re-export generic validation helpers from core.
+pub use finstack_core::validation::{require, require_or, require_with};
 
 /// Validate `end > start` for a date range.
 #[inline]

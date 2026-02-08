@@ -8,8 +8,8 @@ use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tr
 use std::sync::Arc;
 
 /// Pricing mode selection.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum PricingMode {
     /// Tree-based pricing (exact, non-recombining)
     #[default]

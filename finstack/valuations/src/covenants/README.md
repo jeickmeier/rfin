@@ -433,7 +433,7 @@ let threshold = threshold_for_date(&schedule, test_date); // Some(5.5)
 **1. Extend the `CovenantType` enum** (`engine.rs`):
 
 ```rust
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub enum CovenantType {
     // ... existing variants ...
 
@@ -509,7 +509,7 @@ fn evaluate_tangible_net_worth_covenant() {
 **1. Extend `CovenantConsequence` enum** (`engine.rs`):
 
 ```rust
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub enum CovenantConsequence {
     // ... existing variants ...
 

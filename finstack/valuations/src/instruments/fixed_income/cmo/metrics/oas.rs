@@ -11,7 +11,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
 /// CMO tranche OAS result.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CmoOasResult {
     /// Option-adjusted spread (decimal)
     pub oas: f64,

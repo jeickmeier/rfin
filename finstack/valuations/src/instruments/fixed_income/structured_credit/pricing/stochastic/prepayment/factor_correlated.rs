@@ -33,7 +33,7 @@ use finstack_core::types::Percentage;
 ///
 /// Shocks a base CPR specification by a systematic factor.
 /// Used for simple stochastic prepayment correlation.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct FactorCorrelatedPrepay {
     /// Base deterministic prepayment specification
     base_spec: PrepaymentModelSpec,

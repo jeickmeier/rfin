@@ -16,7 +16,7 @@ use finstack_core::money::Money;
 /// - The payoff is converted to domestic currency via FX rate
 ///
 /// The quanto adjustment accounts for correlation between equity and FX rates.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct QuantoCallPayoff {
     /// Equity strike price (in foreign currency)
     pub equity_strike: f64,
@@ -130,7 +130,7 @@ impl Payoff for QuantoCallPayoff {
 /// Quanto put option payoff.
 ///
 /// A quanto put pays max(K - S_T, 0) in domestic currency.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct QuantoPutPayoff {
     /// Equity strike price (in foreign currency)
     pub equity_strike: f64,

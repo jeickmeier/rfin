@@ -54,9 +54,10 @@ use time::macros::date;
 ///     .build()
 ///     .expect("Valid forward");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct FxForward {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -669,7 +670,6 @@ mod tests {
         assert_eq!(deps.discount_curves.len(), 2);
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_fx_forward_serde_roundtrip() {
         let forward = FxForward::example();

@@ -61,8 +61,7 @@ use std::sync::OnceLock;
 pub use crate::instruments::common_impl::parameters::legs::PayReceive;
 
 /// ISDA CDS conventions
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum CDSConvention {
     /// Standard North American convention (quarterly, Act/360)
     IsdaNa,
@@ -283,7 +282,7 @@ pub(crate) fn resolve_market_conventions(
         })
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct CdsConventionResolved {
     pub doc_clause: CDSConvention,
     pub day_count: DayCount,
@@ -294,7 +293,7 @@ pub(crate) struct CdsConventionResolved {
     pub default_calendar_id: String,
 }
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CdsConventionRecord {
     doc_clause: CDSConvention,
@@ -411,9 +410,10 @@ pub use crate::instruments::common_impl::parameters::legs::{PremiumLegSpec, Prot
 /// - Bloomberg CDSW function documentation
 ///
 /// See unit tests and `examples/` for usage.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 // Note: JsonSchema derive requires finstack-core types to implement JsonSchema
 // #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct CreditDefaultSwap {

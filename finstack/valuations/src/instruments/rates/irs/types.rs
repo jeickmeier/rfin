@@ -34,7 +34,7 @@ pub use crate::instruments::common_impl::parameters::legs::FloatLegSpec;
 /// This is intentionally minimal: it captures the schedule/lag/calendar knobs
 /// that are commonly resolved from market conventions (e.g. calibration quote
 /// conventions) while keeping the instrument surface stable.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct IrsLegConventions {
     /// Fixed leg payment frequency.
     pub fixed_freq: Tenor,
@@ -103,9 +103,10 @@ pub struct IrsLegConventions {
 /// - ISDA 2021 Definitions (for RFR compounding conventions)
 /// - "Interest Rate Swaps and Their Derivatives" by Amir Sadr
 /// - Bloomberg SWPM function documentation
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct InterestRateSwap {
     /// Unique identifier for the swap.
     pub id: InstrumentId,

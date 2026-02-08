@@ -34,20 +34,21 @@
 //! accrual period length. For STIR futures on SOFR, adjustments are typically
 //! sourced from broker screens or implied from listed options.
 use crate::cashflow::traits::CashflowProvider;
-use crate::constants::{ONE_BASIS_POINT, PERCENT_TO_DECIMAL};
+use crate::constants::ONE_BASIS_POINT;
 // Params-based constructor removed; build via builder instead.
 use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, Rate};
 use time::macros::date;
 
 /// Interest Rate Future instrument.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct InterestRateFuture {
     /// Unique identifier
     pub id: InstrumentId,
@@ -85,8 +86,7 @@ pub struct InterestRateFuture {
 ///
 /// Encapsulates exchange-defined contract parameters and optional convexity
 /// adjustment for pricing.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FutureContractSpecs {
     /// Face value of contract (e.g., $1,000,000 for Eurodollar/SOFR futures)
     pub face_value: f64,
@@ -130,8 +130,8 @@ impl Default for FutureContractSpecs {
 }
 
 /// Position side for futures.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum Position {
     /// Long position (buyer of futures contract)
     Long,
@@ -197,9 +197,11 @@ impl InterestRateFuture {
     }
 
     /// Get implied rate from quoted price.
-    /// Interest rate futures quote as 100 minus the rate.
-    pub fn implied_rate(&self) -> f64 {
-        (100.0 - self.quoted_price) * PERCENT_TO_DECIMAL
+    ///
+    /// Interest rate futures quote as 100 minus the rate, i.e., a price of 97.50
+    /// implies a 2.50% rate.
+    pub fn implied_rate(&self) -> Rate {
+        Rate::from_percent(100.0 - self.quoted_price)
     }
 
     /// Calculates the present value of the interest rate future.
@@ -259,7 +261,7 @@ impl InterestRateFuture {
 
         // Implied rate from price and accrual over the underlying period.
         // The accrual uses the instrument's day count (contract convention).
-        let implied_rate = self.implied_rate();
+        let implied_rate = self.implied_rate().as_decimal();
         let tau = self
             .day_count
             .year_fraction(self.period_start, self.period_end, DayCountCtx::default())?

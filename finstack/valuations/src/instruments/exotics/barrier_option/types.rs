@@ -8,8 +8,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// Barrier type for barrier options.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BarrierType {
     /// Up-and-out: option knocked out if S >= B
     UpAndOut,
@@ -47,9 +46,10 @@ fn default_gobet_miri() -> bool {
 ///
 /// - Broadie, Glasserman & Kou (1997), "A Continuity Correction for Discrete Barrier Options"
 /// - Gobet (2000), "Weak Approximation of Killed Diffusion Using Euler Schemes"
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct BarrierOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -88,7 +88,7 @@ pub struct BarrierOption {
     /// Always use `true` for production pricing of barrier options. Continuous
     /// barrier formulas systematically underestimate discrete barrier option values.
     #[builder(default = default_gobet_miri())]
-    #[cfg_attr(feature = "serde", serde(default = "default_gobet_miri"))]
+    #[serde(default = "default_gobet_miri")]
     pub use_gobet_miri: bool,
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,

@@ -53,7 +53,6 @@ fn test_position_copy() {
     assert_eq!(pos, copied);
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_position_serde() {
     let long = Position::Long;

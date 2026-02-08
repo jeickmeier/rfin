@@ -12,9 +12,9 @@ use crate::instruments::fixed_income::structured_credit::utils::rates::cpr_to_sm
 ///
 /// Allows prepayment model selection and configuration without
 /// constructing the full model, enabling serialization and deferred construction.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "model", deny_unknown_fields))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "model", deny_unknown_fields)]
+#[non_exhaustive]
 pub enum StochasticPrepaySpec {
     /// Use deterministic prepayment model (no stochastic component).
     Deterministic(PrepaymentModelSpec),
@@ -45,10 +45,10 @@ pub enum StochasticPrepaySpec {
         /// Burnout decay rate
         burnout_rate: f64,
         /// Factor loading for correlation
-        #[cfg_attr(feature = "serde", serde(default = "default_factor_loading"))]
+        #[serde(default = "default_factor_loading")]
         factor_loading: f64,
         /// CPR volatility
-        #[cfg_attr(feature = "serde", serde(default = "default_cpr_volatility"))]
+        #[serde(default = "default_cpr_volatility")]
         cpr_volatility: f64,
     },
 
@@ -67,12 +67,10 @@ pub enum StochasticPrepaySpec {
     },
 }
 
-#[cfg(feature = "serde")]
 fn default_factor_loading() -> f64 {
     0.4
 }
 
-#[cfg(feature = "serde")]
 fn default_cpr_volatility() -> f64 {
     0.20
 }

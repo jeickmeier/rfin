@@ -16,7 +16,7 @@ use finstack_core::Result;
 /// Each risk factor represents a market variable that can shift and impact
 /// portfolio valuations. Risk factors are bucketed at standard tenors/strikes
 /// to enable historical simulation.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RiskFactorType {
     /// Discount curve rate at a specific tenor (in years).
     DiscountRate {

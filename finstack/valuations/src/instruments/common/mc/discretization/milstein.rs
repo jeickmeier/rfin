@@ -57,7 +57,7 @@ use super::super::traits::{Discretization, StochasticProcess};
 /// - Diffusion is not proportional to state (CIR, OU — use exact/QE schemes)
 /// - Weak convergence is sufficient (Euler is simpler)
 /// - Exact schemes are available (GBM, OU)
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Milstein;
 
 impl Milstein {
@@ -118,7 +118,7 @@ impl<P: StochasticProcess> Discretization<P> for Milstein {
 /// ```
 ///
 /// The last term simplifies to: (σ/X)²Z²Δt/2
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct LogMilstein;
 
 impl LogMilstein {

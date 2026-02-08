@@ -13,7 +13,7 @@ use finstack_core::currency::Currency;
 use finstack_core::Result;
 
 /// Configuration for European option pricing.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct EuropeanPricerConfig {
     /// Number of Monte Carlo paths
     pub num_paths: usize,

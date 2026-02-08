@@ -50,8 +50,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// Lookback option type.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LookbackType {
     /// Fixed strike lookback: payoff depends on max/min relative to fixed strike
     FixedStrike,
@@ -76,9 +75,10 @@ pub enum LookbackType {
 /// - `observed_max`: Maximum spot observed so far (for floating puts / fixed calls)
 ///
 /// If not provided, the current spot is used as the starting extremum.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct LookbackOption {
     /// Unique instrument identifier
     pub id: InstrumentId,

@@ -451,10 +451,10 @@ mod tests {
     use super::*;
     use crate::calibration::solver::traits::BootstrapTarget;
 
-    #[derive(Clone, Debug)]
+    #[derive(Debug, Clone)]
     struct DummyTarget;
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Debug, Clone, PartialEq)]
     struct DummyCurve(Vec<(f64, f64)>);
 
     impl BootstrapTarget for DummyTarget {
@@ -512,7 +512,7 @@ mod solver_tests {
     use super::*;
     use finstack_core::Error;
 
-    #[derive(Clone, Debug)]
+    #[derive(Debug, Clone)]
     struct DummyQuote {
         t: f64,
         root: f64,
@@ -665,7 +665,7 @@ mod solver_tests {
         // Core Brent termination is x-space based. For large-magnitude roots and steep residuals,
         // x-space termination can occur while |residual| is still far above tolerance.
         // This test ensures the bootstrapper enforces |residual| <= tolerance after solving.
-        #[derive(Clone, Debug)]
+        #[derive(Debug, Clone)]
         struct SteepQuote {
             t: f64,
             root: f64,

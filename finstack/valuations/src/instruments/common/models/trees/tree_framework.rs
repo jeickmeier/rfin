@@ -23,7 +23,7 @@
 //!
 //! If a future requirement emerges (e.g., scenario storage, calibration persistence),
 //! add serde support **only to configuration structs** (e.g., `TreeParameters`,
-//! `EvolutionParams`) using `#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]`.
+//! `EvolutionParams`) using `#[derive(Serialize, Deserialize)]`.
 //! Keep runtime engine types (`BinomialTree`, etc.) non-serializable.
 //!
 //! See `docs/TREE_PARAMS_SERIALIZATION_AUDIT.md` for audit results and extension pattern.
@@ -83,7 +83,7 @@ pub struct NodeState<'a> {
 }
 
 /// Simple barrier state tracking for barrier options
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct BarrierState {
     /// Whether barrier has been hit during the path
     pub barrier_hit: bool,
@@ -94,7 +94,7 @@ pub struct BarrierState {
 }
 
 /// Types of barrier conditions
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum BarrierType {
     /// Up-and-out (option knocks out when spot > barrier)
     #[default]
@@ -422,7 +422,7 @@ pub trait TreeModel {
 /// - **Vega**: Per 1% absolute volatility move (e.g., 20% → 21%)
 /// - **Theta**: Per day (negative for long positions typically)
 /// - **Rho**: Per 1 basis point (0.01%) interest rate move
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TreeGreeks {
     /// Instrument price
     pub price: f64,
@@ -505,7 +505,7 @@ impl TreeGreeks {
 /// - **Deep ITM/OTM** (S/K < 0.8 or S/K > 1.2): Use larger bumps (2%) for stability
 ///
 /// This improves Greek accuracy across the moneyness spectrum.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct GreeksBumpConfig {
     /// Base spot bump as fraction of spot (default: 0.01 = 1%)
     pub spot_bump_fraction: f64,
@@ -582,7 +582,7 @@ impl GreeksBumpConfig {
 }
 
 /// Tree branching type for evolution
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TreeBranching {
     /// Two-way branching (up/down)
     Binomial,
@@ -591,7 +591,7 @@ pub enum TreeBranching {
 }
 
 /// Generic tree parameters for state variable evolution
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TreeParameters {
     /// Number of time steps
     pub steps: usize,
@@ -604,7 +604,7 @@ pub struct TreeParameters {
 }
 
 /// Parameters controlling how a state variable evolves in the tree
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct EvolutionParams {
     /// Volatility for this factor
     pub volatility: f64,
@@ -728,7 +728,7 @@ impl EvolutionParams {
 }
 
 /// Barrier option configuration for discrete monitoring.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub enum BarrierStyle {
     /// Knock-out barrier: option becomes void upon breach (rebate may apply)
     KnockOut,
@@ -740,7 +740,7 @@ pub enum BarrierStyle {
 ///
 /// Defines barrier levels, rebate, and style for incorporating barrier
 /// conditions into recombining tree valuation.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BarrierSpec {
     /// Up barrier level (S >= up triggers a touch)
     pub up_level: Option<f64>,

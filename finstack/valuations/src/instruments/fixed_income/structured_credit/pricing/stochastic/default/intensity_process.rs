@@ -35,7 +35,7 @@ use finstack_core::math::distributions::binomial_distribution;
 ///
 /// Default intensity follows an exponential of an OU process,
 /// providing mean-reverting but always positive intensity.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct IntensityProcessDefault {
     /// Base hazard rate (annual)
     base_hazard: f64,

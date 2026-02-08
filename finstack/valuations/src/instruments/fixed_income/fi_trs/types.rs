@@ -44,9 +44,10 @@ use rust_decimal::Decimal;
 /// let trs = FIIndexTotalReturnSwap::example();
 /// // let pv = trs.value(&market_context, as_of_date)?;
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct FIIndexTotalReturnSwap {
     /// Unique instrument identifier.
     pub id: InstrumentId,

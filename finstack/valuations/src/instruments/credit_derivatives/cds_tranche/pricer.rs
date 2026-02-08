@@ -186,7 +186,7 @@ const DEFAULT_PAR_SPREAD_TOLERANCE: f64 = 1e-6;
 /// ## Recovery Models
 /// - **Constant** (default): Fixed recovery rate
 /// - **Stochastic**: Recovery correlated with market factor
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CDSTranchePricerConfig {
     // ========================================================================
     // Model Selection
@@ -437,7 +437,7 @@ impl CDSTranchePricerConfig {
 
 /// Units for CS01 bumping in tranche pricer
 /// Units for CS01 credit spread bumping
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Cs01BumpUnits {
     /// Bump hazard rate in basis points
@@ -447,7 +447,7 @@ pub enum Cs01BumpUnits {
 }
 
 /// Heterogeneous expected loss evaluation method
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HeteroMethod {
     /// Saddle-point approximation (SPA) method
     Spa,
@@ -2429,8 +2429,7 @@ impl CDSTranchePricer {
 ///
 /// Provides the distribution of JTD impacts across all portfolio constituents,
 /// which is essential for worst-case risk management scenarios.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct JumpToDefaultResult {
     /// Minimum JTD impact across all names (best case)
     pub min: f64,

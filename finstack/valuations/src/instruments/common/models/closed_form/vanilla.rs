@@ -38,7 +38,7 @@ pub const ONE_PERCENT: f64 = 100.0;
 /// This struct is suitable for both equity options (with dividend yield) and
 /// FX options (with foreign rate), as it includes both `rho_r` (domestic) and
 /// `rho_q` (foreign/dividend) sensitivities.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct BsGreeks {
     /// Delta sensitivity per unit.
     pub delta: f64,

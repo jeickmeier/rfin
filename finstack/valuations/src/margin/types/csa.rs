@@ -20,8 +20,7 @@ use finstack_core::config::FinstackConfig;
 ///
 /// Specifies the operational timing for margin calls including
 /// notification and dispute resolution windows.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MarginCallTiming {
     /// Notification deadline (hours after valuation, e.g., 13:00 local time)
     pub notification_deadline_hours: u8,
@@ -84,8 +83,7 @@ impl MarginCallTiming {
 ///     collateral_curve_id: "USD-OIS".into(),
 /// };
 /// ```
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CsaSpec {
     /// CSA identifier (e.g., "USD-CSA-STANDARD", "COUNTERPARTY-XYZ-CSA")
     pub id: String,

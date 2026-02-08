@@ -35,7 +35,7 @@ use finstack_core::money::Money;
 
 /// Inputs for Black caplet/floorlet pricing
 /// Inputs for pricing a single caplet or floorlet using Black (1976) model.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct CapletFloorletInputs {
     /// True for caplet, false for floorlet
     pub is_cap: bool,

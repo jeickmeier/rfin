@@ -736,7 +736,6 @@ fn test_mixed_units_and_weights_with_aum() {
 // ============================================================================
 
 #[test]
-#[cfg(feature = "serde")]
 fn test_constituent_reference_with_bond_instrument() {
     use finstack_valuations::instruments::json_loader::InstrumentJson;
 
@@ -1320,7 +1319,6 @@ fn test_unitless_scalar_defaults_to_basket_currency() {
 // Serialization Tests (if serde feature enabled)
 // ============================================================================
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_basket_serialization_roundtrip() {
     // Arrange
@@ -1337,7 +1335,6 @@ fn test_basket_serialization_roundtrip() {
     assert_eq!(basket.constituents.len(), deserialized.constituents.len());
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_asset_type_serialization() {
     // Arrange
@@ -1359,7 +1356,6 @@ fn test_asset_type_serialization() {
     }
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_basket_with_mixed_constituents_serialization() {
     use finstack_valuations::instruments::json_loader::InstrumentJson;
@@ -1434,7 +1430,6 @@ fn test_basket_with_mixed_constituents_serialization() {
     }
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_constituent_reference_market_data_roundtrip() {
     // Arrange
@@ -1456,7 +1451,6 @@ fn test_constituent_reference_market_data_roundtrip() {
     }
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_constituent_reference_instrument_roundtrip() {
     use finstack_valuations::instruments::json_loader::InstrumentJson;
@@ -1489,7 +1483,6 @@ fn test_constituent_reference_instrument_roundtrip() {
     }
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_basket_envelope_roundtrip_with_instruments() {
     use finstack_valuations::instruments::json_loader::{InstrumentEnvelope, InstrumentJson};

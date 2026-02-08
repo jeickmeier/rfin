@@ -437,7 +437,7 @@ pub fn validate_currency_consistency(amounts: &[Money]) -> finstack_core::Result
 /// - `q`: Dividend yield / foreign rate (continuous)
 /// - `sigma`: Implied volatility from the vol surface
 /// - `t`: Time to expiry using the vol surface day count basis (for vol interpolation and Greeks)
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct BlackScholesInputsDf {
     /// Current spot price
     pub spot: f64,

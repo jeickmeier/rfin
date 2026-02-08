@@ -7,7 +7,7 @@ use finstack_core::money::Money;
 /// Equity option specific parameters.
 ///
 /// Groups parameters specific to equity options, including Money-denominated strike.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct EquityOptionParams {
     /// Strike price in Money (includes currency)
     pub strike: Money,

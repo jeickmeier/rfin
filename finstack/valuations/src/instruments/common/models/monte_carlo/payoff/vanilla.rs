@@ -16,7 +16,7 @@ use finstack_core::money::Money;
 /// - S_T = spot at maturity
 /// - K = strike
 /// - N = notional
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct EuropeanCall {
     /// Strike price
     pub strike: f64,
@@ -77,7 +77,7 @@ impl TerminalPayoff for EuropeanCall {
 /// European put option payoff.
 ///
 /// Payoff: max(K - S_T, 0) × N
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct EuropeanPut {
     /// Strike price
     pub strike: f64,
@@ -137,7 +137,7 @@ impl TerminalPayoff for EuropeanPut {
 ///
 /// - Call: pays if S_T > K
 /// - Put: pays if S_T < K
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Digital {
     /// Strike price
     pub strike: f64,
@@ -215,7 +215,7 @@ impl TerminalPayoff for Digital {
 /// Payoff: (S_T - K) × N
 ///
 /// Note: This is not optionality - the payoff can be negative.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Forward {
     /// Forward price
     pub forward_price: f64,

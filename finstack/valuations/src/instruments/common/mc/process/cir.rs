@@ -25,8 +25,7 @@
 use super::super::traits::StochasticProcess;
 
 /// CIR process parameters.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CirParams {
     /// Mean reversion speed (κ)
     pub kappa: f64,
@@ -82,7 +81,7 @@ impl CirParams {
 ///
 /// Use `QeCir` discretization (extracted from Heston QE) for best accuracy
 /// and guaranteed positivity.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CirProcess {
     params: CirParams,
 }
@@ -141,7 +140,7 @@ impl StochasticProcess for CirProcess {
 /// where φ(t) is chosen to fit the initial yield curve.
 ///
 /// State dimension: 1 (shifted rate x, actual rate is x + φ(t))
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CirPlusPlusProcess {
     /// Base CIR process
     cir: CirProcess,

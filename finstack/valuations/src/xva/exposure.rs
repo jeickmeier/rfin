@@ -36,20 +36,13 @@
 
 use std::sync::Arc;
 
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, CALENDAR_DAYS_PER_YEAR};
 use finstack_core::market_data::context::MarketContext;
 
 use crate::instruments::Instrument;
 
 use super::netting::{apply_collateral, apply_netting};
 use super::types::{ExposureProfile, NettingSet, XvaConfig};
-
-/// Number of days per year used for year-to-date conversion.
-///
-/// Uses ACT/365 Fixed (standard quant convention) rather than 365.25
-/// to stay consistent with the day count conventions used by most
-/// term structures in the library.
-const DAYS_PER_YEAR: f64 = 365.0;
 
 /// Compute the exposure profile for a portfolio of instruments.
 ///
@@ -110,7 +103,7 @@ pub fn compute_exposure_profile(
 
     for &t in &config.time_grid {
         // Convert years to days using ACT/365F convention
-        let days = (t * DAYS_PER_YEAR).round() as i64;
+        let days = (t * CALENDAR_DAYS_PER_YEAR).round() as i64;
         let future_date = as_of + time::Duration::days(days);
 
         // Roll market data forward (constant-curves assumption).

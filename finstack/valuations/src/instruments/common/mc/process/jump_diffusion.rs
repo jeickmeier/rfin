@@ -28,8 +28,7 @@ use super::super::traits::StochasticProcess;
 use super::gbm::GbmParams;
 
 /// Merton jump-diffusion parameters.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MertonJumpParams {
     /// Base GBM parameters (drift, dividend, volatility)
     pub gbm: GbmParams,
@@ -90,7 +89,7 @@ impl MertonJumpParams {
 ///
 /// Requires specialized `JumpEuler` discretization that handles
 /// Poisson arrival and log-normal jump sizes.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct MertonJumpProcess {
     params: MertonJumpParams,
 }

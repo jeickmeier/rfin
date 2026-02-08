@@ -56,8 +56,7 @@ fn cashflow_kind_rank(kind: &CFKind) -> usize {
 ///
 /// Contains the full trajectory of utilization, interest rates, and credit spreads
 /// at each payment date, enabling cashflow generation and survival probability computation.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ThreeFactorPathData {
     /// Utilization trajectory at each payment date [0, 1]
     pub utilization_path: Vec<f64>,
@@ -75,7 +74,7 @@ pub struct ThreeFactorPathData {
 ///
 /// Wraps a standard `CashFlowSchedule` with optional path data for stochastic simulations.
 /// This enables downstream pricers to access both cashflows and the underlying state trajectories.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PathAwareCashflowSchedule {
     /// Standard cashflow schedule
     pub schedule: CashFlowSchedule,

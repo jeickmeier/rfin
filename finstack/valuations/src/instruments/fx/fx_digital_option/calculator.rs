@@ -181,7 +181,7 @@ impl FxDigitalOptionCalculator {
 }
 
 /// Greeks for an FX digital option.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct FxDigitalOptionGreeks {
     /// Delta: sensitivity to spot FX rate
     pub delta: f64,

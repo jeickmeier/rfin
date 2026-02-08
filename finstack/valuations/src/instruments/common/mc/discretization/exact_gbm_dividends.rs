@@ -27,7 +27,7 @@ use super::super::traits::Discretization;
 /// Exact discretization for GBM with discrete dividends.
 ///
 /// Combines exact GBM evolution with discrete dividend jumps.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ExactGbmWithDividends;
 
 impl ExactGbmWithDividends {

@@ -16,7 +16,7 @@ use finstack_core::dates::{
 use super::calendar::resolve_calendar_strict;
 
 /// Accrual period with payment timing.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct SchedulePeriod {
     /// Accrual start date (inclusive).
     pub accrual_start: Date,
@@ -27,7 +27,7 @@ pub struct SchedulePeriod {
 }
 
 /// Period schedule output with business day adjustment tracking.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PeriodSchedule {
     /// Generated accrual/payment periods.
     pub periods: Vec<SchedulePeriod>,

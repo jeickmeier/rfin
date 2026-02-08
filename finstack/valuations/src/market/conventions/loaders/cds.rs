@@ -9,7 +9,7 @@ use finstack_core::Error;
 use finstack_core::HashMap;
 use strum::IntoEnumIterator;
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CdsConventionsRecord {
     #[allow(dead_code)]

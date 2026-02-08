@@ -25,8 +25,9 @@
 
 // Re-export shared swap leg pricing utilities for internal use and backward compatibility
 use crate::cashflow::builder::periods::{build_periods, BuildPeriodsParams};
+use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::common_impl::pricing::swap_legs::{
-    robust_relative_df, FloatingLegParams, LegPeriod, BP_TO_DECIMAL,
+    robust_relative_df, FloatingLegParams, LegPeriod,
 };
 
 // Re-export for backward compatibility with IRS metrics modules
@@ -320,7 +321,7 @@ impl InterestRateSwap {
             let interest = self.notional.amount() * (compound_factor - 1.0);
             let spread_bp_f64 = decimal_to_f64(float.spread_bp, "float leg spread_bp")?;
             let spread_contrib = self.notional.amount()
-                * (spread_bp_f64 * BP_TO_DECIMAL)
+                * (spread_bp_f64 * ONE_BASIS_POINT)
                 * period.accrual_year_fraction;
 
             // Discount to payment date (holiday-aware, strict) using shared helper

@@ -13,9 +13,8 @@ use finstack_core::Error as CoreError;
 use std::any::Any;
 
 /// Valuation method for a real estate asset.
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum RealEstateValuationMethod {
     /// Discounted cashflow using an explicit NOI schedule and discount rate.
     Dcf,
@@ -26,9 +25,10 @@ pub enum RealEstateValuationMethod {
 /// Real estate asset valuation instrument.
 ///
 /// Supports DCF (explicit NOI schedule) and direct capitalization valuation.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct RealEstateAsset {
     /// Unique instrument identifier.
     pub id: InstrumentId,

@@ -20,7 +20,7 @@ use finstack_core::types::InstrumentId;
 use finstack_core::Result;
 
 /// Tranche cashflow for a single period.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TrancheCashflow {
     /// Payment date
     pub payment_date: Date,
@@ -171,7 +171,7 @@ pub fn price_cmo(cmo: &AgencyCmo, market: &MarketContext, as_of: Date) -> Result
 }
 
 /// Agency CMO discounting pricer.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct AgencyCmoDiscountingPricer;
 
 impl Pricer for AgencyCmoDiscountingPricer {

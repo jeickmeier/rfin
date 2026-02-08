@@ -527,7 +527,7 @@ use crate::instruments::{Attributes, Instrument};
 use crate::instruments::PricingOverrides;
 
 /// My custom instrument.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MyInstrument {
     pub id: InstrumentId,

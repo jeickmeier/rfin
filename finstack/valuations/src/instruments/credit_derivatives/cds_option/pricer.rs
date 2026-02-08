@@ -26,7 +26,7 @@ use rust_decimal::Decimal;
 /// Stateless wrapper that sources required market inputs and delegates
 /// to the instrument's pricing math for the Black-on-spreads formula.
 /// Configuration for CDS option pricing
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CdsOptionPricerConfig {
     /// Whether to use ISDA standard RPV01 schedule
     pub use_isda_schedule_rpv01: bool,

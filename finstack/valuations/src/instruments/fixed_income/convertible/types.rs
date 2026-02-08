@@ -20,9 +20,10 @@ use super::pricer;
 /// This fixed income instrument combines debt characteristics (coupons, principal)
 /// with equity optionality (conversion rights). Uses the `CashFlowBuilder` for
 /// robust schedule generation and tree-based pricing for the hybrid valuation.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct ConvertibleBond {
     /// Unique identifier for the instrument.
     pub id: InstrumentId,
@@ -65,7 +66,7 @@ pub struct ConvertibleBond {
 /// - **Vega**: Per 1% absolute volatility move
 /// - **Theta**: Per day
 /// - **Rho**: Per 1 basis point move
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ConvertibleGreeks {
     /// Instrument price
     pub price: f64,
@@ -82,8 +83,7 @@ pub struct ConvertibleGreeks {
 }
 
 /// Defines how and when conversion can occur.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum ConversionPolicy {
     /// Holder may convert at any time (subject to window, if any).
     Voluntary,
@@ -101,8 +101,7 @@ pub enum ConversionPolicy {
 }
 
 /// Events that may trigger conversion.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum ConversionEvent {
     /// Qualified Ipo variant.
     QualifiedIpo,
@@ -118,8 +117,7 @@ pub enum ConversionEvent {
 }
 
 /// Anti-dilution protection applied to conversion terms.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum AntiDilutionPolicy {
     /// None variant.
     None,
@@ -130,8 +128,7 @@ pub enum AntiDilutionPolicy {
 }
 
 /// How dividends affect conversion terms.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum DividendAdjustment {
     /// None variant.
     None,
@@ -142,8 +139,7 @@ pub enum DividendAdjustment {
 }
 
 /// Conversion specification for the instrument.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ConversionSpec {
     /// Conversion ratio (shares per bond). If not provided, derive from price.
     pub ratio: Option<f64>,

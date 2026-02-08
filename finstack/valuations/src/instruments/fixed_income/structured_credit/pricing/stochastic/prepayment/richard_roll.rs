@@ -42,7 +42,7 @@ use finstack_core::types::{Percentage, Rate};
 ///
 /// Full stochastic prepayment model with refinancing incentive,
 /// seasoning, burnout, and optional seasonality.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct RichardRollPrepay {
     /// Base CPR at full seasoning (post-ramp)
     base_cpr: f64,

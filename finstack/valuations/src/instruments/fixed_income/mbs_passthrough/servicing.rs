@@ -16,8 +16,7 @@ use rust_decimal::Decimal;
 ///
 /// Represents a periodic fee based on the outstanding balance,
 /// expressed in basis points.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MbsFeeSpec {
     /// Fee name (e.g., "servicing", "guarantee")
     pub name: String,
@@ -179,7 +178,7 @@ pub fn gross_wac_rate(net_rate: Rate, servicing_rate: Rate, guarantee_rate: Rate
 /// Standard agency fee rates by program.
 ///
 /// These are typical ranges; actual fees vary by loan characteristics.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct AgencyFeeRates {
     /// Servicing fee in basis points
     pub servicing_bps: f64,

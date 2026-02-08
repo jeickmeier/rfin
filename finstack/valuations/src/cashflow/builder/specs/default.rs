@@ -3,9 +3,8 @@
 use finstack_core::dates::{BusinessDayConvention, Date};
 
 /// Default curve shape.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "curve", rename_all = "snake_case"))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "curve", rename_all = "snake_case")]
 pub enum DefaultCurve {
     /// Constant CDR (no seasoning effect)
     Constant,
@@ -17,13 +16,12 @@ pub enum DefaultCurve {
 }
 
 /// Default model specification.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DefaultModelSpec {
     /// CDR: Constant Default Rate (annual, e.g., 0.02 for 2%)
     pub cdr: f64,
     /// Optional curve shape (default: constant)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub curve: Option<DefaultCurve>,
 }
 
@@ -74,8 +72,7 @@ impl DefaultModelSpec {
 }
 
 /// Default event specification.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DefaultEvent {
     /// Date when default occurs
     pub default_date: Date,

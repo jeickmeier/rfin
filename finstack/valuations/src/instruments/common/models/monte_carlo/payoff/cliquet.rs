@@ -25,7 +25,7 @@ use finstack_core::money::Money;
 /// - S_i is spot at reset date i
 /// - local_cap/local_floor are limits per period
 /// - global_cap/global_floor are limits on total return
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CliquetCallPayoff {
     /// Reset dates (time in years, must be sorted)
     pub reset_dates: Vec<f64>,
@@ -56,7 +56,7 @@ pub struct CliquetCallPayoff {
 }
 
 /// Cliquet payoff aggregation type.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum CliquetPayoffType {
     /// Additive: Sum of period returns
     #[default]

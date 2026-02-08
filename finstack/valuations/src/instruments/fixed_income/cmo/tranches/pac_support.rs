@@ -8,7 +8,7 @@
 use crate::instruments::fixed_income::cmo::types::PacCollar;
 
 /// PAC amortization schedule.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PacSchedule {
     /// Monthly scheduled principal payments
     pub scheduled_payments: Vec<f64>,

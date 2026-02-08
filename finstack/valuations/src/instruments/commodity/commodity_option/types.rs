@@ -41,9 +41,10 @@ use finstack_core::Result;
 /// Forward prices are retrieved from a `PriceCurve` (not a `ForwardCurve`).
 /// The curve must be added via `MarketContext::insert_price_curve()`.
 /// If `quoted_forward` is provided, it overrides the curve lookup.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct CommodityOption {
     /// Unique instrument identifier.
     pub id: InstrumentId,

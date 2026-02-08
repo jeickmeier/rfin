@@ -320,7 +320,6 @@ fn test_fx_forward_instrument_key() {
     assert_eq!(forward.key(), InstrumentType::FxForward);
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_fx_forward_serde_roundtrip() {
     let forward = FxForward::example();

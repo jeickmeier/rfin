@@ -24,8 +24,7 @@ use super::heston::{HestonParams, HestonProcess};
 use super::jump_diffusion::MertonJumpParams;
 
 /// Bates model parameters (Heston + jumps).
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BatesParams {
     /// Heston parameters (spot dynamics + variance)
     pub heston: HestonParams,
@@ -66,7 +65,7 @@ impl BatesParams {
 /// - QE scheme for variance (from Heston)
 /// - Jump-augmented scheme for spot
 /// - Correlation between S and v
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BatesProcess {
     params: BatesParams,
 }

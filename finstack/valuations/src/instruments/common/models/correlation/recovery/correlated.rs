@@ -46,7 +46,7 @@ use super::RecoveryModel;
 ///
 /// Recovery varies with the systematic market factor, capturing
 /// the empirical negative correlation between defaults and recovery.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CorrelatedRecovery {
     /// Mean recovery rate
     mean_recovery: f64,

@@ -15,7 +15,6 @@ use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_core::HashMap;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -23,8 +22,8 @@ use serde::{Deserialize, Serialize};
 // ============================================================================
 
 /// Recipient of waterfall payments
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum RecipientType {
     /// Service provider (trustee, admin, rating agency, etc.)
     ServiceProvider(String),
@@ -37,8 +36,8 @@ pub enum RecipientType {
 }
 
 /// Type of management fee
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum ManagementFeeType {
     /// Senior variant.
     Senior,
@@ -49,8 +48,8 @@ pub enum ManagementFeeType {
 }
 
 /// Rounding convention for payments
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum RoundingConvention {
     /// Round to nearest precision
     #[default]
@@ -62,8 +61,8 @@ pub enum RoundingConvention {
 }
 
 /// How to calculate payment amount
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum PaymentCalculation {
     /// Fixed amount
     FixedAmount {
@@ -104,8 +103,8 @@ pub enum PaymentCalculation {
 }
 
 /// Allocation mode within a tier
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum AllocationMode {
     /// Pay recipients sequentially in order until tier allocation exhausted
     Sequential,
@@ -114,8 +113,8 @@ pub enum AllocationMode {
 }
 
 /// Payment type classification
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum PaymentType {
     /// Fee payment
     Fee,
@@ -128,8 +127,7 @@ pub enum PaymentType {
 }
 
 /// Individual payment recipient within a tier
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Recipient {
     /// Unique identifier
     pub id: String,
@@ -211,8 +209,7 @@ impl Recipient {
 }
 
 /// Waterfall tier with multiple recipients
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaterfallTier {
     /// Unique tier identifier
     pub id: String,
@@ -269,8 +266,7 @@ impl WaterfallTier {
 // ============================================================================
 
 /// Result of waterfall distribution
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaterfallDistribution {
     /// Payment date
     pub payment_date: Date,
@@ -298,13 +294,12 @@ pub struct WaterfallDistribution {
     pub diversion_reason: Option<String>,
 
     /// Optional explanation trace (enabled via ExplainOpts)
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub explanation: Option<ExplanationTrace>,
 }
 
 /// Record of individual payment
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentRecord {
     /// Tier id
     pub tier_id: String,
@@ -329,8 +324,7 @@ pub struct PaymentRecord {
 // ============================================================================
 
 /// Simple OC/IC trigger for diversion
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoverageTestRules {
     /// Haircuts applied by collateral rating
     pub haircuts: HashMap<CreditRating, f64>,
@@ -371,8 +365,7 @@ impl From<&super::setup::CoverageTestConfig> for CoverageTestRules {
 }
 
 /// Coverage trigger definition used for diversion logic (OC/IC thresholds).
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoverageTrigger {
     /// Tranche where test applies
     pub tranche_id: String,
@@ -383,8 +376,8 @@ pub struct CoverageTrigger {
 }
 
 /// Type of coverage test (simplified to OC/IC only)
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum CoverageTestType {
     /// Overcollateralization test
     OC,
@@ -466,8 +459,7 @@ impl Default for WaterfallWorkspace {
 // ============================================================================
 
 /// Main waterfall engine with tier-based distribution
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Waterfall {
     /// Ordered payment tiers
     pub tiers: Vec<WaterfallTier>,

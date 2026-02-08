@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 pub const CALIBRATION_SCHEMA: &str = "finstack.calibration";
 
 /// Complete calibration result with market snapshot and diagnostics.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationResult {
     /// Final calibrated market context (all curves, surfaces, scalars, etc.)
@@ -34,7 +34,7 @@ pub struct CalibrationResult {
 }
 
 /// Top-level envelope for calibration results.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationResultEnvelope {
     /// Schema version identifier (must be "finstack.calibration").
@@ -58,7 +58,7 @@ impl CalibrationResultEnvelope {
 /// This is the outer-most structure for a calibration request. It includes
 /// the schema version, the plan to execute, and an optional initial market state
 /// to build upon.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationEnvelope {
     /// Schema version identifier (must be [`CALIBRATION_SCHEMA`]).
@@ -74,7 +74,7 @@ pub struct CalibrationEnvelope {
 ///
 /// A plan organizes market data into named sets and defines a sequence of
 /// [`CalibrationStep`] to be executed.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationPlan {
     /// Unique identifier for the calibration plan.
@@ -95,7 +95,7 @@ pub struct CalibrationPlan {
 ///
 /// Each step targets the construction or update of a specific market object
 /// (e.g., a yield curve) using a specified set of quotes.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalibrationStep {
     /// Unique identifier for the object being calibrated in this step.
     pub id: String,
@@ -107,7 +107,7 @@ pub struct CalibrationStep {
 }
 
 /// Polymorphic parameters for different calibration step types.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum StepParams {
     /// Discount curve calibration.
@@ -137,7 +137,7 @@ pub enum StepParams {
 // =============================================================================
 
 /// Parameters for discount curve calibration step.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DiscountCurveParams {
     /// Identifier for the discount curve being built.
@@ -168,7 +168,7 @@ pub struct DiscountCurveParams {
 }
 
 /// Parameters for forward curve calibration step.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ForwardCurveParams {
     /// Identifier for the forward curve being built.
@@ -194,7 +194,7 @@ pub struct ForwardCurveParams {
 }
 
 /// Parameters for hazard curve calibration step.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HazardCurveParams {
     /// Identifier for the hazard curve being built.
@@ -247,7 +247,7 @@ pub struct HazardCurveParams {
 }
 
 /// Parameters for inflation curve calibration step.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InflationCurveParams {
     /// Identifier for the inflation curve being built.
@@ -285,7 +285,7 @@ pub struct InflationCurveParams {
 }
 
 /// Parameters for volatility surface calibration step.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VolSurfaceParams {
     /// Identifier for the volatility surface being built.
@@ -328,7 +328,7 @@ pub struct VolSurfaceParams {
 ///
 /// Defines the structure and conventions for building a volatility surface
 /// from swaption quotes using the SABR model.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SwaptionVolParams {
     /// Identifier for the volatility surface.
@@ -404,7 +404,7 @@ pub struct SwaptionVolParams {
 }
 
 /// Extrapolation policy for volatility surface construction.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SurfaceExtrapolationPolicy {
     /// Reject out-of-bounds targets with an explicit error (vendor-matching).
@@ -418,7 +418,7 @@ pub enum SurfaceExtrapolationPolicy {
 ///
 /// Defines the structure for building a base correlation curve from
 /// CDS tranche quotes with different detachment points.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BaseCorrelationParams {
     /// Credit index identifier (e.g., CDX, iTraxx).
@@ -460,7 +460,7 @@ pub struct BaseCorrelationParams {
 }
 
 /// Volatility quoting convention for swaptions.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SwaptionVolConvention {
     /// Normal (absolute) volatility quoted in **basis points**.
@@ -482,7 +482,7 @@ pub enum SwaptionVolConvention {
 }
 
 /// ATM strike convention for swaptions.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AtmStrikeConvention {
     /// ATM = forward swap rate (standard market convention)
@@ -493,7 +493,7 @@ pub enum AtmStrikeConvention {
 }
 
 /// Interpolation method for SABR parameters across the expiry–tenor grid.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum SabrInterpolationMethod {
     /// Bilinear interpolation in (expiry, tenor) over SABR parameters.

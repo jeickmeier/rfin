@@ -41,8 +41,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use time::macros::date;
 
 /// Final payoff type for autocallable products.
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum FinalPayoffType {
     /// Capital protection: max(floor, participation * min(S_T/S_0, cap))
     CapitalProtection {
@@ -62,9 +61,10 @@ pub enum FinalPayoffType {
 }
 
 /// Autocallable structured product instrument.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct Autocallable {
     /// Unique instrument identifier
     pub id: InstrumentId,

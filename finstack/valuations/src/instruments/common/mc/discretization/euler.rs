@@ -33,7 +33,7 @@ use super::super::traits::{Discretization, StochasticProcess};
 /// Avoid when:
 /// - Exact schemes exist (GBM, OU)
 /// - Specialized schemes are more accurate (QE for Heston)
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct EulerMaruyama;
 
 impl EulerMaruyama {
@@ -74,7 +74,7 @@ impl<P: StochasticProcess> Discretization<P> for EulerMaruyama {
 /// ```
 ///
 /// This ensures positivity for processes like GBM (though exact GBM is preferred).
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct LogEuler;
 
 impl LogEuler {

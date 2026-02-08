@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Contains point estimate, uncertainty quantification, and metadata
 /// about the simulation run.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Estimate {
     /// Point estimate (mean)
     pub mean: f64,
@@ -138,7 +138,7 @@ impl std::fmt::Display for Estimate {
 // MoneyEstimate moved to instruments::common::models::monte_carlo::results
 
 /// Convergence diagnostics for Monte Carlo simulation.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConvergenceDiagnostics {
     /// Stderr decay rate (should be ~-0.5 for MC)
     pub stderr_decay_rate: Option<f64>,

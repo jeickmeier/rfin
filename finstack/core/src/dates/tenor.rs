@@ -380,15 +380,14 @@ impl Tenor {
     /// ```
     #[inline]
     pub fn to_days_approx(&self) -> i64 {
-        const DAYS_PER_YEAR: f64 = 365.0;
-        const DAYS_PER_MONTH: f64 = DAYS_PER_YEAR / 12.0; // ≈ 30.4167
+        const DAYS_PER_MONTH: f64 = super::CALENDAR_DAYS_PER_YEAR / 12.0; // ≈ 30.4167
 
         let count = f64::from(self.count);
         let days = match self.unit {
             TenorUnit::Days => count,
             TenorUnit::Weeks => count * 7.0,
             TenorUnit::Months => count * DAYS_PER_MONTH,
-            TenorUnit::Years => count * DAYS_PER_YEAR,
+            TenorUnit::Years => count * super::CALENDAR_DAYS_PER_YEAR,
         };
         days.round() as i64
     }

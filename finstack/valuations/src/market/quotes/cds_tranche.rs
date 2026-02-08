@@ -46,7 +46,7 @@ use ts_rs::TS;
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CdsTrancheQuote {
     /// CDS Index Tranche.

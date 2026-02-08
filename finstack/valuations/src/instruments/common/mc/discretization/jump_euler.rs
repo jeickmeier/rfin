@@ -26,7 +26,7 @@ use super::super::traits::Discretization;
 /// - z[2..]: Jump sizes (one per jump, if needed)
 ///
 /// For efficiency, pre-generates jump sizes from RNG stream.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct JumpEuler {
     /// Maximum jumps per step to pre-allocate (default: 10)
     max_jumps_per_step: usize,

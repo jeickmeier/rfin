@@ -321,6 +321,7 @@ impl JsAgencyTba {
             TbaTerm::FifteenYear => "15y".to_string(),
             TbaTerm::TwentyYear => "20y".to_string(),
             TbaTerm::ThirtyYear => "30y".to_string(),
+            _ => unreachable!("unknown TbaTerm variant"),
         }
     }
 

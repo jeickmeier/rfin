@@ -7,7 +7,7 @@ use finstack_core::money::Money;
 /// FX option specific parameters.
 ///
 /// Groups parameters specific to FX options.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct FxOptionParams {
     /// Strike rate (FX rate)
     pub strike: f64,

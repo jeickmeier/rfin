@@ -10,7 +10,7 @@ use super::calculator::StochasticMetricsCalculator;
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::ScenarioTreeConfig;
 
 /// Sensitivity configuration.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct SensitivityConfig {
     /// Bump size for correlation sensitivities (default: 0.01 = 1%)
     pub correlation_bump: f64,
@@ -53,7 +53,7 @@ impl SensitivityConfig {
 }
 
 /// Correlation and volatility sensitivities.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CorrelationSensitivities {
     // === Correlation sensitivities (per 1% bump) ===
     /// Sensitivity of expected loss to 1% asset correlation bump

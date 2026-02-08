@@ -36,7 +36,7 @@ use ts_rs::TS;
 /// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum CalibrationMethod {
     /// Traditional sequential bootstrap (default).
     #[default]
@@ -61,7 +61,7 @@ pub enum CalibrationMethod {
 /// - [`InverseDuration`]: Weights based on inverse DV01 approximation.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum ResidualWeightingScheme {
     /// Equal weighting (1.0 for all quotes).
     Equal,
@@ -95,7 +95,7 @@ pub enum ResidualWeightingScheme {
 /// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct HazardCurveSolveConfig {
     /// Minimum allowed hazard rate (must be non-negative for survival monotonicity).
@@ -164,7 +164,7 @@ impl HazardCurveSolveConfig {
 /// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct InflationCurveSolveConfig {
     /// Weighting scheme for global solve residuals.
@@ -213,7 +213,7 @@ impl Default for InflationCurveSolveConfig {
 /// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct DiscountCurveSolveConfig {
     /// Number of points in the initial geometric scan grid.
@@ -339,7 +339,7 @@ impl Default for DiscountCurveSolveConfig {
 /// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct CalibrationConfig {
     /// Solver configuration including numerical method (e.g., Brent) and parameters (tolerance, iterations).
@@ -430,7 +430,6 @@ impl CalibrationConfig {
     ///     .expect("valid config");
     /// assert_eq!(calib_cfg.solver.tolerance(), 1e-12); // default
     /// ```
-    #[cfg(feature = "serde")]
     pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> finstack_core::Result<Self> {
         if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY) {
             // Deserialize directly into CalibrationConfig; missing fields use defaults via #[serde(default)]
@@ -688,7 +687,7 @@ impl CalibrationConfig {
 /// *step-level* conventions (e.g., curve time-axis day count).
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RatesStepConventions {
     /// Day count used to map dates to year fractions for curve knot times.

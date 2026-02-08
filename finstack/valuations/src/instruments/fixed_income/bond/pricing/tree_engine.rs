@@ -170,7 +170,7 @@ use finstack_core::money::Money;
 ///     initial_bracket_size_bp: Some(2000.0),
 /// };
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TreePricerConfig {
     /// Number of time steps in the interest rate tree.
     ///

@@ -54,7 +54,7 @@ use finstack_core::math::random::box_muller_transform;
 /// Uses a 64-bit counter and 64-bit key for generating random numbers.
 /// The algorithm is a Feistel-like construction that provides strong
 /// statistical properties while being fast and parallel-friendly.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PhiloxRng {
     /// Global seed (forms the key)
     key: u64,

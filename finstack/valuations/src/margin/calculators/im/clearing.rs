@@ -19,8 +19,8 @@ use finstack_core::Result;
 use std::sync::Arc;
 
 /// CCP methodology type.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum CcpMethodology {
     /// LCH SwapClear (VaR-based for IRS)
     LchSwapClear,

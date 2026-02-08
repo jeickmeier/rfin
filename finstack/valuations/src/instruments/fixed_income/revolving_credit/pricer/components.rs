@@ -15,7 +15,7 @@ use std::sync::Arc;
 ///
 /// Handles relative discounting from a valuation date and provides
 /// consistent discount factor computation across pricing engines.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct DiscountFactors {
     /// Precomputed discount factors aligned with dates
     factors: Vec<f64>,
@@ -105,7 +105,7 @@ impl DiscountFactors {
 ///
 /// Provides consistent survival probability computation from hazard curves
 /// across pricing engines.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct SurvivalWeights {
     /// Survival probabilities aligned with dates/time points
     weights: Vec<f64>,
@@ -191,7 +191,7 @@ pub trait RateProjector: Send + Sync {
 /// Fixed rate projector.
 ///
 /// Always returns the same fixed rate regardless of period.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct FixedRateProjector {
     /// Annual fixed rate
     rate: f64,
@@ -293,7 +293,7 @@ impl RateProjector for FloatingRateProjector {
 ///
 /// Used for floating rate facilities in Monte Carlo where rates are
 /// pre-computed and locked for each period.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TermLockedRateProjector {
     /// Pre-computed all-in rates by step
     rates_by_step: Vec<f64>,
@@ -319,7 +319,7 @@ impl RateProjector for TermLockedRateProjector {
 /// Fee calculator for revolving credit facilities.
 ///
 /// Centralizes fee computation logic with support for tiered fee structures.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct FeeCalculator {
     /// Commitment fee in basis points (or tiered structure)
     commitment_fee_bp: f64,

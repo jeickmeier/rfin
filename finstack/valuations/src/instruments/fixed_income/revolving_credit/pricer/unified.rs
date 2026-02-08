@@ -37,7 +37,7 @@ use super::path_generator::generate_three_factor_paths;
 /// Result for a single path valuation.
 ///
 /// Contains the present value, optional 3-factor path data, and the detailed cashflow schedule.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PathResult {
     /// Present value for this path
     pub pv: Money,

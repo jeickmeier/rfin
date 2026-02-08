@@ -7,8 +7,7 @@
 use finstack_core::{Error, Result};
 
 /// SABR model parameters
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SABRParameters {
     /// Initial volatility (alpha)
     pub alpha: f64,
@@ -1205,8 +1204,7 @@ pub struct SABRSmile {
 }
 
 /// Result of arbitrage validation, containing any violations found.
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct ArbitrageValidationResult {
     /// Strikes where butterfly spread is negative (convexity violation)
     pub butterfly_violations: Vec<ButterflyViolation>,
@@ -1215,8 +1213,7 @@ pub struct ArbitrageValidationResult {
 }
 
 /// A butterfly spread violation at a specific strike.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ButterflyViolation {
     /// Strike at which the violation occurs
     pub strike: f64,
@@ -1227,8 +1224,7 @@ pub struct ButterflyViolation {
 }
 
 /// A monotonicity violation between two strikes.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MonotonicityViolation {
     /// Lower strike
     pub strike_low: f64,

@@ -54,7 +54,7 @@ use finstack_core::{Error, Result};
 /// | kappa | 0.01-0.10 | Mean reversion (higher = faster reversion) |
 /// | sigma | 0.005-0.015 | Normal volatility (50-150 bps) |
 /// | steps | 50-200 | Tree steps (more = accuracy, O(n²) cost) |
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct HullWhiteTreeConfig {
     /// Mean reversion speed (κ), annualized.
     ///
@@ -136,7 +136,7 @@ impl HullWhiteTreeConfig {
 /// The x-value at node (i, j) is: `x[i][j] = (j - j_max) * dx`
 ///
 /// The short rate at node (i, j) is: `r[i][j] = x[i][j] + alpha[i]`
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct HullWhiteTree {
     /// Configuration parameters
     config: HullWhiteTreeConfig,

@@ -19,7 +19,7 @@ use finstack_core::math::linalg::CholeskyError;
 /// where Z ~ N(0,1).
 ///
 /// This is numerically exact and has no discretization error.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ExactGbm;
 
 impl ExactGbm {
@@ -59,7 +59,7 @@ impl Discretization<GbmProcess> for ExactGbm {
 /// Exact discretization for multi-factor GBM.
 ///
 /// Each factor evolves independently (or with correlation applied upstream).
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ExactMultiGbm;
 
 impl ExactMultiGbm {
@@ -111,7 +111,7 @@ where
 /// 1. Generate independent shocks Z ~ N(0,1) for each asset
 /// 2. Apply Cholesky factor: Z_corr = L * Z_indep
 /// 3. Apply exact GBM formula: S_i(t+dt) = S_i(t) exp((μ_i - ½σ_i²)dt + σ_i√dt Z_corr_i)
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ExactMultiGbmCorrelated {
     /// Precomputed Cholesky factor of correlation matrix (row-major, lower triangular)
     cholesky_factor: Vec<f64>,

@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[cfg_attr(feature = "ts_export", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "method", rename_all = "snake_case")]
 pub enum SolverConfig {
     /// Newton-Raphson solver with finite difference derivatives.

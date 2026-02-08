@@ -54,7 +54,7 @@ pub fn format_bucket_label(years: f64) -> String {
 }
 
 /// Resolved (fully-populated) sensitivities configuration.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SensitivitiesConfig {
     /// Interest rate bump size in basis points (e.g., 1.0 = 1bp).
     pub rate_bump_bp: f64,
@@ -83,8 +83,7 @@ impl Default for SensitivitiesConfig {
     }
 }
 
-#[cfg(feature = "serde")]
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SensitivitiesConfigV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -136,7 +135,6 @@ fn ensure_bucket_grid(name: &str, buckets: &[f64]) -> finstack_core::Result<()> 
 ///
 /// If the extension section `valuations.sensitivities.v1` is present, its fields override
 /// the defaults; otherwise defaults are used.
-#[cfg(feature = "serde")]
 pub fn from_finstack_config_or_default(
     cfg: &FinstackConfig,
 ) -> finstack_core::Result<SensitivitiesConfig> {

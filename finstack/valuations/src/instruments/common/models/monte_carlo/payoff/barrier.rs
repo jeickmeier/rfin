@@ -15,7 +15,7 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
 /// Barrier option type.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BarrierType {
     /// Up-and-out: option knocked out if S >= B
     UpAndOut,
@@ -56,7 +56,7 @@ impl BarrierType {
 ///
 /// A generic barrier option (Call or Put) with a barrier that can knock in or out,
 /// and an optional rebate paid at maturity if the option is not active (e.g. knocked out).
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BarrierOptionPayoff {
     /// Strike price
     pub strike: f64,

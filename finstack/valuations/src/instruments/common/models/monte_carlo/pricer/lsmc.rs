@@ -27,7 +27,7 @@ pub trait ImmediateExercise: Send + Sync + Clone {
 }
 
 /// American put option immediate exercise.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct AmericanPut {
     /// Strike price for American put option
     pub strike: f64,
@@ -40,7 +40,7 @@ impl ImmediateExercise for AmericanPut {
 }
 
 /// American call option immediate exercise.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct AmericanCall {
     /// Strike price for American call option
     pub strike: f64,
@@ -53,7 +53,7 @@ impl ImmediateExercise for AmericanCall {
 }
 
 /// LSMC configuration.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct LsmcConfig {
     /// Number of paths
     pub num_paths: usize,

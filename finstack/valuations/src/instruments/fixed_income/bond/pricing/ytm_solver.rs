@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use super::quote_engine::{price_from_ytm_compounded_params, YieldCompounding};
 
 /// Specification for yield-to-maturity calculations
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct YtmPricingSpec {
     /// Day count convention for accrual calculations
     pub day_count: DayCount,
@@ -75,7 +75,7 @@ pub struct YtmPricingSpec {
 /// ```text
 /// y_guess = current_yield + 0.5 × (1/price_pct - 1) / years_to_maturity
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct YtmSolverConfig {
     /// Convergence tolerance for YTM solver (on the yield axis).
     ///

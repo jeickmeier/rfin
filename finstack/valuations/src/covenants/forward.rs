@@ -19,7 +19,7 @@ use crate::instruments::common_impl::mc::traits::RandomStream;
 
 /// Comparator for headroom calculation.
 /// Comparison operator for covenant threshold tests
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Comparator {
     /// Less than or equal to threshold (e.g., Leverage ≤ 3.0x)
     LessOrEqual,
@@ -37,14 +37,14 @@ impl From<BoundKind> for Comparator {
 }
 
 /// MC configuration (subset; integrates with instruments/common/mc RNG).
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct McConfig {
     /// When true, uses antithetic variates (simple variance reduction).
     pub antithetic: bool,
 }
 
 /// Covenant forecast configuration.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CovenantForecastConfig {
     /// Whether to use stochastic simulation (vs deterministic projection)
     pub stochastic: bool,
@@ -59,7 +59,7 @@ pub struct CovenantForecastConfig {
 }
 
 /// Forecast output with headroom analytics.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CovenantForecast {
     /// Covenant identifier
     pub covenant_id: String,
@@ -119,7 +119,7 @@ impl CovenantForecast {
 }
 
 /// A projected covenant breach.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FutureBreach {
     /// Covenant identifier
     pub covenant_id: String,

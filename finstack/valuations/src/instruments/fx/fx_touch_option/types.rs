@@ -8,8 +8,8 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// Touch type: one-touch (pays if barrier is hit) or no-touch (pays if not hit).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum TouchType {
     /// Pays if the spot rate touches the barrier at any time before expiry.
     OneTouch,
@@ -18,8 +18,8 @@ pub enum TouchType {
 }
 
 /// Barrier direction for touch options.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum BarrierDirection {
     /// Barrier is above current spot (spot must rise to touch).
     Up,
@@ -28,8 +28,8 @@ pub enum BarrierDirection {
 }
 
 /// Payout timing for touch options.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum PayoutTiming {
     /// Payout occurs immediately when barrier is hit (for one-touch).
     AtHit,
@@ -67,9 +67,10 @@ pub enum PayoutTiming {
 /// - Rubinstein, M., & Reiner, E. (1991). "Unscrambling the Binary Code."
 ///   *Risk Magazine*, 4(9), 75-83.
 /// - Wystup, U. (2006). *FX Options and Structured Products*. Wiley.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct FxTouchOption {
     /// Unique instrument identifier
     pub id: InstrumentId,

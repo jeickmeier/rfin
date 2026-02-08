@@ -40,7 +40,7 @@ impl<P> PayoffBuilder<P> {
 }
 
 /// Helper for creating simple terminal payoffs.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct SimpleTerminalPayoff<F>
 where
     F: Fn(f64) -> f64 + Send + Sync,

@@ -10,7 +10,7 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
 /// Final payoff type for autocallable products.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FinalPayoffType {
     /// Capital protection: max(floor, participation * min(S_T/S_0, cap))
     CapitalProtection {
@@ -35,7 +35,7 @@ pub enum FinalPayoffType {
 /// is redeemed early with coupon + principal.
 ///
 /// If not autocalled, final payoff depends on FinalPayoffType and barriers.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct AutocallablePayoff {
     /// Observation dates (time in years from valuation)
     pub observation_dates: Vec<f64>,

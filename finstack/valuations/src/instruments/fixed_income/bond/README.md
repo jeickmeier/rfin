@@ -523,7 +523,7 @@ impl Pricer for MyBondPricer {
 1. **Extend CashflowSpec** if needed (in `cashflow_spec.rs`):
 
 ```rust
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub enum CashflowSpec {
     Fixed(FixedCouponSpec),
     Floating(FloatingCouponSpec),

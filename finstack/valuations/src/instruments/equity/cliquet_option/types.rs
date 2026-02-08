@@ -8,9 +8,10 @@ use finstack_core::types::{CurveId, InstrumentId};
 use time::macros::date;
 
 /// Cliquet option instrument.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct CliquetOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -48,8 +49,7 @@ pub struct CliquetOption {
 }
 
 /// Cliquet payoff aggregation type.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CliquetPayoffType {
     /// Additive: Sum of period returns
     #[default]

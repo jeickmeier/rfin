@@ -17,8 +17,8 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 
 /// Side of the variance swap (pay or receive variance).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum PayReceive {
     /// Pay variance (short variance)
     Pay,
@@ -60,9 +60,10 @@ impl PayReceive {
 /// FX variance swap instrument.
 ///
 /// Payoff: Notional * (Realized Variance - Strike Variance)
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct FxVarianceSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,

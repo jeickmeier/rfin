@@ -7,7 +7,7 @@
 use crate::instruments::fixed_income::cmo::types::CmoTranche;
 
 /// Sequential payment order configuration.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct SequentialOrder {
     /// Tranche IDs in payment order
     pub order: Vec<String>,

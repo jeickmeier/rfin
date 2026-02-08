@@ -6,8 +6,7 @@ use finstack_core::types::Bps;
 use rust_decimal::Decimal;
 
 /// Fee specification.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum FeeSpec {
     /// Fixed variant.
     Fixed {
@@ -36,8 +35,7 @@ pub enum FeeSpec {
 }
 
 /// Fee base for periodic bps fees.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum FeeBase {
     /// Base on drawn outstanding (post-amortization, post-PIK).
     Drawn,
@@ -52,8 +50,7 @@ pub enum FeeBase {
 ///
 /// Tiers are evaluated in order: the first tier where utilization >= threshold applies.
 /// Tiers should be sorted by threshold (ascending).
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FeeTier {
     /// Utilization threshold (0.0 to 1.0). Fee applies when utilization >= this threshold.
     pub threshold: Decimal,

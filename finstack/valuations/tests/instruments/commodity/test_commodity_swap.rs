@@ -417,7 +417,6 @@ fn test_commodity_swap_delta_analytical() {
     );
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_commodity_swap_serialization() {
     let swap = CommoditySwap::example();

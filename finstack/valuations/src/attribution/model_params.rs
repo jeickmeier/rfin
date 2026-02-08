@@ -15,8 +15,7 @@ use std::sync::Arc;
 ///
 /// Different instrument types have different model parameters that affect
 /// pricing. This enum captures the relevant parameters for each type.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum ModelParamsSnapshot {
     /// Structured credit parameters (prepayment, default, recovery).
     StructuredCredit {

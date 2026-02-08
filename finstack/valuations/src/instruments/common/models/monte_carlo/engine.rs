@@ -29,7 +29,7 @@ use std::sync::Mutex;
 use rayon::prelude::*;
 
 /// Path capture mode for Monte Carlo simulation.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PathCaptureMode {
     /// Capture all paths
     All,
@@ -43,7 +43,7 @@ pub enum PathCaptureMode {
 }
 
 /// Configuration for path capture during Monte Carlo simulation.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct PathCaptureConfig {
     /// Whether path capture is enabled
     pub enabled: bool,
@@ -129,7 +129,7 @@ impl Default for PathCaptureConfig {
 }
 
 /// Monte Carlo engine configuration.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct McEngineConfig {
     /// Number of paths to simulate
     pub num_paths: usize,

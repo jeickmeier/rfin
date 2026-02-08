@@ -25,7 +25,7 @@
 //!   (2nd ed.). Chapter 21: Credit Risk Modeling.
 
 /// Event returned by default calculator after each update.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DefaultEvent {
     /// No default occurred in this update
     NoDefault,
@@ -64,7 +64,7 @@ pub enum DefaultEvent {
 ///     }
 /// }
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct FirstPassageCalculator {
     /// Recovery rate (e.g., 0.4 for 40% recovery)
     recovery_rate: f64,

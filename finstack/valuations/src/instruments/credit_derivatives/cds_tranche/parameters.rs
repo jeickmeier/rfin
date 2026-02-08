@@ -5,7 +5,7 @@ use finstack_core::{dates::Date, money::Money, Error, Result};
 /// CDS Tranche specific parameters.
 ///
 /// Groups parameters specific to CDS tranches.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct CDSTrancheParams {
     /// Index name (e.g., "CDX.NA.IG", "iTraxx Europe")
     pub index_name: String,

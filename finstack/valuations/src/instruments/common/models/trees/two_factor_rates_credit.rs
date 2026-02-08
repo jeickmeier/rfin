@@ -13,7 +13,7 @@ use super::state_keys;
 use super::tree_framework::{NodeState, StateVariables, TreeModel, TreeValuator};
 
 /// Configuration for rates + credit two-factor tree.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct RatesCreditConfig {
     /// Number of time steps
     pub steps: usize,
@@ -49,7 +49,7 @@ impl Default for RatesCreditConfig {
 }
 
 /// Two-factor correlated binomial tree (short rate + hazard rate).
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct RatesCreditTree {
     /// Rates-credit tree configuration
     pub config: RatesCreditConfig,
