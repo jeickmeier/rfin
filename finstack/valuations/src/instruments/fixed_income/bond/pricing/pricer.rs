@@ -73,10 +73,10 @@ impl Pricer for SimpleBondHazardPricer {
 
         // Build error context for better diagnostics
         let ctx = PricingErrorContext::new()
-            .with_instrument_id(bond.id())
-            .with_instrument_type(InstrumentType::Bond)
-            .with_model(ModelKey::HazardRate)
-            .with_curve_id(bond.discount_curve_id.as_str());
+            .instrument_id(bond.id())
+            .instrument_type(InstrumentType::Bond)
+            .model(ModelKey::HazardRate)
+            .curve_id(bond.discount_curve_id.as_str());
 
         let pv = HazardBondEngine::price(bond, market, as_of)
             .map_err(|e| PricingError::model_failure_ctx(e.to_string(), ctx.clone()))?;
@@ -127,10 +127,10 @@ impl Pricer for SimpleBondOasPricer {
 
         // Build error context for better diagnostics
         let ctx = PricingErrorContext::new()
-            .with_instrument_id(bond.id())
-            .with_instrument_type(InstrumentType::Bond)
-            .with_model(ModelKey::Tree)
-            .with_curve_id(bond.discount_curve_id.as_str());
+            .instrument_id(bond.id())
+            .instrument_type(InstrumentType::Bond)
+            .model(ModelKey::Tree)
+            .curve_id(bond.discount_curve_id.as_str());
 
         // Use the provided as_of date for consistency
         // Base present value

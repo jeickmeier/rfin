@@ -65,7 +65,7 @@ fn hazard_shift_clamps_negative_rates() {
         .knots([(0.0, 0.01), (5.0, 0.02)])
         .build()
         .unwrap();
-    let shifted = curve.with_hazard_shift(-0.02).unwrap();
+    let shifted = curve.with_parallel_bump(-0.02).unwrap();
 
     for (_, lambda) in shifted.knot_points() {
         assert!(lambda >= 0.0);

@@ -92,7 +92,7 @@ use crate::{
 /// # Thread Safety
 ///
 /// Immutable after construction; safe to share via `Arc<ForwardCurve>`.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "RawForwardCurve", into = "RawForwardCurve")]
 pub struct ForwardCurve {
     id: CurveId,
@@ -108,21 +108,6 @@ pub struct ForwardCurve {
     /// Simple forward rates (e.g. 0.025 = 2.5 %).
     forwards: Box<[f64]>,
     interp: Interp,
-}
-
-impl Clone for ForwardCurve {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            base: self.base,
-            reset_lag: self.reset_lag,
-            day_count: self.day_count,
-            tenor: self.tenor,
-            knots: self.knots.clone(),
-            forwards: self.forwards.clone(),
-            interp: self.interp.clone(),
-        }
-    }
 }
 
 /// Raw serializable state of ForwardCurve
@@ -343,6 +328,7 @@ impl ForwardCurve {
     /// -----
     /// - This is **not** a discount curve used for PV discounting; it is an *implied projection DF*.
     /// - The stepping size uses the curve’s `tenor_years` with a final fractional step when needed.
+    #[must_use = "computed discount factor should not be discarded"]
     pub fn df(&self, t: f64) -> crate::Result<f64> {
         if !t.is_finite() {
             return Err(InputError::Invalid.into());
@@ -399,6 +385,7 @@ impl ForwardCurve {
     ///
     /// Returns an error if year fraction or discount factor calculation fails.
     #[inline]
+    #[must_use = "computed discount factor should not be discarded"]
     pub fn df_on_date_curve(&self, date: Date) -> crate::Result<f64> {
         let t = if date == self.base {
             0.0
@@ -477,16 +464,15 @@ impl ForwardCurve {
         }
 
         let bump_rate = bp / 10_000.0;
-        let mut bumped_rates: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
-
-        for (&knot_t, &rate) in self.knots.iter().zip(self.forwards.iter()) {
-            // Calculate triangular weight based on BUCKET grid (not curve knots!)
-            let weight = triangular_weight(knot_t, prev_bucket, target_bucket, next_bucket);
-
-            // Apply weighted bump: rate_bumped = rate + bump * weight
-            let new_rate = rate + bump_rate * weight;
-            bumped_rates.push((knot_t, new_rate));
-        }
+        let bumped_rates: Vec<(f64, f64)> = self
+            .knots
+            .iter()
+            .zip(self.forwards.iter())
+            .map(|(&knot_t, &rate)| {
+                let weight = triangular_weight(knot_t, prev_bucket, target_bucket, next_bucket);
+                (knot_t, rate + bump_rate * weight)
+            })
+            .collect();
 
         let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bp);
         ForwardCurve::builder(new_id, self.tenor)
@@ -591,6 +577,22 @@ impl ForwardCurve {
 }
 
 /// Fluent builder for [`ForwardCurve`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::term_structures::ForwardCurve;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+/// let curve = ForwardCurve::builder("USD_SOFR_3M", 0.25)
+///     .base_date(base)
+///     .knots([(1.0, 0.045), (2.0, 0.048), (5.0, 0.050)])
+///     .build()
+///     .expect("ForwardCurve builder should succeed");
+/// assert!(curve.rate(2.0) > 0.0);
+/// ```
 pub struct ForwardCurveBuilder {
     id: CurveId,
     base: Date,
@@ -633,12 +635,6 @@ impl ForwardCurveBuilder {
         self
     }
 
-    /// Deprecated alias for [`interp`](Self::interp).
-    #[deprecated(since = "0.2.0", note = "renamed to `interp` for naming consistency")]
-    pub fn set_interp(self, style: InterpStyle) -> Self {
-        self.interp(style)
-    }
-
     /// Set the extrapolation policy for out-of-bounds evaluation.
     pub fn extrapolation(mut self, policy: ExtrapolationPolicy) -> Self {
         self.extrapolation = policy;
@@ -649,15 +645,6 @@ impl ForwardCurveBuilder {
     pub fn min_forward_rate(mut self, min_rate: f64) -> Self {
         self.min_forward_rate = Some(min_rate);
         self
-    }
-
-    /// Deprecated alias for [`min_forward_rate`](Self::min_forward_rate).
-    #[deprecated(
-        since = "0.2.0",
-        note = "renamed to `min_forward_rate` for naming consistency"
-    )]
-    pub fn with_min_forward_rate(self, min_rate: f64) -> Self {
-        self.min_forward_rate(min_rate)
     }
 
     /// Validate input and build the [`ForwardCurve`].

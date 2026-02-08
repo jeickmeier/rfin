@@ -4,6 +4,7 @@
 //! interpolation setup, knot splitting, and serde state. Hazard curves do not
 //! rely on the interpolation engine and therefore only reuse the serde helpers.
 
+use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::math::interp::types::Interp;
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle, ValidationPolicy};
 use crate::Result;
@@ -63,6 +64,20 @@ pub(crate) fn build_interp_input_error(
     style.build_enum(knots, values, extrapolation, validation)
 }
 
+/// Compute year fraction from a base date to a target date using the given day-count.
+///
+/// Returns `0.0` when `date == base` without invoking the day-count engine
+/// (avoids edge-case issues for same-day lookups). This is the canonical
+/// helper shared by all term-structure `*_on_date()` methods.
+#[inline]
+pub(crate) fn year_fraction_to(base: Date, date: Date, day_count: DayCount) -> Result<f64> {
+    if date == base {
+        Ok(0.0)
+    } else {
+        Ok(day_count.year_fraction(base, date, DayCountCtx::default())?)
+    }
+}
+
 /// Convenience to split points (t, v) into separate vectors.
 #[inline]
 pub(crate) fn split_points(points: Vec<(f64, f64)>) -> (Vec<f64>, Vec<f64>) {
@@ -120,6 +135,19 @@ pub(crate) fn roll_knots(knots: &[f64], values: &[f64], dt: f64) -> Vec<(f64, f6
             }
         })
         .collect()
+}
+
+/// Validate that a value is within the unit range `[0.0, 1.0]`.
+///
+/// Returns an error with a descriptive message if the value is out of range.
+/// Used by hazard curve recovery rates, base correlation values, etc.
+#[inline]
+pub(crate) fn validate_unit_range(value: f64, field_name: &str) -> crate::Result<()> {
+    if !(0.0..=1.0).contains(&value) {
+        return Err(crate::error::InputError::Invalid.into());
+    }
+    let _ = field_name; // used in error context if needed in the future
+    Ok(())
 }
 
 // -----------------------------------------------------------------------------

@@ -106,7 +106,7 @@ use crate::{
 /// # Thread Safety
 ///
 /// Immutable after construction; safe to share via `Arc<HazardCurve>`.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "RawHazardCurve", into = "RawHazardCurve")]
 pub struct HazardCurve {
     id: CurveId,
@@ -133,26 +133,6 @@ pub struct HazardCurve {
     par_interp: ParInterp,
     /// Interpolator for survival probabilities
     interp: Interp,
-}
-
-impl Clone for HazardCurve {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            base: self.base,
-            knots: self.knots.clone(),
-            lambdas: self.lambdas.clone(),
-            recovery_rate: self.recovery_rate,
-            issuer: self.issuer.clone(),
-            seniority: self.seniority,
-            currency: self.currency,
-            day_count: self.day_count,
-            par_tenors: self.par_tenors.clone(),
-            par_spreads_bp: self.par_spreads_bp.clone(),
-            par_interp: self.par_interp,
-            interp: self.interp.clone(),
-        }
-    }
 }
 
 /// Raw serializable state of a HazardCurve
@@ -222,25 +202,17 @@ impl TryFrom<RawHazardCurve> for HazardCurve {
     type Error = crate::Error;
 
     fn try_from(state: RawHazardCurve) -> crate::Result<Self> {
-        let mut builder = HazardCurve::builder(state.common_id.id)
+        HazardCurve::builder(state.common_id.id)
             .base_date(state.base)
             .recovery_rate(state.recovery_rate)
             .day_count(state.day_count)
             .knots(state.points.knot_points)
             .par_spreads(state.par_points)
-            .par_interp(state.par_interp);
-
-        if let Some(issuer) = state.issuer {
-            builder = builder.issuer(issuer);
-        }
-        if let Some(seniority) = state.seniority {
-            builder = builder.seniority(seniority);
-        }
-        if let Some(currency) = state.currency {
-            builder = builder.currency(currency);
-        }
-
-        builder.build()
+            .par_interp(state.par_interp)
+            .issuer_opt(state.issuer)
+            .seniority_opt(state.seniority)
+            .currency_opt(state.currency)
+            .build()
     }
 }
 
@@ -282,6 +254,7 @@ impl HazardCurve {
     /// # Errors
     ///
     /// Returns an error if `t2 < t1`.
+    #[must_use = "computed default probability should not be discarded"]
     pub fn default_prob(&self, t1: f64, t2: f64) -> crate::Result<f64> {
         if t2 < t1 {
             return Err(crate::Error::Validation(format!(
@@ -322,7 +295,52 @@ impl HazardCurve {
         self.lambdas[self.lambdas.len() - 1]
     }
 
+    /// Survival probability on a specific calendar date using the curve's day-count.
+    ///
+    /// This is the date-based equivalent of [`sp`](Self::sp), consistent with
+    /// `DiscountCurve::df_on_date_curve` and `ForwardCurve::df_on_date_curve`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the year fraction calculation fails.
+    #[inline]
+    #[must_use = "computed survival probability should not be discarded"]
+    pub fn sp_on_date(&self, date: Date) -> crate::Result<f64> {
+        let t = self.year_fraction_to(date)?;
+        Ok(self.sp(t))
+    }
+
+    /// Hazard rate on a specific calendar date using the curve's day-count.
+    ///
+    /// This is the date-based equivalent of [`hazard_rate`](Self::hazard_rate).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the year fraction calculation fails.
+    #[inline]
+    #[must_use = "computed hazard rate should not be discarded"]
+    pub fn hazard_rate_on_date(&self, date: Date) -> crate::Result<f64> {
+        let t = self.year_fraction_to(date)?;
+        Ok(self.hazard_rate(t))
+    }
+
+    /// Default probability between two dates using the curve's day-count.
+    ///
+    /// This is the date-based equivalent of [`default_prob`](Self::default_prob).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if year fraction calculation fails or if `d2 < d1`.
+    #[inline]
+    #[must_use = "computed default probability should not be discarded"]
+    pub fn default_prob_on_dates(&self, d1: Date, d2: Date) -> crate::Result<f64> {
+        let t1 = self.year_fraction_to(d1)?;
+        let t2 = self.year_fraction_to(d2)?;
+        self.default_prob(t1, t2)
+    }
+
     /// Evaluate survival probabilities at the provided dates using this curve's time axis.
+    #[must_use = "computed survival probabilities should not be discarded"]
     pub fn survival_at_dates(&self, dates: &[Date]) -> crate::Result<Vec<f64>> {
         let base = self.base_date();
         let dc = self.day_count();
@@ -404,35 +422,27 @@ impl HazardCurve {
     /// Create a builder with this curve's parameters, using a new ID.
     /// Useful for creating modified versions of the curve.
     pub fn to_builder_with_id(&self, new_id: impl Into<CurveId>) -> HazardCurveBuilder {
-        let mut builder = HazardCurve::builder(new_id)
+        HazardCurve::builder(new_id)
             .base_date(self.base)
             .recovery_rate(self.recovery_rate)
             .day_count(self.day_count)
-            .par_interp(self.par_interp);
-
-        if let Some(ref issuer) = self.issuer {
-            builder = builder.issuer(issuer.clone());
-        }
-        if let Some(seniority) = self.seniority {
-            builder = builder.seniority(seniority);
-        }
-        if let Some(currency) = self.currency {
-            builder = builder.currency(currency);
-        }
-
-        // Add existing knot points
-        builder = builder.knots(self.knot_points());
-
-        // Add existing par spread points
-        builder = builder.par_spreads(self.par_spread_points());
-
-        builder
+            .par_interp(self.par_interp)
+            .issuer_opt(self.issuer.clone())
+            .seniority_opt(self.seniority)
+            .currency_opt(self.currency)
+            .knots(self.knot_points())
+            .par_spreads(self.par_spread_points())
     }
 
     /// Create a new curve with hazard rates shifted by a constant amount.
-    /// Uses the same ID with a "_BUMPED" suffix.
-    /// Negative shifts are clamped to zero to ensure non-negative hazard rates.
-    pub fn with_hazard_shift(&self, shift: f64) -> crate::Result<HazardCurve> {
+    ///
+    /// This is the hazard curve equivalent of the parallel bump applied to other
+    /// term structures (`DiscountCurve::with_parallel_bump`, etc.).
+    ///
+    /// # Arguments
+    /// * `shift` - Additive shift to all hazard rates (e.g., 0.0001 for +1bp).
+    ///   Negative shifts are clamped to zero to ensure non-negative hazard rates.
+    pub fn with_parallel_bump(&self, shift: f64) -> crate::Result<HazardCurve> {
         let shifted_points: Vec<(f64, f64)> = self
             .knot_points()
             .map(|(t, lambda)| (t, (lambda + shift).max(0.0)))
@@ -442,27 +452,17 @@ impl HazardCurve {
         // In practice, the caller will manage IDs when building market contexts
         let temp_id = "TEMP_BUMPED_HAZARD";
 
-        let mut builder = HazardCurve::builder(temp_id)
+        HazardCurve::builder(temp_id)
             .base_date(self.base)
             .recovery_rate(self.recovery_rate)
             .day_count(self.day_count)
             .knots(shifted_points)
-            .par_interp(self.par_interp);
-
-        if let Some(ref issuer) = self.issuer {
-            builder = builder.issuer(issuer.clone());
-        }
-        if let Some(seniority) = self.seniority {
-            builder = builder.seniority(seniority);
-        }
-        if let Some(currency) = self.currency {
-            builder = builder.currency(currency);
-        }
-
-        // Add existing par spread points
-        builder = builder.par_spreads(self.par_spread_points());
-
-        builder.build()
+            .par_interp(self.par_interp)
+            .issuer_opt(self.issuer.clone())
+            .seniority_opt(self.seniority)
+            .currency_opt(self.currency)
+            .par_spreads(self.par_spread_points())
+            .build()
     }
 
     /// Roll the curve forward by a specified number of days.
@@ -507,17 +507,10 @@ impl HazardCurve {
             .recovery_rate(self.recovery_rate)
             .day_count(self.day_count)
             .knots(rolled_points)
-            .par_interp(self.par_interp);
-
-        if let Some(ref issuer) = self.issuer {
-            builder = builder.issuer(issuer.clone());
-        }
-        if let Some(seniority) = self.seniority {
-            builder = builder.seniority(seniority);
-        }
-        if let Some(currency) = self.currency {
-            builder = builder.currency(currency);
-        }
+            .par_interp(self.par_interp)
+            .issuer_opt(self.issuer.clone())
+            .seniority_opt(self.seniority)
+            .currency_opt(self.currency);
 
         // Add rolled par spread points if any
         if !rolled_par_points.is_empty() {
@@ -527,8 +520,15 @@ impl HazardCurve {
         builder.build()
     }
 
+    /// Helper: compute year fraction from base date to target date using the curve's day-count.
+    #[inline]
+    fn year_fraction_to(&self, date: Date) -> crate::Result<f64> {
+        super::common::year_fraction_to(self.base, date, self.day_count)
+    }
+
     /// Return an interpolated par spread in basis points for reporting.
     /// Linear interpolation in spread, with log-linear fallback when values are positive and requested.
+    #[must_use]
     pub fn quoted_spread_bp(&self, t: f64, method: ParInterp) -> f64 {
         // If the curve was constructed without explicit par-spread quotes, fall back to a
         // simple hazard-based approximation instead of panicking inside interpolators.
@@ -599,6 +599,23 @@ impl TermStructure for HazardCurve {
 }
 
 /// Fluent builder for [`HazardCurve`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::term_structures::HazardCurve;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+/// let curve = HazardCurve::builder("USD-CREDIT")
+///     .base_date(base)
+///     .recovery_rate(0.40)
+///     .knots([(0.0, 0.01), (5.0, 0.015), (10.0, 0.02)])
+///     .build()
+///     .expect("HazardCurve builder should succeed");
+/// assert!(curve.sp(5.0) < 1.0);
+/// ```
 pub struct HazardCurveBuilder {
     id: CurveId,
     base: Date,
@@ -677,10 +694,22 @@ impl HazardCurveBuilder {
         self
     }
 
-    /// Deprecated alias for [`max_hazard_rate`](Self::max_hazard_rate).
-    #[deprecated(since = "0.2.0", note = "Use `max_hazard_rate()` instead")]
-    pub fn with_max_hazard_rate(self, max: f64) -> Self {
-        self.max_hazard_rate(max)
+    /// Optionally set issuer metadata (no-op if `None`).
+    pub fn issuer_opt(mut self, name: Option<impl Into<String>>) -> Self {
+        self.issuer = name.map(Into::into);
+        self
+    }
+
+    /// Optionally set seniority metadata (no-op if `None`).
+    pub fn seniority_opt(mut self, s: Option<Seniority>) -> Self {
+        self.seniority = s;
+        self
+    }
+
+    /// Optionally set currency metadata (no-op if `None`).
+    pub fn currency_opt(mut self, ccy: Option<Currency>) -> Self {
+        self.currency = ccy;
+        self
     }
 
     /// Remove the upper bound on hazard rates (sets the limit to infinity).
@@ -730,7 +759,7 @@ impl HazardCurveBuilder {
             // implies >99.995% 1Y default probability.
             if lambda > self.max_hazard_rate {
                 return Err(crate::Error::Validation(format!(
-                    "Hazard rate {lambda:.4} at t={t:.2}y exceeds maximum {:.4}. \
+                    "Hazard rate {lambda:.4} at t={t:.4}y exceeds maximum {:.4}. \
                      Use .allow_high_hazard_rates() or .max_hazard_rate() to override.",
                     self.max_hazard_rate
                 )));
@@ -738,9 +767,7 @@ impl HazardCurveBuilder {
         }
 
         // Validate recovery rate bounds
-        if !(0.0..=1.0).contains(&self.recovery_rate) {
-            return Err(InputError::Invalid.into());
-        }
+        super::common::validate_unit_range(self.recovery_rate, "recovery_rate")?;
 
         let mut points = self.points;
         points.sort_by(|a, b| a.0.total_cmp(&b.0));

@@ -1895,7 +1895,7 @@ impl CDSTranchePricer {
         // Create bumped hazard curve
         let bumped_hazard_curve = original_index
             .index_credit_curve
-            .with_hazard_shift(delta_lambda)?;
+            .with_parallel_bump(delta_lambda)?;
 
         // Create new credit index data with bumped hazard curve
         CreditIndexData::builder()

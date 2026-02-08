@@ -88,7 +88,7 @@ use crate::{
 /// # Thread Safety
 ///
 /// Immutable after construction; safe to share via `Arc<VolatilityIndexCurve>`.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "RawVolatilityIndexCurve", into = "RawVolatilityIndexCurve")]
 pub struct VolatilityIndexCurve {
     id: CurveId,
@@ -102,20 +102,6 @@ pub struct VolatilityIndexCurve {
     /// Forward volatility index levels at each knot.
     levels: Box<[f64]>,
     interp: Interp,
-}
-
-impl Clone for VolatilityIndexCurve {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            base: self.base,
-            day_count: self.day_count,
-            spot_level: self.spot_level,
-            knots: self.knots.clone(),
-            levels: self.levels.clone(),
-            interp: self.interp.clone(),
-        }
-    }
 }
 
 /// Raw serializable state of VolatilityIndexCurve
@@ -274,7 +260,7 @@ impl VolatilityIndexCurve {
 
     /// Extrapolation policy used by this curve.
     #[inline]
-    pub fn extrapolation_policy(&self) -> ExtrapolationPolicy {
+    pub fn extrapolation(&self) -> ExtrapolationPolicy {
         self.interp.extrapolation()
     }
 
@@ -357,7 +343,7 @@ impl VolatilityIndexCurve {
     ///
     /// # Returns
     /// A new volatility index curve with the triangular key-rate bump applied.
-    pub fn with_triangular_key_rate_bump(
+    pub fn with_triangular_key_rate_bump_neighbors(
         &self,
         prev_bucket: f64,
         target_bucket: f64,
@@ -368,13 +354,15 @@ impl VolatilityIndexCurve {
             return self.with_parallel_bump(bump);
         }
 
-        let mut bumped_points: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
-
-        for (&knot_t, &level) in self.knots.iter().zip(self.levels.iter()) {
-            let weight = triangular_weight(knot_t, prev_bucket, target_bucket, next_bucket);
-            let new_level = (level + bump * weight).max(0.0);
-            bumped_points.push((knot_t, new_level));
-        }
+        let bumped_points: Vec<(f64, f64)> = self
+            .knots
+            .iter()
+            .zip(self.levels.iter())
+            .map(|(&knot_t, &level)| {
+                let weight = triangular_weight(knot_t, prev_bucket, target_bucket, next_bucket);
+                (knot_t, (level + bump * weight).max(0.0))
+            })
+            .collect();
 
         let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bump * 100.0);
         VolatilityIndexCurve::builder(new_id)
@@ -430,6 +418,23 @@ impl VolatilityIndexCurve {
 }
 
 /// Fluent builder for [`VolatilityIndexCurve`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::term_structures::VolatilityIndexCurve;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+/// let curve = VolatilityIndexCurve::builder("VIX")
+///     .base_date(base)
+///     .spot_level(18.5)
+///     .knots([(0.0, 18.5), (0.25, 20.0), (0.5, 21.5), (1.0, 22.0)])
+///     .build()
+///     .expect("VolatilityIndexCurve builder should succeed");
+/// assert!(curve.forward_level(0.5) > 18.5);
+/// ```
 pub struct VolatilityIndexCurveBuilder {
     id: CurveId,
     base: Date,
@@ -474,12 +479,6 @@ impl VolatilityIndexCurveBuilder {
     pub fn interp(mut self, style: InterpStyle) -> Self {
         self.style = style;
         self
-    }
-
-    /// Deprecated alias for [`interp`](Self::interp).
-    #[deprecated(since = "0.2.0", note = "renamed to `interp` for naming consistency")]
-    pub fn set_interp(self, style: InterpStyle) -> Self {
-        self.interp(style)
     }
 
     /// Set the extrapolation policy for out-of-bounds evaluation.

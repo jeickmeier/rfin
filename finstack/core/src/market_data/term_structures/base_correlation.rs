@@ -192,7 +192,17 @@ impl ArbitrageViolation {
     }
 
     /// Human-readable description of the violation.
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use Display trait instead: format!(\"{}\", violation)"
+    )]
     pub fn description(&self) -> String {
+        format!("{}", self)
+    }
+}
+
+impl core::fmt::Display for ArbitrageViolation {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ArbitrageViolation::NonMonotonicCorrelation {
                 k1,
@@ -200,7 +210,8 @@ impl ArbitrageViolation {
                 k2,
                 corr2,
             } => {
-                format!(
+                write!(
+                    f,
                     "Non-monotonic: β({:.1}%) = {:.4} > β({:.1}%) = {:.4}",
                     k1, corr1, k2, corr2
                 )
@@ -209,7 +220,8 @@ impl ArbitrageViolation {
                 detachment,
                 correlation,
             } => {
-                format!(
+                write!(
+                    f,
                     "Invalid correlation {:.4} at K={:.1}% (must be in [0, 1])",
                     correlation, detachment
                 )
@@ -220,7 +232,8 @@ impl ArbitrageViolation {
                 near_zero,
             } => {
                 let boundary = if *near_zero { "0" } else { "1" };
-                format!(
+                write!(
+                    f,
                     "Boundary correlation {:.4} near {} at K={:.1}%",
                     correlation, boundary, detachment
                 )
@@ -288,7 +301,7 @@ pub enum SmoothingMethod {
 /// - Detachment points are strictly increasing
 /// - Correlations ∈ [0, 1]
 /// - Base correlation typically increases with detachment (equity < mezzanine < senior)
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "RawBaseCorrelationCurve", into = "RawBaseCorrelationCurve")]
 pub struct BaseCorrelationCurve {
     /// Curve identifier (typically index name + maturity)
@@ -334,17 +347,6 @@ impl TryFrom<RawBaseCorrelationCurve> for BaseCorrelationCurve {
     }
 }
 
-impl Clone for BaseCorrelationCurve {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            detachment_points: self.detachment_points.clone(),
-            correlations: self.correlations.clone(),
-            interp: self.interp.clone(),
-        }
-    }
-}
-
 impl BaseCorrelationCurve {
     /// Create a new base correlation curve builder.
     pub fn builder(id: impl Into<CurveId>) -> BaseCorrelationCurveBuilder {
@@ -359,19 +361,51 @@ impl BaseCorrelationCurve {
         self.interp.interp(detachment_pct)
     }
 
-    /// Raw detachment points used to build the curve.
+    /// Raw detachment points (percent) used to build the curve.
+    ///
+    /// Returns the detachment points in ascending order, corresponding 1:1
+    /// with the values returned by [`correlations()`](Self::correlations).
     pub fn detachment_points(&self) -> &[f64] {
         &self.detachment_points
     }
 
     /// Raw correlation values at each detachment point.
+    ///
+    /// Returns base correlation values in `[0, 1]`, corresponding 1:1 with
+    /// the detachment points from [`detachment_points()`](Self::detachment_points).
     pub fn correlations(&self) -> &[f64] {
         &self.correlations
+    }
+
+    /// Number of knot points (detachment/correlation pairs) in the curve.
+    #[inline]
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.detachment_points.len()
+    }
+
+    /// Returns `true` if the curve has no knot points.
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.detachment_points.is_empty()
+    }
+
+    /// Interpolation style used by this curve (always Linear for base correlation).
+    #[inline]
+    pub fn interp_style(&self) -> InterpStyle {
+        self.interp.style()
+    }
+
+    /// Extrapolation policy used by this curve.
+    #[inline]
+    pub fn extrapolation(&self) -> ExtrapolationPolicy {
+        self.interp.extrapolation()
     }
 }
 
 impl BaseCorrelationCurve {
-    /// Curve identifier.
+    /// Curve identifier (typically index name + maturity, e.g. "CDX.NA.IG.42_5Y").
     #[inline]
     pub fn id(&self) -> &CurveId {
         &self.id
@@ -383,23 +417,22 @@ impl BaseCorrelationCurve {
         detachment_filter: Option<&[f64]>,
         points: f64,
     ) -> Option<Self> {
-        let mut new_points: Vec<(f64, f64)> = Vec::with_capacity(self.detachment_points.len());
-
-        for (det, corr) in self
+        let new_points: Vec<(f64, f64)> = self
             .detachment_points
             .iter()
             .copied()
             .zip(self.correlations.iter().copied())
-        {
-            let matches = detachment_filter
-                .map(|flt| flt.iter().any(|d| (d - det).abs() < 0.01))
-                .unwrap_or(true);
-            if matches {
-                new_points.push((det, (corr + points).clamp(0.0, 1.0)));
-            } else {
-                new_points.push((det, corr));
-            }
-        }
+            .map(|(det, corr)| {
+                let matches = detachment_filter
+                    .map(|flt| flt.iter().any(|d| (d - det).abs() < 0.01))
+                    .unwrap_or(true);
+                if matches {
+                    (det, (corr + points).clamp(0.0, 1.0))
+                } else {
+                    (det, corr)
+                }
+            })
+            .collect();
         // Bucket bumps may legitimately break monotonicity (e.g., shocking
         // only a subset of detachment points in a stress test).  Allow
         // non-monotonic construction here; callers can re-validate if needed.
@@ -434,6 +467,7 @@ impl BaseCorrelationCurve {
     /// let result = curve.validate_arbitrage_free();
     /// assert!(result.is_arbitrage_free);
     /// ```
+    #[must_use = "arbitrage check result should be inspected"]
     pub fn validate_arbitrage_free(&self) -> ArbitrageCheckResult {
         let mut violations = Vec::new();
         let mut warnings = Vec::new();
@@ -488,13 +522,9 @@ impl BaseCorrelationCurve {
     }
 
     /// Check if the curve is monotonically non-decreasing.
+    #[must_use]
     pub fn is_monotonic(&self) -> bool {
-        for i in 1..self.correlations.len() {
-            if self.correlations[i] < self.correlations[i - 1] - 1e-9 {
-                return false;
-            }
-        }
-        true
+        self.correlations.windows(2).all(|w| w[1] >= w[0] - 1e-9)
     }
 
     // ========================================================================
@@ -810,8 +840,9 @@ impl BaseCorrelationCurveBuilder {
                 .collect();
 
             if !hard_violations.is_empty() {
+                #[allow(deprecated)]
                 let descriptions: Vec<String> =
-                    hard_violations.iter().map(|v| v.description()).collect();
+                    hard_violations.iter().map(|v| v.to_string()).collect();
                 return Err(crate::Error::Validation(format!(
                     "Base correlation curve is not arbitrage-free: {}. \
                      Use .allow_non_monotonic() to bypass this check.",
@@ -962,14 +993,14 @@ mod tests {
     }
 
     #[test]
-    fn test_violation_description() {
+    fn test_violation_display() {
         let v = ArbitrageViolation::NonMonotonicCorrelation {
             k1: 3.0,
             corr1: 0.50,
             k2: 7.0,
             corr2: 0.40,
         };
-        let desc = v.description();
+        let desc = v.to_string();
         assert!(desc.contains("Non-monotonic"));
         assert!(desc.contains("3.0"));
         assert!(desc.contains("7.0"));

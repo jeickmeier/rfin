@@ -455,6 +455,7 @@ impl DiscountCurve {
     /// # }
     /// ```
     #[inline]
+    #[must_use = "computed forward rate should not be discarded"]
     pub fn forward(&self, t1: f64, t2: f64) -> crate::Result<f64> {
         if !t1.is_finite() || !t2.is_finite() || t2 <= t1 {
             return Err(crate::error::InputError::Invalid.into());
@@ -475,12 +476,14 @@ impl DiscountCurve {
 
     /// Batch evaluation of discount factors for multiple times.
     #[inline]
+    #[must_use]
     pub fn df_batch(&self, times: &[f64]) -> Vec<f64> {
         times.iter().map(|&t| self.df(t)).collect()
     }
 
     /// Fallible: discount factor on a specific date `date` using explicit day-count `dc`.
     #[inline]
+    #[must_use = "computed discount factor should not be discarded"]
     pub fn df_on_date(&self, date: Date, dc: crate::dates::DayCount) -> crate::Result<f64> {
         let t = if date == self.base {
             0.0
@@ -492,6 +495,7 @@ impl DiscountCurve {
 
     /// Fallible: discount factor on a specific date `date` using the curve's day-count.
     #[inline]
+    #[must_use = "computed discount factor should not be discarded"]
     pub fn df_on_date_curve(&self, date: Date) -> crate::Result<f64> {
         let t = self.year_fraction_to(date)?;
         Ok(self.df(t))
@@ -505,6 +509,7 @@ impl DiscountCurve {
     /// Works for both forward and backward date order. Returns `1.0` when
     /// `from == to`.
     #[inline]
+    #[must_use = "computed discount factor should not be discarded"]
     pub fn df_between_dates(&self, from: Date, to: Date) -> crate::Result<f64> {
         if from == to {
             return Ok(1.0);
@@ -580,6 +585,7 @@ impl DiscountCurve {
     /// # Errors
     /// Returns an error if the date is before the anchor.
     #[inline]
+    #[must_use = "computed zero rate should not be discarded"]
     pub fn zero_rate_on_date(
         &self,
         date: Date,
@@ -600,6 +606,7 @@ impl DiscountCurve {
     /// # Edge Cases
     /// - For t = 0, all compounding conventions return 0.0 (instantaneous rate is undefined)
     #[inline]
+    #[must_use]
     pub fn zero_rate(&self, t: f64, compounding: crate::math::Compounding) -> f64 {
         use crate::math::Compounding;
         match compounding {
@@ -620,6 +627,7 @@ impl DiscountCurve {
     /// Returns an error if year fraction calculation fails or if the forward
     /// rate calculation fails.
     #[inline]
+    #[must_use = "computed forward rate should not be discarded"]
     pub fn forward_on_dates(&self, d1: Date, d2: Date) -> crate::Result<f64> {
         let t1 = self.year_fraction_to(d1)?;
         let t2 = self.year_fraction_to(d2)?;
@@ -629,13 +637,7 @@ impl DiscountCurve {
     /// Helper: compute year fraction from base date to target date using curve's day-count.
     #[inline]
     fn year_fraction_to(&self, date: Date) -> crate::Result<f64> {
-        if date == self.base {
-            Ok(0.0)
-        } else {
-            Ok(self
-                .day_count
-                .year_fraction(self.base, date, DayCountCtx::default())?)
-        }
+        super::common::year_fraction_to(self.base, date, self.day_count)
     }
 
     /// Create a new curve with a parallel rate bump applied in basis points (fallible).
@@ -748,19 +750,18 @@ impl DiscountCurve {
         }
 
         let bump_rate = bp / 10_000.0;
-        let mut bumped_points: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
-
-        for (&knot_t, &df) in self.knots.iter().zip(self.dfs.iter()) {
-            // Calculate triangular weight based on BUCKET grid (not curve knots!)
-            // This is the key difference from the old implementation
-            let weight = triangular_weight(knot_t, prev_bucket, target_bucket, next_bucket);
-
-            // Apply weighted bump to zero rate:
-            // r_bumped = r + w × δr
-            // DF_bumped = exp(-r_bumped × t) = DF × exp(-w × δr × t)
-            let new_df = df * (-bump_rate * weight * knot_t).exp();
-            bumped_points.push((knot_t, new_df));
-        }
+        let bumped_points: Vec<(f64, f64)> = self
+            .knots
+            .iter()
+            .zip(self.dfs.iter())
+            .map(|(&knot_t, &df)| {
+                // Triangular weight based on BUCKET grid (not curve knots!)
+                let weight = triangular_weight(knot_t, prev_bucket, target_bucket, next_bucket);
+                // r_bumped = r + w × δr
+                // DF_bumped = exp(-r_bumped × t) = DF × exp(-w × δr × t)
+                (knot_t, df * (-bump_rate * weight * knot_t).exp())
+            })
+            .collect();
 
         let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bp);
         DiscountCurve::builder(new_id)
@@ -1030,12 +1031,6 @@ impl DiscountCurveBuilder {
         self
     }
 
-    /// Deprecated alias for [`interp`](Self::interp).
-    #[deprecated(since = "0.2.0", note = "renamed to `interp` for naming consistency")]
-    pub fn set_interp(self, style: InterpStyle) -> Self {
-        self.interp(style)
-    }
-
     /// Set the extrapolation policy for out-of-bounds evaluation.
     pub fn extrapolation(mut self, policy: ExtrapolationPolicy) -> Self {
         self.extrapolation = policy;
@@ -1090,15 +1085,6 @@ impl DiscountCurveBuilder {
     pub fn min_forward_rate(mut self, min_rate: f64) -> Self {
         self.min_forward_rate = Some(min_rate);
         self
-    }
-
-    /// Deprecated alias for [`min_forward_rate`](Self::min_forward_rate).
-    #[deprecated(
-        since = "0.2.0",
-        note = "renamed to `min_forward_rate` for naming consistency"
-    )]
-    pub fn with_min_forward_rate(self, min_rate: f64) -> Self {
-        self.min_forward_rate(min_rate)
     }
 
     /// Allow non-monotonic discount factors (use with extreme caution).
@@ -1188,15 +1174,6 @@ impl DiscountCurveBuilder {
     pub fn min_forward_tenor(mut self, tenor: f64) -> Self {
         self.min_forward_tenor = tenor;
         self
-    }
-
-    /// Deprecated alias for [`min_forward_tenor`](Self::min_forward_tenor).
-    #[deprecated(
-        since = "0.2.0",
-        note = "renamed to `min_forward_tenor` for naming consistency"
-    )]
-    pub fn with_min_forward_tenor(self, tenor: f64) -> Self {
-        self.min_forward_tenor(tenor)
     }
 
     /// Build the curve with minimal validation for solver use.
@@ -1331,14 +1308,13 @@ impl DiscountCurveBuilder {
 /// Non-monotonic discount factors violate no-arbitrage conditions and will
 /// produce incorrect pricing results.
 fn validate_monotonic_df(knots: &[f64], dfs: &[f64]) -> crate::Result<()> {
-    for i in 1..dfs.len() {
-        let prev = dfs[i - 1];
-        let curr = dfs[i];
+    for (knot_pair, df_pair) in knots.windows(2).zip(dfs.windows(2)) {
+        let (prev, curr) = (df_pair[0], df_pair[1]);
         let tol = 1e-14 * prev.abs().max(1.0);
         if curr > prev + tol {
             return Err(crate::Error::Validation(format!(
                 "Discount factors must be non-increasing: DF(t={:.4}) = {:.12} > DF(t={:.4}) = {:.12}",
-                knots[i], curr, knots[i - 1], prev
+                knot_pair[1], curr, knot_pair[0], prev
             )));
         }
     }
@@ -1349,9 +1325,8 @@ fn validate_monotonic_df(knots: &[f64], dfs: &[f64]) -> crate::Result<()> {
 ///
 /// MonotoneConvex (Hagan–West) requires a positive, non-increasing DF term structure.
 fn validate_monotone_convex_compatible_df(knots: &[f64], dfs: &[f64]) -> crate::Result<()> {
-    for i in 1..dfs.len() {
-        let prev = dfs[i - 1];
-        let curr = dfs[i];
+    for (knot_pair, df_pair) in knots.windows(2).zip(dfs.windows(2)) {
+        let (prev, curr) = (df_pair[0], df_pair[1]);
         let tol = 1e-14 * prev.abs().max(1.0);
         if curr > prev + tol {
             return Err(crate::Error::Validation(format!(
@@ -1359,7 +1334,7 @@ fn validate_monotone_convex_compatible_df(knots: &[f64], dfs: &[f64]) -> crate::
                  Found DF(t={:.4}) = {:.12} > DF(t={:.4}) = {:.12}. \
                  Use LogLinear/Linear (and allow_non_monotonic) for negative-rate / increasing-DF inputs, \
                  or fix the input curve.",
-                knots[i], curr, knots[i - 1], prev
+                knot_pair[1], curr, knot_pair[0], prev
             )));
         }
     }
@@ -1373,20 +1348,20 @@ fn validate_monotone_convex_compatible_df(knots: &[f64], dfs: &[f64]) -> crate::
 /// Excessively negative forward rates (below the specified floor) indicate
 /// either data errors or unrealistic market conditions.
 fn validate_forward_rates(knots: &[f64], dfs: &[f64], min_rate: f64) -> crate::Result<()> {
-    for i in 1..knots.len() {
-        let dt = knots[i] - knots[i - 1];
+    for (knot_pair, df_pair) in knots.windows(2).zip(dfs.windows(2)) {
+        let dt = knot_pair[1] - knot_pair[0];
         if dt <= 0.0 {
             continue; // Skip degenerate intervals
         }
 
         // Calculate implied forward rate
-        let fwd = -(dfs[i] / dfs[i - 1]).ln() / dt;
+        let fwd = -(df_pair[1] / df_pair[0]).ln() / dt;
 
         if fwd < min_rate {
             return Err(crate::Error::Validation(format!(
                 "Forward rate {:.4}% (decimal: {:.6}) between t={:.4} and t={:.4} is below minimum {:.4}% (decimal: {:.6}). \
                  This may indicate a data error or create arbitrage opportunities.",
-                fwd * 100.0, fwd, knots[i - 1], knots[i], min_rate * 100.0, min_rate
+                fwd * 100.0, fwd, knot_pair[0], knot_pair[1], min_rate * 100.0, min_rate
             )));
         }
     }

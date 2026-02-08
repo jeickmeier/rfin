@@ -661,8 +661,8 @@ impl PricingErrorContext {
     ///
     /// ```ignore
     /// let ctx = PricingErrorContext::from_instrument(bond)
-    ///     .with_model(ModelKey::Discounting)
-    ///     .with_curve_id("USD-OIS");
+    ///     .model(ModelKey::Discounting)
+    ///     .curve_id("USD-OIS");
     /// ```
     pub fn from_instrument(instrument: &dyn Priceable) -> Self {
         Self {
@@ -673,37 +673,75 @@ impl PricingErrorContext {
     }
 
     /// Set the instrument ID.
-    pub fn with_instrument_id(mut self, id: impl Into<String>) -> Self {
+    pub fn instrument_id(mut self, id: impl Into<String>) -> Self {
         self.instrument_id = Some(id.into());
         self
     }
 
     /// Set the instrument type.
-    pub fn with_instrument_type(mut self, typ: InstrumentType) -> Self {
+    pub fn instrument_type(mut self, typ: InstrumentType) -> Self {
         self.instrument_type = Some(typ);
         self
     }
 
     /// Set the pricing model.
-    pub fn with_model(mut self, model: ModelKey) -> Self {
+    pub fn model(mut self, model: ModelKey) -> Self {
         self.model = Some(model);
         self
     }
 
     /// Add a curve/surface ID to the context.
-    pub fn with_curve_id(mut self, curve_id: impl Into<String>) -> Self {
+    pub fn curve_id(mut self, curve_id: impl Into<String>) -> Self {
         self.curve_ids.push(curve_id.into());
         self
     }
 
     /// Add multiple curve/surface IDs to the context.
-    pub fn with_curve_ids(
-        mut self,
-        curve_ids: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Self {
+    pub fn curve_ids(mut self, curve_ids: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.curve_ids
             .extend(curve_ids.into_iter().map(|s| s.into()));
         self
+    }
+
+    // -- Deprecated aliases for naming consistency --
+
+    /// Deprecated: use [`instrument_id`](Self::instrument_id) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `instrument_id` for naming consistency"
+    )]
+    pub fn with_instrument_id(self, id: impl Into<String>) -> Self {
+        self.instrument_id(id)
+    }
+
+    /// Deprecated: use [`instrument_type`](Self::instrument_type) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `instrument_type` for naming consistency"
+    )]
+    pub fn with_instrument_type(self, typ: InstrumentType) -> Self {
+        self.instrument_type(typ)
+    }
+
+    /// Deprecated: use [`model`](Self::model) instead.
+    #[deprecated(since = "0.8.0", note = "renamed to `model` for naming consistency")]
+    pub fn with_model(self, model: ModelKey) -> Self {
+        self.model(model)
+    }
+
+    /// Deprecated: use [`curve_id`](Self::curve_id) instead.
+    #[deprecated(since = "0.8.0", note = "renamed to `curve_id` for naming consistency")]
+    pub fn with_curve_id(self, curve_id: impl Into<String>) -> Self {
+        self.curve_id(curve_id)
+    }
+
+    /// Deprecated: use [`curve_ids`](Self::curve_ids) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `curve_ids` for naming consistency"
+    )]
+    pub fn with_curve_ids(self, curve_ids: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.curve_ids(curve_ids)
     }
 }
 
@@ -883,10 +921,10 @@ impl PricingError {
     /// PricingError::model_failure_ctx(
     ///     "Discount factor calculation failed",
     ///     PricingErrorContext::new()
-    ///         .with_instrument_id("BOND-001")
-    ///         .with_instrument_type(InstrumentType::Bond)
-    ///         .with_model(ModelKey::Discounting)
-    ///         .with_curve_id("USD-OIS"),
+    ///         .instrument_id("BOND-001")
+    ///         .instrument_type(InstrumentType::Bond)
+    ///         .model(ModelKey::Discounting)
+    ///         .curve_id("USD-OIS"),
     /// )
     /// ```
     pub fn model_failure_ctx(msg: impl Into<String>, context: PricingErrorContext) -> Self {
@@ -912,8 +950,8 @@ impl PricingError {
     /// PricingError::missing_market_data_ctx(
     ///     "USD-OIS",
     ///     PricingErrorContext::new()
-    ///         .with_instrument_id("BOND-001")
-    ///         .with_instrument_type(InstrumentType::Bond),
+    ///         .instrument_id("BOND-001")
+    ///         .instrument_type(InstrumentType::Bond),
     /// )
     /// ```
     pub fn missing_market_data_ctx(
@@ -1071,8 +1109,8 @@ impl<T> PricingContextExt<T> for finstack_core::Result<T> {
             PricingError::model_failure_ctx(
                 format!("{}: {}", operation, e),
                 PricingErrorContext::new()
-                    .with_instrument_id(instrument_id)
-                    .with_instrument_type(instrument_type),
+                    .instrument_id(instrument_id)
+                    .instrument_type(instrument_type),
             )
         })
     }
@@ -1087,8 +1125,8 @@ impl<T> PricingContextExt<T> for PricingResult<T> {
     ) -> PricingResult<T> {
         self.map_err(|e| {
             let context = PricingErrorContext::new()
-                .with_instrument_id(instrument_id)
-                .with_instrument_type(instrument_type);
+                .instrument_id(instrument_id)
+                .instrument_type(instrument_type);
             match e {
                 PricingError::ModelFailure { message, .. } => {
                     PricingError::model_failure_ctx(format!("{}: {}", operation, message), context)
@@ -2085,7 +2123,7 @@ mod tests {
         // InvalidInput -> Error::Validation (not Calibration)
         let invalid_input: finstack_core::Error = PricingError::InvalidInput {
             message: "bad parameter".to_string(),
-            context: PricingErrorContext::new().with_instrument_id("TEST-001"),
+            context: PricingErrorContext::new().instrument_id("TEST-001"),
         }
         .into();
         match invalid_input {

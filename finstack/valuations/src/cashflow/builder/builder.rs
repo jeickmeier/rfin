@@ -1198,6 +1198,14 @@ impl CashFlowBuilder {
     /// When curves are provided, floating rate coupons include the forward rate:
     /// `coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * year_fraction`
     ///
+    /// Build the cashflow schedule without market curves.
+    ///
+    /// Equivalent to `build_with_curves(None)`. For floating-rate instruments
+    /// that require projection curves, use [`build_with_curves`](Self::build_with_curves).
+    pub fn build(&self) -> finstack_core::Result<CashFlowSchedule> {
+        self.build_with_curves(None)
+    }
+
     /// Without curves, only the margin is used:
     /// `coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction`
     pub fn build_with_curves(

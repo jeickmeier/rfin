@@ -63,24 +63,22 @@ impl CreditIndexData {
     /// Returns the issuer-specific curve if available, otherwise falls back
     /// to the index curve (homogeneous portfolio assumption).
     pub fn get_issuer_curve(&self, issuer_id: &str) -> &HazardCurve {
-        match &self.issuer_credit_curves {
-            Some(curves) => curves
-                .get(issuer_id)
-                .map(|arc| arc.as_ref())
-                .unwrap_or(self.index_credit_curve.as_ref()),
-            None => self.index_credit_curve.as_ref(),
-        }
+        self.issuer_credit_curves
+            .as_ref()
+            .and_then(|curves| curves.get(issuer_id))
+            .map(|arc| arc.as_ref())
+            .unwrap_or(self.index_credit_curve.as_ref())
     }
 
     /// Check if heterogeneous pricing mode is available.
     ///
     /// Returns true if individual issuer curves are provided, enabling
     /// more granular portfolio loss modeling.
+    #[must_use]
     pub fn has_issuer_curves(&self) -> bool {
         self.issuer_credit_curves
             .as_ref()
-            .map(|curves| !curves.is_empty())
-            .unwrap_or(false)
+            .is_some_and(|curves| !curves.is_empty())
     }
 
     /// Get all available issuer identifiers.
@@ -193,12 +191,6 @@ impl CreditIndexDataBuilder {
         self
     }
 
-    /// Deprecated alias for [`issuer_curves`](Self::issuer_curves).
-    #[deprecated(since = "0.2.0", note = "Use `issuer_curves()` instead")]
-    pub fn with_issuer_curves(self, curves: HashMap<String, Arc<HazardCurve>>) -> Self {
-        self.issuer_curves(curves)
-    }
-
     /// Add a single issuer credit curve.
     pub fn add_issuer_curve(mut self, issuer_id: String, curve: Arc<HazardCurve>) -> Self {
         match &mut self.issuer_credit_curves {
@@ -223,12 +215,6 @@ impl CreditIndexDataBuilder {
         self
     }
 
-    /// Deprecated alias for [`issuer_recovery_rates`](Self::issuer_recovery_rates).
-    #[deprecated(since = "0.2.0", note = "Use `issuer_recovery_rates()` instead")]
-    pub fn with_issuer_recovery_rates(self, rates: HashMap<String, f64>) -> Self {
-        self.issuer_recovery_rates(rates)
-    }
-
     /// Set issuer-specific weights for heterogeneous portfolio modeling.
     ///
     /// Keys should match issuer identifiers used in [`issuer_curves`](Self::issuer_curves).
@@ -236,12 +222,6 @@ impl CreditIndexDataBuilder {
     pub fn issuer_weights(mut self, weights: HashMap<String, f64>) -> Self {
         self.issuer_weights = Some(weights);
         self
-    }
-
-    /// Deprecated alias for [`issuer_weights`](Self::issuer_weights).
-    #[deprecated(since = "0.2.0", note = "Use `issuer_weights()` instead")]
-    pub fn with_issuer_weights(self, weights: HashMap<String, f64>) -> Self {
-        self.issuer_weights(weights)
     }
 
     /// Build the credit index data.
@@ -261,9 +241,7 @@ impl CreditIndexDataBuilder {
             .ok_or_else(|| crate::Error::from(crate::error::InputError::Invalid))?;
 
         // Validate recovery rate
-        if !(0.0..=1.0).contains(&recovery_rate) {
-            return Err(crate::Error::from(crate::error::InputError::Invalid));
-        }
+        super::common::validate_unit_range(recovery_rate, "recovery_rate")?;
 
         // Validate number of constituents
         if num_constituents == 0 {

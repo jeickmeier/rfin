@@ -160,7 +160,7 @@ fn bump_hazard_shift_fallback(
         BumpRequest::Parallel(bp) => {
             // Convert bp to decimal
             let bump_decimal = bp * 1e-4;
-            let temp_bumped = hazard.with_hazard_shift(bump_decimal)?;
+            let temp_bumped = hazard.with_parallel_bump(bump_decimal)?;
             temp_bumped
                 .to_builder_with_id(hazard.id().clone())
                 .build()
@@ -190,7 +190,7 @@ fn with_key_rate_hazard_bump(
     let hazard_rates: Vec<f64> = hazard.knot_points().map(|(_, lambda)| lambda).collect();
 
     if knots.len() < 2 {
-        return hazard.with_hazard_shift(bump_decimal);
+        return hazard.with_parallel_bump(bump_decimal);
     }
 
     // If the requested bucket is beyond the curve's supported maturity, treat as "no-op".

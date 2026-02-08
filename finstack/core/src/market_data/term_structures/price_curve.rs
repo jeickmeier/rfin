@@ -90,7 +90,7 @@ use crate::{
 /// # Thread Safety
 ///
 /// Immutable after construction; safe to share via `Arc<PriceCurve>`.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "RawPriceCurve", into = "RawPriceCurve")]
 pub struct PriceCurve {
     id: CurveId,
@@ -104,20 +104,6 @@ pub struct PriceCurve {
     /// Forward prices at each knot.
     prices: Box<[f64]>,
     interp: Interp,
-}
-
-impl Clone for PriceCurve {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            base: self.base,
-            day_count: self.day_count,
-            spot_price: self.spot_price,
-            knots: self.knots.clone(),
-            prices: self.prices.clone(),
-            interp: self.interp.clone(),
-        }
-    }
 }
 
 /// Raw serializable state of PriceCurve
@@ -276,7 +262,7 @@ impl PriceCurve {
 
     /// Extrapolation policy used by this curve.
     #[inline]
-    pub fn extrapolation_policy(&self) -> ExtrapolationPolicy {
+    pub fn extrapolation(&self) -> ExtrapolationPolicy {
         self.interp.extrapolation()
     }
 
@@ -359,7 +345,7 @@ impl PriceCurve {
     ///
     /// # Returns
     /// A new price curve with the triangular key-rate bump applied.
-    pub fn with_triangular_key_rate_bump(
+    pub fn with_triangular_key_rate_bump_neighbors(
         &self,
         prev_bucket: f64,
         target_bucket: f64,
@@ -370,13 +356,15 @@ impl PriceCurve {
             return self.with_parallel_bump(bump);
         }
 
-        let mut bumped_points: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
-
-        for (&knot_t, &price) in self.knots.iter().zip(self.prices.iter()) {
-            let weight = triangular_weight(knot_t, prev_bucket, target_bucket, next_bucket);
-            let new_price = (price + bump * weight).max(0.0);
-            bumped_points.push((knot_t, new_price));
-        }
+        let bumped_points: Vec<(f64, f64)> = self
+            .knots
+            .iter()
+            .zip(self.prices.iter())
+            .map(|(&knot_t, &price)| {
+                let weight = triangular_weight(knot_t, prev_bucket, target_bucket, next_bucket);
+                (knot_t, (price + bump * weight).max(0.0))
+            })
+            .collect();
 
         let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bump * 100.0);
         PriceCurve::builder(new_id)
@@ -432,6 +420,23 @@ impl PriceCurve {
 }
 
 /// Fluent builder for [`PriceCurve`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::term_structures::PriceCurve;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+/// let curve = PriceCurve::builder("WTI-FORWARD")
+///     .base_date(base)
+///     .spot_price(75.0)
+///     .knots([(0.0, 75.0), (0.25, 76.5), (0.5, 77.2), (1.0, 78.0)])
+///     .build()
+///     .expect("PriceCurve builder should succeed");
+/// assert!(curve.price(0.5) > 75.0);
+/// ```
 pub struct PriceCurveBuilder {
     id: CurveId,
     base: Date,
@@ -476,12 +481,6 @@ impl PriceCurveBuilder {
     pub fn interp(mut self, style: InterpStyle) -> Self {
         self.style = style;
         self
-    }
-
-    /// Deprecated alias for [`interp`](Self::interp).
-    #[deprecated(since = "0.2.0", note = "renamed to `interp` for naming consistency")]
-    pub fn set_interp(self, style: InterpStyle) -> Self {
-        self.interp(style)
     }
 
     /// Set the extrapolation policy for out-of-bounds evaluation.

@@ -60,9 +60,9 @@ impl MetricCalculator for Cs01Calculator {
         let hazard = context.curves.get_hazard(&cds_option.credit_curve_id)?;
 
         // Bump hazard curve by 1bp (convert bp to decimal: 1bp = 0.0001)
-        // with_hazard_shift expects a decimal shift, so 1bp = 0.0001
+        // with_parallel_bump expects a decimal shift, so 1bp = 0.0001
         let bump_decimal = CS01_BUMP_BP * 1e-4;
-        let temp_bumped = hazard.with_hazard_shift(bump_decimal)?;
+        let temp_bumped = hazard.with_parallel_bump(bump_decimal)?;
 
         // Rebuild with the original ID so it replaces in the context
         let bumped_hazard = rebuild_hazard_with_id(&temp_bumped, &cds_option.credit_curve_id)?;

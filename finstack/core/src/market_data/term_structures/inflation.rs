@@ -72,7 +72,7 @@
 //!   - Fleckenstein, M., Longstaff, F. A., & Lustig, H. (2017). "Deflation Risk."
 //!     *Review of Financial Studies*, 30(8), 2719-2760.
 
-use super::common::{build_interp, split_points};
+use super::common::{build_interp, roll_knots, split_points};
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
@@ -116,7 +116,7 @@ pub const DEFAULT_INDEXATION_LAG_MONTHS: u32 = 3;
 /// - Inflation swap valuation (zero-coupon and year-on-year)
 /// - Real rate curve construction (nominal - breakeven = real)
 /// - Pension liability modeling with inflation indexation
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "RawInflationCurve", into = "RawInflationCurve")]
 pub struct InflationCurve {
     id: CurveId,
@@ -132,21 +132,6 @@ pub struct InflationCurve {
     /// CPI index levels at each knot.
     cpi_levels: Box<[f64]>,
     interp: Interp,
-}
-
-impl Clone for InflationCurve {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            base_cpi: self.base_cpi,
-            base_date: self.base_date,
-            day_count: self.day_count,
-            indexation_lag_months: self.indexation_lag_months,
-            knots: self.knots.clone(),
-            cpi_levels: self.cpi_levels.clone(),
-            interp: self.interp.clone(),
-        }
-    }
 }
 
 /// Raw serializable state of an InflationCurve
@@ -306,11 +291,62 @@ impl InflationCurve {
     /// Returns `(I(t2) / I(t1) - 1) / (t2 - t1)`, which is the simple
     /// linear approximation. For most applications, prefer [`inflation_rate`](Self::inflation_rate)
     /// which uses the correct CAGR formula.
+    #[must_use]
     pub fn inflation_rate_simple(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1);
         let c1 = self.cpi(t1);
         let c2 = self.cpi(t2);
         (c2 / c1 - 1.0) / (t2 - t1)
+    }
+
+    /// CPI level on a specific calendar date, without indexation lag.
+    ///
+    /// This is the date-based equivalent of [`cpi`](Self::cpi), consistent with
+    /// `DiscountCurve::df_on_date_curve` and `HazardCurve::sp_on_date`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the year fraction calculation fails.
+    #[inline]
+    #[must_use = "computed CPI level should not be discarded"]
+    pub fn cpi_on_date(&self, date: Date) -> crate::Result<f64> {
+        let t = self.year_fraction_to(date)?;
+        Ok(self.cpi(t))
+    }
+
+    /// CPI level on a specific calendar date, adjusted for the indexation lag.
+    ///
+    /// This is the date-based equivalent of [`cpi_with_lag`](Self::cpi_with_lag).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the year fraction calculation fails.
+    #[inline]
+    #[must_use = "computed CPI level should not be discarded"]
+    pub fn cpi_with_lag_on_date(&self, date: Date) -> crate::Result<f64> {
+        let t = self.year_fraction_to(date)?;
+        Ok(self.cpi_with_lag(t))
+    }
+
+    /// Annualised inflation rate between two calendar dates using CAGR formula.
+    ///
+    /// This is the date-based equivalent of [`inflation_rate`](Self::inflation_rate).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the year fraction calculation fails.
+    #[inline]
+    #[must_use = "computed inflation rate should not be discarded"]
+    pub fn inflation_rate_on_dates(&self, d1: Date, d2: Date) -> crate::Result<f64> {
+        let t1 = self.year_fraction_to(d1)?;
+        let t2 = self.year_fraction_to(d2)?;
+        Ok(self.inflation_rate(t1, t2))
+    }
+
+    /// Helper: compute year fraction from base date to target date using curve's day-count.
+    #[inline]
+    fn year_fraction_to(&self, date: Date) -> crate::Result<f64> {
+        super::common::year_fraction_to(self.base_date, date, self.day_count)
     }
 
     /// Base (valuation) date of the curve.
@@ -407,20 +443,8 @@ impl InflationCurve {
         // Get the new base CPI by interpolating at the roll time
         let new_base_cpi = self.cpi(dt_years);
 
-        // Shift knots and filter expired points
-        let rolled_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.cpi_levels.iter())
-            .filter_map(|(&t, &cpi)| {
-                let new_t = t - dt_years;
-                if new_t > 0.0 {
-                    Some((new_t, cpi))
-                } else {
-                    None
-                }
-            })
-            .collect();
+        // Shift knots and filter expired points using shared helper
+        let rolled_points = roll_knots(&self.knots, &self.cpi_levels, dt_years);
 
         if rolled_points.is_empty() {
             return Err(crate::error::InputError::TooFewPoints.into());
@@ -446,6 +470,25 @@ impl TermStructure for InflationCurve {
 }
 
 /// Fluent builder for [`InflationCurve`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::term_structures::InflationCurve;
+/// use finstack_core::math::interp::InterpStyle;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+/// let curve = InflationCurve::builder("US-CPI")
+///     .base_date(base)
+///     .base_cpi(300.0)
+///     .knots([(0.0, 300.0), (5.0, 327.0)])
+///     .interp(InterpStyle::LogLinear)
+///     .build()
+///     .expect("InflationCurve builder should succeed");
+/// assert!(curve.inflation_rate(0.0, 5.0) > 0.0);
+/// ```
 pub struct InflationCurveBuilder {
     id: CurveId,
     base_cpi: f64,
@@ -496,12 +539,6 @@ impl InflationCurveBuilder {
     pub fn interp(mut self, style: InterpStyle) -> Self {
         self.style = style;
         self
-    }
-
-    /// Deprecated alias for [`interp`](Self::interp).
-    #[deprecated(since = "0.2.0", note = "renamed to `interp` for naming consistency")]
-    pub fn set_interp(self, style: InterpStyle) -> Self {
-        self.interp(style)
     }
 
     /// Validate input and build the [`InflationCurve`].
