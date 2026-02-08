@@ -189,7 +189,7 @@ impl ConvertibleBond {
         use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
         use time::macros::date;
 
-        ConvertibleBondBuilder::new()
+        ConvertibleBond::builder()
             .id(InstrumentId::new("CB-TECH-5Y"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .issue(date!(2024 - 01 - 15))

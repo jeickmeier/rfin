@@ -262,7 +262,10 @@ impl Pricer for AutocallableMcPricer {
         let pv = self
             .price_internal(autocallable, market, as_of)
             .map_err(|e| {
-                PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
             })?;
 
         Ok(ValuationResult::stamped(autocallable.id(), as_of, pv))

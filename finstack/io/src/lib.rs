@@ -82,6 +82,7 @@
 
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
+#![warn(clippy::new_without_default)]
 #![deny(clippy::unwrap_used)]
 // Safety lints: Enforced - no expect() or panic!() allowed in this crate.
 // Use proper error propagation with Result<T, E> instead.

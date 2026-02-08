@@ -126,7 +126,7 @@ impl AsianOption {
             date!(2024 - 05 - 31),
             date!(2024 - 06 - 30),
         ];
-        AsianOptionBuilder::new()
+        AsianOption::builder()
             .id(InstrumentId::new("ASIAN-SPX-ARITH-6M"))
             .underlying_ticker("SPX".to_string())
             .strike(Money::new(4500.0, Currency::USD))

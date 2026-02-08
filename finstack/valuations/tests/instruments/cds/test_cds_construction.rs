@@ -98,7 +98,7 @@ fn test_convention_custom_defaults() {
 
 #[test]
 fn test_builder_pattern() {
-    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwapBuilder;
+    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
     use finstack_valuations::instruments::credit_derivatives::cds::{
         PremiumLegSpec, ProtectionLegSpec,
     };
@@ -109,7 +109,7 @@ fn test_builder_pattern() {
     let end = test_date(2030, Month::January, 1);
     let convention = CDSConvention::IsdaNa;
 
-    let cds = CreditDefaultSwapBuilder::new()
+    let cds = CreditDefaultSwap::builder()
         .id("BUILDER_TEST".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::PayFixed)

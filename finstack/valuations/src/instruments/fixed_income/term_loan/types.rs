@@ -277,7 +277,7 @@ impl TermLoan {
         use finstack_core::dates::BusinessDayConvention;
         use finstack_core::dates::StubKind;
         use time::macros::date;
-        TermLoanBuilder::new()
+        TermLoan::builder()
             .id(InstrumentId::new("TERM-LOAN-USD-5Y"))
             .currency(Currency::USD)
             .notional_limit(Money::new(10_000_000.0, Currency::USD))
@@ -388,7 +388,7 @@ impl TryFrom<TermLoanSpec> for TermLoan {
             }
         }
 
-        TermLoanBuilder::new()
+        TermLoan::builder()
             .id(id)
             .currency(currency)
             .notional_limit(resolved_notional)

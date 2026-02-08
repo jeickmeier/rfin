@@ -53,7 +53,7 @@ fn asian_base(
     strike: f64,
     fixing_dates: Vec<Date>,
 ) -> AsianOption {
-    crate::instruments::exotics::asian_option::AsianOptionBuilder::new()
+    crate::instruments::exotics::asian_option::AsianOption::builder()
         .id(InstrumentId::new("ASIAN-TEST"))
         .underlying_ticker("SPX".to_string())
         .strike(Money::new(strike, Currency::USD))

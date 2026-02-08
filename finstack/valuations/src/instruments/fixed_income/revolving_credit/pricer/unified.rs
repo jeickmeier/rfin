@@ -616,23 +616,30 @@ impl Pricer for RevolvingCreditPricer {
 
         let facility: &RevolvingCredit = expect_inst(instrument, InstrumentType::RevolvingCredit)?;
 
+        let ctx = PricingErrorContext::new()
+            .instrument_id(facility.id.as_str())
+            .instrument_type(InstrumentType::RevolvingCredit)
+            .model(self.model);
+
         // Route to appropriate pricing method based on model
         let result_pv = match self.model {
             ModelKey::Discounting => {
                 // For discounting, we use the unified price method which handles
                 // deterministic specs (and errs on stochastic if MC not enabled/used)
-                Self::price(facility, market, as_of)?
+                Self::price(facility, market, as_of)
+                    .map_err(|e| PricingError::from_core(e, ctx.clone()))?
             }
             #[cfg(feature = "mc")]
             ModelKey::MonteCarloGBM => {
                 // For MC, we ensure we're using the MC path
-                let enhanced = Self::price_with_paths(facility, market, as_of)?;
+                let enhanced = Self::price_with_paths(facility, market, as_of)
+                    .map_err(|e| PricingError::from_core(e, ctx.clone()))?;
                 enhanced.mc_result.estimate.mean
             }
             _ => {
-                return Err(PricingError::model_failure_ctx(
+                return Err(PricingError::model_failure_with_context(
                     format!("Unsupported model for RevolvingCredit: {}", self.model),
-                    PricingErrorContext::default(),
+                    ctx,
                 ));
             }
         };

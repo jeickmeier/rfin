@@ -305,8 +305,10 @@ impl LocalVolSurface {
         let ei = find_segment(&self.expiries, t);
         let si = find_segment(&self.strikes, k);
 
-        // Handle exact hits
+        // Handle exact hits — intentional exact comparison against grid values.
+        #[allow(clippy::float_cmp)]
         let exact_e = self.expiries[ei] == t;
+        #[allow(clippy::float_cmp)]
         let exact_s = self.strikes[si] == k;
 
         if exact_e && exact_s {

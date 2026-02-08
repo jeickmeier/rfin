@@ -194,7 +194,7 @@ impl VarianceSwap {
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         // SAFETY: All inputs are compile-time validated constants
-        VarianceSwapBuilder::new()
+        VarianceSwap::builder()
             .id(InstrumentId::new("VARSPX-1Y"))
             .underlying_id("SPX".to_string())
             .notional(Money::new(1_000_000.0, Currency::USD))

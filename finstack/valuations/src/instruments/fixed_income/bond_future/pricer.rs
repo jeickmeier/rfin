@@ -411,8 +411,15 @@ impl crate::pricer::Pricer for BondFuturePricer {
                 )
             })?;
 
+        let ctx = crate::pricer::PricingErrorContext::new()
+            .instrument_id(future.id.as_str())
+            .instrument_type(crate::pricer::InstrumentType::BondFuture)
+            .model(crate::pricer::ModelKey::Discounting);
+
         // Delegate to BondFuture::value(), which resolves the CTD bond and computes NPV.
-        let npv = future.value(market, as_of)?;
+        let npv = future
+            .value(market, as_of)
+            .map_err(|e| crate::pricer::PricingError::from_core(e, ctx))?;
 
         Ok(crate::results::ValuationResult::stamped(
             future.id.as_str(),
@@ -761,10 +768,10 @@ mod tests {
         expiry: Date,
     ) -> crate::instruments::fixed_income::bond_future::BondFuture {
         use crate::instruments::fixed_income::bond_future::{
-            BondFutureBuilder, BondFutureSpecs, DeliverableBond,
+            BondFuture, BondFutureSpecs, DeliverableBond,
         };
 
-        BondFutureBuilder::new()
+        BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(notional, Currency::USD))
             .expiry_date(expiry)
@@ -1012,7 +1019,7 @@ mod tests {
     #[test]
     fn test_pricer_price_dyn_uses_ctd_bond() {
         use crate::instruments::fixed_income::bond_future::{
-            BondFutureBuilder, BondFutureSpecs, DeliverableBond,
+            BondFuture, BondFutureSpecs, DeliverableBond,
         };
         use crate::pricer::Pricer;
 
@@ -1059,7 +1066,7 @@ mod tests {
         )
         .expect("Failed to calculate conversion factor for bond B");
 
-        let future = BondFutureBuilder::new()
+        let future = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(expiry)

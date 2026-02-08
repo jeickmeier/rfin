@@ -18,6 +18,7 @@
 /// - Gregory, J. (2020). *The xVA Challenge*, 4th ed. Wiley. Chapter 8 (Exposure).
 /// - BCBS 325 (2014). "Fundamental review of the trading book."
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct XvaConfig {
     /// Time grid for exposure simulation (years from today).
     ///
@@ -102,6 +103,7 @@ impl XvaConfig {
 /// Each profile entry is a `(time, value)` pair where time is in years
 /// from the valuation date and value is in the portfolio's base currency.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct XvaResult {
     /// Unilateral CVA (positive = cost to the desk).
     ///
@@ -166,6 +168,7 @@ pub struct XvaResult {
 /// This is the intermediate result from exposure simulation,
 /// consumed by the CVA calculator.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ExposureProfile {
     /// Time points in years from valuation date.
     pub times: Vec<f64>,
@@ -253,6 +256,7 @@ impl ExposureProfile {
 /// - ISDA (2002). "2002 ISDA Master Agreement."
 /// - Gregory, J. (2020). *The xVA Challenge*, Chapter 6.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NettingSet {
     /// Unique identifier for this netting set.
     pub id: String,
@@ -288,6 +292,7 @@ pub struct NettingSet {
 /// - ISDA (2016). "Credit Support Annex for Variation Margin."
 /// - Gregory, J. (2020). *The xVA Challenge*, Chapter 7.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CsaTerms {
     /// Threshold below which no collateral is required.
     ///

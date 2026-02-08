@@ -43,7 +43,7 @@ use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
 };
 use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
-    DealType, Pool, Seniority, TrancheBuilder, TrancheCoupon, TrancheStructure,
+    DealType, Pool, Seniority, Tranche, TrancheCoupon, TrancheStructure,
 };
 use finstack_valuations::instruments::fx::fx_option::{FxOption, FxOptionParams};
 use finstack_valuations::instruments::fx::fx_spot::FxSpot;
@@ -709,7 +709,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         let bdc = convention.business_day_convention();
         let stub = convention.stub_convention();
 
-        CreditDefaultSwapBuilder::new()
+        CreditDefaultSwap::builder()
             .id(finstack_core::types::InstrumentId::new("CDS_5Y"))
             .notional(Money::new(10_000_000.0, Currency::USD))
             .side(PayReceive::PayFixed) // buy protection
@@ -1156,7 +1156,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     clo_pool.add_bond(&loan2, Some("Healthcare".to_string()));
 
     // Create tranche structure: Senior, Mezzanine, Equity
-    let senior_tranche = TrancheBuilder::new()
+    let senior_tranche = Tranche::builder()
         .id("SENIOR_A")
         .attachment_detachment(15.0, 100.0) // 15% subordination to 100%
         .seniority(Seniority::Senior)
@@ -1166,7 +1166,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .build()
         .unwrap();
 
-    let mezz_tranche = TrancheBuilder::new()
+    let mezz_tranche = Tranche::builder()
         .id("MEZZANINE_B")
         .attachment_detachment(5.0, 15.0) // 5% subordination to 15%
         .seniority(Seniority::Mezzanine)
@@ -1176,7 +1176,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .build()
         .unwrap();
 
-    let equity_tranche = TrancheBuilder::new()
+    let equity_tranche = Tranche::builder()
         .id("EQUITY")
         .attachment_detachment(0.0, 5.0) // 0% subordination to 5%
         .seniority(Seniority::Equity)

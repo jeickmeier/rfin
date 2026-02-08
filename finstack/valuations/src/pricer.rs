@@ -832,6 +832,20 @@ fn format_context(ctx: &PricingErrorContext) -> String {
     }
 }
 
+/// Lossy conversion from [`PricingError`] into [`finstack_core::Error`].
+///
+/// This mapping is intentionally lossy — pricing-specific context (instrument ID,
+/// model, curve IDs) is flattened into core error messages.  The mapping must be
+/// kept in sync with `PricingError` variants; add a new arm whenever a variant is
+/// added.
+///
+/// | `PricingError`        | `finstack_core::Error`          | What is lost                          |
+/// |-----------------------|---------------------------------|---------------------------------------|
+/// | `UnknownPricer`       | `Input(NotFound)`               | Typed `PricerKey` → string id         |
+/// | `TypeMismatch`        | `Input(Invalid)`                | Expected/got instrument types         |
+/// | `InvalidInput`        | `Validation`                    | Structured `PricingErrorContext`       |
+/// | `MissingMarketData`   | `Input(NotFound)`               | `PricingErrorContext`                  |
+/// | `ModelFailure`        | `Calibration`                   | `PricingErrorContext`; category fixed  |
 impl From<PricingError> for finstack_core::Error {
     fn from(err: PricingError) -> Self {
         match err {
@@ -840,8 +854,6 @@ impl From<PricingError> for finstack_core::Error {
                 finstack_core::InputError::NotFound { id: pricer_id }.into()
             }
             PricingError::TypeMismatch { .. } => finstack_core::InputError::Invalid.into(),
-            // InvalidInput maps to Validation rather than Calibration:
-            // these are input validation failures, not numerical/solver failures.
             PricingError::InvalidInput { message, context } => {
                 finstack_core::Error::Validation(format!("{message}{}", format_context(&context)))
             }
@@ -851,8 +863,6 @@ impl From<PricingError> for finstack_core::Error {
                 }
                 .into()
             }
-            // ModelFailure maps to Calibration for numerical/convergence failures.
-            // This includes solver non-convergence, matrix singularity, etc.
             PricingError::ModelFailure { message, context } => finstack_core::Error::Calibration {
                 message: format!("{message}{}", format_context(&context)),
                 category: "pricing_model".to_string(),
@@ -861,18 +871,48 @@ impl From<PricingError> for finstack_core::Error {
     }
 }
 
-impl From<finstack_core::Error> for PricingError {
-    fn from(err: finstack_core::Error) -> Self {
+impl PricingError {
+    /// Convert a [`finstack_core::Error`] into a [`PricingError`] with explicit
+    /// context.
+    ///
+    /// This replaces the former blanket `From<finstack_core::Error>` impl, which
+    /// was lossy — every conversion silently attached an empty
+    /// [`PricingErrorContext`].  By requiring context as a parameter, callers are
+    /// forced to provide actionable debugging information.
+    ///
+    /// # Mapping
+    ///
+    /// | `finstack_core::Error`           | `PricingError`      |
+    /// |----------------------------------|---------------------|
+    /// | `Input(NotFound { id })`         | `MissingMarketData` |
+    /// | `Input(MissingCurve { .. })`     | `MissingMarketData` |
+    /// | `Input(WrongCurveType { .. })`   | `InvalidInput`      |
+    /// | `Input(other)`                   | `InvalidInput`      |
+    /// | `Validation(msg)`                | `InvalidInput`      |
+    /// | `Calibration { message, .. }`    | `ModelFailure`      |
+    /// | all other variants               | `ModelFailure`      |
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let core_err: finstack_core::Error = /* ... */;
+    /// let ctx = PricingErrorContext::new()
+    ///     .instrument_id("BOND-001")
+    ///     .instrument_type(InstrumentType::Bond)
+    ///     .model(ModelKey::Discounting);
+    /// let pricing_err = PricingError::from_core(core_err, ctx);
+    /// ```
+    pub fn from_core(err: finstack_core::Error, context: PricingErrorContext) -> Self {
         match err {
             finstack_core::Error::Input(input) => match input {
                 finstack_core::InputError::NotFound { id } => PricingError::MissingMarketData {
                     missing_id: id,
-                    context: PricingErrorContext::default(),
+                    context,
                 },
                 finstack_core::InputError::MissingCurve { requested, .. } => {
                     PricingError::MissingMarketData {
                         missing_id: requested,
-                        context: PricingErrorContext::default(),
+                        context,
                     }
                 }
                 finstack_core::InputError::WrongCurveType {
@@ -883,30 +923,26 @@ impl From<finstack_core::Error> for PricingError {
                     message: format!(
                         "Curve type mismatch for '{id}': expected '{expected}', got '{actual}'"
                     ),
-                    context: PricingErrorContext::default(),
+                    context,
                 },
                 other => PricingError::InvalidInput {
                     message: other.to_string(),
-                    context: PricingErrorContext::default(),
+                    context,
                 },
             },
             finstack_core::Error::Validation(msg) => PricingError::InvalidInput {
                 message: msg,
-                context: PricingErrorContext::default(),
+                context,
             },
-            finstack_core::Error::Calibration { message, .. } => PricingError::ModelFailure {
-                message,
-                context: PricingErrorContext::default(),
-            },
+            finstack_core::Error::Calibration { message, .. } => {
+                PricingError::ModelFailure { message, context }
+            }
             other => PricingError::ModelFailure {
                 message: other.to_string(),
-                context: PricingErrorContext::default(),
+                context,
             },
         }
     }
-}
-
-impl PricingError {
     /// Create a type mismatch error.
     pub fn type_mismatch(expected: InstrumentType, got: InstrumentType) -> Self {
         Self::TypeMismatch { expected, got }
@@ -917,7 +953,7 @@ impl PricingError {
     /// # Example
     ///
     /// ```ignore
-    /// PricingError::model_failure_ctx(
+    /// PricingError::model_failure_with_context(
     ///     "Discount factor calculation failed",
     ///     PricingErrorContext::new()
     ///         .instrument_id("BOND-001")
@@ -926,7 +962,10 @@ impl PricingError {
     ///         .curve_id("USD-OIS"),
     /// )
     /// ```
-    pub fn model_failure_ctx(msg: impl Into<String>, context: PricingErrorContext) -> Self {
+    pub fn model_failure_with_context(
+        msg: impl Into<String>,
+        context: PricingErrorContext,
+    ) -> Self {
         Self::ModelFailure {
             message: msg.into(),
             context,
@@ -934,7 +973,10 @@ impl PricingError {
     }
 
     /// Create an invalid input error with full context.
-    pub fn invalid_input_ctx(msg: impl Into<String>, context: PricingErrorContext) -> Self {
+    pub fn invalid_input_with_context(
+        msg: impl Into<String>,
+        context: PricingErrorContext,
+    ) -> Self {
         Self::InvalidInput {
             message: msg.into(),
             context,
@@ -946,14 +988,14 @@ impl PricingError {
     /// # Example
     ///
     /// ```ignore
-    /// PricingError::missing_market_data_ctx(
+    /// PricingError::missing_market_data_with_context(
     ///     "USD-OIS",
     ///     PricingErrorContext::new()
     ///         .instrument_id("BOND-001")
     ///         .instrument_type(InstrumentType::Bond),
     /// )
     /// ```
-    pub fn missing_market_data_ctx(
+    pub fn missing_market_data_with_context(
         missing_id: impl Into<String>,
         context: PricingErrorContext,
     ) -> Self {
@@ -1105,7 +1147,7 @@ impl<T> PricingContextExt<T> for finstack_core::Result<T> {
         operation: &str,
     ) -> PricingResult<T> {
         self.map_err(|e| {
-            PricingError::model_failure_ctx(
+            PricingError::model_failure_with_context(
                 format!("{}: {}", operation, e),
                 PricingErrorContext::new()
                     .instrument_id(instrument_id)
@@ -1128,7 +1170,10 @@ impl<T> PricingContextExt<T> for PricingResult<T> {
                 .instrument_type(instrument_type);
             match e {
                 PricingError::ModelFailure { message, .. } => {
-                    PricingError::model_failure_ctx(format!("{}: {}", operation, message), context)
+                    PricingError::model_failure_with_context(
+                        format!("{}: {}", operation, message),
+                        context,
+                    )
                 }
                 other => other.with_context(context),
             }
@@ -2155,21 +2200,35 @@ mod tests {
     }
 
     #[test]
-    fn core_error_maps_to_pricing_error_categories() {
-        // Input::NotFound -> MissingMarketData
+    fn from_core_maps_error_categories_with_context() {
+        let ctx = PricingErrorContext::new()
+            .instrument_id("TEST-001")
+            .instrument_type(InstrumentType::Bond);
+
+        // Input::NotFound -> MissingMarketData (preserves context)
         let core_missing: finstack_core::Error = finstack_core::InputError::NotFound {
             id: "USD-OIS".to_string(),
         }
         .into();
-        let pricing: PricingError = core_missing.into();
-        match pricing {
-            PricingError::MissingMarketData { missing_id, .. } => assert_eq!(missing_id, "USD-OIS"),
+        let pricing = PricingError::from_core(core_missing, ctx.clone());
+        match &pricing {
+            PricingError::MissingMarketData {
+                missing_id,
+                context,
+            } => {
+                assert_eq!(missing_id, "USD-OIS");
+                assert_eq!(
+                    context.instrument_id.as_deref(),
+                    Some("TEST-001"),
+                    "context should be preserved"
+                );
+            }
             other => panic!("unexpected mapping for missing input: {other:?}"),
         }
 
         // Validation -> InvalidInput (not ModelFailure)
         let core_invalid = finstack_core::Error::Validation("bad parameter".to_string());
-        let pricing: PricingError = core_invalid.into();
+        let pricing = PricingError::from_core(core_invalid, ctx.clone());
         match pricing {
             PricingError::InvalidInput { message, .. } => {
                 assert!(message.contains("bad parameter"));
@@ -2182,7 +2241,7 @@ mod tests {
             message: "solver did not converge".to_string(),
             category: "solver".to_string(),
         };
-        let pricing: PricingError = core_calibration.into();
+        let pricing = PricingError::from_core(core_calibration, ctx);
         match pricing {
             PricingError::ModelFailure { message, .. } => {
                 assert!(message.contains("solver did not converge"));

@@ -40,7 +40,10 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
             let disc = market
                 .get_discount(discount_curve_id.as_str())
                 .map_err(|e| {
-                    PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+                    PricingError::model_failure_with_context(
+                        e.to_string(),
+                        PricingErrorContext::default(),
+                    )
                 })?;
             disc.base_date()
         } else {
@@ -49,7 +52,7 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
                 .map(|evt| evt.date)
                 .max()
                 .ok_or_else(|| {
-                    PricingError::model_failure_ctx(
+                    PricingError::model_failure_with_context(
                         "Private markets fund requires at least one event to derive valuation date"
                             .to_string(),
                         PricingErrorContext::default(),
@@ -58,7 +61,7 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
         };
 
         let pv = fund.value(market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         Ok(ValuationResult::stamped(fund.id(), as_of, pv))

@@ -11,7 +11,7 @@ use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::rates::inflation_cap_floor::{
-    InflationCapFloorBuilder, InflationCapFloorType,
+    InflationCapFloor, InflationCapFloorType,
 };
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
@@ -42,7 +42,7 @@ fn test_caplet_intrinsic_after_fixing() {
         .insert_inflation_index("US-CPI-U", index)
         .insert_surface(vol_surface);
 
-    let caplet = InflationCapFloorBuilder::new()
+    let caplet = InflationCapFloor::builder()
         .id("INF-CAPLET".into())
         .option_type(InflationCapFloorType::Caplet)
         .notional(notional)
@@ -102,7 +102,7 @@ fn test_floor_value_with_negative_forward_normal_model() {
         .insert_inflation(infl_curve)
         .insert_surface(vol_surface);
 
-    let floorlet = InflationCapFloorBuilder::new()
+    let floorlet = InflationCapFloor::builder()
         .id("INF-FLOOR".into())
         .option_type(InflationCapFloorType::Floorlet)
         .notional(notional)
@@ -123,7 +123,7 @@ fn test_floor_value_with_negative_forward_normal_model() {
         .build()
         .unwrap();
 
-    let caplet = InflationCapFloorBuilder::new()
+    let caplet = InflationCapFloor::builder()
         .id("INF-CAP".into())
         .option_type(InflationCapFloorType::Caplet)
         .notional(notional)

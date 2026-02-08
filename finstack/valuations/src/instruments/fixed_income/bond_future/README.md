@@ -262,7 +262,7 @@ let gilt_specs = BondFutureSpecs::gilt();
 ```rust
 use finstack_valuations::instruments::fixed_income::bond_future::BondFutureBuilder;
 
-let bund_future = BondFutureBuilder::new()
+let bund_future = BondFuture::builder()
     .id(InstrumentId::new("FGBLH5"))
     .notional(Money::from_code(1_000_000, "EUR"))
     .expiry_date(date!(2025-03-07))
@@ -427,7 +427,7 @@ The main bond future instrument type.
 ```rust
 use finstack_valuations::instruments::fixed_income::bond_future::BondFutureBuilder;
 
-let future = BondFutureBuilder::new()
+let future = BondFuture::builder()
     .id(InstrumentId::new("TYH5"))
     .notional(Money::from_code(1_000_000, "USD"))
     .expiry_date(date!(2025-03-20))
@@ -663,7 +663,7 @@ let theta = result.metric("theta").unwrap();
 #### 1. Invalid Date Ordering
 
 ```rust
-let result = BondFutureBuilder::new()
+let result = BondFuture::builder()
     .expiry_date(date!(2025-03-31))      // After delivery!
     .delivery_start(date!(2025-03-21))
     .delivery_end(date!(2025-03-31))
@@ -678,7 +678,7 @@ assert!(result.is_err());
 #### 2. Empty Deliverable Basket
 
 ```rust
-let result = BondFutureBuilder::new()
+let result = BondFuture::builder()
     .deliverable_basket(vec![])  // Empty!
     .build();
 
@@ -698,7 +698,7 @@ let basket = vec![
     },
 ];
 
-let result = BondFutureBuilder::new()
+let result = BondFuture::builder()
     .deliverable_basket(basket)
     .ctd_bond_id("UNKNOWN_ID")  // Not in basket!
     .build();
@@ -719,7 +719,7 @@ let basket = vec![
     },
 ];
 
-let result = BondFutureBuilder::new()
+let result = BondFuture::builder()
     .deliverable_basket(basket)
     .build();
 

@@ -30,7 +30,7 @@ impl Pricer for RealEstateAssetDiscountingPricer {
             })?;
 
         let value = asset.value(market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         Ok(ValuationResult::stamped(asset.id(), as_of, value))

@@ -259,7 +259,7 @@ impl Repo {
         // Maturity is next business day after adjusted start
         let maturity = adj_start.add_business_days(1, calendar)?;
 
-        RepoBuilder::new()
+        Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
             .collateral(collateral)
@@ -300,7 +300,7 @@ impl Repo {
         let adj_start = adjust(start_date, BusinessDayConvention::Following, calendar)?;
         let maturity = adj_start.add_business_days(1, calendar)?;
 
-        RepoBuilder::new()
+        Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
             .collateral(collateral)
@@ -329,7 +329,7 @@ impl Repo {
         maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
-        RepoBuilder::new()
+        Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
             .collateral(collateral)
@@ -358,7 +358,7 @@ impl Repo {
         maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
-        RepoBuilder::new()
+        Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
             .collateral(collateral)
@@ -387,7 +387,7 @@ impl Repo {
         initial_maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
-        RepoBuilder::new()
+        Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
             .collateral(collateral)
@@ -416,7 +416,7 @@ impl Repo {
         initial_maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
-        RepoBuilder::new()
+        Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
             .collateral(collateral)
@@ -812,7 +812,7 @@ mod tests {
         let collateral = CollateralSpec::new("BOND", 100.0, "BOND_PX");
 
         // Build repo with TARGET2 calendar and Following BDC
-        let repo = RepoBuilder::new()
+        let repo = Repo::builder()
             .id(InstrumentId::from("REPO-WEEKEND-TEST"))
             .cash_amount(Money::new(1_000_000.0, Currency::USD))
             .collateral(collateral)
@@ -890,7 +890,7 @@ mod tests {
         let collateral = CollateralSpec::new("BOND", 100.0, "BOND_PX");
 
         // Build repo without calendar
-        let repo = RepoBuilder::new()
+        let repo = Repo::builder()
             .id(InstrumentId::from("REPO-NO-CAL"))
             .cash_amount(Money::new(1_000_000.0, Currency::USD))
             .collateral(collateral)
@@ -928,7 +928,7 @@ mod tests {
     fn repo_unknown_calendar_errors() {
         let collateral = CollateralSpec::new("BOND", 100.0, "BOND_PX");
 
-        let repo = RepoBuilder::new()
+        let repo = Repo::builder()
             .id(InstrumentId::from("REPO-BAD-CAL"))
             .cash_amount(Money::new(1_000_000.0, Currency::USD))
             .collateral(collateral)
@@ -978,7 +978,7 @@ mod tests {
         let collateral2 = CollateralSpec::new("BOND", 100.0, "BOND_PX");
 
         // Repo with weekend dates (will be adjusted internally)
-        let repo_weekend = RepoBuilder::new()
+        let repo_weekend = Repo::builder()
             .id(InstrumentId::from("REPO-WEEKEND"))
             .cash_amount(cash_amount)
             .collateral(collateral1)
@@ -998,7 +998,7 @@ mod tests {
             .expect("Weekend repo should build");
 
         // Repo with pre-adjusted dates (no adjustment needed)
-        let repo_adjusted = RepoBuilder::new()
+        let repo_adjusted = Repo::builder()
             .id(InstrumentId::from("REPO-ADJUSTED"))
             .cash_amount(cash_amount)
             .collateral(collateral2)

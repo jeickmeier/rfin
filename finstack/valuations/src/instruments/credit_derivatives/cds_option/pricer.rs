@@ -616,7 +616,7 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
         let pv = CdsOptionPricer::default()
             .npv(cds_option, market, as_of)
             .map_err(|e| {
-                crate::pricer::PricingError::model_failure_ctx(
+                crate::pricer::PricingError::model_failure_with_context(
                     e.to_string(),
                     crate::pricer::PricingErrorContext::default(),
                 )

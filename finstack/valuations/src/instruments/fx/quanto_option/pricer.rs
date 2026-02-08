@@ -107,7 +107,10 @@ impl Pricer for QuantoOptionAnalyticalPricer {
 
         let (spot, r_dom, r_for, q, sigma_equity, sigma_fx, t) =
             collect_quanto_inputs(quanto, market, as_of).map_err(|e| {
-                PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
             })?;
 
         if t <= 0.0 {

@@ -12,8 +12,7 @@ use time::Month;
 
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::credit_derivatives::cds::{
-    CDSConvention, CreditDefaultSwapBuilder, PremiumLegSpec, ProtectionLegSpec,
-    RECOVERY_SENIOR_UNSECURED,
+    CDSConvention, CreditDefaultSwap, PremiumLegSpec, ProtectionLegSpec, RECOVERY_SENIOR_UNSECURED,
 };
 use finstack_valuations::instruments::equity::equity_option::EquityOptionParams;
 use finstack_valuations::instruments::rates::irs::FloatingLegCompounding;
@@ -107,7 +106,7 @@ fn main() -> finstack_core::Result<()> {
         let bdc = convention.business_day_convention();
         let stub = convention.stub_convention();
 
-        CreditDefaultSwapBuilder::new()
+        CreditDefaultSwap::builder()
             .id(InstrumentId::new("CDS-001"))
             .notional(Money::new(10_000_000.0, Currency::USD))
             .side(PayReceive::PayFixed) // buy protection
@@ -262,7 +261,7 @@ fn main() -> finstack_core::Result<()> {
         let bdc = convention.business_day_convention();
         let stub = convention.stub_convention();
 
-        let mut cds = CreditDefaultSwapBuilder::new()
+        let mut cds = CreditDefaultSwap::builder()
             .id(InstrumentId::new("CDS-HY-001"))
             .notional(Money::new(5_000_000.0, Currency::USD))
             .side(PayReceive::PayFixed) // buy protection

@@ -215,7 +215,7 @@ impl Basket {
                 ticker: Some("UST10Y".to_string()),
             },
         ];
-        BasketBuilder::new()
+        Basket::builder()
             .id(InstrumentId::new("BASKET-60-40"))
             .constituents(constituents)
             .expense_ratio(0.0025)
@@ -269,7 +269,7 @@ impl Basket {
             },
         ];
 
-        BasketBuilder::new()
+        Basket::builder()
             .id(InstrumentId::new("BASKET-MIXED"))
             .constituents(constituents)
             .expense_ratio(0.001)

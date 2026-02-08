@@ -432,6 +432,8 @@ pub fn sample_beta(
     }
 
     // Special case: Beta(1, 1) = Uniform[0, 1]
+    // Exact comparison: checking for exact caller-supplied parameter values.
+    #[allow(clippy::float_cmp)]
     if alpha == 1.0 && beta == 1.0 {
         return Ok(rng.uniform());
     }

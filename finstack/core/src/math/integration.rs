@@ -734,6 +734,8 @@ where
     if !(a.is_finite() && b.is_finite()) {
         return Err(InputError::Invalid.into());
     }
+    // Exact comparison: zero-width integration interval is a standard degenerate case.
+    #[allow(clippy::float_cmp)]
     if a == b {
         return Ok(0.0);
     }

@@ -46,7 +46,7 @@ impl Pricer for FxForwardDiscountingPricer {
         // Note: value() returns zero PV for expired forwards (maturity <= as_of),
         // which is the expected behavior for settled trades.
         let pv = fwd.value(market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(
+            PricingError::model_failure_with_context(
                 format!("FX forward pricing failed: {}", e),
                 PricingErrorContext::default(),
             )

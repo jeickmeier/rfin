@@ -3,8 +3,7 @@ use crate::core::money::{extract_money, PyMoney};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::credit_derivatives::cds::{
-    CDSConvention, CreditDefaultSwap, CreditDefaultSwapBuilder, PayReceive, PremiumLegSpec,
-    ProtectionLegSpec,
+    CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec, ProtectionLegSpec,
 };
 use finstack_valuations::instruments::{Attributes, PricingOverrides};
 use pyo3::basic::CompareOp;
@@ -422,7 +421,7 @@ fn construct_cds(
         PyValueError::new_err(format!("spread_bp cannot be represented as Decimal: {e}"))
     })?;
 
-    let mut cds = CreditDefaultSwapBuilder::new()
+    let mut cds = CreditDefaultSwap::builder()
         .id(id.clone())
         .notional(amt)
         .side(side)

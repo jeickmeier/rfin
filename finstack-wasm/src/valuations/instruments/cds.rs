@@ -4,8 +4,7 @@ use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::credit_derivatives::cds::{
-    CDSConvention, CreditDefaultSwap, CreditDefaultSwapBuilder, PremiumLegSpec, ProtectionLegSpec,
-    RECOVERY_SENIOR_UNSECURED,
+    CDSConvention, CreditDefaultSwap, PremiumLegSpec, ProtectionLegSpec, RECOVERY_SENIOR_UNSECURED,
 };
 use finstack_valuations::instruments::{Attributes, PayReceive, PricingOverrides};
 use finstack_valuations::pricer::InstrumentType;
@@ -41,7 +40,7 @@ fn build_cds(args: BuildCdsArgs) -> Result<CreditDefaultSwap, JsValue> {
         ))
     })?;
 
-    let mut cds = CreditDefaultSwapBuilder::new()
+    let mut cds = CreditDefaultSwap::builder()
         .id(args.id)
         .notional(args.notional)
         .side(args.side)

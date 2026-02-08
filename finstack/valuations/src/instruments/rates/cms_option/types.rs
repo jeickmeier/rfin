@@ -80,7 +80,7 @@ impl CmsOption {
         ];
         let accrual_fractions = vec![0.25, 0.25, 0.25, 0.25];
 
-        CmsOptionBuilder::new()
+        CmsOption::builder()
             .id(InstrumentId::new("CMSOPT-10Y-USD"))
             .strike_rate(0.025)
             .cms_tenor(10.0)

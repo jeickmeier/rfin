@@ -141,7 +141,7 @@ impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
 
         // Use the provided as_of date instead of deriving from discount curve
         let pv = EquityPricer.pv(equity, market, as_of).map_err(|e| {
-            crate::pricer::PricingError::model_failure_ctx(
+            crate::pricer::PricingError::model_failure_with_context(
                 e.to_string(),
                 crate::pricer::PricingErrorContext::default(),
             )

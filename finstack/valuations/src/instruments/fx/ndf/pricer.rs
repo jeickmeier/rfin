@@ -45,7 +45,7 @@ impl Pricer for NdfDiscountingPricer {
 
         // Validate maturity
         if ndf.maturity_date <= as_of {
-            return Err(PricingError::invalid_input_ctx(
+            return Err(PricingError::invalid_input_with_context(
                 format!(
                     "NDF maturity {} must be after valuation date {}",
                     ndf.maturity_date, as_of
@@ -56,7 +56,7 @@ impl Pricer for NdfDiscountingPricer {
 
         // Validate fixing date <= maturity
         if ndf.fixing_date > ndf.maturity_date {
-            return Err(PricingError::invalid_input_ctx(
+            return Err(PricingError::invalid_input_with_context(
                 format!(
                     "NDF fixing date {} must be on or before maturity date {}",
                     ndf.fixing_date, ndf.maturity_date
@@ -67,7 +67,7 @@ impl Pricer for NdfDiscountingPricer {
 
         // Delegate to instrument's value method
         let pv = ndf.value(market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(
+            PricingError::model_failure_with_context(
                 format!("NDF pricing failed: {}", e),
                 PricingErrorContext::default(),
             )

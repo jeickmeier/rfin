@@ -12,7 +12,7 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fixed_income::bond_future::{
-    BondFuture, BondFutureBuilder, BondFutureSpecs, DeliverableBond, Position,
+    BondFuture, BondFutureSpecs, DeliverableBond, Position,
 };
 use finstack_valuations::instruments::Attributes;
 use time::Month;
@@ -31,7 +31,7 @@ fn create_test_deliverable_bond() -> DeliverableBond {
 
 /// Create a minimal valid bond future for testing.
 fn create_test_bond_future() -> BondFuture {
-    BondFutureBuilder::new()
+    BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .expiry_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
@@ -65,7 +65,7 @@ fn create_bond_future_with_basket() -> BondFuture {
         },
     ];
 
-    BondFutureBuilder::new()
+    BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
         .notional(Money::new(10_000_000.0, Currency::USD))
         .expiry_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
@@ -296,7 +296,7 @@ fn test_bond_future_with_basket_roundtrip() {
 #[test]
 #[cfg(feature = "serde")]
 fn test_bond_future_long_position_roundtrip() {
-    let future = BondFutureBuilder::new()
+    let future = BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .expiry_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
@@ -324,7 +324,7 @@ fn test_bond_future_long_position_roundtrip() {
 #[test]
 #[cfg(feature = "serde")]
 fn test_bond_future_short_position_roundtrip() {
-    let future = BondFutureBuilder::new()
+    let future = BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .expiry_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
@@ -358,7 +358,7 @@ fn test_bond_future_with_attributes_roundtrip() {
         .with_meta("month", "H")
         .with_meta("year", "2025");
 
-    let future = BondFutureBuilder::new()
+    let future = BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .expiry_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
@@ -418,7 +418,7 @@ fn test_bond_future_different_currencies() {
     ];
 
     for (currency, curve_id) in currencies {
-        let future = BondFutureBuilder::new()
+        let future = BondFuture::builder()
             .id(InstrumentId::new("TEST"))
             .notional(Money::new(1_000_000.0, currency))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
@@ -610,7 +610,7 @@ fn test_bond_future_compact_json() {
 #[test]
 #[cfg(feature = "serde")]
 fn test_bond_future_large_notional() {
-    let future = BondFutureBuilder::new()
+    let future = BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
         .notional(Money::new(1_000_000_000.0, Currency::USD)) // $1 billion
         .expiry_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
@@ -639,7 +639,7 @@ fn test_bond_future_large_notional() {
 #[test]
 #[cfg(feature = "serde")]
 fn test_bond_future_fractional_price() {
-    let future = BondFutureBuilder::new()
+    let future = BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .expiry_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
@@ -667,7 +667,7 @@ fn test_bond_future_fractional_price() {
 #[test]
 #[cfg(feature = "serde")]
 fn test_bond_future_empty_attributes() {
-    let future = BondFutureBuilder::new()
+    let future = BondFuture::builder()
         .id(InstrumentId::new("TYH5"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .expiry_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())

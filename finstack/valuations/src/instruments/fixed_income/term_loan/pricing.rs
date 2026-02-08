@@ -213,7 +213,7 @@ impl Pricer for TermLoanDiscountingPricer {
 
         // Use the provided as_of date for valuation
         let pv = Self::price(loan, market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         Ok(ValuationResult::stamped(loan.id(), as_of, pv))

@@ -826,6 +826,9 @@ impl CompiledExpr {
             let mut last_value: f64 = f64::NAN;
             for (value, orig_idx) in indexed {
                 if !value.is_nan() {
+                    // Exact comparison is intentional: values come from
+                    // sort_unstable_by(total_cmp) so bit-identical values are adjacent.
+                    #[allow(clippy::float_cmp)]
                     if value != last_value && !last_value.is_nan() {
                         current_rank += 1.0;
                     }
@@ -1039,6 +1042,8 @@ impl CompiledExpr {
                 BinOp::Mod => l % r,
 
                 // Comparison (return 1.0 for true, 0.0 for false)
+                // Exact equality semantics for expression-language operators.
+                #[allow(clippy::float_cmp)]
                 BinOp::Eq => {
                     if l == r {
                         1.0
@@ -1046,6 +1051,7 @@ impl CompiledExpr {
                         0.0
                     }
                 }
+                #[allow(clippy::float_cmp)]
                 BinOp::Ne => {
                     if l != r {
                         1.0

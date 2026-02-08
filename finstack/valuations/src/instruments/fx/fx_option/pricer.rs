@@ -55,7 +55,7 @@ impl Pricer for SimpleFxOptionBlackPricer {
         // Use the provided as_of date for consistency
         // Use instrument's value method
         let pv = fx_option.value(market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         // Return stamped result

@@ -319,6 +319,11 @@ impl Tranche {
         })
     }
 
+    /// Creates a new builder.
+    pub fn builder() -> TrancheBuilder {
+        TrancheBuilder::new()
+    }
+
     /// Tranche thickness (detachment - attachment)
     pub fn thickness(&self) -> f64 {
         self.detachment_point - self.attachment_point
@@ -735,7 +740,7 @@ mod tests {
 
     #[test]
     fn test_tranche_structure_validation() {
-        let equity = TrancheBuilder::new()
+        let equity = Tranche::builder()
             .id("EQUITY")
             .attachment_detachment(0.0, 10.0)
             .seniority(TrancheSeniority::Equity)
@@ -745,7 +750,7 @@ mod tests {
             .build()
             .expect("should succeed");
 
-        let senior = TrancheBuilder::new()
+        let senior = Tranche::builder()
             .id("SENIOR")
             .attachment_detachment(10.0, 100.0)
             .seniority(TrancheSeniority::Senior)

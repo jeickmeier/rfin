@@ -78,7 +78,7 @@ impl CliquetOption {
             date!(2024 - 09 - 30),
             date!(2024 - 12 - 31),
         ];
-        CliquetOptionBuilder::new()
+        CliquetOption::builder()
             .id(InstrumentId::new("CLIQ-SPX-QTR"))
             .underlying_ticker("SPX".to_string())
             .reset_dates(reset_dates)

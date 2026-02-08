@@ -566,7 +566,7 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
         // Use the provided as_of date for consistency
         // Compute present value using the engine
         let pv = compute_pv(equity_option, market, as_of).map_err(|e| {
-            crate::pricer::PricingError::model_failure_ctx(
+            crate::pricer::PricingError::model_failure_with_context(
                 e.to_string(),
                 crate::pricer::PricingErrorContext::default(),
             )
@@ -635,7 +635,7 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
             })?;
 
         let inputs = collect_inputs_extended(equity_option, market, as_of).map_err(|e| {
-            crate::pricer::PricingError::model_failure_ctx(
+            crate::pricer::PricingError::model_failure_with_context(
                 e.to_string(),
                 crate::pricer::PricingErrorContext::default(),
             )

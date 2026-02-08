@@ -4,9 +4,7 @@ use crate::inflation_swap::fixtures::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::inflation_swap::{
-    InflationSwapBuilder, PayReceiveInflation,
-};
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
 use finstack_valuations::instruments::{Attributes, Instrument};
 use time::Month;
 
@@ -17,7 +15,7 @@ fn test_matured_swap_has_zero_pv() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-MATURED".into())
         .notional(standard_notional())
         .start(Date::from_calendar_date(2015, Month::January, 1).unwrap())
@@ -46,7 +44,7 @@ fn test_very_short_maturity() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-SHORT".into())
         .notional(standard_notional())
         .start(as_of)
@@ -74,7 +72,7 @@ fn test_very_long_maturity() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-LONG".into())
         .notional(standard_notional())
         .start(as_of)
@@ -101,7 +99,7 @@ fn test_very_high_fixed_rate() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-HIGHRATE".into())
         .notional(standard_notional())
         .start(as_of)
@@ -130,7 +128,7 @@ fn test_very_low_negative_fixed_rate() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-NEGRATE".into())
         .notional(standard_notional())
         .start(as_of)
@@ -157,7 +155,7 @@ fn test_very_small_notional() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-SMALL".into())
         .notional(Money::new(1.0, Currency::USD)) // $1 notional
         .start(as_of)
@@ -188,7 +186,7 @@ fn test_very_large_notional() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-LARGE".into())
         .notional(Money::new(1_000_000_000_000.0, Currency::USD)) // $1 trillion
         .start(as_of)
@@ -215,7 +213,7 @@ fn test_start_equals_maturity() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-SAME".into())
         .notional(standard_notional())
         .start(same_date)
@@ -250,7 +248,7 @@ fn test_pricing_on_maturity_date() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-ONMAT".into())
         .notional(standard_notional())
         .start(as_of)
@@ -279,7 +277,7 @@ fn test_pricing_after_start_before_maturity() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-MID".into())
         .notional(standard_notional())
         .start(start)
@@ -307,7 +305,7 @@ fn test_zero_inflation_rate() {
     // Market with 0% inflation
     let ctx = standard_market(as_of, 0.0, 0.04);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-ZEROINFL".into())
         .notional(standard_notional())
         .start(as_of)
@@ -336,7 +334,7 @@ fn test_very_high_inflation_rate() {
     // Market with 20% inflation (hyperinflation scenario)
     let ctx = standard_market(as_of, 0.20, 0.25);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-HIGHINFL".into())
         .notional(standard_notional())
         .start(as_of)
@@ -366,7 +364,7 @@ fn test_deflation_scenario() {
     // Market with -2% inflation (deflation)
     let ctx = standard_market(as_of, -0.02, 0.03);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-DEFL".into())
         .notional(standard_notional())
         .start(as_of)
@@ -394,7 +392,7 @@ fn test_flat_discount_curve_zero_rate() {
     // Market with 0% discount rate (all DFs = 1.0)
     let ctx = standard_market(as_of, 0.02, 0.0);
 
-    let swap = InflationSwapBuilder::new()
+    let swap = InflationSwap::builder()
         .id("ZCINF-ZERODISC".into())
         .notional(standard_notional())
         .start(as_of)
@@ -422,7 +420,7 @@ fn test_swap_with_multiple_currencies() {
     // Test with EUR notional
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap_eur = InflationSwapBuilder::new()
+    let swap_eur = InflationSwap::builder()
         .id("ZCINF-EUR".into())
         .notional(Money::new(1_000_000.0, Currency::EUR))
         .start(as_of)

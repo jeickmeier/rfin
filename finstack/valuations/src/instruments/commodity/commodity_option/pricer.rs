@@ -56,7 +56,7 @@ impl Pricer for CommodityOptionBlackPricer {
             })?;
 
         let pv = option.value(market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         Ok(ValuationResult::stamped(option.id(), as_of, pv))

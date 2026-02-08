@@ -121,7 +121,7 @@ impl Autocallable {
         ];
         let autocall_barriers = vec![1.0, 1.0, 1.0, 1.0]; // 100% of initial
         let coupons = vec![0.02, 0.02, 0.02, 0.02]; // 2% per observation if called
-        AutocallableBuilder::new()
+        Autocallable::builder()
             .id(InstrumentId::new("AUTO-SPX-QTR"))
             .underlying_ticker("SPX".to_string())
             .observation_dates(observation_dates)

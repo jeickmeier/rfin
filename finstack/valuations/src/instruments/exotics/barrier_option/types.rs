@@ -112,7 +112,7 @@ impl BarrierOption {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
         use time::macros::date;
-        BarrierOptionBuilder::new()
+        BarrierOption::builder()
             .id(InstrumentId::new("BAR-SPX-UO-CALL"))
             .underlying_ticker("SPX".to_string())
             .strike(Money::new(4500.0, Currency::USD))

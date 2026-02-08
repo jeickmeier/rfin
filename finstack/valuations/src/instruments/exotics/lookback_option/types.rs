@@ -129,7 +129,7 @@ impl LookbackOption {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
         use time::macros::date;
-        LookbackOptionBuilder::new()
+        LookbackOption::builder()
             .id(InstrumentId::new("LOOKBACK-SPX-FIXED-CALL"))
             .underlying_ticker("SPX".to_string())
             .strike_opt(Some(Money::new(4500.0, Currency::USD)))

@@ -259,7 +259,7 @@ impl Pricer for LookbackOptionMcPricer {
             })?;
 
         let pv = self.price_internal(lookback, market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         Ok(ValuationResult::stamped(lookback.id(), as_of, pv))
@@ -361,7 +361,10 @@ impl Pricer for LookbackOptionAnalyticalPricer {
 
         let (spot, r, q, sigma, t) =
             collect_lookback_inputs(lookback, market, as_of).map_err(|e| {
-                PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
             })?;
 
         if t <= 0.0 {
@@ -430,7 +433,7 @@ impl Pricer for LookbackOptionAnalyticalPricer {
         let price = match lookback.lookback_type {
             LookbackType::FixedStrike => {
                 let strike = lookback.strike.as_ref().ok_or_else(|| {
-                    PricingError::model_failure_ctx(
+                    PricingError::model_failure_with_context(
                         "FixedStrike lookback requires a strike",
                         PricingErrorContext::default(),
                     )

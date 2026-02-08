@@ -6,7 +6,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::exotics::lookback_option::{
-    LookbackOptionBuilder, LookbackType,
+    LookbackOption, LookbackOptionBuilder, LookbackType,
 };
 use finstack_valuations::instruments::Instrument;
 use time::Month;
@@ -15,7 +15,7 @@ use time::Month;
 fn get_base_builder(as_of: Date) -> LookbackOptionBuilder {
     let expiry = Date::from_calendar_date(as_of.year() + 1, as_of.month(), as_of.day()).unwrap();
 
-    LookbackOptionBuilder::new()
+    LookbackOption::builder()
         .id(InstrumentId::new("TEST-LOOKBACK"))
         .underlying_ticker("SPX".to_string())
         .strike_opt(Some(Money::new(100.0, Currency::USD)))

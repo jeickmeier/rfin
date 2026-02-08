@@ -161,7 +161,7 @@ impl RevolvingCredit {
                 is_draw: false,
             },
         ]);
-        RevolvingCreditBuilder::new()
+        RevolvingCredit::builder()
             .id(InstrumentId::new("RCF-USD-3Y"))
             .commitment_amount(commitment)
             .drawn_amount(initial_draw)

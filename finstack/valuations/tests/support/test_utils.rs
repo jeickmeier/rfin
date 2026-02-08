@@ -378,7 +378,7 @@ pub fn cds_buy_protection(
         ))
     })?;
 
-    let cds = CreditDefaultSwapBuilder::new()
+    let cds = CreditDefaultSwap::builder()
         .id(id.into())
         .notional(notional)
         .side(PayReceive::PayFixed)
@@ -431,7 +431,7 @@ pub fn cds_sell_protection(
         ))
     })?;
 
-    let cds = CreditDefaultSwapBuilder::new()
+    let cds = CreditDefaultSwap::builder()
         .id(id.into())
         .notional(notional)
         .side(PayReceive::ReceiveFixed)

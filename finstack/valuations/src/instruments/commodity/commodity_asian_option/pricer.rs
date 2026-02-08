@@ -417,7 +417,7 @@ impl Pricer for CommodityAsianOptionAnalyticalPricer {
             })?;
 
         let pv = compute_pv(asian, market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         Ok(ValuationResult::stamped(asian.id(), as_of, pv))

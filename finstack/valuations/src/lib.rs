@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
+#![warn(clippy::new_without_default)]
 #![warn(clippy::float_cmp)]
 #![cfg_attr(test, allow(clippy::float_cmp))]
 #![deny(clippy::unwrap_used)]
@@ -330,6 +331,9 @@ pub mod xva;
 
 // Re-export pricing error for convenience.
 pub use pricer::PricingError;
+
+// Re-export unified valuations error type.
+pub use error::Error as ValuationsError;
 
 /// Convenient alias carrying `finstack_core`'s unified [`Error`](finstack_core::Error).
 ///

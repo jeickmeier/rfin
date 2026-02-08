@@ -79,7 +79,7 @@ impl Pricer for SimpleBondHazardPricer {
             .curve_id(bond.discount_curve_id.as_str());
 
         let pv = HazardBondEngine::price(bond, market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), ctx.clone()))?;
+            .map_err(|e| PricingError::model_failure_with_context(e.to_string(), ctx.clone()))?;
 
         Ok(ValuationResult::stamped(bond.id(), as_of, pv))
     }
@@ -136,17 +136,17 @@ impl Pricer for SimpleBondOasPricer {
         // Base present value
         let pv = bond
             .value(market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), ctx.clone()))?;
+            .map_err(|e| PricingError::model_failure_with_context(e.to_string(), ctx.clone()))?;
 
         // OAS calculation requires quoted clean price
         let clean_pct = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            PricingError::invalid_input_ctx("OAS requires quoted clean price", ctx.clone())
+            PricingError::invalid_input_with_context("OAS requires quoted clean price", ctx.clone())
         })?;
 
         // Calculate OAS using tree pricer
         let oas_bp = TreePricer::new()
             .calculate_oas(bond, market, as_of, clean_pct)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), ctx))?;
+            .map_err(|e| PricingError::model_failure_with_context(e.to_string(), ctx))?;
 
         // Create result with OAS measure
         let mut measures = IndexMap::new();

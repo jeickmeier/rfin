@@ -450,7 +450,7 @@ impl Pricer for CliquetOptionMcPricer {
             })?;
 
         let pv = self.price_internal(cliquet, market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         Ok(ValuationResult::stamped(cliquet.id(), as_of, pv))

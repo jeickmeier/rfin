@@ -104,7 +104,7 @@ impl FxVarianceSwap {
     #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use time::Month;
-        FxVarianceSwapBuilder::new()
+        FxVarianceSwap::builder()
             .id(InstrumentId::new("FXVAR-EURUSD-1Y"))
             .base_currency(Currency::EUR)
             .quote_currency(Currency::USD)

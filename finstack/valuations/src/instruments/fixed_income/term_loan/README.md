@@ -262,7 +262,7 @@ use finstack_core::dates::*;
 use finstack_core::types::{InstrumentId, CurveId};
 use time::Month;
 
-let loan = TermLoanBuilder::new()
+let loan = TermLoan::builder()
     .id(InstrumentId::new("TL-001"))
     .currency(Currency::USD)
     .notional_limit(Money::new(100_000_000.0, Currency::USD))
@@ -301,7 +301,7 @@ let floating_spec = FloatingRateSpec {
     calendar_id: None,
 };
 
-let loan = TermLoanBuilder::new()
+let loan = TermLoan::builder()
     .id(InstrumentId::new("TL-FLOAT-001"))
     .currency(Currency::USD)
     .notional_limit(Money::new(75_000_000.0, Currency::USD))
@@ -345,7 +345,7 @@ let ddtl_spec = DdtlSpec {
     oid_policy: Some(OidPolicy::WithheldPct(150)),  // 1.5% OID
 };
 
-let loan = TermLoanBuilder::new()
+let loan = TermLoan::builder()
     .id(InstrumentId::new("DDTL-001"))
     .currency(Currency::USD)
     .notional_limit(Money::new(200_000_000.0, Currency::USD))
@@ -382,7 +382,7 @@ let covenant_spec = CovenantSpec {
     ..Default::default()
 };
 
-let loan = TermLoanBuilder::new()
+let loan = TermLoan::builder()
     .id(InstrumentId::new("TL-PIK-001"))
     .currency(Currency::USD)
     .notional_limit(Money::new(50_000_000.0, Currency::USD))

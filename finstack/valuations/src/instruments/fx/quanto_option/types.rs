@@ -72,7 +72,7 @@ impl QuantoOption {
     pub fn example() -> Self {
         use finstack_core::dates::DayCount;
         use time::Month;
-        QuantoOptionBuilder::new()
+        QuantoOption::builder()
             .id(InstrumentId::new("QUANTO-NKY-USD-CALL"))
             .underlying_ticker("NKY".to_string())
             .equity_strike(Money::new(35000.0, Currency::JPY))

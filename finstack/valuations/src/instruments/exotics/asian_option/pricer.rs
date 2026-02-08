@@ -723,7 +723,7 @@ impl Pricer for AsianOptionMcPricer {
             })?;
 
         let pv = self.price_internal(asian, market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         Ok(ValuationResult::stamped(asian.id(), as_of, pv))
@@ -807,7 +807,7 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
             as_of,
         )
         .map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         let (sum, log_prod, count) = asian.accumulated_state(as_of);
@@ -844,7 +844,7 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
         // The adjustment involves: K_eff = (n·K - G_past) / (n - m) where G_past is the
         // geometric average of past fixings. For now, fall back to Monte Carlo.
         if count > 0 {
-            return Err(PricingError::model_failure_ctx(
+            return Err(PricingError::model_failure_with_context(
                 format!(
                     "Seasoned Geometric Asian analytical pricing not supported ({} of {} fixings already observed). \
                     For seasoned options, use Monte Carlo pricing via `npv_mc()` method or set \
@@ -918,7 +918,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
             as_of,
         )
         .map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         let spot = bs_inputs.spot;
@@ -984,7 +984,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                     let disc_curve = market
                         .get_discount(asian.discount_curve_id.as_str())
                         .map_err(|e| {
-                            PricingError::model_failure_ctx(
+                            PricingError::model_failure_with_context(
                                 e.to_string(),
                                 PricingErrorContext::default(),
                             )
@@ -997,14 +997,14 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                                 .day_count
                                 .year_fraction(as_of, *date, DayCountCtx::default())
                                 .map_err(|e| {
-                                    PricingError::model_failure_ctx(
+                                    PricingError::model_failure_with_context(
                                         e.to_string(),
                                         PricingErrorContext::default(),
                                     )
                                 })?;
                             // Get date-based DF for this fixing
                             let df_i = disc_curve.df_between_dates(as_of, *date).map_err(|e| {
-                                PricingError::model_failure_ctx(
+                                PricingError::model_failure_with_context(
                                     e.to_string(),
                                     PricingErrorContext::default(),
                                 )
@@ -1025,7 +1025,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                     let disc_curve = market
                         .get_discount(asian.discount_curve_id.as_str())
                         .map_err(|e| {
-                            PricingError::model_failure_ctx(
+                            PricingError::model_failure_with_context(
                                 e.to_string(),
                                 PricingErrorContext::default(),
                             )
@@ -1038,13 +1038,13 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                                 .day_count
                                 .year_fraction(as_of, *date, DayCountCtx::default())
                                 .map_err(|e| {
-                                    PricingError::model_failure_ctx(
+                                    PricingError::model_failure_with_context(
                                         e.to_string(),
                                         PricingErrorContext::default(),
                                     )
                                 })?;
                             let df_i = disc_curve.df_between_dates(as_of, *date).map_err(|e| {
-                                PricingError::model_failure_ctx(
+                                PricingError::model_failure_with_context(
                                     e.to_string(),
                                     PricingErrorContext::default(),
                                 )

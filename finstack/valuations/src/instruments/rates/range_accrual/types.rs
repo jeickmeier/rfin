@@ -111,7 +111,7 @@ impl RangeAccrual {
             Date::from_calendar_date(2024, Month::November, 30).expect("Valid example date"),
             Date::from_calendar_date(2024, Month::December, 31).expect("Valid example date"),
         ];
-        RangeAccrualBuilder::new()
+        RangeAccrual::builder()
             .id(InstrumentId::new("RANGE-SPX-1Y"))
             .underlying_ticker("SPX".to_string())
             .observation_dates(observation_dates)
@@ -148,7 +148,7 @@ impl RangeAccrual {
             Date::from_calendar_date(2024, Month::February, 29).expect("Valid example date"),
             Date::from_calendar_date(2024, Month::March, 31).expect("Valid example date"),
         ];
-        RangeAccrualBuilder::new()
+        RangeAccrual::builder()
             .id(InstrumentId::new("RANGE-SOFR-3M"))
             .underlying_ticker("SOFR".to_string())
             .observation_dates(observation_dates)

@@ -33,7 +33,7 @@
 //! assert_eq!(convention, CDSConvention::IsdaEu);
 //!
 //! // Or specify explicitly
-//! let european_cds = CreditDefaultSwapBuilder::new()
+//! let european_cds = CreditDefaultSwap::builder()
 //!     .convention(CDSConvention::IsdaEu)
 //!     // ...
 //!     .build()?;
@@ -470,7 +470,7 @@ impl CreditDefaultSwap {
         let spread_bp_decimal = Decimal::try_from(100.0)
             .expect("Example CDS spread 100bp should always be representable as Decimal");
 
-        let cds = CreditDefaultSwapBuilder::new()
+        let cds = CreditDefaultSwap::builder()
             .id(InstrumentId::new("CDS-CORP-5Y"))
             .notional(Money::new(10_000_000.0, Currency::USD))
             .side(PayReceive::PayFixed)
@@ -588,7 +588,7 @@ impl CreditDefaultSwap {
     /// # Example
     ///
     /// ```ignore
-    /// let cds = CreditDefaultSwapBuilder::new()
+    /// let cds = CreditDefaultSwap::builder()
     ///     .id("CDS-EXAMPLE".into())
     ///     .notional(Money::new(10_000_000.0, Currency::USD))
     ///     .side(PayReceive::PayFixed)

@@ -886,6 +886,8 @@ impl BrentSolver {
             if e.abs() >= tol1 && fa.abs() > fb.abs() {
                 // Attempt inverse quadratic interpolation or secant
                 let s = fb / fa;
+                // Exact comparison: standard Brent's method check for coinciding bracket points.
+                #[allow(clippy::float_cmp)]
                 let (p, q) = if a == c {
                     // Secant method
                     (2.0 * xm * s, 1.0 - s)

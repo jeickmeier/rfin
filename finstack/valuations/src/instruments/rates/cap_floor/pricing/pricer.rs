@@ -55,7 +55,7 @@ impl Pricer for SimpleCapFloorBlackPricer {
         // Use the provided as_of date for consistency
         // Compute present value using the instrument's npv method
         let pv = cap_floor.value(market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         // Return stamped result

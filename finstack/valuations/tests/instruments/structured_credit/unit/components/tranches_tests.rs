@@ -14,8 +14,7 @@ use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
-    CoverageTrigger, Seniority, Tranche, TrancheBuilder, TrancheCoupon, TrancheStructure,
-    TriggerConsequence,
+    CoverageTrigger, Seniority, Tranche, TrancheCoupon, TrancheStructure, TriggerConsequence,
 };
 use rust_decimal_macros::dec;
 use time::Month;
@@ -173,7 +172,7 @@ fn test_tranche_floating_coupon() {
 #[test]
 fn test_tranche_builder_complete() {
     // Arrange & Act
-    let tranche = TrancheBuilder::new()
+    let tranche = Tranche::builder()
         .id("MEZZANINE")
         .attachment_detachment(10.0, 15.0)
         .seniority(Seniority::Mezzanine)
@@ -195,7 +194,7 @@ fn test_tranche_builder_complete() {
 #[test]
 fn test_tranche_builder_missing_required_field() {
     // Arrange & Act: Missing balance
-    let result = TrancheBuilder::new()
+    let result = Tranche::builder()
         .id("INCOMPLETE")
         .attachment_detachment(0.0, 10.0)
         .seniority(Seniority::Equity)
@@ -386,7 +385,7 @@ fn test_tranche_current_balance_after_losses() {
 #[test]
 fn test_tranche_structure_creation() {
     // Arrange
-    let equity = TrancheBuilder::new()
+    let equity = Tranche::builder()
         .id("EQUITY")
         .attachment_detachment(0.0, 10.0)
         .seniority(Seniority::Equity)
@@ -396,7 +395,7 @@ fn test_tranche_structure_creation() {
         .build()
         .unwrap();
 
-    let senior = TrancheBuilder::new()
+    let senior = Tranche::builder()
         .id("SENIOR")
         .attachment_detachment(10.0, 100.0)
         .seniority(Seniority::Senior)
@@ -417,7 +416,7 @@ fn test_tranche_structure_creation() {
 #[test]
 fn test_tranche_structure_validates_gaps() {
     // Arrange: Gap between 10% and 20%
-    let equity = TrancheBuilder::new()
+    let equity = Tranche::builder()
         .id("EQUITY")
         .attachment_detachment(0.0, 10.0)
         .seniority(Seniority::Equity)
@@ -427,7 +426,7 @@ fn test_tranche_structure_validates_gaps() {
         .build()
         .unwrap();
 
-    let senior = TrancheBuilder::new()
+    let senior = Tranche::builder()
         .id("SENIOR")
         .attachment_detachment(20.0, 100.0) // Gap!
         .seniority(Seniority::Senior)
@@ -447,7 +446,7 @@ fn test_tranche_structure_validates_gaps() {
 #[test]
 fn test_tranche_structure_validates_overlap() {
     // Arrange: Overlap between tranches
-    let tranche1 = TrancheBuilder::new()
+    let tranche1 = Tranche::builder()
         .id("T1")
         .attachment_detachment(0.0, 15.0)
         .seniority(Seniority::Equity)
@@ -457,7 +456,7 @@ fn test_tranche_structure_validates_overlap() {
         .build()
         .unwrap();
 
-    let tranche2 = TrancheBuilder::new()
+    let tranche2 = Tranche::builder()
         .id("T2")
         .attachment_detachment(10.0, 100.0) // Overlaps with T1!
         .seniority(Seniority::Senior)
@@ -477,7 +476,7 @@ fn test_tranche_structure_validates_overlap() {
 #[test]
 fn test_tranche_structure_validates_reaches_100() {
     // Arrange: Only goes to 90%
-    let tranche = TrancheBuilder::new()
+    let tranche = Tranche::builder()
         .id("INCOMPLETE")
         .attachment_detachment(0.0, 90.0)
         .seniority(Seniority::Senior)

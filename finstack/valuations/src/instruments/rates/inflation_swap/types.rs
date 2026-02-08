@@ -110,7 +110,7 @@ impl InflationSwap {
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use time::Month;
-        InflationSwapBuilder::new()
+        InflationSwap::builder()
             .id(InstrumentId::new("INFLSWAP-USD-5Y"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .start(Date::from_calendar_date(2024, Month::January, 15).expect("Valid example date"))

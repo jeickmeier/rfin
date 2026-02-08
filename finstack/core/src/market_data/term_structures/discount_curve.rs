@@ -914,6 +914,8 @@ impl DiscountCurve {
 
         for i in 0..self.knots.len() {
             let t = self.knots[i];
+            // Allow exact float comparison for well-known sentinel values (t=0, DF(0)=1).
+            #[allow(clippy::float_cmp)]
             let forward_rate = if i == 0 {
                 // First point: use next point for forward difference
                 let t_next = self.knots[1];

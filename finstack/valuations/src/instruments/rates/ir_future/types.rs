@@ -167,7 +167,7 @@ impl InterestRateFuture {
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         // SAFETY: All inputs are compile-time validated constants
-        InterestRateFutureBuilder::new()
+        InterestRateFuture::builder()
             .id(InstrumentId::new("IRF-ED-3M-MAR25"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(date!(2025 - 03 - 17))

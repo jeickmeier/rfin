@@ -603,7 +603,7 @@ impl crate::pricer::Pricer for SimpleCdsIndexHazardPricer {
         let pv = CDSIndexPricer::new()
             .npv(cds_index, market, as_of)
             .map_err(|e| {
-                crate::pricer::PricingError::model_failure_ctx(
+                crate::pricer::PricingError::model_failure_with_context(
                     e.to_string(),
                     crate::pricer::PricingErrorContext::default(),
                 )

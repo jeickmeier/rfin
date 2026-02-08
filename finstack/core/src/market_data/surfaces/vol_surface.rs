@@ -225,6 +225,8 @@ impl VolSurface {
     #[inline]
     fn value_indices(&self, xs: &[f64], x: f64) -> Result<(usize, bool), Error> {
         let i = locate_segment(xs, x)?;
+        // Exact comparison is intentional: checking for exact grid-point hit.
+        #[allow(clippy::float_cmp)]
         let exact = xs[i] == x;
         Ok((i, exact))
     }

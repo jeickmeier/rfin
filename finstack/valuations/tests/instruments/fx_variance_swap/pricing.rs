@@ -8,7 +8,7 @@ use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::variance_swap::RealizedVarMethod;
-use finstack_valuations::instruments::fx::fx_variance_swap::{FxVarianceSwapBuilder, PayReceive};
+use finstack_valuations::instruments::fx::fx_variance_swap::{FxVarianceSwap, PayReceive};
 use finstack_valuations::instruments::{Attributes, Instrument};
 use std::sync::Arc;
 
@@ -35,7 +35,7 @@ fn test_forward_variance_flat_surface() {
         .insert_surface(vol_surface)
         .insert_fx(fx_matrix);
 
-    let swap = FxVarianceSwapBuilder::new()
+    let swap = FxVarianceSwap::builder()
         .id(InstrumentId::new("FXVAR-EURUSD"))
         .base_currency(Currency::EUR)
         .quote_currency(Currency::USD)
@@ -62,7 +62,7 @@ fn test_forward_variance_flat_surface() {
         fwd_var
     );
 
-    let fair_swap = FxVarianceSwapBuilder::new()
+    let fair_swap = FxVarianceSwap::builder()
         .id(InstrumentId::new("FXVAR-EURUSD-FAIR"))
         .base_currency(Currency::EUR)
         .quote_currency(Currency::USD)

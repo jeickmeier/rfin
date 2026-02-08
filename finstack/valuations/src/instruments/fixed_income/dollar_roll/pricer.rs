@@ -68,7 +68,7 @@ impl Pricer for DollarRollDiscountingPricer {
             crate::pricer::expect_inst::<DollarRoll>(instrument, InstrumentType::DollarRoll)?;
 
         let pv = price_dollar_roll(roll, market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         Ok(ValuationResult::stamped(roll.id.as_str(), as_of, pv))

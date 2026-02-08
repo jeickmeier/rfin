@@ -352,7 +352,7 @@ impl BondFutureSpecs {
 /// use time::Month;
 ///
 /// // Create a UST 10-year future
-/// let future = BondFutureBuilder::new()
+/// let future = BondFuture::builder()
 ///     .id(InstrumentId::new("TYH5"))
 ///     .notional(Money::new(1_000_000.0, Currency::USD))
 ///     .expiry_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
@@ -623,7 +623,7 @@ impl BondFuture {
         ctd_bond: Option<crate::instruments::fixed_income::bond::Bond>,
         discount_curve_id: CurveId,
     ) -> finstack_core::Result<Self> {
-        let mut builder = BondFutureBuilder::new()
+        let mut builder = BondFuture::builder()
             .id(id)
             .notional(notional)
             .expiry_date(expiry_date)
@@ -706,7 +706,7 @@ impl BondFuture {
         ctd_bond_id: InstrumentId,
         discount_curve_id: CurveId,
     ) -> finstack_core::Result<Self> {
-        BondFutureBuilder::new()
+        BondFuture::builder()
             .id(id)
             .notional(notional)
             .expiry_date(expiry_date)
@@ -785,7 +785,7 @@ impl BondFuture {
         ctd_bond_id: InstrumentId,
         discount_curve_id: CurveId,
     ) -> finstack_core::Result<Self> {
-        BondFutureBuilder::new()
+        BondFuture::builder()
             .id(id)
             .notional(notional)
             .expiry_date(expiry_date)
@@ -862,7 +862,7 @@ impl BondFuture {
         ctd_bond_id: InstrumentId,
         discount_curve_id: CurveId,
     ) -> finstack_core::Result<Self> {
-        BondFutureBuilder::new()
+        BondFuture::builder()
             .id(id)
             .notional(notional)
             .expiry_date(expiry_date)
@@ -941,7 +941,7 @@ impl BondFuture {
         ctd_bond_id: InstrumentId,
         discount_curve_id: CurveId,
     ) -> finstack_core::Result<Self> {
-        BondFutureBuilder::new()
+        BondFuture::builder()
             .id(id)
             .notional(notional)
             .expiry_date(expiry_date)
@@ -1472,7 +1472,7 @@ impl BondFutureBuilder {
     ///
     /// # fn main() -> finstack_core::Result<()> {
     /// let ctd_bond_id = InstrumentId::new("US912828XG33");
-    /// let future = BondFutureBuilder::new()
+    /// let future = BondFuture::builder()
     ///     .id(InstrumentId::new("TYH5"))
     ///     .notional(Money::new(1_000_000.0, Currency::USD))
     ///     .expiry_date(date!(2025-03-20))
@@ -1591,7 +1591,7 @@ mod tests {
             conversion_factor: 0.8234,
         };
 
-        let future = BondFutureBuilder::new()
+        let future = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -1635,7 +1635,7 @@ mod tests {
         };
 
         // expiry_date >= delivery_start (invalid)
-        let result = BondFutureBuilder::new()
+        let result = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date")) // Wrong: same as delivery_end
@@ -1663,7 +1663,7 @@ mod tests {
         };
 
         // delivery_start >= delivery_end (invalid)
-        let result = BondFutureBuilder::new()
+        let result = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -1686,7 +1686,7 @@ mod tests {
     #[test]
     fn test_validation_empty_basket() {
         // Empty deliverable basket (invalid)
-        let result = BondFutureBuilder::new()
+        let result = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -1714,7 +1714,7 @@ mod tests {
         };
 
         // CTD bond not in basket (invalid)
-        let result = BondFutureBuilder::new()
+        let result = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -1746,7 +1746,7 @@ mod tests {
         };
 
         // Negative conversion factor (invalid)
-        let result = BondFutureBuilder::new()
+        let result = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -1774,7 +1774,7 @@ mod tests {
         };
 
         // Zero conversion factor (invalid)
-        let result = BondFutureBuilder::new()
+        let result = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -1802,7 +1802,7 @@ mod tests {
         };
 
         // All validations should pass
-        let result = BondFutureBuilder::new()
+        let result = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -2144,7 +2144,7 @@ mod instrument_trait_tests {
             conversion_factor: 0.8234,
         };
 
-        let future = BondFutureBuilder::new()
+        let future = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -2174,7 +2174,7 @@ mod instrument_trait_tests {
             conversion_factor: 0.8234,
         };
 
-        let future = BondFutureBuilder::new()
+        let future = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -2206,7 +2206,7 @@ mod instrument_trait_tests {
             .with_tag("futures")
             .with_meta("exchange", "CBOT");
 
-        let future = BondFutureBuilder::new()
+        let future = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -2235,7 +2235,7 @@ mod instrument_trait_tests {
             conversion_factor: 0.8234,
         };
 
-        let future = BondFutureBuilder::new()
+        let future = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -2265,7 +2265,7 @@ mod instrument_trait_tests {
             conversion_factor: 0.8234,
         };
 
-        let future = BondFutureBuilder::new()
+        let future = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -2299,7 +2299,7 @@ mod instrument_trait_tests {
             conversion_factor: 0.8234,
         };
 
-        let future = BondFutureBuilder::new()
+        let future = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
@@ -2333,7 +2333,7 @@ mod instrument_trait_tests {
             conversion_factor: 0.8234,
         };
 
-        let future = BondFutureBuilder::new()
+        let future = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))

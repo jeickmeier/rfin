@@ -83,7 +83,7 @@ impl FxBarrierOption {
     pub fn example() -> Self {
         use finstack_core::dates::DayCount;
         use time::Month;
-        FxBarrierOptionBuilder::new()
+        FxBarrierOption::builder()
             .id(InstrumentId::new("FXBAR-EURUSD-UO-CALL"))
             .strike(Money::new(1.10, Currency::USD)) // Strike rate in USD
             .barrier(Money::new(1.20, Currency::USD)) // Barrier rate in USD
@@ -498,7 +498,7 @@ mod tests {
         use time::Month;
 
         // Valid: strike/barrier in USD, notional in EUR
-        let option = FxBarrierOptionBuilder::new()
+        let option = FxBarrierOption::builder()
             .id(InstrumentId::new("TEST-FXBAR"))
             .strike(Money::new(1.10, Currency::USD))
             .barrier(Money::new(1.20, Currency::USD))

@@ -155,6 +155,8 @@ pub trait Discounting: TermStructure {
     /// Returns an error if either discount factor is non-finite or non-positive.
     #[inline]
     fn df_between_times(&self, from_t: f64, to_t: f64) -> crate::Result<f64> {
+        // Exact comparison: degenerate-case guard for identical time arguments.
+        #[allow(clippy::float_cmp)]
         if from_t == to_t {
             return Ok(1.0);
         }

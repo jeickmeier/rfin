@@ -348,7 +348,7 @@ impl Pricer for BarrierOptionMcPricer {
             })?;
 
         let pv = self.price_internal(barrier, market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         Ok(ValuationResult::stamped(barrier.id(), as_of, pv))
@@ -451,7 +451,7 @@ impl Pricer for BarrierOptionAnalyticalPricer {
             as_of,
         )
         .map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         if t <= 0.0 {

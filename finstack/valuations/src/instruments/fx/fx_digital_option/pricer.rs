@@ -52,7 +52,7 @@ impl Pricer for SimpleFxDigitalOptionPricer {
             })?;
 
         let pv = fx_digital.value(market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
         Ok(ValuationResult::stamped(fx_digital.id(), as_of, pv))

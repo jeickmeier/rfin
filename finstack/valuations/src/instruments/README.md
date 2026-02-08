@@ -454,7 +454,7 @@ use finstack_core::types::CurveId;
 use rust_decimal::Decimal;
 
 let convention = CDSConvention::IsdaNa;
-let cds = CreditDefaultSwapBuilder::new()
+let cds = CreditDefaultSwap::builder()
     .id("CDS-CORP-001")
     .notional(Money::new(10_000_000.0, Currency::USD))
     .side(PayReceive::PayFixed)

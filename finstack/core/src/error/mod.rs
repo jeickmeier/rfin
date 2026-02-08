@@ -101,6 +101,14 @@
 //! - [`crate::Result`] - Type alias for `Result<T, Error>`
 //! - [`InputError`] - Specific validation failure modes
 //!
+//! # Naming Convention
+//!
+//! This crate uses plain `Error` for the root error enum (re-exported at crate
+//! root as `finstack_core::Error`), following the Rust convention for a crate's
+//! primary error type. The sub-error `InputError` uses a domain prefix to avoid
+//! ambiguity when both are imported together. See
+//! `docs/CONVENTIONS_ERROR_NAMING.md` for the cross-crate naming rationale.
+//!
 //! # References
 //!
 //! The fuzzy matching algorithm uses Levenshtein edit distance:
@@ -172,7 +180,7 @@ use crate::currency::Currency;
 pub enum Error {
     /// User input validation error.
     #[error(transparent)]
-    Input(InputError),
+    Input(#[from] InputError),
 
     /// Interpolator evaluation exceeded grid bounds.
     #[error("Interpolation input out of bounds")]
@@ -250,13 +258,6 @@ pub enum Error {
     /// Catch-all for unexpected internal failures.
     #[error("Internal system error")]
     Internal,
-}
-
-impl From<InputError> for Error {
-    #[inline]
-    fn from(value: InputError) -> Self {
-        Self::Input(value)
-    }
 }
 
 impl Error {
