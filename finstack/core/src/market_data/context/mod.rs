@@ -111,6 +111,22 @@ pub struct MarketContext {
     collateral: HashMap<String, CurveId>,
 }
 
+impl std::fmt::Debug for MarketContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MarketContext")
+            .field("curves", &self.curves.len())
+            .field("fx", &self.fx.as_ref().map(|_| ".."))
+            .field("surfaces", &self.surfaces.len())
+            .field("prices", &self.prices.len())
+            .field("series", &self.series.len())
+            .field("inflation_indices", &self.inflation_indices.len())
+            .field("credit_indices", &self.credit_indices.len())
+            .field("dividends", &self.dividends.len())
+            .field("collateral", &self.collateral.len())
+            .finish()
+    }
+}
+
 impl MarketContext {
     /// Create an empty market context.
     pub fn new() -> Self {

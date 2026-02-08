@@ -11,8 +11,7 @@ use finstack_core::market_data::context::MarketContext as Market;
 
 // ========================= KEYS =========================
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[repr(u16)]
 /// Strongly-typed instrument classification for pricer dispatch.
 ///
@@ -430,7 +429,7 @@ impl std::str::FromStr for InstrumentType {
 /// let model: ModelKey = "black76".parse().unwrap();
 /// assert_eq!(model, ModelKey::Black76);
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[repr(u16)]
 pub enum ModelKey {
     /// Present value discounting of projected cashflows.
@@ -592,7 +591,7 @@ impl std::str::FromStr for ModelKey {
 /// assert_eq!(key.model, ModelKey::Black76);
 /// ```
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PricerKey {
     /// The instrument type being priced.
     pub instrument: InstrumentType,
@@ -634,7 +633,7 @@ pub type PricingResult<T> = std::result::Result<T, PricingError>;
 ///
 /// This struct captures the instrument, model, and market data context
 /// when a pricing error occurs, enabling easier troubleshooting.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PricingErrorContext {
     /// The instrument ID that was being priced (if known).
     pub instrument_id: Option<String>,
@@ -772,7 +771,7 @@ impl std::fmt::Display for PricingErrorContext {
 ///
 /// Each variant captures the error condition along with optional context
 /// (instrument ID, type, model, and curve IDs) for actionable debugging.
-#[derive(Debug, PartialEq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum PricingError {
     /// No pricer registered for the requested (instrument, model) combination.

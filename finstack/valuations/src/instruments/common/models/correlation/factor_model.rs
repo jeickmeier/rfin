@@ -36,7 +36,7 @@ use finstack_core::math::linalg::{
 const CORRELATION_TOLERANCE: f64 = 1e-10;
 
 /// Error types for correlation matrix validation.
-#[derive(Clone, Debug, PartialEq, thiserror::Error)]
+#[derive(Clone, Debug, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum CorrelationMatrixError {
     /// Matrix size does not match expected n×n.

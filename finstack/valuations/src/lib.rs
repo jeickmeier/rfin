@@ -302,6 +302,7 @@ compile_error!("finstack-valuations requires the `serde` feature (enabled by def
 pub mod calibration;
 pub mod cashflow;
 pub mod constants;
+pub mod error;
 /// Margin calculation for collateralized derivatives.
 ///
 /// Provides VM (Variation Margin) and IM (Initial Margin) calculations,

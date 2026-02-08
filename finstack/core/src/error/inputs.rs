@@ -6,7 +6,6 @@
 
 use crate::currency::Currency;
 use crate::dates::BusinessDayConvention;
-use thiserror::Error;
 use time::Date;
 
 use super::suggestions::format_suggestions;
@@ -58,7 +57,7 @@ impl core::fmt::Display for NonFiniteKind {
 /// let err = InputError::NonMonotonicKnots;
 /// assert_eq!(err.to_string(), "Times (knots) must be strictly increasing");
 /// ```
-#[derive(Debug, Clone, PartialEq, Error, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum InputError {
     // ─────────────────────────────────────────────────────────────────────────

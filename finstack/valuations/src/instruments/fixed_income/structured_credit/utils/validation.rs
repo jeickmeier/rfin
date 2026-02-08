@@ -17,17 +17,13 @@ use crate::instruments::fixed_income::structured_credit::types::{
 use finstack_core::HashSet;
 use finstack_core::Result;
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
 // ============================================================================
 // VALIDATION ERRORS
 // ============================================================================
 
 /// Validation error details.
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ValidationError {
     /// Duplicate tier ID.
     #[error("Duplicate tier ID: {tier_id}")]

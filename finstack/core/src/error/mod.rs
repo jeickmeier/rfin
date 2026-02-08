@@ -119,7 +119,6 @@ pub use inputs::NonFiniteKind;
 pub(crate) use suggestions::{format_suggestions, fuzzy_suggestions};
 
 use crate::currency::Currency;
-use thiserror::Error;
 
 /// Unified error type for all high-level APIs.
 ///
@@ -168,7 +167,7 @@ use thiserror::Error;
 /// let msg = handle_error(input_err);
 /// assert!(msg.contains("Invalid input"));
 /// ```
-#[derive(Debug, Clone, PartialEq, Error, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum Error {
     /// User input validation error.
