@@ -110,9 +110,20 @@ impl DiscountedCashFlow {
         }
     }
 
-    /// Calculate year fraction between two dates.
+    /// Calculate year fraction between two dates using ACT/365.25.
+    ///
+    /// Corporate DCF valuations conventionally use ACT/365.25 (actual days
+    /// divided by 365.25) because:
+    /// 1. Cash-flow projections are typically on annual boundaries, making
+    ///    the choice of day-count immaterial for integer years.
+    /// 2. Sub-year precision is only needed for the first/last stub period,
+    ///    where ACT/365.25 is the standard corporate-finance convention
+    ///    (Damodaran, Koller et al.).
+    /// 3. WACC-based discounting is quoted assuming this basis.
+    ///
+    /// This differs from capital-markets instruments that use `DayCount`
+    /// enums (e.g., ACT/360 for money-market, ACT/365F for equity vol).
     fn year_fraction(&self, start: Date, end: Date) -> f64 {
-        // Simple ACT/365.25 day count (sufficient for corporate DCF use cases)
         let days = (end - start).whole_days() as f64;
         days / 365.25
     }

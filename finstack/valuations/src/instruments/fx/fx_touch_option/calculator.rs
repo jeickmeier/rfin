@@ -159,11 +159,14 @@ fn price_touch(
     // mu = (r_d - r_f - sigma^2/2) / sigma^2
     let mu = (r_d - r_f - sigma2 / 2.0) / sigma2;
 
-    // For pay-at-expiry: lambda uses r_d
-    // For pay-at-hit: lambda uses 0 (immediate payout, no further discounting)
+    // For pay-at-expiry: lambda uses 0 to compute the pure hitting probability;
+    //   the e^{-r_d T} factor is applied separately when discounting the payout.
+    // For pay-at-hit: lambda uses r_d so that the formula directly computes
+    //   the expected discounted payout E^Q[e^{-r_d τ} 1_{τ≤T}] via the
+    //   Rubinstein-Reiner (1991) Laplace transform of the first passage time.
     let lambda_r = match payout_timing {
-        PayoutTiming::AtExpiry => r_d,
-        PayoutTiming::AtHit => r_d, // still use r_d for the touch probability
+        PayoutTiming::AtExpiry => 0.0,
+        PayoutTiming::AtHit => r_d,
     };
 
     let lambda_sq = mu * mu + 2.0 * lambda_r / sigma2;

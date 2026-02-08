@@ -232,18 +232,21 @@ impl StochasticDefault for CopulaBasedDefault {
         // Get the seasoning-adjusted annual CDR
         let adjusted_cdr = self.seasoned_cdr(seasoning);
 
-        // Convert to monthly default rate
-        let base_mdr = cdr_to_mdr(adjusted_cdr);
+        // Use annual CDR directly for copula threshold (annual-horizon calibration).
+        // The Gaussian copula threshold Φ⁻¹(PD) must use the same horizon as the
+        // calibration; converting to MDR first would apply a monthly horizon to an
+        // annually-calibrated copula, understating conditional default probability.
+        let threshold = standard_normal_inv_cdf(adjusted_cdr.min(0.9999));
 
-        // Convert to default threshold for copula
-        let threshold = standard_normal_inv_cdf(base_mdr.min(0.9999));
+        // Get conditional *annual* default probability from copula
+        let annual_cond_pd =
+            self.copula
+                .conditional_default_prob(threshold, factors, self.correlation);
 
-        // Get conditional probability using copula
-        let cond_prob = self
-            .copula
-            .conditional_default_prob(threshold, factors, self.correlation);
+        // Convert conditional annual PD to monthly MDR
+        let monthly_pd = 1.0 - (1.0 - annual_cond_pd.clamp(0.0, 1.0)).powf(1.0 / 12.0);
 
-        cond_prob.clamp(0.0, 1.0)
+        monthly_pd.clamp(0.0, 1.0)
     }
 
     fn default_distribution(

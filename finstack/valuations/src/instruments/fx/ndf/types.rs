@@ -588,9 +588,19 @@ impl Ndf {
             }
         }
 
-        // Fallback for restricted currencies: assume flat basis (F ≈ S adjusted for time)
-        // This is a simplification; in practice you'd use NDF market quotes or basis curves
-        // For now, use the settlement curve alone: F = S (no adjustment for restricted currency rate)
+        // Fallback for restricted currencies: assume flat basis (F ≈ S).
+        // This is a simplification; in practice you'd use NDF market quotes or basis curves.
+        // For restricted currencies without a foreign discount curve, the forward rate
+        // cannot be properly estimated via CIRP. Consider providing a foreign_curve_id
+        // or using an NDF-specific basis curve for more accurate valuations.
+        tracing::warn!(
+            instrument = %self.id,
+            base_currency = %self.base_currency,
+            settlement_currency = %self.settlement_currency,
+            "NDF forward rate estimation falling back to spot ≈ forward (no foreign curve). \
+             This may produce material errors for long-dated NDFs. \
+             Provide a foreign_curve_id for CIRP-based forward estimation."
+        );
         Ok(spot)
     }
 

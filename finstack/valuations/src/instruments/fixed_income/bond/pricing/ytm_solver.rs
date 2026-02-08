@@ -262,6 +262,23 @@ impl YtmSolver {
             ));
         }
 
+        // Special case: zero coupon bond (single cashflow at maturity).
+        // YTM = (Face/Price)^(1/t) - 1
+        // This avoids the iterative solver and gives an exact closed-form result.
+        if cashflows.len() == 1 {
+            let (maturity_date, face_value) = &cashflows[0];
+            let years = spec.day_count.year_fraction(
+                as_of,
+                *maturity_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let fv = face_value.amount();
+            if years > 0.0 && fv > 0.0 && target > 0.0 {
+                let ytm = (fv / target).powf(1.0 / years) - 1.0;
+                return Ok(ytm);
+            }
+        }
+
         let initial_guess = if self.config.use_smart_guess {
             self.calculate_initial_guess(
                 cashflows,

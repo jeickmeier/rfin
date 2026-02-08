@@ -78,7 +78,8 @@ pub use tenor::{Tenor, TenorUnit};
 
 pub use imm::{
     imm_option_expiry, is_cds_date, is_imm_date, next_cds_date, next_equity_option_expiry,
-    next_imm, next_imm_option_expiry, third_friday, third_wednesday,
+    next_imm, next_imm_option_expiry, next_sifma_settlement, sifma_settlement_date, third_friday,
+    third_wednesday,
 };
 
 pub mod calendar;

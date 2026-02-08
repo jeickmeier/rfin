@@ -608,6 +608,23 @@ impl BondValuator {
             outstanding_principal_vec[step] = (initial_notional - cumulative_amort).max(0.0);
         }
 
+        // Collect exercise dates so we can snap coincident coupons to the same
+        // tree step used for the call/put (ceil mapping), preventing timing
+        // mismatches between coupon receipt and exercise decision.
+        let mut exercise_dates = std::collections::HashSet::new();
+        if let Some(ref call_put) = bond.call_put {
+            for call in &call_put.calls {
+                if call.date > as_of && call.date <= bond.maturity {
+                    exercise_dates.insert(call.date);
+                }
+            }
+            for put in &call_put.puts {
+                if put.date > as_of && put.date <= bond.maturity {
+                    exercise_dates.insert(put.date);
+                }
+            }
+        }
+
         // Pre-allocate vectors for O(1) access during backward induction
         let mut coupon_vec = vec![0.0; num_steps];
         for (date, amount) in &flows {
@@ -617,27 +634,42 @@ impl BondValuator {
                     *date,
                     finstack_core::dates::DayCountCtx::default(),
                 )?;
-                // Distributed mapping: spread cashflow between two nearest time steps
-                // to reduce discretization error and improve convergence.
                 let raw = (time_frac / time_to_maturity) * tree_steps as f64;
 
                 // Ensure we don't go out of bounds
                 let raw_clamped = raw.clamp(0.0, tree_steps as f64);
 
-                // Lower step index
-                let step_idx = raw_clamped.floor() as usize;
+                // When a cashflow date matches an exercise date, snap to the
+                // exercise step (ceil) to prevent timing mismatches between
+                // coupon receipt and exercise decision.
+                if exercise_dates.contains(date) {
+                    let mut step = raw_clamped.ceil() as usize;
+                    if step == 0 {
+                        step = 1;
+                    }
+                    if step >= num_steps {
+                        step = num_steps - 1;
+                    }
+                    coupon_vec[step] += amount.amount();
+                } else {
+                    // Distributed mapping: spread cashflow between two nearest time steps
+                    // to reduce discretization error and improve convergence.
 
-                // Weight for the upper step (fractional part)
-                let weight = raw_clamped - step_idx as f64;
+                    // Lower step index
+                    let step_idx = raw_clamped.floor() as usize;
 
-                // Distribute to step_idx (weight: 1.0 - weight)
-                if step_idx > 0 && step_idx < num_steps {
-                    coupon_vec[step_idx] += amount.amount() * (1.0 - weight);
-                }
+                    // Weight for the upper step (fractional part)
+                    let weight = raw_clamped - step_idx as f64;
 
-                // Distribute to step_idx + 1 (weight: weight)
-                if step_idx + 1 < num_steps {
-                    coupon_vec[step_idx + 1] += amount.amount() * weight;
+                    // Distribute to step_idx (weight: 1.0 - weight)
+                    if step_idx > 0 && step_idx < num_steps {
+                        coupon_vec[step_idx] += amount.amount() * (1.0 - weight);
+                    }
+
+                    // Distribute to step_idx + 1 (weight: weight)
+                    if step_idx + 1 < num_steps {
+                        coupon_vec[step_idx + 1] += amount.amount() * weight;
+                    }
                 }
             }
         }

@@ -19,7 +19,20 @@ use finstack_core::Result;
 /// Σ CF_i / (1 + y)^t_i = Dirty Price
 /// ```
 ///
-/// # Market Conventions
+/// # Compounding Convention
+///
+/// Uses **annual compounding** by default: discount factor = `(1 + y)^(-t)`.
+/// Market-specific conventions may differ:
+/// - **ABS**: Often semi-annual (bond-equivalent yield)
+/// - **RMBS**: Often monthly (mortgage-equivalent yield)
+/// - **CLO**: Often quarterly (matching coupon frequency)
+/// - **CMBS**: Often semi-annual
+///
+/// TODO: Make compounding frequency configurable via deal parameters or a
+/// `CompoundingFrequency` field so callers can select the appropriate
+/// convention for their asset class.
+///
+/// # Typical Yield Ranges
 ///
 /// - **ABS (fixed)**: 4-7% typical for AAA
 /// - **RMBS (fixed)**: 4-6% typical for agency

@@ -419,46 +419,11 @@ impl EquityIndexFuture {
     }
 
     /// Price using fair value (cost-of-carry model).
+    ///
+    /// Delegates to [`fair_forward`](Self::fair_forward) for the forward
+    /// price calculation, then computes P&L relative to entry price.
     fn price_fair_value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        use finstack_core::dates::{DayCount, DayCountCtx};
-        use finstack_core::market_data::scalars::MarketScalar;
-
-        // Get spot level
-        let spot = match context.price(&self.index_price_id)? {
-            MarketScalar::Unitless(v) => *v,
-            MarketScalar::Price(m) => m.amount(),
-        };
-
-        // Get discount curve and calculate time to expiry
-        let disc = context.get_discount(&self.discount_curve_id)?;
-        let t = DayCount::Act365F
-            .year_fraction(as_of, self.expiry_date, DayCountCtx::default())?
-            .max(0.0);
-
-        // Get risk-free rate from discount curve
-        let r = disc.zero(t);
-
-        // Get dividend yield
-        // If dividend_yield_id is set, the lookup MUST succeed to prevent silent errors.
-        // If not set, default to 0.0 (appropriate for indices without explicit dividend yield).
-        let q = if let Some(ref div_id) = self.dividend_yield_id {
-            match context.price(div_id) {
-                Ok(MarketScalar::Unitless(v)) => *v,
-                Ok(MarketScalar::Price(m)) => m.amount(),
-                Err(e) => {
-                    return Err(finstack_core::Error::Validation(format!(
-                        "Dividend yield lookup failed for '{}': {}. \
-                         If dividend yield is not needed, set dividend_yield_id to None.",
-                        div_id, e
-                    )));
-                }
-            }
-        } else {
-            0.0
-        };
-
-        // Calculate fair forward price: F = S₀ × exp((r - q) × T)
-        let fair_value = spot * ((r - q) * t).exp();
+        let fair_value = self.fair_forward(context, as_of)?;
 
         // Calculate PV relative to entry price
         let entry = self.entry_price.unwrap_or(0.0);
@@ -466,6 +431,36 @@ impl EquityIndexFuture {
         let pv = price_diff * self.contract_specs.multiplier * self.quantity * self.position_sign();
 
         Ok(pv)
+    }
+
+    /// Resolve dividend yield from market context.
+    ///
+    /// When `dividend_yield_id` is set, the lookup **must** succeed and
+    /// return a `Unitless` scalar.  A `Price` scalar is rejected to match
+    /// the convention used by equity options and TRS (dividend yield is a
+    /// dimensionless rate, not a monetary amount).
+    fn resolve_dividend_yield(&self, context: &MarketContext) -> finstack_core::Result<f64> {
+        use finstack_core::market_data::scalars::MarketScalar;
+
+        if let Some(ref div_id) = self.dividend_yield_id {
+            let ms = context.price(div_id).map_err(|e| {
+                finstack_core::Error::Validation(format!(
+                    "Dividend yield lookup failed for '{}': {}. \
+                     If dividend yield is not needed, set dividend_yield_id to None.",
+                    div_id, e
+                ))
+            })?;
+            match ms {
+                MarketScalar::Unitless(v) => Ok(*v),
+                MarketScalar::Price(m) => Err(finstack_core::Error::Validation(format!(
+                    "Dividend yield '{}' should be a unitless scalar, got Price({})",
+                    div_id,
+                    m.currency()
+                ))),
+            }
+        } else {
+            Ok(0.0)
+        }
     }
 
     /// Get the fair forward price using cost-of-carry model.
@@ -493,23 +488,8 @@ impl EquityIndexFuture {
         // Get risk-free rate
         let r = disc.zero(t);
 
-        // Get dividend yield
-        // If dividend_yield_id is set, the lookup MUST succeed to prevent silent errors.
-        let q = if let Some(ref div_id) = self.dividend_yield_id {
-            match context.price(div_id) {
-                Ok(MarketScalar::Unitless(v)) => *v,
-                Ok(MarketScalar::Price(m)) => m.amount(),
-                Err(e) => {
-                    return Err(finstack_core::Error::Validation(format!(
-                        "Dividend yield lookup failed for '{}': {}. \
-                         If dividend yield is not needed, set dividend_yield_id to None.",
-                        div_id, e
-                    )));
-                }
-            }
-        } else {
-            0.0
-        };
+        // Get dividend yield (validated: must be Unitless)
+        let q = self.resolve_dividend_yield(context)?;
 
         // F = S₀ × exp((r - q) × T)
         Ok(spot * ((r - q) * t).exp())

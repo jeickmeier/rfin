@@ -1276,6 +1276,7 @@ impl BondFuture {
         bond_prices_with_accrued: &[(InstrumentId, f64, f64)],
     ) -> finstack_core::Result<(InstrumentId, f64)> {
         let mut best_ctd: Option<(InstrumentId, f64)> = None;
+        let mut best_cf: Option<f64> = None;
 
         for deliverable in &self.deliverable_basket {
             // Find the price data for this bond
@@ -1295,16 +1296,22 @@ impl BondFuture {
                 // For gross basis with carry, we'd need repo rates and delivery date accrued
                 let invoice_component = self.quoted_price * deliverable.conversion_factor;
 
-                // Gross basis (simplified - assumes same accrued at delivery)
-                let gross_basis = dirty_price - (invoice_component + accrued);
+                // Gross Basis = Clean Price - (Futures Price × CF)
+                // where clean_price = dirty_price - accrued
+                let gross_basis = (dirty_price - accrued) - invoice_component;
 
                 match &best_ctd {
                     None => {
                         best_ctd = Some((deliverable.bond_id.clone(), gross_basis));
+                        best_cf = Some(deliverable.conversion_factor);
                     }
                     Some((_, current_best)) => {
-                        if gross_basis < *current_best {
+                        if gross_basis < *current_best
+                            || ((gross_basis - *current_best).abs() < f64::EPSILON
+                                && deliverable.conversion_factor < best_cf.unwrap_or(f64::MAX))
+                        {
                             best_ctd = Some((deliverable.bond_id.clone(), gross_basis));
+                            best_cf = Some(deliverable.conversion_factor);
                         }
                     }
                 }
@@ -1428,7 +1435,10 @@ impl BondFuture {
         // Invoice price at delivery
         let invoice_price = (self.quoted_price * cf) + accrued_at_delivery;
 
-        // Implied repo rate (money market convention: 360 days)
+        // Implied repo rate (money market convention: ACT/360)
+        // NOTE: 360-day basis is the US convention (ACT/360). For non-USD markets
+        // (e.g., GBP Gilts use ACT/365), this should be configurable.
+        // TODO: Make repo day count basis configurable for non-USD markets.
         let holding_period_return = (invoice_price / purchase_price) - 1.0;
         let annualized = holding_period_return * (360.0 / days_to_delivery as f64);
 

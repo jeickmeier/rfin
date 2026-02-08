@@ -150,7 +150,7 @@ impl EquityTotalReturnSwap {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```text
     /// let spy_trs = EquityTotalReturnSwap::replicate_etf(
     ///     "SPY",
     ///     "SPY-SPOT",

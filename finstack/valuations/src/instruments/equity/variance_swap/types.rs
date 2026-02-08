@@ -601,6 +601,14 @@ impl crate::instruments::common_impl::traits::Instrument for VarianceSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        // Validate strike variance is non-negative (variance is σ², must be ≥ 0)
+        if self.strike_variance < 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "VarianceSwap strike_variance ({:.6}) must be non-negative",
+                self.strike_variance
+            )));
+        }
+
         // Validate as_of alignment with market data
         self.validate_as_of(curves, as_of)?;
 
@@ -617,10 +625,13 @@ impl crate::instruments::common_impl::traits::Instrument for VarianceSwap {
                 ));
             }
 
+            // Use policy-aware annualization factor for consistency with partial
+            // observation pricing. This respects market overrides such as
+            // custom trading days per year for non-US underlyings.
             let realized_var = realized_variance(
                 &prices,
                 self.realized_var_method,
-                self.annualization_factor(),
+                self.annualization_factor_with_policy(curves),
             );
             return Ok(self.payoff(realized_var));
         }

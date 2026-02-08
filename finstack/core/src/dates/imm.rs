@@ -233,6 +233,79 @@ pub fn next_equity_option_expiry(date: Date) -> Date {
     next_date_from_months(date, &ALL_MONTHS, third_friday)
 }
 
+/// Return the **SIFMA TBA settlement date** (third Wednesday of any month)
+/// for the given `month` and `year`.
+///
+/// SIFMA TBA settlement follows standardized conventions where
+/// agency MBS To-Be-Announced (TBA) trades settle on the third
+/// Wednesday of the settlement month.
+///
+/// # Background
+///
+/// The Securities Industry and Financial Markets Association (SIFMA)
+/// publishes standard settlement dates for agency MBS TBA trades.
+/// Settlement occurs on the third Wednesday of each month (not just
+/// quarterly months like IMM dates).
+///
+/// # Panics
+/// Never panics for valid Gregorian years supported by the `time` crate.
+///
+/// # Example
+/// ```rust
+/// use finstack_core::dates::sifma_settlement_date;
+/// use time::{Date, Month};
+///
+/// let settle = sifma_settlement_date(Month::March, 2024);
+/// assert_eq!(settle.weekday(), time::Weekday::Wednesday);
+/// assert_eq!(settle, Date::from_calendar_date(2024, Month::March, 20).expect("Valid date"));
+/// ```
+///
+/// # References
+///
+/// - SIFMA Good Delivery Guidelines
+/// - SIFMA TBA Settlement Calendar
+#[must_use]
+pub fn sifma_settlement_date(month: Month, year: i32) -> Date {
+    third_wednesday(month, year)
+}
+
+/// Return the **next SIFMA TBA settlement date** (third Wednesday of any month)
+/// **strictly after** `date`.
+///
+/// Scans forward through all months (not just quarterly) to find the next
+/// third Wednesday settlement date.
+///
+/// # Example
+/// ```rust
+/// use finstack_core::dates::next_sifma_settlement;
+/// use time::{Date, Month};
+///
+/// let start = Date::from_calendar_date(2024, Month::March, 21).expect("Valid date");
+/// let next = next_sifma_settlement(start);
+/// // After March 20 (3rd Wed), next is April's 3rd Wednesday
+/// assert_eq!(next.month(), Month::April);
+/// assert_eq!(next.weekday(), time::Weekday::Wednesday);
+/// ```
+#[must_use]
+pub fn next_sifma_settlement(date: Date) -> Date {
+    const ALL_MONTHS: [Month; 12] = [
+        Month::January,
+        Month::February,
+        Month::March,
+        Month::April,
+        Month::May,
+        Month::June,
+        Month::July,
+        Month::August,
+        Month::September,
+        Month::October,
+        Month::November,
+        Month::December,
+    ];
+
+    next_date_from_months(date, &ALL_MONTHS, sifma_settlement_date)
+}
+
 // -------------------------------------------------------------------------------------------------
 // Tests
 // -------------------------------------------------------------------------------------------------

@@ -122,9 +122,6 @@ impl FxDigitalOptionCalculator {
         let domestic_disc = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
         let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
 
-        let _t_disc_dom =
-            inst.day_count
-                .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
         let t_disc_for =
             foreign_disc
                 .day_count()
@@ -338,12 +335,13 @@ fn greeks_digital(
             }
         }
         DigitalPayoutType::AssetOrNothing => {
-            // Delta: ∂PV/∂S
-            // For call: e^{-r_f T} × [N(d1) + n(d1) / (σ√T)] × notional
-            // For put:  e^{-r_f T} × [-N(-d1) + n(d1) / (σ√T)] × notional (negative)
+            // Delta: ∂PV/∂S for V = S × e^{-r_f T} × N(±d1)
+            // Call: V = S e^{-r_f T} N(d1)  →  ∂V/∂S = e^{-r_f T} [N(d1) + n(d1)/(σ√T)]
+            // Put:  V = S e^{-r_f T} N(-d1) →  ∂V/∂S = e^{-r_f T} [N(-d1) - n(d1)/(σ√T)]
+            //   = e^{-r_f T} [(1 - N(d1)) - n(d1)/(σ√T)]
             let delta = match option_type {
                 OptionType::Call => exp_rf_t * (cdf_d1 + pdf_d1 / sigma_sqrt_t) * notional,
-                OptionType::Put => exp_rf_t * (-(1.0 - cdf_d1) + pdf_d1 / sigma_sqrt_t) * notional,
+                OptionType::Put => exp_rf_t * ((1.0 - cdf_d1) - pdf_d1 / sigma_sqrt_t) * notional,
             };
 
             // Gamma: numerical second derivative for robustness

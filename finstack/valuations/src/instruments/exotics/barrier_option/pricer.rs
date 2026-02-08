@@ -91,18 +91,18 @@ impl BarrierOptionMcPricer {
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
         if t_vol <= 0.0 {
-            // Expired: return intrinsic value if barrier not hit (simplified)
-            let spot_scalar = curves.price(&inst.spot_id)?;
-            let spot = match spot_scalar {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-            };
-            let intrinsic = match inst.option_type {
-                crate::instruments::OptionType::Call => (spot - inst.strike.amount()).max(0.0),
-                crate::instruments::OptionType::Put => (inst.strike.amount() - spot).max(0.0),
-            };
+            // Expired barrier option: without barrier-crossing history, we cannot
+            // determine whether the barrier was hit during the option's life.
+            //
+            // - Knock-out: if barrier was hit → 0 (+ rebate); if not → intrinsic
+            // - Knock-in: if barrier was hit → intrinsic; if not → 0 (+ rebate)
+            //
+            // Since barrier-crossing state is unknown, we conservatively return 0.
+            // For accurate expired barrier pricing, provide barrier-crossing history
+            // or price before expiry. The rebate is also not paid since we cannot
+            // determine the triggering condition.
             return Ok(finstack_core::money::Money::new(
-                intrinsic * inst.notional.amount(),
+                0.0,
                 inst.strike.currency(),
             ));
         }
@@ -201,6 +201,9 @@ impl BarrierOptionMcPricer {
 
     /// Price with LRM Greeks (delta, vega) convenience for barrier options.
     ///
+    /// Returns `(pv, Option<(delta, vega)>)` where the Greeks are from the
+    /// Likelihood Ratio Method (LRM). Greeks are `None` if the option is expired.
+    ///
     /// # Day Count Convention Handling
     ///
     /// Uses separate day count bases for different purposes:
@@ -212,7 +215,7 @@ impl BarrierOptionMcPricer {
         inst: &BarrierOption,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
+    ) -> finstack_core::Result<(finstack_core::money::Money, Option<(f64, f64)>)> {
         // Get discount curve first to access its day count
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
 
@@ -221,9 +224,9 @@ impl BarrierOptionMcPricer {
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
         if t_vol <= 0.0 {
-            return Ok(finstack_core::money::Money::new(
-                0.0,
-                inst.strike.currency(),
+            return Ok((
+                finstack_core::money::Money::new(0.0, inst.strike.currency()),
+                None,
             ));
         }
 
@@ -301,7 +304,7 @@ impl BarrierOptionMcPricer {
         cfg.seed = seed;
 
         let pricer = PathDependentPricer::new(cfg);
-        let (est, _greeks) = pricer.price_with_lrm_greeks(
+        let (est, greeks) = pricer.price_with_lrm_greeks(
             &process,
             spot,
             t_vol,
@@ -314,7 +317,7 @@ impl BarrierOptionMcPricer {
             sigma,
         )?;
 
-        Ok(est.mean)
+        Ok((est.mean, greeks))
     }
 }
 
@@ -364,13 +367,16 @@ pub(crate) fn compute_pv(
 }
 
 /// Present value with LRM Greeks via Monte Carlo (barrier option).
+///
+/// Returns `(pv, Option<(delta, vega)>)` where the Greeks are from the
+/// Likelihood Ratio Method. Greeks are `None` if the option is expired.
 #[allow(dead_code)] // May be used by external bindings or tests
 #[cfg(feature = "mc")]
 pub fn npv_with_lrm_greeks(
     inst: &BarrierOption,
     curves: &MarketContext,
     as_of: Date,
-) -> finstack_core::Result<Money> {
+) -> finstack_core::Result<(Money, Option<(f64, f64)>)> {
     let pricer = BarrierOptionMcPricer::new();
     pricer.price_with_lrm_greeks_internal(inst, curves, as_of)
 }
@@ -384,6 +390,21 @@ use crate::instruments::common_impl::models::closed_form::barrier::{
 };
 
 /// Barrier option analytical pricer (continuous monitoring).
+///
+/// # Monitoring Convention
+///
+/// **Important**: This pricer uses **continuous monitoring** Reiner-Rubinstein formulas.
+/// Real-world barriers are typically monitored discretely (e.g., daily closes).
+/// Continuous barrier formulas **systematically underestimate** knock-out option values
+/// and overestimate knock-in option values compared to discrete monitoring.
+///
+/// For discrete monitoring pricing, use the Monte Carlo pricer
+/// ([`BarrierOptionMcPricer`]) which applies the Broadie-Glasserman-Kou / Gobet-Miri
+/// correction when `use_gobet_miri = true`.
+///
+/// The `BarrierOption::value()` method dispatches to this analytical pricer for speed,
+/// so be aware that it returns continuous-monitoring prices even when
+/// `use_gobet_miri = true`. Use `npv_mc()` for discrete-monitoring-corrected prices.
 pub struct BarrierOptionAnalyticalPricer;
 
 impl BarrierOptionAnalyticalPricer {

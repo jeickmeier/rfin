@@ -60,6 +60,7 @@
 //!     pricing_overrides: PricingOverrides::default(),
 //!     oid_eir: None,
 //!     call_schedule: None,
+//!     settlement_days: 1,
 //! };
 //!
 //! let loan: TermLoan = spec.try_into()?;

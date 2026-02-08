@@ -214,8 +214,9 @@ impl crate::instruments::common_impl::traits::Instrument for FxSwap {
             )));
         }
 
-        // If fully settled, return zero
-        if as_of > self.far_date {
+        // If fully settled (on or after far date), return zero.
+        // Uses >= for consistency with FxForward (settled when as_of >= maturity_date).
+        if as_of >= self.far_date {
             return Ok(finstack_core::money::Money::new(0.0, self.quote_currency));
         }
 

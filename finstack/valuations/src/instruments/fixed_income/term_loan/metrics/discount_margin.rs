@@ -96,10 +96,12 @@ impl MetricCalculator for DiscountMarginCalculator {
         };
 
         // Objective function: PV(dm) - target_price
+        // Return NAN on pricing errors so the solver does not converge to a
+        // wrong root based on artificial large values.
         let objective = |dm_bp: f64| -> f64 {
             match Self::pv_given_dm(loan, &context.curves, context.as_of, dm_bp) {
                 Ok(pv) => pv - target,
-                Err(_) => 1e12 * dm_bp.signum(),
+                Err(_) => f64::NAN,
             }
         };
 
@@ -109,6 +111,14 @@ impl MetricCalculator for DiscountMarginCalculator {
             .with_initial_bracket_size(Some(50.0)); // Start with +/- 50bp bracket
 
         let dm_bp = solver.solve(objective, 0.0)?;
+
+        // Validate DM is within reasonable bounds
+        if dm_bp.abs() > 2000.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Discount margin {} bp exceeds reasonable bounds (±2000 bp)",
+                dm_bp
+            )));
+        }
 
         // Return DM as decimal (bp / 10000)
         Ok(dm_bp * 1e-4)

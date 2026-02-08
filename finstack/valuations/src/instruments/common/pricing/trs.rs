@@ -197,6 +197,30 @@ impl TrsEngine {
             // Discount to present
             let df = relative_df_discount_curve(disc.as_ref(), as_of, period_end)?;
             total_pv += payment * df;
+
+            // Handle mid-period accrual for total return leg.
+            // If as_of is between period_start and period_end, accrue the partial period
+            // at face value (not discounted — it is already earned).
+            if period_start < as_of && as_of < period_end {
+                let accrued_yf =
+                    params
+                        .schedule
+                        .params
+                        .dc
+                        .year_fraction(period_start, as_of, ctx)?;
+                let full_yf =
+                    params
+                        .schedule
+                        .params
+                        .dc
+                        .year_fraction(period_start, period_end, ctx)?;
+                if full_yf > 0.0 {
+                    let accrual_fraction = accrued_yf / full_yf;
+                    // Accrued return proportional to time elapsed
+                    let accrued_return = total_return * accrual_fraction;
+                    total_pv += params.notional.amount() * accrued_return * params.contract_size;
+                }
+            }
         }
 
         Ok(Money::new(total_pv, currency))
@@ -270,6 +294,16 @@ impl TrsEngine {
             // Discount to present
             let df = relative_df_discount_curve(disc.as_ref(), as_of, period_end)?;
             total_pv += payment * df;
+
+            // Handle mid-period accrual for financing leg.
+            // If as_of is between period_start and period_end, accrue the partial period
+            // at face value (not discounted — it is already owed).
+            if period_start < as_of && as_of < period_end {
+                let accrued_yf = schedule.params.dc.year_fraction(period_start, as_of, ctx)?;
+                let fwd_rate = rate_period_on_dates(fwd.as_ref(), period_start, as_of)?;
+                let accrued_payment = notional.amount() * (fwd_rate + spread_decimal) * accrued_yf;
+                total_pv += accrued_payment; // Accrued, not discounted
+            }
         }
 
         Ok(Money::new(total_pv, currency))

@@ -166,6 +166,8 @@ impl CoverageTest {
             numerator = numerator.checked_add(context.cash_balance)?;
         }
 
+        // OC denominator = test tranche balance + all senior tranche balances
+        // i.e., Sum(all tranche balances at this seniority level and above)
         let denominator = tranche_balance
             .checked_add(senior_balance)
             .unwrap_or(tranche_balance);

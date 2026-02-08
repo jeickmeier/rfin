@@ -72,7 +72,6 @@ pub(crate) fn compute_pv(
     // Get discount curve
     let disc_curve = market.get_discount(inst.discount_curve_id.as_str())?;
     let df = disc_curve.df_between_dates(as_of, inst.settlement_date)?;
-    let r = if t > 0.0 { -df.ln() / t } else { 0.0 };
 
     // Get volatility
     let sigma = if let Some(impl_vol) = inst.pricing_overrides.implied_volatility {
@@ -117,17 +116,15 @@ pub(crate) fn compute_pv(
     let price = match inst.averaging_method {
         AveragingMethod::Geometric => {
             if hist_count > 0 {
-                // Seasoned geometric — fall back to arithmetic for simplicity
-                // (exact seasoned geometric requires adjusted strike formula)
-                price_arithmetic_tw_commodity(
+                // Seasoned geometric: use adjusted strike method.
+                // K_adj = (K^n / exp(hist_prod_log))^(1/m) where m = future fixings
+                price_seasoned_geometric_commodity(
                     &future_forwards,
                     inst.strike,
-                    r,
                     sigma,
-                    t,
                     df,
                     inst.option_type,
-                    hist_sum,
+                    hist_prod_log,
                     hist_count,
                     total_fixings,
                 )
@@ -135,9 +132,7 @@ pub(crate) fn compute_pv(
                 price_geometric_kv_commodity(
                     &future_forwards,
                     inst.strike,
-                    r,
                     sigma,
-                    t,
                     df,
                     inst.option_type,
                 )
@@ -146,13 +141,10 @@ pub(crate) fn compute_pv(
         AveragingMethod::Arithmetic => price_arithmetic_tw_commodity(
             &future_forwards,
             inst.strike,
-            r,
             sigma,
-            t,
             df,
             inst.option_type,
             hist_sum,
-            hist_count,
             total_fixings,
         ),
     };
@@ -165,12 +157,19 @@ pub(crate) fn compute_pv(
 /// For commodity forwards, the geometric average of forwards has a lognormal
 /// distribution. We compute the adjusted forward and volatility from the
 /// forward prices directly.
+///
+/// # Variance Calculation
+///
+/// Uses the exact variance formula for non-equally-spaced observation times:
+/// ```text
+/// sigma_G^2 = (1/n^2) * sum_i sum_j sigma^2 * min(t_i, t_j)
+/// ```
+/// This correctly handles irregular fixing schedules (different month lengths,
+/// business day adjustments) unlike the simplified equally-spaced formula.
 fn price_geometric_kv_commodity(
     future_forwards: &[(f64, f64)], // (time, forward_price)
     strike: f64,
-    _r: f64,
     sigma: f64,
-    _t: f64,
     df: f64,
     option_type: OptionType,
 ) -> f64 {
@@ -183,10 +182,16 @@ fn price_geometric_kv_commodity(
     let log_sum: f64 = future_forwards.iter().map(|(_, f)| f.ln()).sum();
     let geo_mean_fwd = (log_sum / n).exp();
 
-    // Adjusted volatility for geometric average of n observations
-    // σ_G = σ × sqrt((2n+1) / (6(n+1)))
-    let n_fix = future_forwards.len() as f64;
-    let vol_adj = sigma * ((2.0 * n_fix + 1.0) / (6.0 * (n_fix + 1.0))).sqrt();
+    // Adjusted volatility using exact variance for non-equally-spaced observations:
+    // sigma_G^2 = (1/n^2) * sum_i sum_j sigma^2 * min(t_i, t_j)
+    let mut var_sum = 0.0;
+    for (t_i, _) in future_forwards.iter() {
+        for (t_j, _) in future_forwards.iter() {
+            var_sum += sigma * sigma * t_i.min(*t_j);
+        }
+    }
+    let vol_adj_sq = var_sum / (n * n);
+    let vol_adj = vol_adj_sq.sqrt();
 
     // Time to last fixing
     let t_last = future_forwards
@@ -202,11 +207,11 @@ fn price_geometric_kv_commodity(
         return intrinsic * df;
     }
 
-    let sqrt_t = t_last.sqrt();
-
     // Black-76 style pricing with geometric mean forward
-    let d1 = ((geo_mean_fwd / strike).ln() + 0.5 * vol_adj * vol_adj * t_last) / (vol_adj * sqrt_t);
-    let d2 = d1 - vol_adj * sqrt_t;
+    // Use vol_adj_sq directly (it represents total variance) rather than vol_adj * sqrt(t)
+    let total_vol = vol_adj_sq.sqrt();
+    let d1 = ((geo_mean_fwd / strike).ln() + 0.5 * vol_adj_sq) / total_vol;
+    let d2 = d1 - total_vol;
 
     let price = match option_type {
         OptionType::Call => {
@@ -222,6 +227,71 @@ fn price_geometric_kv_commodity(
     price * df
 }
 
+/// Seasoned geometric Asian pricing with adjusted strike.
+///
+/// For a seasoned geometric Asian with `hist_count` realized fixings and
+/// `m` future fixings remaining, we compute the adjusted strike:
+/// ```text
+/// K_adj = (K^n / exp(hist_prod_log))^(1/m)
+/// ```
+/// Then price a fresh geometric Asian on the remaining fixings with the
+/// adjusted strike. This maintains consistent hedge ratios as fixings
+/// are observed (no discontinuous jump from geometric to arithmetic).
+///
+/// # References
+///
+/// Kemna, A. G. Z., & Vorst, A. C. F. (1990). "A Pricing Method for Options
+/// Based on Average Asset Values." - Section on seasoned options.
+#[allow(clippy::too_many_arguments)]
+fn price_seasoned_geometric_commodity(
+    future_forwards: &[(f64, f64)], // (time, forward_price)
+    strike: f64,
+    sigma: f64,
+    df: f64,
+    option_type: OptionType,
+    hist_prod_log: f64,
+    _hist_count: usize,
+    total_fixings: usize,
+) -> f64 {
+    let n = total_fixings as f64;
+    let m = future_forwards.len() as f64;
+
+    if m == 0.0 {
+        return 0.0;
+    }
+
+    // Adjusted strike: K_adj = (K^n / exp(hist_prod_log))^(1/m)
+    // In log space: ln(K_adj) = (n * ln(K) - hist_prod_log) / m
+    let ln_k_adj = (n * strike.ln() - hist_prod_log) / m;
+
+    // If adjusted strike is non-positive (deep ITM), return intrinsic
+    if ln_k_adj <= 0.0 {
+        let log_sum: f64 = future_forwards.iter().map(|(_, f)| f.ln()).sum();
+        let geo_avg_all = ((hist_prod_log + log_sum) / n).exp();
+        let payoff = match option_type {
+            OptionType::Call => (geo_avg_all - strike).max(0.0),
+            OptionType::Put => (strike - geo_avg_all).max(0.0),
+        };
+        return payoff * df;
+    }
+
+    let k_adj = ln_k_adj.exp();
+
+    // Price a fresh geometric Asian on remaining fixings with adjusted strike.
+    // The result is scaled by (m/n) to account for the partial observation.
+    // However, since the adjusted strike already encodes the realized fixings,
+    // we need to scale the payoff: the option on the remaining geometric average
+    // pays off on (G_future vs K_adj), and the full option payoff is
+    // (G_all vs K) = (G_realized^(h/n) * G_future^(m/n) vs K).
+    // The adjusted strike method gives the correct NPV without extra scaling.
+    let fresh_geo = price_geometric_kv_commodity(future_forwards, k_adj, sigma, df, option_type);
+
+    // Scale: the geometric average of ALL fixings = exp((hist_prod_log + future_sum_log) / n)
+    // The fresh geometric prices an option on exp(future_sum_log / m), so we scale by m/n
+    // to convert the payoff from the m-observation average to the n-observation average.
+    fresh_geo * m / n
+}
+
 /// Arithmetic Asian pricing with commodity forwards (Turnbull-Wakeman adapted).
 ///
 /// Uses moment matching on the forward prices. For commodity forwards, the
@@ -233,17 +303,13 @@ fn price_geometric_kv_commodity(
 /// For seasoned options with `hist_count > 0` realized fixings:
 /// - Effective strike: `K_eff = (n × K - hist_sum) / m`
 /// - Scale factor: `m / n` applied to the result
-#[allow(clippy::too_many_arguments)]
 fn price_arithmetic_tw_commodity(
     future_forwards: &[(f64, f64)], // (time, forward_price)
     strike: f64,
-    _r: f64,
     sigma: f64,
-    _t: f64,
     df: f64,
     option_type: OptionType,
     hist_sum: f64,
-    _hist_count: usize,
     total_fixings: usize,
 ) -> f64 {
     let n = total_fixings as f64;

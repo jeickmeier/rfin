@@ -1018,7 +1018,44 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                     // Use date-based DF for final discounting
                     (expected_avg - k).max(0.0) * df_expiry
                 }
-                crate::instruments::OptionType::Put => 0.0,
+                crate::instruments::OptionType::Put => {
+                    // Deep ITM put (k_eff < 0): past fixings already push average above K.
+                    // Compute expected average using forwards and return discounted payoff.
+                    // PV = DF_T * max(K - Expected_Avg, 0)
+                    let disc_curve = market
+                        .get_discount(asian.discount_curve_id.as_str())
+                        .map_err(|e| {
+                            PricingError::model_failure_ctx(
+                                e.to_string(),
+                                PricingErrorContext::default(),
+                            )
+                        })?;
+
+                    let mut sum_fwd = 0.0;
+                    for date in &asian.fixing_dates {
+                        if *date > as_of {
+                            let t_i = asian
+                                .day_count
+                                .year_fraction(as_of, *date, DayCountCtx::default())
+                                .map_err(|e| {
+                                    PricingError::model_failure_ctx(
+                                        e.to_string(),
+                                        PricingErrorContext::default(),
+                                    )
+                                })?;
+                            let df_i = disc_curve.df_between_dates(as_of, *date).map_err(|e| {
+                                PricingError::model_failure_ctx(
+                                    e.to_string(),
+                                    PricingErrorContext::default(),
+                                )
+                            })?;
+                            let forward_i = spot * (-q * t_i).exp() / df_i;
+                            sum_fwd += forward_i;
+                        }
+                    }
+                    let expected_avg = (sum + sum_fwd) / n;
+                    (k - expected_avg).max(0.0) * df_expiry
+                }
             }
         } else {
             let unscaled = match asian.option_type {

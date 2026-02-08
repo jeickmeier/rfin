@@ -182,7 +182,13 @@ impl DollarRoll {
     pub fn settlement_days(&self) -> finstack_core::Result<i64> {
         let front = self.front_leg()?.get_settlement_date()?;
         let back = self.back_leg()?.get_settlement_date()?;
-        Ok((back - front).whole_days())
+        let days = (back - front).whole_days();
+        if days <= 0 {
+            return Err(finstack_core::Error::Validation(
+                "Back settlement date must be after front settlement date".to_string(),
+            ));
+        }
+        Ok(days)
     }
 }
 

@@ -186,10 +186,9 @@ impl FxForward {
     ///
     /// | Pair | Settlement | Notes |
     /// |------|------------|-------|
-    /// | USD/CAD | T+1 | Same time zone |
-    /// | USD/TRY | T+1 | Same time zone |
-    /// | USD/RUB | T+1 | Same time zone |
-    /// | USD/PHP | T+1 | Same time zone |
+    /// | USD/CAD | T+1 | North American same-day zone |
+    /// | USD/MXN | T+1 | North American same-day zone |
+    /// | USD/TRY | T+1 | Istanbul market convention |
     /// | Other | T+2 | Standard settlement |
     ///
     /// # Arguments
@@ -202,10 +201,15 @@ impl FxForward {
     /// Number of business days for spot settlement (1 or 2).
     pub fn standard_spot_days(base: Currency, quote: Currency) -> u32 {
         // T+1 pairs (same time zone or specific market conventions)
+        // Aligned with FxSpot::is_t1_pair for consistency
         let is_t1 = matches!(
             (base, quote),
-            // USD/CAD and CAD/USD
-            (Currency::USD, Currency::CAD) | (Currency::CAD, Currency::USD) // Note: USD/TRY, USD/RUB, USD/PHP would also be T+1 when supported
+            (Currency::USD, Currency::CAD)
+                | (Currency::CAD, Currency::USD)
+                | (Currency::USD, Currency::MXN)
+                | (Currency::MXN, Currency::USD)
+                | (Currency::USD, Currency::TRY)
+                | (Currency::TRY, Currency::USD)
         );
 
         if is_t1 {
@@ -430,6 +434,17 @@ impl FxForward {
         let df_domestic = domestic_disc.df_between_dates(as_of, self.maturity_date)?;
         let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity_date)?;
 
+        // Guard against near-zero domestic discount factor to prevent division by zero.
+        // A DF very close to zero implies an extreme rate environment or a data error.
+        const DF_NEAR_ZERO_THRESHOLD: f64 = 1e-14;
+        if df_domestic.abs() < DF_NEAR_ZERO_THRESHOLD {
+            return Err(finstack_core::Error::Validation(format!(
+                "FxForward: domestic discount factor ({}) is near zero for maturity {}, \
+                 which would cause division by zero in CIRP forward rate calculation",
+                df_domestic, self.maturity_date
+            )));
+        }
+
         let spot = if let Some(rate) = self.spot_rate_override {
             rate
         } else if let Some(fx) = market.fx() {
@@ -530,6 +545,16 @@ impl crate::instruments::common_impl::traits::Instrument for FxForward {
                 },
             ));
         };
+
+        // Guard against near-zero domestic discount factor (same threshold as market_forward_rate)
+        const DF_NEAR_ZERO_THRESHOLD: f64 = 1e-14;
+        if df_domestic.abs() < DF_NEAR_ZERO_THRESHOLD {
+            return Err(finstack_core::Error::Validation(format!(
+                "FxForward: domestic discount factor ({}) is near zero for maturity {}, \
+                 which would cause division by zero in CIRP forward rate calculation",
+                df_domestic, self.maturity_date
+            )));
+        }
 
         // Compute market forward rate via CIRP: F = S × DF_foreign / DF_domestic
         let market_forward = spot * df_foreign / df_domestic;

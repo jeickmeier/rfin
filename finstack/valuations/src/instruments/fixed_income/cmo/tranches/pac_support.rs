@@ -20,36 +20,23 @@ impl PacSchedule {
     /// Generate PAC schedule from collateral characteristics.
     ///
     /// The PAC schedule is the minimum principal at each period
-    /// across the collar range.
+    /// across the collar range. For each period, we project total
+    /// principal (scheduled amortization + prepayment) at both the
+    /// lower and upper PSA speeds and take the minimum.
     ///
-    /// # Arguments
-    ///
-    /// * `pac_balance` - Initial PAC tranche balance
-    /// * `wam` - Weighted average maturity in months
-    /// * `collar` - PAC collar (PSA bounds)
-    pub fn generate(pac_balance: f64, wam: u32, collar: PacCollar) -> Self {
-        let mut schedule = Vec::new();
-        let mut remaining = pac_balance;
+    /// Reference: Fabozzi "Handbook of Mortgage-Backed Securities" Ch. 8
+    pub fn generate(pac_balance: f64, wam: u32, wac: f64, collar: PacCollar) -> Self {
+        // Project principal at lower PSA
+        let lower_principals = project_principal_stream(pac_balance, wam, wac, collar.lower_psa);
+        // Project principal at upper PSA
+        let upper_principals = project_principal_stream(pac_balance, wam, wac, collar.upper_psa);
 
-        for month in 1..=wam {
-            if remaining <= 0.0 {
-                break;
-            }
-
-            // Calculate principal at lower and upper PSA
-            let lower_smm = psa_to_smm(collar.lower_psa, month);
-            let upper_smm = psa_to_smm(collar.upper_psa, month);
-
-            // Simplified: PAC gets the minimum of the two
-            // In practice, this is more complex with scheduled amortization
-            let lower_principal = remaining * lower_smm;
-            let upper_principal = remaining * upper_smm;
-
-            let scheduled = lower_principal.min(upper_principal);
-            schedule.push(scheduled);
-
-            remaining -= scheduled;
-        }
+        // PAC schedule = minimum principal at each period
+        let schedule: Vec<f64> = lower_principals
+            .iter()
+            .zip(upper_principals.iter())
+            .map(|(lo, hi)| lo.min(*hi))
+            .collect();
 
         Self {
             scheduled_payments: schedule,
@@ -71,6 +58,54 @@ impl PacSchedule {
     pub fn total_scheduled(&self) -> f64 {
         self.scheduled_payments.iter().sum()
     }
+}
+
+/// Project total principal (scheduled + prepaid) at a given PSA speed.
+///
+/// Uses standard level-pay mortgage math:
+/// - Monthly payment = P * r * (1+r)^n / ((1+r)^n - 1)
+/// - Scheduled principal = Monthly payment - Interest
+/// - Prepayment = (Balance - Scheduled principal) * SMM
+fn project_principal_stream(initial_balance: f64, wam: u32, wac: f64, psa_speed: f64) -> Vec<f64> {
+    let monthly_rate = wac / 12.0;
+    let mut remaining = initial_balance;
+    let mut principals = Vec::with_capacity(wam as usize);
+
+    for month in 1..=wam {
+        if remaining <= 1e-10 {
+            principals.push(0.0);
+            continue;
+        }
+
+        let remaining_months = wam.saturating_sub(month - 1);
+
+        // Scheduled principal from level-pay amortization
+        let scheduled_principal = if monthly_rate > 1e-12 && remaining_months > 0 {
+            let factor = (1.0 + monthly_rate).powi(remaining_months as i32);
+            let monthly_payment = remaining * monthly_rate * factor / (factor - 1.0);
+            let interest = remaining * monthly_rate;
+            (monthly_payment - interest).max(0.0)
+        } else if remaining_months > 0 {
+            // Zero rate: simple linear amortization
+            remaining / remaining_months as f64
+        } else {
+            remaining
+        };
+
+        let scheduled_principal = scheduled_principal.min(remaining);
+
+        // Prepayment on post-scheduled balance
+        let smm = psa_to_smm(psa_speed, month);
+        let balance_after_scheduled = remaining - scheduled_principal;
+        let prepayment = balance_after_scheduled * smm;
+
+        let total_principal = scheduled_principal + prepayment;
+        principals.push(total_principal);
+
+        remaining -= total_principal;
+    }
+
+    principals
 }
 
 /// Convert PSA speed to SMM for a given month.
@@ -134,10 +169,10 @@ pub fn allocate_pac_support(
             (available_principal, 0.0)
         }
     } else {
-        // Fast prepay (above upper collar): Support absorbs excess first
-        let support_alloc = available_principal.min(support_balance);
-        let remaining = available_principal - support_alloc;
-        let pac_alloc = remaining.min(pac_balance);
+        // Fast prepay (above upper collar): PAC gets scheduled first, support absorbs excess
+        let pac_alloc = pac_scheduled.min(pac_balance).min(available_principal);
+        let remaining = available_principal - pac_alloc;
+        let support_alloc = remaining.min(support_balance);
         (pac_alloc, support_alloc)
     }
 }
@@ -154,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_pac_schedule_generation() {
-        let schedule = PacSchedule::generate(100_000.0, 360, PacCollar::standard());
+        let schedule = PacSchedule::generate(100_000.0, 360, 0.045, PacCollar::standard());
 
         assert!(!schedule.scheduled_payments.is_empty());
         assert!(schedule.total_scheduled() > 0.0);
@@ -163,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_within_collar() {
-        let schedule = PacSchedule::generate(100_000.0, 360, PacCollar::standard());
+        let schedule = PacSchedule::generate(100_000.0, 360, 0.045, PacCollar::standard());
 
         // 100% PSA is within 100-300 collar
         assert!(schedule.is_within_collar(1.0));
@@ -200,15 +235,14 @@ mod tests {
     fn test_pac_support_allocation_fast_prepay() {
         let collar = PacCollar::standard();
 
-        // Above collar: Support absorbs excess first
-        let (_pac, support) = allocate_pac_support(
-            10_000.0, 50_000.0, 20_000.0, // Limited support
-            5_000.0, 4.0, // Fast prepay (above collar)
-            &collar,
-        );
+        // Above collar: PAC gets scheduled first, support absorbs excess
+        let (pac, support) =
+            allocate_pac_support(10_000.0, 50_000.0, 20_000.0, 5_000.0, 4.0, &collar);
 
-        // Support should get more than normal
-        assert!(support >= 10_000.0); // Support gets everything first
+        // PAC should get scheduled amount first
+        assert!((pac - 5_000.0).abs() < 1.0);
+        // Support gets remainder
+        assert!((support - 5_000.0).abs() < 1.0);
     }
 
     #[test]

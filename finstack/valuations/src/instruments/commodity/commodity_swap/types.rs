@@ -213,9 +213,10 @@ impl CommoditySwap {
     ///
     /// # Averaging Method
     ///
-    /// For periods up to 40 days, samples every business day (weekday) within
-    /// the observation window. For longer periods, uses weekly sampling to
-    /// balance accuracy and performance.
+    /// Uses daily business day sampling for all periods (market standard for
+    /// commodity swaps). When a `calendar_id` is provided and resolves to a
+    /// valid holiday calendar, exchange holidays are also excluded from the
+    /// average. Otherwise, only weekends are filtered.
     ///
     /// # Note on PriceCurve Evaluation
     ///
@@ -241,10 +242,23 @@ impl CommoditySwap {
                 .unwrap_or_else(|_| price_curve.spot_price())
         };
 
-        // Helper to check if date is a weekday (basic business day filter)
-        let is_weekday = |date: Date| -> bool {
+        // Resolve holiday calendar if available (Item 8: integrate holiday calendars)
+        let calendar = self
+            .calendar_id
+            .as_deref()
+            .and_then(|id| CalendarRegistry::global().resolve_str(id));
+
+        // Business day filter: exclude weekends and exchange holidays
+        let is_business_day = |date: Date| -> bool {
             let wd = date.weekday();
-            wd != time::Weekday::Saturday && wd != time::Weekday::Sunday
+            if wd == time::Weekday::Saturday || wd == time::Weekday::Sunday {
+                return false;
+            }
+            // If we have a holiday calendar, check it
+            if let Some(cal) = &calendar {
+                return cal.is_business_day(date);
+            }
+            true
         };
 
         // For past periods (both obs dates <= curve base), use spot price
@@ -253,30 +267,22 @@ impl CommoditySwap {
             return Ok(price_curve.spot_price());
         }
 
-        // Calculate number of calendar days in observation period
-        let period_days = (obs_end - obs_start).whole_days();
-
-        // Choose sampling strategy based on period length
-        // For periods <= 40 days: daily business day sampling
-        // For longer periods: weekly sampling (every 5 business days)
-        let step_days = if period_days <= 40 { 1 } else { 7 };
-
+        // Market standard: daily business day sampling for all periods
         let mut sum = 0.0;
         let mut count = 0;
         let mut current = obs_start;
 
         while current <= obs_end {
-            // Only include weekdays in the average (basic business day filter)
-            if is_weekday(current) {
+            if is_business_day(current) {
                 sum += get_price(current);
                 count += 1;
             }
-            current += time::Duration::days(step_days);
+            current += time::Duration::days(1);
         }
 
         // Ensure we have at least one observation
         if count == 0 {
-            // Fallback: use midpoint if no weekdays found (shouldn't happen in practice)
+            // Fallback: use midpoint if no business days found (shouldn't happen in practice)
             let mid = obs_start + (obs_end - obs_start) / 2;
             return Ok(get_price(mid));
         }

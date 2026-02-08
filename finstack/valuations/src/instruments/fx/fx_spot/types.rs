@@ -224,6 +224,12 @@ impl FxSpot {
     ///     .expect("valid rate");
     /// ```
     pub fn with_rate(mut self, rate: f64) -> finstack_core::Result<Self> {
+        if !rate.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "FX spot rate must be finite (got {}). NaN and Infinity are not valid rates.",
+                rate
+            )));
+        }
         if rate < 0.0 {
             return Err(finstack_core::Error::Validation(format!(
                 "FX spot rate cannot be negative (got {}). FX rates must be positive.",
@@ -662,6 +668,28 @@ mod tests {
             err_msg.contains("negative") || err_msg.contains("spot_rate"),
             "Error should mention negative rate"
         );
+    }
+
+    #[test]
+    fn test_fx_spot_rejects_nan_rate() {
+        let result = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .with_rate(f64::NAN);
+        assert!(result.is_err(), "Should reject NaN rate");
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{:?}", err);
+        assert!(
+            err_msg.contains("finite") || err_msg.contains("NaN"),
+            "Error should mention finite: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_fx_spot_rejects_infinity_rate() {
+        let result = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .with_rate(f64::INFINITY);
+        assert!(result.is_err(), "Should reject Infinity rate");
     }
 
     #[test]

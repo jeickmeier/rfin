@@ -273,13 +273,30 @@ impl BasketCalculator {
     }
 
     /// Calculate expense drag based on the portfolio value.
+    ///
+    /// Computes a **single-day** accrual of the annual expense ratio for mark-to-market
+    /// purposes. The formula is:
+    ///
+    /// ```text
+    /// drag = portfolio_value × expense_ratio / days_in_year
+    /// ```
+    ///
+    /// This represents one day's worth of management fees. For multi-day holding
+    /// period calculations, callers should scale the result by the number of
+    /// holding days or integrate over the period.
+    ///
+    /// # Parameters
+    ///
+    /// * `basket` - The basket instrument (provides `expense_ratio`)
+    /// * `portfolio_value` - Current portfolio value to apply the expense rate to
+    /// * `_as_of` - Valuation date (reserved for future use with time-dependent fees)
     fn calculate_expense_drag(
         &self,
         basket: &Basket,
         portfolio_value: f64,
         _as_of: Date,
     ) -> Result<f64> {
-        // Simple daily accrual of expense ratio
+        // Single-day accrual of expense ratio for mark-to-market
         let daily_expense_rate = basket.expense_ratio / self.config.days_in_year;
         Ok(portfolio_value * daily_expense_rate)
     }

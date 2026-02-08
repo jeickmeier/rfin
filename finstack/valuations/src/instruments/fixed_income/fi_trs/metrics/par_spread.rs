@@ -36,6 +36,16 @@ impl MetricCalculator for ParSpreadCalculator {
         let tr_pv = trs.pv_total_return_leg(curves, as_of)?;
 
         // Par spread in basis points
-        Ok(tr_pv.amount() / annuity * 10000.0)
+        let par_spread = tr_pv.amount() / annuity * 10000.0;
+
+        if par_spread.is_nan() || par_spread.is_infinite() {
+            return Err(Error::Validation(format!(
+                "Par spread calculation produced invalid value: {}. \
+                 Check that financing annuity is non-zero.",
+                par_spread
+            )));
+        }
+
+        Ok(par_spread)
     }
 }

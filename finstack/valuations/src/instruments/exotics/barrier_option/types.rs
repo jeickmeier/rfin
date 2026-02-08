@@ -181,6 +181,11 @@ impl crate::instruments::common_impl::traits::Instrument for BarrierOption {
         )
     }
 
+    /// Compute the present value using the analytical (continuous monitoring) pricer.
+    ///
+    /// **Note**: This uses continuous monitoring Reiner-Rubinstein formulas regardless
+    /// of the `use_gobet_miri` setting. For discrete-monitoring-corrected prices,
+    /// use [`npv_mc()`](BarrierOption::npv_mc) instead.
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,

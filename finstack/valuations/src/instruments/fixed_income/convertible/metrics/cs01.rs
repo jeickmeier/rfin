@@ -33,17 +33,16 @@ impl MetricCalculator for Cs01Calculator {
             return Ok(0.0);
         }
 
-        // For convertible bonds, credit spread is typically embedded in the discount curve
-        // or can be accessed via a separate credit curve if available.
-        // For now, we bump the discount curve by 1bp to approximate CS01.
-        // In a full implementation, this would bump a separate credit/hazard curve.
+        // Bump the credit curve if available, otherwise fall back to the discount curve.
+        // The credit curve captures the issuer's spread; bumping it gives the true CS01.
+        let bump_bp = 0.0001; // 1bp for credit spread
 
-        // Bump discount curve by 1bp (0.0001) for credit spread sensitivity
-        // Note: This assumes the discount curve includes credit spread component
-        let bump_bp = 0.0001; // 1bp for credit spread (0.0001)
+        let curve_to_bump = bond
+            .credit_curve_id
+            .as_ref()
+            .unwrap_or(&bond.discount_curve_id);
 
-        let curves_bumped =
-            bump_discount_curve_parallel(&context.curves, &bond.discount_curve_id, bump_bp)?;
+        let curves_bumped = bump_discount_curve_parallel(&context.curves, curve_to_bump, bump_bp)?;
 
         // Reprice with bumped curve
         let pv_bumped = bond.value(&curves_bumped, as_of)?.amount();

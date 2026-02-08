@@ -107,8 +107,24 @@ impl PoolCharacteristics {
 
     /// Check if pool meets TBA good delivery standards.
     ///
-    /// This is a simplified check; full SIFMA rules are more complex.
+    /// Validates WAC spread, factor threshold, and optionally the SIFMA
+    /// face amount variance rule (±0.01%).
     pub fn meets_good_delivery(&self, tba_coupon: f64) -> bool {
+        self.meets_good_delivery_with_face(tba_coupon, None, None)
+    }
+
+    /// Check good delivery with optional face amount variance validation.
+    ///
+    /// # Arguments
+    /// * `tba_coupon` - TBA pass-through coupon rate
+    /// * `allocated_face` - Optional allocated pool face amount
+    /// * `trade_notional` - Optional trade notional for variance check
+    pub fn meets_good_delivery_with_face(
+        &self,
+        tba_coupon: f64,
+        allocated_face: Option<f64>,
+        trade_notional: Option<f64>,
+    ) -> bool {
         // WAC should be within reasonable range of TBA coupon
         let wac_spread = self.wac - tba_coupon;
         if !(0.0025..=0.01).contains(&wac_spread) {
@@ -120,8 +136,29 @@ impl PoolCharacteristics {
             return false;
         }
 
+        // SIFMA face amount variance check (±0.01%) if amounts provided
+        if let (Some(face), Some(notional)) = (allocated_face, trade_notional) {
+            if !validate_sifma_variance(face, notional) {
+                return false;
+            }
+        }
+
         true
     }
+}
+
+/// Validate SIFMA good delivery variance.
+///
+/// SIFMA allows ±0.01% variance on face amount for TBA allocation.
+///
+/// # Reference
+/// SIFMA Good Delivery Guidelines Section 3.2
+pub fn validate_sifma_variance(allocated_face: f64, trade_notional: f64) -> bool {
+    if trade_notional <= 0.0 {
+        return false;
+    }
+    let variance = (allocated_face - trade_notional).abs() / trade_notional;
+    variance <= 0.0001 // ±0.01% tolerance
 }
 
 /// Calculate value adjustment for a specified pool vs. generic.
@@ -214,5 +251,48 @@ mod tests {
         };
 
         assert!(!chars.meets_good_delivery(0.04));
+    }
+
+    #[test]
+    fn test_validate_sifma_variance_within_tolerance() {
+        // Exact match
+        assert!(validate_sifma_variance(10_000_000.0, 10_000_000.0));
+        // Within ±0.01% (= 1000 on 10M)
+        assert!(validate_sifma_variance(10_000_500.0, 10_000_000.0));
+        assert!(validate_sifma_variance(9_999_500.0, 10_000_000.0));
+    }
+
+    #[test]
+    fn test_validate_sifma_variance_exceeds_tolerance() {
+        // Over ±0.01% (> 1000 on 10M)
+        assert!(!validate_sifma_variance(10_002_000.0, 10_000_000.0));
+        assert!(!validate_sifma_variance(9_998_000.0, 10_000_000.0));
+    }
+
+    #[test]
+    fn test_validate_sifma_variance_zero_notional() {
+        assert!(!validate_sifma_variance(100.0, 0.0));
+        assert!(!validate_sifma_variance(100.0, -1.0));
+    }
+
+    #[test]
+    fn test_good_delivery_with_face_variance() {
+        let chars = PoolCharacteristics {
+            wac: 0.045,
+            wam: 350,
+            wala: 10,
+            factor: 0.95,
+            avg_loan_size: None,
+            geographic_concentration: None,
+        };
+
+        // Passes without face amounts
+        assert!(chars.meets_good_delivery(0.04));
+
+        // Passes with matching face amounts
+        assert!(chars.meets_good_delivery_with_face(0.04, Some(10_000_000.0), Some(10_000_000.0)));
+
+        // Fails with excessive face variance
+        assert!(!chars.meets_good_delivery_with_face(0.04, Some(10_100_000.0), Some(10_000_000.0)));
     }
 }

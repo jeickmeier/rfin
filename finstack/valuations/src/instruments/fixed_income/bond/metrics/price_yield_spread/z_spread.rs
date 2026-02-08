@@ -215,7 +215,12 @@ impl MetricCalculator for ZSpreadCalculator {
 
         // OPTIMIZATION: Pre-calculate cashflow times and base discount factors
         // to avoid repeated date logic and curve lookups inside the solver loop.
-        // Time origin is quote_date to match YTM convention.
+        //
+        // Use quote_date consistently as the time origin for z-spread calculation.
+        // Both year fractions and discount factors use the same origin (quote_date).
+        // Note: quote_date is the settlement date, which is the correct anchor
+        // for market-convention z-spread calculations. This ensures the z-spread
+        // shift exp(-z * t) is applied relative to the same date as the base DFs.
         let flows = bond.build_dated_flows(&context.curves, context.as_of)?;
         let disc = context.curves.get_discount(&bond.discount_curve_id)?;
         let quote_date = quote_ctx.quote_date;
@@ -226,7 +231,9 @@ impl MetricCalculator for ZSpreadCalculator {
             .iter()
             .filter(|(d, _)| *d > quote_date)
             .map(|(d, amt)| -> finstack_core::Result<(f64, f64, f64)> {
+                // Year fraction from quote_date (settlement) for z-spread shift
                 let t = dc.year_fraction(quote_date, *d, DayCountCtx::default())?;
+                // Discount factor from quote_date (settlement) — same origin as t
                 let df_base = disc.df_between_dates(quote_date, *d)?;
                 Ok((t, df_base, amt.amount()))
             })

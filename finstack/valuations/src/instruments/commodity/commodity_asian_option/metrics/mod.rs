@@ -1,8 +1,12 @@
 //! Commodity Asian option metrics module.
 //!
-//! Provides rate sensitivities (DV01) for commodity Asian options.
-//! Greeks (delta, vega) are not registered here because the commodity Asian
-//! option uses forward curve pricing, not spot-based pricing.
+//! Provides risk sensitivities for commodity Asian options:
+//! - **Delta**: Forward curve sensitivity (bump-and-reprice on PriceCurve)
+//! - **Vega**: Volatility sensitivity (bump-and-reprice on vol surface)
+//! - **DV01**: Interest rate sensitivity (discount curve bump)
+//! - **BucketedDv01**: Key-rate DV01
+
+mod greeks;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use crate::pricer::InstrumentType;
@@ -10,6 +14,16 @@ use std::sync::Arc;
 
 /// Register commodity Asian option metrics with the registry.
 pub fn register_commodity_asian_option_metrics(registry: &mut MetricRegistry) {
+    registry.register_metric(
+        MetricId::Delta,
+        Arc::new(greeks::AsianDeltaCalculator),
+        &[InstrumentType::CommodityAsianOption],
+    );
+    registry.register_metric(
+        MetricId::Vega,
+        Arc::new(greeks::AsianVegaCalculator),
+        &[InstrumentType::CommodityAsianOption],
+    );
     registry.register_metric(
         MetricId::Dv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<

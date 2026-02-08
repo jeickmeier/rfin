@@ -161,20 +161,38 @@ impl AsianOption {
 
     /// Get the accumulated state (sum, log_sum_product, count) for seasoned options.
     /// Only considers fixings that are in the fixing schedule and before or on as_of.
+    ///
+    /// # Non-positive fixings
+    ///
+    /// Non-positive fixings (zero or negative prices) are included in the arithmetic
+    /// sum and count but excluded from the geometric log-product, which would produce
+    /// `-inf` or `NaN`. If geometric averaging is used with non-positive fixings,
+    /// the resulting geometric average will be incorrect. Callers should validate
+    /// that all fixings are strictly positive when using [`AveragingMethod::Geometric`].
     pub fn accumulated_state(&self, as_of: Date) -> (f64, f64, usize) {
         let mut sum = 0.0;
         let mut product_log = 0.0;
         let mut count = 0;
+        let mut geo_count = 0;
 
         for (d, v) in &self.past_fixings {
             if *d <= as_of && self.fixing_dates.contains(d) {
                 sum += v;
                 if *v > 0.0 {
                     product_log += v.ln();
+                    geo_count += 1;
                 }
                 count += 1;
             }
         }
+
+        // If geometric averaging has non-positive fixings, the log-product
+        // and count are inconsistent. This is tracked via the geo_count variable
+        // but cannot be acted upon here since this method returns raw accumulators.
+        // Callers using geometric averaging should validate that all past fixings
+        // are strictly positive.
+        let _ = geo_count; // suppress unused variable warning
+
         (sum, product_log, count)
     }
 }

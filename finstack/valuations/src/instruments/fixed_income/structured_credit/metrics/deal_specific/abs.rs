@@ -69,30 +69,20 @@ impl AbsDelinquencyCalculator {
 }
 
 impl crate::metrics::MetricCalculator for AbsDelinquencyCalculator {
+    /// Delinquency rate metric.
+    ///
+    /// Returns the configured delinquency rate as a percentage. Individual
+    /// asset-level delinquency status (30/60/90-day buckets) is not currently
+    /// modeled in the pool structure, so this is a passthrough of the
+    /// deal-level assumption provided at construction.
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let abs = context
+        let _abs = context
             .instrument
             .as_any()
             .downcast_ref::<StructuredCredit>()
             .ok_or(finstack_core::InputError::Invalid)?;
 
-        // Calculate delinquency rate from pool
-        // Using credit factors delinquency_days as proxy
-        let delinquent_balance = abs
-            .pool
-            .assets
-            .iter()
-            .filter(|a| !a.is_defaulted) // Not yet defaulted
-            .map(|a| a.balance.amount())
-            .sum::<f64>();
-
-        let total_balance = abs.pool.performing_balance()?.amount();
-
-        if total_balance > 0.0 {
-            Ok(delinquent_balance / total_balance * DECIMAL_TO_PERCENT * self.delinquency_rate)
-        } else {
-            Ok(0.0)
-        }
+        Ok(self.delinquency_rate * DECIMAL_TO_PERCENT)
     }
 }
 

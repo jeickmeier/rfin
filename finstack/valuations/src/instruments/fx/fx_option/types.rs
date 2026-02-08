@@ -28,6 +28,18 @@
 //! - **Forward delta** (`delta_forward`): Interbank convention, no discounting
 //!
 //! Use `delta_forward` for professional FX option hedging and vol surface interpolation.
+//!
+//! # Volatility Surface Parameterization
+//!
+//! **Important**: The vol surface lookup in this implementation uses **absolute strike**
+//! as the moneyness dimension (via `vol_surface.value_clamped(t, strike)`). This is
+//! a simpler parameterization than the delta-based quoting convention used in
+//! professional FX interbank markets, where the vol surface is typically quoted in
+//! terms of delta (e.g., 25Δ put, ATM DNS, 25Δ call) and interpolated in delta space.
+//!
+//! For most use cases (flat or moderately shaped surfaces), strike-based lookup is
+//! adequate. For precise smile-sensitive pricing with market-standard FX vol surfaces,
+//! a delta-to-strike conversion layer may be needed on top of the surface provider.
 
 use crate::instruments::common_impl::parameters::FxUnderlyingParams;
 use crate::instruments::common_impl::traits::Attributes;

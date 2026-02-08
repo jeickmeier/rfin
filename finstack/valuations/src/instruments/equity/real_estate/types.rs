@@ -85,6 +85,16 @@ pub struct RealEstateAsset {
 }
 
 impl RealEstateAsset {
+    /// DCF valuation using **annual compounding** per real estate appraisal
+    /// standards (RICS Red Book / USPAP).
+    ///
+    /// Real estate industry convention uses discrete annual discounting:
+    /// ```text
+    /// PV = NOI / (1 + r)^t
+    /// ```
+    /// rather than the continuous compounding (`exp(-r*t)`) used by capital
+    /// markets instruments elsewhere in this library.  This is deliberate
+    /// and aligns with how discount rates are quoted in property appraisals.
     fn npv_dcf(&self) -> finstack_core::Result<f64> {
         let discount_rate = self
             .discount_rate
@@ -100,6 +110,7 @@ impl RealEstateAsset {
             .iter()
             .map(|(date, amount)| {
                 let t = self.year_fraction(self.valuation_date, *date);
+                // Annual compounding per real estate appraisal convention
                 amount / (1.0 + discount_rate).powf(t)
             })
             .sum();

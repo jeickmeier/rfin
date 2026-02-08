@@ -50,7 +50,10 @@ impl MetricCalculator for DurationDv01Calculator {
                     }
                 }
             }
-            None => 5.0, // No duration configured — use broad market default
+            // Default 5.0Y duration when not provided — may be inappropriate
+            // for short-duration indices (money market, T-bill indices).
+            // Consider supplying an explicit duration_id for non-broad-market indices.
+            None => 5.0,
         };
 
         // DV01 = Notional × Duration × 1bp

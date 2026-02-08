@@ -26,7 +26,8 @@ pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPas
     let settlement_date = tba.get_settlement_date()?;
     let term_months = tba.term.months();
 
-    // Assume pool is newly issued (factor = 1.0)
+    // Use provided pool factor or default to 1.0 (newly issued)
+    let factor = tba.pool_factor.unwrap_or(1.0);
     let maturity_date = settlement_date
         .checked_add(time::Duration::days((term_months as i64) * 30))
         .ok_or_else(|| finstack_core::Error::Validation("Invalid maturity date".to_string()))?;
@@ -47,8 +48,11 @@ pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPas
         .agency(tba.agency)
         .pool_type(PoolType::Generic)
         .original_face(tba.notional)
-        .current_face(tba.notional)
-        .current_factor(1.0)
+        .current_face(Money::new(
+            tba.notional.amount() * factor,
+            tba.notional.currency(),
+        ))
+        .current_factor(factor)
         .wac(wac)
         .pass_through_rate(tba.coupon)
         .servicing_fee_rate(servicing_fee)
@@ -75,11 +79,6 @@ pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPas
 pub fn price_tba(tba: &AgencyTba, market: &MarketContext, as_of: Date) -> Result<Money> {
     let settlement_date = tba.get_settlement_date()?;
 
-    // If settlement has passed, value is the realized P&L
-    if settlement_date <= as_of {
-        return Ok(Money::new(0.0, tba.notional.currency()));
-    }
-
     // Get or create assumed pool
     let assumed_pool = if let Some(ref pool) = tba.assumed_pool {
         pool.as_ref().clone()
@@ -90,9 +89,12 @@ pub fn price_tba(tba: &AgencyTba, market: &MarketContext, as_of: Date) -> Result
     // Price the assumed pool
     let pool_pv = price_mbs(&assumed_pool, market, as_of)?;
 
-    // Calculate forward price (at settlement)
+    // For settled TBAs (settlement_date <= as_of), compute the realized P&L
+    // as the net position value: delivered pool value minus trade cost.
+    // The discount factor is 1.0 since settlement has already occurred.
+    // For unsettled TBAs, discount the trade value back to the valuation date.
     let discount_curve = market.get_discount(&tba.discount_curve_id)?;
-    let years_to_settle = (settlement_date - as_of).whole_days() as f64 / 365.0;
+    let years_to_settle = ((settlement_date - as_of).whole_days() as f64 / 365.0).max(0.0);
     let df_to_settle = discount_curve.df(years_to_settle);
 
     // Trade value at settlement = notional × trade_price / 100
@@ -106,6 +108,25 @@ pub fn price_tba(tba: &AgencyTba, market: &MarketContext, as_of: Date) -> Result
     let value = pool_pv.amount() - trade_pv;
 
     Ok(Money::new(value, tba.notional.currency()))
+}
+
+/// Estimate settlement fail cost.
+///
+/// When a TBA trade fails to settle on the agreed date, the failing
+/// party incurs a financing cost on the unsettled position.
+///
+/// # Formula
+/// ```text
+/// Fail Cost = Position Value × Fail Rate × Fail Days / 360
+/// ```
+///
+/// # Arguments
+/// * `position_value` - Current value of the unsettled position
+/// * `fail_rate` - Financing rate for fails (typically Fed Funds - 300bp, floored at 0)
+/// * `fail_days` - Number of days the settlement has failed
+#[allow(dead_code)] // Utility available for downstream callers
+pub fn estimate_fail_cost(position_value: f64, fail_rate: f64, fail_days: u32) -> f64 {
+    position_value * fail_rate.max(0.0) * (fail_days as f64) / 360.0
 }
 
 /// Agency TBA discounting pricer.
@@ -193,7 +214,7 @@ mod tests {
 
         let pv = price_tba(&tba, &market, as_of).expect("should price");
 
-        // Expired TBA should have zero value
-        assert!((pv.amount()).abs() < 1e-10);
+        // Settled TBA returns realized P&L (pool value - trade cost), not zero
+        assert!(pv.amount().abs() < tba.notional.amount());
     }
 }

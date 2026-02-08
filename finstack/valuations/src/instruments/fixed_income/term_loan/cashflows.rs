@@ -191,15 +191,20 @@ pub fn generate_cashflows(
             }
         }
         super::spec::AmortizationSpec::PercentPerPeriod { bp } => {
+            // Apply percentage to current outstanding balance, not original notional.
+            // This correctly compounds down as principal is repaid each period.
             let pct = f64::from(*bp) * 1e-4;
+            let mut running_balance = loan.notional_limit.amount();
             for d in coupon_dates.iter().copied().skip(1) {
-                let pay = Money::new(loan.notional_limit.amount() * pct, loan.currency);
+                let amort_amount = (running_balance * pct).min(running_balance);
+                let pay = Money::new(amort_amount, loan.currency);
                 principal_events.push(PrincipalEvent {
                     date: d,
                     delta: Money::new(-pay.amount(), pay.currency()),
                     cash: pay,
                     kind: CFKind::Amortization,
                 });
+                running_balance -= amort_amount;
             }
         }
         super::spec::AmortizationSpec::Linear { start, end } => {
@@ -209,7 +214,25 @@ pub fn generate_cashflows(
                 .filter(|d| *d >= *start && *d <= *end)
                 .collect();
             if !steps.is_empty() {
-                let per_step = loan.notional_limit.amount() / (steps.len() as f64);
+                // Compute number of periods in the amortization window from
+                // the schedule builder, not the count of coupon dates that
+                // happen to fall in the window. This avoids under/over-dividing
+                // when stub periods or date adjustments shift coupon dates.
+                let num_periods = {
+                    let mut amort_sb = finstack_core::dates::ScheduleBuilder::new(*start, *end)?
+                        .frequency(loan.pay_freq)
+                        .stub_rule(loan.stub);
+                    if let Some(ref cal) = loan.calendar_id {
+                        amort_sb = amort_sb.adjust_with_id(loan.bdc, cal);
+                    }
+                    let mut amort_dates: Vec<Date> = amort_sb.build()?.into_iter().collect();
+                    if amort_dates.first().copied() != Some(*start) {
+                        amort_dates.insert(0, *start);
+                    }
+                    // Number of periods = number of dates - 1 (start is not a period)
+                    amort_dates.len().saturating_sub(1).max(1)
+                };
+                let per_step = loan.notional_limit.amount() / (num_periods as f64);
                 for d in steps {
                     let pay = Money::new(per_step, loan.currency);
                     principal_events.push(PrincipalEvent {
@@ -345,12 +368,16 @@ pub fn generate_cashflows(
         }
     }
 
-    // Payment split windows for PIK toggles
+    // Payment split windows for PIK toggles.
+    // Handle both enable (→ PIK) and disable (→ Cash) events so that
+    // a loan can transition back to cash interest after a PIK period.
     let mut payment_steps: Vec<(Date, CouponType)> = Vec::new();
     if let Some(cov) = &loan.covenants {
         for t in &cov.pik_toggles {
             if t.enable_pik {
                 payment_steps.push((t.date, CouponType::PIK));
+            } else {
+                payment_steps.push((t.date, CouponType::Cash));
             }
         }
     }
@@ -358,6 +385,8 @@ pub fn generate_cashflows(
         for (dt, en) in &ov.pik_toggle_by_date {
             if *en {
                 payment_steps.push((*dt, CouponType::PIK));
+            } else {
+                payment_steps.push((*dt, CouponType::Cash));
             }
         }
     }
@@ -624,11 +653,17 @@ pub fn build_oid_eir_schedule(
                     .or_default()
                     .add_interest(cf.amount.amount());
             }
-            CFKind::Amortization | CFKind::Notional => {
+            CFKind::Amortization => {
                 buckets
                     .entry(cf.date)
                     .or_default()
                     .add_principal(cf.amount.amount());
+            }
+            CFKind::Notional => {
+                buckets
+                    .entry(cf.date)
+                    .or_default()
+                    .add_notional(cf.amount.amount());
             }
             _ => {}
         }
@@ -645,7 +680,10 @@ pub fn build_oid_eir_schedule(
     let mut periods = Vec::new();
     let mut iter = buckets.iter();
     let (start_date, start_bucket) = iter.next().ok_or(finstack_core::InputError::TooFewPoints)?;
-    let mut opening_balance = -start_bucket.total;
+    // Initialize opening balance from notional (funding) flows only.
+    // Using -total would incorrectly include fees or interest in the
+    // first bucket, overstating the initial carrying amount.
+    let mut opening_balance = -start_bucket.notional;
     let mut prev = *start_date;
 
     for (date, bucket) in iter {
@@ -683,6 +721,8 @@ struct CashBuckets {
     total: f64,
     interest: f64,
     principal: f64,
+    /// Notional (funding) flows only, separated from amortization.
+    notional: f64,
 }
 
 impl CashBuckets {
@@ -694,5 +734,11 @@ impl CashBuckets {
     fn add_principal(&mut self, amount: f64) {
         self.total += amount;
         self.principal += amount;
+    }
+
+    fn add_notional(&mut self, amount: f64) {
+        self.total += amount;
+        self.principal += amount;
+        self.notional += amount;
     }
 }

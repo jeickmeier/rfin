@@ -175,7 +175,7 @@ impl PyLookbackOption {
         builder = builder.spot_id(spot_id.to_string());
         builder = builder.vol_surface_id(vol_surface_id.into());
         if let Some(div) = div_yield_id {
-            builder = builder.div_yield_id(div.to_string());
+            builder = builder.div_yield_id(CurveId::new(div));
         }
         let option = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!(

@@ -158,6 +158,28 @@ pub struct ConversionSpec {
 }
 
 impl ConvertibleBond {
+    /// Base conversion ratio (shares per bond) derived from explicit ratio or price.
+    ///
+    /// Returns `None` if neither `ratio` nor `price` is set on the conversion spec.
+    pub fn conversion_ratio(&self) -> Option<f64> {
+        if let Some(ratio) = self.conversion.ratio {
+            Some(ratio)
+        } else {
+            self.conversion.price.map(|p| self.notional.amount() / p)
+        }
+    }
+
+    /// Effective conversion ratio after anti-dilution adjustments.
+    ///
+    /// Currently returns the base conversion ratio. Anti-dilution
+    /// adjustments for stock splits, dividends, and dilutive events
+    /// should be applied via the `anti_dilution` and `dividend_adjustment`
+    /// fields on [`ConversionSpec`] when available.
+    pub fn effective_conversion_ratio(&self) -> Option<f64> {
+        // TODO: Apply anti-dilution adjustments from events
+        self.conversion_ratio()
+    }
+
     /// Create a canonical example convertible bond for testing and documentation.
     ///
     /// Returns a 5-year convertible with fixed coupon and voluntary conversion.
@@ -238,14 +260,10 @@ impl ConvertibleBond {
             finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
         };
 
-        // Get conversion ratio
-        let conversion_ratio = if let Some(ratio) = self.conversion.ratio {
-            ratio
-        } else if let Some(price) = self.conversion.price {
-            self.notional.amount() / price
-        } else {
-            return Err(finstack_core::Error::Internal);
-        };
+        // Use effective conversion ratio (includes anti-dilution adjustments)
+        let conversion_ratio = self
+            .effective_conversion_ratio()
+            .ok_or(finstack_core::Error::Internal)?;
 
         Ok(pricer::calculate_conversion_premium(
             bond_price,

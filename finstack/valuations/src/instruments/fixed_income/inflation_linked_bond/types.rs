@@ -573,6 +573,19 @@ impl InflationLinkedBond {
         let is_modern_uk = matches!(self.indexation_method, IndexationMethod::UK)
             && matches!(self.lag, InflationLag::Months(m) if m <= 3);
 
+        // Validate UK gilt lag: only 3 months (modern) and 8 months (legacy) are standard.
+        // Non-standard lags may indicate misconfiguration (e.g., using a TIPS lag with UK
+        // indexation). We allow non-standard values but log a diagnostic hint via debug_assert.
+        if matches!(self.indexation_method, IndexationMethod::UK) {
+            let valid_uk_lag =
+                matches!(self.lag, InflationLag::Months(3) | InflationLag::Months(8));
+            debug_assert!(
+                valid_uk_lag,
+                "Non-standard UK gilt lag {:?}: expected Months(3) for modern or Months(8) for legacy",
+                self.lag
+            );
+        }
+
         match self.indexation_method {
             IndexationMethod::TIPS | IndexationMethod::Canadian | IndexationMethod::French => {
                 // TIPS, Canadian RRBs, and French OAT€i/OATi use daily linear interpolation
@@ -892,7 +905,14 @@ impl InflationLinkedBond {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<f64> {
-        let real_yield = self.real_yield(self.quoted_clean.unwrap_or(100.0), curves, as_of)?;
+        let clean_price = self.quoted_clean.ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "Breakeven inflation requires a quoted clean price. \
+                 Set quoted_clean on the bond or pass price explicitly."
+                    .to_string(),
+            )
+        })?;
+        let real_yield = self.real_yield(clean_price, curves, as_of)?;
 
         // Fisher equation: (1 + nominal) = (1 + real) * (1 + inflation)
         // Exact solution: breakeven = (1 + nominal) / (1 + real) - 1

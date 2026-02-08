@@ -3,9 +3,9 @@
 //! Agency MBS have standardized delays between the end of an accrual period
 //! and the actual payment date:
 //!
-//! - **FNMA**: 25 calendar days
-//! - **FHLMC**: 45 calendar days (Gold program)
-//! - **GNMA**: 45 calendar days (GNMA II)
+//! - **FNMA**: 55 calendar days (actual stated delay)
+//! - **FHLMC**: 75 calendar days (actual stated delay)
+//! - **GNMA**: 45 calendar days (GNMA II; GNMA I uses 14 days)
 //!
 //! The delay is measured from the accrual period end (typically the last day
 //! of the month) to the payment date.
@@ -32,8 +32,8 @@ use finstack_core::Result;
 ///     delay::payment_delay_days,
 /// };
 ///
-/// assert_eq!(payment_delay_days(AgencyProgram::Fnma), 25);
-/// assert_eq!(payment_delay_days(AgencyProgram::Fhlmc), 45);
+/// assert_eq!(payment_delay_days(AgencyProgram::Fnma), 55);
+/// assert_eq!(payment_delay_days(AgencyProgram::Fhlmc), 75);
 /// assert_eq!(payment_delay_days(AgencyProgram::Gnma), 45);
 /// ```
 pub fn payment_delay_days(agency: AgencyProgram) -> u32 {
@@ -197,8 +197,8 @@ mod tests {
 
     #[test]
     fn test_payment_delay_days() {
-        assert_eq!(payment_delay_days(AgencyProgram::Fnma), 25);
-        assert_eq!(payment_delay_days(AgencyProgram::Fhlmc), 45);
+        assert_eq!(payment_delay_days(AgencyProgram::Fnma), 55);
+        assert_eq!(payment_delay_days(AgencyProgram::Fhlmc), 75);
         assert_eq!(payment_delay_days(AgencyProgram::Gnma), 45);
     }
 
@@ -238,10 +238,10 @@ mod tests {
 
         assert_eq!(schedule.len(), 3);
 
-        // First payment: Jan 31 + 25 = Feb 25
+        // First payment: Jan 31 + 55 = Mar 26 (2024 is a leap year)
         assert_eq!(schedule[0].0, accrual_ends[0]);
-        assert_eq!(schedule[0].1.month(), Month::February);
-        assert_eq!(schedule[0].1.day(), 25);
+        assert_eq!(schedule[0].1.month(), Month::March);
+        assert_eq!(schedule[0].1.day(), 26);
     }
 
     #[test]
@@ -270,8 +270,8 @@ mod tests {
         )
         .expect("valid");
 
-        // Feb 25, 2024 is a Sunday, so Following should give Feb 26
-        assert_eq!(payment.month(), Month::February);
+        // Jan 31 + 55 = Mar 26, 2024 (Tuesday, no weekend adjustment needed)
+        assert_eq!(payment.month(), Month::March);
         assert_eq!(payment.day(), 26);
     }
 }

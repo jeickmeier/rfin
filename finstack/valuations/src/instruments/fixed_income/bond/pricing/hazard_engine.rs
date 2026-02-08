@@ -265,8 +265,12 @@ impl HazardBondEngine {
                 if n_prev > 0.0 {
                     let delta_s = (surv[k - 1] - surv[k]).max(0.0);
                     if delta_s > 0.0 {
-                        let df_k = dfs[k];
-                        pv_rec += recovery * n_prev * df_k * delta_s;
+                        // Use midpoint of interval for recovery timing (better approximation).
+                        // Geometric mean of endpoint DFs equals exact midpoint DF under
+                        // continuous compounding: sqrt(df(t_start) * df(t_end)) = df((t_start + t_end)/2).
+                        let df_midpoint = (dfs[k - 1] * dfs[k]).sqrt();
+                        // Recovery payment at midpoint
+                        pv_rec += recovery * n_prev * delta_s * df_midpoint;
                     }
                 }
                 // Apply principal repayments at the end of the interval.

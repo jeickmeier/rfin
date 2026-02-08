@@ -52,17 +52,20 @@ pub(super) fn solve_irr_to_exercise(
     exercise_date: Date,
     redemption: Money,
 ) -> finstack_core::Result<f64> {
+    // Compute settlement date (T+n per LSTA conventions)
+    let settlement_date = as_of + time::Duration::days(i64::from(loan.settlement_days));
+
     let mut flows: Vec<(Date, f64)> = Vec::with_capacity(schedule.flows.len() + 2);
 
-    // Initial price leg (negative = cash outflow for purchase)
-    flows.push((as_of, -target_price.amount()));
+    // Initial price leg at settlement date (negative = cash outflow for purchase)
+    flows.push((settlement_date, -target_price.amount()));
 
     // Kind-aware flow selection from the full schedule.
     // At the exercise date: include coupon/fee flows (holder receives accrued
     // interest) but exclude Amortization and Notional (the explicit redemption
     // parameter replaces them, using the pre-exercise outstanding).
     for cf in &schedule.flows {
-        if cf.date <= as_of || cf.date > exercise_date {
+        if cf.date <= settlement_date || cf.date > exercise_date {
             continue;
         }
         match cf.kind {

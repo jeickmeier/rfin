@@ -181,6 +181,13 @@ pub(super) fn apply_draw_repay_event(
         }
         Ok(new_balance)
     } else {
+        let event_amount = event.amount.amount();
+        if event_amount > current_balance.amount() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Repayment on {} of {} exceeds current balance of {}",
+                event.date, event.amount, current_balance
+            )));
+        }
         current_balance.checked_sub(event.amount)
     }
 }

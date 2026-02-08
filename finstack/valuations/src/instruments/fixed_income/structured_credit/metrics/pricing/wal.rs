@@ -74,6 +74,14 @@ impl MetricCalculator for WalCalculator {
         // detailed tranche flows were not cached into the metric context. This keeps the
         // metric available for simple deals (e.g., single-tranche) without re-running the
         // structured credit simulation just to populate tranche-level cashflows.
+        //
+        // WARNING: In aggregated mode, interest and principal are combined into a single
+        // flow per date. Using the absolute value here will overstate WAL because interest
+        // payments are incorrectly included as principal. Prefer the primary path above
+        // (detailed tranche cashflows with separate principal_flows) for accurate WAL.
+        //
+        // TODO: Accept flow-type metadata (e.g. CFKind) so interest can be excluded
+        // from the WAL calculation even in the aggregated fallback path.
         if let Some(flows) = context.cashflows.as_ref() {
             let mut weighted_sum = 0.0;
             let mut total_principal = 0.0;
@@ -83,8 +91,11 @@ impl MetricCalculator for WalCalculator {
                     continue;
                 }
 
-                let principal = amount.amount().abs();
-                if principal == 0.0 {
+                // Only use positive flows as an approximation of principal.
+                // Negative flows (if any) are ignored; interest cannot be
+                // distinguished from principal in aggregated mode.
+                let principal = amount.amount();
+                if principal <= 0.0 {
                     continue;
                 }
 

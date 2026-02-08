@@ -343,6 +343,76 @@ impl CorrelationStructure {
         }
     }
 
+    /// Validate the correlation structure.
+    ///
+    /// For [`Flat`] and [`Sectored`] variants, checks that every correlation is
+    /// within \[-1, 1\].  For [`Matrix`], additionally verifies that:
+    /// - diagonal elements are 1.0
+    /// - the matrix is symmetric
+    /// - all entries are within \[-1, 1\]
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the first validation failure found.
+    pub fn validate(&self) -> Result<(), String> {
+        match self {
+            CorrelationStructure::Flat {
+                asset_correlation,
+                prepay_default_correlation,
+            } => {
+                validate_correlation_value(*asset_correlation, "asset_correlation")?;
+                validate_correlation_value(
+                    *prepay_default_correlation,
+                    "prepay_default_correlation",
+                )?;
+                Ok(())
+            }
+            CorrelationStructure::Sectored {
+                intra_sector,
+                inter_sector,
+                prepay_default,
+            } => {
+                validate_correlation_value(*intra_sector, "intra_sector")?;
+                validate_correlation_value(*inter_sector, "inter_sector")?;
+                validate_correlation_value(*prepay_default, "prepay_default")?;
+                Ok(())
+            }
+            CorrelationStructure::Matrix {
+                correlations,
+                labels,
+            } => {
+                let n = labels.len();
+                let expected = n * n;
+                if correlations.len() != expected {
+                    return Err(format!(
+                        "Correlation matrix size mismatch: expected {}×{}={}, got {}",
+                        n,
+                        n,
+                        expected,
+                        correlations.len()
+                    ));
+                }
+                for i in 0..n {
+                    let diag = correlations[i * n + i];
+                    if (diag - 1.0).abs() > 1e-10 {
+                        return Err(format!("Diagonal element [{i},{i}] = {diag}, expected 1.0"));
+                    }
+                    for j in (i + 1)..n {
+                        let rho_ij = correlations[i * n + j];
+                        let rho_ji = correlations[j * n + i];
+                        validate_correlation_value(rho_ij, &format!("[{i},{j}]"))?;
+                        if (rho_ij - rho_ji).abs() > 1e-10 {
+                            return Err(format!(
+                                "Matrix not symmetric: [{i},{j}]={rho_ij} != [{j},{i}]={rho_ji}"
+                            ));
+                        }
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
+
     /// Bump prepay-default correlation by the given amount.
     ///
     /// # Arguments
@@ -370,6 +440,16 @@ impl CorrelationStructure {
             }
         }
     }
+}
+
+/// Validate that a single correlation value is within [-1, 1].
+fn validate_correlation_value(rho: f64, name: &str) -> Result<(), String> {
+    if !(-1.0..=1.0).contains(&rho) {
+        return Err(format!(
+            "Correlation {name} = {rho} outside valid range [-1, 1]"
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -501,5 +581,47 @@ mod tests {
 
         // Should clamp to -0.99
         assert!(bumped.prepay_default_correlation() >= -0.99);
+    }
+
+    #[test]
+    fn test_validate_flat_ok() {
+        let corr = CorrelationStructure::flat(0.20, -0.30);
+        assert!(corr.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_matrix_ok() {
+        let corr = CorrelationStructure::matrix(
+            vec![1.0, 0.5, 0.5, 1.0],
+            vec!["A".to_string(), "B".to_string()],
+        );
+        assert!(corr.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_matrix_diagonal_not_one() {
+        // Bypass constructor fallback by building directly
+        let corr = CorrelationStructure::Matrix {
+            correlations: vec![0.9, 0.5, 0.5, 1.0],
+            labels: vec!["A".to_string(), "B".to_string()],
+        };
+        let result = corr.validate();
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("expected validation error for non-unit diagonal")
+            .contains("Diagonal"));
+    }
+
+    #[test]
+    fn test_validate_matrix_not_symmetric() {
+        let corr = CorrelationStructure::Matrix {
+            correlations: vec![1.0, 0.5, 0.3, 1.0],
+            labels: vec!["A".to_string(), "B".to_string()],
+        };
+        let result = corr.validate();
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("expected validation error for non-symmetric matrix")
+            .contains("symmetric"));
     }
 }

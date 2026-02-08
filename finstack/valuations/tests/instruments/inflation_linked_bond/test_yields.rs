@@ -300,22 +300,26 @@ fn test_breakeven_inflation_uses_quoted_clean_default() {
     let mut ilb2 = sample_tips();
 
     ilb1.quoted_clean = Some(100.0);
-    ilb2.quoted_clean = None; // Will use 100.0 as default
+    ilb2.quoted_clean = None; // No quoted price → should error
 
     let (ctx, _) = market_context_with_index();
     let as_of = d(2025, 1, 2);
     let nominal_yield = 0.03;
 
-    // Act
+    // Act - with quoted_clean set, breakeven should succeed
     let be1 = ilb1
         .breakeven_inflation(nominal_yield, &ctx, as_of)
         .unwrap();
-    let be2 = ilb2
-        .breakeven_inflation(nominal_yield, &ctx, as_of)
-        .unwrap();
+    assert!(be1.is_finite(), "breakeven should be a finite number");
 
-    // Assert - should be identical
-    assert_approx_eq(be1, be2, EPSILON, "default quoted price");
+    // Act - without quoted_clean, breakeven should return a validation error
+    let err = ilb2
+        .breakeven_inflation(nominal_yield, &ctx, as_of)
+        .expect_err("should require quoted_clean");
+    assert!(
+        err.to_string().contains("quoted clean price"),
+        "error should mention quoted clean price, got: {err}"
+    );
 }
 
 #[test]

@@ -102,13 +102,22 @@ impl BondFuturePricer {
                 continue;
             }
 
-            // Calculate time to cashflow in years (ACT/365F convention for conversion factor)
-            let days = (flow_date - as_of).whole_days();
-            let years = days as f64 / 365.0;
+            // ACT/ACT (ISDA) day count for conversion factor per exchange standards
+            let years = finstack_core::dates::DayCount::ActAct.year_fraction(
+                as_of,
+                flow_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
 
             // Calculate discount factor for semi-annual compounding
             // DF(t) = 1 / (1 + r/2)^(2*t)
             let periods = 2.0 * years;
+            if half_rate <= -1.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Standard coupon rate {} yields half_rate {} <= -1.0, cannot compute conversion factor",
+                    standard_coupon, half_rate
+                )));
+            }
             let discount_factor = 1.0 / (1.0 + half_rate).powf(periods);
 
             // Add discounted cashflow to PV

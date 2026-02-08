@@ -245,6 +245,10 @@ pub struct TermLoan {
     /// Optional call schedule (borrower callability)
     pub call_schedule: Option<LoanCallSchedule>,
 
+    /// Settlement days (T+n). Default is 1 for leveraged loans per LSTA conventions.
+    #[builder(default = 1)]
+    pub settlement_days: u32,
+
     /// Attributes for tagging and scenarios
     pub attributes: Attributes,
 }
@@ -333,6 +337,7 @@ impl TryFrom<TermLoanSpec> for TermLoan {
             pricing_overrides,
             oid_eir,
             call_schedule,
+            settlement_days,
         } = spec;
 
         let resolved_notional = match (notional_limit, ddtl.as_ref()) {
@@ -405,6 +410,7 @@ impl TryFrom<TermLoanSpec> for TermLoan {
             .pricing_overrides(pricing_overrides)
             .oid_eir_opt(oid_eir)
             .call_schedule_opt(call_schedule)
+            .settlement_days(settlement_days)
             .attributes(Attributes::new())
             .build()
     }
@@ -594,6 +600,7 @@ mod tests {
             pricing_overrides: PricingOverrides::default(),
             oid_eir: None,
             call_schedule: None,
+            settlement_days: 1,
         };
 
         let loan: TermLoan = spec.try_into().expect("conversion should succeed");
@@ -641,6 +648,7 @@ mod tests {
             pricing_overrides: PricingOverrides::default(),
             oid_eir: None,
             call_schedule: None,
+            settlement_days: 1,
         };
 
         let loan: TermLoan = spec.try_into().expect("conversion should succeed");
@@ -674,6 +682,7 @@ mod tests {
             pricing_overrides: PricingOverrides::default(),
             oid_eir: None,
             call_schedule: None,
+            settlement_days: 1,
         };
 
         let err = TermLoan::try_from(spec).expect_err("missing notional should fail");

@@ -57,6 +57,7 @@
 //!     pricing_overrides: PricingOverrides::default(),
 //!     oid_eir: None,
 //!     call_schedule: None,
+//!     settlement_days: 1,
 //! };
 //! # Ok(())
 //! # }
@@ -463,6 +464,7 @@ impl AmortizationSpec {
 ///     pricing_overrides: PricingOverrides::default(),
 ///     oid_eir: None,
 ///     call_schedule: None,
+///     settlement_days: 1,
 /// };
 /// # Ok(())
 /// # }
@@ -523,6 +525,13 @@ pub struct TermLoanSpec {
     pub oid_eir: Option<OidEirSpec>,
     /// Optional call schedule (borrower callability)
     pub call_schedule: Option<LoanCallSchedule>,
+    /// Settlement days (T+n). Default is 1 for leveraged loans per LSTA conventions.
+    #[cfg_attr(feature = "serde", serde(default = "default_settlement_days"))]
+    pub settlement_days: u32,
+}
+
+fn default_settlement_days() -> u32 {
+    1
 }
 
 /// Borrower call option on term loan.

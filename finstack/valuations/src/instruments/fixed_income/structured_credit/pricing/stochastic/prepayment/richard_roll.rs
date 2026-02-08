@@ -313,8 +313,18 @@ impl StochasticPrepayment for RichardRollPrepay {
             1.0
         };
 
-        // Burnout increases when prepayments exceed expectations
-        let new_burnout = current_burnout * (1.0 - self.burnout_rate * (ratio - 1.0).max(0.0));
+        // Bidirectional burnout: burnout factor decreases when prepayments
+        // exceed expectations (fast prepayers leave the pool) and *increases*
+        // when actual prepayment is below expected (pool rejuvenation — the
+        // surviving borrowers are less rate-sensitive than assumed).
+        //
+        //   burnout_change = burnout_rate × (ratio - 1)
+        //   new_burnout = current × (1 - burnout_change)
+        //
+        // When ratio > 1: burnout_change > 0 → factor decreases (more burned out).
+        // When ratio < 1: burnout_change < 0 → factor increases (rejuvenation).
+        let burnout_change = self.burnout_rate * (ratio - 1.0);
+        let new_burnout = current_burnout * (1.0 - burnout_change);
         new_burnout.clamp(0.0, 1.0)
     }
 }
@@ -377,11 +387,20 @@ mod tests {
             "Burnout should decrease when prepay is high"
         );
 
-        // When realized prepayments are below expected
+        // When realized prepayments are below expected, burnout factor increases
+        // (pool rejuvenation: surviving borrowers are less rate-sensitive)
         let new_burnout2 = model.update_burnout(0.8, 0.005, 0.01);
+        // ratio = 0.5, burnout_change = 0.10 * (0.5 - 1) = -0.05
+        // new_burnout = 0.8 * (1 - (-0.05)) = 0.84
         assert!(
-            (new_burnout2 - 0.8).abs() < 1e-10,
-            "Burnout should stay same when prepay is low"
+            new_burnout2 > 0.8,
+            "Burnout should increase (rejuvenate) when prepay is below expected, got {}",
+            new_burnout2
+        );
+        assert!(
+            (new_burnout2 - 0.84).abs() < 1e-10,
+            "Expected burnout of 0.84, got {}",
+            new_burnout2
         );
     }
 

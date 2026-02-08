@@ -20,6 +20,9 @@ impl MetricCalculator for YtmCalculator {
         let loan: &TermLoan = context.instrument_as()?;
         let as_of = context.as_of;
 
+        // Compute settlement date (T+n per LSTA conventions)
+        let settlement_date = as_of + time::Duration::days(i64::from(loan.settlement_days));
+
         // Use holder-view schedule (via CashflowProvider::build_dated_flows)
         // This filters to contractual inflows: coupons, amortization, positive redemptions
         let holder_flows = loan.build_dated_flows(&context.curves, as_of)?;
@@ -27,13 +30,16 @@ impl MetricCalculator for YtmCalculator {
         let mut flows: Vec<(finstack_core::dates::Date, Money)> =
             Vec::with_capacity(holder_flows.len() + 1);
 
-        // Add initial price leg at as_of (negative = outflow for purchase)
+        // Add initial price leg at settlement_date (negative = outflow for purchase)
         let base_pv = context.base_value;
-        flows.push((as_of, Money::new(-base_pv.amount(), base_pv.currency())));
+        flows.push((
+            settlement_date,
+            Money::new(-base_pv.amount(), base_pv.currency()),
+        ));
 
-        // Add holder-view flows (already filtered for dates > as_of by build_dated_flows)
+        // Add holder-view flows after settlement_date
         for (date, amount) in holder_flows {
-            if date > as_of {
+            if date > settlement_date {
                 flows.push((date, amount));
             }
         }

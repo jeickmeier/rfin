@@ -83,6 +83,21 @@ impl ScenarioTree {
         let mut layer_map: HashMap<(usize, i32), usize> = HashMap::default();
         layer_map.insert((0, 0), 0);
 
+        // Extract primary volatility for moment-matched transition probabilities.
+        // Trinomial tree with zero drift and unit step dx=1:
+        //   p_up = p_down = σ²dt / 2,  p_mid = 1 - σ²dt
+        // This matches E[ΔZ] = 0 and Var[ΔZ] = σ²dt.
+        // Falls back to uniform weights when σ²dt ∉ (0, 1).
+        let vol = match &self.config.factor_spec {
+            FactorSpec::SingleFactor { volatility, .. } => *volatility,
+            FactorSpec::TwoFactor { prepay_vol, .. } => *prepay_vol,
+            FactorSpec::MultiFactor { volatilities, .. } => {
+                volatilities.first().copied().unwrap_or(1.0)
+            }
+        };
+        let dt = self.config.dt();
+        let vol_sq_dt = vol * vol * dt;
+
         for period in 0..self.config.num_periods {
             let mut current_positions: Vec<(i32, usize)> = layer_map
                 .iter()
@@ -105,7 +120,18 @@ impl ScenarioTree {
                     let smm = self.conditional_smm_stateless(&factors, burnout_factor);
                     let mdr = self.conditional_mdr_stateless(&factors);
                     let recovery = self.conditional_recovery(&factors);
-                    let trans_prob = 1.0 / deltas.len() as f64;
+                    // Moment-matched trinomial probabilities (zero drift, dx = 1):
+                    //   p_down = p_up = σ²dt/2,  p_mid = 1 - σ²dt
+                    // Falls back to uniform when moment matching is infeasible.
+                    let trans_prob = if deltas.len() == 3 && vol_sq_dt > 0.0 && vol_sq_dt < 1.0 {
+                        match *delta {
+                            -1 | 1 => vol_sq_dt / 2.0,
+                            0 => 1.0 - vol_sq_dt,
+                            _ => 1.0 / deltas.len() as f64,
+                        }
+                    } else {
+                        1.0 / deltas.len() as f64
+                    };
 
                     let child_id = ScenarioNodeId(self.nodes.len());
                     let mut child = self.nodes[parent_idx]
@@ -198,11 +224,14 @@ impl ScenarioTree {
             FactorSpec::TwoFactor {
                 prepay_vol,
                 credit_vol,
-                ..
+                correlation,
             } => {
-                // For two factors, we need two z values
-                // Use correlated generation
-                let z2 = standard_normal_inv_cdf(0.5 + 0.5 * (p - 0.5));
+                // Correlated factor generation via Cholesky decomposition:
+                //   z2 = ρ·z1 + √(1-ρ²)·z2_indep
+                // In a 1D recombining tree the independent component is set to
+                // its expected value (0), so only the systematic (correlated)
+                // component is captured through the tree branching structure.
+                let z2 = correlation * z;
                 vec![z * prepay_vol, z2 * credit_vol]
             }
             FactorSpec::MultiFactor { volatilities, .. } => {

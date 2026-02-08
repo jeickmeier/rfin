@@ -7,6 +7,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
+#[allow(unused_imports)]
 use finstack_core::math::norm_cdf;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
@@ -361,5 +362,232 @@ fn test_at_expiry_returns_intrinsic() {
         pv_otm.amount().abs() < 0.01,
         "At-expiry OTM call should have intrinsic value ~0, got {}",
         pv_otm.amount()
+    );
+}
+
+/// European put-call parity: C - P = DF × (F - K)
+///
+/// This is a fundamental no-arbitrage relationship for Black-76 options.
+/// Verifies that the pricing implementation produces consistent call and put values.
+#[test]
+fn test_put_call_parity_european() {
+    let as_of = date(2025, 1, 1);
+    let expiry = date(2025, 7, 1);
+
+    let discount_curve = flat_discount_with_tenor("USD-OIS", as_of, 0.05, 1.0);
+    let price_curve = flat_price_curve("CL-FWD", as_of, 80.0, 1.0);
+    let vol_surface = flat_vol_surface(
+        "CL-VOL",
+        &[0.25, 0.5, 1.0],
+        &[60.0, 70.0, 80.0, 90.0, 100.0],
+        0.30,
+    );
+
+    let market = MarketContext::new()
+        .insert_discount(discount_curve)
+        .insert_price_curve(price_curve)
+        .insert_surface(vol_surface);
+
+    // Test put-call parity at multiple strikes (ITM, ATM, OTM)
+    for &strike in &[65.0, 75.0, 80.0, 85.0, 95.0] {
+        let build = |opt_type| {
+            CommodityOption::builder()
+                .id(InstrumentId::new("PCP-TEST"))
+                .commodity_type("Energy".to_string())
+                .ticker("CL".to_string())
+                .strike(strike)
+                .option_type(opt_type)
+                .exercise_style(ExerciseStyle::European)
+                .expiry(expiry)
+                .quantity(1.0)
+                .unit("BBL".to_string())
+                .multiplier(1.0)
+                .settlement(SettlementType::Cash)
+                .currency(Currency::USD)
+                .forward_curve_id(CurveId::new("CL-FWD"))
+                .discount_curve_id(CurveId::new("USD-OIS"))
+                .vol_surface_id(CurveId::new("CL-VOL"))
+                .day_count(DayCount::Act365F)
+                .pricing_overrides(PricingOverrides::default())
+                .attributes(Attributes::new())
+                .build()
+                .expect("should build")
+        };
+
+        let call = build(OptionType::Call);
+        let put = build(OptionType::Put);
+
+        let call_pv = call
+            .value(&market, as_of)
+            .expect("call should price")
+            .amount();
+        let put_pv = put
+            .value(&market, as_of)
+            .expect("put should price")
+            .amount();
+
+        // Get forward price and discount factor
+        let forward = call.forward_price(&market, as_of).expect("forward");
+        let _t = DayCount::Act365F
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction");
+        let disc = market.get_discount("USD-OIS").expect("discount curve");
+        let df = disc.df_between_dates(as_of, expiry).expect("df");
+
+        // Put-call parity: C - P = DF × (F - K)
+        let lhs = call_pv - put_pv;
+        let rhs = df * (forward - strike);
+
+        let error = (lhs - rhs).abs();
+        // Tolerance: 0.01 absolute, allowing for vol surface interpolation/clamping
+        // at boundary strikes
+        assert!(
+            error < 0.01,
+            "Put-call parity violated at strike={}: C-P={:.6}, DF*(F-K)={:.6}, error={:.6}",
+            strike,
+            lhs,
+            rhs,
+            error
+        );
+    }
+}
+
+/// Test that vol surface skew is correctly picked up by the pricing model.
+///
+/// With a skewed vol surface (lower vol at high strikes), ITM calls with
+/// high strikes should be priced with lower vol than ATM calls.
+#[test]
+fn test_non_flat_vol_surface_skew() {
+    use finstack_core::market_data::surfaces::VolSurface;
+
+    let as_of = date(2025, 1, 1);
+    let expiry = date(2025, 7, 1);
+
+    // Create a skewed vol surface (commodity-style: higher vol at lower strikes)
+    let strikes = [60.0, 70.0, 80.0, 90.0, 100.0];
+    let expiries = [0.25, 0.5, 1.0];
+    // Skew: 35% at K=60, 30% at K=70, 25% at K=80 (ATM), 22% at K=90, 20% at K=100
+    let skew_row = [0.35, 0.30, 0.25, 0.22, 0.20];
+
+    let skewed_surface = VolSurface::builder("CL-VOL")
+        .expiries(&expiries)
+        .strikes(&strikes)
+        .row(&skew_row)
+        .row(&skew_row)
+        .row(&skew_row)
+        .build()
+        .expect("skewed vol surface");
+
+    let flat_surface = flat_vol_surface("CL-VOL", &expiries, &strikes, 0.25);
+
+    let skewed_market = MarketContext::new()
+        .insert_discount(flat_discount_with_tenor("USD-OIS", as_of, 0.03, 1.0))
+        .insert_price_curve(flat_price_curve("CL-FWD", as_of, 80.0, 1.0))
+        .insert_surface(skewed_surface);
+
+    let flat_market = MarketContext::new()
+        .insert_discount(flat_discount_with_tenor("USD-OIS", as_of, 0.03, 1.0))
+        .insert_price_curve(flat_price_curve("CL-FWD", as_of, 80.0, 1.0))
+        .insert_surface(flat_surface);
+
+    // Build ATM call (strike = 80, same vol in both surfaces)
+    let build_option = |strike, opt_type| {
+        CommodityOption::builder()
+            .id(InstrumentId::new("SKEW-TEST"))
+            .commodity_type("Energy".to_string())
+            .ticker("CL".to_string())
+            .strike(strike)
+            .option_type(opt_type)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(expiry)
+            .quantity(1.0)
+            .unit("BBL".to_string())
+            .multiplier(1.0)
+            .settlement(SettlementType::Cash)
+            .currency(Currency::USD)
+            .forward_curve_id(CurveId::new("CL-FWD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .vol_surface_id(CurveId::new("CL-VOL"))
+            .day_count(DayCount::Act365F)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build")
+    };
+
+    // ATM call at K=80: both surfaces have 25% vol, so prices should match
+    let atm_call = build_option(80.0, OptionType::Call);
+    let atm_flat = atm_call
+        .value(&flat_market, as_of)
+        .expect("flat price")
+        .amount();
+    let atm_skew = atm_call
+        .value(&skewed_market, as_of)
+        .expect("skew price")
+        .amount();
+    assert!(
+        (atm_flat - atm_skew).abs() < 0.01,
+        "ATM prices should match: flat={}, skew={}",
+        atm_flat,
+        atm_skew
+    );
+
+    // Low-strike put (K=60): skewed surface has 35% vs flat 25%, should be more expensive
+    let low_put = build_option(60.0, OptionType::Put);
+    let low_flat = low_put
+        .value(&flat_market, as_of)
+        .expect("flat price")
+        .amount();
+    let low_skew = low_put
+        .value(&skewed_market, as_of)
+        .expect("skew price")
+        .amount();
+    assert!(
+        low_skew > low_flat,
+        "Low-strike put should be more expensive with skew (35% vs 25%): skew={}, flat={}",
+        low_skew,
+        low_flat
+    );
+
+    // High-strike call (K=100): skewed surface has 20% vs flat 25%, should be cheaper
+    let high_call = build_option(100.0, OptionType::Call);
+    let high_flat = high_call
+        .value(&flat_market, as_of)
+        .expect("flat price")
+        .amount();
+    let high_skew = high_call
+        .value(&skewed_market, as_of)
+        .expect("skew price")
+        .amount();
+    assert!(
+        high_skew < high_flat,
+        "High-strike call should be cheaper with skew (20% vs 25%): skew={}, flat={}",
+        high_skew,
+        high_flat
+    );
+
+    // Verify put-call parity still holds with skew
+    let call_100 = build_option(100.0, OptionType::Call);
+    let put_100 = build_option(100.0, OptionType::Put);
+    let call_pv = call_100
+        .value(&skewed_market, as_of)
+        .expect("call")
+        .amount();
+    let put_pv = put_100.value(&skewed_market, as_of).expect("put").amount();
+
+    let forward = call_100.forward_price(&skewed_market, as_of).expect("fwd");
+    let disc = skewed_market.get_discount("USD-OIS").expect("disc");
+    let df = disc.df_between_dates(as_of, expiry).expect("df");
+
+    let lhs = call_pv - put_pv;
+    let rhs = df * (forward - 100.0);
+    let pcp_error = (lhs - rhs).abs();
+    // Tolerance: 0.01 absolute, allowing for vol surface interpolation at boundary strikes
+    assert!(
+        pcp_error < 0.01,
+        "Put-call parity should hold with skew: C-P={:.6}, DF*(F-K)={:.6}, error={:.6}",
+        lhs,
+        rhs,
+        pcp_error
     );
 }

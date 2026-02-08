@@ -577,10 +577,13 @@ impl<'a> CashflowEngine<'a> {
             let utilization_end = path.utilization_path[i + 1].clamp(0.0, 1.0);
             let short_rate = path.short_rate_path[i];
 
-            // Calculate balances from period start utilization (step function)
-            // Interest and fees are based on the balance at the start of the period
-            let drawn_balance = self.facility.commitment_amount * utilization_start;
-            let undrawn_balance = self.facility.commitment_amount * (1.0 - utilization_start);
+            // Use average utilization for interest calculation (time-weighted approximation).
+            // This better captures the balance evolution within each period when utilization
+            // changes between period start and end, avoiding systematic underestimation of
+            // interest when utilization is rising.
+            let avg_utilization = (utilization_start + utilization_end) / 2.0;
+            let drawn_balance = self.facility.commitment_amount * avg_utilization;
+            let undrawn_balance = self.facility.commitment_amount * (1.0 - avg_utilization);
 
             // Calculate period interest using path's short rate
             let interest_rate = match &self.facility.base_rate_spec {
@@ -624,8 +627,11 @@ impl<'a> CashflowEngine<'a> {
                 });
             }
 
-            // Calculate and emit fee cashflows using centralized functions
-            let commitment_fee_bp = self.facility.fees.commitment_fee_bps(utilization_start);
+            // Calculate and emit fee cashflows using centralized functions.
+            // Use average utilization for fee tier determination to match the interest
+            // calculation above and avoid tier-boundary artifacts.
+            let avg_util = (utilization_start + utilization_end) / 2.0;
+            let commitment_fee_bp = self.facility.fees.commitment_fee_bps(avg_util);
             flows.extend(crate::cashflow::builder::emit_commitment_fee_on(
                 period_end,
                 undrawn_balance.amount(),
@@ -634,7 +640,7 @@ impl<'a> CashflowEngine<'a> {
                 ccy,
             ));
 
-            let usage_fee_bp = self.facility.fees.usage_fee_bps(utilization_start);
+            let usage_fee_bp = self.facility.fees.usage_fee_bps(avg_util);
             flows.extend(crate::cashflow::builder::emit_usage_fee_on(
                 period_end,
                 drawn_balance.amount(),

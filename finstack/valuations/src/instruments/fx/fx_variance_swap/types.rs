@@ -402,6 +402,19 @@ impl FxVarianceSwap {
             if variance.is_finite() && variance > 0.0 {
                 return Ok(variance);
             }
+
+            // Replication produced non-positive variance — the K0 correction term
+            // (fwd/K0 - 1)^2 may dominate when the forward is far from K0 or the
+            // strike grid is coarse. Fall back to ATM implied variance with a warning.
+            tracing::warn!(
+                instrument = %self.id,
+                variance,
+                fwd,
+                k0,
+                "Variance swap replication integral produced non-positive variance ({:.6}); \
+                 falling back to ATM implied variance. Consider using a finer strike grid.",
+                variance
+            );
         }
 
         let vol_atm = surface.value_clamped(t, fwd.max(1e-12));

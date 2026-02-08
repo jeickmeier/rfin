@@ -34,7 +34,7 @@
 //!
 //! ## Example: Manual Discrete Dividend Adjustment
 //!
-//! ```rust,ignore
+//! ```text
 //! // Stock at $100, dividend of $2 in 0.25 years, r = 5%, T = 0.5 years
 //! let spot = 100.0;
 //! let dividend = 2.0;

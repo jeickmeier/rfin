@@ -103,7 +103,7 @@ pub struct LookbackOption {
     /// Volatility surface ID
     pub vol_surface_id: CurveId,
     /// Optional dividend yield curve ID
-    pub div_yield_id: Option<String>,
+    pub div_yield_id: Option<CurveId>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
     /// Observed minimum spot price since inception (required for Floating Call / Fixed Put)
@@ -141,7 +141,7 @@ impl LookbackOption {
             .discount_curve_id(CurveId::new("USD-OIS"))
             .spot_id("SPX-SPOT".to_string())
             .vol_surface_id(CurveId::new("SPX-VOL"))
-            .div_yield_id_opt(Some("SPX-DIV".to_string()))
+            .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
             .pricing_overrides(PricingOverrides::default())
             .observed_min_opt(None)
             .observed_max_opt(None)

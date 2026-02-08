@@ -302,8 +302,10 @@ pub fn vanna_volga_barrier_adjustment(
 
     let cost_1 = vanilla_call(spot, k1, r_d, r_f, quotes.vol_25d_put, t)
         - vanilla_call(spot, k1, r_d, r_f, sigma_atm, t);
-    let cost_2 = vanilla_call(spot, k2, r_d, r_f, sigma_atm, t)
-        - vanilla_call(spot, k2, r_d, r_f, sigma_atm, t); // ATM cost is zero by definition
+    // ATM cost is zero by definition: C₂(σ_ATM) - C₂(σ_ATM) = 0.
+    // The p₂ weight still participates in the 3×3 system (matching vega/vanna/volga),
+    // but its contribution to the final adjustment is zero since cost_2 = 0.
+    let cost_2 = 0.0;
     let cost_3 = vanilla_call(spot, k3, r_d, r_f, quotes.vol_25d_call, t)
         - vanilla_call(spot, k3, r_d, r_f, sigma_atm, t);
 

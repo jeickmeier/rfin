@@ -74,14 +74,8 @@ impl ConvertibleBondValuator {
         base_date: Date,
         credit_spread: f64,
     ) -> Result<Self> {
-        // Calculate conversion ratio from conversion spec
-        let conversion_ratio = if let Some(ratio) = bond.conversion.ratio {
-            ratio
-        } else if let Some(price) = bond.conversion.price {
-            bond.notional.amount() / price
-        } else {
-            return Err(Error::Internal); // Must have either ratio or price
-        };
+        // Use effective conversion ratio (includes anti-dilution adjustments)
+        let conversion_ratio = bond.effective_conversion_ratio().ok_or(Error::Internal)?; // Must have either ratio or price
 
         // Map cashflows to tree steps
         let dt = time_to_maturity / steps as f64;
@@ -397,24 +391,24 @@ impl<'a> TsiveriotisZhangEngine<'a> {
 
                 // 2. Call (Issuer minimizes value)
                 if let Some(call_price) = self.valuator.call_price_at_step(step) {
-                    if final_total > call_price {
-                        // Issuer calls
-                        final_total = call_price;
-                        // If called, it's redeemed in cash
+                    // Issuer calls when continuation exceeds what they owe.
+                    // Holder chooses max(conversion_value, call_price).
+                    let val_if_called = if can_convert {
+                        conversion_val.max(call_price)
+                    } else {
+                        call_price
+                    };
 
-                        let val_if_called = if can_convert {
-                            conversion_val.max(call_price)
+                    if final_total > val_if_called {
+                        // Call constrains value
+                        if conversion_val >= val_if_called {
+                            // Holder converts (better than accepting call)
+                            final_total = conversion_val;
+                            final_cash = 0.0; // Equity delivery, no cash component
                         } else {
-                            call_price
-                        };
-
-                        if final_total > val_if_called {
+                            // Holder accepts call
                             final_total = val_if_called;
-                            if (final_total - conversion_val).abs() < 1e-12 {
-                                final_cash = 0.0;
-                            } else {
-                                final_cash = final_total; // Redeemed in cash
-                            }
+                            final_cash = val_if_called; // Cash redemption at call price
                         }
                     }
                 }
@@ -704,13 +698,7 @@ pub fn price_convertible_bond(
     let inputs = prepare_for_pricing(bond, market_context, as_of)?;
 
     if inputs.time_to_maturity <= 0.0 {
-        let conversion_ratio = if let Some(ratio) = bond.conversion.ratio {
-            ratio
-        } else if let Some(price) = bond.conversion.price {
-            bond.notional.amount() / price
-        } else {
-            return Err(Error::Internal);
-        };
+        let conversion_ratio = bond.effective_conversion_ratio().ok_or(Error::Internal)?;
 
         let maturity_coupon: f64 = inputs
             .cashflow_schedule
@@ -830,12 +818,9 @@ fn build_convertible_schedule(bond: &ConvertibleBond) -> Result<CashFlowSchedule
 
 /// Calculate convertible bond parity
 pub fn calculate_parity(bond: &ConvertibleBond, current_spot: f64) -> f64 {
-    let conversion_ratio = if let Some(ratio) = bond.conversion.ratio {
-        ratio
-    } else if let Some(price) = bond.conversion.price {
-        bond.notional.amount() / price
-    } else {
-        return 0.0;
+    let conversion_ratio = match bond.effective_conversion_ratio() {
+        Some(r) => r,
+        None => return 0.0,
     };
 
     (current_spot * conversion_ratio) / bond.notional.amount()

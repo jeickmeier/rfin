@@ -164,25 +164,32 @@ impl TermLoanDiscountingPricer {
     ) -> finstack_core::Result<Money> {
         use finstack_core::cashflow::CFKind;
 
+        // Compute settlement date (T+n, default T+1 per LSTA conventions)
+        let settlement_date = as_of + time::Duration::days(i64::from(loan.settlement_days));
+
         // Build full cashflow schedule
         let schedule = generate_cashflows(loan, market, as_of)?;
 
-        // Retrieve discount curve and discount flows to `as_of` using date-based DF mapping.
-        // This ensures valuation is anchored on the valuation date rather than the curve's
-        // internal base date.
+        // Retrieve discount curve and discount flows to settlement_date using date-based
+        // DF mapping. This ensures valuation is anchored on the settlement date rather
+        // than the trade date, consistent with leveraged loan market conventions.
         let disc = market.get_discount(loan.discount_curve_id.as_str())?;
 
         // Filter flows: exclude PIK (capitalized interest) and past flows from PV.
         // PIK increases outstanding and is repaid via principal redemption.
-        // Past flows (before as_of) have already settled and must not be discounted.
+        // Past flows (before settlement_date) have already settled and must not be discounted.
         let flows: Vec<(finstack_core::dates::Date, Money)> = schedule
             .flows
             .iter()
-            .filter(|cf| cf.kind != CFKind::PIK && cf.date >= as_of)
+            .filter(|cf| cf.kind != CFKind::PIK && cf.date >= settlement_date)
             .map(|cf| (cf.date, cf.amount))
             .collect();
 
-        crate::instruments::common_impl::discountable::npv_by_date(disc.as_ref(), as_of, &flows)
+        crate::instruments::common_impl::discountable::npv_by_date(
+            disc.as_ref(),
+            settlement_date,
+            &flows,
+        )
     }
 }
 

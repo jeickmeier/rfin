@@ -454,15 +454,10 @@ fn simulate_period(
                 .day_count
                 .year_fraction(period_start, pay_date, DayCountCtx::default())?;
 
-        // Include any previously deferred interest in the amount due
-        let deferred = state
-            .deferred_interest
-            .get(tranche_id_str)
-            .copied()
-            .unwrap_or(Money::new(0.0, state.base_ccy));
-
+        // Current-period interest due (deferred interest is tracked and accumulated
+        // separately — it is already reflected in the tranche balance via PIK accretion).
         let interest_due = Money::new(
-            current_balance.amount() * coupon_rate * accrual_factor + deferred.amount(),
+            current_balance.amount() * coupon_rate * accrual_factor,
             state.base_ccy,
         );
 
@@ -508,9 +503,15 @@ fn simulate_period(
         }
 
         // Update deferred interest: accumulate shortfall, clear if fully paid
-        state
+        let existing_deferred = state
             .deferred_interest
-            .insert(tranche_id_str.to_string(), interest_shortfall);
+            .get(tranche_id_str)
+            .copied()
+            .unwrap_or(Money::new(0.0, state.base_ccy));
+        state.deferred_interest.insert(
+            tranche_id_str.to_string(),
+            existing_deferred.checked_add(interest_shortfall)?,
+        );
 
         // Update tranche balance (PIK shortfall adds to balance)
         if let Some(current) = state.tranche_balances.get_mut(tranche_id_str) {
@@ -644,27 +645,30 @@ fn calculate_pool_flows(
 
         // M1: Scheduled amortization for amortizing assets
         let scheduled_principal = if state.pool_state.is_amortizing[i] && rate > 0.0 {
-            // Compute level payment using standard mortgage math:
-            // monthly_rate = annual_rate / 12
-            // n_months = remaining months to maturity
-            // level_payment = P * r_m / (1 - (1+r_m)^-n)
-            let monthly_rate = rate / 12.0;
+            // Compute level payment using period-native amortization math:
+            // period_rate = annual_rate * months_per_period / 12
+            // remaining_periods = remaining_months / months_per_period
+            // level_payment = P * r_p / (1 - (1+r_p)^-n_p)
             let remaining_days = (state.pool_state.maturities[i] - pay_date)
                 .whole_days()
                 .max(1) as f64;
             let remaining_months = (remaining_days / 30.44).round().max(1.0);
-            let denom = 1.0 - (1.0 + monthly_rate).powf(-remaining_months);
 
-            let period_payment = if denom.abs() > f64::EPSILON {
-                let monthly_payment = balance * monthly_rate / denom;
-                monthly_payment * months_per_period
+            let period_rate = rate * months_per_period / 12.0;
+            let remaining_periods_f64 = remaining_months / months_per_period;
+            let denom = 1.0 - (1.0 + period_rate).powf(-remaining_periods_f64);
+
+            let period_payment = if denom.abs() > 1e-12 && remaining_periods_f64 > 0.0 {
+                balance * period_rate / denom
             } else {
                 // If denominator is ~0 (very short term), return full balance
                 balance
             };
 
             // Scheduled principal = level payment - interest (for this period)
-            (period_payment - interest.amount()).max(0.0).min(balance)
+            (period_payment - balance * period_rate)
+                .max(0.0)
+                .min(balance)
         } else {
             0.0
         };

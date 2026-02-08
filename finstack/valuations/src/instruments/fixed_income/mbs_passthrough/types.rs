@@ -34,13 +34,18 @@ impl AgencyProgram {
     ///
     /// # Payment Delay Conventions
     ///
-    /// - FNMA: 25 days (Fannie Mae standard)
-    /// - FHLMC: 45 days (Freddie Mac Gold)
+    /// - FNMA: 55 days (Fannie Mae actual stated delay)
+    /// - FHLMC: 75 days (Freddie Mac actual stated delay)
     /// - GNMA: 45 days (Ginnie Mae II)
+    ///
+    /// Note: GNMA I has a 14-day delay while GNMA II has a 45-day delay.
+    /// This enum does not currently distinguish between them; the GNMA II
+    /// convention (45 days) is used as it represents the majority of
+    /// outstanding GNMA pools.
     pub fn payment_delay_days(&self) -> u32 {
         match self {
-            AgencyProgram::Fnma => 25,
-            AgencyProgram::Fhlmc => 45,
+            AgencyProgram::Fnma => 55,
+            AgencyProgram::Fhlmc => 75,
             AgencyProgram::Gnma => 45,
         }
     }
@@ -92,9 +97,9 @@ pub enum PoolType {
 ///
 /// Agency MBS have standardized payment delays between the accrual period end
 /// and the actual payment date:
-/// - FNMA: 25 days
-/// - FHLMC: 45 days
-/// - GNMA: 45 days
+/// - FNMA: 55 days
+/// - FHLMC: 75 days
+/// - GNMA: 45 days (GNMA II; GNMA I uses 14 days)
 ///
 /// # Examples
 ///
@@ -353,8 +358,8 @@ mod tests {
 
     #[test]
     fn test_agency_program_payment_delays() {
-        assert_eq!(AgencyProgram::Fnma.payment_delay_days(), 25);
-        assert_eq!(AgencyProgram::Fhlmc.payment_delay_days(), 45);
+        assert_eq!(AgencyProgram::Fnma.payment_delay_days(), 55);
+        assert_eq!(AgencyProgram::Fhlmc.payment_delay_days(), 75);
         assert_eq!(AgencyProgram::Gnma.payment_delay_days(), 45);
     }
 
@@ -379,7 +384,7 @@ mod tests {
     fn test_effective_payment_delay() {
         let mbs = AgencyMbsPassthrough::example();
         // Default should use agency standard
-        assert_eq!(mbs.effective_payment_delay(), 25);
+        assert_eq!(mbs.effective_payment_delay(), 55);
 
         // Custom delay should override
         let mut mbs_custom = mbs.clone();

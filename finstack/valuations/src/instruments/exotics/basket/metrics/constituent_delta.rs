@@ -139,11 +139,16 @@ fn bump_and_measure_delta(
         }
     };
 
-    // Delta = (PV_bumped - PV_base) / bump_size
-    // bump_size is the absolute change in price, so we divide by (bumped_price - current_price)
+    // Constituent delta: sensitivity of basket PV to a 1% move in constituent price.
+    //
+    // Formula: delta = (PV_bumped - PV_base) / (price * 1%) * price
+    //        = (PV_bumped - PV_base) / 1%
+    //
+    // Units: currency units per 1% move in the constituent price.
+    // Example: delta = 5.0 means a 1% price increase adds 5.0 to basket PV.
     let bump_size = current_price * PRICE_BUMP_PCT;
     let delta = if bump_size.abs() > 1e-10 {
-        (pv_bumped - base_pv) / bump_size * current_price // Scale to per 1% of price
+        (pv_bumped - base_pv) / PRICE_BUMP_PCT
     } else {
         0.0
     };

@@ -1,4 +1,12 @@
 //! FX barrier option instrument definition.
+//!
+//! # Note on Strike/Barrier Representation
+//!
+//! This module uses `Money` for strike and barrier fields, which carries both
+//! a numeric value and a currency tag. Other FX option modules (`fx_option`,
+//! `fx_digital_option`, `fx_touch_option`) use plain `f64`. A future
+//! refactoring should converge on a single representation across all FX
+//! option types for API consistency.
 
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::exotics::barrier_option::types::BarrierType;

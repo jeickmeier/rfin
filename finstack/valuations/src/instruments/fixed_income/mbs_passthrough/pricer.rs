@@ -63,6 +63,13 @@ pub fn generate_cashflows(
     let mut cashflows = Vec::new();
     let mut balance = mbs.current_face.amount();
 
+    // Validate WAM
+    if mbs.wam == 0 {
+        return Err(finstack_core::Error::Validation(
+            "WAM must be positive".to_string(),
+        ));
+    }
+
     // Start from the first of next month after as_of
     let mut period_start = Date::from_calendar_date(as_of.year(), as_of.month(), 1)
         .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
@@ -103,26 +110,31 @@ pub fn generate_cashflows(
 
         // Get SMM for this period
         let seasoning = mbs.seasoning_months(period_end);
-        let smm = mbs.prepayment_model.smm(seasoning);
+        let smm = mbs.prepayment_model.smm(seasoning).min(0.9999); // Cap to prevent full balance prepayment in single period
 
         // Calculate scheduled principal payment (amortization)
         let remaining_months = mbs.wam.saturating_sub(seasoning);
-        let scheduled_principal = if remaining_months > 0 && monthly_mortgage_rate > 0.0 {
+        // Validate seasoning doesn't exceed WAM — treat as final period
+        let remaining_months = if remaining_months == 0 {
+            1
+        } else {
+            remaining_months
+        };
+        let scheduled_principal = if remaining_months == 1 {
+            balance
+        } else if monthly_mortgage_rate > 1e-12 {
             // Standard mortgage amortization formula
             let factor = (1.0 + monthly_mortgage_rate).powi(remaining_months as i32);
             let payment = balance * monthly_mortgage_rate * factor / (factor - 1.0);
             let interest_component = balance * monthly_mortgage_rate;
             (payment - interest_component).max(0.0).min(balance)
-        } else if remaining_months == 1 {
-            balance
         } else {
-            // Simple straight-line if no rate
-            balance / remaining_months.max(1) as f64
+            // Simple straight-line for zero or near-zero rate
+            balance / remaining_months as f64
         };
 
-        // Calculate prepayment (SMM applied to remaining balance after scheduled)
-        let balance_after_scheduled = balance - scheduled_principal;
-        let prepayment = balance_after_scheduled * smm;
+        // Prepayment: SMM applied to beginning-of-period balance (Fabozzi convention)
+        let prepayment = balance * smm;
 
         // Calculate interest (pass-through rate on beginning balance)
         let interest = balance * monthly_rate;

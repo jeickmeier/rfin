@@ -329,15 +329,15 @@ impl CommodityForward {
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 };
 
-                // Calculate time to settlement for cost-of-carry
-                use finstack_core::dates::{DayCount, DayCountCtx};
-                let t = DayCount::Act365F
-                    .year_fraction(as_of, self.settlement_date, DayCountCtx::default())
-                    .unwrap_or(0.0)
-                    .max(0.0);
-
                 // Try to get discount curve for carry rate
+                // Use the curve's own day count for consistency with zero rate lookup
                 if let Ok(disc) = market.get_discount(self.discount_curve_id.as_str()) {
+                    use finstack_core::dates::DayCountCtx;
+                    let curve_dc = disc.day_count();
+                    let t = curve_dc
+                        .year_fraction(as_of, self.settlement_date, DayCountCtx::default())
+                        .unwrap_or(0.0)
+                        .max(0.0);
                     let rate = disc.zero(t);
                     return Ok(spot * (rate * t).exp());
                 }
@@ -512,6 +512,10 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
 
     fn effective_start_date(&self) -> Option<Date> {
         None
+    }
+
+    fn expiry(&self) -> Option<Date> {
+        Some(self.settlement_date)
     }
 }
 

@@ -29,6 +29,13 @@ use finstack_core::Result;
 /// The convenience yield (cost-of-carry) is implied from the forward/spot ratio:
 /// `q = r - ln(F/S)/T`
 ///
+/// # Bermudan Exercise Warning
+///
+/// **Bermudan exercise is currently approximated as American** (continuous early exercise).
+/// This overestimates the option value because American exercise allows exercise at
+/// every tree node, while Bermudan restricts exercise to specific dates only.
+/// The approximation error grows with fewer exercise windows.
+///
 /// # Forward Price Retrieval
 ///
 /// Forward prices are retrieved from a `PriceCurve` (not a `ForwardCurve`).
@@ -274,7 +281,9 @@ struct CommodityOptionInputs {
 }
 
 fn implied_carry(spot: f64, forward: f64, r: f64, t: f64) -> f64 {
-    if t <= 0.0 || spot <= 0.0 || forward <= 0.0 {
+    // Guard against near-zero time: ln(F/S)/t amplifies noise when t is tiny.
+    // For t < 1e-5 (~5 seconds), the carry estimate is unreliable.
+    if t < 1e-5 || spot <= 0.0 || forward <= 0.0 {
         return r;
     }
     let carry = (forward / spot).ln() / t;
@@ -393,6 +402,12 @@ impl Instrument for CommodityOption {
                 self.option_type,
             ),
             ExerciseStyle::American | ExerciseStyle::Bermudan => {
+                // NOTE: Bermudan exercise is approximated as American (continuous exercise).
+                // This overestimates the option value because American exercise allows
+                // exercise at every tree node, while Bermudan restricts exercise to
+                // specific dates only. The difference can be material for options with
+                // infrequent exercise windows. A proper Bermudan implementation would
+                // restrict early exercise in the binomial tree to the specified dates.
                 let steps = self.pricing_overrides.tree_steps.unwrap_or(201);
                 let tree = BinomialTree::leisen_reimer_odd(steps);
                 let params = OptionMarketParams {

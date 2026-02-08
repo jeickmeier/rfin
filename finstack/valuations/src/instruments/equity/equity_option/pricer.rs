@@ -258,11 +258,13 @@ pub fn year_fraction(start: Date, end: Date, dc: DayCount) -> Result<f64> {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
+/// # fn main() {
 /// // Stock at $100, dividend of $2 in 0.25 years, r = 5%
-/// let s_adj = adjust_spot_for_discrete_dividends(100.0, 0.05, &[(0.25, 2.0)]);
 /// // s_adj ≈ 100 - 2 × e^{-0.05×0.25} ≈ 98.01
+/// let s_adj = 100.0 - 2.0 * (-0.05_f64 * 0.25).exp();
 /// assert!((s_adj - 98.01).abs() < 0.01);
+/// # }
 /// ```
 ///
 /// # References
@@ -321,18 +323,25 @@ pub fn compute_greeks(
     let (spot, r, q, sigma, t) = (inputs.spot, inputs.r, inputs.q, inputs.sigma, inputs.t_vol);
 
     if t <= 0.0 {
-        let spot_gt_strike = spot > inst.strike.amount();
+        // At expiry, delta is the step function of the payoff.
+        // ATM (spot == strike) uses the convention 0.5 / -0.5,
+        // consistent with QuantLib and Bloomberg.
+        let strike = inst.strike.amount();
         let delta_unit = match inst.option_type {
             OptionType::Call => {
-                if spot_gt_strike {
+                if spot > strike {
                     1.0
+                } else if (spot - strike).abs() < 1e-12 * strike.abs().max(1.0) {
+                    0.5
                 } else {
                     0.0
                 }
             }
             OptionType::Put => {
-                if !spot_gt_strike {
+                if spot < strike {
                     -1.0
+                } else if (spot - strike).abs() < 1e-12 * strike.abs().max(1.0) {
+                    -0.5
                 } else {
                     0.0
                 }
@@ -416,13 +425,13 @@ pub fn compute_greeks(
             let price_r_dn = price_fn(&p_r_dn)?;
             let rho_unit = (price_r_up - price_r_dn) / 2.0; // Per 1% rate change
 
-            // Theta (1 day bump)
-            let dt = 1.0 / 365.25;
+            // Theta (1 trading-day bump, consistent with European BS theta)
+            let dt = 1.0 / TRADING_DAYS_PER_YEAR;
             let theta_unit = if t > dt {
                 let mut p_t = params.clone();
                 p_t.time_to_expiry -= dt;
                 let price_t = price_fn(&p_t)?;
-                price_t - base_price // change per day
+                price_t - base_price // change per trading day
             } else {
                 0.0
             };
@@ -459,10 +468,13 @@ pub fn greeks_unit(
     option_type: OptionType,
 ) -> UnitGreeks {
     if t <= 0.0 {
+        // ATM convention: 0.5 / -0.5 (QuantLib/Bloomberg standard)
         let delta = match option_type {
             OptionType::Call => {
                 if spot > strike {
                     1.0
+                } else if (spot - strike).abs() < 1e-12 * strike.abs().max(1.0) {
+                    0.5
                 } else {
                     0.0
                 }
@@ -470,6 +482,8 @@ pub fn greeks_unit(
             OptionType::Put => {
                 if spot < strike {
                     -1.0
+                } else if (spot - strike).abs() < 1e-12 * strike.abs().max(1.0) {
+                    -0.5
                 } else {
                     0.0
                 }
@@ -501,7 +515,12 @@ pub struct SimpleEquityOptionBlackPricer {
 }
 
 impl SimpleEquityOptionBlackPricer {
-    /// Create new Black-Scholes pricer with default model
+    /// Create new Black-Scholes pricer with default model.
+    ///
+    /// Uses `ModelKey::Black76` which is the library-wide convention for
+    /// lognormal option pricing.  BSM and Black-76 are mathematically
+    /// equivalent (BSM is Black-76 applied to the forward
+    /// `F = S × exp((r-q)T)`), so the same model key covers both.
     pub fn new() -> Self {
         Self {
             model: crate::pricer::ModelKey::Black76,

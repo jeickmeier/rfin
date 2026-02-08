@@ -310,11 +310,15 @@ impl Basket {
     }
 
     /// Validate basket consistency (weights sum to ~1.0, currency consistency, etc.)
+    ///
+    /// Weight tolerance is 10bp (0.001), which is tighter than the common 1%
+    /// tolerance to catch misconfigured baskets early. A basket with weights
+    /// summing to 0.999 or 1.001 is accepted; 0.99 or 1.01 is rejected.
     pub fn validate(&self) -> Result<()> {
-        // Check weight sum
+        // Check weight sum (10bp tolerance)
         let total_weight: f64 = self.constituents.iter().map(|c| c.weight).sum();
         validation::require_or(
-            (total_weight - 1.0).abs() <= 0.01,
+            (total_weight - 1.0).abs() <= 0.001,
             finstack_core::InputError::Invalid,
         )?;
 
@@ -443,8 +447,16 @@ mod tests {
         // Should pass with weights summing to 1.0
         assert!(basket.validate().is_ok());
 
-        // Should fail with weights not summing to 1.0
+        // Should fail with weights not summing to ~1.0 (10bp tolerance)
         basket.constituents[0].weight = 0.8;
+        assert!(basket.validate().is_err());
+
+        // Edge: just within 10bp tolerance should pass
+        basket.constituents[0].weight = 0.6005;
+        assert!(basket.validate().is_ok());
+
+        // Edge: just outside 10bp tolerance should fail
+        basket.constituents[0].weight = 0.602;
         assert!(basket.validate().is_err());
     }
 }

@@ -30,7 +30,7 @@ pub struct CarryResult {
 /// # Formula
 ///
 /// ```text
-/// implied_rate = (drop + coupon - paydown) / price × (365 / days)
+/// implied_rate = (drop + coupon - paydown) / price × (360 / days)
 /// ```
 ///
 /// # Arguments
@@ -45,23 +45,41 @@ pub fn implied_financing_rate(roll: &DollarRoll, prepay_rate: f64) -> Result<Car
     let days = roll.settlement_days()?;
     let drop = roll.drop();
 
-    // Estimate coupon income during roll period (roughly 1 month)
-    // Monthly coupon = notional × coupon / 12
-    let monthly_coupon = roll.coupon / 12.0;
-    let coupon_income = monthly_coupon * 100.0; // Per $100 face
+    // Calculate coupon income using actual days and ACT/360 day count (SIFMA convention)
+    let coupon_income = roll.coupon * 100.0 * (days as f64 / 360.0);
 
-    // Estimate principal paydown (scheduled + prepay)
-    // Simplified: use SMM applied to balance
-    let principal_paydown = prepay_rate * 100.0; // Per $100 face
+    // Estimate principal paydown (scheduled + prepay) per $100 face
+    // Scheduled principal from level-pay mortgage amortization
+    let monthly_rate = roll.coupon / 12.0; // Approximate using pass-through rate
+    let wam = match roll.term {
+        crate::instruments::fixed_income::tba::TbaTerm::ThirtyYear => 360u32,
+        crate::instruments::fixed_income::tba::TbaTerm::TwentyYear => 240,
+        crate::instruments::fixed_income::tba::TbaTerm::FifteenYear => 180,
+    };
+
+    let scheduled_principal = if monthly_rate > 1e-12 && wam > 0 {
+        let factor = (1.0 + monthly_rate).powi(wam as i32);
+        let monthly_payment = 100.0 * monthly_rate * factor / (factor - 1.0);
+        let interest = 100.0 * monthly_rate;
+        (monthly_payment - interest).max(0.0)
+    } else {
+        100.0 / wam as f64
+    };
+
+    // Prepayment on post-scheduled balance (SMM applied to beginning balance per Fabozzi)
+    let prepayment = 100.0 * prepay_rate;
+    let principal_paydown = scheduled_principal + prepayment;
 
     // Net benefit of rolling = drop + coupon - paydown
-    // If positive, implies financing is cheaper than repo
     let net_benefit = drop + coupon_income - principal_paydown;
 
-    // Annualize the rate
-    // implied_rate = net_benefit / price × (365 / days)
+    // Annualize using ACT/360 (SIFMA money market convention)
     let price = roll.front_price;
-    let implied_rate = (net_benefit / price) * (365.0 / days as f64);
+    let implied_rate = if days > 0 {
+        (net_benefit / price) * (360.0 / days as f64)
+    } else {
+        0.0
+    };
 
     Ok(CarryResult {
         implied_rate,
@@ -113,9 +131,9 @@ pub fn break_even_drop(
     principal_paydown: f64,
     days: i64,
 ) -> f64 {
-    // Solve: target_rate = (drop + coupon - paydown) / price × (365 / days)
-    // drop = target_rate × price × days / 365 - coupon + paydown
-    let required_net = target_rate * front_price * (days as f64 / 365.0);
+    // Solve: target_rate = (drop + coupon - paydown) / price × (360 / days)
+    // drop = target_rate × price × days / 360 - coupon + paydown
+    let required_net = target_rate * front_price * (days as f64 / 360.0);
     required_net - coupon_income + principal_paydown
 }
 

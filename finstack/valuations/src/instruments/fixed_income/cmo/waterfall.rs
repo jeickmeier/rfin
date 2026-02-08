@@ -97,6 +97,16 @@ pub fn execute_waterfall(
 
     let mut principal_allocations: HashMap<String, f64> = HashMap::default();
 
+    // Handle PO strips: they receive all principal before other tranches
+    for tranche in &waterfall.tranches {
+        if tranche.tranche_type == CmoTrancheType::PrincipalOnly && remaining_principal > 0.0 {
+            let po_alloc = allocate_po_cashflow(tranche, remaining_principal);
+            let actual_alloc = po_alloc.min(tranche.current_face.amount());
+            principal_allocations.insert(tranche.id.clone(), actual_alloc);
+            remaining_principal -= actual_alloc;
+        }
+    }
+
     for priority in priorities {
         if remaining_principal <= 0.0 {
             break;
@@ -173,8 +183,9 @@ fn allocate_principal_to_group(
         .iter()
         .partition(|t| t.tranche_type == CmoTrancheType::Pac);
 
-    // PAC tranches get their scheduled amount first (up to collar limits)
-    // For simplicity, we assume PAC gets its pro-rata share within collar
+    // PAC tranches get their scheduled amount (from pac_schedule if available)
+    // Since we don't have direct access to the schedule here, PAC gets balance-limited share
+    // The caller should use allocate_pac_support() for proper PAC handling
     for tranche in &pac_tranches {
         if remaining <= 0.0 {
             break;
@@ -183,7 +194,8 @@ fn allocate_principal_to_group(
         if balance <= 0.0 {
             continue;
         }
-        // Simplified: PAC gets proportional share
+        // PAC gets a proportional share, capped by balance
+        // For proper PAC scheduling, use allocate_pac_support() directly
         let allocated = balance.min(remaining);
         allocations.push((tranche.id.clone(), allocated));
         remaining -= allocated;

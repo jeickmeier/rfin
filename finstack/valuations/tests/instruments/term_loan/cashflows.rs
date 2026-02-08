@@ -200,15 +200,20 @@ fn test_over_amortization_is_capped() {
         .sum();
 
     // Amort amounts are positive from holder view (principal returned),
-    // so total should be approximately the notional (capped tightly)
+    // so total should not exceed the notional.
     assert!(
         total_amort <= 1_000_000.0 + 1e-6,
         "Total amort ({total_amort}) should not exceed notional (1,000,000)"
     );
-    // The 50%-per-quarter schedule should fully amortize the notional
-    // (first two payments exhaust it, remaining two are capped to zero)
+    // With PercentPerPeriod applying to current outstanding (geometric decay):
+    //   Q1: 1,000,000 × 50% = 500,000
+    //   Q2:   500,000 × 50% = 250,000
+    //   Q3:   250,000 × 50% = 125,000
+    //   Q4:   125,000 × 50% =  62,500
+    //   Total = 937,500
+    let expected_total = 1_000_000.0 * (1.0 - 0.5_f64.powi(4)); // 937,500
     assert!(
-        total_amort > 999_999.0,
-        "Total amort ({total_amort}) should be approximately equal to the notional (1,000,000)"
+        (total_amort - expected_total).abs() < 1.0,
+        "Total amort ({total_amort}) should be approximately {expected_total} (geometric decay)"
     );
 }

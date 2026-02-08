@@ -328,18 +328,6 @@ impl CliquetOptionMcPricer {
             CliquetPayoffType::Multiplicative => McPayoffType::Multiplicative,
         };
 
-        let payoff = CliquetCallPayoff::new(
-            reset_times,
-            inst.local_cap,
-            inst.local_floor,
-            inst.global_cap,
-            inst.global_floor,
-            inst.notional.amount(),
-            inst.notional.currency(),
-            initial_spot,
-            payoff_type,
-        );
-
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
         use crate::instruments::common_impl::models::monte_carlo::seed;
@@ -360,8 +348,44 @@ impl CliquetOptionMcPricer {
             self.config.seed
         };
 
-        // Setup McEngine directly
-        let time_grid = TimeGrid::uniform(t, num_steps)?;
+        // Build time grid that includes reset dates to ensure exact period boundaries.
+        // Without this, the MC simulation may not visit exact reset dates, leading to
+        // interpolation error in the piecewise process and slightly wrong period returns.
+        let mut grid_times = Vec::with_capacity(num_steps + reset_times.len() + 1);
+        grid_times.push(0.0);
+
+        // Add uniform steps
+        let dt_grid = t / num_steps as f64;
+        for i in 1..=num_steps {
+            grid_times.push(i as f64 * dt_grid);
+        }
+
+        // Add reset times (ensure we visit exact dates)
+        for &reset_t in &reset_times {
+            if reset_t > 1e-10 && reset_t <= t {
+                grid_times.push(reset_t);
+            }
+        }
+
+        // Sort and dedup (prefer reset times when merging nearby points)
+        grid_times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        grid_times.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
+
+        let time_grid = TimeGrid::from_times(grid_times)?;
+
+        // Build payoff (consumes reset_times via move)
+        let payoff = CliquetCallPayoff::new(
+            reset_times,
+            inst.local_cap,
+            inst.local_floor,
+            inst.global_cap,
+            inst.global_floor,
+            inst.notional.amount(),
+            inst.notional.currency(),
+            initial_spot,
+            payoff_type,
+        );
+
         let engine_config = McEngineConfig {
             num_paths: self.config.num_paths,
             seed,

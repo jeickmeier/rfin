@@ -489,6 +489,7 @@ pub fn standard_registry() -> &'static MetricRegistry {
         crate::instruments::fx::fx_touch_option::metrics::register_fx_touch_option_metrics(
             &mut registry,
         );
+        #[cfg(feature = "mc")]
         crate::instruments::exotics::lookback_option::metrics::register_lookback_option_metrics(
             &mut registry,
         );

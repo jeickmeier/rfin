@@ -132,6 +132,14 @@ pub struct AgencyTba {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub trade_date: Option<Date>,
+    /// Expected pool factor for valuation.
+    /// Defaults to 1.0 (newly issued) if not specified.
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub pool_factor: Option<f64>,
     /// Optional assumed pool for valuation.
     /// If not provided, generic pool characteristics are assumed.
     #[builder(optional)]
@@ -178,14 +186,14 @@ impl AgencyTba {
         self
     }
 
-    /// Get the settlement date (typically 3rd Wednesday of month).
+    /// Get the settlement date (SIFMA 3rd Wednesday of month).
     pub fn get_settlement_date(&self) -> finstack_core::Result<Date> {
-        // SIFMA TBA settlement is typically the notification date + 2 business days
-        // For simplicity, use mid-month as approximate settlement
         let month = time::Month::try_from(self.settlement_month)
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-        Date::from_calendar_date(self.settlement_year, month, 15)
-            .map_err(|e| finstack_core::Error::Validation(e.to_string()))
+        Ok(finstack_core::dates::sifma_settlement_date(
+            month,
+            self.settlement_year,
+        ))
     }
 
     /// Get TBA identifier string (e.g., "FN30 4.0 Mar24").
