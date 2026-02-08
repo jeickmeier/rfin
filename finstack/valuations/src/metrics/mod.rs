@@ -393,14 +393,14 @@ pub fn standard_registry() -> &'static MetricRegistry {
         registry.register_metric(
             MetricId::BucketedCs01,
             std::sync::Arc::new(GenericBucketedCs01::<
-                crate::instruments::credit_derivatives::cds_tranche::CdsTranche,
+                crate::instruments::credit_derivatives::cds_tranche::CDSTranche,
             >::default()),
             &[crate::pricer::InstrumentType::CDSTranche],
         );
         registry.register_metric(
             MetricId::BucketedCs01,
             std::sync::Arc::new(GenericBucketedCs01::<
-                crate::instruments::credit_derivatives::cds_option::CdsOption,
+                crate::instruments::credit_derivatives::cds_option::CDSOption,
             >::default()),
             &[crate::pricer::InstrumentType::CDSOption],
         );

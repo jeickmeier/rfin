@@ -5,7 +5,7 @@
 //! - `common`: Shared fixtures and utilities for DRY test setup
 //! - Unit tests: Individual component testing
 //!   - `test_parameters`: Builder and parameter validation
-//!   - `test_types`: CdsOption struct construction and methods
+//!   - `test_types`: CDSOption struct construction and methods
 //! - Integration tests: End-to-end workflows
 //!   - `test_pricing`: Full pricing scenarios
 //!   - `test_greeks`: Greeks calculations and sensitivities

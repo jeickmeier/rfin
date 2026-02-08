@@ -14,20 +14,20 @@ use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
 use crate::instruments::credit_derivatives::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
-use crate::instruments::credit_derivatives::cds_option::CdsOption;
+use crate::instruments::credit_derivatives::cds_option::CDSOption;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::Result;
 use rust_decimal::Decimal;
 
-/// Pricing engine for `CdsOption`.
+/// Pricing engine for `CDSOption`.
 ///
 /// Stateless wrapper that sources required market inputs and delegates
 /// to the instrument's pricing math for the Black-on-spreads formula.
 /// Configuration for CDS option pricing
 #[derive(Debug, Clone)]
-pub struct CdsOptionPricerConfig {
+pub struct CDSOptionPricerConfig {
     /// Whether to use ISDA standard RPV01 schedule
     pub use_isda_schedule_rpv01: bool,
     /// Basis points per unit for spread conversion
@@ -38,7 +38,7 @@ pub struct CdsOptionPricerConfig {
     pub iv_initial_guess: f64,
 }
 
-impl Default for CdsOptionPricerConfig {
+impl Default for CDSOptionPricerConfig {
     fn default() -> Self {
         Self {
             use_isda_schedule_rpv01: true,
@@ -51,15 +51,15 @@ impl Default for CdsOptionPricerConfig {
 
 /// CDS option pricer implementing Black76 model on CDS spreads.
 #[derive(Default)]
-pub struct CdsOptionPricer {
-    config: CdsOptionPricerConfig,
+pub struct CDSOptionPricer {
+    config: CDSOptionPricerConfig,
 }
 
-impl CdsOptionPricer {
+impl CDSOptionPricer {
     /// Price the CDS option and return its present value as of the discount curve base date.
     pub fn npv(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<Money> {
@@ -105,7 +105,7 @@ impl CdsOptionPricer {
     /// Convenience method: compute the forward spread in bp at the underlying CDS maturity.
     pub fn forward_spread_bp(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
@@ -119,7 +119,7 @@ impl CdsOptionPricer {
     /// Returns the Present Value (at `as_of`) of the annuity.
     pub fn risky_annuity(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
@@ -129,7 +129,7 @@ impl CdsOptionPricer {
     }
 }
 
-fn synthetic_underlying_cds(option: &CdsOption) -> Result<CreditDefaultSwap> {
+fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
     let spread_bp = Decimal::try_from(option.strike_spread_bp).map_err(|e| {
         finstack_core::Error::Validation(format!(
             "strike_spread_bp {} cannot be represented as Decimal: {}",
@@ -150,10 +150,10 @@ fn synthetic_underlying_cds(option: &CdsOption) -> Result<CreditDefaultSwap> {
     )
 }
 
-impl CdsOptionPricer {
+impl CDSOptionPricer {
     fn forward_spread_from_pricer(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         disc: &finstack_core::market_data::term_structures::DiscountCurve,
         surv: &finstack_core::market_data::term_structures::HazardCurve,
         as_of: finstack_core::dates::Date,
@@ -179,7 +179,7 @@ impl CdsOptionPricer {
     /// is returned as zero (the forward is effectively at or below zero).
     pub fn credit_option_price(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         forward_spread_bp: f64,
         risky_annuity: f64,
         sigma: f64,
@@ -256,7 +256,7 @@ impl CdsOptionPricer {
     /// Note: Requires `risky_annuity` (PV of annuity) to scale the result properly.
     pub fn delta(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         forward_spread_bp: f64,
         risky_annuity: f64,
         sigma: f64,
@@ -307,7 +307,7 @@ impl CdsOptionPricer {
     /// numerical calculation (denominator approaches zero).
     pub fn gamma(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         forward_spread_bp: f64,
         risky_annuity: f64,
         sigma: f64,
@@ -337,7 +337,7 @@ impl CdsOptionPricer {
     /// Returns 0.0 when time-to-expiry is too small for stable calculation.
     pub fn vega(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         forward_spread_bp: f64,
         risky_annuity: f64,
         sigma: f64,
@@ -372,7 +372,7 @@ impl CdsOptionPricer {
     #[allow(dead_code)]
     pub fn delta_per_bp(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         forward_spread_bp: f64,
         risky_annuity: f64,
         sigma: f64,
@@ -387,7 +387,7 @@ impl CdsOptionPricer {
     #[allow(dead_code)]
     pub fn gamma_per_bp(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         forward_spread_bp: f64,
         risky_annuity: f64,
         sigma: f64,
@@ -416,7 +416,7 @@ impl CdsOptionPricer {
     /// The dollar value change per day (typically negative for long positions).
     pub fn theta_finite_diff(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
@@ -451,7 +451,7 @@ impl CdsOptionPricer {
 
     fn risky_annuity_from_pricer(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         disc: &finstack_core::market_data::term_structures::DiscountCurve,
         surv: &finstack_core::market_data::term_structures::HazardCurve,
         _curves: &MarketContext,
@@ -494,7 +494,7 @@ impl CdsOptionPricer {
     /// Returns an error if `target_price` is negative (options have non-negative value).
     pub fn implied_vol(
         &self,
-        option: &CdsOption,
+        option: &CDSOption,
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
         target_price: f64,
@@ -565,11 +565,11 @@ impl CdsOptionPricer {
 // ========================= REGISTRY PRICER =========================
 
 /// Registry pricer for CDS Option using Black76 model
-pub struct SimpleCdsOptionBlackPricer {
+pub struct SimpleCDSOptionBlackPricer {
     model_key: crate::pricer::ModelKey,
 }
 
-impl SimpleCdsOptionBlackPricer {
+impl SimpleCDSOptionBlackPricer {
     /// Create a new CDS option pricer with default Black76 model
     pub fn new() -> Self {
         Self::with_model(crate::pricer::ModelKey::Black76)
@@ -581,13 +581,13 @@ impl SimpleCdsOptionBlackPricer {
     }
 }
 
-impl Default for SimpleCdsOptionBlackPricer {
+impl Default for SimpleCDSOptionBlackPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
+impl crate::pricer::Pricer for SimpleCDSOptionBlackPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSOption, self.model_key)
     }
@@ -603,7 +603,7 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
         // Type-safe downcasting
         let cds_option = instrument
             .as_any()
-            .downcast_ref::<crate::instruments::credit_derivatives::cds_option::CdsOption>()
+            .downcast_ref::<crate::instruments::credit_derivatives::cds_option::CDSOption>()
             .ok_or_else(|| {
                 crate::pricer::PricingError::type_mismatch(
                     crate::pricer::InstrumentType::CDSOption,
@@ -613,7 +613,7 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
 
         // Use the provided as_of date for valuation
         // Compute present value using the engine
-        let pv = CdsOptionPricer::default()
+        let pv = CDSOptionPricer::default()
             .npv(cds_option, market, as_of)
             .map_err(|e| {
                 crate::pricer::PricingError::model_failure_with_context(

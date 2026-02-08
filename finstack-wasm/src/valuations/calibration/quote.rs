@@ -6,7 +6,7 @@ use finstack_valuations::market::conventions::ids::{
     CdsConventionKey, CdsDocClause, IndexId, InflationSwapConventionId, SwaptionConventionId,
 };
 use finstack_valuations::market::quotes::cds::CdsQuote;
-use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
@@ -217,30 +217,30 @@ impl JsCreditQuote {
 }
 
 // =============================================================================
-// CdsTrancheQuote
+// CDSTrancheQuote
 // =============================================================================
 
 /// CDS Index Tranche market quote.
 #[wasm_bindgen(js_name = CdsTrancheQuote)]
 #[derive(Clone, Debug)]
-pub struct JsCdsTrancheQuote {
-    inner: CdsTrancheQuote,
+pub struct JsCDSTrancheQuote {
+    inner: CDSTrancheQuote,
 }
 
-impl JsCdsTrancheQuote {
+impl JsCDSTrancheQuote {
     #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: CdsTrancheQuote) -> Self {
+    pub(crate) fn from_inner(inner: CDSTrancheQuote) -> Self {
         Self { inner }
     }
 
     #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> CdsTrancheQuote {
+    pub(crate) fn inner(&self) -> CDSTrancheQuote {
         self.inner.clone()
     }
 }
 
-#[wasm_bindgen(js_class = CdsTrancheQuote)]
-impl JsCdsTrancheQuote {
+#[wasm_bindgen(js_class = CDSTrancheQuote)]
+impl JsCDSTrancheQuote {
     /// Create a CDS tranche quote.
     ///
     /// @param {string} id - Quote identifier
@@ -252,7 +252,7 @@ impl JsCdsTrancheQuote {
     /// @param {number} runningSpreadBp - Running spread in basis points
     /// @param {string} currency - Currency code
     /// @param {string} docClause - CDS doc clause
-    /// @returns {JsCdsTrancheQuote} CDS tranche quote
+    /// @returns {JsCDSTrancheQuote} CDS tranche quote
     #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen(constructor)]
     pub fn new(
@@ -265,7 +265,7 @@ impl JsCdsTrancheQuote {
         running_spread_bp: f64,
         currency: &str,
         doc_clause: &str,
-    ) -> Result<JsCdsTrancheQuote, JsValue> {
+    ) -> Result<JsCDSTrancheQuote, JsValue> {
         use finstack_core::currency::Currency;
 
         let ccy: Currency = currency
@@ -276,7 +276,7 @@ impl JsCdsTrancheQuote {
             .map_err(|e: String| JsValue::from_str(&e))?;
 
         Ok(Self {
-            inner: CdsTrancheQuote::CDSTranche {
+            inner: CDSTrancheQuote::CDSTranche {
                 id: QuoteId::new(id),
                 index: index.to_string(),
                 attachment,
@@ -300,7 +300,7 @@ impl JsCdsTrancheQuote {
 
     /// Bump the running spread by a decimal amount.
     #[wasm_bindgen(js_name = bumpSpreadDecimal)]
-    pub fn bump_spread_decimal(&self, bump_decimal: f64) -> JsCdsTrancheQuote {
+    pub fn bump_spread_decimal(&self, bump_decimal: f64) -> JsCDSTrancheQuote {
         Self {
             inner: self.inner.bump_spread_decimal(bump_decimal),
         }
@@ -308,7 +308,7 @@ impl JsCdsTrancheQuote {
 
     /// Bump the running spread by basis points.
     #[wasm_bindgen(js_name = bumpSpreadBp)]
-    pub fn bump_spread_bp(&self, bump_bp: f64) -> JsCdsTrancheQuote {
+    pub fn bump_spread_bp(&self, bump_bp: f64) -> JsCDSTrancheQuote {
         Self {
             inner: self.inner.bump_spread_bp(bump_bp),
         }
@@ -317,13 +317,13 @@ impl JsCdsTrancheQuote {
     /// Convert to MarketQuote.
     #[wasm_bindgen(js_name = toMarketQuote)]
     pub fn to_market_quote(&self) -> JsMarketQuote {
-        JsMarketQuote::from_inner(MarketQuote::CdsTranche(self.inner.clone()))
+        JsMarketQuote::from_inner(MarketQuote::CDSTranche(self.inner.clone()))
     }
 
     /// Create from JSON representation.
     #[wasm_bindgen(js_name = fromJSON)]
-    pub fn from_json(value: JsValue) -> Result<JsCdsTrancheQuote, JsValue> {
-        from_js_value(value).map(JsCdsTrancheQuote::from_inner)
+    pub fn from_json(value: JsValue) -> Result<JsCDSTrancheQuote, JsValue> {
+        from_js_value(value).map(JsCDSTrancheQuote::from_inner)
     }
 
     /// Convert to JSON representation.
@@ -478,7 +478,7 @@ impl JsMarketQuote {
         match &self.inner {
             MarketQuote::Rates(_) => "rates".to_string(),
             MarketQuote::Cds(_) => "cds".to_string(),
-            MarketQuote::CdsTranche(_) => "cds_tranche".to_string(),
+            MarketQuote::CDSTranche(_) => "cds_tranche".to_string(),
             MarketQuote::Vol(_) => "vol".to_string(),
             MarketQuote::Inflation(_) => "inflation".to_string(),
         }

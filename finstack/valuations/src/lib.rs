@@ -207,8 +207,8 @@
 //! ## Credit
 //! - [`CreditDefaultSwap`](instruments::CreditDefaultSwap): Single-name CDS
 //! - [`CDSIndex`](instruments::CDSIndex): Credit indices (CDX, iTraxx)
-//! - [`CdsTranche`](instruments::CdsTranche): Synthetic CDO tranches
-//! - [`CdsOption`](instruments::CdsOption): Options on CDS
+//! - [`CDSTranche`](instruments::CDSTranche): Synthetic CDO tranches
+//! - [`CDSOption`](instruments::CDSOption): Options on CDS
 //! - [`StructuredCredit`](instruments::StructuredCredit): ABS, RMBS, CMBS, CLO
 //!
 //! ## Equity & FX

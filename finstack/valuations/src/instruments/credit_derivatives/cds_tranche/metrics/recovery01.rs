@@ -15,7 +15,7 @@
 //! recovery sensitivity only.
 
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::credit_derivatives::cds_tranche::CdsTranche;
+use crate::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -27,7 +27,7 @@ pub struct Recovery01Calculator;
 
 impl MetricCalculator for Recovery01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let tranche: &CdsTranche = context.instrument_as()?;
+        let tranche: &CDSTranche = context.instrument_as()?;
         let as_of = context.as_of;
 
         // Get the credit index

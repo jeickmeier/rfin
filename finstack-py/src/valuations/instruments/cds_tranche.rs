@@ -8,7 +8,7 @@ use crate::valuations::common::{
 };
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CDSTranche, TrancheSide};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -27,7 +27,7 @@ fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
 ///
 /// Examples:
 ///     >>> tranche = (
-///     ...     CdsTranche.builder("itraxx_tranche")
+///     ...     CDSTranche.builder("itraxx_tranche")
 ///     ...     .index_name("iTraxx Europe")
 ///     ...     .series(38)
 ///     ...     .attach_pct(3.0)
@@ -47,12 +47,12 @@ fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
     frozen
 )]
 #[derive(Clone, Debug)]
-pub struct PyCdsTranche {
-    pub(crate) inner: Arc<CdsTranche>,
+pub struct PyCDSTranche {
+    pub(crate) inner: Arc<CDSTranche>,
 }
 
-impl PyCdsTranche {
-    pub(crate) fn new(inner: CdsTranche) -> Self {
+impl PyCDSTranche {
+    pub(crate) fn new(inner: CDSTranche) -> Self {
         Self {
             inner: Arc::new(inner),
         }
@@ -64,7 +64,7 @@ impl PyCdsTranche {
     name = "CdsTrancheBuilder",
     unsendable
 )]
-pub struct PyCdsTrancheBuilder {
+pub struct PyCDSTrancheBuilder {
     instrument_id: InstrumentId,
     index_name: Option<String>,
     series: Option<u16>,
@@ -83,7 +83,7 @@ pub struct PyCdsTrancheBuilder {
     effective_date: Option<time::Date>,
 }
 
-impl PyCdsTrancheBuilder {
+impl PyCDSTrancheBuilder {
     fn new_with_id(id: InstrumentId) -> Self {
         Self {
             instrument_id: id,
@@ -143,7 +143,7 @@ impl PyCdsTrancheBuilder {
 }
 
 #[pymethods]
-impl PyCdsTrancheBuilder {
+impl PyCDSTrancheBuilder {
     #[new]
     #[pyo3(text_signature = "(instrument_id)")]
     fn new_py(instrument_id: &str) -> Self {
@@ -271,10 +271,10 @@ impl PyCdsTrancheBuilder {
     }
 
     #[pyo3(text_signature = "($self)")]
-    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCdsTranche> {
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCDSTranche> {
         slf.ensure_ready()?;
 
-        let mut builder = CdsTranche::builder();
+        let mut builder = CDSTranche::builder();
         builder = builder.id(slf.instrument_id.clone());
         builder = builder.index_name(slf.index_name.clone().unwrap());
         builder = builder.series(slf.series.unwrap());
@@ -299,25 +299,25 @@ impl PyCdsTrancheBuilder {
         builder = builder.accumulated_loss(0.0);
 
         let tranche = builder.build().map_err(core_to_py)?;
-        Ok(PyCdsTranche::new(tranche))
+        Ok(PyCDSTranche::new(tranche))
     }
 
     fn __repr__(&self) -> String {
-        "CdsTrancheBuilder(...)".to_string()
+        "CDSTrancheBuilder(...)".to_string()
     }
 }
 
 #[pymethods]
-impl PyCdsTranche {
+impl PyCDSTranche {
     #[classmethod]
     #[pyo3(text_signature = "(cls, instrument_id)")]
     /// Start a fluent builder (builder-only API).
     fn builder<'py>(
         cls: &Bound<'py, PyType>,
         instrument_id: &str,
-    ) -> PyResult<Py<PyCdsTrancheBuilder>> {
+    ) -> PyResult<Py<PyCDSTrancheBuilder>> {
         let py = cls.py();
-        let builder = PyCdsTrancheBuilder::new_with_id(InstrumentId::new(instrument_id));
+        let builder = PyCDSTrancheBuilder::new_with_id(InstrumentId::new(instrument_id));
         Py::new(py, builder)
     }
 
@@ -404,17 +404,17 @@ impl PyCdsTranche {
 
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
-            "CdsTranche(id='{}', attach={:.2}%, detach={:.2}%)",
+            "CDSTranche(id='{}', attach={:.2}%, detach={:.2}%)",
             self.inner.id, self.inner.attach_pct, self.inner.detach_pct
         ))
     }
 }
 
-impl fmt::Display for PyCdsTranche {
+impl fmt::Display for PyCDSTranche {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "CdsTranche({}, attach={:.2}%, detach={:.2}%)",
+            "CDSTranche({}, attach={:.2}%, detach={:.2}%)",
             self.inner.index_name, self.inner.attach_pct, self.inner.detach_pct
         )
     }
@@ -424,7 +424,7 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    module.add_class::<PyCdsTranche>()?;
-    module.add_class::<PyCdsTrancheBuilder>()?;
-    Ok(vec!["CdsTranche", "CdsTrancheBuilder"])
+    module.add_class::<PyCDSTranche>()?;
+    module.add_class::<PyCDSTrancheBuilder>()?;
+    Ok(vec!["CDSTranche", "CDSTrancheBuilder"])
 }

@@ -107,9 +107,11 @@ pub enum InstrumentJson {
     #[serde(rename = "cds_index")]
     CDSIndex(CDSIndex),
     /// CDS tranche (synthetic CDO)
-    CdsTranche(CdsTranche),
+    #[serde(rename = "cds_tranche")]
+    CDSTranche(CDSTranche),
     /// CDS option
-    CdsOption(CdsOption),
+    #[serde(rename = "cds_option")]
+    CDSOption(CDSOption),
 
     // Equity
     /// Equity spot position
@@ -227,8 +229,8 @@ impl InstrumentJson {
             // Credit
             InstrumentJson::CreditDefaultSwap(i) => Ok(Box::new(i)),
             InstrumentJson::CDSIndex(i) => Ok(Box::new(i)),
-            InstrumentJson::CdsTranche(i) => Ok(Box::new(i)),
-            InstrumentJson::CdsOption(i) => Ok(Box::new(i)),
+            InstrumentJson::CDSTranche(i) => Ok(Box::new(i)),
+            InstrumentJson::CDSOption(i) => Ok(Box::new(i)),
 
             // Equity
             InstrumentJson::Equity(i) => Ok(Box::new(i)),
@@ -383,10 +385,10 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                 .map(Self::CDSIndex)
                 .map_err(D::Error::custom),
             "cds_tranche" => serde_json::from_str(&spec_str)
-                .map(Self::CdsTranche)
+                .map(Self::CDSTranche)
                 .map_err(D::Error::custom),
             "cds_option" => serde_json::from_str(&spec_str)
-                .map(Self::CdsOption)
+                .map(Self::CDSOption)
                 .map_err(D::Error::custom),
 
             // Equity

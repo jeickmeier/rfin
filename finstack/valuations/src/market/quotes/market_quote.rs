@@ -5,7 +5,7 @@
 //! enabling generic calibration workflows and quote processing.
 
 use super::cds::CdsQuote;
-use super::cds_tranche::CdsTrancheQuote;
+use super::cds_tranche::CDSTrancheQuote;
 use super::inflation::InflationQuote;
 use super::rates::RateQuote;
 use super::vol::VolQuote;
@@ -71,7 +71,8 @@ pub enum MarketQuote {
     /// Credit default swaps
     Cds(CdsQuote),
     /// CDS Tranches
-    CdsTranche(CdsTrancheQuote),
+    #[serde(rename = "cds_tranche")]
+    CDSTranche(CDSTrancheQuote),
     /// Inflation instruments
     Inflation(InflationQuote),
     /// Volatility instruments
@@ -118,11 +119,11 @@ impl MarketQuote {
                 Ok(MarketQuote::Cds(q.bump_spread_bp(bp)))
             }
 
-            (MarketQuote::CdsTranche(q), MarketQuoteBump::SpreadDecimal(b)) => {
-                Ok(MarketQuote::CdsTranche(q.bump_spread_decimal(b)))
+            (MarketQuote::CDSTranche(q), MarketQuoteBump::SpreadDecimal(b)) => {
+                Ok(MarketQuote::CDSTranche(q.bump_spread_decimal(b)))
             }
-            (MarketQuote::CdsTranche(q), MarketQuoteBump::SpreadBp(bp)) => {
-                Ok(MarketQuote::CdsTranche(q.bump_spread_bp(bp)))
+            (MarketQuote::CDSTranche(q), MarketQuoteBump::SpreadBp(bp)) => {
+                Ok(MarketQuote::CDSTranche(q.bump_spread_bp(bp)))
             }
 
             (MarketQuote::Vol(q), MarketQuoteBump::VolAbsolute(b)) => {
@@ -214,22 +215,22 @@ impl ExtractQuoteRefs<'_, CdsQuote> for [MarketQuote] {
     }
 }
 
-impl ExtractQuotes<CdsTrancheQuote> for [MarketQuote] {
-    fn extract_quotes(&self) -> Vec<CdsTrancheQuote> {
+impl ExtractQuotes<CDSTrancheQuote> for [MarketQuote] {
+    fn extract_quotes(&self) -> Vec<CDSTrancheQuote> {
         self.iter()
             .filter_map(|q| match q {
-                MarketQuote::CdsTranche(ctq) => Some(ctq.clone()),
+                MarketQuote::CDSTranche(ctq) => Some(ctq.clone()),
                 _ => None,
             })
             .collect()
     }
 }
 
-impl ExtractQuoteRefs<'_, CdsTrancheQuote> for [MarketQuote] {
-    fn extract_quote_refs(&self) -> Vec<&CdsTrancheQuote> {
+impl ExtractQuoteRefs<'_, CDSTrancheQuote> for [MarketQuote] {
+    fn extract_quote_refs(&self) -> Vec<&CDSTrancheQuote> {
         self.iter()
             .filter_map(|q| match q {
-                MarketQuote::CdsTranche(ctq) => Some(ctq),
+                MarketQuote::CDSTranche(ctq) => Some(ctq),
                 _ => None,
             })
             .collect()

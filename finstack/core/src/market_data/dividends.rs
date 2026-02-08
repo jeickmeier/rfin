@@ -138,6 +138,13 @@ pub struct DividendSchedule {
 }
 
 impl DividendSchedule {
+    /// Create a [`DividendScheduleBuilder`] for constructing a new schedule.
+    ///
+    /// This is the preferred entry point, consistent with other curve builders.
+    pub fn builder(id: impl Into<CurveId>) -> DividendScheduleBuilder {
+        DividendScheduleBuilder::new(id)
+    }
+
     /// Create a new empty schedule with identifier `id`.
     pub fn new(id: impl Into<CurveId>) -> Self {
         Self {

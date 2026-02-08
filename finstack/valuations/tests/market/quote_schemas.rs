@@ -14,7 +14,7 @@ use finstack_valuations::market::conventions::ids::{
     CdsConventionKey, CdsDocClause, InflationSwapConventionId, OptionConventionId,
 };
 use finstack_valuations::market::quotes::cds::CdsQuote;
-use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
@@ -84,7 +84,7 @@ fn cds_quote_id_and_bump_semantics() {
 
 #[test]
 fn cds_tranche_quote_id_and_bump_semantics() {
-    let q = CdsTrancheQuote::CDSTranche {
+    let q = CDSTrancheQuote::CDSTranche {
         id: QuoteId::new("CDX-IG-3-7"),
         index: "CDX.NA.IG".to_string(),
         attachment: 0.03,
@@ -101,7 +101,7 @@ fn cds_tranche_quote_id_and_bump_semantics() {
 
     let bumped = q.bump_spread_decimal(0.0001);
     match bumped {
-        CdsTrancheQuote::CDSTranche {
+        CDSTrancheQuote::CDSTranche {
             running_spread_bp,
             upfront_pct,
             ..
@@ -146,7 +146,7 @@ fn spread_bump_bp_decimal_parity_for_cds_and_tranche() {
         other => panic!("expected CdsParSpread bumps, got {:?}", other),
     }
 
-    let tranche = CdsTrancheQuote::CDSTranche {
+    let tranche = CDSTrancheQuote::CDSTranche {
         id: QuoteId::new("CDX-IG-7-10"),
         index: "CDX.NA.IG".to_string(),
         attachment: 0.07,
@@ -162,11 +162,11 @@ fn spread_bump_bp_decimal_parity_for_cds_and_tranche() {
     let tranche_decimal = tranche.bump_spread_decimal(0.0001);
     let tranche_bp = tranche.bump_spread_bp(1.0);
     let (
-        CdsTrancheQuote::CDSTranche {
+        CDSTrancheQuote::CDSTranche {
             running_spread_bp: dec,
             ..
         },
-        CdsTrancheQuote::CDSTranche {
+        CDSTrancheQuote::CDSTranche {
             running_spread_bp: bp,
             ..
         },
@@ -307,7 +307,7 @@ fn quote_serialization_roundtrip() {
         other => panic!("expected CdsParSpread, got {:?}", other),
     }
 
-    let tranche = CdsTrancheQuote::CDSTranche {
+    let tranche = CDSTrancheQuote::CDSTranche {
         id: QuoteId::new("CDX-IG-3-7"),
         index: "CDX.NA.IG".to_string(),
         attachment: 0.03,
@@ -321,9 +321,9 @@ fn quote_serialization_roundtrip() {
         },
     };
     let tranche_json = serde_json::to_string(&tranche).expect("serialize tranche");
-    let tranche_parsed: CdsTrancheQuote =
+    let tranche_parsed: CDSTrancheQuote =
         serde_json::from_str(&tranche_json).expect("deserialize tranche");
-    let CdsTrancheQuote::CDSTranche {
+    let CDSTrancheQuote::CDSTranche {
         running_spread_bp,
         upfront_pct,
         ..
@@ -440,7 +440,7 @@ fn quote_denies_unknown_fields() {
       "convention": { "currency": "USD", "doc_clause": "cr14" },
       "extra": "nope"
     }"#;
-    assert!(serde_json::from_str::<CdsTrancheQuote>(tranche_bad).is_err());
+    assert!(serde_json::from_str::<CDSTrancheQuote>(tranche_bad).is_err());
 
     let infl_bad = r#"
     {

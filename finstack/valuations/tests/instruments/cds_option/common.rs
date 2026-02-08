@@ -12,8 +12,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOptionParams;
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::OptionType;
 
@@ -53,7 +53,7 @@ pub fn standard_market(as_of: Date) -> MarketContext {
 }
 
 /// Builder for single-name CDS option with standard defaults
-pub struct CdsOptionBuilder {
+pub struct CDSOptionBuilder {
     id: String,
     strike_bp: f64,
     option_type: OptionType,
@@ -66,7 +66,7 @@ pub struct CdsOptionBuilder {
     forward_adjust_bp: f64,
 }
 
-impl CdsOptionBuilder {
+impl CDSOptionBuilder {
     pub fn new() -> Self {
         Self {
             id: "CDSOPT-TEST".to_string(),
@@ -140,11 +140,11 @@ impl CdsOptionBuilder {
         self
     }
 
-    pub fn build(self, as_of: Date) -> CdsOption {
+    pub fn build(self, as_of: Date) -> CDSOption {
         let expiry = as_of.add_months(self.expiry_months);
         let cds_maturity = as_of.add_months(self.cds_maturity_months);
 
-        let mut option_params = CdsOptionParams::new(
+        let mut option_params = CDSOptionParams::new(
             self.strike_bp,
             expiry,
             cds_maturity,
@@ -161,7 +161,7 @@ impl CdsOptionBuilder {
         }
 
         let credit_params = CreditParams::corporate_standard("SN", "HZ-SN");
-        let mut option = CdsOption::new(
+        let mut option = CDSOption::new(
             self.id,
             &option_params,
             &credit_params,
@@ -178,7 +178,7 @@ impl CdsOptionBuilder {
     }
 }
 
-impl Default for CdsOptionBuilder {
+impl Default for CDSOptionBuilder {
     fn default() -> Self {
         Self::new()
     }

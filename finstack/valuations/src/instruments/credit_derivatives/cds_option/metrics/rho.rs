@@ -1,4 +1,4 @@
-//! Rho metric for `CdsOption`.
+//! Rho metric for `CDSOption`.
 //!
 //! Rho measures the sensitivity of the CDS option value to changes in interest rates.
 //! This implementation uses finite differences with a bumped discount curve for accuracy.
@@ -12,7 +12,7 @@
 //! The finite-difference approach captures both effects correctly.
 
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::credit_derivatives::cds_option::CdsOption;
+use crate::instruments::credit_derivatives::cds_option::CDSOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 
@@ -27,7 +27,7 @@ pub struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let cds_option: &CdsOption = context.instrument_as()?;
+        let cds_option: &CDSOption = context.instrument_as()?;
         let as_of = context.as_of;
 
         // Check expiry

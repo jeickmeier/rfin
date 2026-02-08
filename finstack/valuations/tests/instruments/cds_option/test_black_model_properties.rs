@@ -15,7 +15,7 @@ fn test_value_increases_with_volatility() {
 
     let mut values = Vec::new();
     for vol in [0.10, 0.20, 0.30, 0.40, 0.50] {
-        let option = CdsOptionBuilder::new().implied_vol(vol).build(as_of);
+        let option = CDSOptionBuilder::new().implied_vol(vol).build(as_of);
         let pv = option.value(&market, as_of).unwrap().amount();
         values.push((vol, pv));
     }
@@ -31,7 +31,7 @@ fn test_value_increases_with_time() {
 
     let mut values = Vec::new();
     for months in [1, 3, 6, 12, 18, 24] {
-        let option = CdsOptionBuilder::new()
+        let option = CDSOptionBuilder::new()
             .expiry_months(months)
             .cds_maturity_months(months + 48)
             .build(as_of);
@@ -50,7 +50,7 @@ fn test_call_value_decreases_with_strike() {
 
     let mut values = Vec::new();
     for strike in [50.0, 100.0, 150.0, 200.0, 300.0, 400.0] {
-        let option = CdsOptionBuilder::new().call().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().call().strike(strike).build(as_of);
         let pv = option.value(&market, as_of).unwrap().amount();
         values.push((strike, pv));
     }
@@ -66,7 +66,7 @@ fn test_put_value_increases_with_strike() {
 
     let mut values = Vec::new();
     for strike in [50.0, 100.0, 150.0, 200.0, 300.0, 400.0] {
-        let option = CdsOptionBuilder::new().put().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().put().strike(strike).build(as_of);
         let pv = option.value(&market, as_of).unwrap().amount();
         values.push((strike, pv));
     }
@@ -82,7 +82,7 @@ fn test_vega_always_positive() {
 
     for strike in [50.0, 100.0, 200.0, 400.0] {
         for months in [3, 6, 12, 24] {
-            let option = CdsOptionBuilder::new()
+            let option = CDSOptionBuilder::new()
                 .strike(strike)
                 .expiry_months(months)
                 .cds_maturity_months(months + 48)
@@ -104,7 +104,7 @@ fn test_gamma_always_positive() {
     let market = standard_market(as_of);
 
     for strike in [50.0, 100.0, 200.0, 400.0] {
-        let option = CdsOptionBuilder::new().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().strike(strike).build(as_of);
         let gamma = option.gamma(&market, as_of).unwrap();
         assert_non_negative(gamma, &format!("Gamma for strike={}", strike));
     }
@@ -117,7 +117,7 @@ fn test_delta_bounds_call() {
     let market = standard_market(as_of);
 
     for strike in [50.0, 100.0, 200.0, 400.0] {
-        let option = CdsOptionBuilder::new().call().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().call().strike(strike).build(as_of);
         let delta = option.delta(&market, as_of).unwrap();
 
         assert_finite(delta, &format!("Call delta for strike={}", strike));
@@ -132,8 +132,8 @@ fn test_time_value_positive_before_expiry() {
     let market = standard_market(as_of);
 
     for strike in [100.0, 200.0, 300.0] {
-        let call = CdsOptionBuilder::new().call().strike(strike).build(as_of);
-        let put = CdsOptionBuilder::new().put().strike(strike).build(as_of);
+        let call = CDSOptionBuilder::new().call().strike(strike).build(as_of);
+        let put = CDSOptionBuilder::new().put().strike(strike).build(as_of);
 
         let call_pv = call.value(&market, as_of).unwrap().amount();
         let put_pv = put.value(&market, as_of).unwrap().amount();
@@ -151,7 +151,7 @@ fn test_atm_options_highest_gamma() {
 
     let mut gammas = Vec::new();
     for strike in [100.0, 150.0, 200.0, 250.0, 300.0, 350.0] {
-        let option = CdsOptionBuilder::new().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().strike(strike).build(as_of);
         let gamma = option.gamma(&market, as_of).unwrap();
         gammas.push(gamma);
     }
@@ -174,7 +174,7 @@ fn test_atm_options_highest_vega() {
 
     let mut vegas = Vec::new();
     for strike in [100.0, 150.0, 200.0, 250.0, 300.0, 350.0] {
-        let option = CdsOptionBuilder::new().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().strike(strike).build(as_of);
         let vega = option.vega(&market, as_of).unwrap();
         vegas.push(vega);
     }
@@ -196,13 +196,13 @@ fn test_linear_scaling_with_notional() {
     let market = standard_market(as_of);
 
     let base_notional = 10_000_000.0;
-    let option_base = CdsOptionBuilder::new()
+    let option_base = CDSOptionBuilder::new()
         .notional(base_notional, finstack_core::currency::Currency::USD)
         .build(as_of);
     let pv_base = option_base.value(&market, as_of).unwrap().amount();
 
     for multiplier in [0.5, 2.0, 3.0, 5.0] {
-        let option = CdsOptionBuilder::new()
+        let option = CDSOptionBuilder::new()
             .notional(
                 base_notional * multiplier,
                 finstack_core::currency::Currency::USD,
@@ -226,7 +226,7 @@ fn test_zero_time_gives_intrinsic_value() {
     let market = standard_market(as_of);
 
     // Create option with very short time to expiry
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .expiry_months(1) // 1 month to expiry
         .cds_maturity_months(13) // CDS matures after option
         .build(as_of);

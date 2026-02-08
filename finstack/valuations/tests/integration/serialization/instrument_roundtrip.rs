@@ -76,12 +76,12 @@ fn all_examples_roundtrip() {
     let ex = CDSIndex::example();
     let id = ex.id.as_str().to_string();
     assert_roundtrip(&id, json_loader::InstrumentJson::CDSIndex(ex));
-    let ex = CdsTranche::example();
+    let ex = CDSTranche::example();
     let id = ex.id.as_str().to_string();
-    assert_roundtrip(&id, json_loader::InstrumentJson::CdsTranche(ex));
-    let ex = CdsOption::example();
+    assert_roundtrip(&id, json_loader::InstrumentJson::CDSTranche(ex));
+    let ex = CDSOption::example();
     let id = ex.id.as_str().to_string();
-    assert_roundtrip(&id, json_loader::InstrumentJson::CdsOption(ex));
+    assert_roundtrip(&id, json_loader::InstrumentJson::CDSOption(ex));
     //
     // Equity
     let ex = Equity::example();

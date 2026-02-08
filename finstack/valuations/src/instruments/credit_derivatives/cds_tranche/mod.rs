@@ -77,7 +77,7 @@
 //!
 //! # See Also
 //!
-//! - [`CdsTranche`] for instrument struct
+//! - [`CDSTranche`] for instrument struct
 //! - [`TrancheSide`] for buyer vs seller
 //! - [`copula`] for copula model implementations
 //! - [`recovery`] for stochastic recovery models
@@ -93,7 +93,7 @@ mod types;
 pub use copula::{Copula, CopulaSpec};
 pub use parameters::CDSTrancheParams;
 pub use recovery::{RecoveryModel, RecoverySpec};
-pub use types::{CdsTranche, TrancheSide};
+pub use types::{CDSTranche, TrancheSide};
 
 // Re-export pricer for calibration/bench tooling.
 pub use pricer::{CDSTranchePricer, CDSTranchePricerConfig, Cs01BumpUnits, HeteroMethod};

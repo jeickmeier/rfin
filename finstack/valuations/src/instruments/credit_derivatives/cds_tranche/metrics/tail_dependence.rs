@@ -24,7 +24,7 @@
 
 use crate::instruments::credit_derivatives::cds_tranche::copula::CopulaSpec;
 use crate::instruments::credit_derivatives::cds_tranche::pricer::CDSTranchePricer;
-use crate::instruments::credit_derivatives::cds_tranche::CdsTranche;
+use crate::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -40,7 +40,7 @@ impl MetricCalculator for TailDependenceCalculator {
         let tranche = context
             .instrument
             .as_any()
-            .downcast_ref::<CdsTranche>()
+            .downcast_ref::<CDSTranche>()
             .ok_or(finstack_core::Error::Input(
                 finstack_core::InputError::Invalid,
             ))?;

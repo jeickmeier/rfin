@@ -9,7 +9,7 @@ use time::macros::date;
 fn test_delta_call_positive() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().call().build(as_of);
+    let option = CDSOptionBuilder::new().call().build(as_of);
 
     let result = option
         .price_with_metrics(&market, as_of, &[MetricId::Delta])
@@ -24,7 +24,7 @@ fn test_delta_call_positive() {
 fn test_delta_put_negative() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().put().build(as_of);
+    let option = CDSOptionBuilder::new().put().build(as_of);
 
     let result = option
         .price_with_metrics(&market, as_of, &[MetricId::Delta])
@@ -39,7 +39,7 @@ fn test_delta_put_negative() {
 fn test_gamma_positive() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
         .price_with_metrics(&market, as_of, &[MetricId::Gamma])
@@ -54,7 +54,7 @@ fn test_gamma_positive() {
 fn test_vega_positive() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
         .price_with_metrics(&market, as_of, &[MetricId::Vega])
@@ -69,7 +69,7 @@ fn test_vega_positive() {
 fn test_theta_exists() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
         .price_with_metrics(&market, as_of, &[MetricId::Theta])
@@ -84,7 +84,7 @@ fn test_theta_exists() {
 fn test_rho_exists() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
         .price_with_metrics(&market, as_of, &[MetricId::Rho])
@@ -98,7 +98,7 @@ fn test_rho_exists() {
 fn test_cs01_call_positive() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().call().build(as_of);
+    let option = CDSOptionBuilder::new().call().build(as_of);
 
     let result = option
         .price_with_metrics(&market, as_of, &[MetricId::Cs01])
@@ -113,7 +113,7 @@ fn test_cs01_call_positive() {
 fn test_dv01_positive() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
         .price_with_metrics(&market, as_of, &[MetricId::Dv01])
@@ -128,7 +128,7 @@ fn test_dv01_positive() {
 fn test_all_greeks_together() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
         .price_with_metrics(
@@ -161,7 +161,7 @@ fn test_delta_moneyness_effect() {
     let mut deltas = Vec::new();
     // Strike from deep ITM to deep OTM for a call
     for strike in [50.0, 100.0, 200.0, 300.0, 500.0] {
-        let option = CdsOptionBuilder::new().call().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().call().strike(strike).build(as_of);
         let result = option
             .price_with_metrics(&market, as_of, &[MetricId::Delta])
             .unwrap();
@@ -180,7 +180,7 @@ fn test_gamma_peaks_atm() {
 
     let mut gammas = Vec::new();
     for strike in [50.0, 100.0, 150.0, 200.0, 250.0, 300.0] {
-        let option = CdsOptionBuilder::new().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().strike(strike).build(as_of);
         let result = option
             .price_with_metrics(&market, as_of, &[MetricId::Gamma])
             .unwrap();
@@ -200,7 +200,7 @@ fn test_vega_time_decay() {
 
     let mut vegas = Vec::new();
     for months in [3, 6, 12, 24] {
-        let option = CdsOptionBuilder::new()
+        let option = CDSOptionBuilder::new()
             .expiry_months(months)
             .cds_maturity_months(months + 48)
             .build(as_of);
@@ -221,12 +221,12 @@ fn test_near_expiry_greeks_decline() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
 
-    let long_dated = CdsOptionBuilder::new()
+    let long_dated = CDSOptionBuilder::new()
         .expiry_months(12)
         .cds_maturity_months(60)
         .build(as_of);
 
-    let short_dated = CdsOptionBuilder::new()
+    let short_dated = CDSOptionBuilder::new()
         .expiry_months(1)
         .cds_maturity_months(13)
         .build(as_of);

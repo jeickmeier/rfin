@@ -9,7 +9,7 @@ use finstack_valuations::market::conventions::ids::{
     OptionConventionId, SwaptionConventionId,
 };
 use finstack_valuations::market::quotes::cds::CdsQuote;
-use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
@@ -338,8 +338,8 @@ impl PyCreditQuote {
         let maturity_date = py_to_date(&maturity)?;
         let CurrencyArg(ccy) = CurrencyArg::extract_bound(&currency)?;
         let doc = parse_doc_clause(doc_clause.unwrap_or("XR14"))?;
-        Ok(Self::new(MarketQuote::CdsTranche(
-            CdsTrancheQuote::CDSTranche {
+        Ok(Self::new(MarketQuote::CDSTranche(
+            CDSTrancheQuote::CDSTranche {
                 id: QuoteId::new(id),
                 index: index.to_string(),
                 attachment,
@@ -362,7 +362,7 @@ impl PyCreditQuote {
                 CdsQuote::CdsParSpread { .. } => "cds_par_spread",
                 CdsQuote::CdsUpfront { .. } => "cds_upfront",
             },
-            MarketQuote::CdsTranche(_) => "cds_tranche",
+            MarketQuote::CDSTranche(_) => "cds_tranche",
             _ => "unknown",
         }
     }
@@ -390,7 +390,7 @@ impl PyCreditQuote {
                     entity, upfront_pct, running_spread_bp
                 ),
             },
-            MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+            MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
                 index,
                 attachment,
                 detachment,
@@ -621,7 +621,7 @@ impl PyMarketQuote {
         match &self.inner {
             MarketQuote::Rates(_) => "rates",
             MarketQuote::Cds(_) => "cds",
-            MarketQuote::CdsTranche(_) => "cds_tranche",
+            MarketQuote::CDSTranche(_) => "cds_tranche",
             MarketQuote::Vol(_) => "vol",
             MarketQuote::Inflation(_) => "inflation",
         }
@@ -641,7 +641,7 @@ impl PyMarketQuote {
                 }
                 CdsQuote::CdsUpfront { .. } => "MarketQuote.from_credit(cds_upfront)".to_string(),
             },
-            MarketQuote::CdsTranche(_) => "MarketQuote.from_credit(cds_tranche)".to_string(),
+            MarketQuote::CDSTranche(_) => "MarketQuote.from_credit(cds_tranche)".to_string(),
             MarketQuote::Vol(q) => match q {
                 VolQuote::OptionVol { .. } => "MarketQuote.from_vol(option)".to_string(),
                 VolQuote::SwaptionVol { .. } => "MarketQuote.from_vol(swaption)".to_string(),

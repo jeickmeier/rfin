@@ -64,7 +64,7 @@ fn test_quantlib_black76_positive_value() {
     let market = standard_market(as_of);
 
     for strike in [100.0, 200.0, 300.0] {
-        let call = CdsOptionBuilder::new()
+        let call = CDSOptionBuilder::new()
             .call()
             .strike(strike)
             .expiry_months(12)
@@ -72,7 +72,7 @@ fn test_quantlib_black76_positive_value() {
             .implied_vol(0.30)
             .build(as_of);
 
-        let put = CdsOptionBuilder::new()
+        let put = CDSOptionBuilder::new()
             .put()
             .strike(strike)
             .expiry_months(12)
@@ -98,7 +98,7 @@ fn test_quantlib_black76_atf_call_put_parity() {
     let market = standard_market(as_of);
 
     // Get forward spread
-    let temp_option = CdsOptionBuilder::new().build(as_of);
+    let temp_option = CDSOptionBuilder::new().build(as_of);
     let mut underlying = test_utils::cds_buy_protection(
         "CDS-FWD-TEMP",
         temp_option.notional,
@@ -116,7 +116,7 @@ fn test_quantlib_black76_atf_call_put_parity() {
         .measures[&MetricId::ParSpread];
 
     // Option struck at forward
-    let call = CdsOptionBuilder::new()
+    let call = CDSOptionBuilder::new()
         .call()
         .strike(forward)
         .expiry_months(12)
@@ -124,7 +124,7 @@ fn test_quantlib_black76_atf_call_put_parity() {
         .implied_vol(0.30)
         .build(as_of);
 
-    let put = CdsOptionBuilder::new()
+    let put = CDSOptionBuilder::new()
         .put()
         .strike(forward)
         .expiry_months(12)
@@ -157,7 +157,7 @@ fn test_quantlib_black76_strike_monotonicity() {
     // Call values should decrease with strike
     let mut prev_call = f64::INFINITY;
     for &strike in &strikes {
-        let call = CdsOptionBuilder::new()
+        let call = CDSOptionBuilder::new()
             .call()
             .strike(strike)
             .expiry_months(12)
@@ -173,7 +173,7 @@ fn test_quantlib_black76_strike_monotonicity() {
     // Put values should increase with strike
     let mut prev_put = 0.0;
     for &strike in &strikes {
-        let put = CdsOptionBuilder::new()
+        let put = CDSOptionBuilder::new()
             .put()
             .strike(strike)
             .expiry_months(12)
@@ -197,7 +197,7 @@ fn test_quantlib_greeks_delta_signs() {
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
 
-    let call = CdsOptionBuilder::new()
+    let call = CDSOptionBuilder::new()
         .call()
         .strike(200.0)
         .expiry_months(12)
@@ -205,7 +205,7 @@ fn test_quantlib_greeks_delta_signs() {
         .implied_vol(0.30)
         .build(as_of);
 
-    let put = CdsOptionBuilder::new()
+    let put = CDSOptionBuilder::new()
         .put()
         .strike(200.0)
         .expiry_months(12)
@@ -228,8 +228,8 @@ fn test_quantlib_greeks_gamma_positive() {
 
     for strike in [100.0, 200.0, 300.0] {
         for option_type in [
-            CdsOptionBuilder::new().call(),
-            CdsOptionBuilder::new().put(),
+            CDSOptionBuilder::new().call(),
+            CDSOptionBuilder::new().put(),
         ] {
             let option = option_type
                 .strike(strike)
@@ -251,7 +251,7 @@ fn test_quantlib_greeks_vega_positive() {
     let market = standard_market(as_of);
 
     for strike in [100.0, 200.0, 300.0] {
-        let option = CdsOptionBuilder::new()
+        let option = CDSOptionBuilder::new()
             .call()
             .strike(strike)
             .expiry_months(12)
@@ -275,7 +275,7 @@ fn test_quantlib_greeks_gamma_vega_peak_atm() {
     let mut vegas = Vec::new();
 
     for &strike in &strikes {
-        let option = CdsOptionBuilder::new()
+        let option = CDSOptionBuilder::new()
             .call()
             .strike(strike)
             .expiry_months(12)
@@ -318,7 +318,7 @@ fn test_quantlib_greeks_finite() {
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
 
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .call()
         .strike(200.0)
         .expiry_months(12)
@@ -356,7 +356,7 @@ fn test_quantlib_iv_round_trip_atm() {
     let market = standard_market(as_of);
     let target_vol = 0.30;
 
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .call()
         .strike(200.0)
         .expiry_months(12)
@@ -381,7 +381,7 @@ fn test_quantlib_iv_round_trip_moneyness() {
     let target_vol = 0.35;
 
     for strike in [100.0, 150.0, 200.0, 250.0, 300.0] {
-        let option = CdsOptionBuilder::new()
+        let option = CDSOptionBuilder::new()
             .call()
             .strike(strike)
             .expiry_months(12)
@@ -417,7 +417,7 @@ fn test_quantlib_iv_convergence_from_different_guesses() {
     let market = standard_market(as_of);
     let true_vol = 0.28;
 
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .call()
         .strike(200.0)
         .expiry_months(12)
@@ -458,7 +458,7 @@ fn test_quantlib_forward_spread_positive() {
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
 
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
     let mut underlying = test_utils::cds_buy_protection(
         "CDS-FWD",
         option.notional,
@@ -485,7 +485,7 @@ fn test_quantlib_forward_spread_atf_parity() {
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
 
-    let temp = CdsOptionBuilder::new().build(as_of);
+    let temp = CDSOptionBuilder::new().build(as_of);
     let mut underlying = test_utils::cds_buy_protection(
         "CDS-FWD-TEMP",
         temp.notional,
@@ -502,7 +502,7 @@ fn test_quantlib_forward_spread_atf_parity() {
         .expect("par spread should compute")
         .measures[&MetricId::ParSpread];
 
-    let call = CdsOptionBuilder::new()
+    let call = CDSOptionBuilder::new()
         .call()
         .strike(forward)
         .expiry_months(12)
@@ -510,7 +510,7 @@ fn test_quantlib_forward_spread_atf_parity() {
         .implied_vol(0.30)
         .build(as_of);
 
-    let put = CdsOptionBuilder::new()
+    let put = CDSOptionBuilder::new()
         .put()
         .strike(forward)
         .expiry_months(12)
@@ -539,7 +539,7 @@ fn test_quantlib_index_factor_linear_scaling() {
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
 
-    let base = CdsOptionBuilder::new()
+    let base = CDSOptionBuilder::new()
         .call()
         .strike(200.0)
         .expiry_months(12)
@@ -551,7 +551,7 @@ fn test_quantlib_index_factor_linear_scaling() {
     let base_pv = base.value(&market, as_of).unwrap().amount();
 
     for factor in [0.75, 0.85, 0.95] {
-        let scaled = CdsOptionBuilder::new()
+        let scaled = CDSOptionBuilder::new()
             .call()
             .strike(200.0)
             .expiry_months(12)
@@ -579,7 +579,7 @@ fn test_quantlib_index_forward_adjustment_direction() {
     let market = standard_market(as_of);
 
     // Call: positive adjustment should increase value
-    let call_base = CdsOptionBuilder::new()
+    let call_base = CDSOptionBuilder::new()
         .call()
         .strike(200.0)
         .expiry_months(12)
@@ -589,7 +589,7 @@ fn test_quantlib_index_forward_adjustment_direction() {
         .forward_adjust(0.0)
         .build(as_of);
 
-    let call_adj = CdsOptionBuilder::new()
+    let call_adj = CDSOptionBuilder::new()
         .call()
         .strike(200.0)
         .expiry_months(12)
@@ -608,7 +608,7 @@ fn test_quantlib_index_forward_adjustment_direction() {
     );
 
     // Put: positive adjustment should decrease value
-    let put_base = CdsOptionBuilder::new()
+    let put_base = CDSOptionBuilder::new()
         .put()
         .strike(200.0)
         .expiry_months(12)
@@ -618,7 +618,7 @@ fn test_quantlib_index_forward_adjustment_direction() {
         .forward_adjust(0.0)
         .build(as_of);
 
-    let put_adj = CdsOptionBuilder::new()
+    let put_adj = CDSOptionBuilder::new()
         .put()
         .strike(200.0)
         .expiry_months(12)
@@ -651,7 +651,7 @@ fn test_quantlib_butterfly_no_arbitrage() {
     let k2 = 200.0;
     let k3 = 300.0;
 
-    let c1 = CdsOptionBuilder::new()
+    let c1 = CDSOptionBuilder::new()
         .call()
         .strike(k1)
         .expiry_months(12)
@@ -662,7 +662,7 @@ fn test_quantlib_butterfly_no_arbitrage() {
         .unwrap()
         .amount();
 
-    let c2 = CdsOptionBuilder::new()
+    let c2 = CDSOptionBuilder::new()
         .call()
         .strike(k2)
         .expiry_months(12)
@@ -673,7 +673,7 @@ fn test_quantlib_butterfly_no_arbitrage() {
         .unwrap()
         .amount();
 
-    let c3 = CdsOptionBuilder::new()
+    let c3 = CDSOptionBuilder::new()
         .call()
         .strike(k3)
         .expiry_months(12)
@@ -704,7 +704,7 @@ fn test_quantlib_digital_spread_positive() {
     let k1 = 150.0;
     let k2 = 250.0;
 
-    let c1 = CdsOptionBuilder::new()
+    let c1 = CDSOptionBuilder::new()
         .call()
         .strike(k1)
         .expiry_months(12)
@@ -715,7 +715,7 @@ fn test_quantlib_digital_spread_positive() {
         .unwrap()
         .amount();
 
-    let c2 = CdsOptionBuilder::new()
+    let c2 = CDSOptionBuilder::new()
         .call()
         .strike(k2)
         .expiry_months(12)
@@ -745,7 +745,7 @@ fn test_quantlib_comprehensive_properties() {
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
 
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .call()
         .strike(200.0)
         .expiry_months(12)

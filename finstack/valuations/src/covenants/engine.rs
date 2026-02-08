@@ -88,37 +88,7 @@ impl Covenant {
 
     /// Get human-readable description of the covenant
     pub fn description(&self) -> String {
-        describe_covenant_type(&self.covenant_type)
-    }
-}
-
-fn describe_covenant_type(covenant_type: &CovenantType) -> String {
-    match covenant_type {
-        CovenantType::MaxDebtToEBITDA { threshold } => {
-            format!("Debt/EBITDA <= {:.2}x", threshold)
-        }
-        CovenantType::MinInterestCoverage { threshold } => {
-            format!("Interest Coverage >= {:.2}x", threshold)
-        }
-        CovenantType::MinFixedChargeCoverage { threshold } => {
-            format!("Fixed Charge Coverage >= {:.2}x", threshold)
-        }
-        CovenantType::MaxTotalLeverage { threshold } => {
-            format!("Total Leverage <= {:.2}x", threshold)
-        }
-        CovenantType::MaxSeniorLeverage { threshold } => {
-            format!("Senior Leverage <= {:.2}x", threshold)
-        }
-        CovenantType::MinAssetCoverage { threshold } => {
-            format!("Asset Coverage >= {:.2}x", threshold)
-        }
-        CovenantType::Negative { restriction } => format!("Negative: {}", restriction),
-        CovenantType::Affirmative { requirement } => format!("Affirmative: {}", requirement),
-        CovenantType::Custom { metric, test } => match test {
-            ThresholdTest::Maximum(v) => format!("{} <= {:.2}", metric, v),
-            ThresholdTest::Minimum(v) => format!("{} >= {:.2}", metric, v),
-        },
-        CovenantType::Basket { name, limit } => format!("{} Utilization <= {:.2}", name, limit),
+        self.covenant_type.to_string()
     }
 }
 
@@ -179,6 +149,42 @@ pub enum CovenantType {
         /// Maximum allowed utilization of the basket
         limit: f64,
     },
+}
+
+impl std::fmt::Display for CovenantType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CovenantType::MaxDebtToEBITDA { threshold } => {
+                write!(f, "Debt/EBITDA <= {:.2}x", threshold)
+            }
+            CovenantType::MinInterestCoverage { threshold } => {
+                write!(f, "Interest Coverage >= {:.2}x", threshold)
+            }
+            CovenantType::MinFixedChargeCoverage { threshold } => {
+                write!(f, "Fixed Charge Coverage >= {:.2}x", threshold)
+            }
+            CovenantType::MaxTotalLeverage { threshold } => {
+                write!(f, "Total Leverage <= {:.2}x", threshold)
+            }
+            CovenantType::MaxSeniorLeverage { threshold } => {
+                write!(f, "Senior Leverage <= {:.2}x", threshold)
+            }
+            CovenantType::MinAssetCoverage { threshold } => {
+                write!(f, "Asset Coverage >= {:.2}x", threshold)
+            }
+            CovenantType::Negative { restriction } => write!(f, "Negative: {}", restriction),
+            CovenantType::Affirmative { requirement } => {
+                write!(f, "Affirmative: {}", requirement)
+            }
+            CovenantType::Custom { metric, test } => match test {
+                ThresholdTest::Maximum(v) => write!(f, "{} <= {:.2}", metric, v),
+                ThresholdTest::Minimum(v) => write!(f, "{} >= {:.2}", metric, v),
+            },
+            CovenantType::Basket { name, limit } => {
+                write!(f, "{} Utilization <= {:.2}", name, limit)
+            }
+        }
+    }
 }
 
 /// Threshold test type (maximum or minimum bound)
@@ -593,7 +599,7 @@ impl CovenantEngine {
     }
 
     fn get_covenant_description(&self, covenant_type: &CovenantType) -> String {
-        describe_covenant_type(covenant_type)
+        covenant_type.to_string()
     }
 
     fn evaluate_spec(

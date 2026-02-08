@@ -5,31 +5,31 @@ use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOptionParams;
 use finstack_valuations::instruments::{CreditParams, OptionType};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CdsOption)]
 #[derive(Clone, Debug)]
-pub struct JsCdsOption {
-    pub(crate) inner: CdsOption,
+pub struct JsCDSOption {
+    pub(crate) inner: CDSOption,
 }
 
-impl InstrumentWrapper for JsCdsOption {
-    type Inner = CdsOption;
-    fn from_inner(inner: CdsOption) -> Self {
-        JsCdsOption { inner }
+impl InstrumentWrapper for JsCDSOption {
+    type Inner = CDSOption;
+    fn from_inner(inner: CDSOption) -> Self {
+        JsCDSOption { inner }
     }
-    fn inner(&self) -> CdsOption {
+    fn inner(&self) -> CDSOption {
         self.inner.clone()
     }
 }
 
 #[wasm_bindgen(js_name = CdsOptionBuilder)]
 #[derive(Clone, Debug, Default)]
-pub struct JsCdsOptionBuilder {
+pub struct JsCDSOptionBuilder {
     instrument_id: String,
     notional: Option<finstack_core::money::Money>,
     strike_spread_bp: Option<f64>,
@@ -44,108 +44,108 @@ pub struct JsCdsOptionBuilder {
     index_factor: Option<f64>,
 }
 
-#[wasm_bindgen(js_class = CdsOptionBuilder)]
-impl JsCdsOptionBuilder {
+#[wasm_bindgen(js_class = CDSOptionBuilder)]
+impl JsCDSOptionBuilder {
     #[wasm_bindgen(constructor)]
-    pub fn new(instrument_id: &str) -> JsCdsOptionBuilder {
-        JsCdsOptionBuilder {
+    pub fn new(instrument_id: &str) -> JsCDSOptionBuilder {
+        JsCDSOptionBuilder {
             instrument_id: instrument_id.to_string(),
             ..Default::default()
         }
     }
 
     #[wasm_bindgen(js_name = money)]
-    pub fn money(mut self, notional: &JsMoney) -> JsCdsOptionBuilder {
+    pub fn money(mut self, notional: &JsMoney) -> JsCDSOptionBuilder {
         self.notional = Some(notional.inner());
         self
     }
 
     #[wasm_bindgen(js_name = strikeSpreadBp)]
-    pub fn strike_spread_bp(mut self, strike_spread_bp: f64) -> JsCdsOptionBuilder {
+    pub fn strike_spread_bp(mut self, strike_spread_bp: f64) -> JsCDSOptionBuilder {
         self.strike_spread_bp = Some(strike_spread_bp);
         self
     }
 
     #[wasm_bindgen(js_name = expiry)]
-    pub fn expiry(mut self, expiry: &JsDate) -> JsCdsOptionBuilder {
+    pub fn expiry(mut self, expiry: &JsDate) -> JsCDSOptionBuilder {
         self.expiry = Some(expiry.inner());
         self
     }
 
     #[wasm_bindgen(js_name = cdsMaturity)]
-    pub fn cds_maturity(mut self, cds_maturity: &JsDate) -> JsCdsOptionBuilder {
+    pub fn cds_maturity(mut self, cds_maturity: &JsDate) -> JsCDSOptionBuilder {
         self.cds_maturity = Some(cds_maturity.inner());
         self
     }
 
     #[wasm_bindgen(js_name = discountCurve)]
-    pub fn discount_curve(mut self, discount_curve: &str) -> JsCdsOptionBuilder {
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsCDSOptionBuilder {
         self.discount_curve = Some(discount_curve.to_string());
         self
     }
 
     #[wasm_bindgen(js_name = creditCurve)]
-    pub fn credit_curve(mut self, credit_curve: &str) -> JsCdsOptionBuilder {
+    pub fn credit_curve(mut self, credit_curve: &str) -> JsCDSOptionBuilder {
         self.credit_curve = Some(credit_curve.to_string());
         self
     }
 
     #[wasm_bindgen(js_name = volSurface)]
-    pub fn vol_surface(mut self, vol_surface: &str) -> JsCdsOptionBuilder {
+    pub fn vol_surface(mut self, vol_surface: &str) -> JsCDSOptionBuilder {
         self.vol_surface = Some(vol_surface.to_string());
         self
     }
 
     #[wasm_bindgen(js_name = optionType)]
-    pub fn option_type(mut self, option_type: String) -> JsCdsOptionBuilder {
+    pub fn option_type(mut self, option_type: String) -> JsCDSOptionBuilder {
         self.option_type = Some(option_type);
         self
     }
 
     #[wasm_bindgen(js_name = recoveryRate)]
-    pub fn recovery_rate(mut self, recovery_rate: f64) -> JsCdsOptionBuilder {
+    pub fn recovery_rate(mut self, recovery_rate: f64) -> JsCDSOptionBuilder {
         self.recovery_rate = Some(recovery_rate);
         self
     }
 
     #[wasm_bindgen(js_name = underlyingIsIndex)]
-    pub fn underlying_is_index(mut self, underlying_is_index: bool) -> JsCdsOptionBuilder {
+    pub fn underlying_is_index(mut self, underlying_is_index: bool) -> JsCDSOptionBuilder {
         self.underlying_is_index = Some(underlying_is_index);
         self
     }
 
     #[wasm_bindgen(js_name = indexFactor)]
-    pub fn index_factor(mut self, index_factor: f64) -> JsCdsOptionBuilder {
+    pub fn index_factor(mut self, index_factor: f64) -> JsCDSOptionBuilder {
         self.index_factor = Some(index_factor);
         self
     }
 
     #[wasm_bindgen(js_name = build)]
-    pub fn build(self) -> Result<JsCdsOption, JsValue> {
+    pub fn build(self) -> Result<JsCDSOption, JsValue> {
         let notional = self.notional.ok_or_else(|| {
-            js_error("CdsOptionBuilder: notional (money) is required".to_string())
+            js_error("CDSOptionBuilder: notional (money) is required".to_string())
         })?;
         let strike_spread_bp = self
             .strike_spread_bp
-            .ok_or_else(|| js_error("CdsOptionBuilder: strikeSpreadBp is required".to_string()))?;
+            .ok_or_else(|| js_error("CDSOptionBuilder: strikeSpreadBp is required".to_string()))?;
         let expiry = self
             .expiry
-            .ok_or_else(|| js_error("CdsOptionBuilder: expiry is required".to_string()))?;
+            .ok_or_else(|| js_error("CDSOptionBuilder: expiry is required".to_string()))?;
         let cds_maturity = self
             .cds_maturity
-            .ok_or_else(|| js_error("CdsOptionBuilder: cdsMaturity is required".to_string()))?;
+            .ok_or_else(|| js_error("CDSOptionBuilder: cdsMaturity is required".to_string()))?;
         let discount_curve = self
             .discount_curve
             .as_deref()
-            .ok_or_else(|| js_error("CdsOptionBuilder: discountCurve is required".to_string()))?;
+            .ok_or_else(|| js_error("CDSOptionBuilder: discountCurve is required".to_string()))?;
         let credit_curve = self
             .credit_curve
             .as_deref()
-            .ok_or_else(|| js_error("CdsOptionBuilder: creditCurve is required".to_string()))?;
+            .ok_or_else(|| js_error("CDSOptionBuilder: creditCurve is required".to_string()))?;
         let vol_surface = self
             .vol_surface
             .as_deref()
-            .ok_or_else(|| js_error("CdsOptionBuilder: volSurface is required".to_string()))?;
+            .ok_or_else(|| js_error("CDSOptionBuilder: volSurface is required".to_string()))?;
 
         let option_type_value = parse_optional_with_default(self.option_type, OptionType::Call)?;
         let recovery = self.recovery_rate.unwrap_or(0.40);
@@ -155,7 +155,7 @@ impl JsCdsOptionBuilder {
             ));
         }
 
-        let mut option_params = CdsOptionParams::new(
+        let mut option_params = CDSOptionParams::new(
             strike_spread_bp,
             expiry,
             cds_maturity,
@@ -179,7 +179,7 @@ impl JsCdsOptionBuilder {
         let vol_str = optional_static_str(Some(vol_surface.to_string()))
             .ok_or_else(|| js_error("vol surface required".to_string()))?;
 
-        let option = CdsOption::new(
+        let option = CDSOption::new(
             instrument_id_from_str(&self.instrument_id),
             &option_params,
             &credit_params,
@@ -188,12 +188,12 @@ impl JsCdsOptionBuilder {
         )
         .map_err(|e| js_error(e.to_string()))?;
 
-        Ok(JsCdsOption::from_inner(option))
+        Ok(JsCDSOption::from_inner(option))
     }
 }
 
-#[wasm_bindgen(js_class = CdsOption)]
-impl JsCdsOption {
+#[wasm_bindgen(js_class = CDSOption)]
+impl JsCDSOption {
     /// Create an option on a CDS spread (CDS option).
     ///
     /// Conventions:
@@ -213,7 +213,7 @@ impl JsCdsOption {
     /// @param recovery_rate - Optional recovery override (0..1)
     /// @param underlying_is_index - Optional: treat underlying as index
     /// @param index_factor - Optional index factor (if underlying is index)
-    /// @returns A new `CdsOption`
+    /// @returns A new `CDSOption`
     /// @throws {Error} If recovery is outside [0,1] or inputs invalid
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
@@ -230,9 +230,9 @@ impl JsCdsOption {
         recovery_rate: Option<f64>,
         underlying_is_index: Option<bool>,
         index_factor: Option<f64>,
-    ) -> Result<JsCdsOption, JsValue> {
+    ) -> Result<JsCDSOption, JsValue> {
         web_sys::console::warn_1(&JsValue::from_str(
-            "CdsOption constructor is deprecated; use CdsOptionBuilder instead.",
+            "CDSOption constructor is deprecated; use CDSOptionBuilder instead.",
         ));
         let option_type_value = parse_optional_with_default(option_type, OptionType::Call)?;
         let recovery = recovery_rate.unwrap_or(0.40);
@@ -243,7 +243,7 @@ impl JsCdsOption {
             ));
         }
 
-        let mut option_params = CdsOptionParams::new(
+        let mut option_params = CDSOptionParams::new(
             strike_spread_bp,
             expiry.inner(),
             cds_maturity.inner(),
@@ -267,7 +267,7 @@ impl JsCdsOption {
         let vol_str = optional_static_str(Some(vol_surface.to_string()))
             .ok_or_else(|| js_error("vol surface required".to_string()))?;
 
-        let option = CdsOption::new(
+        let option = CDSOption::new(
             instrument_id_from_str(instrument_id),
             &option_params,
             &credit_params,
@@ -276,12 +276,12 @@ impl JsCdsOption {
         )
         .map_err(|e| js_error(e.to_string()))?;
 
-        Ok(JsCdsOption::from_inner(option))
+        Ok(JsCDSOption::from_inner(option))
     }
 
     #[wasm_bindgen(js_name = fromJson)]
-    pub fn from_json(value: JsValue) -> Result<JsCdsOption, JsValue> {
-        from_js_value(value).map(JsCdsOption::from_inner)
+    pub fn from_json(value: JsValue) -> Result<JsCDSOption, JsValue> {
+        from_js_value(value).map(JsCDSOption::from_inner)
     }
 
     #[wasm_bindgen(js_name = toJson)]
@@ -322,13 +322,13 @@ impl JsCdsOption {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
         format!(
-            "CdsOption(id='{}', strike_bp={:.1})",
+            "CDSOption(id='{}', strike_bp={:.1})",
             self.inner.id, self.inner.strike_spread_bp
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
-    pub fn clone_js(&self) -> JsCdsOption {
-        JsCdsOption::from_inner(self.inner.clone())
+    pub fn clone_js(&self) -> JsCDSOption {
+        JsCDSOption::from_inner(self.inner.clone())
     }
 }

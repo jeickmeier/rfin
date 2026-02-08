@@ -20,14 +20,14 @@ use ts_rs::TS;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+/// use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
 /// use finstack_valuations::market::quotes::ids::QuoteId;
 /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 /// use finstack_core::dates::Date;
 /// use finstack_core::currency::Currency;
 ///
 /// # fn example() -> finstack_core::Result<()> {
-/// let quote = CdsTrancheQuote::CDSTranche {
+/// let quote = CDSTrancheQuote::CDSTranche {
 ///     id: QuoteId::new("CDX-IG-3-7"),
 ///     index: "CDX.NA.IG".to_string(),
 ///     attachment: 0.03,  // 3%
@@ -48,8 +48,9 @@ use ts_rs::TS;
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
-pub enum CdsTrancheQuote {
+pub enum CDSTrancheQuote {
     /// CDS Index Tranche.
+    #[serde(rename = "cds_tranche")]
     CDSTranche {
         /// Unique identifier.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
@@ -73,7 +74,7 @@ pub enum CdsTrancheQuote {
     },
 }
 
-impl CdsTrancheQuote {
+impl CDSTrancheQuote {
     /// Get the unique identifier of the quote.
     ///
     /// # Returns
@@ -83,14 +84,14 @@ impl CdsTrancheQuote {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+    /// use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
     /// use finstack_valuations::market::quotes::ids::QuoteId;
     /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
     /// use finstack_core::dates::Date;
     /// use finstack_core::currency::Currency;
     ///
     /// # fn example() -> finstack_core::Result<()> {
-    /// let quote = CdsTrancheQuote::CDSTranche {
+    /// let quote = CDSTrancheQuote::CDSTranche {
     ///     id: QuoteId::new("CDX-IG-3-7"),
     ///     index: "CDX.NA.IG".to_string(),
     ///     attachment: 0.03,
@@ -110,7 +111,7 @@ impl CdsTrancheQuote {
     /// ```
     pub fn id(&self) -> &QuoteId {
         match self {
-            CdsTrancheQuote::CDSTranche { id, .. } => id,
+            CDSTrancheQuote::CDSTranche { id, .. } => id,
         }
     }
 
@@ -125,19 +126,19 @@ impl CdsTrancheQuote {
     ///
     /// # Returns
     ///
-    /// A new `CdsTrancheQuote` with the bumped running spread.
+    /// A new `CDSTrancheQuote` with the bumped running spread.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+    /// use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
     /// use finstack_valuations::market::quotes::ids::QuoteId;
     /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
     /// use finstack_core::dates::Date;
     /// use finstack_core::currency::Currency;
     ///
     /// # fn example() -> finstack_core::Result<()> {
-    /// let quote = CdsTrancheQuote::CDSTranche {
+    /// let quote = CDSTrancheQuote::CDSTranche {
     ///     id: QuoteId::new("CDX-IG-3-7"),
     ///     index: "CDX.NA.IG".to_string(),
     ///     attachment: 0.03,
@@ -164,7 +165,7 @@ impl CdsTrancheQuote {
     /// Bump by spread in basis points (e.g., `1.0` = 1bp).
     pub fn bump_spread_bp(&self, bump_bp: f64) -> Self {
         match self {
-            CdsTrancheQuote::CDSTranche {
+            CDSTrancheQuote::CDSTranche {
                 id,
                 index,
                 attachment,
@@ -173,7 +174,7 @@ impl CdsTrancheQuote {
                 upfront_pct,
                 running_spread_bp,
                 convention,
-            } => CdsTrancheQuote::CDSTranche {
+            } => CDSTrancheQuote::CDSTranche {
                 id: id.clone(),
                 index: index.clone(),
                 attachment: *attachment,

@@ -50,7 +50,7 @@
 use crate::cashflow::builder::build_dates;
 use crate::constants::{credit, BASIS_POINTS_PER_UNIT};
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
+use crate::instruments::credit_derivatives::cds_tranche::{CDSTranche, TrancheSide};
 use finstack_core::dates::next_cds_date;
 use finstack_core::dates::{Date, DateExt, StubKind};
 use finstack_core::market_data::traits::Discounting;
@@ -562,7 +562,7 @@ impl CDSTranchePricer {
     #[must_use = "pricing result should be used"]
     pub fn price_tranche(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
@@ -646,7 +646,7 @@ impl CDSTranchePricer {
     /// Falls back to weekend-only logic when no calendar is specified.
     fn calculate_settlement_date(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         _market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<Date> {
@@ -688,7 +688,7 @@ impl CDSTranchePricer {
     /// - Accumulated loss is in [0, 1]
     /// - Attachment <= Detachment (after percentage conversion)
     /// - Results are always in [0, 1]
-    fn calculate_effective_structure(&self, tranche: &CdsTranche) -> (f64, f64, f64) {
+    fn calculate_effective_structure(&self, tranche: &CDSTranche) -> (f64, f64, f64) {
         let l = tranche.accumulated_loss;
         let attach = tranche.attach_pct / 100.0;
         let detach = tranche.detach_pct / 100.0;
@@ -750,7 +750,7 @@ impl CDSTranchePricer {
     /// the base correlation curve with enhanced numerical stability.
     fn calculate_expected_tranche_loss(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         index_data: &CreditIndexData,
         maturity: Date,
     ) -> Result<f64> {
@@ -815,7 +815,7 @@ impl CDSTranchePricer {
     /// Returns the expected loss as a fraction of the ORIGINAL tranche notional [0, 1].
     fn expected_tranche_loss_fraction_at(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         index_data: &CreditIndexData,
         date: Date,
     ) -> Result<f64> {
@@ -874,7 +874,7 @@ impl CDSTranchePricer {
     /// that can arise from base correlation model inconsistencies.
     fn build_el_curve(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         index_data: &CreditIndexData,
         dates: &[Date],
     ) -> Result<Vec<(Date, f64)>> {
@@ -1663,7 +1663,7 @@ impl CDSTranchePricer {
     /// and N_incremental_loss = N_tr * (EL_fraction(t_j) - EL_fraction(t_{j-1}))
     fn calculate_premium_leg_pv(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         index_data: &CreditIndexData,
         discount_curve: &dyn Discounting,
         as_of: Date,
@@ -1747,7 +1747,7 @@ impl CDSTranchePricer {
     /// PV = Σ(D(t_j) * ΔEL_j) where ΔEL_j = N_tr * (EL_fraction(t_j) - EL_fraction(t_{j-1}))
     fn calculate_protection_leg_pv(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         index_data: &CreditIndexData,
         discount_curve: &dyn Discounting,
         as_of: Date,
@@ -1909,7 +1909,7 @@ impl CDSTranchePricer {
     }
 
     /// Calculate prior realized loss on the tranche as a fraction of original tranche notional.
-    fn calculate_prior_tranche_loss(&self, tranche: &CdsTranche) -> f64 {
+    fn calculate_prior_tranche_loss(&self, tranche: &CDSTranche) -> f64 {
         let l = tranche.accumulated_loss;
         let attach = tranche.attach_pct / 100.0;
         let detach = tranche.detach_pct / 100.0;
@@ -1928,7 +1928,7 @@ impl CDSTranchePricer {
     ///
     /// Uses the robust date scheduling utilities with proper business day
     /// conventions and calendar support.
-    fn generate_payment_schedule(&self, tranche: &CdsTranche, as_of: Date) -> Result<Vec<Date>> {
+    fn generate_payment_schedule(&self, tranche: &CDSTranche, as_of: Date) -> Result<Vec<Date>> {
         let start_date = tranche.effective_date.unwrap_or(as_of);
 
         let dates = if self.params.use_isda_coupon_dates || tranche.standard_imm_dates {
@@ -1975,7 +1975,7 @@ impl CDSTranchePricer {
     /// payment required to enter the position at the standard coupon.
     pub fn calculate_upfront(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
@@ -1988,7 +1988,7 @@ impl CDSTranchePricer {
     /// Uses central difference for O(h²) accuracy, consistent with CS01 and Correlation01.
     pub fn calculate_spread_dv01(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
@@ -2022,7 +2022,7 @@ impl CDSTranchePricer {
     #[must_use = "par spread result should be used"]
     pub fn calculate_par_spread(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
@@ -2098,7 +2098,7 @@ impl CDSTranchePricer {
     /// Calculate expected loss metric (the total expected loss at maturity).
     pub fn calculate_expected_loss(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         market_ctx: &MarketContext,
     ) -> Result<f64> {
         let index_data_arc = market_ctx.credit_index(&tranche.credit_index_id)?;
@@ -2109,7 +2109,7 @@ impl CDSTranchePricer {
     #[must_use = "CS01 result should be used for hedging"]
     pub fn calculate_cs01(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
@@ -2152,7 +2152,7 @@ impl CDSTranchePricer {
     #[must_use = "Correlation01 result should be used for hedging"]
     pub fn calculate_correlation_delta(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
@@ -2207,7 +2207,7 @@ impl CDSTranchePricer {
     #[must_use = "JTD result should be used for risk management"]
     pub fn calculate_jump_to_default(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         market_ctx: &MarketContext,
         _as_of: Date,
     ) -> Result<f64> {
@@ -2229,7 +2229,7 @@ impl CDSTranchePricer {
     /// - `count`: Number of names that would impact this tranche
     pub fn calculate_jump_to_default_detail(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         market_ctx: &MarketContext,
     ) -> Result<JumpToDefaultResult> {
         let index_data = market_ctx.credit_index(&tranche.credit_index_id)?;
@@ -2344,7 +2344,7 @@ impl CDSTranchePricer {
     #[must_use = "accrued premium result should be used"]
     pub fn calculate_accrued_premium(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
@@ -2415,7 +2415,7 @@ impl CDSTranchePricer {
     /// - Validating model behavior
     pub fn get_expected_loss_curve(
         &self,
-        tranche: &CdsTranche,
+        tranche: &CDSTranche,
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<Vec<(Date, f64)>> {
@@ -2458,11 +2458,11 @@ impl JumpToDefaultResult {
 // ========================= REGISTRY PRICER =========================
 
 /// Registry pricer for CDS Tranche using Gaussian Copula model
-pub struct SimpleCdsTrancheHazardPricer {
+pub struct SimpleCDSTrancheHazardPricer {
     model_key: crate::pricer::ModelKey,
 }
 
-impl SimpleCdsTrancheHazardPricer {
+impl SimpleCDSTrancheHazardPricer {
     /// Create new CDS tranche pricer with default hazard rate model
     pub fn new() -> Self {
         Self {
@@ -2476,13 +2476,13 @@ impl SimpleCdsTrancheHazardPricer {
     }
 }
 
-impl Default for SimpleCdsTrancheHazardPricer {
+impl Default for SimpleCDSTrancheHazardPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
+impl crate::pricer::Pricer for SimpleCDSTrancheHazardPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSTranche, self.model_key)
     }
@@ -2498,7 +2498,7 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
         // Type-safe downcasting
         let cds_tranche = instrument
             .as_any()
-            .downcast_ref::<crate::instruments::credit_derivatives::cds_tranche::CdsTranche>()
+            .downcast_ref::<crate::instruments::credit_derivatives::cds_tranche::CDSTranche>()
             .ok_or_else(|| {
                 crate::pricer::PricingError::type_mismatch(
                     crate::pricer::InstrumentType::CDSTranche,
@@ -2650,7 +2650,7 @@ mod tests {
             .insert_credit_index("CDX.NA.IG.42", index)
     }
 
-    fn sample_tranche() -> CdsTranche {
+    fn sample_tranche() -> CDSTranche {
         let _issue_date =
             Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
@@ -2666,7 +2666,7 @@ mod tests {
                 500.0,                                   // running_coupon_bp (5%)
             );
             let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
-            CdsTranche::new(
+            CDSTranche::new(
                 "CDX_IG42_3_7_5Y",
                 &tranche_params,
                 &schedule_params,
@@ -2768,7 +2768,7 @@ mod tests {
             maturity,
             500.0,
         );
-        let helper_tranche = CdsTranche::new(
+        let helper_tranche = CDSTranche::new(
             "CDX_IG42_0_3_HELPER",
             &helper_params,
             &schedule_params,
@@ -2787,7 +2787,7 @@ mod tests {
             maturity,
             500.0,
         );
-        let explicit_tranche = CdsTranche::new(
+        let explicit_tranche = CDSTranche::new(
             "CDX_IG42_0_3_EXPLICIT",
             &explicit_params,
             &schedule_params,
@@ -2870,7 +2870,7 @@ mod tests {
             0.0,
         );
         let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
-        let tranche = CdsTranche::new(
+        let tranche = CDSTranche::new(
             "CDX_IG42_3_7_5Y",
             &tranche_params,
             &schedule_params,
@@ -2913,7 +2913,7 @@ mod tests {
             0.0,
         );
         let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
-        let tranche = CdsTranche::new(
+        let tranche = CDSTranche::new(
             "CDX_IG42_0_3_5Y",
             &tranche_params,
             &schedule_params,
@@ -3368,7 +3368,7 @@ mod tests {
             500.0,
         );
         let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
-        let tranche = CdsTranche::new(
+        let tranche = CDSTranche::new(
             "THIN_TRANCHE",
             &tranche_params,
             &schedule_params,
@@ -3405,7 +3405,7 @@ mod tests {
             25.0, // Very low spread for super senior
         );
         let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
-        let tranche = CdsTranche::new(
+        let tranche = CDSTranche::new(
             "SUPER_SENIOR",
             &tranche_params,
             &schedule_params,
@@ -3677,7 +3677,7 @@ mod tests {
             500.0, // 5% running coupon
         );
         let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
-        let tranche = CdsTranche::new(
+        let tranche = CDSTranche::new(
             "CDX_IG42_0_3_5Y",
             &tranche_params,
             &schedule_params,

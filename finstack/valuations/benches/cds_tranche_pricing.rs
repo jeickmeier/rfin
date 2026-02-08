@@ -20,14 +20,14 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
-use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CDSTranche, TrancheSide};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use std::hint::black_box;
 use std::sync::Arc;
 use time::Month;
 
-fn create_tranche(attach_pct: f64, detach_pct: f64, tenor_years: i32) -> CdsTranche {
+fn create_tranche(attach_pct: f64, detach_pct: f64, tenor_years: i32) -> CDSTranche {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = base + time::Duration::days((tenor_years * 365) as i64);
 
@@ -43,7 +43,7 @@ fn create_tranche(attach_pct: f64, detach_pct: f64, tenor_years: i32) -> CdsTran
 
     let schedule_params = ScheduleParams::quarterly_act360();
 
-    CdsTranche::new(
+    CDSTranche::new(
         format!("CDX_IG42_{}_{}_{}", attach_pct, detach_pct, tenor_years),
         &tranche_params,
         &schedule_params,

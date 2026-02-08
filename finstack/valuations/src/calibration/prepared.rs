@@ -5,16 +5,16 @@
 use crate::instruments::common_impl::traits::Instrument;
 use crate::market::build::prepared::PreparedQuote;
 use crate::market::quotes::cds::CdsQuote;
-use crate::market::quotes::cds_tranche::CdsTrancheQuote;
+use crate::market::quotes::cds_tranche::CDSTrancheQuote;
 use crate::market::quotes::inflation::InflationQuote;
 use crate::market::quotes::rates::RateQuote;
 use finstack_core::money::Money;
 
 /// A prepared CDS tranche quote ready for use in calibration.
 #[derive(Debug, Clone)]
-pub struct CdsTrancheCalibrationQuote {
+pub struct CDSTrancheCalibrationQuote {
     /// Prepared quote with constructed instrument and pillar timing.
-    pub prepared: PreparedQuote<CdsTrancheQuote>,
+    pub prepared: PreparedQuote<CDSTrancheQuote>,
     /// Optional upfront cashflow from the market quote.
     pub upfront: Option<Money>,
     /// Detachment point in percentage terms (e.g. 3.0 for 3%).
@@ -32,7 +32,7 @@ pub enum CalibrationQuote {
     /// Credit quote (CDS Par Spread, Upfront).
     Cds(PreparedQuote<CdsQuote>),
     /// CDS Tranche quote.
-    CdsTranche(CdsTrancheCalibrationQuote),
+    CDSTranche(CDSTrancheCalibrationQuote),
     /// Inflation quote (ZCIS)
     Inflation(PreparedQuote<InflationQuote>),
     // Add Vol later
@@ -44,7 +44,7 @@ impl CalibrationQuote {
         match self {
             CalibrationQuote::Rates(q) => q.instrument.as_ref(),
             CalibrationQuote::Cds(q) => q.instrument.as_ref(),
-            CalibrationQuote::CdsTranche(q) => q.prepared.instrument.as_ref(),
+            CalibrationQuote::CDSTranche(q) => q.prepared.instrument.as_ref(),
             CalibrationQuote::Inflation(q) => q.instrument.as_ref(),
         }
     }
@@ -54,7 +54,7 @@ impl CalibrationQuote {
         match self {
             CalibrationQuote::Rates(q) => q.pillar_time,
             CalibrationQuote::Cds(q) => q.pillar_time,
-            CalibrationQuote::CdsTranche(q) => q.prepared.pillar_time,
+            CalibrationQuote::CDSTranche(q) => q.prepared.pillar_time,
             CalibrationQuote::Inflation(q) => q.pillar_time,
         }
     }

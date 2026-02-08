@@ -1,6 +1,6 @@
 //! CDS Option metrics module.
 //!
-//! Provides metric calculators specific to `CdsOption`, split into focused
+//! Provides metric calculators specific to `CDSOption`, split into focused
 //! files. The calculators compose with the shared metrics framework and are
 //! registered via `register_cds_option_metrics`.
 //!
@@ -42,13 +42,13 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
             (Vega, vega::VegaCalculator),
             (Cs01, cs01::Cs01Calculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::CdsOption,
+                crate::instruments::CDSOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             // Theta is now registered universally in metrics::standard_registry()
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::CdsOption,
+                crate::instruments::CDSOption,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }

@@ -6,7 +6,7 @@ use finstack_valuations::market::conventions::ids::{
     CdsConventionKey, CdsDocClause, IndexId, InflationSwapConventionId, OptionConventionId,
 };
 use finstack_valuations::market::quotes::cds::CdsQuote;
-use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::{MarketQuote, MarketQuoteBump};
@@ -164,7 +164,7 @@ fn cds_bump_rejects_rate_and_vol_units() {
 
 #[test]
 fn cds_tranche_bump_accepts_spread_and_rejects_rate_units() {
-    let quote = MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+    let quote = MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
         id: QuoteId::new("CDX-IG-3-7"),
         index: "CDX.NA.IG".to_string(),
         attachment: 0.03,
@@ -182,7 +182,7 @@ fn cds_tranche_bump_accepts_spread_and_rejects_rate_units() {
         .bump_spread_bp(2.0)
         .expect("spread bump should succeed");
     match bumped {
-        MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+        MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
             running_spread_bp,
             upfront_pct,
             ..
@@ -196,7 +196,7 @@ fn cds_tranche_bump_accepts_spread_and_rejects_rate_units() {
                 "upfront pct should be unchanged: expected -2.5, got {upfront_pct}"
             );
         }
-        other => panic!("expected CdsTranche::CDSTranche, got {:?}", other),
+        other => panic!("expected CDSTranche::CDSTranche, got {:?}", other),
     }
 
     assert!(

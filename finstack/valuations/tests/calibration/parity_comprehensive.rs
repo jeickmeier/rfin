@@ -6,12 +6,12 @@ use finstack_valuations::market::conventions::ids::{
     CdsConventionKey, CdsDocClause, IndexId, InflationSwapConventionId,
 };
 use finstack_valuations::market::quotes::cds::CdsQuote;
-use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
-use finstack_valuations::market::{build_cds_tranche_instrument, CdsTrancheBuildOverrides};
+use finstack_valuations::market::{build_cds_tranche_instrument, CDSTrancheBuildOverrides};
 use time::Month;
 
 // Comprehensive quote-to-instrument construction test for V2 calibration engine.
@@ -110,7 +110,7 @@ fn test_all_quote_types_instrument_construction() {
 
     // 5. Base Correlation Quotes (Tranches)
     let correlation_quotes = vec![
-        MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+        MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
             id: QuoteId::new(format!("TR-0-3-{:?}", base_date.add_months(60))),
             index: "NA-HY".to_string(),
             attachment: 0.0,
@@ -123,7 +123,7 @@ fn test_all_quote_types_instrument_construction() {
                 doc_clause: CdsDocClause::IsdaNa,
             },
         }),
-        MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+        MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
             id: QuoteId::new(format!("TR-3-7-{:?}", base_date.add_months(60))),
             index: "NA-HY".to_string(),
             attachment: 0.03,
@@ -193,7 +193,7 @@ fn test_all_quote_types_instrument_construction() {
     }
 
     for q in &correlation_quotes {
-        if let MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+        if let MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
             attachment,
             detachment,
             ..
@@ -202,8 +202,8 @@ fn test_all_quote_types_instrument_construction() {
             assert!(detachment > attachment, "detachment must exceed attachment");
             assert!(*detachment <= 1.0, "detachment should be capped at 100%");
         }
-        if let MarketQuote::CdsTranche(tranche) = q {
-            let overrides = CdsTrancheBuildOverrides::new(40);
+        if let MarketQuote::CDSTranche(tranche) = q {
+            let overrides = CDSTrancheBuildOverrides::new(40);
             build_cds_tranche_instrument(tranche, &build_ctx, &overrides)
                 .expect("cds tranche instrument build");
         }

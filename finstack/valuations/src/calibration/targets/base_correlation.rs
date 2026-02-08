@@ -2,15 +2,15 @@
 
 use crate::calibration::api::schema::BaseCorrelationParams;
 use crate::calibration::config::CalibrationConfig;
-use crate::calibration::prepared::{CalibrationQuote, CdsTrancheCalibrationQuote};
+use crate::calibration::prepared::{CDSTrancheCalibrationQuote, CalibrationQuote};
 use crate::calibration::solver::bootstrap::SequentialBootstrapper;
 use crate::calibration::solver::traits::BootstrapTarget;
 use crate::calibration::CalibrationReport;
-use crate::market::build::cds_tranche::{build_cds_tranche_instrument, CdsTrancheBuildOverrides};
+use crate::market::build::cds_tranche::{build_cds_tranche_instrument, CDSTrancheBuildOverrides};
 use crate::market::build::context::BuildCtx;
 use crate::market::build::prepared::PreparedQuote;
 use crate::market::conventions::registry::ConventionRegistry;
-use crate::market::quotes::cds_tranche::CdsTrancheQuote;
+use crate::market::quotes::cds_tranche::CDSTrancheQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
 use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
@@ -35,9 +35,9 @@ struct TrancheQuoteFields<'a> {
 }
 
 impl<'a> TrancheQuoteFields<'a> {
-    fn extract(quote: &'a CdsTrancheQuote) -> Self {
+    fn extract(quote: &'a CDSTrancheQuote) -> Self {
         match quote {
-            CdsTrancheQuote::CDSTranche {
+            CDSTrancheQuote::CDSTranche {
                 index,
                 attachment,
                 detachment,
@@ -129,9 +129,9 @@ fn validate_all_detachments_seen(expected: &[f64], seen: &[f64]) -> Result<()> {
 }
 
 /// Create a pricing quote with zero upfront (for model-implied upfront calculation).
-fn create_pricing_quote(quote: &CdsTrancheQuote) -> CdsTrancheQuote {
+fn create_pricing_quote(quote: &CDSTrancheQuote) -> CDSTrancheQuote {
     match quote {
-        CdsTrancheQuote::CDSTranche {
+        CDSTrancheQuote::CDSTranche {
             id,
             index,
             attachment,
@@ -140,7 +140,7 @@ fn create_pricing_quote(quote: &CdsTrancheQuote) -> CdsTrancheQuote {
             running_spread_bp,
             convention,
             ..
-        } => CdsTrancheQuote::CDSTranche {
+        } => CDSTrancheQuote::CDSTranche {
             id: id.clone(),
             index: index.clone(),
             attachment: *attachment,
@@ -230,8 +230,8 @@ impl BaseCorrelationBootstrapper {
         BuildCtx::new(self.params.base_date, self.params.notional, curve_ids)
     }
 
-    fn build_overrides(&self) -> CdsTrancheBuildOverrides {
-        CdsTrancheBuildOverrides {
+    fn build_overrides(&self) -> CDSTrancheBuildOverrides {
+        CDSTrancheBuildOverrides {
             series: self.params.series,
             payment_frequency: self.params.payment_frequency,
             day_count: self.params.day_count,
@@ -252,9 +252,9 @@ impl BaseCorrelationBootstrapper {
     /// Build a single calibration quote from a tranche quote.
     fn build_calibration_quote(
         &self,
-        quote: &CdsTrancheQuote,
+        quote: &CDSTrancheQuote,
         build_ctx: &BuildCtx,
-        overrides: &CdsTrancheBuildOverrides,
+        overrides: &CDSTrancheBuildOverrides,
         time_dc: DayCount,
     ) -> Result<CalibrationQuote> {
         let fields = TrancheQuoteFields::extract(quote);
@@ -288,14 +288,14 @@ impl BaseCorrelationBootstrapper {
             self.params.currency,
         );
 
-        Ok(CalibrationQuote::CdsTranche(CdsTrancheCalibrationQuote {
+        Ok(CalibrationQuote::CDSTranche(CDSTrancheCalibrationQuote {
             prepared: prepared_quote,
             upfront: Some(upfront_money),
             detachment_pct,
         }))
     }
 
-    fn prepare_quotes(&self, quotes: Vec<CdsTrancheQuote>) -> Result<Vec<CalibrationQuote>> {
+    fn prepare_quotes(&self, quotes: Vec<CDSTrancheQuote>) -> Result<Vec<CalibrationQuote>> {
         // Validate params
         if !self.params.detachment_points.is_empty() {
             validate_detachment_points(&self.params.detachment_points)?;
@@ -347,7 +347,7 @@ impl BaseCorrelationBootstrapper {
         context: &MarketContext,
         global_config: &CalibrationConfig,
     ) -> Result<(MarketContext, CalibrationReport)> {
-        let tranche_quotes: Vec<CdsTrancheQuote> = quotes.extract_quotes();
+        let tranche_quotes: Vec<CDSTrancheQuote> = quotes.extract_quotes();
         if tranche_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
                 finstack_core::InputError::TooFewPoints,
@@ -389,7 +389,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
         match quote {
-            CalibrationQuote::CdsTranche(pq) => Ok(pq.detachment_pct),
+            CalibrationQuote::CDSTranche(pq) => Ok(pq.detachment_pct),
             _ => Err(finstack_core::Error::Input(
                 finstack_core::InputError::Invalid,
             )),
@@ -449,7 +449,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         let (pq, upfront) = match quote {
-            CalibrationQuote::CdsTranche(pq) => (&pq.prepared, &pq.upfront),
+            CalibrationQuote::CDSTranche(pq) => (&pq.prepared, &pq.upfront),
             _ => {
                 return Err(finstack_core::Error::Input(
                     finstack_core::InputError::Invalid,
@@ -470,10 +470,10 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
         let tranche = pq
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::credit_derivatives::cds_tranche::CdsTranche>()
+            .downcast_ref::<crate::instruments::credit_derivatives::cds_tranche::CDSTranche>()
             .ok_or_else(|| {
                 finstack_core::Error::Validation(
-                    "Base correlation calibration requires a CdsTranche instrument".to_string(),
+                    "Base correlation calibration requires a CDSTranche instrument".to_string(),
                 )
             })?;
 

@@ -168,8 +168,8 @@ impl MarketDependencies {
             // Credit
             InstrumentJson::CreditDefaultSwap(i) => Self::from_curve_dependencies(i),
             InstrumentJson::CDSIndex(i) => Self::from_curve_dependencies(i),
-            InstrumentJson::CdsTranche(i) => Self::from_curve_dependencies(i),
-            InstrumentJson::CdsOption(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::CDSTranche(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::CDSOption(i) => Self::from_curve_dependencies(i),
 
             // Equity
             InstrumentJson::Equity(i) => Self::from_curve_dependencies(i),

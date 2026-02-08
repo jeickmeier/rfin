@@ -26,7 +26,7 @@ pub const MAX_STRIKE_SPREAD_BP: f64 = 10000.0;
 /// Ownership clarifications to avoid duplication with `CreditParams`:
 /// - This struct holds strike (bp), expiry, underlying CDS maturity, notional, option type.
 /// - Reference entity, recovery rate, and hazard `credit_id` live in `CreditParams`.
-/// - Discount `discount_curve_id` and vol `vol_surface_id` are instrument-level market IDs passed to `CdsOption::try_new`.
+/// - Discount `discount_curve_id` and vol `vol_surface_id` are instrument-level market IDs passed to `CDSOption::try_new`.
 ///
 /// # Validation
 ///
@@ -35,7 +35,7 @@ pub const MAX_STRIKE_SPREAD_BP: f64 = 10000.0;
 /// - `expiry`: Must be before `cds_maturity`
 /// - `index_factor`: Must be in (0, 1] when specified
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct CdsOptionParams {
+pub struct CDSOptionParams {
     /// Strike spread in basis points (must be > 0)
     pub strike_spread_bp: f64,
     /// Option expiry date (must be before cds_maturity)
@@ -56,7 +56,7 @@ pub struct CdsOptionParams {
     pub day_count: DayCount,
 }
 
-impl CdsOptionParams {
+impl CDSOptionParams {
     /// Validate the parameters and return an error if invalid.
     fn validate(&self) -> finstack_core::Result<()> {
         // Strike spread validation
@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn test_valid_params_creation() {
-        let result = CdsOptionParams::call(
+        let result = CDSOptionParams::call(
             100.0,
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),
@@ -276,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_invalid_strike_zero() {
-        let result = CdsOptionParams::call(
+        let result = CDSOptionParams::call(
             0.0,
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),
@@ -291,7 +291,7 @@ mod tests {
 
     #[test]
     fn test_invalid_strike_negative() {
-        let result = CdsOptionParams::call(
+        let result = CDSOptionParams::call(
             -50.0,
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_invalid_expiry_after_maturity() {
-        let result = CdsOptionParams::call(
+        let result = CDSOptionParams::call(
             100.0,
             date!(2030 - 06 - 21), // After maturity
             date!(2030 - 06 - 20),
@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_invalid_index_factor() {
-        let params = CdsOptionParams::call(
+        let params = CDSOptionParams::call(
             100.0,
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),
@@ -332,7 +332,7 @@ mod tests {
 
     #[test]
     fn test_valid_index_factor() {
-        let params = CdsOptionParams::call(
+        let params = CDSOptionParams::call(
             100.0,
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),

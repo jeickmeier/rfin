@@ -49,7 +49,7 @@ impl std::str::FromStr for TrancheSide {
     Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
 )]
 #[serde(deny_unknown_fields)]
-pub struct CdsTranche {
+pub struct CDSTranche {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Index name (e.g., "CDX.NA.IG", "CDX.NA.HY", "iTraxx EUR")
@@ -93,7 +93,7 @@ pub struct CdsTranche {
     pub attributes: Attributes,
 }
 
-impl CdsTranche {
+impl CDSTranche {
     /// Create a canonical example CDS tranche (CDX.NA.IG 0-3% equity tranche).
     #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
@@ -116,7 +116,7 @@ impl CdsTranche {
             end_of_month: false,
             payment_lag_days: 0,
         };
-        CdsTranche::new(
+        CDSTranche::new(
             InstrumentId::new("CDXIG-42-0X3"),
             &params,
             &sched,
@@ -324,7 +324,7 @@ impl CdsTranche {
 
 // Attributable is provided via blanket impl for all Instrument types
 
-impl Instrument for CdsTranche {
+impl Instrument for CDSTranche {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -381,7 +381,7 @@ impl Instrument for CdsTranche {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common_impl::traits::CurveDependencies for CdsTranche {
+impl crate::instruments::common_impl::traits::CurveDependencies for CDSTranche {
     fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())

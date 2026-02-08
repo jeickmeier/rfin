@@ -15,12 +15,12 @@ use finstack_valuations::calibration::api::schema::{
 };
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer;
-use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CDSTranche, TrancheSide};
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 
 use finstack_core::HashMap;
-use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
 use finstack_valuations::market::quotes::ids::QuoteId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use std::env;
@@ -84,7 +84,7 @@ fn tranche_upfront_pct(
     notional: f64,
     market: &MarketContext,
 ) -> f64 {
-    let tranche = CdsTranche::builder()
+    let tranche = CDSTranche::builder()
         .id("QUOTE_TRANCHE".into())
         .index_name("CDX".to_string())
         .series(40)
@@ -200,7 +200,7 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
 
     // Use fraction attachment/detachment in the quote to validate unit normalization.
     let quotes = vec![
-        MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+        MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
             id: QuoteId::new("TRANCHE-1"),
             index: "CDX".to_string(),
             attachment: 0.0,
@@ -213,7 +213,7 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
                 doc_clause: CdsDocClause::IsdaNa,
             },
         }),
-        MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+        MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
             id: QuoteId::new("TRANCHE-2"),
             index: "CDX".to_string(),
             attachment: 0.03,

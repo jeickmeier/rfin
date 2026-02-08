@@ -348,7 +348,7 @@ fn validate_base_correlation_step(
     let index_data = context.credit_index(&p.index_id)?;
 
     // Market-standard: ensure recovery/currency/series/index are consistent.
-    let tranche_quotes: Vec<crate::market::quotes::cds_tranche::CdsTrancheQuote> =
+    let tranche_quotes: Vec<crate::market::quotes::cds_tranche::CDSTrancheQuote> =
         quotes.extract_quotes();
     if tranche_quotes.is_empty() {
         return Err(finstack_core::Error::Input(
@@ -359,7 +359,7 @@ fn validate_base_correlation_step(
 
     for q in &tranche_quotes {
         match q {
-            crate::market::quotes::cds_tranche::CdsTrancheQuote::CDSTranche {
+            crate::market::quotes::cds_tranche::CDSTrancheQuote::CDSTranche {
                 index,
                 attachment,
                 detachment,

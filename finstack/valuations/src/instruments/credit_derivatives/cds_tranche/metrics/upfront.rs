@@ -3,7 +3,7 @@
 //! Computes the net present value at inception (upfront) using the
 //! Gaussian Copula pricing engine if the required credit index data are available.
 
-use crate::instruments::credit_derivatives::cds_tranche::CdsTranche;
+use crate::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -12,7 +12,7 @@ pub struct UpfrontCalculator;
 
 impl MetricCalculator for UpfrontCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let tranche: &CdsTranche = context.instrument_as()?;
+        let tranche: &CDSTranche = context.instrument_as()?;
         if context
             .curves
             .as_ref()

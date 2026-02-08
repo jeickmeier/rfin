@@ -103,8 +103,8 @@
 //! |------|-------------|
 //! | [`CreditDefaultSwap`] | Single-name CDS |
 //! | [`CDSIndex`] | Credit indices (CDX, iTraxx) |
-//! | [`CdsTranche`] | Synthetic CDO tranches |
-//! | [`CdsOption`] | Options on CDS spreads |
+//! | [`CDSTranche`] | Synthetic CDO tranches |
+//! | [`CDSOption`] | Options on CDS spreads |
 //!
 //! ## Equity & FX
 //! | Type | Description |
@@ -231,7 +231,7 @@ pub use rates::{
 };
 
 // Credit Derivatives
-pub use credit_derivatives::{CDSIndex, CdsOption, CdsTranche, CreditDefaultSwap};
+pub use credit_derivatives::{CDSIndex, CDSOption, CDSTranche, CreditDefaultSwap};
 
 // Equity
 pub use equity::{

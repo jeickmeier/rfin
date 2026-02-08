@@ -9,7 +9,7 @@ use time::macros::date;
 fn test_metrics_registry_delta() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let pv = option.value(&market, as_of).unwrap();
     let mut ctx = MetricContext::new(
@@ -32,7 +32,7 @@ fn test_metrics_registry_delta() {
 fn test_metrics_registry_all_greeks() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let pv = option.value(&market, as_of).unwrap();
     let mut ctx = MetricContext::new(
@@ -69,7 +69,7 @@ fn test_metrics_registry_implied_vol() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
     let target_vol = 0.30;
-    let option = CdsOptionBuilder::new().implied_vol(target_vol).build(as_of);
+    let option = CDSOptionBuilder::new().implied_vol(target_vol).build(as_of);
 
     let pv = option.value(&market, as_of).unwrap();
     let mut ctx = MetricContext::new(
@@ -91,7 +91,7 @@ fn test_metrics_registry_implied_vol() {
 fn test_cs01_uses_delta_dependency() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let pv = option.value(&market, as_of).unwrap();
     let mut ctx = MetricContext::new(
@@ -123,7 +123,7 @@ fn test_cs01_uses_delta_dependency() {
 fn test_bucketed_dv01_registered() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let pv = option.value(&market, as_of).unwrap();
     let mut ctx = MetricContext::new(
@@ -147,7 +147,7 @@ fn test_metrics_near_expiry() {
     // Test metrics for near-expiry option
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .expiry_months(1) // Very short time to expiry
         .cds_maturity_months(13)
         .build(as_of);

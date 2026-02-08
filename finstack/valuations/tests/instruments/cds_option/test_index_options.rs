@@ -10,12 +10,12 @@ fn test_index_factor_scaling() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
 
-    let base_option = CdsOptionBuilder::new().with_index(1.0).build(as_of);
+    let base_option = CDSOptionBuilder::new().with_index(1.0).build(as_of);
 
     let base_pv = base_option.value(&market, as_of).unwrap().amount();
 
     for factor in [0.85, 0.90, 0.95] {
-        let scaled_option = CdsOptionBuilder::new().with_index(factor).build(as_of);
+        let scaled_option = CDSOptionBuilder::new().with_index(factor).build(as_of);
 
         let scaled_pv = scaled_option.value(&market, as_of).unwrap().amount();
         let ratio = scaled_pv / base_pv;
@@ -35,13 +35,13 @@ fn test_forward_spread_adjustment_call() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
 
-    let base_option = CdsOptionBuilder::new()
+    let base_option = CDSOptionBuilder::new()
         .call()
         .with_index(1.0)
         .forward_adjust(0.0)
         .build(as_of);
 
-    let adjusted_option = CdsOptionBuilder::new()
+    let adjusted_option = CDSOptionBuilder::new()
         .call()
         .with_index(1.0)
         .forward_adjust(25.0)
@@ -64,13 +64,13 @@ fn test_forward_spread_adjustment_put() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
 
-    let base_option = CdsOptionBuilder::new()
+    let base_option = CDSOptionBuilder::new()
         .put()
         .with_index(1.0)
         .forward_adjust(0.0)
         .build(as_of);
 
-    let adjusted_option = CdsOptionBuilder::new()
+    let adjusted_option = CDSOptionBuilder::new()
         .put()
         .with_index(1.0)
         .forward_adjust(25.0)
@@ -93,8 +93,8 @@ fn test_index_vs_single_name() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
 
-    let single_name = CdsOptionBuilder::new().build(as_of);
-    let index = CdsOptionBuilder::new()
+    let single_name = CDSOptionBuilder::new().build(as_of);
+    let index = CDSOptionBuilder::new()
         .with_index(1.0)
         .forward_adjust(0.0)
         .build(as_of);
@@ -114,8 +114,8 @@ fn test_very_small_index_factor() {
     let market = standard_market(as_of);
 
     // Test with smallest practical index factor (1%)
-    let option_small = CdsOptionBuilder::new().with_index(0.01).build(as_of);
-    let option_full = CdsOptionBuilder::new().with_index(1.0).build(as_of);
+    let option_small = CDSOptionBuilder::new().with_index(0.01).build(as_of);
+    let option_full = CDSOptionBuilder::new().with_index(1.0).build(as_of);
 
     let pv_small = option_small.value(&market, as_of).unwrap().amount();
     let pv_full = option_full.value(&market, as_of).unwrap().amount();
@@ -136,13 +136,13 @@ fn test_negative_forward_adjustment() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
 
-    let base = CdsOptionBuilder::new()
+    let base = CDSOptionBuilder::new()
         .call()
         .with_index(1.0)
         .forward_adjust(0.0)
         .build(as_of);
 
-    let adjusted = CdsOptionBuilder::new()
+    let adjusted = CDSOptionBuilder::new()
         .call()
         .with_index(1.0)
         .forward_adjust(-20.0)

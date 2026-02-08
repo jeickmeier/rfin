@@ -13,8 +13,8 @@ fn test_option_value_non_negative() {
     let market = standard_market(as_of);
 
     for strike in [50.0, 100.0, 200.0, 400.0, 800.0] {
-        let call = CdsOptionBuilder::new().call().strike(strike).build(as_of);
-        let put = CdsOptionBuilder::new().put().strike(strike).build(as_of);
+        let call = CDSOptionBuilder::new().call().strike(strike).build(as_of);
+        let put = CDSOptionBuilder::new().put().strike(strike).build(as_of);
 
         let call_pv = call.value(&market, as_of).unwrap().amount();
         let put_pv = put.value(&market, as_of).unwrap().amount();
@@ -31,7 +31,7 @@ fn test_call_upper_bound() {
     let market = standard_market(as_of);
 
     for strike in [50.0, 100.0, 200.0] {
-        let option = CdsOptionBuilder::new().call().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().call().strike(strike).build(as_of);
         let pv = option.value(&market, as_of).unwrap().amount();
 
         // Upper bound: option can't be worth more than discounted forward spread * notional
@@ -55,7 +55,7 @@ fn test_put_upper_bound() {
     let market = standard_market(as_of);
 
     for strike in [100.0, 200.0, 400.0] {
-        let option = CdsOptionBuilder::new().put().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().put().strike(strike).build(as_of);
         let pv = option.value(&market, as_of).unwrap().amount();
 
         // Upper bound: put can't be worth more than strike
@@ -82,7 +82,7 @@ fn test_call_spread_monotonicity() {
     let mut values = Vec::new();
 
     for &strike in &strikes {
-        let option = CdsOptionBuilder::new().call().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().call().strike(strike).build(as_of);
         let pv = option.value(&market, as_of).unwrap().amount();
         values.push(pv);
     }
@@ -110,7 +110,7 @@ fn test_put_spread_monotonicity() {
     let mut values = Vec::new();
 
     for &strike in &strikes {
-        let option = CdsOptionBuilder::new().put().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().put().strike(strike).build(as_of);
         let pv = option.value(&market, as_of).unwrap().amount();
         values.push(pv);
     }
@@ -138,7 +138,7 @@ fn test_butterfly_spread_no_arbitrage() {
     let k2 = 200.0;
     let k3 = 300.0;
 
-    let c1 = CdsOptionBuilder::new()
+    let c1 = CDSOptionBuilder::new()
         .call()
         .strike(k1)
         .build(as_of)
@@ -146,7 +146,7 @@ fn test_butterfly_spread_no_arbitrage() {
         .unwrap()
         .amount();
 
-    let c2 = CdsOptionBuilder::new()
+    let c2 = CDSOptionBuilder::new()
         .call()
         .strike(k2)
         .build(as_of)
@@ -154,7 +154,7 @@ fn test_butterfly_spread_no_arbitrage() {
         .unwrap()
         .amount();
 
-    let c3 = CdsOptionBuilder::new()
+    let c3 = CDSOptionBuilder::new()
         .call()
         .strike(k3)
         .build(as_of)
@@ -180,7 +180,7 @@ fn test_value_reasonable_magnitude() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
 
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .strike(200.0)
         .notional(10_000_000.0, finstack_core::currency::Currency::USD)
         .build(as_of);
@@ -202,7 +202,7 @@ fn test_deep_otm_option_low_value() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
 
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .call()
         .strike(1000.0) // Very high strike, deep OTM
         .build(as_of);
@@ -221,7 +221,7 @@ fn test_greeks_reasonable_magnitude() {
     let market = standard_market(as_of);
     let notional = 10_000_000.0;
 
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .strike(200.0)
         .notional(notional, finstack_core::currency::Currency::USD)
         .build(as_of);
@@ -266,7 +266,7 @@ fn test_put_call_parity() {
 
     // Test parity at multiple strikes
     for strike in [100.0, 150.0, 200.0, 250.0, 300.0] {
-        let call = CdsOptionBuilder::new()
+        let call = CDSOptionBuilder::new()
             .call()
             .strike(strike)
             .expiry_months(12)
@@ -275,7 +275,7 @@ fn test_put_call_parity() {
             .implied_vol(0.30)
             .build(as_of);
 
-        let put = CdsOptionBuilder::new()
+        let put = CDSOptionBuilder::new()
             .put()
             .strike(strike)
             .expiry_months(12)
@@ -339,7 +339,7 @@ fn test_put_call_parity_at_forward() {
     let notional = 10_000_000.0;
 
     // Get forward spread
-    let temp_option = CdsOptionBuilder::new().build(as_of);
+    let temp_option = CDSOptionBuilder::new().build(as_of);
     let mut underlying = test_utils::cds_buy_protection(
         "CDS-FWD-TEMP",
         temp_option.notional,
@@ -357,7 +357,7 @@ fn test_put_call_parity_at_forward() {
         .measures[&MetricId::ParSpread];
 
     // Create call and put at forward strike
-    let call = CdsOptionBuilder::new()
+    let call = CDSOptionBuilder::new()
         .call()
         .strike(forward)
         .expiry_months(12)
@@ -366,7 +366,7 @@ fn test_put_call_parity_at_forward() {
         .implied_vol(0.30)
         .build(as_of);
 
-    let put = CdsOptionBuilder::new()
+    let put = CDSOptionBuilder::new()
         .put()
         .strike(forward)
         .expiry_months(12)

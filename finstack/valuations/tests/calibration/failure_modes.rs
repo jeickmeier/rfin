@@ -20,7 +20,7 @@ use finstack_valuations::calibration::api::schema::{
 };
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_valuations::market::quotes::cds::CdsQuote;
-use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
@@ -240,7 +240,7 @@ fn base_correlation_preflight_rejects_invalid_attachment_detachment() {
         .insert_base_correlation(base_corr.as_ref().clone())
         .insert_credit_index("CDX.NA.IG", index_data);
 
-    let tranche_quote = MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+    let tranche_quote = MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
         id: QuoteId::new("CDX-IG-7-3"),
         index: "CDX.NA.IG".to_string(),
         attachment: 0.07,
@@ -289,7 +289,7 @@ fn base_correlation_preflight_requires_credit_index_data() {
     let discount = usd_discount_curve(base_date);
     let initial_market = MarketContext::new().insert_discount(discount);
 
-    let tranche_quote = MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+    let tranche_quote = MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
         id: QuoteId::new("CDX-IG-0-3"),
         index: "CDX.NA.IG".to_string(),
         attachment: 0.0,
@@ -365,7 +365,7 @@ fn base_correlation_preflight_rejects_non_monotone_tranche_points() {
         .insert_base_correlation(base_corr_clone)
         .insert_credit_index("CDX.NA.IG", index_data);
 
-    let tranche_quote = MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+    let tranche_quote = MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
         id: QuoteId::new("CDX-IG-7-3"),
         index: "CDX.NA.IG".to_string(),
         attachment: 0.15,

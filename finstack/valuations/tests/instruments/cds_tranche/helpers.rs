@@ -10,7 +10,7 @@ use finstack_core::market_data::term_structures::{
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
-use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CDSTranche, TrancheSide};
 use std::sync::Arc;
 use time::Month;
 
@@ -137,7 +137,7 @@ pub fn market_context_with_issuers(n: usize) -> MarketContext {
 }
 
 /// Create standard mezzanine tranche (3-7%)
-pub fn mezzanine_tranche() -> CdsTranche {
+pub fn mezzanine_tranche() -> CDSTranche {
     let tranche_params = CDSTrancheParams::mezzanine_tranche(
         "CDX.NA.IG.42",
         42,
@@ -146,7 +146,7 @@ pub fn mezzanine_tranche() -> CdsTranche {
         500.0, // 5% running coupon
     );
     let schedule_params = ScheduleParams::quarterly_act360();
-    CdsTranche::new(
+    CDSTranche::new(
         "CDX_IG42_3_7_5Y",
         &tranche_params,
         &schedule_params,
@@ -158,7 +158,7 @@ pub fn mezzanine_tranche() -> CdsTranche {
 }
 
 /// Create equity tranche (0-3%)
-pub fn equity_tranche() -> CdsTranche {
+pub fn equity_tranche() -> CDSTranche {
     let tranche_params = CDSTrancheParams::equity_tranche(
         "CDX.NA.IG.42",
         42,
@@ -167,7 +167,7 @@ pub fn equity_tranche() -> CdsTranche {
         1000.0, // 10% running coupon (typical for equity)
     );
     let schedule_params = ScheduleParams::quarterly_act360();
-    CdsTranche::new(
+    CDSTranche::new(
         "CDX_IG42_0_3_5Y",
         &tranche_params,
         &schedule_params,
@@ -179,7 +179,7 @@ pub fn equity_tranche() -> CdsTranche {
 }
 
 /// Create senior tranche (7-10%)
-pub fn senior_tranche() -> CdsTranche {
+pub fn senior_tranche() -> CDSTranche {
     let tranche_params = CDSTrancheParams::new(
         "CDX.NA.IG.42",
         42,
@@ -190,7 +190,7 @@ pub fn senior_tranche() -> CdsTranche {
         100.0, // 1% running coupon (typical for senior)
     );
     let schedule_params = ScheduleParams::quarterly_act360();
-    CdsTranche::new(
+    CDSTranche::new(
         "CDX_IG42_7_10_5Y",
         &tranche_params,
         &schedule_params,
@@ -207,7 +207,7 @@ pub fn custom_tranche(
     detach_pct: f64,
     running_coupon_bp: f64,
     side: TrancheSide,
-) -> CdsTranche {
+) -> CDSTranche {
     let tranche_params = CDSTrancheParams::new(
         "CDX.NA.IG.42",
         42,
@@ -218,7 +218,7 @@ pub fn custom_tranche(
         running_coupon_bp,
     );
     let schedule_params = ScheduleParams::quarterly_act360();
-    CdsTranche::new(
+    CDSTranche::new(
         "CDX_IG42_CUSTOM",
         &tranche_params,
         &schedule_params,

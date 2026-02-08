@@ -146,8 +146,8 @@ pub use core::volatility::{
     JsVolatilityConvention as VolatilityConvention,
 };
 pub use valuations::calibration::{
-    JsCalibrationConfig as CalibrationConfig, JsCalibrationMethod as CalibrationMethod,
-    JsCalibrationReport as CalibrationReport, JsCdsTrancheQuote as CdsTrancheQuote,
+    JsCDSTrancheQuote as CDSTrancheQuote, JsCalibrationConfig as CalibrationConfig,
+    JsCalibrationMethod as CalibrationMethod, JsCalibrationReport as CalibrationReport,
     JsCreditQuote as CreditQuote, JsInflationQuote as InflationQuote, JsMarketQuote as MarketQuote,
     JsRateBounds as RateBounds, JsRateBoundsPolicy as RateBoundsPolicy, JsRatesQuote as RatesQuote,
     JsResidualWeightingScheme as ResidualWeightingScheme, JsSolverKind as SolverKind,
@@ -169,7 +169,7 @@ pub use valuations::metrics::{JsMetricId as MetricId, JsMetricRegistry as Metric
 // Instruments and their helper types
 pub use valuations::instruments::{
     evaluate_dcf_wasm as evaluateDcf, AsianOption, Autocallable, AveragingMethod, BarrierOption,
-    BasisSwap, Basket, Bond, BondFuture, BondFutureSpecs, CDSIndex, CdsOption, CdsTranche,
+    BasisSwap, Basket, Bond, BondFuture, BondFutureSpecs, CDSIndex, CDSOption, CDSTranche,
     CliquetOption, CmsOption, CommodityOption, ConvertibleBond, CoverageTestRules, CoverageTrigger,
     CreditDefaultSwap, Deposit, Equity, EquityFutureSpecs, EquityIndexFuture, EquityOption,
     EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement, FuturePosition,

@@ -11,7 +11,7 @@ pub use config::{
     JsResidualWeightingScheme, JsSolverKind, JsValidationMode,
 };
 pub use quote::{
-    JsCdsTrancheQuote, JsCreditQuote, JsInflationQuote, JsMarketQuote, JsRatesQuote, JsVolQuote,
+    JsCDSTrancheQuote, JsCreditQuote, JsInflationQuote, JsMarketQuote, JsRatesQuote, JsVolQuote,
 };
 pub use report::JsCalibrationReport;
 pub use validation::{

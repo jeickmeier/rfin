@@ -15,12 +15,12 @@
 ## Usage Example
 
 ```rust
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
 use finstack_core::dates::Date;
 use time::Month;
 
 let as_of = Date::from_calendar_date(2024, Month::January, 5)?;
-let opt = CdsOption::example();
+let opt = CDSOption::example();
 let pv = opt.value(&market_context, as_of)?;
 ```
 

@@ -3,8 +3,8 @@ use crate::core::money::{extract_money, PyMoney};
 use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOptionParams;
 use finstack_valuations::instruments::{CreditParams, OptionType};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -26,7 +26,7 @@ fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
 ///
 /// Examples:
 ///     >>> opt = (
-///     ...     CdsOption.builder("opt_xyz")
+///     ...     CDSOption.builder("opt_xyz")
 ///     ...     .money(Money("USD", 5_000_000))
 ///     ...     .strike_spread_bp(150.0)
 ///     ...     .expiry(date(2024, 6, 20))
@@ -40,12 +40,12 @@ fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
 ///     150.0
 #[pyclass(module = "finstack.valuations.instruments", name = "CdsOption", frozen)]
 #[derive(Clone, Debug)]
-pub struct PyCdsOption {
-    pub(crate) inner: Arc<CdsOption>,
+pub struct PyCDSOption {
+    pub(crate) inner: Arc<CDSOption>,
 }
 
-impl PyCdsOption {
-    pub(crate) fn new(inner: CdsOption) -> Self {
+impl PyCDSOption {
+    pub(crate) fn new(inner: CDSOption) -> Self {
         Self {
             inner: Arc::new(inner),
         }
@@ -57,7 +57,7 @@ impl PyCdsOption {
     name = "CdsOptionBuilder",
     unsendable
 )]
-pub struct PyCdsOptionBuilder {
+pub struct PyCDSOptionBuilder {
     instrument_id: InstrumentId,
     notional: Option<finstack_core::money::Money>,
     strike_spread_bp: Option<f64>,
@@ -73,7 +73,7 @@ pub struct PyCdsOptionBuilder {
     forward_adjust_bp: f64,
 }
 
-impl PyCdsOptionBuilder {
+impl PyCDSOptionBuilder {
     fn new_with_id(id: InstrumentId) -> Self {
         Self {
             instrument_id: id,
@@ -124,7 +124,7 @@ impl PyCdsOptionBuilder {
 }
 
 #[pymethods]
-impl PyCdsOptionBuilder {
+impl PyCDSOptionBuilder {
     #[new]
     #[pyo3(text_signature = "(instrument_id)")]
     fn new_py(instrument_id: &str) -> Self {
@@ -228,33 +228,33 @@ impl PyCdsOptionBuilder {
     }
 
     #[pyo3(text_signature = "($self)")]
-    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCdsOption> {
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCDSOption> {
         slf.ensure_ready()?;
         let notional = slf.notional.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
-                "CdsOptionBuilder internal error: missing notional after validation",
+                "CDSOptionBuilder internal error: missing notional after validation",
             )
         })?;
         let strike_spread_bp = slf.strike_spread_bp.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
-                "CdsOptionBuilder internal error: missing strike_spread_bp after validation",
+                "CDSOptionBuilder internal error: missing strike_spread_bp after validation",
             )
         })?;
         let expiry = slf.expiry.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
-                "CdsOptionBuilder internal error: missing expiry after validation",
+                "CDSOptionBuilder internal error: missing expiry after validation",
             )
         })?;
         let cds_maturity = slf.cds_maturity.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
-                "CdsOptionBuilder internal error: missing cds_maturity after validation",
+                "CDSOptionBuilder internal error: missing cds_maturity after validation",
             )
         })?;
         let discount = slf.discount_curve.clone().unwrap();
         let credit = slf.credit_curve.clone().unwrap();
         let vol_surface = slf.vol_surface.clone().unwrap();
 
-        let mut option_params = CdsOptionParams::new(
+        let mut option_params = CDSOptionParams::new(
             strike_spread_bp,
             expiry,
             cds_maturity,
@@ -273,7 +273,7 @@ impl PyCdsOptionBuilder {
         }
 
         let credit_params = CreditParams::new("CDS_OPTION", slf.recovery_rate, credit.as_str());
-        let option = CdsOption::new(
+        let option = CDSOption::new(
             slf.instrument_id.clone(),
             &option_params,
             &credit_params,
@@ -281,25 +281,25 @@ impl PyCdsOptionBuilder {
             vol_surface.as_str(),
         )
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(PyCdsOption::new(option))
+        Ok(PyCDSOption::new(option))
     }
 
     fn __repr__(&self) -> String {
-        "CdsOptionBuilder(...)".to_string()
+        "CDSOptionBuilder(...)".to_string()
     }
 }
 
 #[pymethods]
-impl PyCdsOption {
+impl PyCDSOption {
     #[classmethod]
     #[pyo3(text_signature = "(cls, instrument_id)")]
     /// Start a fluent builder (builder-only API).
     fn builder<'py>(
         cls: &Bound<'py, PyType>,
         instrument_id: &str,
-    ) -> PyResult<Py<PyCdsOptionBuilder>> {
+    ) -> PyResult<Py<PyCDSOptionBuilder>> {
         let py = cls.py();
-        let builder = PyCdsOptionBuilder::new_with_id(InstrumentId::new(instrument_id));
+        let builder = PyCDSOptionBuilder::new_with_id(InstrumentId::new(instrument_id));
         Py::new(py, builder)
     }
 
@@ -377,7 +377,7 @@ impl PyCdsOption {
 
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
-            "CdsOption(id='{}', strike_bp={:.1}, type='{}')",
+            "CDSOption(id='{}', strike_bp={:.1}, type='{}')",
             self.inner.id,
             self.inner.strike_spread_bp,
             match self.inner.option_type {
@@ -388,11 +388,11 @@ impl PyCdsOption {
     }
 }
 
-impl fmt::Display for PyCdsOption {
+impl fmt::Display for PyCDSOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "CdsOption({}, strike_bp={:.1})",
+            "CDSOption({}, strike_bp={:.1})",
             self.inner.id, self.inner.strike_spread_bp
         )
     }
@@ -402,7 +402,7 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    module.add_class::<PyCdsOption>()?;
-    module.add_class::<PyCdsOptionBuilder>()?;
-    Ok(vec!["CdsOption", "CdsOptionBuilder"])
+    module.add_class::<PyCDSOption>()?;
+    module.add_class::<PyCDSOptionBuilder>()?;
+    Ok(vec!["CDSOption", "CDSOptionBuilder"])
 }

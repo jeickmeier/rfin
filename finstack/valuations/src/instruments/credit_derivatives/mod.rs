@@ -56,7 +56,7 @@
 //!
 //! - [`CreditDefaultSwap`] for single-name CDS
 //! - [`CDSIndex`] for credit indices
-//! - [`CdsTranche`] for synthetic CDO tranches
+//! - [`CDSTranche`] for synthetic CDO tranches
 //! - [`crate::calibration::targets::hazard`] for hazard curve calibration
 
 /// CDS module - Single-name credit default swaps.
@@ -71,5 +71,5 @@ pub mod cds_tranche;
 // Re-export primary types
 pub use cds::CreditDefaultSwap;
 pub use cds_index::CDSIndex;
-pub use cds_option::CdsOption;
-pub use cds_tranche::CdsTranche;
+pub use cds_option::CDSOption;
+pub use cds_tranche::CDSTranche;

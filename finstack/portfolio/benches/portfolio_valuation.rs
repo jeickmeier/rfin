@@ -36,10 +36,10 @@ use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::credit_derivatives::cds::{
     CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec, ProtectionLegSpec,
 };
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOptionParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
-use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CDSTranche, TrancheSide};
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::equity::equity_option::EquityOptionParams;
 use finstack_valuations::instruments::equity::variance_swap::{RealizedVarMethod, VarianceSwap};
@@ -690,7 +690,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     for i in 0..positions_per_derivative.min(2) {
         let cds_option_id = format!("CDSOPTION_{}", i);
 
-        let option_params = CdsOptionParams::call(
+        let option_params = CDSOptionParams::call(
             100.0,                            // strike spread bp
             base + time::Duration::days(180), // expiry
             maturity_5y(),                    // CDS maturity
@@ -704,7 +704,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             "CORP-HAZARD",
         );
 
-        let cds_option = CdsOption::new(
+        let cds_option = CDSOption::new(
             cds_option_id.clone(),
             &option_params,
             &credit_params,
@@ -786,7 +786,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             payment_lag_days: 0,
         };
 
-        let tranche = CdsTranche::new(
+        let tranche = CDSTranche::new(
             tranche_id.clone(),
             &tranche_params,
             &schedule_params,

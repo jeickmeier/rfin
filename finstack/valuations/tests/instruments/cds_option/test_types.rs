@@ -1,10 +1,10 @@
-//! Unit tests for CdsOption type construction and basic methods.
+//! Unit tests for CDSOption type construction and basic methods.
 
 use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOptionParams;
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::OptionType;
@@ -17,7 +17,7 @@ fn test_cds_option_construction() {
     let expiry = date!(2026 - 01 - 01);
     let maturity = date!(2031 - 01 - 01);
 
-    let option_params = CdsOptionParams::call(
+    let option_params = CDSOptionParams::call(
         100.0,
         expiry,
         maturity,
@@ -26,7 +26,7 @@ fn test_cds_option_construction() {
     .expect("valid call params");
     let credit_params = CreditParams::corporate_standard("CORP", "HZ-CORP");
 
-    let option = CdsOption::new(
+    let option = CDSOption::new(
         "TEST-CDSOPT",
         &option_params,
         &credit_params,
@@ -50,7 +50,7 @@ fn test_cds_option_construction() {
 #[test]
 fn test_instrument_trait_implementation() {
     let as_of = date!(2025 - 01 - 01);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     assert_eq!(option.id(), "CDSOPT-TEST");
     assert_eq!(option.key(), InstrumentType::CDSOption);
@@ -59,7 +59,7 @@ fn test_instrument_trait_implementation() {
 #[test]
 fn test_instrument_clone_box() {
     let as_of = date!(2025 - 01 - 01);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let boxed = option.clone_box();
     assert_eq!(boxed.id(), option.id());
@@ -69,7 +69,7 @@ fn test_instrument_clone_box() {
 #[test]
 fn test_single_name_option_defaults() {
     let as_of = date!(2025 - 01 - 01);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     assert!(!option.underlying_is_index);
     assert_eq!(option.index_factor, None);
@@ -79,7 +79,7 @@ fn test_single_name_option_defaults() {
 #[test]
 fn test_index_option_construction() {
     let as_of = date!(2025 - 01 - 01);
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .with_index(0.88)
         .forward_adjust(15.0)
         .build(as_of);
@@ -92,7 +92,7 @@ fn test_index_option_construction() {
 #[test]
 fn test_call_option() {
     let as_of = date!(2025 - 01 - 01);
-    let option = CdsOptionBuilder::new().call().build(as_of);
+    let option = CDSOptionBuilder::new().call().build(as_of);
 
     assert!(matches!(option.option_type, OptionType::Call));
 }
@@ -100,7 +100,7 @@ fn test_call_option() {
 #[test]
 fn test_put_option() {
     let as_of = date!(2025 - 01 - 01);
-    let option = CdsOptionBuilder::new().put().build(as_of);
+    let option = CDSOptionBuilder::new().put().build(as_of);
 
     assert!(matches!(option.option_type, OptionType::Put));
 }
@@ -110,7 +110,7 @@ fn test_various_strikes() {
     let as_of = date!(2025 - 01 - 01);
 
     for strike in [25.0, 50.0, 100.0, 200.0, 500.0] {
-        let option = CdsOptionBuilder::new().strike(strike).build(as_of);
+        let option = CDSOptionBuilder::new().strike(strike).build(as_of);
         assert_eq!(option.strike_spread_bp, strike);
     }
 }
@@ -121,7 +121,7 @@ fn test_various_maturities() {
 
     for expiry_months in [3, 6, 12, 24] {
         for cds_months in [36, 60, 84, 120] {
-            let option = CdsOptionBuilder::new()
+            let option = CDSOptionBuilder::new()
                 .expiry_months(expiry_months)
                 .cds_maturity_months(cds_months)
                 .build(as_of);
@@ -136,7 +136,7 @@ fn test_various_maturities() {
 #[test]
 fn test_pricing_overrides() {
     let as_of = date!(2025 - 01 - 01);
-    let mut option = CdsOptionBuilder::new().implied_vol(0.45).build(as_of);
+    let mut option = CDSOptionBuilder::new().implied_vol(0.45).build(as_of);
 
     assert_eq!(option.pricing_overrides.implied_volatility, Some(0.45));
 
@@ -148,7 +148,7 @@ fn test_pricing_overrides() {
 #[test]
 fn test_attributes_access() {
     let as_of = date!(2025 - 01 - 01);
-    let mut option = CdsOptionBuilder::new().build(as_of);
+    let mut option = CDSOptionBuilder::new().build(as_of);
 
     // Test mutable access
     option

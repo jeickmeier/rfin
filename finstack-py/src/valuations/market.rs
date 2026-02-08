@@ -14,11 +14,11 @@ use finstack_core::types::CurveId;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::market::conventions::ids::{IndexId, IrFutureContractId};
 use finstack_valuations::market::quotes::cds::CdsQuote;
-use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::rates::RateQuote;
 use finstack_valuations::market::{build_cds_instrument, build_cds_tranche_instrument};
-use finstack_valuations::market::{build_rate_instrument, BuildCtx, CdsTrancheBuildOverrides};
+use finstack_valuations::market::{build_rate_instrument, BuildCtx, CDSTrancheBuildOverrides};
 use pyo3::exceptions::{PyRuntimeError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
@@ -428,18 +428,18 @@ impl PyCdsQuote {
     frozen
 )]
 #[derive(Clone, Debug)]
-pub struct PyCdsTrancheQuote {
-    pub(crate) inner: CdsTrancheQuote,
+pub struct PyCDSTrancheQuote {
+    pub(crate) inner: CDSTrancheQuote,
 }
 
-impl PyCdsTrancheQuote {
-    pub(crate) fn new(inner: CdsTrancheQuote) -> Self {
+impl PyCDSTrancheQuote {
+    pub(crate) fn new(inner: CDSTrancheQuote) -> Self {
         Self { inner }
     }
 }
 
 #[pymethods]
-impl PyCdsTrancheQuote {
+impl PyCDSTrancheQuote {
     #[classmethod]
     #[pyo3(
         signature = (id, index, attachment, detachment, maturity, upfront_pct, running_spread_bp, convention),
@@ -456,7 +456,7 @@ impl PyCdsTrancheQuote {
         running_spread_bp: f64,
         convention: &PyCdsConventionKey,
     ) -> PyResult<Self> {
-        Ok(Self::new(CdsTrancheQuote::CDSTranche {
+        Ok(Self::new(CDSTrancheQuote::CDSTranche {
             id: parse_quote_id(id)?,
             index,
             attachment,
@@ -474,28 +474,28 @@ impl PyCdsTrancheQuote {
     }
 
     fn __repr__(&self) -> String {
-        format!("CdsTrancheQuote(id='{}')", self.inner.id())
+        format!("CDSTrancheQuote(id='{}')", self.inner.id())
     }
 }
 
 /// Overrides for CDS tranche schedule and index metadata during build.
 #[pyclass(
     module = "finstack.valuations.market",
-    name = "CdsTrancheBuildOverrides"
+    name = "CDSTrancheBuildOverrides"
 )]
 #[derive(Clone, Debug)]
-pub struct PyCdsTrancheBuildOverrides {
-    pub(crate) inner: CdsTrancheBuildOverrides,
+pub struct PyCDSTrancheBuildOverrides {
+    pub(crate) inner: CDSTrancheBuildOverrides,
 }
 
-impl PyCdsTrancheBuildOverrides {
-    pub(crate) fn new(inner: CdsTrancheBuildOverrides) -> Self {
+impl PyCDSTrancheBuildOverrides {
+    pub(crate) fn new(inner: CDSTrancheBuildOverrides) -> Self {
         Self { inner }
     }
 }
 
 #[pymethods]
-impl PyCdsTrancheBuildOverrides {
+impl PyCDSTrancheBuildOverrides {
     #[new]
     #[pyo3(
         signature = (series, *, payment_frequency=None, day_count=None, business_day_convention=None, calendar_id=None, use_imm_dates=true),
@@ -509,7 +509,7 @@ impl PyCdsTrancheBuildOverrides {
         calendar_id: Option<String>,
         use_imm_dates: bool,
     ) -> PyResult<Self> {
-        let mut inner = CdsTrancheBuildOverrides::new(series);
+        let mut inner = CDSTrancheBuildOverrides::new(series);
         inner.use_imm_dates = use_imm_dates;
         if let Some(freq) = payment_frequency {
             if let Ok(t) = freq.extract::<PyRef<'_, PyTenor>>() {
@@ -547,7 +547,7 @@ impl PyCdsTrancheBuildOverrides {
 
     fn __repr__(&self) -> String {
         format!(
-            "CdsTrancheBuildOverrides(series={}, use_imm_dates={})",
+            "CDSTrancheBuildOverrides(series={}, use_imm_dates={})",
             self.inner.series, self.inner.use_imm_dates
         )
     }
@@ -572,9 +572,9 @@ fn build_cds_instrument_py(quote: &PyCdsQuote, ctx: &PyBuildCtx) -> PyResult<PyB
     text_signature = "(quote, ctx, overrides)"
 )]
 fn build_cds_tranche_instrument_py(
-    quote: &PyCdsTrancheQuote,
+    quote: &PyCDSTrancheQuote,
     ctx: &PyBuildCtx,
-    overrides: &PyCdsTrancheBuildOverrides,
+    overrides: &PyCDSTrancheBuildOverrides,
 ) -> PyResult<PyBuiltInstrument> {
     let inst = build_cds_tranche_instrument(&quote.inner, &ctx.inner, &overrides.inner)
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
@@ -598,8 +598,8 @@ pub(crate) fn register<'py>(
     module.add_class::<PyBuiltInstrument>()?;
     module.add_class::<PyRateQuote>()?;
     module.add_class::<PyCdsQuote>()?;
-    module.add_class::<PyCdsTrancheQuote>()?;
-    module.add_class::<PyCdsTrancheBuildOverrides>()?;
+    module.add_class::<PyCDSTrancheQuote>()?;
+    module.add_class::<PyCDSTrancheBuildOverrides>()?;
     module.add_function(wrap_pyfunction!(build_rate_instrument_py, &module)?)?;
     module.add_function(wrap_pyfunction!(build_cds_instrument_py, &module)?)?;
     module.add_function(wrap_pyfunction!(build_cds_tranche_instrument_py, &module)?)?;
@@ -611,8 +611,8 @@ pub(crate) fn register<'py>(
         "BuiltInstrument",
         "RateQuote",
         "CdsQuote",
-        "CdsTrancheQuote",
-        "CdsTrancheBuildOverrides",
+        "CDSTrancheQuote",
+        "CDSTrancheBuildOverrides",
         "build_rate_instrument",
         "build_cds_instrument",
         "build_cds_tranche_instrument",

@@ -61,13 +61,13 @@ Captures the "double hit" effect: defaults cluster AND recovery falls in stress.
 ## Usage Example
 
 ```rust
-use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, CopulaSpec, RecoverySpec};
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CDSTranche, CopulaSpec, RecoverySpec};
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::pricer::{CDSTranchePricer, CDSTranchePricerConfig};
 use finstack_core::dates::Date;
 use time::Month;
 
 let as_of = Date::from_calendar_date(2024, Month::January, 5)?;
-let tranche = CdsTranche::example();
+let tranche = CDSTranche::example();
 
 // Standard Gaussian copula pricing
 let pv = tranche.value(&market_context, as_of)?;

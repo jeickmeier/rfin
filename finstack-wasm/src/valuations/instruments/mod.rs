@@ -99,12 +99,12 @@ pub use cds::JsCreditDefaultSwapBuilder as CreditDefaultSwapBuilder;
 pub use cds_index::JsCDSIndex as CDSIndex;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use cds_index::JsCDSIndexBuilder as CDSIndexBuilder;
-pub use cds_option::JsCdsOption as CdsOption;
+pub use cds_option::JsCDSOption as CDSOption;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
-pub use cds_option::JsCdsOptionBuilder as CdsOptionBuilder;
-pub use cds_tranche::JsCdsTranche as CdsTranche;
+pub use cds_option::JsCDSOptionBuilder as CDSOptionBuilder;
+pub use cds_tranche::JsCDSTranche as CDSTranche;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
-pub use cds_tranche::JsCdsTrancheBuilder as CdsTrancheBuilder;
+pub use cds_tranche::JsCDSTrancheBuilder as CDSTrancheBuilder;
 pub use cliquet_option::JsCliquetOption as CliquetOption;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use cliquet_option::JsCliquetOptionBuilder as CliquetOptionBuilder;
@@ -341,8 +341,8 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
     try_extract!(variance_swap::JsVarianceSwap, "VarianceSwap");
     try_extract!(cds::JsCreditDefaultSwap, "CreditDefaultSwap");
     try_extract!(cds_index::JsCDSIndex, "CDSIndex");
-    try_extract!(cds_option::JsCdsOption, "CdsOption");
-    try_extract!(cds_tranche::JsCdsTranche, "CdsTranche");
+    try_extract!(cds_option::JsCDSOption, "CDSOption");
+    try_extract!(cds_tranche::JsCDSTranche, "CDSTranche");
     try_extract!(repo::JsRepo, "Repo");
     try_extract!(
         inflation_linked_bond::JsInflationLinkedBond,

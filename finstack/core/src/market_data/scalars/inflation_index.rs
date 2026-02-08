@@ -267,6 +267,13 @@ pub struct InflationIndex {
 }
 
 impl InflationIndex {
+    /// Create an [`InflationIndexBuilder`] for constructing a new index.
+    ///
+    /// This is the preferred entry point, consistent with other curve builders.
+    pub fn builder(id: impl Into<String>, currency: Currency) -> InflationIndexBuilder {
+        InflationIndexBuilder::new(id, currency)
+    }
+
     /// Create a new inflation index from observations.
     ///
     /// # Parameters

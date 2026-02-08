@@ -2,7 +2,7 @@ use finstack_valuations::calibration::{
     CalibrationConfig, RateBounds, SolverConfig, ValidationMode,
 };
 use finstack_valuations::market::quotes::cds::CdsQuote;
-use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote as RatesQuote;
@@ -41,7 +41,7 @@ fn export_calibration_types() {
 
     RatesQuote::export().expect("export RatesQuote");
     CdsQuote::export().expect("export CdsQuote");
-    CdsTrancheQuote::export().expect("export CdsTrancheQuote");
+    CDSTrancheQuote::export().expect("export CDSTrancheQuote");
     VolQuote::export().expect("export VolQuote");
     InflationQuote::export().expect("export InflationQuote");
     MarketQuote::export().expect("export MarketQuote");

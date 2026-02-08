@@ -22,7 +22,7 @@
 //! factor to approximate the spread sensitivity.
 
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::credit_derivatives::cds_option::CdsOption;
+use crate::instruments::credit_derivatives::cds_option::CDSOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::Result;
@@ -40,7 +40,7 @@ pub struct Cs01Calculator;
 
 impl MetricCalculator for Cs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let cds_option: &CdsOption = context.instrument_as()?;
+        let cds_option: &CDSOption = context.instrument_as()?;
         let as_of = context.as_of;
 
         if as_of >= cds_option.expiry {
@@ -101,8 +101,8 @@ fn rebuild_hazard_with_id(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::credit_derivatives::cds_option::parameters::CdsOptionParams;
-    use crate::instruments::credit_derivatives::cds_option::CdsOption;
+    use crate::instruments::credit_derivatives::cds_option::parameters::CDSOptionParams;
+    use crate::instruments::credit_derivatives::cds_option::CDSOption;
     use crate::instruments::CreditParams;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
@@ -145,7 +145,7 @@ mod tests {
         let as_of = date!(2024 - 01 - 01);
         let market = test_market(as_of);
 
-        let option_params = CdsOptionParams::call(
+        let option_params = CDSOptionParams::call(
             100.0,
             date!(2025 - 01 - 01),
             date!(2029 - 01 - 01),
@@ -153,7 +153,7 @@ mod tests {
         )
         .expect("Valid CDS option parameters");
         let credit_params = CreditParams::corporate_standard("CORP", "CORP_HAZARD");
-        let mut option = CdsOption::new(
+        let mut option = CDSOption::new(
             "TEST_CDSOPT",
             &option_params,
             &credit_params,

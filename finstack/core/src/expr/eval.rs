@@ -234,15 +234,12 @@ impl CompiledExpr {
             }
 
             // Extract root result
-            if let Some(&root_id) = plan_to_use.roots.first() {
-                if let Some(&(start, end)) = offsets.get(&root_id) {
-                    arena[start..end].to_vec()
-                } else {
-                    Vec::new()
-                }
-            } else {
-                Vec::new()
-            }
+            plan_to_use
+                .roots
+                .first()
+                .and_then(|&root_id| offsets.get(&root_id))
+                .map(|&(start, end)| arena[start..end].to_vec())
+                .unwrap_or_default()
         };
 
         // Stamp minimal metadata only at IO boundaries; evaluator does not record timings/cache/parallel
@@ -266,18 +263,16 @@ impl CompiledExpr {
     ) {
         match &node.expr.node {
             ExprNode::Column(name) => {
-                if let Some(idx) = ctx.resolve_index(name) {
-                    if let Some(col_data) = cols.get(idx) {
-                        let len = out.len().min(col_data.len());
-                        out[..len].copy_from_slice(&col_data[..len]);
-                    } else {
-                        // Column index out of bounds - fill with NaN
-                        out.fill(f64::NAN);
-                    }
-                } else {
-                    // Unknown column - fill with NaN
+                let Some(idx) = ctx.resolve_index(name) else {
                     out.fill(f64::NAN);
-                }
+                    return;
+                };
+                let Some(col_data) = cols.get(idx) else {
+                    out.fill(f64::NAN);
+                    return;
+                };
+                let len = out.len().min(col_data.len());
+                out[..len].copy_from_slice(&col_data[..len]);
             }
             ExprNode::Literal(val) => {
                 out.fill(*val);

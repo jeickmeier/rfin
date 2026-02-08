@@ -1,12 +1,12 @@
-//! CdsOption instrument: option on a CDS spread.
+//! CDSOption instrument: option on a CDS spread.
 //!
-//! This module defines the `CdsOption` data structure and integrates with the
+//! This module defines the `CDSOption` data structure and integrates with the
 //! common instrument trait via `impl_instrument!`. All pricing math and metrics
 //! are implemented in the `pricing/` and `metrics/` submodules.
 //!
 //! # Validation
 //!
-//! `CdsOption::try_new` validates all inputs at construction time:
+//! `CDSOption::try_new` validates all inputs at construction time:
 //! - Strike spread must be positive (≤0 is invalid)
 //! - Option expiry must precede underlying CDS maturity
 //! - Recovery rate must be in (0, 1)
@@ -26,7 +26,7 @@ use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::money::Money;
 use finstack_core::types::{InstrumentId, Percentage};
 
-use super::parameters::CdsOptionParams;
+use super::parameters::CDSOptionParams;
 
 /// Minimum valid recovery rate (exclusive lower bound).
 pub const MIN_RECOVERY_RATE: f64 = 0.0;
@@ -41,7 +41,7 @@ pub const MAX_IMPLIED_VOL: f64 = 5.0;
 /// Credit option instrument (option on CDS spread)
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CdsOption {
+pub struct CDSOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Strike spread in basis points
@@ -80,8 +80,8 @@ pub struct CdsOption {
     pub forward_spread_adjust_bp: f64,
 }
 
-impl CdsOption {
-    /// Validate the CdsOption parameters.
+impl CDSOption {
+    /// Validate the CDSOption parameters.
     fn validate(&self) -> finstack_core::Result<()> {
         // Strike validation
         if self.strike_spread_bp <= super::parameters::MIN_STRIKE_SPREAD_BP {
@@ -151,21 +151,21 @@ impl CdsOption {
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use time::macros::date;
-        let option_params = CdsOptionParams::call(
+        let option_params = CDSOptionParams::call(
             100.0,
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),
             Money::new(10_000_000.0, Currency::USD),
         )
         .unwrap_or_else(|_| {
-            unreachable!("Example CdsOptionParams with valid constants should never fail")
+            unreachable!("Example CDSOptionParams with valid constants should never fail")
         });
         let credit_params =
             crate::instruments::common_impl::parameters::CreditParams::corporate_standard(
                 "CORP",
                 "CORP-HAZARD",
             );
-        CdsOption::new(
+        CDSOption::new(
             InstrumentId::new("CDSOPT-CALL-CORP-5Y"),
             &option_params,
             &credit_params,
@@ -173,7 +173,7 @@ impl CdsOption {
             "CDSOPT-VOL",
         )
         .unwrap_or_else(|_| {
-            unreachable!("Example CdsOption with valid constants should never fail")
+            unreachable!("Example CDSOption with valid constants should never fail")
         })
     }
 
@@ -189,10 +189,10 @@ impl CdsOption {
     ///
     /// # Errors
     ///
-    /// Returns an error if any validation fails. See [`CdsOptionParams`] for parameter constraints.
+    /// Returns an error if any validation fails. See [`CDSOptionParams`] for parameter constraints.
     pub fn new(
         id: impl Into<InstrumentId>,
-        option_params: &CdsOptionParams,
+        option_params: &CDSOptionParams,
         credit_params: &CreditParams,
         discount_curve_id: impl Into<finstack_core::types::CurveId>,
         vol_surface_id: impl Into<finstack_core::types::CurveId>,
@@ -271,7 +271,7 @@ impl CdsOption {
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<Option<CdsOptionPricingInputs>> {
+    ) -> finstack_core::Result<Option<CDSOptionPricingInputs>> {
         let ctx = DayCountCtx::default();
 
         // Time to expiry
@@ -282,7 +282,7 @@ impl CdsOption {
 
         // Forward spread in bp (consistent with pricing engine)
         let pricer =
-            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
+            crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer::default();
         let fwd_bp = pricer.forward_spread_bp(self, curves, as_of)?;
 
         // Volatility (use override if present, else surface)
@@ -297,7 +297,7 @@ impl CdsOption {
         // Risky annuity
         let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
 
-        Ok(Some(CdsOptionPricingInputs {
+        Ok(Some(CDSOptionPricingInputs {
             t,
             fwd_bp,
             sigma,
@@ -320,7 +320,7 @@ impl CdsOption {
         };
 
         let pricer =
-            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
+            crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer::default();
         let delta = pricer.delta(
             self,
             inputs.fwd_bp,
@@ -346,7 +346,7 @@ impl CdsOption {
         };
 
         let pricer =
-            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
+            crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer::default();
         let gamma = pricer.gamma(
             self,
             inputs.fwd_bp,
@@ -371,7 +371,7 @@ impl CdsOption {
         };
 
         let pricer =
-            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
+            crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer::default();
         let vega = pricer.vega(
             self,
             inputs.fwd_bp,
@@ -397,7 +397,7 @@ impl CdsOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let pricer =
-            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
+            crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer::default();
         pricer.theta_finite_diff(self, curves, as_of)
     }
 
@@ -423,7 +423,7 @@ impl CdsOption {
         initial_guess: Option<f64>,
     ) -> finstack_core::Result<f64> {
         let pricer =
-            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
+            crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer::default();
         pricer.implied_vol(self, curves, as_of, target_price, initial_guess)
     }
 }
@@ -433,7 +433,7 @@ impl CdsOption {
 /// This struct consolidates the computed market inputs needed by all Greek methods,
 /// eliminating code duplication while maintaining clear ownership of the computation.
 #[derive(Debug, Clone, Copy)]
-pub struct CdsOptionPricingInputs {
+pub struct CDSOptionPricingInputs {
     /// Time to expiry in years
     pub t: f64,
     /// Forward CDS spread in basis points
@@ -444,7 +444,7 @@ pub struct CdsOptionPricingInputs {
     pub risky_annuity: f64,
 }
 
-impl crate::instruments::common_impl::traits::Instrument for CdsOption {
+impl crate::instruments::common_impl::traits::Instrument for CDSOption {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -475,7 +475,7 @@ impl crate::instruments::common_impl::traits::Instrument for CdsOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         let pricer =
-            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
+            crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer::default();
         pricer.npv(self, curves, as_of)
     }
 
@@ -507,7 +507,7 @@ impl crate::instruments::common_impl::traits::Instrument for CdsOption {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common_impl::traits::CurveDependencies for CdsOption {
+impl crate::instruments::common_impl::traits::CurveDependencies for CDSOption {
     fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())

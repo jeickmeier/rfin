@@ -32,7 +32,7 @@
 //!
 //! # See Also
 //!
-//! - [`CdsOption`] for instrument struct
+//! - [`CDSOption`] for instrument struct
 //! - [`cds`](super::cds) for underlying CDS pricing
 
 pub(crate) mod metrics;
@@ -40,5 +40,5 @@ pub(crate) mod parameters;
 pub(crate) mod pricer;
 mod types;
 
-pub use parameters::CdsOptionParams;
-pub use types::CdsOption;
+pub use parameters::CDSOptionParams;
+pub use types::CDSOption;

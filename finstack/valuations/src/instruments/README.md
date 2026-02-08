@@ -108,8 +108,8 @@ instruments/
 
 - **CreditDefaultSwap**: Single-name CDS (protection buyer/seller)
 - **CDSIndex**: CDS on credit indices (CDX, iTraxx)
-- **CdsTranche**: Tranched index positions
-- **CdsOption**: Options on CDS spreads
+- **CDSTranche**: Tranched index positions
+- **CDSOption**: Options on CDS spreads
 - **StructuredCredit**: ABS/RMBS/CMBS/CLO with behavioral models
 
 ### Equity Derivatives

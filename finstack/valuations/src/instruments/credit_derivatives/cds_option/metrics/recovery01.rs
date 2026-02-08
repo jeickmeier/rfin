@@ -11,7 +11,7 @@
 //! This provides a "local" or "partial" recovery sensitivity only.
 
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::credit_derivatives::cds_option::CdsOption;
+use crate::instruments::credit_derivatives::cds_option::CDSOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -23,7 +23,7 @@ pub struct Recovery01Calculator;
 
 impl MetricCalculator for Recovery01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let option: &CdsOption = context.instrument_as()?;
+        let option: &CDSOption = context.instrument_as()?;
         let as_of = context.as_of;
         let _base_pv = context.base_value.amount();
 
@@ -32,7 +32,7 @@ impl MetricCalculator for Recovery01Calculator {
 
         // Create option with bumped recovery (up).
         // Clamp to (0.001, 0.999) to stay within the valid domain required by
-        // CdsOption::validate() which requires R in the open interval (0, 1).
+        // CDSOption::validate() which requires R in the open interval (0, 1).
         // At R=1.0 the protection leg PV is zero; at R=0.0 synthetic CDS may fail.
         let mut option_up = option.clone();
         option_up.recovery_rate = (base_recovery + RECOVERY_BUMP).clamp(0.001, 0.999);

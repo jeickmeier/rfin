@@ -402,6 +402,29 @@ pub struct Schedule {
 }
 
 impl Schedule {
+    /// Create a [`ScheduleBuilder`] for constructing a new schedule.
+    ///
+    /// This is the preferred entry point; it validates that `start <= end`
+    /// and returns the builder for further configuration.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::{Schedule, Tenor};
+    /// use time::{Date, Month};
+    ///
+    /// let start = Date::from_calendar_date(2025, Month::January, 15)?;
+    /// let end = Date::from_calendar_date(2025, Month::March, 15)?;
+    ///
+    /// let schedule = Schedule::builder(start, end)?
+    ///     .frequency(Tenor::monthly())
+    ///     .build()?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn builder(start: Date, end: Date) -> crate::Result<ScheduleBuilder<'static>> {
+        ScheduleBuilder::new(start, end)
+    }
+
     /// Returns `true` if any warnings were generated during schedule construction.
     ///
     /// When using graceful fallback mode, this should be checked to ensure

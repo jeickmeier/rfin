@@ -30,10 +30,10 @@ use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndex, CDSIndexConstructionParams, CDSIndexParams,
 };
 use finstack_valuations::instruments::credit_derivatives::cds_option::{
-    CdsOption, CdsOptionParams,
+    CDSOption, CDSOptionParams,
 };
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{
-    CDSTrancheParams, CdsTranche, TrancheSide,
+    CDSTranche, CDSTrancheParams, TrancheSide,
 };
 use finstack_valuations::instruments::equity::equity_option::{EquityOption, EquityOptionParams};
 use finstack_valuations::instruments::equity::Equity;
@@ -790,7 +790,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     .with_tag("sector", "Credit");
 
     // 10. CDS Option (option on CDS spread) - standalone
-    let option_params = CdsOptionParams::call(
+    let option_params = CDSOptionParams::call(
         120.0,                                   // Strike at 120bp
         date!(2024 - 07 - 01),                   // 6M expiry
         date!(2029 - 01 - 01),                   // 5Y CDS maturity
@@ -798,7 +798,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     )
     .expect("valid CDS option params");
 
-    let cds_option = CdsOption::new(
+    let cds_option = CDSOption::new(
         "CDS_OPTION_6M",
         &option_params,
         &credit_params,
@@ -839,7 +839,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         payment_lag_days: 0,
     };
 
-    let cds_tranche = CdsTranche::new(
+    let cds_tranche = CDSTranche::new(
         "CDS_TRANCHE_3_7",
         &tranche_params,
         &schedule_params,

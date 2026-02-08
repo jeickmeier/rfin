@@ -472,6 +472,14 @@ pub struct Waterfall {
 }
 
 impl Waterfall {
+    /// Create a [`WaterfallBuilder`] for constructing a new waterfall engine.
+    ///
+    /// This is the preferred entry point, consistent with other builder patterns.
+    #[must_use]
+    pub fn builder(base_currency: Currency) -> WaterfallBuilder {
+        WaterfallBuilder::new(base_currency)
+    }
+
     /// Create new waterfall engine
     #[must_use]
     pub fn new(base_currency: Currency) -> Self {

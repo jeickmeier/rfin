@@ -9,7 +9,7 @@ use time::macros::date;
 #[test]
 fn test_call_option_positive_value() {
     let as_of = date!(2025 - 01 - 01);
-    let option = CdsOptionBuilder::new().call().strike(100.0).build(as_of);
+    let option = CDSOptionBuilder::new().call().strike(100.0).build(as_of);
     let market = standard_market(as_of);
 
     let pv = option.value(&market, as_of).unwrap();
@@ -21,7 +21,7 @@ fn test_call_option_positive_value() {
 #[test]
 fn test_put_option_positive_value() {
     let as_of = date!(2025 - 01 - 01);
-    let option = CdsOptionBuilder::new().put().strike(100.0).build(as_of);
+    let option = CDSOptionBuilder::new().put().strike(100.0).build(as_of);
     let market = standard_market(as_of);
 
     let pv = option.value(&market, as_of).unwrap();
@@ -34,7 +34,7 @@ fn test_put_option_positive_value() {
 fn test_atm_option_value() {
     let as_of = date!(2025 - 01 - 01);
     // Strike near forward spread (200bp based on 2% hazard * 10000 * (1-0.4))
-    let option = CdsOptionBuilder::new().strike(200.0).build(as_of);
+    let option = CDSOptionBuilder::new().strike(200.0).build(as_of);
     let market = standard_market(as_of);
 
     let pv = option.value(&market, as_of).unwrap();
@@ -46,7 +46,7 @@ fn test_atm_option_value() {
 fn test_deep_itm_call() {
     let as_of = date!(2025 - 01 - 01);
     // Strike well below forward
-    let option = CdsOptionBuilder::new().call().strike(50.0).build(as_of);
+    let option = CDSOptionBuilder::new().call().strike(50.0).build(as_of);
     let market = standard_market(as_of);
 
     let pv = option.value(&market, as_of).unwrap();
@@ -58,7 +58,7 @@ fn test_deep_itm_call() {
 fn test_deep_otm_call() {
     let as_of = date!(2025 - 01 - 01);
     // Strike well above forward
-    let option = CdsOptionBuilder::new().call().strike(500.0).build(as_of);
+    let option = CDSOptionBuilder::new().call().strike(500.0).build(as_of);
     let market = standard_market(as_of);
 
     let pv = option.value(&market, as_of).unwrap();
@@ -72,10 +72,10 @@ fn test_notional_scaling() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
 
-    let option1 = CdsOptionBuilder::new()
+    let option1 = CDSOptionBuilder::new()
         .notional(10_000_000.0, finstack_core::currency::Currency::USD)
         .build(as_of);
-    let option2 = CdsOptionBuilder::new()
+    let option2 = CDSOptionBuilder::new()
         .notional(20_000_000.0, finstack_core::currency::Currency::USD)
         .build(as_of);
 
@@ -93,7 +93,7 @@ fn test_time_to_expiry_effect() {
 
     let mut values = Vec::new();
     for months in [3, 6, 12, 18, 24] {
-        let option = CdsOptionBuilder::new()
+        let option = CDSOptionBuilder::new()
             .expiry_months(months)
             .cds_maturity_months(months + 48)
             .build(as_of);
@@ -112,7 +112,7 @@ fn test_volatility_effect() {
 
     let mut values = Vec::new();
     for vol in [0.10, 0.20, 0.30, 0.40, 0.50] {
-        let option = CdsOptionBuilder::new().implied_vol(vol).build(as_of);
+        let option = CDSOptionBuilder::new().implied_vol(vol).build(as_of);
         let pv = option.value(&market, as_of).unwrap().amount();
         values.push((vol, pv));
     }
@@ -127,7 +127,7 @@ fn test_near_expiry_option() {
     let market = standard_market(as_of);
 
     // Very short time to expiry (1 week)
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .expiry_months(0) // Will be adjusted to very near-term
         .build(as_of);
 
@@ -144,7 +144,7 @@ fn test_very_short_dated_option() {
     let market = standard_market(as_of);
 
     // Option with very short time to expiry (1 week via 0 months)
-    let option = CdsOptionBuilder::new()
+    let option = CDSOptionBuilder::new()
         .expiry_months(1) // 1 month is shortest practical period
         .cds_maturity_months(13)
         .build(as_of);
@@ -164,7 +164,7 @@ fn test_very_short_dated_option() {
 fn test_forward_spread_calculation() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let mut underlying = test_utils::cds_buy_protection(
         "CDS-FWD",
@@ -190,7 +190,7 @@ fn test_forward_spread_calculation() {
 fn test_price_with_metrics() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
-    let option = CdsOptionBuilder::new().build(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
         .price_with_metrics(

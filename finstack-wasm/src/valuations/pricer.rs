@@ -171,7 +171,7 @@ impl JsPricerRegistry {
     /// CliquetOption, QuantoOption, VarianceSwap, Autocallable, EquityIndexFuture,
     /// EquityTotalReturnSwap
     ///
-    /// **Credit**: CreditDefaultSwap, CDSIndex, CdsTranche, CdsOption
+    /// **Credit**: CreditDefaultSwap, CDSIndex, CDSTranche, CDSOption
     ///
     /// **Structured Products**: StructuredCredit, Basket, PrivateMarketsFund, RevolvingCredit
     ///
