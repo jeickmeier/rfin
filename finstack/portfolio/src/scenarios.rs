@@ -5,7 +5,7 @@
 //! optionally re-value them using the modified market data.
 
 #[cfg(feature = "scenarios")]
-use crate::error::{PortfolioError, Result};
+use crate::error::{Error, Result};
 #[cfg(feature = "scenarios")]
 use crate::portfolio::Portfolio;
 #[cfg(feature = "scenarios")]
@@ -43,7 +43,7 @@ use std::sync::Arc;
 ///
 /// # Errors
 ///
-/// Returns [`PortfolioError::ScenarioError`] when the scenario engine reports a failure.
+/// Returns [`Error::ScenarioError`] when the scenario engine reports a failure.
 #[cfg(feature = "scenarios")]
 pub fn apply_scenario(
     portfolio: &Portfolio,
@@ -80,7 +80,7 @@ pub fn apply_scenario(
     let engine = ScenarioEngine::default();
     let report = engine
         .apply(scenario, &mut ctx)
-        .map_err(|e| PortfolioError::ScenarioError(e.to_string()))?;
+        .map_err(|e| Error::ScenarioError(e.to_string()))?;
 
     // Update portfolio positions with modified instruments
     for (i, position) in portfolio_copy.positions.iter_mut().enumerate() {

@@ -17,7 +17,7 @@
 //! the appropriate forward FX rate. For NPV-grade accuracy, derive forward FX
 //! rates from the relevant discount curves instead.
 
-use crate::error::{PortfolioError, Result};
+use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
 use crate::types::PositionId;
 use finstack_core::currency::Currency;
@@ -132,7 +132,7 @@ pub fn aggregate_cashflows(
         let per_ccy = by_date.entry(date).or_default();
         let ccy = money.currency();
         let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-        *entry = entry.checked_add(money).map_err(PortfolioError::Core)?;
+        *entry = entry.checked_add(money).map_err(Error::Core)?;
     }
 
     Ok(PortfolioCashflows {
@@ -166,23 +166,22 @@ pub fn collapse_cashflows_to_base_by_date(
 
         for (ccy, money) in per_ccy {
             if *ccy == base_ccy {
-                total = total.checked_add(*money).map_err(PortfolioError::Core)?;
+                total = total.checked_add(*money).map_err(Error::Core)?;
             } else {
                 let fx_matrix = market.fx().ok_or_else(|| {
-                    PortfolioError::MissingMarketData("FX matrix not available".to_string())
+                    Error::MissingMarketData("FX matrix not available".to_string())
                 })?;
 
                 let query = FxQuery::new(*ccy, base_ccy, *date);
-                let rate_result =
-                    fx_matrix
-                        .rate(query)
-                        .map_err(|_| PortfolioError::FxConversionFailed {
-                            from: *ccy,
-                            to: base_ccy,
-                        })?;
+                let rate_result = fx_matrix
+                    .rate(query)
+                    .map_err(|_| Error::FxConversionFailed {
+                        from: *ccy,
+                        to: base_ccy,
+                    })?;
 
                 let converted = Money::new(money.amount() * rate_result.rate, base_ccy);
-                total = total.checked_add(converted).map_err(PortfolioError::Core)?;
+                total = total.checked_add(converted).map_err(Error::Core)?;
             }
         }
 
@@ -217,7 +216,7 @@ pub fn cashflows_to_base_by_period(
             let entry = by_period
                 .entry(period.id)
                 .or_insert_with(|| Money::new(0.0, base_ccy));
-            *entry = entry.checked_add(amount).map_err(PortfolioError::Core)?;
+            *entry = entry.checked_add(amount).map_err(Error::Core)?;
         }
     }
 

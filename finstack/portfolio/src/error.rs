@@ -6,8 +6,8 @@ use thiserror::Error;
 
 /// Convenience result type used throughout the portfolio crate.
 ///
-/// This alias helps reduce boilerplate when returning [`PortfolioError`].
-pub type Result<T> = std::result::Result<T, PortfolioError>;
+/// This alias helps reduce boilerplate when returning [`Error`].
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors that can occur during portfolio operations.
 ///
@@ -15,7 +15,7 @@ pub type Result<T> = std::result::Result<T, PortfolioError>;
 /// validating, or valuing a portfolio.
 #[derive(Error, Debug)]
 #[non_exhaustive]
-pub enum PortfolioError {
+pub enum Error {
     /// Position references an unknown entity
     #[error("Position '{position_id}' references unknown entity '{entity_id}'")]
     UnknownEntity {
@@ -77,7 +77,7 @@ pub enum PortfolioError {
     IndexError(String),
 }
 
-impl PortfolioError {
+impl Error {
     /// Create a validation error with context
     pub fn validation(msg: impl Into<String>) -> Self {
         Self::ValidationFailed(msg.into())

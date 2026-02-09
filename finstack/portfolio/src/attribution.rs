@@ -3,7 +3,7 @@
 //! Aggregates instrument-level attribution across all positions in a portfolio,
 //! with currency conversion to portfolio base currency.
 
-use crate::error::{PortfolioError, Result};
+use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
 use crate::position::PositionUnit;
 use crate::types::PositionId;
@@ -246,7 +246,7 @@ pub fn attribute_portfolio_pnl(
                     config,
                     None,
                 )
-                .map_err(|e| PortfolioError::ValuationError {
+                .map_err(|e| Error::ValuationError {
                     position_id: position.position_id.clone(),
                     message: format!("Attribution failed: {}", e),
                 })?;
@@ -255,7 +255,7 @@ pub fn attribute_portfolio_pnl(
                 let val_t0 = position
                     .instrument
                     .value(market_t0, as_of_t0)
-                    .map_err(|e| PortfolioError::ValuationError {
+                    .map_err(|e| Error::ValuationError {
                         position_id: position.position_id.clone(),
                         message: format!("Attribution T0 valuation failed: {}", e),
                     })?;
@@ -275,7 +275,7 @@ pub fn attribute_portfolio_pnl(
                     false,
                     None,
                 )
-                .map_err(|e| PortfolioError::ValuationError {
+                .map_err(|e| Error::ValuationError {
                     position_id: position.position_id.clone(),
                     message: format!("Attribution failed: {}", e),
                 })?;
@@ -284,7 +284,7 @@ pub fn attribute_portfolio_pnl(
                 let val_t0 = position
                     .instrument
                     .value(market_t0, as_of_t0)
-                    .map_err(|e| PortfolioError::ValuationError {
+                    .map_err(|e| Error::ValuationError {
                         position_id: position.position_id.clone(),
                         message: format!("Attribution T0 valuation failed: {}", e),
                     })?;
@@ -301,7 +301,7 @@ pub fn attribute_portfolio_pnl(
                 let val_t0 = position
                     .instrument
                     .price_with_metrics(market_t0, as_of_t0, &metrics)
-                    .map_err(|e: finstack_core::Error| PortfolioError::ValuationError {
+                    .map_err(|e: finstack_core::Error| Error::ValuationError {
                         position_id: position.position_id.clone(),
                         message: format!("Attribution T0 valuation failed: {}", e),
                     })?;
@@ -309,7 +309,7 @@ pub fn attribute_portfolio_pnl(
                 let val_t1 = position
                     .instrument
                     .price_with_metrics(market_t1, as_of_t1, &metrics)
-                    .map_err(|e: finstack_core::Error| PortfolioError::ValuationError {
+                    .map_err(|e: finstack_core::Error| Error::ValuationError {
                         position_id: position.position_id.clone(),
                         message: format!("Attribution T1 valuation failed: {}", e),
                     })?;
@@ -323,7 +323,7 @@ pub fn attribute_portfolio_pnl(
                     as_of_t0,
                     as_of_t1,
                 )
-                .map_err(|e| PortfolioError::ValuationError {
+                .map_err(|e| Error::ValuationError {
                     position_id: position.position_id.clone(),
                     message: format!("Attribution failed: {}", e),
                 })?;
@@ -351,16 +351,15 @@ pub fn attribute_portfolio_pnl(
                 Ok(money)
             } else {
                 let fx_matrix = market_t1.fx().ok_or_else(|| {
-                    PortfolioError::MissingMarketData("FX matrix not available".to_string())
+                    Error::MissingMarketData("FX matrix not available".to_string())
                 })?;
                 let query = FxQuery::new(money.currency(), base_ccy, as_of_t1);
-                let rate_result =
-                    fx_matrix
-                        .rate(query)
-                        .map_err(|_| PortfolioError::FxConversionFailed {
-                            from: money.currency(),
-                            to: base_ccy,
-                        })?;
+                let rate_result = fx_matrix
+                    .rate(query)
+                    .map_err(|_| Error::FxConversionFailed {
+                        from: money.currency(),
+                        to: base_ccy,
+                    })?;
                 Ok(Money::new(money.amount() * rate_result.rate, base_ccy))
             }
         };
@@ -384,16 +383,16 @@ pub fn attribute_portfolio_pnl(
             let inst_ccy = pos_attr.total_pnl.currency();
 
             let fx_t0 = market_t0.fx().ok_or_else(|| {
-                PortfolioError::MissingMarketData("FX matrix at T0 not available".to_string())
+                Error::MissingMarketData("FX matrix at T0 not available".to_string())
             })?;
             let fx_t1 = market_t1.fx().ok_or_else(|| {
-                PortfolioError::MissingMarketData("FX matrix at T1 not available".to_string())
+                Error::MissingMarketData("FX matrix at T1 not available".to_string())
             })?;
 
             let query_t0 = FxQuery::new(inst_ccy, base_ccy, as_of_t0);
             let rate_t0 = fx_t0
                 .rate(query_t0)
-                .map_err(|_| PortfolioError::FxConversionFailed {
+                .map_err(|_| Error::FxConversionFailed {
                     from: inst_ccy,
                     to: base_ccy,
                 })?;
@@ -401,7 +400,7 @@ pub fn attribute_portfolio_pnl(
             let query_t1 = FxQuery::new(inst_ccy, base_ccy, as_of_t1);
             let rate_t1 = fx_t1
                 .rate(query_t1)
-                .map_err(|_| PortfolioError::FxConversionFailed {
+                .map_err(|_| Error::FxConversionFailed {
                     from: inst_ccy,
                     to: base_ccy,
                 })?;

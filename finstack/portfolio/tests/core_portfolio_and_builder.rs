@@ -4,7 +4,7 @@ use common::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_portfolio::types::{Entity, DUMMY_ENTITY_ID};
-use finstack_portfolio::{Portfolio, PortfolioBuilder, PortfolioError, Position, PositionUnit};
+use finstack_portfolio::{Error, Portfolio, PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 
@@ -61,7 +61,7 @@ fn validate_unknown_entity_fails() {
 
     let err = portfolio.validate().unwrap_err();
     match err {
-        PortfolioError::UnknownEntity { .. } => {}
+        Error::UnknownEntity { .. } => {}
         other => panic!("unexpected error: {:?}", other),
     }
 }

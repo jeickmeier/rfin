@@ -5,7 +5,7 @@
 //! validating structural invariants before valuation takes place.
 
 use crate::book::{Book, BookId};
-use crate::error::{PortfolioError, Result};
+use crate::error::{Error, Result};
 use crate::position::Position;
 use crate::types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
 use finstack_core::currency::Currency;
@@ -172,8 +172,8 @@ impl Portfolio {
     ///
     /// # Errors
     ///
-    /// Returns [`PortfolioError::ValidationFailed`] when duplicate position IDs are found,
-    /// [`PortfolioError::UnknownEntity`] when a position references an entity
+    /// Returns [`Error::ValidationFailed`] when duplicate position IDs are found,
+    /// [`Error::UnknownEntity`] when a position references an entity
     /// that is not present in [`Portfolio::entities`], or when a cycle is detected
     /// in the book hierarchy.
     pub fn validate(&self) -> Result<()> {
@@ -183,7 +183,7 @@ impl Portfolio {
         for position in &self.positions {
             // Check for duplicate position IDs
             if !seen_ids.insert(&position.position_id) {
-                return Err(PortfolioError::validation(format!(
+                return Err(Error::validation(format!(
                     "Duplicate position ID: {}",
                     position.position_id
                 )));
@@ -191,7 +191,7 @@ impl Portfolio {
 
             // Check entity exists
             if !self.entities.contains_key(&position.entity_id) {
-                return Err(PortfolioError::UnknownEntity {
+                return Err(Error::UnknownEntity {
                     position_id: position.position_id.clone(),
                     entity_id: position.entity_id.clone(),
                 });
@@ -219,7 +219,7 @@ impl Portfolio {
             let mut current = _book.parent_id.clone();
             while let Some(ref pid) = current {
                 if !visited.insert(pid.clone()) {
-                    return Err(PortfolioError::validation(format!(
+                    return Err(Error::validation(format!(
                         "Cycle detected in book hierarchy at book '{}'",
                         pid
                     )));
@@ -266,7 +266,7 @@ impl Portfolio {
     ///
     /// # Errors
     ///
-    /// Returns [`PortfolioError`] if:
+    /// Returns [`Error`] if:
     /// - Any position specification cannot be converted to a position
     /// - Portfolio validation fails (duplicate IDs, unknown entities)
     pub fn from_spec(spec: PortfolioSpec) -> Result<Self> {

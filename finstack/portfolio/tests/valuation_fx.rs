@@ -5,7 +5,7 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_portfolio::types::{Entity, DUMMY_ENTITY_ID};
-use finstack_portfolio::{PortfolioBuilder, PortfolioError, Position, PositionUnit};
+use finstack_portfolio::{Error, PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 use time::Duration;
@@ -110,7 +110,7 @@ fn missing_fx_matrix_errors_for_cross_currency() {
     let err = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap_err();
 
     match err {
-        PortfolioError::MissingMarketData(msg) => assert!(msg.contains("FX")),
+        Error::MissingMarketData(msg) => assert!(msg.contains("FX")),
         other => panic!("unexpected error: {:?}", other),
     }
 }

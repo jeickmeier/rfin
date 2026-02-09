@@ -10,7 +10,7 @@ Two valid patterns coexist. Both are intentional.
 | Pattern | When to use | Example |
 |---------|-------------|---------|
 | **Plain `Error`** | Crate-level root error that is the *only* error callers interact with | `finstack_core::Error`, `finstack_scenarios::error::Error` |
-| **`{Domain}Error`** | Domain-specific sub-errors, or root errors in crates whose name alone is ambiguous | `InputError`, `PricingError`, `PortfolioError` |
+| **`{Domain}Error`** | Domain-specific sub-errors, or root errors in crates whose name alone is ambiguous | `InputError`, `PricingError` |
 
 ## Per-Crate Inventory
 
@@ -18,7 +18,7 @@ Two valid patterns coexist. Both are intentional.
 |-------|-----------|------------|-----------|
 | `finstack_core` | `Error` | `InputError` | `finstack_core::Error`, `finstack_core::InputError` |
 | `finstack_valuations` | `error::Error` | `PricingError`, `CorrelationMatrixError`, `ValidationError` | `finstack_valuations::ValuationsError` (aliased) |
-| `finstack_portfolio` | `PortfolioError` | — | `finstack_portfolio::error::PortfolioError` |
+| `finstack_portfolio` | `error::Error` | — | `finstack_portfolio::Error` |
 | `finstack_scenarios` | `error::Error` | — | `finstack_scenarios::error::Error` |
 | `finstack_statements` | `error::Error` | — | `finstack_statements::error::Error` |
 
@@ -57,13 +57,12 @@ use finstack_valuations::PricingError;       // valuations pricing sub-error
 The unified wrapper `error::Error` is re-exported as `ValuationsError` to
 avoid ambiguity with `finstack_core::Error`.
 
-### Why `finstack_portfolio` uses `PortfolioError`
+### Why `finstack_portfolio` uses `Error`
 
-The portfolio crate has a single error enum that is not a thin wrapper around
-sub-errors. The `PortfolioError` name was chosen because portfolio code
-frequently appears alongside core error handling, and
-`use finstack_portfolio::error::Error` would shadow `finstack_core::Error` in
-common import blocks.
+The portfolio crate follows the standard root error naming convention:
+`finstack_portfolio::Error`. Callers disambiguate via module paths
+(`finstack_portfolio::Error` vs `finstack_core::Error`) or by using an alias
+in import blocks when needed.
 
 ### Why `finstack_scenarios` / `finstack_statements` use plain `Error`
 

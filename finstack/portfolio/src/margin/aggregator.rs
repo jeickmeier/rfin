@@ -11,7 +11,7 @@ use crate::margin::netting_set::{NettingSet, NettingSetManager};
 use crate::margin::results::{NettingSetMargin, PortfolioMarginResult};
 use crate::portfolio::Portfolio;
 use crate::position::Position;
-use crate::{PortfolioError, PositionId, Result};
+use crate::{Error, PositionId, Result};
 
 // ============================================================================
 // Portfolio Margin Aggregator
@@ -114,7 +114,7 @@ impl PortfolioMarginAggregator {
             // Currency mismatch is impossible here since we create all margins
             // with self.base_currency, but we handle the error for API consistency.
             result.add_netting_set(ns_margin).map_err(|e| {
-                PortfolioError::validation(format!(
+                Error::validation(format!(
                     "Unexpected currency mismatch in margin aggregation: {}",
                     e
                 ))
@@ -140,7 +140,7 @@ impl PortfolioMarginAggregator {
         if let Some(marginable) = position.instrument.as_marginable() {
             marginable
                 .simm_sensitivities(market, as_of)
-                .map_err(|e| PortfolioError::valuation(position.position_id.clone(), e.to_string()))
+                .map_err(|e| Error::valuation(position.position_id.clone(), e.to_string()))
         } else {
             // Default: return empty sensitivities
             Ok(SimmSensitivities::new(self.base_currency))
@@ -219,7 +219,7 @@ impl PortfolioMarginAggregator {
         if let Some(marginable) = position.instrument.as_marginable() {
             marginable
                 .mtm_for_vm(market, as_of)
-                .map_err(|e| PortfolioError::valuation(position.position_id.clone(), e.to_string()))
+                .map_err(|e| Error::valuation(position.position_id.clone(), e.to_string()))
         } else {
             // Default: return zero
             Ok(Money::new(0.0, self.base_currency))

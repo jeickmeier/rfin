@@ -1,6 +1,6 @@
 //! Portfolio valuation and aggregation.
 
-use crate::error::{PortfolioError, Result};
+use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
 use crate::types::{EntityId, PositionId};
 use finstack_core::config::FinstackConfig;
@@ -167,12 +167,12 @@ pub fn value_portfolio(
 ///
 /// # Errors
 ///
-/// Returns [`PortfolioError`] in the following cases:
+/// Returns [`Error`] in the following cases:
 ///
-/// - [`PortfolioError::ValuationError`] - Instrument pricing failed for a position
-/// - [`PortfolioError::MissingMarketData`] - FX matrix unavailable for cross-currency conversion
-/// - [`PortfolioError::FxConversionFailed`] - Required FX rate not found in the matrix
-/// - [`PortfolioError::Core`] - Monetary arithmetic overflow during aggregation
+/// - [`Error::ValuationError`] - Instrument pricing failed for a position
+/// - [`Error::MissingMarketData`] - FX matrix unavailable for cross-currency conversion
+/// - [`Error::FxConversionFailed`] - Required FX rate not found in the matrix
+/// - [`Error::Core`] - Monetary arithmetic overflow during aggregation
 ///
 /// # Parallelism
 ///
@@ -235,7 +235,7 @@ fn value_portfolio_serial(
             .or_insert_with(|| Money::new(0.0, portfolio.base_ccy));
         *entity_total = entity_total
             .checked_add(position_value.value_base)
-            .map_err(PortfolioError::Core)?;
+            .map_err(Error::Core)?;
 
         // Store position value
         position_values.insert(position.position_id.clone(), position_value);
@@ -350,7 +350,7 @@ fn value_single_position(
         position
             .instrument
             .price_with_metrics(market, portfolio.as_of, metrics)
-            .map_err(|e: finstack_core::Error| PortfolioError::ValuationError {
+            .map_err(|e: finstack_core::Error| Error::ValuationError {
                 position_id: position.position_id.clone(),
                 message: e.to_string(),
             })?
@@ -367,7 +367,7 @@ fn value_single_position(
                     value,
                 ))
             })
-            .map_err(|e: finstack_core::Error| PortfolioError::ValuationError {
+            .map_err(|e: finstack_core::Error| Error::ValuationError {
                 position_id: position.position_id.clone(),
                 message: e.to_string(),
             })?
@@ -383,9 +383,9 @@ fn value_single_position(
         scaled_native
     } else {
         // Get FX matrix
-        let fx_matrix = market.fx().ok_or_else(|| {
-            PortfolioError::MissingMarketData("FX matrix not available".to_string())
-        })?;
+        let fx_matrix = market
+            .fx()
+            .ok_or_else(|| Error::MissingMarketData("FX matrix not available".to_string()))?;
 
         // Get FX rate
         let query = FxQuery::new(
@@ -393,13 +393,12 @@ fn value_single_position(
             portfolio.base_ccy,
             portfolio.as_of,
         );
-        let rate_result =
-            fx_matrix
-                .rate(query)
-                .map_err(|_| PortfolioError::FxConversionFailed {
-                    from: scaled_native.currency(),
-                    to: portfolio.base_ccy,
-                })?;
+        let rate_result = fx_matrix
+            .rate(query)
+            .map_err(|_| Error::FxConversionFailed {
+                from: scaled_native.currency(),
+                to: portfolio.base_ccy,
+            })?;
 
         Money::new(
             scaled_native.amount() * rate_result.rate,

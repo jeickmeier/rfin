@@ -29,7 +29,7 @@ pythonize = "0.26"
 time = { version = "0.3", default-features = false }
 strum = { workspace = true }
 rayon = "1.11.0"
-rust_decimal = { version = "1.39" }
+rust_decimal = { version = "1.40.0" }
 
 # Async runtime for IO operations
 tokio = { version = "1", features = ["rt-multi-thread"] }

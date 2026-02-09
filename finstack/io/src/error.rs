@@ -82,7 +82,7 @@ pub enum Error {
 
     /// Portfolio domain error.
     #[error(transparent)]
-    Portfolio(#[from] finstack_portfolio::PortfolioError),
+    Portfolio(#[from] finstack_portfolio::Error),
 
     /// Statements domain error.
     #[error(transparent)]

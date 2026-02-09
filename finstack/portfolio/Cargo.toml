@@ -23,8 +23,8 @@ good_lp = { version = "1.14", default-features = false, features = ["microlp"] }
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports"] }
-rust_decimal = { version = "1.39" }
-rust_decimal_macros = { version = "1.39" }
+rust_decimal = { version = "1.40.0" }
+rust_decimal_macros = { version = "1.40.0" }
 
 [features]
 default = ["scenarios", "dataframes", "parallel"]

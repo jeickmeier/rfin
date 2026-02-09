@@ -6,7 +6,7 @@ use finstack_core::currency::Currency;
 use finstack_core::math::summation::neumaier_sum;
 use finstack_core::money::Money;
 use finstack_portfolio::types::Entity;
-use finstack_portfolio::{PortfolioBuilder, PortfolioError, Position, PositionUnit};
+use finstack_portfolio::{Error, PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 use time::Duration;
@@ -174,7 +174,7 @@ fn test_inf_quantity_rejected() {
     );
 
     match result {
-        Err(PortfolioError::InvalidInput(msg)) => {
+        Err(Error::InvalidInput(msg)) => {
             assert!(
                 msg.contains("finite"),
                 "Error message should mention 'finite'"
@@ -215,7 +215,7 @@ fn test_nan_quantity_rejected() {
     );
 
     match result {
-        Err(PortfolioError::InvalidInput(msg)) => {
+        Err(Error::InvalidInput(msg)) => {
             assert!(
                 msg.contains("finite"),
                 "Error message should mention 'finite'"

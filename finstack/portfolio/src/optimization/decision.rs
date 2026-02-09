@@ -1,7 +1,7 @@
 use super::problem::PortfolioOptimizationProblem;
 use super::types::{MissingMetricPolicy, WeightingScheme};
 use super::universe::PositionFilter;
-use crate::error::{PortfolioError, Result};
+use crate::error::{Error, Result};
 use crate::position::Position;
 use crate::types::PositionId;
 use finstack_core::config::FinstackConfig;
@@ -95,7 +95,7 @@ pub(crate) fn build_decision_space(
             .position_values
             .get(&position.position_id)
             .ok_or_else(|| {
-                PortfolioError::index_error(format!(
+                Error::index_error(format!(
                     "missing valuation for position '{}'",
                     position.position_id
                 ))
@@ -115,7 +115,7 @@ pub(crate) fn build_decision_space(
         } else if !required_metrics.is_empty()
             && matches!(problem.missing_metric_policy, MissingMetricPolicy::Strict)
         {
-            return Err(PortfolioError::valuation(
+            return Err(Error::valuation(
                 position.position_id.clone(),
                 "valuation result missing required metrics",
             ));
@@ -176,7 +176,7 @@ pub(crate) fn build_decision_space(
                 1.0, // Quantity 1.0 for unit pricing
                 candidate.unit,
             )
-            .map_err(|e| PortfolioError::invalid_input(e.to_string()))?
+            .map_err(|e| Error::invalid_input(e.to_string()))?
             .with_tags(candidate.tags.clone());
 
             builder = builder.position(pos);
@@ -184,7 +184,7 @@ pub(crate) fn build_decision_space(
 
         let candidate_portfolio = builder
             .build()
-            .map_err(|e| PortfolioError::invalid_input(e.to_string()))?;
+            .map_err(|e| Error::invalid_input(e.to_string()))?;
 
         let options = crate::valuation::PortfolioValuationOptions {
             strict_risk: matches!(problem.missing_metric_policy, MissingMetricPolicy::Strict),
@@ -210,9 +210,7 @@ pub(crate) fn build_decision_space(
         let val_entry = candidate_valuation
             .as_ref()
             .and_then(|v| v.position_values.get(&candidate.id))
-            .ok_or_else(|| {
-                PortfolioError::valuation(candidate.id.clone(), "failed to value candidate")
-            })?;
+            .ok_or_else(|| Error::valuation(candidate.id.clone(), "failed to value candidate"))?;
 
         let pv_unit = val_entry.value_base.amount();
         // Candidates don't contribute to initial PV base but may have value

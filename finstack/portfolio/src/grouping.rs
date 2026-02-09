@@ -203,7 +203,7 @@ pub fn aggregate_by_book(
         }
 
         let book = books.get(book_id).ok_or_else(|| {
-            crate::error::PortfolioError::InvalidInput(format!("Book not found: {}", book_id))
+            crate::error::Error::InvalidInput(format!("Book not found: {}", book_id))
         })?;
 
         // Start with zero

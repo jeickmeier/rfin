@@ -1,26 +1,26 @@
 //! Error handling for portfolio bindings.
 
-use finstack_portfolio::PortfolioError;
+use finstack_portfolio::Error;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::PyErr;
 
 /// Convert a portfolio error into a Python exception.
-pub(crate) fn portfolio_to_py(err: PortfolioError) -> PyErr {
+pub(crate) fn portfolio_to_py(err: Error) -> PyErr {
     match err {
-        PortfolioError::UnknownEntity {
+        Error::UnknownEntity {
             position_id,
             entity_id,
         } => PyValueError::new_err(format!(
             "Position '{}' references unknown entity '{}'",
             position_id, entity_id
         )),
-        PortfolioError::ValidationFailed(msg) => {
+        Error::ValidationFailed(msg) => {
             PyValueError::new_err(format!("Portfolio validation failed: {}", msg))
         }
-        PortfolioError::FxConversionFailed { from, to } => {
+        Error::FxConversionFailed { from, to } => {
             PyRuntimeError::new_err(format!("FX conversion failed: {} to {}", from, to))
         }
-        PortfolioError::ValuationError {
+        Error::ValuationError {
             position_id,
             message,
         } => PyRuntimeError::new_err(format!(
@@ -28,20 +28,16 @@ pub(crate) fn portfolio_to_py(err: PortfolioError) -> PyErr {
             position_id, message
         )),
         #[cfg(feature = "scenarios")]
-        PortfolioError::ScenarioError(msg) => {
+        Error::ScenarioError(msg) => {
             PyRuntimeError::new_err(format!("Scenario application failed: {}", msg))
         }
-        PortfolioError::MissingMarketData(msg) => {
+        Error::MissingMarketData(msg) => {
             PyRuntimeError::new_err(format!("Missing market data: {}", msg))
         }
-        PortfolioError::InvalidInput(msg) => {
-            PyValueError::new_err(format!("Invalid input: {}", msg))
-        }
-        PortfolioError::BuilderError(msg) => {
-            PyValueError::new_err(format!("Builder error: {}", msg))
-        }
-        PortfolioError::IndexError(msg) => PyValueError::new_err(format!("Index error: {}", msg)),
-        PortfolioError::Core(err) => PyRuntimeError::new_err(format!("Core error: {}", err)),
+        Error::InvalidInput(msg) => PyValueError::new_err(format!("Invalid input: {}", msg)),
+        Error::BuilderError(msg) => PyValueError::new_err(format!("Builder error: {}", msg)),
+        Error::IndexError(msg) => PyValueError::new_err(format!("Index error: {}", msg)),
+        Error::Core(err) => PyRuntimeError::new_err(format!("Core error: {}", err)),
         // Handle unknown variants due to #[non_exhaustive]
         _ => PyRuntimeError::new_err(format!("Portfolio error: {}", err)),
     }

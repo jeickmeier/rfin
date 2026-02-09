@@ -8886,7 +8886,7 @@
           "BookId",
           "PortfolioBuilder",
           "PortfolioCashflows",
-          "PortfolioError",
+          "Error",
           "Result",
           "NettingSet",
           "NettingSetManager",
@@ -8953,7 +8953,7 @@
             "PortfolioCashflows"
           ],
           "error": [
-            "PortfolioError",
+            "Error",
             "Result"
           ],
           "grouping": [
@@ -9100,7 +9100,7 @@
           "path": "portfolio/src/error.rs",
           "types": [
             "Result",
-            "PortfolioError"
+            "Error"
           ],
           "functions": [
             "validation",

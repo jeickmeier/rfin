@@ -1,7 +1,7 @@
 //! Position types for holding instruments in a portfolio.
 
 use crate::book::BookId;
-use crate::error::{PortfolioError, Result};
+use crate::error::{Error, Result};
 use crate::types::{EntityId, PositionId};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -115,7 +115,7 @@ impl Position {
     ///
     /// # Errors
     ///
-    /// Returns [`PortfolioError::InvalidInput`] if `quantity` is NaN or infinite.
+    /// Returns [`Error::InvalidInput`] if `quantity` is NaN or infinite.
     pub fn new(
         position_id: impl Into<PositionId>,
         entity_id: impl Into<EntityId>,
@@ -128,7 +128,7 @@ impl Position {
 
         // Validate quantity
         if !quantity.is_finite() {
-            return Err(PortfolioError::invalid_input(format!(
+            return Err(Error::invalid_input(format!(
                 "Position quantity must be finite, got: {} (position_id: {})",
                 quantity, pos_id
             )));
@@ -335,16 +335,16 @@ impl Position {
     ///
     /// # Errors
     ///
-    /// Returns [`PortfolioError`] if:
+    /// Returns [`Error`] if:
     /// - The quantity is invalid (NaN/Inf)
     /// - The instrument specification cannot be converted to an instrument
     pub fn from_spec(spec: PositionSpec) -> Result<Self> {
         let instrument = if let Some(instr_json) = spec.instrument_spec {
             Arc::from(instr_json.into_boxed().map_err(|e| {
-                PortfolioError::invalid_input(format!("Failed to convert instrument JSON: {}", e))
+                Error::invalid_input(format!("Failed to convert instrument JSON: {}", e))
             })?)
         } else {
-            return Err(PortfolioError::invalid_input(
+            return Err(Error::invalid_input(
                 "Cannot reconstruct position without instrument_spec".to_string(),
             ));
         };

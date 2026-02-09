@@ -1,5 +1,5 @@
 use super::problem::PortfolioOptimizationProblem;
-use crate::error::{PortfolioError, Result};
+use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
 use crate::types::PositionId;
 use finstack_core::config::ResultsMeta;
@@ -132,11 +132,11 @@ impl PortfolioOptimizationResult {
     ///
     /// # Errors
     ///
-    /// Returns [`PortfolioError::InvalidInput`] if the optimization did not
+    /// Returns [`Error::InvalidInput`] if the optimization did not
     /// find a feasible solution.
     pub fn to_rebalanced_portfolio(&self) -> Result<Portfolio> {
         if !self.status.is_feasible() {
-            return Err(PortfolioError::invalid_input(
+            return Err(Error::invalid_input(
                 "cannot generate rebalanced portfolio from infeasible solution",
             ));
         }

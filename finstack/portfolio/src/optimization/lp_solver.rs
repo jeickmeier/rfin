@@ -4,7 +4,7 @@ use super::problem::PortfolioOptimizationProblem;
 use super::result::{OptimizationStatus, PortfolioOptimizationResult};
 use super::types::{MetricExpr, MissingMetricPolicy, PerPositionMetric, WeightingScheme};
 use super::universe::{PositionFilter, TradeUniverse};
-use crate::error::{PortfolioError, Result};
+use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
 use crate::types::PositionId;
 use finstack_core::config::FinstackConfig;
@@ -21,7 +21,7 @@ pub trait PortfolioOptimizer: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`PortfolioError`] when:
+    /// Returns [`Error`] when:
     /// - Portfolio validation fails
     /// - Required metrics cannot be priced
     /// - The LP backend fails or returns an invalid solution
@@ -190,9 +190,9 @@ impl DefaultLpOptimizer {
             (Some(v), _) => Ok(v),
             (None, MissingMetricPolicy::Zero) => Ok(0.0),
             (None, MissingMetricPolicy::Exclude) => Ok(0.0),
-            (None, MissingMetricPolicy::Strict) => Err(PortfolioError::invalid_input(
-                "required metric missing for position",
-            )),
+            (None, MissingMetricPolicy::Strict) => {
+                Err(Error::invalid_input("required metric missing for position"))
+            }
         }
     }
 
@@ -288,7 +288,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         }
 
         if decision_items.is_empty() {
-            return Err(PortfolioError::invalid_input(
+            return Err(Error::invalid_input(
                 "no decision variables in optimization problem",
             ));
         }
@@ -574,7 +574,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         // Solve LP
         let solution = problem_model
             .solve()
-            .map_err(|e| PortfolioError::optimization_error(e.to_string()))?;
+            .map_err(|e| Error::optimization_error(e.to_string()))?;
 
         // Extract weights
         let mut optimal_weights: IndexMap<PositionId, f64> = IndexMap::new();

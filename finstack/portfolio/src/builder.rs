@@ -234,10 +234,7 @@ impl PortfolioBuilder {
             .iter_mut()
             .find(|p| p.position_id == pos_id)
             .ok_or_else(|| {
-                crate::error::PortfolioError::InvalidInput(format!(
-                    "Position not found: {}",
-                    pos_id
-                ))
+                crate::error::Error::InvalidInput(format!("Position not found: {}", pos_id))
             })?;
 
         // Update position's book_id
@@ -245,7 +242,7 @@ impl PortfolioBuilder {
 
         // Add position to book
         let book = self.books.get_mut(&bk_id).ok_or_else(|| {
-            crate::error::PortfolioError::InvalidInput(format!("Book not found: {}", bk_id))
+            crate::error::Error::InvalidInput(format!("Book not found: {}", bk_id))
         })?;
 
         book.add_position(pos_id);
@@ -263,17 +260,15 @@ impl PortfolioBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`PortfolioError`](crate::error::PortfolioError) when the configuration is incomplete
+    /// Returns [`Error`](crate::error::Error) when the configuration is incomplete
     /// or validation fails.
     pub fn build(mut self) -> Result<Portfolio> {
         let base_ccy = self.base_ccy.ok_or_else(|| {
-            crate::error::PortfolioError::ValidationFailed("Base currency must be set".to_string())
+            crate::error::Error::ValidationFailed("Base currency must be set".to_string())
         })?;
 
         let as_of = self.as_of.ok_or_else(|| {
-            crate::error::PortfolioError::ValidationFailed(
-                "Valuation date (as_of) must be set".to_string(),
-            )
+            crate::error::Error::ValidationFailed("Valuation date (as_of) must be set".to_string())
         })?;
 
         // Auto-create dummy entity if needed
