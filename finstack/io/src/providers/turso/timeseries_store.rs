@@ -40,7 +40,7 @@ impl TimeSeriesStore for TursoStore {
         let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![namespace, kind, series_id]).await?;
 
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let meta_str = get_optional_string(&row, 0)?;
                 match meta_str {
@@ -61,7 +61,7 @@ impl TimeSeriesStore for TursoStore {
         let mut rows = stmt.query(params![namespace, kind_str]).await?;
 
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             out.push(get_string(&row, 0)?);
         }
         Ok(out)
@@ -131,7 +131,7 @@ impl TimeSeriesStore for TursoStore {
             .await?;
 
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             let ts_str = get_string(&row, 0)?;
             let value = get_optional_f64(&row, 1)?;
             let payload_str = get_optional_string(&row, 2)?;
@@ -172,7 +172,7 @@ impl TimeSeriesStore for TursoStore {
             .query(params![namespace, kind, series_id, ts_str])
             .await?;
 
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let ts_str = get_string(&row, 0)?;
                 let value = get_optional_f64(&row, 1)?;

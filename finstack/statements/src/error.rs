@@ -6,7 +6,14 @@ use thiserror::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Comprehensive error type for statements operations.
-#[derive(Debug, Error)]
+///
+/// # Derive policy
+///
+/// All Finstack domain error types that may cross FFI boundaries (Python/WASM)
+/// derive `Serialize`/`Deserialize`. `PartialEq` is included for ergonomic
+/// assertions in tests. Infrastructure errors (e.g. `finstack_io::Error`) that
+/// wrap opaque driver types may opt out of `Serialize` and `PartialEq`.
+#[derive(Debug, Clone, PartialEq, Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum Error {
     /// Model building error (e.g., invalid period range, missing periods)
@@ -60,17 +67,17 @@ pub enum Error {
     #[error("Capital structure error: {0}")]
     CapitalStructure(String),
 
-    /// Serialization/deserialization error
+    /// Serialization/deserialization error (stored as message string for serde compatibility).
     #[error("Serialization error: {0}")]
-    Serde(#[from] serde_json::Error),
+    Serde(String),
 
     /// Core crate error
     #[error("Core error: {0}")]
     Core(#[from] finstack_core::Error),
 
-    /// I/O error
+    /// I/O error (stored as message string for serde compatibility).
     #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(String),
 
     /// Builder construction error
     #[error("Builder error: {0}")]
@@ -79,6 +86,18 @@ pub enum Error {
     /// Index/collection access error
     #[error("Index error: {0}")]
     IndexError(String),
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Self {
+        Self::Serde(err.to_string())
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err.to_string())
+    }
 }
 
 // Helper function to format circular dependency path

@@ -48,7 +48,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 ///
 /// assert_eq!(classify(Error::NodeNotFound { node_id: "Revenue".into() }), "statements");
 /// ```
-#[derive(Error, Debug)]
+/// # Derive policy
+///
+/// All Finstack domain error types that may cross FFI boundaries (Python/WASM)
+/// derive `Serialize`/`Deserialize`. `PartialEq` is included for ergonomic
+/// assertions in tests. Infrastructure errors (e.g. `finstack_io::Error`) that
+/// wrap opaque driver types may opt out of `Serialize` and `PartialEq`.
+#[derive(Debug, Clone, PartialEq, Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum Error {
     /// Market data element not found.

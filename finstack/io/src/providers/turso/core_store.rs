@@ -51,7 +51,7 @@ impl Store for TursoStore {
         let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![market_id, as_of]).await?;
 
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
                 let state: MarketContextState = serde_json::from_slice(&bytes)?;
@@ -84,7 +84,7 @@ impl Store for TursoStore {
         let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![instrument_id]).await?;
 
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
                 Ok(Some(serde_json::from_slice::<InstrumentJson>(&bytes)?))
@@ -122,7 +122,7 @@ impl Store for TursoStore {
 
             let mut rows = stmt.query(params).await?;
 
-            while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+            while let Some(row) = rows.next().await.map_err(Error::from)? {
                 let id = get_string(&row, 0)?;
                 let bytes = get_blob(&row, 1)?;
                 let instrument: InstrumentJson = serde_json::from_slice(&bytes)?;
@@ -140,7 +140,7 @@ impl Store for TursoStore {
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             out.push(get_string(&row, 0)?);
         }
         Ok(out)
@@ -176,7 +176,7 @@ impl Store for TursoStore {
         let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![portfolio_id, as_of]).await?;
 
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
                 Ok(Some(serde_json::from_slice::<PortfolioSpec>(&bytes)?))
@@ -207,7 +207,7 @@ impl Store for TursoStore {
         let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![scenario_id]).await?;
 
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
                 Ok(Some(serde_json::from_slice::<ScenarioSpec>(&bytes)?))
@@ -223,7 +223,7 @@ impl Store for TursoStore {
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             out.push(get_string(&row, 0)?);
         }
         Ok(out)
@@ -253,7 +253,7 @@ impl Store for TursoStore {
         let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![model_id]).await?;
 
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
                 Ok(Some(serde_json::from_slice::<FinancialModelSpec>(&bytes)?))
@@ -269,7 +269,7 @@ impl Store for TursoStore {
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             out.push(get_string(&row, 0)?);
         }
         Ok(out)
@@ -299,7 +299,7 @@ impl Store for TursoStore {
         let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![namespace]).await?;
 
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
                 Ok(Some(serde_json::from_slice::<MetricRegistry>(&bytes)?))
@@ -316,7 +316,7 @@ impl Store for TursoStore {
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             out.push(get_string(&row, 0)?);
         }
         Ok(out)

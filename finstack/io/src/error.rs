@@ -2,6 +2,19 @@
 //!
 //! All fallible operations in this crate return [`Result<T>`], which is an alias
 //! for `std::result::Result<T, Error>`.
+//!
+//! # Derive policy
+//!
+//! This error type derives `Clone` (via `Arc`-wrapping non-`Clone` driver
+//! errors) but intentionally omits `PartialEq`, `Serialize`, and `Deserialize`.
+//! IO errors wrap opaque third-party driver types (`rusqlite::Error`,
+//! `tokio_postgres::Error`, etc.) that do not implement those traits.
+//!
+//! Domain errors (`finstack_core::Error`, `finstack_portfolio::Error`, etc.)
+//! **do** derive `Serialize`/`Deserialize`/`PartialEq` so they can cross FFI
+//! boundaries cleanly.
+
+use std::sync::Arc;
 
 use thiserror::Error;
 
@@ -16,7 +29,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 ///
 /// - **Backend errors** — `Sqlite`, `SqliteAsync`, `Postgres*`, `Turso`:
 ///   low-level driver errors from the selected database provider. Only present
-///   when the corresponding feature is enabled.
+///   when the corresponding feature is enabled. Wrapped in [`Arc`] to enable
+///   `Clone`.
 /// - **Serialization** — `SerdeJson`: JSON (de)serialization failures,
 ///   typically when a stored payload does not match the expected Rust type.
 /// - **I/O** — `Io`: filesystem errors (e.g., cannot create directory for database file).
@@ -25,56 +39,56 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// - **Application** — `NotFound`, `PermissionDenied`, `UnsupportedSchema`,
 ///   `Invariant`, `InvalidSeriesKind`: semantic errors raised by this crate's
 ///   business logic.
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, Error)]
 #[non_exhaustive]
 pub enum Error {
     /// SQLite backend error (synchronous rusqlite).
     #[cfg(feature = "sqlite")]
-    #[error(transparent)]
-    Sqlite(#[from] rusqlite::Error),
+    #[error("{0}")]
+    Sqlite(Arc<rusqlite::Error>),
 
     /// Async SQLite backend error (tokio-rusqlite).
     #[cfg(feature = "sqlite")]
-    #[error(transparent)]
-    SqliteAsync(#[from] tokio_rusqlite::Error),
+    #[error("{0}")]
+    SqliteAsync(Arc<tokio_rusqlite::Error>),
 
     /// Postgres backend error (tokio-postgres).
     #[cfg(feature = "postgres")]
-    #[error(transparent)]
-    Postgres(#[from] tokio_postgres::Error),
+    #[error("{0}")]
+    Postgres(Arc<tokio_postgres::Error>),
 
     /// Postgres pool error (deadpool).
     #[cfg(feature = "postgres")]
     #[error("Postgres pool error: {0}")]
-    PostgresPool(#[from] deadpool_postgres::PoolError),
+    PostgresPool(Arc<deadpool_postgres::PoolError>),
 
     /// Postgres config error (deadpool).
     #[cfg(feature = "postgres")]
     #[error("Postgres config error: {0}")]
-    PostgresConfig(#[from] deadpool_postgres::ConfigError),
+    PostgresConfig(Arc<deadpool_postgres::ConfigError>),
 
     /// Postgres build error (deadpool).
     #[cfg(feature = "postgres")]
     #[error("Postgres build error: {0}")]
-    PostgresBuild(#[from] deadpool_postgres::BuildError),
+    PostgresBuild(Arc<deadpool_postgres::BuildError>),
 
     /// Postgres create pool error (deadpool).
     #[cfg(feature = "postgres")]
     #[error("Postgres create pool error: {0}")]
-    PostgresCreatePool(#[from] deadpool_postgres::CreatePoolError),
+    PostgresCreatePool(Arc<deadpool_postgres::CreatePoolError>),
 
     /// Turso/libsql backend error.
     #[cfg(feature = "turso")]
-    #[error(transparent)]
-    Turso(#[from] libsql::Error),
+    #[error("{0}")]
+    Turso(Arc<libsql::Error>),
 
     /// JSON serialization/deserialization error.
-    #[error(transparent)]
-    SerdeJson(#[from] serde_json::Error),
+    #[error("{0}")]
+    SerdeJson(Arc<serde_json::Error>),
 
     /// I/O error (filesystem, etc).
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
+    #[error("{0}")]
+    Io(Arc<std::io::Error>),
 
     /// Core domain error.
     #[error(transparent)]
@@ -128,6 +142,78 @@ pub enum Error {
     /// Invalid series kind identifier.
     #[error("Invalid series kind: '{0}' (expected one of: quote, metric, result, pnl, risk)")]
     InvalidSeriesKind(String),
+}
+
+// ---------------------------------------------------------------------------
+// From impls for Arc-wrapped external errors (preserves `?` ergonomics)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "sqlite")]
+impl From<rusqlite::Error> for Error {
+    fn from(err: rusqlite::Error) -> Self {
+        Self::Sqlite(Arc::new(err))
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl From<tokio_rusqlite::Error> for Error {
+    fn from(err: tokio_rusqlite::Error) -> Self {
+        Self::SqliteAsync(Arc::new(err))
+    }
+}
+
+#[cfg(feature = "postgres")]
+impl From<tokio_postgres::Error> for Error {
+    fn from(err: tokio_postgres::Error) -> Self {
+        Self::Postgres(Arc::new(err))
+    }
+}
+
+#[cfg(feature = "postgres")]
+impl From<deadpool_postgres::PoolError> for Error {
+    fn from(err: deadpool_postgres::PoolError) -> Self {
+        Self::PostgresPool(Arc::new(err))
+    }
+}
+
+#[cfg(feature = "postgres")]
+impl From<deadpool_postgres::ConfigError> for Error {
+    fn from(err: deadpool_postgres::ConfigError) -> Self {
+        Self::PostgresConfig(Arc::new(err))
+    }
+}
+
+#[cfg(feature = "postgres")]
+impl From<deadpool_postgres::BuildError> for Error {
+    fn from(err: deadpool_postgres::BuildError) -> Self {
+        Self::PostgresBuild(Arc::new(err))
+    }
+}
+
+#[cfg(feature = "postgres")]
+impl From<deadpool_postgres::CreatePoolError> for Error {
+    fn from(err: deadpool_postgres::CreatePoolError) -> Self {
+        Self::PostgresCreatePool(Arc::new(err))
+    }
+}
+
+#[cfg(feature = "turso")]
+impl From<libsql::Error> for Error {
+    fn from(err: libsql::Error) -> Self {
+        Self::Turso(Arc::new(err))
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Self {
+        Self::SerdeJson(Arc::new(err))
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(Arc::new(err))
+    }
 }
 
 impl Error {

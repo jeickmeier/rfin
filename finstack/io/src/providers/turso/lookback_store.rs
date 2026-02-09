@@ -28,7 +28,7 @@ impl LookbackStore for TursoStore {
         let mut rows = stmt.query(params![market_id, start_key, end_key]).await?;
 
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             let as_of_str = get_string(&row, 0)?;
             let bytes = get_blob(&row, 1)?;
             let as_of = parse_as_of_key(&as_of_str)?;
@@ -50,7 +50,7 @@ impl LookbackStore for TursoStore {
         let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![market_id, as_of_key_str]).await?;
 
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let as_of_str = get_string(&row, 0)?;
                 let bytes = get_blob(&row, 1)?;
@@ -79,7 +79,7 @@ impl LookbackStore for TursoStore {
             .await?;
 
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             let as_of_str = get_string(&row, 0)?;
             let bytes = get_blob(&row, 1)?;
             let as_of = parse_as_of_key(&as_of_str)?;
@@ -100,7 +100,7 @@ impl LookbackStore for TursoStore {
         let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![portfolio_id, as_of_key_str]).await?;
 
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let as_of_str = get_string(&row, 0)?;
                 let bytes = get_blob(&row, 1)?;

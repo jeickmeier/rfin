@@ -79,7 +79,7 @@ impl TursoStore {
         // Build the Turso database
         let path_str = path.to_string_lossy().into_owned();
         let db = Builder::new_local(&path_str).build().await?;
-        let conn = db.connect().map_err(Error::Turso)?;
+        let conn = db.connect().map_err(Error::from)?;
 
         let store = Self {
             path,
@@ -113,7 +113,7 @@ impl TursoStore {
     /// Open an in-memory Turso database (useful for testing) with custom table naming.
     pub async fn open_in_memory_with_naming(naming: TableNaming) -> Result<Self> {
         let db = Builder::new_local(":memory:").build().await?;
-        let conn = db.connect().map_err(Error::Turso)?;
+        let conn = db.connect().map_err(Error::from)?;
 
         let store = Self {
             path: PathBuf::from(":memory:"),
@@ -150,7 +150,7 @@ impl TursoStore {
         let mut stmt = conn.prepare("PRAGMA user_version").await?;
         let mut rows = stmt.query(()).await?;
         let current: i64 = match rows.next().await? {
-            Some(row) => row.get::<i64>(0).map_err(Error::Turso)?,
+            Some(row) => row.get::<i64>(0).map_err(Error::from)?,
             None => 0i64,
         };
         drop(rows);

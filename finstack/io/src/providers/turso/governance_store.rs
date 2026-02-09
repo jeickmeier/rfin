@@ -64,7 +64,7 @@ impl GovernanceStore for TursoStore {
         );
         let mut stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![resource_type, resource_id]).await?;
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let scope = get_string(&row, 3)?;
                 Ok(Some(ResourceEntity {
@@ -89,7 +89,7 @@ impl GovernanceStore for TursoStore {
         let mut stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![resource_type]).await?;
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             let scope = get_string(&row, 3)?;
             out.push(ResourceEntity {
                 resource_type: get_string(&row, 0)?,
@@ -142,7 +142,7 @@ impl GovernanceStore for TursoStore {
         let mut stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![resource_type, resource_id]).await?;
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             out.push(parse_share_row_turso(&row)?);
         }
         Ok(out)
@@ -162,7 +162,7 @@ impl GovernanceStore for TursoStore {
         let mut rows = stmt.query(params![resource_type]).await?;
         let mut map: std::collections::HashMap<String, Vec<ResourceShare>> =
             std::collections::HashMap::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             let share = parse_share_row_turso(&row)?;
             map.entry(share.resource_id.clone())
                 .or_default()
@@ -178,7 +178,7 @@ impl GovernanceStore for TursoStore {
         let mut stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![user_id]).await?;
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             let group_id = get_string(&row, 1)?;
             out.push(UserRole {
                 role_id: get_string(&row, 0)?,
@@ -205,7 +205,7 @@ impl GovernanceStore for TursoStore {
 
         let mut stmt = conn.prepare(sql_groups.as_str()).await?;
         let mut rows = stmt.query(params![user_id]).await?;
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             let value = get_string(&row, 0)?;
             if seen.insert(value.clone()) {
                 out.push(value);
@@ -214,7 +214,7 @@ impl GovernanceStore for TursoStore {
 
         let mut stmt = conn.prepare(sql_roles.as_str()).await?;
         let mut rows = stmt.query(params![user_id]).await?;
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             let value = get_string(&row, 0)?;
             if seen.insert(value.clone()) {
                 out.push(value);
@@ -234,7 +234,7 @@ impl GovernanceStore for TursoStore {
         let mut stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![resource_type]).await?;
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             out.push(WorkflowBinding {
                 id: get_string(&row, 0)?,
                 resource_type: get_string(&row, 1)?,
@@ -243,7 +243,7 @@ impl GovernanceStore for TursoStore {
                 change_kind: get_optional_string(&row, 4)?,
                 base_verified_source: get_optional_string(&row, 5)?,
                 policy_id: get_string(&row, 6)?,
-                priority: row.get::<i64>(7).map_err(Error::Turso)? as i32,
+                priority: row.get::<i64>(7).map_err(Error::from)? as i32,
             });
         }
         Ok(out)
@@ -265,7 +265,7 @@ impl GovernanceStore for TursoStore {
         );
         let mut stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![policy_id, from_state, to_state]).await?;
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => Ok(Some(WorkflowTransition {
                 id: get_string(&row, 0)?,
                 policy_id: get_string(&row, 1)?,
@@ -273,11 +273,11 @@ impl GovernanceStore for TursoStore {
                 to_state: get_string(&row, 3)?,
                 required_role_id: get_optional_string(&row, 4)?,
                 required_group_id: get_optional_string(&row, 5)?,
-                allow_owner: row.get::<bool>(6).map_err(Error::Turso)?,
-                allow_system_actor: row.get::<bool>(7).map_err(Error::Turso)?,
-                require_verifier_not_owner: row.get::<bool>(8).map_err(Error::Turso)?,
-                require_verifier_not_submitter: row.get::<bool>(9).map_err(Error::Turso)?,
-                require_distinct_from_last_actor: row.get::<bool>(10).map_err(Error::Turso)?,
+                allow_owner: row.get::<bool>(6).map_err(Error::from)?,
+                allow_system_actor: row.get::<bool>(7).map_err(Error::from)?,
+                require_verifier_not_owner: row.get::<bool>(8).map_err(Error::from)?,
+                require_verifier_not_submitter: row.get::<bool>(9).map_err(Error::from)?,
+                require_distinct_from_last_actor: row.get::<bool>(10).map_err(Error::from)?,
             })),
             None => Ok(None),
         }
@@ -296,13 +296,13 @@ impl GovernanceStore for TursoStore {
         );
         let mut stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![policy_id, state_key]).await?;
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => Ok(Some(WorkflowState {
                 policy_id: get_string(&row, 0)?,
                 state_key: get_string(&row, 1)?,
-                is_final: row.get::<bool>(2).map_err(Error::Turso)?,
+                is_final: row.get::<bool>(2).map_err(Error::from)?,
                 verified_source: get_optional_string(&row, 3)?,
-                system_only: row.get::<bool>(4).map_err(Error::Turso)?,
+                system_only: row.get::<bool>(4).map_err(Error::from)?,
                 category: get_string(&row, 5)?,
             })),
             None => Ok(None),
@@ -355,7 +355,7 @@ impl GovernanceStore for TursoStore {
         );
         let mut stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![change_id]).await?;
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => Ok(Some(get_string(&row, 0)?)),
             None => Ok(None),
         }
@@ -434,7 +434,7 @@ impl GovernanceStore for TursoStore {
         );
         let mut stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![change_id]).await?;
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let change_kind = get_string(&row, 4)?;
                 let created_by_kind = get_string(&row, 8)?;
@@ -479,7 +479,7 @@ impl GovernanceStore for TursoStore {
         let mut stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![owner_user_id]).await?;
         let mut out = Vec::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+        while let Some(row) = rows.next().await.map_err(Error::from)? {
             let change_kind = get_string(&row, 4)?;
             let created_by_kind = get_string(&row, 8)?;
             let payload = get_blob(&row, 15)?;
@@ -524,7 +524,7 @@ impl GovernanceStore for TursoStore {
         );
         let mut stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![resource_type, resource_id]).await?;
-        match rows.next().await.map_err(Error::Turso)? {
+        match rows.next().await.map_err(Error::from)? {
             Some(row) => Ok(Some(get_string(&row, 0)?)),
             None => Ok(None),
         }
