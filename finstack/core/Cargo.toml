@@ -10,18 +10,18 @@ repository.workspace = true
 [dependencies]
 # Serde is a core public dependency: we rely on derive macros across the crate.
 # Use default features (std) to avoid alloc/no_std mismatches.
-serde = { version = "1", features = ["derive", "rc"] }
-serde_json = { version = "1.0" }
+serde = { workspace = true, features = ["rc"] }
+serde_json = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
-thiserror = { version = "2", default-features = false }
-time = { version = "0.3", default-features = false, features = ["macros", "formatting", "parsing", "serde", "serde-human-readable", "wasm-bindgen"] }
+thiserror = { workspace = true }
+time = { workspace = true, features = ["macros", "formatting", "parsing", "serde", "serde-human-readable", "wasm-bindgen"] }
 smallvec = { version = "1.15", default-features = false }
 phf = { version = "0.13", features = ["macros"], default-features = false }
 rustc-hash = { workspace = true }
 parking_lot = "0.12"
 lru = "0.16"
-rust_decimal = { version = "1.40.0", default-features = false, features = ["serde-with-str"] }
+rust_decimal = { workspace = true, features = ["serde-with-str"] }
 statrs = { version = "0.18", default-features = false }
 nalgebra = "0.34"
 num-complex = "0.4"
@@ -30,12 +30,12 @@ rand = { version = "0.8", default-features = false, features = ["std"] }
 rand_pcg = "0.3"
 
 [build-dependencies]
-serde = { version = "1", features = ["derive", "alloc"], default-features = false }
-serde_json = "1.0"
+serde = { workspace = true, features = ["alloc"] }
+serde_json = { workspace = true }
 
 [dev-dependencies]
-serde_json = "1.0"
-criterion = "0.8"
+serde_json = { workspace = true }
+criterion = { workspace = true }
 
 [[bench]]
 name = "money_operations"
