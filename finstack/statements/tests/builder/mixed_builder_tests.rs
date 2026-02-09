@@ -25,7 +25,7 @@ fn test_mixed_builder_basic() {
         })
         .formula("lag(revenue, 1) * 1.05")
         .unwrap()
-        .finish()
+        .build()
         .build()
         .unwrap();
 
@@ -47,7 +47,7 @@ fn test_mixed_builder_with_name() {
             PeriodId::quarter(2025, 1),
             AmountOrScalar::scalar(100_000.0),
         )])
-        .finish()
+        .build()
         .build()
         .unwrap();
 
@@ -75,7 +75,7 @@ fn test_mixed_builder_evaluation() {
             method: ForecastMethod::GrowthPct,
             params: indexmap! { "rate".into() => serde_json::json!(0.05) },
         })
-        .finish()
+        .build()
         .build()
         .unwrap();
 
@@ -119,7 +119,7 @@ fn test_mixed_builder_formula_fallback() {
         .values(&[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(50.0))])
         .formula("base * 0.5")
         .unwrap()
-        .finish()
+        .build()
         .build()
         .unwrap();
 
@@ -166,7 +166,7 @@ fn test_mixed_builder_minimal() {
         .unwrap()
         .mixed("revenue")
         .values(&[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))])
-        .finish()
+        .build()
         .build()
         .unwrap();
 

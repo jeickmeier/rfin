@@ -153,7 +153,7 @@ class TestEvaluatorParity:
             (PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100000.0))  # Q1 has value
         ])
         mixed.formula("50000")  # Formula applies to Q2
-        builder = mixed.finish()
+        builder = mixed.build()
 
         model = builder.build()
 
@@ -172,7 +172,7 @@ class TestEvaluatorParity:
         mixed = builder.mixed("revenue")
         mixed.values([(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100000.0))])
         mixed.forecast(ForecastSpec.forward_fill())
-        builder = mixed.finish()
+        builder = mixed.build()
 
         model = builder.build()
 

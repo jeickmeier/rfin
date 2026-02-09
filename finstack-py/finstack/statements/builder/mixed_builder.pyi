@@ -45,8 +45,8 @@ class MixedNodeBuilder:
         """
         ...
 
-    def finish(self) -> "ModelBuilder":
-        """Finish building the mixed node and return to the parent builder.
+    def build(self) -> "ModelBuilder":
+        """Build the mixed node and return to the parent model builder.
 
         Returns:
             ModelBuilder: Parent model builder instance

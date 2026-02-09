@@ -14,7 +14,7 @@
 //!
 //! # Utilities
 //!
-//! - [`validate_correlation_matrix`]: Validate correlation matrices (symmetry, unit diagonal, PSD)
+//! - [`validate_correlation_matrix`]: Validate correlation matrices (delegates to core, rich error classification)
 //! - [`cholesky_decompose`]: Cholesky decomposition for correlated factor generation
 //! - [`correlation_bounds`]: Fréchet-Hoeffding bounds for correlated Bernoulli
 

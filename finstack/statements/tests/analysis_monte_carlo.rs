@@ -23,7 +23,7 @@ fn evaluate_monte_carlo_produces_deterministic_results() {
             ),
         ])
         .forecast(ForecastSpec::normal(120_000.0, 10_000.0, 42))
-        .finish()
+        .build()
         .build()
         .expect("valid model");
 

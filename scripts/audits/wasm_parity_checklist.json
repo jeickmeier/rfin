@@ -7071,8 +7071,8 @@
     },
     {
       "module": "finstack.statements.builder.mixed_builder",
-      "name": "finish",
-      "js_name": "finish"
+      "name": "build",
+      "js_name": "build"
     },
     {
       "module": "finstack.statements.dsl",

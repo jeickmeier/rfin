@@ -85,6 +85,10 @@ pub enum CorrelationMatrixError {
 
 /// Validate a correlation matrix for use in factor models.
 ///
+/// Delegates to [`finstack_core::math::linalg::validate_correlation_matrix`] for
+/// validation logic. On failure, classifies the error into a specific
+/// [`CorrelationMatrixError`] variant for diagnostics.
+///
 /// Checks:
 /// - Correct size (n×n flattened)
 /// - Unit diagonal
@@ -99,7 +103,7 @@ pub enum CorrelationMatrixError {
 /// # Returns
 /// `Ok(())` if valid, or the first error found.
 pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<(), CorrelationMatrixError> {
-    // Check size
+    // Guard: core uses assert_eq! for size, so check before delegating
     if matrix.len() != n * n {
         return Err(CorrelationMatrixError::InvalidSize {
             expected: n,
@@ -107,44 +111,50 @@ pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<(), Corre
         });
     }
 
-    // Check diagonal = 1 and bounds
+    // Delegate validation to core's canonical implementation
+    finstack_core::math::linalg::validate_correlation_matrix(matrix, n)
+        .map_err(|_| classify_correlation_error(matrix, n))
+}
+
+/// Classify a known-invalid correlation matrix into a specific error variant.
+///
+/// Called only on the error path after core validation has already failed.
+/// Runs lightweight checks to identify which property is violated.
+fn classify_correlation_error(matrix: &[f64], n: usize) -> CorrelationMatrixError {
+    // Check diagonal = 1
     for i in 0..n {
         let diag = matrix[i * n + i];
         if (diag - 1.0).abs() > CORRELATION_TOLERANCE {
-            return Err(CorrelationMatrixError::DiagonalNotOne {
+            return CorrelationMatrixError::DiagonalNotOne {
                 index: i,
                 value: diag,
-            });
+            };
         }
     }
 
-    // Check symmetry and bounds for off-diagonal
+    // Check bounds and symmetry
     for i in 0..n {
         for j in (i + 1)..n {
             let rho_ij = matrix[i * n + j];
             let rho_ji = matrix[j * n + i];
 
-            // Check bounds
             if !(-1.0 - CORRELATION_TOLERANCE..=1.0 + CORRELATION_TOLERANCE).contains(&rho_ij) {
-                return Err(CorrelationMatrixError::OutOfBounds {
+                return CorrelationMatrixError::OutOfBounds {
                     i,
                     j,
                     value: rho_ij,
-                });
+                };
             }
 
-            // Check symmetry
             let diff = (rho_ij - rho_ji).abs();
             if diff > CORRELATION_TOLERANCE {
-                return Err(CorrelationMatrixError::NotSymmetric { i, j, diff });
+                return CorrelationMatrixError::NotSymmetric { i, j, diff };
             }
         }
     }
 
-    // Check positive semi-definiteness via Cholesky
-    cholesky_decompose(matrix, n)?;
-
-    Ok(())
+    // Must be a PSD failure
+    CorrelationMatrixError::NotPositiveSemiDefinite { row: 0 }
 }
 
 /// Perform Cholesky decomposition of a correlation matrix.

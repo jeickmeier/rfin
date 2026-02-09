@@ -564,14 +564,6 @@ impl CreditDefaultSwap {
         Ok(cds)
     }
 
-    /// Validate recovery rate is within valid bounds [0, 1].
-    ///
-    /// Returns an error if recovery rate is outside the valid range.
-    #[inline]
-    pub fn validate_recovery_rate(recovery_rate: f64) -> finstack_core::Result<()> {
-        ProtectionLegSpec::validate_recovery_rate(recovery_rate)
-    }
-
     /// Validate all CDS parameters.
     ///
     /// Performs comprehensive validation of the CDS instrument:
@@ -624,7 +616,7 @@ impl CreditDefaultSwap {
         )?;
 
         // Validate recovery rate (must be in [0, 1])
-        Self::validate_recovery_rate(self.protection.recovery_rate)?;
+        validation::validate_recovery_rate(self.protection.recovery_rate)?;
 
         // Note: Zero notional is allowed for testing scenarios
         // Note: Negative spreads are allowed (theoretically possible in unusual market conditions)

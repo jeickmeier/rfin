@@ -299,7 +299,7 @@ impl PyModelBuilder {
     fn mixed(&mut self, node_id: String) -> PyResult<PyMixedNodeBuilder> {
         let parent = self.take_ready_builder()?;
         // Mark this builder as temporarily consumed; the returned MixedNodeBuilder
-        // will yield a new ModelBuilder when `finish()` is called.
+        // will yield a new ModelBuilder when `build()` is called.
         self.state = BuilderState::Ready(None);
 
         Ok(PyMixedNodeBuilder {
@@ -903,17 +903,18 @@ impl PyMixedNodeBuilder {
     }
 
     #[pyo3(text_signature = "(self)")]
-    /// Finish building the mixed node and return to the parent builder.
+    /// Build the mixed node and return to the parent model builder.
     ///
     /// Returns
     /// -------
-    /// None
-    fn finish(mut self_: PyRefMut<'_, Self>) -> PyResult<PyModelBuilder> {
+    /// ModelBuilder
+    ///     Parent model builder instance
+    fn build(mut self_: PyRefMut<'_, Self>) -> PyResult<PyModelBuilder> {
         let mut self_owned = std::mem::take(&mut *self_);
         let parent = self_owned
             .parent_builder
             .take()
-            .ok_or_else(|| PyValueError::new_err("Builder already finished"))?;
+            .ok_or_else(|| PyValueError::new_err("Builder already built"))?;
 
         // Create mixed node using Rust builder API
         let mixed_builder = parent.mixed(&self_owned.node_id);
@@ -942,7 +943,7 @@ impl PyMixedNodeBuilder {
             mixed_builder
         };
 
-        let parent = mixed_builder.finish();
+        let parent = mixed_builder.build();
 
         Ok(PyModelBuilder {
             state: BuilderState::Ready(Some(parent)),

@@ -169,6 +169,20 @@ pub fn require_if_some<T, U>(
     require(a.is_none() || b.is_some(), message)
 }
 
+/// Validate that a recovery rate is within valid bounds \[0, 1\].
+///
+/// # Errors
+/// Returns an error if recovery rate is outside the valid range.
+#[inline]
+pub fn validate_recovery_rate(recovery_rate: f64) -> finstack_core::Result<()> {
+    require_with((0.0..=1.0).contains(&recovery_rate), || {
+        format!(
+            "Recovery rate must be between 0.0 and 1.0, got {}",
+            recovery_rate
+        )
+    })
+}
+
 /// Validate that dates are strictly increasing.
 #[inline]
 pub fn validate_sorted_strict(values: &[Date], context: &str) -> finstack_core::Result<()> {

@@ -20,7 +20,7 @@ def build_simple_normal_model() -> FinancialModelSpec:
         (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(110_000.0)),
     ])
     mixed.forecast(ForecastSpec.normal(mean=120_000.0, std=10_000.0, seed=42))
-    builder = mixed.finish()
+    builder = mixed.build()
 
     return builder.build()
 

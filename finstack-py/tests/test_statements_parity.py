@@ -277,7 +277,7 @@ class TestMixedNodeBuilder:
         mixed.values([(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0))])
         mixed.forecast(ForecastSpec.forward_fill())
         mixed.name("Revenue (Actual + Forecast)")
-        builder = mixed.finish()
+        builder = mixed.build()
 
         model = builder.build()
         assert "revenue" in model.nodes
@@ -292,7 +292,7 @@ class TestMixedNodeBuilder:
         mixed = builder.mixed("revenue")
         mixed.values([(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0))])
         mixed.formula("100000")
-        builder = mixed.finish()
+        builder = mixed.build()
 
         model = builder.build()
         assert "revenue" in model.nodes
@@ -627,7 +627,7 @@ class TestComprehensiveParity:
         mixed = builder.mixed("opex")
         mixed.values([(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(20000.0))])
         mixed.forecast(ForecastSpec.forward_fill())
-        builder = mixed.finish()
+        builder = mixed.build()
 
         builder.compute("ebitda", "gross_profit - opex")
 

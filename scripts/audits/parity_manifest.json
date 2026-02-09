@@ -22530,7 +22530,7 @@
               ]
             },
             {
-              "name": "finish",
+              "name": "build",
               "signature": "",
               "is_static": false,
               "is_classmethod": false,
@@ -22590,7 +22590,7 @@
           ]
         },
         {
-          "name": "finish",
+          "name": "build",
           "module": "finstack.statements.builder.mixed_builder",
           "signature": "",
           "return_type": "ModelBuilder",
