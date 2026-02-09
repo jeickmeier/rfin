@@ -58,12 +58,16 @@ impl Instrument for TestInstrument {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> MarketDependencies {
+    fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
         let mut deps = MarketDependencies::new();
         for curve in &self.discount_curves {
-            deps.add_curves(InstrumentCurves::builder().discount(curve.clone()).build());
+            deps.add_curves(
+                InstrumentCurves::builder()
+                    .discount(curve.clone())
+                    .build()?,
+            );
         }
-        deps
+        Ok(deps)
     }
 
     fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {

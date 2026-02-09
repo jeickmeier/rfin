@@ -483,7 +483,7 @@ impl crate::instruments::common_impl::traits::Instrument for CDSIndex {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> MarketDependencies {
+    fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
         MarketDependencies::from_curve_dependencies(self)
     }
 
@@ -528,7 +528,9 @@ impl crate::instruments::common_impl::traits::Instrument for CDSIndex {
 // In Constituents mode, include per-constituent credit curves so that DV01/BucketedDV01
 // correctly bump all credit curves, not just the index-level one.
 impl crate::instruments::common_impl::traits::CurveDependencies for CDSIndex {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.premium.discount_curve_id.clone())
             .credit(self.protection.credit_curve_id.clone());

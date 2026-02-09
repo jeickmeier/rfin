@@ -477,6 +477,7 @@ fn test_discount_curve_dependency() {
     // Act
     let curve_id = ilb
         .market_dependencies()
+        .expect("market_dependencies")
         .curve_dependencies()
         .discount_curves
         .first()

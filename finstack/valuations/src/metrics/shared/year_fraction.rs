@@ -11,7 +11,7 @@ pub struct GenericYearFractionCalculator;
 
 impl MetricCalculator for GenericYearFractionCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let deps = context.instrument.market_dependencies();
+        let deps = context.instrument.market_dependencies()?;
         let discount_id = deps
             .curves
             .discount_curves

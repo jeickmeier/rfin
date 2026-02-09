@@ -168,7 +168,7 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
         let flows = self.build_dated_flows(market, base)?;
         let schedule = schedule_from_dated_flows(flows, self.notional(), dc);
 
-        let deps = self.curve_dependencies();
+        let deps = self.curve_dependencies()?;
         let disc_curve_id = deps
             .discount_curves
             .first()
@@ -264,7 +264,7 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
         let schedule = self.build_full_schedule(market, base)?;
 
         // Resolve discount and hazard curves once to avoid duplicated logic.
-        let deps = self.curve_dependencies();
+        let deps = self.curve_dependencies()?;
         let disc_curve_id = deps
             .discount_curves
             .first()
@@ -386,6 +386,7 @@ mod tests {
         use crate::instruments::common_impl::helpers::schedule_pv_using_curve_dc;
         let bond_disc = bond
             .curve_dependencies()
+            .expect("curve_dependencies should succeed")
             .discount_curves
             .first()
             .cloned()
@@ -472,6 +473,7 @@ mod tests {
         let straight_npv = {
             let frn_disc = frn
                 .curve_dependencies()
+                .expect("curve_dependencies should succeed")
                 .discount_curves
                 .first()
                 .cloned()

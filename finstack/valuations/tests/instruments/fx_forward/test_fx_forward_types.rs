@@ -110,7 +110,7 @@ fn test_fx_forward_instrument_trait() {
 #[test]
 fn test_fx_forward_curve_dependencies() {
     let forward = FxForward::example();
-    let deps = forward.curve_dependencies();
+    let deps = forward.curve_dependencies().expect("curve_dependencies");
 
     assert_eq!(deps.discount_curves.len(), 2);
     assert!(deps.discount_curves.iter().any(|c| c.as_str() == "USD-OIS"));
@@ -122,6 +122,7 @@ fn test_fx_forward_required_discount_curves() {
     let forward = FxForward::example();
     let curves = forward
         .market_dependencies()
+        .expect("market_dependencies")
         .curve_dependencies()
         .discount_curves
         .clone();

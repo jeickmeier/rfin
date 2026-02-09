@@ -171,7 +171,9 @@ impl crate::instruments::common_impl::traits::Instrument for CmsOption {
 
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common_impl::traits::CurveDependencies for CmsOption {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder();
         builder = builder.discount(self.discount_curve_id.clone());
         if let Some(fwd) = &self.forward_curve_id {

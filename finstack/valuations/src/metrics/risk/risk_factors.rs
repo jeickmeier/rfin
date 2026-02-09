@@ -133,7 +133,7 @@ where
     let mut seen = HashSet::default();
 
     // Get instrument's curve dependencies
-    let deps = instrument.curve_dependencies();
+    let deps = instrument.curve_dependencies()?;
 
     // Standard tenors for IR/credit curve factors
     let standard_tenors = standard_ir_dv01_buckets();

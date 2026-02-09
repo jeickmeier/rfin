@@ -879,7 +879,7 @@ mod tests {
         use crate::instruments::common_impl::traits::CurveDependencies;
 
         let option = base_option(date(2025, 6, 15), OptionType::Call);
-        let deps = option.curve_dependencies();
+        let deps = option.curve_dependencies().expect("curve_dependencies");
 
         // Should include both domestic and foreign discount curves
         assert_eq!(

@@ -149,17 +149,17 @@ impl Instrument for TestInstrument {
 
     fn market_dependencies(
         &self,
-    ) -> finstack_valuations::instruments::common::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<finstack_valuations::instruments::common::dependencies::MarketDependencies> {
         let mut deps =
             finstack_valuations::instruments::common::dependencies::MarketDependencies::new();
         for curve in &self.discount_curves {
             deps.add_curves(
                 finstack_valuations::instruments::common::traits::InstrumentCurves::builder()
                     .discount(curve.clone())
-                    .build(),
+                    .build()?,
             );
         }
-        deps
+        Ok(deps)
     }
 
     fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {

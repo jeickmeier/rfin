@@ -42,7 +42,8 @@ fn test_waterfall_builder_creates_proper_priority_order() {
                 Recipient::tranche_principal("class_a_prin", "CLASS_A", None),
             ),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     // Assert
     assert_eq!(waterfall.tiers.len(), 3);
@@ -73,7 +74,8 @@ fn test_waterfall_builder_tier_types() {
             WaterfallTier::new("interest", 2, PaymentType::Interest)
                 .add_recipient(Recipient::tranche_interest("int", "A")),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     // Assert
     assert_eq!(waterfall.tiers.len(), 2);
@@ -95,7 +97,8 @@ fn test_waterfall_tier_divertible() {
                 .divertible(true)
                 .add_recipient(Recipient::tranche_principal("a_prin", "A", None)),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     // Assert
     assert!(!waterfall.tiers[0].divertible);

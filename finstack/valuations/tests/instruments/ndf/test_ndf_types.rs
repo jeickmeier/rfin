@@ -125,7 +125,7 @@ fn test_ndf_instrument_trait() {
 #[test]
 fn test_ndf_curve_dependencies_single() {
     let ndf = Ndf::example();
-    let deps = ndf.curve_dependencies();
+    let deps = ndf.curve_dependencies().expect("curve_dependencies");
 
     // Without foreign curve, only settlement curve
     assert_eq!(deps.discount_curves.len(), 1);
@@ -149,7 +149,7 @@ fn test_ndf_curve_dependencies_with_foreign() {
         .build()
         .expect("should build");
 
-    let deps = ndf.curve_dependencies();
+    let deps = ndf.curve_dependencies().expect("curve_dependencies");
 
     assert_eq!(deps.discount_curves.len(), 2);
 }
@@ -159,6 +159,7 @@ fn test_ndf_required_discount_curves() {
     let ndf = Ndf::example();
     let curves = ndf
         .market_dependencies()
+        .expect("market_dependencies")
         .curve_dependencies()
         .discount_curves
         .clone();
@@ -181,6 +182,7 @@ fn test_ndf_required_discount_curves() {
 
     let curves = ndf_with_foreign
         .market_dependencies()
+        .expect("market_dependencies")
         .curve_dependencies()
         .discount_curves
         .clone();

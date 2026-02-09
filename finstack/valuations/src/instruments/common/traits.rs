@@ -1001,8 +1001,8 @@ pub trait Instrument: Send + Sync {
     ///
     /// This is the canonical dependency surface and should be overridden by
     /// all instruments to declare their market data needs.
-    fn market_dependencies(&self) -> MarketDependencies {
-        MarketDependencies::new()
+    fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
+        Ok(MarketDependencies::new())
     }
 
     /// FX exposure for this instrument.
@@ -1115,7 +1115,7 @@ pub trait Instrument: Send + Sync {
 /// }
 ///
 /// impl CurveDependencies for Bond {
-///     fn curve_dependencies(&self) -> InstrumentCurves {
+///     fn curve_dependencies(&self) -> finstack_core::Result<InstrumentCurves> {
 ///         InstrumentCurves::builder()
 ///             .discount(self.discount_curve_id.clone())
 ///             .build()
@@ -1124,7 +1124,7 @@ pub trait Instrument: Send + Sync {
 /// ```
 pub trait CurveDependencies {
     /// Return all curves used by this instrument, categorized by type.
-    fn curve_dependencies(&self) -> InstrumentCurves;
+    fn curve_dependencies(&self) -> finstack_core::Result<InstrumentCurves>;
 }
 
 /// Collection of curves used by an instrument, categorized by type.
@@ -1209,8 +1209,8 @@ impl InstrumentCurvesBuilder {
     }
 
     /// Build the final curve collection.
-    pub fn build(self) -> InstrumentCurves {
-        self.curves
+    pub fn build(self) -> finstack_core::Result<InstrumentCurves> {
+        Ok(self.curves)
     }
 }
 
@@ -1247,7 +1247,7 @@ pub enum RatesCurveKind {
 /// }
 ///
 /// impl EquityDependencies for EquityOption {
-///     fn equity_dependencies(&self) -> EquityInstrumentDeps {
+///     fn equity_dependencies(&self) -> finstack_core::Result<EquityInstrumentDeps> {
 ///         EquityInstrumentDeps::builder()
 ///             .spot(self.spot_id.clone())
 ///             .vol_surface(self.vol_surface_id.clone())
@@ -1257,7 +1257,7 @@ pub enum RatesCurveKind {
 /// ```
 pub trait EquityDependencies {
     /// Return equity market data dependencies for this instrument.
-    fn equity_dependencies(&self) -> EquityInstrumentDeps;
+    fn equity_dependencies(&self) -> finstack_core::Result<EquityInstrumentDeps>;
 }
 
 /// Collection of equity market data used by an instrument.
@@ -1273,7 +1273,8 @@ pub trait EquityDependencies {
 /// let deps = EquityInstrumentDeps::builder()
 ///     .spot("AAPL")
 ///     .vol_surface("AAPL-VOL")
-///     .build();
+///     .build()
+///     .expect("infallible");
 ///
 /// assert_eq!(deps.spot_id, Some("AAPL".to_string()));
 /// assert_eq!(deps.vol_surface_id, Some("AAPL-VOL".to_string()));
@@ -1309,7 +1310,8 @@ impl EquityInstrumentDeps {
     /// let deps = EquityInstrumentDeps::builder()
     ///     .spot("SPX")
     ///     .vol_surface("SPX-VOL")
-    ///     .build();
+    ///     .build()
+    ///     .expect("infallible");
     /// ```
     pub fn builder() -> EquityInstrumentDepsBuilder {
         EquityInstrumentDepsBuilder::default()
@@ -1366,8 +1368,8 @@ impl EquityInstrumentDepsBuilder {
     }
 
     /// Build the final equity dependencies collection.
-    pub fn build(self) -> EquityInstrumentDeps {
-        self.deps
+    pub fn build(self) -> finstack_core::Result<EquityInstrumentDeps> {
+        Ok(self.deps)
     }
 }
 

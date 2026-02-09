@@ -222,7 +222,7 @@ where
         instrument: &I,
         market: &MarketContext,
     ) -> finstack_core::Result<Vec<(CurveId, RatesCurveKind)>> {
-        let deps = instrument.curve_dependencies();
+        let deps = instrument.curve_dependencies()?;
         let mut curves = Vec::new();
         let mut missing_curves = Vec::new();
 

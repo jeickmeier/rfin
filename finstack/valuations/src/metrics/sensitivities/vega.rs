@@ -119,7 +119,7 @@ where
         let instrument: &I = context.instrument_as()?;
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
-        let eq_deps = instrument.market_dependencies().equity_dependencies();
+        let eq_deps = instrument.market_dependencies()?.equity_dependencies();
         let vol_surface_id = eq_deps
             .vol_surface_id
             .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;

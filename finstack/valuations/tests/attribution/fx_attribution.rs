@@ -96,8 +96,10 @@ impl Instrument for FxLinkedInstrument {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> finstack_valuations::instruments::MarketDependencies {
-        finstack_valuations::instruments::MarketDependencies::new()
+    fn market_dependencies(
+        &self,
+    ) -> finstack_core::Result<finstack_valuations::instruments::MarketDependencies> {
+        Ok(finstack_valuations::instruments::MarketDependencies::new())
     }
 
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {

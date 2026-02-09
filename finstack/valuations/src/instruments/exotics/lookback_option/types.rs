@@ -116,7 +116,9 @@ pub struct LookbackOption {
 
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common_impl::traits::CurveDependencies for LookbackOption {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
@@ -190,7 +192,8 @@ impl crate::instruments::common_impl::traits::Instrument for LookbackOption {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         crate::instruments::common_impl::dependencies::MarketDependencies::from_curves_and_equity(
             self,
         )

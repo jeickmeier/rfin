@@ -64,7 +64,9 @@ pub struct FxBarrierOption {
 // Implement CurveDependencies for DV01 calculator
 // FxBarrierOption uses both domestic and foreign curves for FX carry calculation
 impl crate::instruments::common_impl::traits::CurveDependencies for FxBarrierOption {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.domestic_discount_curve_id.clone())
             .discount(self.foreign_discount_curve_id.clone())
@@ -393,15 +395,16 @@ impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         let mut deps =
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
-            );
+            )?;
         deps.add_spot_id(self.fx_spot_id.as_str());
         deps.add_vol_surface_id(self.fx_vol_id.as_str());
         deps.add_fx_pair(self.foreign_currency, self.domestic_currency);
-        deps
+        Ok(deps)
     }
 
     fn value(
@@ -451,7 +454,7 @@ mod tests {
     #[test]
     fn test_fx_barrier_option_curve_dependencies_includes_both_curves() {
         let option = FxBarrierOption::example();
-        let deps = option.curve_dependencies();
+        let deps = option.curve_dependencies().expect("curve_dependencies");
 
         // Should include both domestic and foreign discount curves
         assert_eq!(

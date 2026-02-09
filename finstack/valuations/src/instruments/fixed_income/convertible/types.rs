@@ -402,7 +402,9 @@ impl crate::instruments::common_impl::traits::Instrument for ConvertibleBond {
 
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common_impl::traits::CurveDependencies for ConvertibleBond {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         let builder = crate::instruments::common_impl::traits::InstrumentCurves::builder();
         let builder = builder.discount(self.discount_curve_id.clone());
         let builder = if let Some(credit_curve) = &self.credit_curve_id {

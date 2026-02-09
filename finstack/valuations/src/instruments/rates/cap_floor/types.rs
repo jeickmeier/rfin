@@ -475,7 +475,9 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for InterestRateOption {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_id.clone())

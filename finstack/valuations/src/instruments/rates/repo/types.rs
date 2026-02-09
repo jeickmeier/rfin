@@ -701,7 +701,9 @@ impl CashflowProvider for Repo {
 
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common_impl::traits::CurveDependencies for Repo {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()

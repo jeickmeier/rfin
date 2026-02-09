@@ -196,7 +196,9 @@ impl CommodityAsianOption {
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for CommodityAsianOption {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_curve_id.clone())
@@ -231,13 +233,14 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityAsianOptio
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         let mut deps =
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
-            );
+            )?;
         deps.add_vol_surface_id(self.vol_surface_id.as_str());
-        deps
+        Ok(deps)
     }
 
     fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {

@@ -246,7 +246,7 @@ impl Instrument for RealEstateAsset {
     }
 }
 impl CurveDependencies for RealEstateAsset {
-    fn curve_dependencies(&self) -> InstrumentCurves {
+    fn curve_dependencies(&self) -> finstack_core::Result<InstrumentCurves> {
         InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()

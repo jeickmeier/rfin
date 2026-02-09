@@ -58,16 +58,16 @@ impl Instrument for TestInstrument {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies> {
         let mut deps = crate::instruments::common_impl::dependencies::MarketDependencies::new();
         for curve in &self.discount_curves {
             deps.add_curves(
                 crate::instruments::common_impl::traits::InstrumentCurves::builder()
                     .discount(curve.clone())
-                    .build(),
+                    .build()?,
             );
         }
-        deps
+        Ok(deps)
     }
 
     fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {

@@ -101,7 +101,8 @@ fn property_cash_conservation() {
                     ),
                 ),
             )
-            .build();
+            .build()
+            .expect("build waterfall");
 
         let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
         let result = run_waterfall(
@@ -154,7 +155,8 @@ fn property_non_negative_distributions() {
                 },
             )),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
     let result = run_waterfall(
@@ -227,7 +229,8 @@ fn property_priority_ordering() {
                     },
                 )),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     // Case 1: Insufficient funds - only tier 1 gets paid
     let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
@@ -301,7 +304,8 @@ fn property_pro_rata_weight_distribution() {
                     .with_weight(0.40), // 40%
                 ),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
     let result = run_waterfall(
@@ -359,7 +363,8 @@ fn property_shortfall_computation() {
                 },
             )),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     // Case 1: Full payment
     let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
@@ -442,7 +447,7 @@ fn property_tier_count_consistency() {
         );
     }
 
-    let waterfall = builder.build();
+    let waterfall = builder.build().expect("build waterfall");
 
     let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
     let result = run_waterfall(
@@ -488,7 +493,8 @@ fn property_diversion_tracking() {
                     },
                 )),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
     let result = run_waterfall(
@@ -569,7 +575,8 @@ fn property_monotonic_tier_allocation() {
                     },
                 )),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
     let result = run_waterfall(
@@ -631,7 +638,7 @@ fn property_coverage_test_result_format() {
                 ic_trigger: Some(1.20),
             },
         )
-        .build();
+        .build().expect("build waterfall");
 
     let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
     let result = run_waterfall(

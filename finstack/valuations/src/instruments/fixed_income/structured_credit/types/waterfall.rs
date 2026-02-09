@@ -646,8 +646,7 @@ impl WaterfallBuilder {
     }
 
     /// Build the waterfall engine
-    #[must_use]
-    pub fn build(self) -> Waterfall {
-        self.engine
+    pub fn build(self) -> finstack_core::Result<Waterfall> {
+        Ok(self.engine)
     }
 }

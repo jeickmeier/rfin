@@ -454,17 +454,18 @@ impl InstrumentTrait for FxVarianceSwap {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         let mut deps =
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
-            );
+            )?;
         if let Some(spot_id) = self.spot_id.as_deref() {
             deps.add_spot_id(spot_id);
         }
         deps.add_vol_surface_id(self.vol_surface_id.as_str());
         deps.add_fx_pair(self.base_currency, self.quote_currency);
-        deps
+        Ok(deps)
     }
 
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
@@ -532,7 +533,7 @@ impl InstrumentTrait for FxVarianceSwap {
 
 // FxVarianceSwap uses both domestic and foreign curves for forward construction
 impl CurveDependencies for FxVarianceSwap {
-    fn curve_dependencies(&self) -> InstrumentCurves {
+    fn curve_dependencies(&self) -> finstack_core::Result<InstrumentCurves> {
         InstrumentCurves::builder()
             .discount(self.domestic_discount_curve_id.clone())
             .discount(self.foreign_discount_curve_id.clone())
@@ -572,7 +573,7 @@ mod tests {
     #[test]
     fn test_fx_variance_swap_curve_dependencies_includes_both_curves() {
         let swap = FxVarianceSwap::example();
-        let deps = swap.curve_dependencies();
+        let deps = swap.curve_dependencies().expect("curve_dependencies");
 
         // Should include both domestic and foreign discount curves
         assert_eq!(

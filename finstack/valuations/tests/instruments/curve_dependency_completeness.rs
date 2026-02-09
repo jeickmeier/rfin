@@ -86,7 +86,11 @@ fn test_bond_curve_dependencies_complete() {
         .expect("Bond construction should succeed");
 
     // Get declared dependencies
-    let deps = bond.market_dependencies().curve_dependencies().clone();
+    let deps = bond
+        .market_dependencies()
+        .expect("market_dependencies")
+        .curve_dependencies()
+        .clone();
 
     // Extract discount curve IDs
     let disc_ids: Vec<&str> = deps.discount_curves.iter().map(|id| id.as_str()).collect();
@@ -121,7 +125,11 @@ fn test_cds_curve_dependencies_complete() {
     .expect("CDS construction should succeed");
 
     // Get declared dependencies
-    let deps = cds.market_dependencies().curve_dependencies().clone();
+    let deps = cds
+        .market_dependencies()
+        .expect("market_dependencies")
+        .curve_dependencies()
+        .clone();
 
     // Extract curve IDs
     let disc_ids: Vec<&str> = deps.discount_curves.iter().map(|id| id.as_str()).collect();
@@ -195,7 +203,11 @@ fn test_dependency_count_reasonable() {
         .build()
         .expect("Bond construction should succeed");
 
-    let bond_deps = bond.market_dependencies().curve_dependencies().clone();
+    let bond_deps = bond
+        .market_dependencies()
+        .expect("market_dependencies")
+        .curve_dependencies()
+        .clone();
     assert_eq!(
         bond_deps.discount_curves.len(),
         1,
@@ -219,7 +231,11 @@ fn test_dependency_count_reasonable() {
     )
     .expect("CDS construction should succeed");
 
-    let cds_deps = cds.market_dependencies().curve_dependencies().clone();
+    let cds_deps = cds
+        .market_dependencies()
+        .expect("market_dependencies")
+        .curve_dependencies()
+        .clone();
     assert_eq!(
         cds_deps.discount_curves.len(),
         1,

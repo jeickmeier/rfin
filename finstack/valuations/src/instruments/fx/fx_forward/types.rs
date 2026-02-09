@@ -465,7 +465,9 @@ impl FxForward {
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for FxForward {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.domestic_discount_curve_id.clone())
             .discount(self.foreign_discount_curve_id.clone())
@@ -500,13 +502,14 @@ impl crate::instruments::common_impl::traits::Instrument for FxForward {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         let mut deps =
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
-            );
+            )?;
         deps.add_fx_pair(self.base_currency, self.quote_currency);
-        deps
+        Ok(deps)
     }
 
     fn value(
@@ -665,7 +668,7 @@ mod tests {
         use crate::instruments::common_impl::traits::CurveDependencies;
 
         let forward = FxForward::example();
-        let deps = forward.curve_dependencies();
+        let deps = forward.curve_dependencies().expect("curve_dependencies");
 
         assert_eq!(deps.discount_curves.len(), 2);
     }

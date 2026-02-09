@@ -5,7 +5,9 @@ use crate::instruments::exotics::lookback_option::LookbackOption;
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl EquityDependencies for LookbackOption {
-    fn equity_dependencies(&self) -> crate::instruments::common_impl::traits::EquityInstrumentDeps {
+    fn equity_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::EquityInstrumentDeps> {
         crate::instruments::common_impl::traits::EquityInstrumentDeps::builder()
             .spot(self.spot_id.as_str())
             .vol_surface(self.vol_surface_id.as_str())

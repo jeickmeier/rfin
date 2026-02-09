@@ -512,7 +512,7 @@ mod tests {
             BarrierDirection::Down,
             1.05,
         );
-        let deps = option.curve_dependencies();
+        let deps = option.curve_dependencies().expect("curve_dependencies");
         assert_eq!(deps.discount_curves.len(), 2);
     }
 

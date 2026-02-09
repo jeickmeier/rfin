@@ -11,7 +11,7 @@ use finstack_valuations::instruments::{
 #[test]
 fn equity_trs_declares_discount_and_forward_curves() {
     let trs = EquityTotalReturnSwap::example();
-    let deps = trs.curve_dependencies();
+    let deps = trs.curve_dependencies().expect("curve_dependencies");
 
     assert!(
         deps.discount_curves.iter().any(|c| c.as_str() == "USD-OIS"),
@@ -28,7 +28,7 @@ fn equity_trs_declares_discount_and_forward_curves() {
 #[test]
 fn fi_index_trs_declares_discount_and_forward_curves() {
     let trs = FIIndexTotalReturnSwap::example();
-    let deps = trs.curve_dependencies();
+    let deps = trs.curve_dependencies().expect("curve_dependencies");
 
     assert!(
         deps.discount_curves.iter().any(|c| c.as_str() == "USD-OIS"),

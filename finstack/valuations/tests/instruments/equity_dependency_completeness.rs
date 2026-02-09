@@ -81,7 +81,7 @@ fn test_commodity_option_equity_dependencies_complete() {
         .build()
         .expect("Commodity option construction should succeed");
 
-    let market_deps = option.market_dependencies();
+    let market_deps = option.market_dependencies().expect("market_dependencies");
     let curve_deps = market_deps.curve_dependencies();
     let equity_deps = market_deps.equity_dependencies();
 
@@ -137,7 +137,7 @@ fn test_missing_equity_spot_fails() {
         .build()
         .expect("Commodity option construction should succeed");
 
-    let market_deps = option.market_dependencies();
+    let market_deps = option.market_dependencies().expect("market_dependencies");
     let curve_deps = market_deps.curve_dependencies();
     let equity_deps = market_deps.equity_dependencies();
 

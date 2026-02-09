@@ -755,7 +755,8 @@ impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
             self,
         )
@@ -829,7 +830,9 @@ impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for CreditDefaultSwap {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.premium.discount_curve_id.clone())
             .credit(self.protection.credit_curve_id.clone())

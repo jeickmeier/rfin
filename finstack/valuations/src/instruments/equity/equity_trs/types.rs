@@ -376,7 +376,9 @@ impl CashflowProvider for EquityTotalReturnSwap {
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for EquityTotalReturnSwap {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.financing.discount_curve_id.clone())
             .forward(self.financing.forward_curve_id.clone())

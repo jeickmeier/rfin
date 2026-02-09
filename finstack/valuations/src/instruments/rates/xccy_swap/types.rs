@@ -491,7 +491,9 @@ impl crate::instruments::common_impl::traits::Instrument for XccySwap {
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for XccySwap {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.leg1.discount_curve_id.clone())
             .discount(self.leg2.discount_curve_id.clone())

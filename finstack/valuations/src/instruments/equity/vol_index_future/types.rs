@@ -349,7 +349,9 @@ impl CashflowProvider for VolatilityIndexFuture {
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for VolatilityIndexFuture {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         // Only include discount curve for DV01 calculations
         // Vol index curve sensitivity is handled separately via delta_vol
         crate::instruments::common_impl::traits::InstrumentCurves::builder()

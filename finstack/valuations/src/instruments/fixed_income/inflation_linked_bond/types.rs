@@ -992,7 +992,7 @@ impl crate::instruments::common_impl::traits::Instrument for InflationLinkedBond
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> MarketDependencies {
+    fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
         MarketDependencies::from_curve_dependencies(self)
     }
 
@@ -1061,7 +1061,9 @@ impl CashflowProvider for InflationLinkedBond {
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for InflationLinkedBond {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()

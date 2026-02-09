@@ -323,7 +323,7 @@ fn black76_unit_price(
 }
 
 impl CurveDependencies for CommodityOption {
-    fn curve_dependencies(&self) -> InstrumentCurves {
+    fn curve_dependencies(&self) -> finstack_core::Result<InstrumentCurves> {
         InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_curve_id.clone())
@@ -358,16 +358,17 @@ impl Instrument for CommodityOption {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         let mut deps =
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
-            );
+            )?;
         if let Some(spot_id) = self.spot_price_id.as_deref() {
             deps.add_spot_id(spot_id);
         }
         deps.add_vol_surface_id(self.vol_surface_id.as_str());
-        deps
+        Ok(deps)
     }
 
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {

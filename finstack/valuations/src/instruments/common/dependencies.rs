@@ -60,27 +60,31 @@ impl MarketDependencies {
     }
 
     /// Build dependencies from an instrument implementing [`CurveDependencies`].
-    pub fn from_curve_dependencies<T: CurveDependencies>(instrument: &T) -> Self {
+    pub fn from_curve_dependencies<T: CurveDependencies>(
+        instrument: &T,
+    ) -> finstack_core::Result<Self> {
         let mut deps = Self::new();
-        deps.add_curves(instrument.curve_dependencies());
-        deps
+        deps.add_curves(instrument.curve_dependencies()?);
+        Ok(deps)
     }
 
     /// Build dependencies from an instrument implementing [`EquityDependencies`].
-    pub fn from_equity_dependencies<T: EquityDependencies>(instrument: &T) -> Self {
+    pub fn from_equity_dependencies<T: EquityDependencies>(
+        instrument: &T,
+    ) -> finstack_core::Result<Self> {
         let mut deps = Self::new();
-        deps.add_equity_dependencies(instrument.equity_dependencies());
-        deps
+        deps.add_equity_dependencies(instrument.equity_dependencies()?);
+        Ok(deps)
     }
 
     /// Build dependencies from an instrument implementing both curve and equity traits.
     pub fn from_curves_and_equity<T: CurveDependencies + EquityDependencies>(
         instrument: &T,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let mut deps = Self::new();
-        deps.add_curves(instrument.curve_dependencies());
-        deps.add_equity_dependencies(instrument.equity_dependencies());
-        deps
+        deps.add_curves(instrument.curve_dependencies()?);
+        deps.add_equity_dependencies(instrument.equity_dependencies()?);
+        Ok(deps)
     }
 
     /// Merge curve dependencies into this set.
@@ -136,7 +140,7 @@ impl MarketDependencies {
     }
 
     /// Build dependencies from a JSON-tagged instrument representation.
-    pub fn from_instrument_json(instrument: &InstrumentJson) -> Self {
+    pub fn from_instrument_json(instrument: &InstrumentJson) -> finstack_core::Result<Self> {
         match instrument {
             // Fixed Income
             InstrumentJson::Bond(i) => Self::from_curve_dependencies(i),
@@ -184,52 +188,52 @@ impl MarketDependencies {
 
             // FX
             InstrumentJson::FxSpot(i) => {
-                let mut deps = Self::from_curve_dependencies(i);
+                let mut deps = Self::from_curve_dependencies(i)?;
                 deps.add_fx_pair(i.base, i.quote);
-                deps
+                Ok(deps)
             }
             InstrumentJson::FxSwap(i) => {
-                let mut deps = Self::from_curve_dependencies(i);
+                let mut deps = Self::from_curve_dependencies(i)?;
                 deps.add_fx_pair(i.base_currency, i.quote_currency);
-                deps
+                Ok(deps)
             }
             InstrumentJson::FxForward(i) => {
-                let mut deps = Self::from_curve_dependencies(i);
+                let mut deps = Self::from_curve_dependencies(i)?;
                 deps.add_fx_pair(i.base_currency, i.quote_currency);
-                deps
+                Ok(deps)
             }
             InstrumentJson::Ndf(i) => {
-                let mut deps = Self::from_curve_dependencies(i);
+                let mut deps = Self::from_curve_dependencies(i)?;
                 deps.add_fx_pair(i.base_currency, i.settlement_currency);
-                deps
+                Ok(deps)
             }
             InstrumentJson::FxOption(i) => {
-                let mut deps = Self::from_curve_dependencies(i);
+                let mut deps = Self::from_curve_dependencies(i)?;
                 deps.add_vol_surface_id(i.vol_surface_id.as_str());
                 deps.add_fx_pair(i.base_currency, i.quote_currency);
-                deps
+                Ok(deps)
             }
             InstrumentJson::FxBarrierOption(i) => {
-                let mut deps = Self::from_curve_dependencies(i);
+                let mut deps = Self::from_curve_dependencies(i)?;
                 deps.add_spot_id(i.fx_spot_id.as_str());
                 deps.add_vol_surface_id(i.fx_vol_id.as_str());
                 deps.add_fx_pair(i.foreign_currency, i.domestic_currency);
-                deps
+                Ok(deps)
             }
             InstrumentJson::FxVarianceSwap(i) => {
-                let mut deps = Self::from_curve_dependencies(i);
+                let mut deps = Self::from_curve_dependencies(i)?;
                 if let Some(spot_id) = i.spot_id.as_deref() {
                     deps.add_spot_id(spot_id);
                 }
                 deps.add_vol_surface_id(i.vol_surface_id.as_str());
                 deps.add_fx_pair(i.base_currency, i.quote_currency);
-                deps
+                Ok(deps)
             }
             InstrumentJson::QuantoOption(i) => {
-                let mut deps = Self::from_curve_dependencies(i);
+                let mut deps = Self::from_curve_dependencies(i)?;
                 deps.add_spot_id(i.spot_id.as_str());
                 deps.add_vol_surface_id(i.vol_surface_id.as_str());
-                deps
+                Ok(deps)
             }
 
             // Commodity

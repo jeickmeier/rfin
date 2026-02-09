@@ -35,7 +35,7 @@ impl MetricCalculator for CsGammaCalculator {
         let bump_bp = 5.0;
 
         // Get all hazard curves used by this CDS
-        let curve_ids = cds.curve_dependencies().credit_curves;
+        let curve_ids = cds.curve_dependencies()?.credit_curves;
 
         if curve_ids.is_empty() {
             return Ok(0.0);

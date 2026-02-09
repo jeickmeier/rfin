@@ -329,7 +329,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     // otherwise falls back to aggregate DV01 with average shift.
 
     // Try to extract bucketed DV01 per curve
-    let market_deps = instrument.market_dependencies();
+    let market_deps = instrument.market_dependencies()?;
     let curve_ids = &market_deps.curve_dependencies().discount_curves;
     let bucketed_dv01 = extract_bucketed_dv01_per_curve(&val_t0.measures, curve_ids);
 

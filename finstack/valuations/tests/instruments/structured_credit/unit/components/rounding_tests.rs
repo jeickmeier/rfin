@@ -44,7 +44,8 @@ fn run_rounding_test(amount: f64, rounding: RoundingConvention) -> f64 {
                 },
             )),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     let context = WaterfallContext {
         available_cash: Money::new(1_000_000.0, currency),

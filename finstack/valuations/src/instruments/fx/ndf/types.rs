@@ -617,7 +617,9 @@ impl Ndf {
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for Ndf {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.settlement_curve_id.clone());
 
@@ -656,13 +658,14 @@ impl crate::instruments::common_impl::traits::Instrument for Ndf {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         let mut deps =
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
-            );
+            )?;
         deps.add_fx_pair(self.base_currency, self.settlement_currency);
-        deps
+        Ok(deps)
     }
 
     fn value(
@@ -808,7 +811,7 @@ mod tests {
         use crate::instruments::common_impl::traits::CurveDependencies;
 
         let ndf = Ndf::example();
-        let deps = ndf.curve_dependencies();
+        let deps = ndf.curve_dependencies().expect("curve_dependencies");
 
         assert_eq!(deps.discount_curves.len(), 1);
     }
@@ -832,7 +835,7 @@ mod tests {
             .build()
             .expect("should build");
 
-        let deps = ndf.curve_dependencies();
+        let deps = ndf.curve_dependencies().expect("curve_dependencies");
         assert_eq!(deps.discount_curves.len(), 2);
     }
 

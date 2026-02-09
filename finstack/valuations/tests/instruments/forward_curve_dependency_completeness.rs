@@ -71,7 +71,7 @@ fn test_fra_forward_dependencies_complete() {
         .build()
         .expect("FRA construction should succeed");
 
-    let deps = fra.curve_dependencies();
+    let deps = fra.curve_dependencies().expect("curve_dependencies");
     let discount_ids: Vec<&str> = deps.discount_curves.iter().map(|id| id.as_str()).collect();
     let forward_ids: Vec<&str> = deps.forward_curves.iter().map(|id| id.as_str()).collect();
 

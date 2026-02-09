@@ -410,7 +410,9 @@ impl CommodityForward {
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for CommodityForward {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_curve_id.clone())
@@ -419,11 +421,15 @@ impl crate::instruments::common_impl::traits::CurveDependencies for CommodityFor
 }
 
 impl crate::instruments::common_impl::traits::EquityDependencies for CommodityForward {
-    fn equity_dependencies(&self) -> crate::instruments::common_impl::traits::EquityInstrumentDeps {
-        crate::instruments::common_impl::traits::EquityInstrumentDeps {
-            spot_id: self.spot_price_id.clone(),
-            vol_surface_id: None,
-        }
+    fn equity_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::EquityInstrumentDeps> {
+        Ok(
+            crate::instruments::common_impl::traits::EquityInstrumentDeps {
+                spot_id: self.spot_price_id.clone(),
+                vol_surface_id: None,
+            },
+        )
     }
 }
 
@@ -454,15 +460,16 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         let mut deps =
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
-            );
+            )?;
         if let Some(spot_id) = self.spot_price_id.as_deref() {
             deps.add_spot_id(spot_id);
         }
-        deps
+        Ok(deps)
     }
 
     fn value(
@@ -775,7 +782,7 @@ mod tests {
         use crate::instruments::common_impl::traits::CurveDependencies;
 
         let forward = CommodityForward::example();
-        let deps = forward.curve_dependencies();
+        let deps = forward.curve_dependencies().expect("curve_dependencies");
 
         assert_eq!(deps.discount_curves.len(), 1);
         assert_eq!(deps.forward_curves.len(), 1);

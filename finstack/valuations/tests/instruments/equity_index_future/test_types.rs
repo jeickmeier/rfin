@@ -220,7 +220,7 @@ fn test_curve_dependencies() {
     use finstack_valuations::instruments::CurveDependencies;
 
     let future = EquityIndexFuture::example();
-    let deps = future.curve_dependencies();
+    let deps = future.curve_dependencies().expect("curve_dependencies");
 
     assert_eq!(deps.discount_curves.len(), 1);
     assert_eq!(deps.discount_curves[0].as_str(), "USD-OIS");

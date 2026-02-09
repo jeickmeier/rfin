@@ -355,7 +355,9 @@ impl CommoditySwap {
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for CommoditySwap {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.floating_index_id.clone())
@@ -639,7 +641,7 @@ mod tests {
         use crate::instruments::common_impl::traits::CurveDependencies;
 
         let swap = CommoditySwap::example();
-        let deps = swap.curve_dependencies();
+        let deps = swap.curve_dependencies().expect("curve_dependencies");
 
         assert_eq!(deps.discount_curves.len(), 1);
         assert_eq!(deps.forward_curves.len(), 1);

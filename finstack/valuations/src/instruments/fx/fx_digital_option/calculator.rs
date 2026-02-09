@@ -701,7 +701,7 @@ mod tests {
             OptionType::Call,
             DigitalPayoutType::CashOrNothing,
         );
-        let deps = option.curve_dependencies();
+        let deps = option.curve_dependencies().expect("curve_dependencies");
         assert_eq!(deps.discount_curves.len(), 2);
     }
 }

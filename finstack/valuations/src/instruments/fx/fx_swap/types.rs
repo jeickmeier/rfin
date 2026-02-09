@@ -191,13 +191,14 @@ impl crate::instruments::common_impl::traits::Instrument for FxSwap {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         let mut deps =
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
-            );
+            )?;
         deps.add_fx_pair(self.base_currency, self.quote_currency);
-        deps
+        Ok(deps)
     }
 
     fn value(
@@ -268,7 +269,9 @@ impl crate::instruments::common_impl::traits::Instrument for FxSwap {
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for FxSwap {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.domestic_discount_curve_id.clone())
             .discount(self.foreign_discount_curve_id.clone())
@@ -317,7 +320,7 @@ mod tests {
     #[test]
     fn test_fx_swap_curve_dependencies() {
         let swap = FxSwap::example();
-        let deps = swap.curve_dependencies();
+        let deps = swap.curve_dependencies().expect("curve_dependencies");
 
         assert_eq!(deps.discount_curves.len(), 2);
         assert!(deps.discount_curves.iter().any(|c| c.as_str() == "USD-OIS"));

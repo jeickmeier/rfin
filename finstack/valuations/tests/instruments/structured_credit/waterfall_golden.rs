@@ -234,7 +234,8 @@ fn test_golden_clo_2_0_full_payment() {
             oc_trigger: Some(1.25),
             ic_trigger: Some(1.20),
         })
-        .build();
+        .build()
+        .expect("build waterfall");
 
     let market = create_test_market();
     let available_cash = Money::new(15_000_000.0, currency); // Quarterly cash available
@@ -364,7 +365,8 @@ fn test_golden_clo_oc_breach_diversion() {
             oc_trigger: Some(1.25), // 125% OC required
             ic_trigger: None,
         })
-        .build();
+        .build()
+        .expect("build waterfall");
 
     let market = create_test_market();
     let available_cash = Money::new(5_000_000.0, currency);
@@ -493,7 +495,8 @@ fn test_golden_cmbs_sequential_pay() {
                     None,
                 )),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     let market = create_test_market();
     let available_cash = Money::new(20_000_000.0, currency);
@@ -623,7 +626,8 @@ fn test_golden_cre_pro_rata_distribution() {
                     .with_weight(0.20),
                 ),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     let market = create_test_market();
     let available_cash = Money::new(5_000_000.0, currency); // Quarterly NOI
@@ -717,7 +721,8 @@ fn test_golden_cash_conservation() {
             WaterfallTier::new("interest", 2, PaymentType::Interest)
                 .add_recipient(Recipient::tranche_interest("int", "CLASS_A")),
         )
-        .build();
+        .build()
+        .expect("build waterfall");
 
     let market = create_test_market();
     let available_cash = Money::new(1_000_000.0, currency);

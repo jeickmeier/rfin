@@ -2053,7 +2053,7 @@ impl crate::instruments::common_impl::traits::Instrument for BondFuture {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> MarketDependencies {
+    fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
         MarketDependencies::from_curve_dependencies(self)
     }
 
@@ -2122,7 +2122,9 @@ Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using
 
 // Implement CurveDependencies for DV01 calculators
 impl crate::instruments::common_impl::traits::CurveDependencies for BondFuture {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
@@ -2318,6 +2320,7 @@ mod instrument_trait_tests {
 
         let curves = future
             .market_dependencies()
+            .expect("market_dependencies should succeed")
             .curve_dependencies()
             .discount_curves
             .clone();
@@ -2350,7 +2353,7 @@ mod instrument_trait_tests {
 
         use crate::instruments::common_impl::traits::CurveDependencies;
 
-        let curves = future.curve_dependencies();
+        let curves = future.curve_dependencies().expect("curve_dependencies");
         assert_eq!(curves.discount_curves.len(), 1);
         assert_eq!(curves.discount_curves[0].as_str(), "USD-TREASURY");
         assert_eq!(curves.forward_curves.len(), 0);

@@ -287,7 +287,7 @@ where
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
         // Get equity dependencies
-        let eq_deps = instrument.equity_dependencies();
+        let eq_deps = instrument.equity_dependencies()?;
         let spot_id = eq_deps.spot_id.as_ref().ok_or_else(|| {
             finstack_core::Error::Validation(
                 "Instrument missing spot_id for delta calculation".to_string(),
@@ -368,7 +368,7 @@ where
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
         // Get equity dependencies
-        let eq_deps = instrument.equity_dependencies();
+        let eq_deps = instrument.equity_dependencies()?;
         let spot_id = eq_deps.spot_id.as_ref().ok_or_else(|| {
             finstack_core::Error::Validation(
                 "Instrument missing spot_id for gamma calculation".to_string(),
@@ -451,7 +451,7 @@ where
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
         // Get equity dependencies
-        let eq_deps = instrument.equity_dependencies();
+        let eq_deps = instrument.equity_dependencies()?;
 
         // Get vol surface id from instrument - error if missing
         let vol_surface_id = eq_deps.vol_surface_id.as_ref().ok_or_else(|| {
@@ -517,7 +517,7 @@ where
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
         // Get equity dependencies
-        let eq_deps = instrument.equity_dependencies();
+        let eq_deps = instrument.equity_dependencies()?;
 
         // Get vol surface id from instrument - error if missing
         let vol_surface_id = eq_deps.vol_surface_id.as_ref().ok_or_else(|| {
@@ -602,7 +602,7 @@ where
         }
 
         // Get equity dependencies
-        let eq_deps = instrument.equity_dependencies();
+        let eq_deps = instrument.equity_dependencies()?;
         let spot_id = eq_deps.spot_id.as_ref().ok_or_else(|| {
             finstack_core::Error::Validation(
                 "Instrument missing spot_id for vanna calculation".to_string(),
@@ -759,7 +759,7 @@ mod tests {
     }
 
     impl EquityDependencies for TestFdInstrument {
-        fn equity_dependencies(&self) -> EquityInstrumentDeps {
+        fn equity_dependencies(&self) -> finstack_core::Result<EquityInstrumentDeps> {
             EquityInstrumentDeps::builder()
                 .spot(self.spot_id.clone())
                 .build()
@@ -785,7 +785,7 @@ mod tests {
     }
 
     impl EquityDependencies for RoundingSensitiveInstrument {
-        fn equity_dependencies(&self) -> EquityInstrumentDeps {
+        fn equity_dependencies(&self) -> finstack_core::Result<EquityInstrumentDeps> {
             EquityInstrumentDeps::builder()
                 .spot(self.spot_id.clone())
                 .build()

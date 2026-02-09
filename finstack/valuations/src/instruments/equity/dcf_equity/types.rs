@@ -154,7 +154,7 @@ impl Instrument for DiscountedCashFlow {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> MarketDependencies {
+    fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
         MarketDependencies::from_curve_dependencies(self)
     }
 
@@ -237,7 +237,7 @@ impl Instrument for DiscountedCashFlow {
     }
 }
 impl CurveDependencies for DiscountedCashFlow {
-    fn curve_dependencies(&self) -> InstrumentCurves {
+    fn curve_dependencies(&self) -> finstack_core::Result<InstrumentCurves> {
         InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
@@ -391,13 +391,14 @@ mod tests {
 
         let required = dcf
             .market_dependencies()
+            .expect("market_dependencies should succeed")
             .curve_dependencies()
             .discount_curves
             .clone();
         assert_eq!(required.len(), 1);
         assert_eq!(required[0], dcf.discount_curve_id);
 
-        let deps = dcf.curve_dependencies();
+        let deps = dcf.curve_dependencies().expect("curve_dependencies");
         assert_eq!(deps.discount_curves.len(), 1);
         assert_eq!(deps.discount_curves[0], dcf.discount_curve_id);
     }

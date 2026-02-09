@@ -62,7 +62,8 @@ fn test_forward_curve_dependencies_complete() {
     option.spot_price_id = Some("WTI-SPOT".to_string());
 
     let deps =
-        MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()));
+        MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()))
+            .expect("from_instrument_json");
     let market = build_market_from_deps(&deps, as_of, option.currency);
 
     let result = option.value(&market, as_of);
@@ -81,7 +82,8 @@ fn test_missing_forward_curve_with_spot_succeeds() {
     option.spot_price_id = Some("WTI-SPOT".to_string());
 
     let deps =
-        MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()));
+        MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()))
+            .expect("from_instrument_json");
 
     let mut market = MarketContext::new();
     for curve_id in deps.curves.discount_curves.iter() {
@@ -124,7 +126,8 @@ fn test_missing_both_forward_and_spot_fails() {
     option.spot_price_id = None; // No spot fallback
 
     let deps =
-        MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()));
+        MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()))
+            .expect("from_instrument_json");
 
     let mut market = MarketContext::new();
     for curve_id in deps.curves.discount_curves.iter() {

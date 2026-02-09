@@ -328,7 +328,7 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        let curves = instrument.curve_dependencies();
+        let curves = instrument.curve_dependencies()?;
         let hazard_id = curves.credit_curves.first().cloned().ok_or_else(|| {
             finstack_core::Error::Validation(format!(
                 "Instrument {} has no credit curve dependencies for CS01 calculation",
@@ -372,7 +372,7 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        let curves = instrument.curve_dependencies();
+        let curves = instrument.curve_dependencies()?;
         let hazard_id = curves.credit_curves.first().cloned().ok_or_else(|| {
             finstack_core::Error::Validation(format!(
                 "Instrument {} has no credit curve dependencies for CS01 calculation",

@@ -54,7 +54,8 @@ fn test_fx_forward_dependencies_complete() {
         .expect("FX forward construction should succeed");
 
     let deps =
-        MarketDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
+        MarketDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()))
+            .expect("from_instrument_json");
     assert!(
         deps.fx_pairs
             .contains(&FxPair::new(Currency::EUR, Currency::USD)),
@@ -92,7 +93,8 @@ fn test_missing_fx_matrix_fails() {
         .expect("FX forward construction should succeed");
 
     let deps =
-        MarketDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
+        MarketDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()))
+            .expect("from_instrument_json");
     let mut market = MarketContext::new();
     for id in deps.curves.discount_curves {
         market = market.insert_discount(build_discount_curve(id.as_str(), 0.03));

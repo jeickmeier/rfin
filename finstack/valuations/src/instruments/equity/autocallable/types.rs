@@ -173,7 +173,8 @@ impl crate::instruments::common_impl::traits::Instrument for Autocallable {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         crate::instruments::common_impl::dependencies::MarketDependencies::from_curves_and_equity(
             self,
         )

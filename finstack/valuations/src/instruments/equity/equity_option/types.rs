@@ -142,7 +142,9 @@ pub struct EquityOption {
 
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common_impl::traits::CurveDependencies for EquityOption {
-    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+    fn curve_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
@@ -150,7 +152,9 @@ impl crate::instruments::common_impl::traits::CurveDependencies for EquityOption
 }
 
 impl crate::instruments::common_impl::traits::EquityDependencies for EquityOption {
-    fn equity_dependencies(&self) -> crate::instruments::common_impl::traits::EquityInstrumentDeps {
+    fn equity_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::EquityInstrumentDeps> {
         crate::instruments::common_impl::traits::EquityInstrumentDeps::builder()
             .spot(self.spot_id.clone())
             .vol_surface(self.vol_surface_id.as_str())
@@ -623,14 +627,15 @@ impl crate::instruments::common_impl::traits::Instrument for EquityOption {
 
     fn market_dependencies(
         &self,
-    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
         let mut deps =
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
-            );
+            )?;
         deps.add_spot_id(self.spot_id.as_str());
         deps.add_vol_surface_id(self.vol_surface_id.as_str());
-        deps
+        Ok(deps)
     }
 
     fn value(
