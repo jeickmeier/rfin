@@ -343,5 +343,4 @@ pub mod xva;
 pub use pricer::PricingError;
 
 // Re-export unified valuations error type.
-pub use error::Error as ValuationsError;
-pub use error::Result;
+pub use error::{Error, Result};

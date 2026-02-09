@@ -17,7 +17,7 @@ Two valid patterns coexist. Both are intentional.
 | Crate | Root Error | Sub-Errors | Re-export |
 |-------|-----------|------------|-----------|
 | `finstack_core` | `Error` | `InputError` | `finstack_core::Error`, `finstack_core::InputError` |
-| `finstack_valuations` | `error::Error` | `PricingError`, `CorrelationMatrixError`, `ValidationError` | `finstack_valuations::ValuationsError` (aliased) |
+| `finstack_valuations` | `error::Error` | `PricingError`, `CorrelationMatrixError`, `ValidationError` | `finstack_valuations::Error` |
 | `finstack_portfolio` | `error::Error` | — | `finstack_portfolio::Error` |
 | `finstack_scenarios` | `error::Error` | — | `finstack_scenarios::error::Error` |
 | `finstack_statements` | `error::Error` | — | `finstack_statements::error::Error` |
@@ -54,8 +54,10 @@ use finstack_core::Error;                    // core error
 use finstack_valuations::PricingError;       // valuations pricing sub-error
 ```
 
-The unified wrapper `error::Error` is re-exported as `ValuationsError` to
-avoid ambiguity with `finstack_core::Error`.
+The unified wrapper `error::Error` is re-exported at crate root as `Error`,
+matching the standard convention. Consumers disambiguate via module path
+(`finstack_valuations::Error` vs `finstack_core::Error`) just like every
+other crate.
 
 ### Why `finstack_portfolio` uses `Error`
 
@@ -82,8 +84,8 @@ alongside core, callers can qualify: `scenarios::error::Error`.
    - The crate's error is commonly imported alongside `finstack_core::Error`.
    - Multiple error types from different crates appear in the same scope.
 
-3. **Re-export with an alias** (`pub use error::Error as {Crate}Error`) at
-   the crate root when the crate is frequently used alongside core.
+3. **Re-export as `Error`** (`pub use error::{Error, Result}`) at the crate
+   root. Consumers disambiguate via module path when needed.
 
 4. **Never name a sub-error plain `Error`** — this creates import ambiguity
    even within the same crate.

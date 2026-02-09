@@ -26,8 +26,8 @@
 //! Sub-errors use `{Domain}Error` prefixes (`PricingError`,
 //! `CorrelationMatrixError`, `ValidationError`) so they can be imported
 //! alongside `finstack_core::Error` without ambiguity. The unified wrapper
-//! is re-exported at crate root as `ValuationsError`. See
-//! `docs/CONVENTIONS_ERROR_NAMING.md` for the cross-crate naming rationale.
+//! is re-exported at crate root as `Error` (matching the standard convention).
+//! See `docs/CONVENTIONS_ERROR_NAMING.md` for the cross-crate naming rationale.
 //!
 //! # Module Layout Convention
 //!
