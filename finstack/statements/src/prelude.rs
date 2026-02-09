@@ -24,7 +24,8 @@ pub use crate::types::{
     NodeValueType, SeasonalMode,
 };
 
-// Re-export commonly used types from finstack-core
-pub use finstack_core::currency::Currency;
+// Re-export the full core prelude for a unified foundation
+pub use finstack_core::prelude::*;
+
+// Additional date types used by statements but not in the core prelude
 pub use finstack_core::dates::{build_periods, Period, PeriodId, PeriodKind};
-pub use finstack_core::money::Money;

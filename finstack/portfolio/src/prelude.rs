@@ -33,6 +33,5 @@ pub use crate::valuation::{value_portfolio, PortfolioValuation, PositionValue};
 #[cfg(feature = "scenarios")]
 pub use crate::scenarios::{apply_and_revalue, apply_scenario};
 
-// Re-export commonly used types from finstack-core
-pub use finstack_core::currency::Currency;
-pub use finstack_core::money::Money;
+// Re-export the full core prelude for a unified foundation
+pub use finstack_core::prelude::*;
