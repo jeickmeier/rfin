@@ -9,6 +9,7 @@
 // Key items: npv, compute_greeks, EquityOptionGreeks, SimpleEquityOptionBlackPricer.
 #![allow(dead_code)]
 
+use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::common_impl::models::trees::binomial_tree::BinomialTree;
 use crate::instruments::common_impl::models::{bs_greeks, bs_price, BsGreeks};
 use crate::instruments::common_impl::parameters::{OptionMarketParams, OptionType};
@@ -138,12 +139,12 @@ pub fn collect_inputs_extended(
     // Discount curve lookup - use curve's own day count for discount factor time
     let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
     let curve_dc = disc_curve.day_count();
-    let t_rate = year_fraction(as_of, inst.expiry, curve_dc)?;
+    let t_rate = year_fraction(curve_dc, as_of, inst.expiry)?;
     let df = disc_curve.df(t_rate);
 
     // Vol time uses ACT/365F (equity market standard for vol surfaces)
     // This is consistent with how equity volatility is quoted in the market
-    let t_vol = year_fraction(as_of, inst.expiry, DayCount::Act365F)?;
+    let t_vol = year_fraction(DayCount::Act365F, as_of, inst.expiry)?;
     let r = if t_vol > 0.0 { -df.ln() / t_vol } else { 0.0 };
 
     // Spot from scalar id (unitless or price)
@@ -159,7 +160,7 @@ pub fn collect_inputs_extended(
             .iter()
             .filter(|(ex_date, _)| *ex_date > as_of && *ex_date <= inst.expiry)
             .filter_map(|(ex_date, amount)| {
-                let t_div = year_fraction(as_of, *ex_date, DayCount::Act365F).ok()?;
+                let t_div = year_fraction(DayCount::Act365F, as_of, *ex_date).ok()?;
                 if t_div > 0.0 {
                     Some((t_div, *amount))
                 } else {
@@ -220,12 +221,6 @@ pub fn collect_inputs_extended(
         t_rate,
         t_vol,
     })
-}
-
-/// Year fraction helper using instrument day-count.
-#[inline]
-pub fn year_fraction(start: Date, end: Date, dc: DayCount) -> Result<f64> {
-    dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
 }
 
 /// Adjust spot price for discrete dividends using the present-value method.

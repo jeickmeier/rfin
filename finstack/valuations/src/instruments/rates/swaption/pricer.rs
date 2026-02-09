@@ -1,3 +1,4 @@
+use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::common_impl::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
@@ -89,8 +90,7 @@ impl Pricer for SimpleSwaptionBlackPricer {
                         )
                     })?
                 } else {
-                    let time_to_expiry = swaption
-                        .year_fraction(as_of, swaption.expiry, swaption.day_count)
+                    let time_to_expiry = year_fraction(swaption.day_count, as_of, swaption.expiry)
                         .map_err(|e| {
                             PricingError::model_failure_with_context(
                                 e.to_string(),

@@ -5,6 +5,7 @@
 //! parameterization in log-vol space and falls back to reasonable defaults
 //! if inversion is not possible.
 
+use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::instruments::rates::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -19,7 +20,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         let option: &Swaption = context.instrument_as()?;
 
         // Time to expiry from as_of
-        let t = option.year_fraction(context.as_of, option.expiry, option.day_count)?;
+        let t = year_fraction(option.day_count, context.as_of, option.expiry)?;
         if t <= 0.0 {
             return Ok(0.0);
         }

@@ -7,6 +7,7 @@
 //! rate, annuity, and day-count based year fractions that reuse core library
 //! functionality.
 
+use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::common_impl::models::{
     SABRModel, SABRParameters as InternalSabrParameters,
 };
@@ -688,7 +689,7 @@ impl Swaption {
     where
         F: Fn(f64, f64, f64, f64, f64) -> f64, // forward, strike, vol, t, annuity -> value
     {
-        let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
+        let time_to_expiry = year_fraction(self.day_count, as_of, self.expiry)?;
         if time_to_expiry <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
@@ -791,7 +792,7 @@ impl Swaption {
     pub fn price_sabr(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let params = self.sabr_params.as_ref().ok_or(Error::Internal)?;
         let model = SABRModel::new(params.to_internal()?);
-        let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
+        let time_to_expiry = year_fraction(self.day_count, as_of, self.expiry)?;
         if time_to_expiry <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
@@ -815,12 +816,6 @@ impl Swaption {
                 self.price_normal(curves, sabr_normal_vol, as_of)
             }
         }
-    }
-
-    /// Utility: compute year fraction using instrument's day count in a stable way.
-    #[inline]
-    pub fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<f64> {
-        dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 
     /// Calculate annuity based on settlement type and cash settlement method.
@@ -874,7 +869,7 @@ impl Swaption {
         for window in dates.windows(2) {
             let d = window[1];
             // Accrual uses instrument's day count (correct for coupon calculation)
-            let accrual = self.year_fraction(prev, d, self.day_count)?;
+            let accrual = year_fraction(self.day_count, prev, d)?;
             // DF uses curve-consistent relative DF (correct for discounting)
             let df = relative_df_discounting(disc, as_of, d)?;
             annuity.add(accrual * df);
@@ -934,12 +929,12 @@ impl Swaption {
         if forward_rate.abs() < 1e-8 {
             // L'Hopital's limit for S -> 0: A = N/m (sum of accruals)
             // We need number of periods.
-            let tenor = self.year_fraction(self.swap_start, self.swap_end, self.day_count)?;
+            let tenor = year_fraction(self.day_count, self.swap_start, self.swap_end)?;
             let periods = freq_per_year * tenor;
             return Ok(periods / freq_per_year);
         }
 
-        let tenor_years = self.year_fraction(self.swap_start, self.swap_end, self.day_count)?;
+        let tenor_years = year_fraction(self.day_count, self.swap_start, self.swap_end)?;
         let n_periods = tenor_years * freq_per_year;
 
         let df_swap = (1.0 + forward_rate / freq_per_year).powf(-n_periods);
@@ -963,7 +958,7 @@ impl Swaption {
     pub fn cash_annuity_zero_coupon(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
         use crate::instruments::common_impl::pricing::time::relative_df_discounting;
 
-        let tenor = self.year_fraction(self.swap_start, self.swap_end, self.day_count)?;
+        let tenor = year_fraction(self.day_count, self.swap_start, self.swap_end)?;
         let df = relative_df_discounting(disc, as_of, self.swap_end)?;
         Ok(tenor * df)
     }
@@ -1092,7 +1087,7 @@ impl Swaption {
         if as_of >= self.expiry {
             return Ok(None);
         }
-        let t = self.year_fraction(as_of, self.expiry, self.day_count)?;
+        let t = year_fraction(self.day_count, as_of, self.expiry)?;
 
         if t <= 0.0 {
             return Ok(None);
@@ -1164,7 +1159,7 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
             return self.price_sabr(curves, as_of);
         }
 
-        let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
+        let time_to_expiry = year_fraction(self.day_count, as_of, self.expiry)?;
         let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
         let vol = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
             impl_vol

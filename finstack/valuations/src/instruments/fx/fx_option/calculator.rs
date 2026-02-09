@@ -3,10 +3,11 @@
 //! Contains the complex pricing logic separated from the instrument type,
 //! following the separation of concerns pattern.
 
+use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::common_impl::models::{bs_greeks, bs_price};
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::fx::fx_option::FxOption;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
@@ -97,15 +98,15 @@ impl FxOptionCalculator {
         let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
 
         // Time to expiry using curve-specific day counts for DF lookup
-        let t_disc_dom = self.year_fraction(as_of, inst.expiry, domestic_disc.day_count())?;
-        let t_disc_for = self.year_fraction(as_of, inst.expiry, foreign_disc.day_count())?;
+        let t_disc_dom = year_fraction(domestic_disc.day_count(), as_of, inst.expiry)?;
+        let t_disc_for = year_fraction(foreign_disc.day_count(), as_of, inst.expiry)?;
 
         // Get discount factors using curve-native time
         let df_d = domestic_disc.df(t_disc_dom);
         let df_f = foreign_disc.df(t_disc_for);
 
         // Vol surface time using instrument day count (typically ACT/365F for FX options)
-        let t_vol = self.year_fraction(as_of, inst.expiry, inst.day_count)?;
+        let t_vol = year_fraction(inst.day_count, as_of, inst.expiry)?;
 
         // Convert discount factors to effective zero rates consistent with t_vol
         // So that exp(-r_d * t_vol) = df_d (preserving the actual discount factors)
@@ -180,15 +181,15 @@ impl FxOptionCalculator {
         let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
 
         // Time to expiry using curve-specific day counts for DF lookup
-        let t_disc_dom = self.year_fraction(as_of, inst.expiry, domestic_disc.day_count())?;
-        let t_disc_for = self.year_fraction(as_of, inst.expiry, foreign_disc.day_count())?;
+        let t_disc_dom = year_fraction(domestic_disc.day_count(), as_of, inst.expiry)?;
+        let t_disc_for = year_fraction(foreign_disc.day_count(), as_of, inst.expiry)?;
 
         // Get discount factors using curve-native time
         let df_d = domestic_disc.df(t_disc_dom);
         let df_f = foreign_disc.df(t_disc_for);
 
         // Vol surface time using instrument day count
-        let t_vol = self.year_fraction(as_of, inst.expiry, inst.day_count)?;
+        let t_vol = year_fraction(inst.day_count, as_of, inst.expiry)?;
 
         // Convert discount factors to effective zero rates consistent with t_vol
         let r_d = if t_vol > 0.0 { -df_d.ln() / t_vol } else { 0.0 };
@@ -204,12 +205,6 @@ impl FxOptionCalculator {
             .rate;
 
         Ok((spot, r_d, r_f, t_vol))
-    }
-
-    /// Utility: compute year fraction using instrument day-count.
-    #[inline]
-    pub fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<f64> {
-        dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 
     /// Solve for implied volatility σ such that model price(σ) = target_price.

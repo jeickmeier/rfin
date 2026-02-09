@@ -1,6 +1,7 @@
 //! Forward swap rate and annuity calculation tests
 
 use crate::swaption::common::*;
+use finstack_valuations::instruments::common::helpers::year_fraction;
 use finstack_valuations::instruments::rates::swaption::Swaption;
 
 fn expected_forward_rate(
@@ -117,9 +118,7 @@ fn test_year_fraction_act360() {
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
     let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
 
-    let yf = swaption
-        .year_fraction(as_of, expiry, swaption.day_count)
-        .unwrap();
+    let yf = year_fraction(swaption.day_count, as_of, expiry).unwrap();
 
     // 1 year ≈ 1.0 under Act/360
     assert_approx_eq(yf, 1.0, 0.02, "Year fraction for 1Y");

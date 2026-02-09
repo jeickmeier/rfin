@@ -80,6 +80,7 @@
 use crate::constants::{
     credit, isda, numerical, time as time_constants, BASIS_POINTS_PER_UNIT, ONE_BASIS_POINT,
 };
+use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
 use finstack_core::dates::DateExt;
@@ -697,7 +698,7 @@ impl CDSPricer {
             }
 
             // Accrual uses instrument's day-count convention (e.g., Act/360 for ISDA NA)
-            let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
+            let accrual = year_fraction(cds.premium.dc, start_date, end_date)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
             let df = df_asof_to(disc, as_of, end_date)?;
@@ -742,7 +743,7 @@ impl CDSPricer {
         }
 
         // Remaining accrual fraction uses the instrument premium day count convention.
-        let tau_remaining = self.year_fraction(inp.start_date, inp.end_date, inp.cds.premium.dc)?;
+        let tau_remaining = year_fraction(inp.cds.premium.dc, inp.start_date, inp.end_date)?;
 
         // Conditional default probability between start and end (conditioned on survival to as_of).
         let sp_start = sp_cond_to(inp.surv, inp.as_of, inp.start_date)?;
@@ -1732,7 +1733,7 @@ impl CDSPricer {
                 }
 
                 // Accrual uses instrument day-count
-                let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
+                let accrual = year_fraction(cds.premium.dc, start_date, end_date)?;
 
                 // Discounting uses discount curve's day-count and relative DF from as_of
                 let df = df_asof_to(disc, as_of, end_date)?;
@@ -1796,7 +1797,7 @@ impl CDSPricer {
             }
 
             // Accrual uses instrument day-count
-            let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
+            let accrual = year_fraction(cds.premium.dc, start_date, end_date)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
             let df = df_asof_to(disc, as_of, end_date)?;
@@ -1847,7 +1848,7 @@ impl CDSPricer {
             }
 
             // Accrual uses instrument day-count
-            let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
+            let accrual = year_fraction(cds.premium.dc, start_date, end_date)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
             let df = df_asof_to(disc, as_of, end_date)?;
@@ -1949,11 +1950,6 @@ impl CDSPricer {
         let disc = curves.get_discount(&cds.premium.discount_curve_id)?;
         let surv = curves.get_hazard(&cds.protection.credit_curve_id)?;
         self.npv_with_upfront(cds, disc.as_ref(), surv.as_ref(), as_of)
-    }
-
-    /// Year fraction helper using the provided day count convention.
-    fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<f64> {
-        dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 }
 

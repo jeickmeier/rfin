@@ -12,6 +12,17 @@ use finstack_core::money::Money;
 use indexmap::IndexMap;
 use std::sync::Arc;
 
+/// Compute year fraction between two dates using the given day-count convention.
+///
+/// This is the canonical helper for all instrument code that needs a plain
+/// `(start, end, dc) → year_fraction` call without extra context.
+/// Avoids duplicating `dc.year_fraction(start, end, DayCountCtx::default())`
+/// in every pricer / calculator module.
+#[inline]
+pub fn year_fraction(dc: DayCount, start: Date, end: Date) -> finstack_core::Result<f64> {
+    dc.year_fraction(start, end, DayCountCtx::default())
+}
+
 /// Schedule → PV helper that uses the curve's own day count convention.
 ///
 /// This variant ensures consistency between:
