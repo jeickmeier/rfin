@@ -1,9 +1,11 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::new_without_default)]
+#![warn(clippy::float_cmp)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
+#![cfg_attr(test, allow(clippy::float_cmp))]
 // Allow expect() in doc tests (they are test code)
 #![doc(test(attr(allow(clippy::expect_used))))]
 
@@ -56,10 +58,15 @@
 //! # }
 //! ```
 
+/// Adaptations for scenario execution across domains.
 pub mod adapters;
+/// Scenario execution engine and context.
 pub mod engine;
+/// Error types for scenario evaluation.
 pub mod error;
+/// Scenario specification types and enums.
 pub mod spec;
+/// Utility helpers for scenario operations.
 pub mod utils;
 
 pub use engine::{ExecutionContext, ScenarioEngine};

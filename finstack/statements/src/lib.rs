@@ -1,9 +1,11 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::new_without_default)]
+#![warn(clippy::float_cmp)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
+#![cfg_attr(test, allow(clippy::float_cmp))]
 // Allow expect() in doc tests (they are test code)
 #![doc(test(attr(allow(clippy::expect_used))))]
 
@@ -114,17 +116,31 @@
 //! - ✅ Merge helpers for stamping Adjusted EBITDA (or other normalized nodes) back into results
 //! - ✅ Serializable configs for adjustments to enable registry-driven workflows
 
+/// Normalization engine and add-back tracking for adjusted metrics.
 pub mod adjustments;
+/// Analysis helpers and post-processing utilities.
 pub mod analysis;
+/// Type-safe model builder API.
 pub mod builder;
+/// Debt and equity structure modeling.
 pub mod capital_structure;
+/// Formula DSL parsing and compilation.
 pub mod dsl;
+/// Error types for statement modeling.
 pub mod error;
+/// Evaluation engine for metric graphs.
 pub mod evaluator;
+/// Extension framework for custom logic.
 pub mod extensions;
+/// Forecast methods and time-series drivers.
 pub mod forecast;
+/// Convenient re-exports for common statement types.
+pub mod prelude;
+/// Metric registry and namespace management.
 pub mod registry;
+/// Templates for common models and schemas.
 pub mod templates;
+/// Core statement model types.
 pub mod types;
 pub(crate) mod utils;
 
@@ -135,36 +151,3 @@ pub use types::{
     AmountOrScalar, CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec, ForecastMethod,
     ForecastSpec, NodeSpec, NodeType, NodeValueType, SeasonalMode,
 };
-
-/// Commonly used types and traits.
-///
-/// Import this module to get quick access to the most common types:
-///
-/// ```rust
-/// use finstack_statements::prelude::*;
-/// ```
-pub mod prelude {
-    pub use crate::analysis::{
-        BridgeChart, BridgeStep, MonteCarloConfig, MonteCarloResults, ScenarioDefinition,
-        ScenarioDiff, ScenarioResults, ScenarioSet, VarianceAnalyzer, VarianceConfig,
-        VarianceReport, VarianceRow,
-    };
-    pub use crate::builder::{MixedNodeBuilder, ModelBuilder, NeedPeriods, Ready};
-    pub use crate::error::{Error, Result};
-    pub use crate::evaluator::{Evaluator, EvaluatorWithContext, NumericMode, Results};
-    pub use crate::extensions::{
-        CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext,
-        ExtensionMetadata, ExtensionRegistry, ExtensionResult, ExtensionStatus,
-    };
-    pub use crate::registry::Registry;
-    pub use crate::templates::{TemplatesExtension, VintageExtension};
-    pub use crate::types::{
-        AmountOrScalar, FinancialModelSpec, ForecastMethod, ForecastSpec, NodeSpec, NodeType,
-        NodeValueType, SeasonalMode,
-    };
-
-    // Re-export commonly used types from finstack-core
-    pub use finstack_core::currency::Currency;
-    pub use finstack_core::dates::{build_periods, Period, PeriodId, PeriodKind};
-    pub use finstack_core::money::Money;
-}

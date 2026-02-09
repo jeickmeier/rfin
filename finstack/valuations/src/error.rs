@@ -80,6 +80,9 @@ pub enum Error {
     WaterfallValidation(#[from] ValidationError),
 }
 
+/// Convenience result type used throughout the valuations crate.
+pub type Result<T> = std::result::Result<T, Error>;
+
 /// One-way conversion from [`Error`] into [`finstack_core::Error`].
 ///
 /// | `valuations::Error`       | `finstack_core::Error`          |

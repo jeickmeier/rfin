@@ -83,21 +83,28 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::new_without_default)]
+#![warn(clippy::float_cmp)]
 #![deny(clippy::unwrap_used)]
 // Safety lints: Enforced - no expect() or panic!() allowed in this crate.
 // Use proper error propagation with Result<T, E> instead.
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
+#![cfg_attr(test, allow(clippy::float_cmp))]
 // Allow expect() in doc tests (they are test code)
 #![doc(test(attr(allow(clippy::expect_used))))]
 
+/// Backend configuration and environment helpers.
 pub mod config;
+/// Error types for persistence operations.
 pub mod error;
+/// Optional governance layer for change control.
 pub mod governance;
 pub(crate) mod helpers;
 pub(crate) mod sql;
+/// Store traits and persistence primitives.
 pub mod store;
 
+/// Backend provider implementations (SQLite, Postgres, Turso).
 pub mod providers;
 
 #[cfg(feature = "postgres")]

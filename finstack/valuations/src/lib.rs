@@ -298,9 +298,13 @@ extern crate self as finstack_valuations;
 #[cfg(not(feature = "serde"))]
 compile_error!("finstack-valuations requires the `serde` feature (enabled by default).");
 
+/// Curve and surface calibration tooling.
 pub mod calibration;
+/// Cashflow schedule generation and builders.
 pub mod cashflow;
+/// Shared numerical constants and basis point helpers.
 pub mod constants;
+/// Error types for pricing and valuation workflows.
 pub mod error;
 /// Margin calculation for collateralized derivatives.
 ///
@@ -310,16 +314,24 @@ pub mod margin;
 /// Market quotes and conventions
 pub mod market;
 /// Convenient re-exports for pricing and risk calculations
+/// Convenient re-exports for pricing and risk calculations.
 pub mod prelude;
+/// Pricing dispatch and registry infrastructure.
 pub mod pricer;
+/// Valuation result envelopes and metadata.
 pub mod results;
+/// JSON Schema generation for API contracts.
 pub mod schema;
 
 // Export macros before instruments module
 #[macro_use]
+/// Financial instrument definitions and builders.
 pub mod instruments;
+/// P&L attribution analysis utilities.
 pub mod attribution;
+/// Covenant checking for structured products.
 pub mod covenants;
+/// Risk metric calculators and registries.
 pub mod metrics;
 /// XVA (Valuation Adjustments) framework.
 ///
@@ -332,9 +344,4 @@ pub use pricer::PricingError;
 
 // Re-export unified valuations error type.
 pub use error::Error as ValuationsError;
-
-/// Convenient alias carrying `finstack_core`'s unified [`Error`](finstack_core::Error).
-///
-/// Mirrors `finstack_core::Result<T>` so callers can write `crate::Result<T>`
-/// consistently across both crates.
-pub type Result<T> = finstack_core::Result<T>;
+pub use error::Result;

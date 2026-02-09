@@ -12,13 +12,13 @@ finstack-valuations-macros = { path = "macros" }
 indexmap = { version = "2.12", features = ["serde"] }
 smallvec = { version = "1.15", default-features = false, features = ["serde"] }
 rayon = { version = "1.11", optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1.0", features = ["raw_value"], optional = true }
 time = { version = "0.3" }
 rust_decimal = { version = "1.40.0" }
 nalgebra = { version = "0.34", optional = true }
 tracing = { version = "0.1", default-features = false }
-thiserror = "2.0"
+thiserror = "2"
 num-complex = "0.4"
 strum = { workspace = true }
 ts-rs = { version = "10", optional = true, features = ["serde-compat", "no-serde-warnings"] }

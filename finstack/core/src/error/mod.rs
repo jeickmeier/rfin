@@ -260,6 +260,9 @@ pub enum Error {
     Internal,
 }
 
+/// Convenience result type used throughout the core crate.
+pub type Result<T> = std::result::Result<T, Error>;
+
 impl Error {
     /// Create a MissingCurve error with suggestions based on available curves.
     ///

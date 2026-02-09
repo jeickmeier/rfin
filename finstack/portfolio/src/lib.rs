@@ -1,9 +1,11 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::new_without_default)]
+#![warn(clippy::float_cmp)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
+#![cfg_attr(test, allow(clippy::float_cmp))]
 // Allow expect() in doc tests (they are test code)
 #![doc(test(attr(allow(clippy::expect_used))))]
 
@@ -61,20 +63,36 @@
 //!     .expect("test should succeed");
 //! ```
 
+/// Portfolio-level PnL attribution and breakdowns.
 pub mod attribution;
+/// Book hierarchy and identifiers.
 pub mod book;
+/// Fluent portfolio construction helpers.
 pub mod builder;
 #[cfg(feature = "dataframes")]
+/// DataFrame exports for portfolio results.
 pub mod dataframe;
+/// Error types for portfolio operations.
 pub mod error;
+/// Grouping and aggregation by attributes or books.
 pub mod grouping;
+/// Portfolio margin and netting set utilities.
 pub mod margin;
+/// Metrics aggregation and reporting.
 pub mod metrics;
+/// Portfolio optimization engines and constraints.
 pub mod optimization;
+/// Portfolio container and state management.
 pub mod portfolio;
+/// Position primitives and units.
 pub mod position;
+/// Convenient re-exports for common portfolio types.
+pub mod prelude;
+/// Result envelopes for portfolio operations.
 pub mod results;
+/// Core portfolio entity and ID types.
 pub mod types;
+/// Portfolio valuation APIs.
 pub mod valuation;
 
 /// Cashflow ladder and schedule aggregation utilities.
@@ -85,6 +103,7 @@ pub mod cashflows;
 mod test_utils;
 
 #[cfg(feature = "scenarios")]
+/// Scenario application for portfolios.
 pub mod scenarios;
 
 // Re-export key types

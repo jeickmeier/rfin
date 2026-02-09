@@ -426,11 +426,12 @@ fn decompose_series(data: &[f64], season_length: usize) -> (Vec<f64>, Vec<f64>, 
 
         // Back extrapolation
         let last_valid = n.saturating_sub(half_season + 1);
-        let slope_back = if last_valid > 0 && trend[last_valid] != trend[last_valid - 1] {
-            trend[last_valid] - trend[last_valid - 1]
-        } else {
-            0.0
-        };
+        let slope_back =
+            if last_valid > 0 && (trend[last_valid] - trend[last_valid - 1]).abs() > EPSILON {
+                trend[last_valid] - trend[last_valid - 1]
+            } else {
+                0.0
+            };
         for i in (n.saturating_sub(half_season))..n {
             let steps = i - (n - half_season - 1);
             trend[i] = trend[n - half_season - 1] + slope_back * steps as f64;

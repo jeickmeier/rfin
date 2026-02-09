@@ -82,7 +82,9 @@
 /// Foundational cashflow primitives and discounting helpers.
 pub mod cashflow;
 pub(crate) mod collections;
+/// Global configuration and environment settings.
 pub mod config;
+/// Currency types and ISO-4217 definitions.
 pub mod currency;
 /// Date & calendar helpers (facade over the `time` crate)
 pub mod dates;
@@ -128,6 +130,4 @@ pub use collections::HashMap;
 pub use collections::HashSet;
 
 // Re-export main error types for convenience.
-pub use error::{Error, InputError, NonFiniteKind};
-/// Convenient alias carrying the crate's unified [`Error`].
-pub type Result<T> = core::result::Result<T, Error>;
+pub use error::{Error, InputError, NonFiniteKind, Result};
