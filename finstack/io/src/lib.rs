@@ -80,7 +80,7 @@
 //! - [`error`] — Error types ([`Error`], [`Result`]).
 //! - [`providers`] — Backend implementations (SQLite, Postgres, Turso).
 
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::new_without_default)]
 #![deny(clippy::unwrap_used)]
