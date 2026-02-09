@@ -8,15 +8,18 @@
 //!
 //! ```text
 //! valuations::Error
+//! ├── Core(finstack_core::Error)         ← propagated core errors
 //! ├── Pricing(PricingError)              ← pricer registry, model failures
 //! ├── Correlation(CorrelationMatrixError) ← factor model validation
 //! └── Validation(ValidationError)        ← structured credit waterfall
 //! ```
 //!
 //! All variants convert one-way into [`finstack_core::Error`] via [`From`] for
-//! seamless integration with the core error hierarchy.  The reverse direction
-//! requires explicit context (see [`PricingError::from_core`]) to prevent
-//! silent loss of error information.
+//! seamless integration with the core error hierarchy.  The `Core` variant
+//! enables ergonomic `?` propagation from core functions, consistent with
+//! all other Finstack crates (portfolio, statements, scenarios, io).
+//! For richer context when mapping core errors inside pricers, see
+//! [`PricingError::from_core`].
 //!
 //! # Naming Convention
 //!
@@ -67,6 +70,13 @@ pub use crate::pricer::{PricingError, PricingErrorContext, PricingResult};
 #[derive(Debug, Clone, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum Error {
+    /// Core library error, enabling `?` propagation from [`finstack_core`] calls.
+    ///
+    /// Consistent with the `Core` variant in `portfolio`, `statements`,
+    /// `scenarios`, and `io` error enums.
+    #[error(transparent)]
+    Core(#[from] finstack_core::Error),
+
     /// Pricing model or registry error.
     #[error(transparent)]
     Pricing(#[from] PricingError),
@@ -87,12 +97,14 @@ pub type Result<T> = std::result::Result<T, Error>;
 ///
 /// | `valuations::Error`       | `finstack_core::Error`          |
 /// |---------------------------|---------------------------------|
+/// | `Core(e)`                 | Pass-through                    |
 /// | `Pricing(e)`              | Delegates to `From<PricingError>`|
 /// | `Correlation(e)`          | `Validation(e.to_string())`     |
 /// | `WaterfallValidation(e)`  | `Validation(e.to_string())`     |
 impl From<Error> for finstack_core::Error {
     fn from(err: Error) -> Self {
         match err {
+            Error::Core(e) => e,
             Error::Pricing(e) => e.into(),
             Error::Correlation(e) => finstack_core::Error::Validation(e.to_string()),
             Error::WaterfallValidation(e) => finstack_core::Error::Validation(e.to_string()),
@@ -104,6 +116,38 @@ impl From<Error> for finstack_core::Error {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn core_error_wraps_into_unified() {
+        let core = finstack_core::Error::Validation("test validation".into());
+        let unified: Error = core.clone().into();
+        assert!(matches!(
+            unified,
+            Error::Core(finstack_core::Error::Validation(_))
+        ));
+
+        // Round-trip back to core should pass through unchanged
+        let back: finstack_core::Error = unified.into();
+        assert_eq!(back, core);
+    }
+
+    #[test]
+    fn core_error_propagates_with_question_mark() {
+        fn inner() -> std::result::Result<(), finstack_core::Error> {
+            Err(finstack_core::Error::Validation("inner failure".into()))
+        }
+
+        fn outer() -> std::result::Result<(), Error> {
+            inner()?; // This requires From<finstack_core::Error> for Error
+            Ok(())
+        }
+
+        let err = outer().expect_err("outer() should return an error when inner() fails");
+        assert!(matches!(
+            err,
+            Error::Core(finstack_core::Error::Validation(_))
+        ));
+    }
 
     #[test]
     fn pricing_error_wraps_into_unified() {
