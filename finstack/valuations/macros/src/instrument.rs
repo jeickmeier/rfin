@@ -37,9 +37,14 @@ pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
         });
     }
 
-    let key = key_ident.unwrap_or_else(|| {
-        panic!("#[derive(Instrument)] requires #[instrument(key = \"InstrumentTypeVariant\")]")
-    });
+    let Some(key) = key_ident else {
+        return syn::Error::new_spanned(
+            &ident,
+            "#[derive(Instrument)] requires #[instrument(key = \"InstrumentTypeVariant\")]",
+        )
+        .to_compile_error()
+        .into();
+    };
 
     let (_, ty_generics_no_where, _) = input.generics.split_for_impl();
     let self_type: syn::Type = syn::parse_quote!(#ident #ty_generics_no_where);

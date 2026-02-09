@@ -71,13 +71,24 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
 
     let fields = match input.data {
         Data::Struct(s) => s.fields,
-        _ => panic!("FinancialBuilder can only be derived for structs"),
+        _ => {
+            return syn::Error::new_spanned(
+                &input.ident,
+                "FinancialBuilder can only be derived for structs",
+            )
+            .to_compile_error()
+            .into()
+        }
     };
 
     // By default, treat Option<T> as optional; #[builder(optional)] is honored only when field type is Option<...>
     if let Fields::Named(named) = fields {
         for f in named.named {
-            let ident = f.ident.expect("Named field should have an identifier");
+            let Some(ident) = f.ident else {
+                return syn::Error::new_spanned(&f.ty, "Named field should have an identifier")
+                    .to_compile_error()
+                    .into();
+            };
             let ty = f.ty.clone();
 
             let mut has_optional_attr = false;
@@ -132,7 +143,9 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
             }
         }
     } else {
-        panic!("FinancialBuilder requires named fields");
+        return syn::Error::new_spanned(&struct_name, "FinancialBuilder requires named fields")
+            .to_compile_error()
+            .into();
     }
 
     let builder_name = format_ident!("{}Builder", struct_name);

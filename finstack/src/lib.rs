@@ -1,7 +1,28 @@
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+#![warn(clippy::new_without_default)]
+#![warn(clippy::float_cmp)]
+#![cfg_attr(test, allow(clippy::float_cmp))]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
+#![doc(test(attr(allow(clippy::expect_used))))]
+
+//! Umbrella crate for the **Finstack** quantitative-finance toolkit.
+//!
+//! Re-exports each sub-crate behind a Cargo feature flag so downstream
+//! consumers can pull in only the pieces they need:
+//!
+//! | Feature       | Sub-crate              |
+//! |---------------|------------------------|
+//! | `core`        | [`finstack-core`]      |
+//! | `valuations`  | [`finstack-valuations`]|
+//! | `statements`  | [`finstack-statements`]|
+//! | `portfolio`   | [`finstack-portfolio`] |
+//! | `scenarios`   | [`finstack-scenarios`] |
+//! | `io`          | [`finstack-io`]        |
+//!
+//! Enable `all` to pull in every sub-crate at once.
 
 #[cfg(feature = "core")]
 pub use finstack_core as core;

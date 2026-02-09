@@ -1,3 +1,14 @@
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+#![warn(clippy::new_without_default)]
+#![warn(clippy::float_cmp)]
+#![cfg_attr(test, allow(clippy::float_cmp))]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+// Allow expect() in doc tests (they are test code)
+#![doc(test(attr(allow(clippy::expect_used))))]
+
 //! Persistence and interop utilities for the Finstack workspace.
 //!
 //! `finstack-io` provides a **stable persistence boundary** for domain crates,
@@ -79,19 +90,6 @@
 //!   ([`open_store_from_env`], [`FinstackIoConfig`]).
 //! - [`error`] — Error types ([`Error`], [`Result`]).
 //! - [`providers`] — Backend implementations (SQLite, Postgres, Turso).
-
-#![forbid(unsafe_code)]
-#![warn(missing_docs)]
-#![warn(clippy::new_without_default)]
-#![warn(clippy::float_cmp)]
-#![deny(clippy::unwrap_used)]
-// Safety lints: Enforced - no expect() or panic!() allowed in this crate.
-// Use proper error propagation with Result<T, E> instead.
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
-#![cfg_attr(test, allow(clippy::float_cmp))]
-// Allow expect() in doc tests (they are test code)
-#![doc(test(attr(allow(clippy::expect_used))))]
 
 /// Backend configuration and environment helpers.
 pub mod config;
