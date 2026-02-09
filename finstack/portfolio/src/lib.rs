@@ -128,7 +128,7 @@ pub use optimization::{
 pub use portfolio::Portfolio;
 pub use portfolio::PortfolioSpec;
 pub use position::{Position, PositionUnit};
-pub use results::PortfolioResults;
+pub use results::PortfolioResult;
 pub use types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
 pub use valuation::{value_portfolio, PortfolioValuation, PositionValue};
 

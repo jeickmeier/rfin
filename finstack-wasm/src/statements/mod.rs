@@ -22,7 +22,7 @@ pub use analysis::{
     render_dependency_tree_ascii, JsDependencyTree,
 };
 pub use builder::JsModelBuilder;
-pub use evaluator::{JsEvaluator, JsResults, JsResultsMeta};
+pub use evaluator::{JsEvaluator, JsStatementResult, JsStatementResultMeta};
 pub use extensions::{
     JsCorkscrewExtension, JsCreditScorecardExtension, JsExtensionMetadata, JsExtensionRegistry,
     JsExtensionResult, JsExtensionStatus,

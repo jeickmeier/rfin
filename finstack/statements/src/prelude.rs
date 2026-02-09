@@ -12,7 +12,7 @@ pub use crate::analysis::{
 };
 pub use crate::builder::{MixedNodeBuilder, ModelBuilder, NeedPeriods, Ready};
 pub use crate::error::{Error, Result};
-pub use crate::evaluator::{Evaluator, EvaluatorWithContext, NumericMode, Results};
+pub use crate::evaluator::{Evaluator, EvaluatorWithContext, NumericMode, StatementResult};
 pub use crate::extensions::{
     CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext, ExtensionMetadata,
     ExtensionRegistry, ExtensionResult, ExtensionStatus,

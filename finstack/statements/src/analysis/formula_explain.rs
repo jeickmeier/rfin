@@ -1,7 +1,7 @@
 //! Formula explanation and calculation breakdown.
 
 use crate::error::{Error, Result};
-use crate::evaluator::Results;
+use crate::evaluator::StatementResult;
 use crate::types::{FinancialModelSpec, NodeType};
 use finstack_core::dates::PeriodId;
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,7 @@ use serde::{Deserialize, Serialize};
 /// ```
 pub struct FormulaExplainer<'a> {
     model: &'a FinancialModelSpec,
-    results: &'a Results,
+    results: &'a StatementResult,
 }
 
 impl<'a> FormulaExplainer<'a> {
@@ -53,7 +53,7 @@ impl<'a> FormulaExplainer<'a> {
     ///
     /// * `model` - Financial model specification
     /// * `results` - Evaluation results
-    pub fn new(model: &'a FinancialModelSpec, results: &'a Results) -> Self {
+    pub fn new(model: &'a FinancialModelSpec, results: &'a StatementResult) -> Self {
         Self { model, results }
     }
 

@@ -1,7 +1,7 @@
 //! Explain module bindings for financial models.
 
 use crate::statements::error::stmt_to_py;
-use crate::statements::evaluator::{PyDependencyGraph, PyResults};
+use crate::statements::evaluator::{PyDependencyGraph, PyStatementResult};
 use crate::statements::types::model::PyFinancialModelSpec;
 use crate::statements::types::node::PyNodeType;
 use finstack_statements::analysis::{
@@ -169,7 +169,7 @@ impl PyExplanation {
 )]
 pub struct PyFormulaExplainer {
     model: PyFinancialModelSpec,
-    results: PyResults,
+    results: PyStatementResult,
 }
 
 #[pymethods]
@@ -182,14 +182,14 @@ impl PyFormulaExplainer {
     /// ----------
     /// model : FinancialModelSpec
     ///     Financial model specification
-    /// results : Results
+    /// results : StatementResult
     ///     Evaluation results
     ///
     /// Returns
     /// -------
     /// FormulaExplainer
     ///     Explainer instance
-    fn new(model: &PyFinancialModelSpec, results: &PyResults) -> Self {
+    fn new(model: &PyFinancialModelSpec, results: &PyStatementResult) -> Self {
         Self {
             model: model.clone(),
             results: results.clone(),
@@ -447,7 +447,7 @@ fn py_render_tree_ascii(tree: &PyDependencyTree) -> String {
 /// ----------
 /// tree : DependencyTree
 ///     Dependency tree to render
-/// results : Results
+/// results : StatementResult
 ///     Evaluation results containing node values
 /// period : PeriodId
 ///     Period to display values for
@@ -458,7 +458,7 @@ fn py_render_tree_ascii(tree: &PyDependencyTree) -> String {
 ///     ASCII tree with values
 fn py_render_tree_detailed(
     tree: &PyDependencyTree,
-    results: &PyResults,
+    results: &PyStatementResult,
     period: &crate::core::dates::periods::PyPeriodId,
 ) -> String {
     render_tree_detailed(&tree.inner, &results.inner, &period.inner)

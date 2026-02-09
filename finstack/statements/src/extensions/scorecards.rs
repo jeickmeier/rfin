@@ -62,7 +62,7 @@
 //! let mut registry = ExtensionRegistry::new();
 //! registry.register(Box::new(CreditScorecardExtension::new()))?;
 //!
-//! # let context: ExtensionContext = unimplemented!("build ExtensionContext from a model and Results");
+//! # let context: ExtensionContext = unimplemented!("build ExtensionContext from a model and StatementResult");
 //! let results = registry.execute_all(&context)?;
 //! # let _ = results;
 //! # Ok(())

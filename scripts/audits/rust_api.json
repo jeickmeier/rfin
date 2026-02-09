@@ -7732,7 +7732,7 @@
           "Evaluator",
           "EvaluatorWithContext",
           "NumericMode",
-          "Results",
+          "StatementResult",
           "CorkscrewExtension",
           "CreditScorecardExtension",
           "Extension",
@@ -8300,7 +8300,7 @@
             "NodeValueSource",
             "EvalWarning",
             "NumericMode",
-            "Results",
+            "StatementResult",
             "ResultsMeta"
           ],
           "functions": [
@@ -8330,7 +8330,7 @@
             "results": [
               "EvalWarning",
               "NumericMode",
-              "Results",
+              "StatementResult",
               "ResultsMeta"
             ],
             "export": [
@@ -8916,7 +8916,7 @@
           "Portfolio",
           "Position",
           "PositionUnit",
-          "PortfolioResults",
+          "PortfolioResult",
           "Entity",
           "EntityId",
           "PositionId",
@@ -9002,7 +9002,7 @@
             "PositionUnit"
           ],
           "results": [
-            "PortfolioResults"
+            "PortfolioResult"
           ],
           "types": [
             "Entity",
@@ -9277,7 +9277,7 @@
         "results": {
           "path": "portfolio/src/results.rs",
           "types": [
-            "PortfolioResults"
+            "PortfolioResult"
           ],
           "functions": [
             "new",

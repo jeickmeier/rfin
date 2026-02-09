@@ -13,7 +13,7 @@ mod scenario_set;
 mod variance;
 
 use crate::statements::error::stmt_to_py;
-use crate::statements::evaluator::PyResults;
+use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::analysis::types::SensitivityScenario;
 use finstack_statements::analysis::{
@@ -263,8 +263,8 @@ impl PySensitivityScenario {
     }
 
     #[getter]
-    fn results(&self) -> PyResults {
-        PyResults::new(self.inner.results.clone())
+    fn results(&self) -> PyStatementResult {
+        PyStatementResult::new(self.inner.results.clone())
     }
 
     fn __repr__(&self) -> String {
@@ -566,7 +566,7 @@ fn build_tornado_entry(
 }
 
 fn extract_metric_value(
-    results: &finstack_statements::evaluator::Results,
+    results: &finstack_statements::evaluator::StatementResult,
     node_id: &str,
     period_hint: Option<finstack_core::dates::PeriodId>,
 ) -> Option<f64> {

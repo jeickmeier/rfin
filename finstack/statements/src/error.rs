@@ -1,4 +1,7 @@
 //! Error types for the statements crate.
+//!
+//! Uses a flat `error.rs` layout per the project convention — see
+//! `docs/CONVENTIONS_ERROR_NAMING.md` for the module layout and naming rules.
 
 use thiserror::Error;
 
@@ -72,7 +75,7 @@ pub enum Error {
     Serde(String),
 
     /// Core crate error
-    #[error("Core error: {0}")]
+    #[error(transparent)]
     Core(#[from] finstack_core::Error),
 
     /// I/O error (stored as message string for serde compatibility).

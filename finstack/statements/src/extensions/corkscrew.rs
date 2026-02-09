@@ -44,7 +44,7 @@
 //! let mut registry = ExtensionRegistry::new();
 //! registry.register(Box::new(CorkscrewExtension::new()))?;
 //!
-//! # let context: ExtensionContext = unimplemented!("build ExtensionContext from a model and Results");
+//! # let context: ExtensionContext = unimplemented!("build ExtensionContext from a model and StatementResult");
 //! let results = registry.execute_all(&context)?;
 //! # let _ = results;
 //! # Ok(())
@@ -497,11 +497,11 @@ mod tests {
 
     #[test]
     fn test_corkscrew_execute_requires_config() {
-        use crate::evaluator::Results;
+        use crate::evaluator::StatementResult;
         use crate::types::FinancialModelSpec;
 
         let model = FinancialModelSpec::new("test", Vec::new());
-        let results = Results::new();
+        let results = StatementResult::new();
         let context = ExtensionContext::new(&model, &results);
 
         let mut extension = CorkscrewExtension::new();

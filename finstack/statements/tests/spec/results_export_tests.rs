@@ -309,7 +309,7 @@ fn test_export_with_builtin_metrics() {
 
 #[test]
 fn test_empty_results_export() {
-    let results = Results {
+    let results = StatementResult {
         nodes: indexmap::IndexMap::new(),
         monetary_nodes: indexmap::IndexMap::new(),
         node_value_types: indexmap::IndexMap::new(),

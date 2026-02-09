@@ -1,6 +1,6 @@
 //! Extension system for statements.
 
-use crate::statements::evaluator::JsResults;
+use crate::statements::evaluator::JsStatementResult;
 use crate::statements::types::JsFinancialModelSpec;
 use finstack_statements::extensions::{
     CorkscrewExtension, CreditScorecardExtension, ExtensionContext, ExtensionMetadata,
@@ -243,7 +243,7 @@ impl JsExtensionRegistry {
     pub fn execute_all(
         &mut self,
         model: &JsFinancialModelSpec,
-        results: &JsResults,
+        results: &JsStatementResult,
     ) -> Result<JsValue, JsValue> {
         let context = ExtensionContext::new(&model.inner, &results.inner);
         let extension_results = self

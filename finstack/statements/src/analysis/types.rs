@@ -1,6 +1,6 @@
 //! Sensitivity analysis types.
 
-use crate::evaluator::Results;
+use crate::evaluator::StatementResult;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -119,7 +119,7 @@ pub struct SensitivityScenario {
     pub parameter_values: IndexMap<String, f64>,
 
     /// Full evaluation results
-    pub results: Results,
+    pub results: StatementResult,
 }
 
 /// Results of sensitivity analysis.

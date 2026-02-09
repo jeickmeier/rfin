@@ -26,7 +26,7 @@ from .types import (
     DebtInstrumentSpec,
 )
 from .builder import ModelBuilder
-from .evaluator import ResultsMeta, Results, Evaluator, EvaluatorWithContext, DependencyGraph
+from .evaluator import ResultsMeta, StatementResult, Evaluator, EvaluatorWithContext, DependencyGraph
 from .extensions import (
     ExtensionMetadata,
     ExtensionStatus,
@@ -98,7 +98,7 @@ __all__ = [
     "ModelBuilder",
     # Evaluator
     "ResultsMeta",
-    "Results",
+    "StatementResult",
     "Evaluator",
     "EvaluatorWithContext",
     "DependencyGraph",

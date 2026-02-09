@@ -1,4 +1,4 @@
-use crate::statements::evaluator::JsResults;
+use crate::statements::evaluator::JsStatementResult;
 use crate::statements::types::JsFinancialModelSpec;
 use finstack_core::dates::{Date, PeriodId};
 use finstack_valuations::covenants::{
@@ -183,13 +183,13 @@ impl JsCovenantForecast {
 
 struct StatementsAdapter<'a> {
     model: &'a finstack_statements::types::FinancialModelSpec,
-    results: &'a finstack_statements::evaluator::Results,
+    results: &'a finstack_statements::evaluator::StatementResult,
 }
 
 impl<'a> StatementsAdapter<'a> {
     fn new(
         model: &'a finstack_statements::types::FinancialModelSpec,
-        results: &'a finstack_statements::evaluator::Results,
+        results: &'a finstack_statements::evaluator::StatementResult,
     ) -> Self {
         Self { model, results }
     }
@@ -213,7 +213,7 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
 pub fn forecast_covenant(
     spec: &JsCovenantSpec,
     model: &JsFinancialModelSpec,
-    base_case: &JsResults,
+    base_case: &JsStatementResult,
     periods: js_sys::Array,
     config: Option<JsCovenantForecastConfig>,
 ) -> Result<JsCovenantForecast, JsValue> {

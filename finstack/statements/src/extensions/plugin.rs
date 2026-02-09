@@ -1,7 +1,7 @@
 //! Core extension trait and types.
 
 use crate::error::Result;
-use crate::evaluator::Results;
+use crate::evaluator::StatementResult;
 use crate::types::FinancialModelSpec;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -104,7 +104,7 @@ pub struct ExtensionContext<'a> {
     pub model: &'a FinancialModelSpec,
 
     /// Evaluation results
-    pub results: &'a Results,
+    pub results: &'a StatementResult,
 
     /// Extension-specific configuration
     pub config: Option<&'a serde_json::Value>,
@@ -124,14 +124,14 @@ impl<'a> ExtensionContext<'a> {
     /// ```rust,no_run
     /// use finstack_statements::extensions::ExtensionContext;
     /// use finstack_statements::types::FinancialModelSpec;
-    /// use finstack_statements::evaluator::Results;
+    /// use finstack_statements::evaluator::StatementResult;
     ///
     /// # let model: FinancialModelSpec = unimplemented!("build or load a model");
-    /// # let results: Results = unimplemented!("evaluate the model to obtain Results");
+    /// # let results: StatementResult = unimplemented!("evaluate the model to obtain StatementResult");
     /// let context = ExtensionContext::new(&model, &results);
     /// # let _ = context;
     /// ```
-    pub fn new(model: &'a FinancialModelSpec, results: &'a Results) -> Self {
+    pub fn new(model: &'a FinancialModelSpec, results: &'a StatementResult) -> Self {
         Self {
             model,
             results,

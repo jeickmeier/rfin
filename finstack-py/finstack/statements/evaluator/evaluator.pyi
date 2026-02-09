@@ -38,8 +38,8 @@ class ResultsMeta:
 
     def __repr__(self) -> str: ...
 
-class Results:
-    """Results from evaluating a financial model."""
+class StatementResult:
+    """Result from evaluating a financial model."""
 
     def get(self, node_id: str, period_id: PeriodId) -> Optional[float]:
         """Get the value for a node at a specific period.
@@ -115,14 +115,14 @@ class Results:
         ...
 
     @classmethod
-    def from_json(cls, json_str: str) -> Results:
+    def from_json(cls, json_str: str) -> StatementResult:
         """Create from JSON string.
 
         Args:
             json_str: JSON string
 
         Returns:
-            Results: Deserialized results
+            StatementResult: Deserialized results
         """
         ...
 
@@ -179,14 +179,14 @@ class EvaluatorWithContext:
         """
         ...
 
-    def evaluate(self, model: FinancialModelSpec) -> Results:
+    def evaluate(self, model: FinancialModelSpec) -> StatementResult:
         """Evaluate a financial model using the stored market context.
 
         Args:
             model: Financial model specification
 
         Returns:
-            Results: Evaluation results
+            StatementResult: Evaluation results
         """
         ...
 
@@ -320,8 +320,8 @@ class Evaluator:
 
     Export to DataFrames (requires Polars):
 
-        Use :meth:`Results.to_polars_long`, :meth:`Results.to_polars_wide`,
-        or :meth:`Results.to_polars_long_filtered` on the ``results`` object to
+        Use :meth:`StatementResult.to_polars_long`, :meth:`StatementResult.to_polars_wide`,
+        or :meth:`StatementResult.to_polars_long_filtered` on the ``results`` object to
         obtain DataFrames for downstream analysis.
 
     Notes
@@ -334,7 +334,7 @@ class Evaluator:
     See Also
     --------
     :class:`EvaluatorWithContext`: Convenience wrapper with stored context
-    :class:`Results`: Evaluation results structure
+    :class:`StatementResult`: Evaluation results structure
     :class:`DependencyGraph`: Dependency analysis
     """
 
@@ -347,7 +347,7 @@ class Evaluator:
         """
         ...
 
-    def evaluate(self, model: FinancialModelSpec) -> Results:
+    def evaluate(self, model: FinancialModelSpec) -> StatementResult:
         """Evaluate a financial model over all periods.
 
         This is a convenience method that calls `evaluate_with_market_context`
@@ -358,13 +358,13 @@ class Evaluator:
             model: Financial model specification
 
         Returns:
-            Results: Evaluation results
+            StatementResult: Evaluation results
         """
         ...
 
     def evaluate_with_market_context(
         self, model: FinancialModelSpec, market_ctx: MarketContext, as_of: date
-    ) -> Results:
+    ) -> StatementResult:
         """Evaluate a financial model with market context for pricing.
 
         This method allows you to provide market context for pricing capital
@@ -378,7 +378,7 @@ class Evaluator:
             as_of: Valuation date for pricing
 
         Returns:
-            Results: Evaluation results
+            StatementResult: Evaluation results
         """
         ...
 

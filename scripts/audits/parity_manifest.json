@@ -13934,7 +13934,7 @@
         "PortfolioMetrics",
         "aggregate_metrics",
         "is_summable",
-        "PortfolioResults",
+        "PortfolioResult",
         "group_by_attribute",
         "aggregate_by_attribute",
         "aggregate_by_book",
@@ -13976,7 +13976,7 @@
         "PortfolioMetrics",
         "aggregate_metrics",
         "is_summable",
-        "PortfolioResults",
+        "PortfolioResult",
         "group_by_attribute",
         "aggregate_by_attribute",
         "aggregate_by_book",
@@ -16157,7 +16157,7 @@
       "path": "portfolio/results.pyi",
       "classes": [
         {
-          "name": "PortfolioResults",
+          "name": "PortfolioResult",
           "module": "finstack.portfolio.results",
           "methods": [
             {
@@ -19070,7 +19070,7 @@
         "DebtInstrumentSpec",
         "ModelBuilder",
         "ResultsMeta",
-        "Results",
+        "StatementResult",
         "Evaluator",
         "EvaluatorWithContext",
         "DependencyGraph",
@@ -19698,7 +19698,7 @@
               "is_static": false,
               "is_classmethod": false,
               "is_property": true,
-              "return_type": "Results",
+              "return_type": "StatementResult",
               "parameters": []
             }
           ],
@@ -20308,7 +20308,7 @@
               "is_static": false,
               "is_classmethod": false,
               "is_property": false,
-              "return_type": "Results",
+              "return_type": "StatementResult",
               "parameters": [
                 "name: str"
               ]
@@ -21107,7 +21107,7 @@
           "name": "results",
           "module": "finstack.statements.analysis",
           "signature": "",
-          "return_type": "Results",
+          "return_type": "StatementResult",
           "parameters": [
             "self"
           ]
@@ -21501,7 +21501,7 @@
           "name": "get",
           "module": "finstack.statements.analysis",
           "signature": "",
-          "return_type": "Results",
+          "return_type": "StatementResult",
           "parameters": [
             "self",
             "name: str"
@@ -22662,7 +22662,7 @@
       "constants": [],
       "all_exports": [
         "ResultsMeta",
-        "Results",
+        "StatementResult",
         "MonteCarloResults",
         "Evaluator",
         "EvaluatorWithContext",
@@ -22713,7 +22713,7 @@
           "is_enum": false
         },
         {
-          "name": "Results",
+          "name": "StatementResult",
           "module": "finstack.statements.evaluator.evaluator",
           "methods": [
             {
@@ -22796,7 +22796,7 @@
               "is_static": false,
               "is_classmethod": true,
               "is_property": false,
-              "return_type": "Results",
+              "return_type": "StatementResult",
               "parameters": [
                 "json_str: str"
               ]
@@ -22861,7 +22861,7 @@
               "is_static": false,
               "is_classmethod": false,
               "is_property": false,
-              "return_type": "Results",
+              "return_type": "StatementResult",
               "parameters": [
                 "model: FinancialModelSpec"
               ]
@@ -23002,7 +23002,7 @@
               "is_static": false,
               "is_classmethod": false,
               "is_property": false,
-              "return_type": "Results",
+              "return_type": "StatementResult",
               "parameters": [
                 "model: FinancialModelSpec"
               ]
@@ -23013,7 +23013,7 @@
               "is_static": false,
               "is_classmethod": false,
               "is_property": false,
-              "return_type": "Results",
+              "return_type": "StatementResult",
               "parameters": [
                 "model: FinancialModelSpec",
                 "market_ctx: MarketContext",
@@ -23146,7 +23146,7 @@
           "name": "from_json",
           "module": "finstack.statements.evaluator.evaluator",
           "signature": "",
-          "return_type": "Results",
+          "return_type": "StatementResult",
           "parameters": [
             "cls",
             "json_str: str"
@@ -23195,7 +23195,7 @@
           "name": "evaluate",
           "module": "finstack.statements.evaluator.evaluator",
           "signature": "",
-          "return_type": "Results",
+          "return_type": "StatementResult",
           "parameters": [
             "self",
             "model: FinancialModelSpec"
@@ -23292,7 +23292,7 @@
           "name": "evaluate",
           "module": "finstack.statements.evaluator.evaluator",
           "signature": "",
-          "return_type": "Results",
+          "return_type": "StatementResult",
           "parameters": [
             "self",
             "model: FinancialModelSpec"
@@ -23302,7 +23302,7 @@
           "name": "evaluate_with_market_context",
           "module": "finstack.statements.evaluator.evaluator",
           "signature": "",
-          "return_type": "Results",
+          "return_type": "StatementResult",
           "parameters": [
             "self",
             "model: FinancialModelSpec",
@@ -23533,7 +23533,7 @@
               "is_static": false,
               "is_classmethod": false,
               "is_property": true,
-              "return_type": "Results",
+              "return_type": "StatementResult",
               "parameters": []
             },
             {
@@ -23737,7 +23737,7 @@
           "name": "results",
           "module": "finstack.statements.extensions.extensions",
           "signature": "",
-          "return_type": "Results",
+          "return_type": "StatementResult",
           "parameters": [
             "self"
           ]

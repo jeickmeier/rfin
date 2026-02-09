@@ -9156,7 +9156,7 @@
           "path": "portfolio/results.rs",
           "classes": [
             {
-              "name": "PortfolioResults",
+              "name": "PortfolioResult",
               "methods": [
                 {
                   "name": "new_py",
@@ -9170,7 +9170,7 @@
               "is_exported": true
             },
             {
-              "name": "PortfolioResults",
+              "name": "PortfolioResult",
               "methods": [
                 {
                   "name": "new_py",
@@ -9565,8 +9565,8 @@
         "PortfolioCashflows",
         "PortfolioCashflowBuckets",
         "PortfolioCashflowBuckets",
-        "PortfolioResults",
-        "PortfolioResults",
+        "PortfolioResult",
+        "PortfolioResult",
         "AggregatedMetric",
         "AggregatedMetric",
         "PortfolioMetrics",

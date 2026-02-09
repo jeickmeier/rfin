@@ -3,7 +3,7 @@
 use crate::core::money::JsMoney;
 use crate::portfolio::metrics::JsPortfolioMetrics;
 use crate::portfolio::valuation::JsPortfolioValuation;
-use finstack_portfolio::results::PortfolioResults;
+use finstack_portfolio::results::PortfolioResult;
 use wasm_bindgen::prelude::*;
 
 /// Complete results from portfolio evaluation.
@@ -13,17 +13,17 @@ use wasm_bindgen::prelude::*;
 /// # Examples
 ///
 /// ```javascript
-/// const results = new PortfolioResults(valuation, metrics, meta);
+/// const results = new PortfolioResult(valuation, metrics, meta);
 /// console.log(results.totalValue());
 /// console.log(results.getMetric("dv01"));
 /// ```
 #[wasm_bindgen]
-pub struct JsPortfolioResults {
-    inner: PortfolioResults,
+pub struct JsPortfolioResult {
+    inner: PortfolioResult,
 }
 
 #[wasm_bindgen]
-impl JsPortfolioResults {
+impl JsPortfolioResult {
     /// Create a new portfolio results instance.
     ///
     /// # Arguments
@@ -34,13 +34,13 @@ impl JsPortfolioResults {
     ///
     /// # Returns
     ///
-    /// New PortfolioResults instance
+    /// New PortfolioResult instance
     #[wasm_bindgen(constructor)]
     pub fn new(
         valuation: JsValue,
         metrics: JsValue,
         meta: JsValue,
-    ) -> Result<JsPortfolioResults, JsValue> {
+    ) -> Result<JsPortfolioResult, JsValue> {
         let valuation_inner: finstack_portfolio::valuation::PortfolioValuation =
             serde_wasm_bindgen::from_value(valuation)
                 .map_err(|e| JsValue::from_str(&format!("Failed to parse valuation: {}", e)))?;
@@ -52,8 +52,8 @@ impl JsPortfolioResults {
         let meta_inner = serde_wasm_bindgen::from_value(meta)
             .map_err(|e| JsValue::from_str(&format!("Failed to parse metadata: {}", e)))?;
 
-        Ok(JsPortfolioResults {
-            inner: PortfolioResults::new(valuation_inner, metrics_inner, meta_inner),
+        Ok(JsPortfolioResult {
+            inner: PortfolioResult::new(valuation_inner, metrics_inner, meta_inner),
         })
     }
 
@@ -123,13 +123,13 @@ impl JsPortfolioResults {
     ///
     /// # Returns
     ///
-    /// PortfolioResults instance
+    /// PortfolioResult instance
     #[wasm_bindgen(js_name = fromJSON)]
-    pub fn from_json(value: JsValue) -> Result<JsPortfolioResults, JsValue> {
+    pub fn from_json(value: JsValue) -> Result<JsPortfolioResult, JsValue> {
         serde_wasm_bindgen::from_value(value)
-            .map(|inner| JsPortfolioResults { inner })
+            .map(|inner| JsPortfolioResult { inner })
             .map_err(|e| {
-                JsValue::from_str(&format!("Failed to deserialize PortfolioResults: {}", e))
+                JsValue::from_str(&format!("Failed to deserialize PortfolioResult: {}", e))
             })
     }
 
@@ -141,13 +141,13 @@ impl JsPortfolioResults {
     #[wasm_bindgen(js_name = toJSON)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
         serde_wasm_bindgen::to_value(&self.inner)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize PortfolioResults: {}", e)))
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize PortfolioResult: {}", e)))
     }
 }
 
-impl JsPortfolioResults {
+impl JsPortfolioResult {
     #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: PortfolioResults) -> Self {
+    pub(crate) fn from_inner(inner: PortfolioResult) -> Self {
         Self { inner }
     }
 }

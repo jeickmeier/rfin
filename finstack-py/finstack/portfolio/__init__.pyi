@@ -23,7 +23,7 @@ from .valuation import (
     value_portfolio_with_options,
 )
 from .metrics import AggregatedMetric, PortfolioMetrics, aggregate_metrics, is_summable
-from .results import PortfolioResults
+from .results import PortfolioResult
 from .grouping import group_by_attribute, aggregate_by_attribute, aggregate_by_book
 from .attribution import PortfolioAttribution, attribute_portfolio_pnl
 from .cashflows import (
@@ -93,7 +93,7 @@ try:
         "PortfolioMetrics",
         "aggregate_metrics",
         "is_summable",
-        "PortfolioResults",
+        "PortfolioResult",
         "group_by_attribute",
         "aggregate_by_attribute",
         "aggregate_by_book",
@@ -138,7 +138,7 @@ except ImportError:
         "PortfolioMetrics",
         "aggregate_metrics",
         "is_summable",
-        "PortfolioResults",
+        "PortfolioResult",
         "group_by_attribute",
         "aggregate_by_attribute",
         "aggregate_by_book",

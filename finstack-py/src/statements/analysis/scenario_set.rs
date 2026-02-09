@@ -1,5 +1,5 @@
 use crate::statements::error::stmt_to_py;
-use crate::statements::evaluator::PyResults;
+use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_core::dates::PeriodId;
 use finstack_statements::analysis::{
@@ -325,13 +325,13 @@ impl PyScenarioResults {
     }
 
     #[pyo3(signature = (name))]
-    /// Get the `Results` object for a given scenario.
-    fn get(&self, name: &str) -> PyResult<PyResults> {
+    /// Get the `StatementResult` object for a given scenario.
+    fn get(&self, name: &str) -> PyResult<PyStatementResult> {
         let results = self.inner.scenarios.get(name).ok_or_else(|| {
             PyValueError::new_err(format!("Scenario '{}' not found in ScenarioResults", name))
         })?;
 
-        Ok(PyResults::new(results.clone()))
+        Ok(PyStatementResult::new(results.clone()))
     }
 
     #[pyo3(signature = (metrics))]

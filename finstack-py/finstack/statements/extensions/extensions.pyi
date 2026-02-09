@@ -2,7 +2,7 @@
 
 from typing import Optional, Dict, Any
 from ..types.model import FinancialModelSpec
-from ..evaluator import Results
+from ..evaluator import StatementResult
 
 class ExtensionMetadata:
     """Extension metadata."""
@@ -100,7 +100,7 @@ class ExtensionContext:
     @property
     def model(self) -> FinancialModelSpec: ...
     @property
-    def results(self) -> Results: ...
+    def results(self) -> StatementResult: ...
     @property
     def config(self) -> Any: ...
 
@@ -119,7 +119,7 @@ class ExtensionRegistry:
         """
         ...
 
-    def execute_all(self, model: FinancialModelSpec, results: Results) -> Dict[str, ExtensionResult]:
+    def execute_all(self, model: FinancialModelSpec, results: StatementResult) -> Dict[str, ExtensionResult]:
         """Execute all registered extensions.
 
         Args:

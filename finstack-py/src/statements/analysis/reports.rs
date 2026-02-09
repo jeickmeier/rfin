@@ -1,7 +1,7 @@
 //! Reports module bindings for financial models.
 
 use crate::core::dates::periods::PyPeriodId;
-use crate::statements::evaluator::PyResults;
+use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::analysis::{
     Alignment, CreditAssessmentReport, PLSummaryReport, Report, TableBuilder,
@@ -127,7 +127,7 @@ impl PyTableBuilder {
 /// P&L summary report.
 #[pyclass(module = "finstack.statements.analysis", name = "PLSummaryReport")]
 pub struct PyPLSummaryReport {
-    results: PyResults,
+    results: PyStatementResult,
     line_items: Vec<String>,
     periods: Vec<finstack_core::dates::PeriodId>,
 }
@@ -140,7 +140,7 @@ impl PyPLSummaryReport {
     ///
     /// Parameters
     /// ----------
-    /// results : Results
+    /// results : StatementResult
     ///     Evaluation results
     /// line_items : list[str]
     ///     Node IDs to include
@@ -152,7 +152,7 @@ impl PyPLSummaryReport {
     /// PLSummaryReport
     ///     Report instance
     fn new(
-        results: &PyResults,
+        results: &PyStatementResult,
         line_items: Vec<String>,
         periods: Vec<crate::core::dates::periods::PyPeriodId>,
     ) -> Self {
@@ -225,7 +225,7 @@ impl PyPLSummaryReport {
     name = "CreditAssessmentReport"
 )]
 pub struct PyCreditAssessmentReport {
-    results: PyResults,
+    results: PyStatementResult,
     as_of: finstack_core::dates::PeriodId,
 }
 
@@ -237,7 +237,7 @@ impl PyCreditAssessmentReport {
     ///
     /// Parameters
     /// ----------
-    /// results : Results
+    /// results : StatementResult
     ///     Evaluation results
     /// as_of : PeriodId
     ///     Period for assessment
@@ -246,7 +246,7 @@ impl PyCreditAssessmentReport {
     /// -------
     /// CreditAssessmentReport
     ///     Report instance
-    fn new(results: &PyResults, as_of: &crate::core::dates::periods::PyPeriodId) -> Self {
+    fn new(results: &PyStatementResult, as_of: &crate::core::dates::periods::PyPeriodId) -> Self {
         Self {
             results: results.clone(),
             as_of: as_of.inner,
@@ -298,7 +298,7 @@ impl PyCreditAssessmentReport {
 #[derive(Clone)]
 pub struct PyDebtSummaryReport {
     model: PyFinancialModelSpec,
-    results: PyResults,
+    results: PyStatementResult,
     as_of: finstack_core::dates::PeriodId,
 }
 
@@ -312,11 +312,11 @@ impl PyDebtSummaryReport {
     /// ----------
     /// model : FinancialModelSpec
     ///     Financial model containing capital structure details.
-    /// results : Results
+    /// results : StatementResult
     ///     Evaluation results for metric lookups.
     /// as_of : PeriodId
     ///     Reporting period.
-    fn new(model: &PyFinancialModelSpec, results: &PyResults, as_of: &PyPeriodId) -> Self {
+    fn new(model: &PyFinancialModelSpec, results: &PyStatementResult, as_of: &PyPeriodId) -> Self {
         Self {
             model: model.clone(),
             results: results.clone(),
@@ -354,7 +354,11 @@ impl PyDebtSummaryReport {
 /// Convenience function to print a debt summary.
 #[pyfunction]
 #[pyo3(signature = (model, results, as_of))]
-fn print_debt_summary(model: &PyFinancialModelSpec, results: &PyResults, as_of: &PyPeriodId) {
+fn print_debt_summary(
+    model: &PyFinancialModelSpec,
+    results: &PyStatementResult,
+    as_of: &PyPeriodId,
+) {
     let report = PyDebtSummaryReport::new(model, results, as_of);
     println!("{}", report.to_string());
 }
@@ -383,7 +387,7 @@ pub(crate) fn register<'py>(
 
 fn render_debt_summary(
     model: &finstack_statements::types::FinancialModelSpec,
-    results: &finstack_statements::evaluator::Results,
+    results: &finstack_statements::evaluator::StatementResult,
     as_of: finstack_core::dates::PeriodId,
 ) -> String {
     let mut output = String::new();

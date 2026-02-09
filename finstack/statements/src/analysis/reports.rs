@@ -13,17 +13,17 @@
 //!
 //! ```rust,no_run
 //! use finstack_statements::analysis::{Report, PLSummaryReport};
-//! use finstack_statements::evaluator::Results;
+//! use finstack_statements::evaluator::StatementResult;
 //! use finstack_core::dates::PeriodId;
 //!
-//! # let results: Results = unimplemented!("evaluate a model to obtain Results");
+//! # let results: StatementResult = unimplemented!("evaluate a model to obtain StatementResult");
 //! let line_items = vec!["revenue", "cogs"];
 //! let periods = vec![PeriodId::quarter(2025, 1)];
 //! let report = PLSummaryReport::new(&results, line_items, periods);
 //! println!("{}", report.to_string());
 //! ```
 
-use crate::evaluator::Results;
+use crate::evaluator::StatementResult;
 use finstack_core::dates::PeriodId;
 use std::fmt::Write as FmtWrite;
 
@@ -333,7 +333,7 @@ impl Default for TableBuilder {
 /// # }
 /// ```
 pub struct PLSummaryReport<'a> {
-    results: &'a Results,
+    results: &'a StatementResult,
     line_items: Vec<String>,
     periods: Vec<PeriodId>,
 }
@@ -347,7 +347,7 @@ impl<'a> PLSummaryReport<'a> {
     /// * `line_items` - Node IDs to include
     /// * `periods` - Periods to display
     pub fn new(
-        results: &'a Results,
+        results: &'a StatementResult,
         line_items: Vec<impl Into<String>>,
         periods: Vec<PeriodId>,
     ) -> Self {
@@ -410,13 +410,13 @@ impl Report for PLSummaryReport<'_> {
 /// # }
 /// ```
 pub struct CreditAssessmentReport<'a> {
-    results: &'a Results,
+    results: &'a StatementResult,
     as_of: PeriodId,
 }
 
 impl<'a> CreditAssessmentReport<'a> {
     /// Create a new credit assessment report.
-    pub fn new(results: &'a Results, as_of: PeriodId) -> Self {
+    pub fn new(results: &'a StatementResult, as_of: PeriodId) -> Self {
         Self { results, as_of }
     }
 

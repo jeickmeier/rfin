@@ -3,7 +3,7 @@
 mod builtins;
 
 use crate::statements::error::stmt_to_py;
-use crate::statements::evaluator::PyResults;
+use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::extensions::{
     ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult, ExtensionStatus,
@@ -261,7 +261,7 @@ impl PyExtensionResult {
 )]
 pub struct PyExtensionContext {
     model: PyFinancialModelSpec,
-    results: PyResults,
+    results: PyStatementResult,
     config: Py<PyAny>,
 }
 
@@ -273,7 +273,7 @@ impl PyExtensionContext {
     }
 
     #[getter]
-    fn results(&self) -> PyResults {
+    fn results(&self) -> PyStatementResult {
         self.results.clone()
     }
 
@@ -321,7 +321,7 @@ impl PyExtensionRegistry {
     /// ----------
     /// model : FinancialModelSpec
     ///     Financial model
-    /// results : Results
+    /// results : StatementResult
     ///     Evaluation results
     ///
     /// Returns
@@ -331,7 +331,7 @@ impl PyExtensionRegistry {
     fn execute_all(
         &mut self,
         model: &PyFinancialModelSpec,
-        results: &PyResults,
+        results: &PyStatementResult,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
         let context = ExtensionContext::new(&model.inner, &results.inner);

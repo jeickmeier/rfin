@@ -3,7 +3,7 @@
 //! This module provides the integration between financial statement forecasts
 //! and the covenant engine, allowing for future compliance checking.
 
-use crate::evaluator::Results;
+use crate::evaluator::StatementResult;
 use crate::types::{FinancialModelSpec, ForecastMethod};
 use finstack_core::dates::{Date, PeriodId};
 use finstack_core::Result;
@@ -17,15 +17,15 @@ use time::Month;
 /// Forecast output envelope for covenant compliance projections.
 pub type CovenantForecast = ValuationCovenantForecast;
 
-/// Adapter to use Statements Results as a ModelTimeSeries.
+/// Adapter to use Statements StatementResult as a ModelTimeSeries.
 pub struct StatementsAdapter<'a> {
     model: Option<&'a FinancialModelSpec>,
-    results: &'a Results,
+    results: &'a StatementResult,
 }
 
 impl<'a> StatementsAdapter<'a> {
     /// Create a new adapter from results and optional model spec.
-    pub fn new(results: &'a Results, model: Option<&'a FinancialModelSpec>) -> Self {
+    pub fn new(results: &'a StatementResult, model: Option<&'a FinancialModelSpec>) -> Self {
         Self { model, results }
     }
 }
@@ -78,7 +78,7 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
 pub fn forecast_covenant(
     covenant: &CovenantSpec,
     model: &FinancialModelSpec,
-    base_case: &Results,
+    base_case: &StatementResult,
     periods: &[PeriodId],
     config: CovenantForecastConfig,
 ) -> Result<CovenantForecast> {
@@ -101,7 +101,7 @@ pub fn forecast_covenant(
 pub fn forecast_covenants(
     covenants: &[CovenantSpec],
     model: &FinancialModelSpec,
-    base_case: &Results,
+    base_case: &StatementResult,
     periods: &[PeriodId],
     config: CovenantForecastConfig,
 ) -> Result<Vec<CovenantForecast>> {
@@ -124,7 +124,7 @@ pub fn forecast_covenants(
 ///
 /// List of projected breaches.
 pub fn forecast_breaches(
-    results: &Results,
+    results: &StatementResult,
     covenants: &CovenantEngine,
     model: Option<&FinancialModelSpec>,
     config: CovenantForecastConfig,
@@ -199,7 +199,7 @@ pub fn to_polars(forecast: &CovenantForecast) -> polars::prelude::DataFrame {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::evaluator::{Results, ResultsMeta};
+    use crate::evaluator::{ResultsMeta, StatementResult};
     use finstack_core::dates::{Date, Tenor};
     use finstack_valuations::covenants::CovenantType;
     use finstack_valuations::covenants::{Covenant, CovenantEngine, CovenantSpec};
@@ -232,7 +232,7 @@ mod tests {
         net_debt_ebitda.insert(p2, 4.5); // Fail
         nodes.insert("NetDebtEbitda".to_string(), net_debt_ebitda);
 
-        let results = Results {
+        let results = StatementResult {
             nodes,
             monetary_nodes: IndexMap::new(),
             node_value_types: IndexMap::new(),

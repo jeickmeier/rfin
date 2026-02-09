@@ -43,11 +43,11 @@ fn test_scorecard_extension_with_config() {
 
 #[test]
 fn test_scorecard_execute_requires_config() {
-    use finstack_statements::evaluator::Results;
+    use finstack_statements::evaluator::StatementResult;
     use finstack_statements::types::FinancialModelSpec;
 
     let model = FinancialModelSpec::new("test", Vec::new());
-    let results = Results::new();
+    let results = StatementResult::new();
     let context = ExtensionContext::new(&model, &results);
 
     let mut extension = CreditScorecardExtension::new();

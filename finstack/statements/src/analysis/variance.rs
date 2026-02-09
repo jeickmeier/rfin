@@ -12,7 +12,7 @@
 //!
 //! # Examples
 //!
-//! Basic usage with two `Results`:
+//! Basic usage with two `StatementResult`:
 //!
 //! ```rust
 //! use finstack_statements::analysis::{VarianceAnalyzer, VarianceConfig};
@@ -45,7 +45,7 @@
 //! ```
 
 use crate::error::{Error, Result};
-use crate::evaluator::Results;
+use crate::evaluator::StatementResult;
 use crate::utils::constants::EPSILON;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
@@ -54,7 +54,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "dataframes")]
 use polars::prelude::*;
 
-/// Configuration for variance analysis between two `Results`.
+/// Configuration for variance analysis between two `StatementResult`.
 ///
 /// This is a lightweight configuration that mirrors the JSON example in the
 /// design docs:
@@ -190,13 +190,13 @@ pub struct BridgeChart {
 
 /// Variance analyzer between two evaluated statement results.
 pub struct VarianceAnalyzer<'a> {
-    baseline: &'a Results,
-    comparison: &'a Results,
+    baseline: &'a StatementResult,
+    comparison: &'a StatementResult,
 }
 
 impl<'a> VarianceAnalyzer<'a> {
     /// Create a new variance analyzer.
-    pub fn new(baseline: &'a Results, comparison: &'a Results) -> Self {
+    pub fn new(baseline: &'a StatementResult, comparison: &'a StatementResult) -> Self {
         Self {
             baseline,
             comparison,
@@ -401,8 +401,8 @@ mod tests {
     use super::*;
     use finstack_core::dates::PeriodId;
 
-    fn make_results(values: &[(&str, PeriodId, f64)]) -> Results {
-        let mut results = Results::new();
+    fn make_results(values: &[(&str, PeriodId, f64)]) -> StatementResult {
+        let mut results = StatementResult::new();
 
         for (node_id, period, value) in values {
             results

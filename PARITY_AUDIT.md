@@ -233,7 +233,7 @@
 ✓ PortfolioMarginAggregator
 ✓ PortfolioMarginResult
 ✓ PortfolioMetrics
-✓ PortfolioResults
+✓ PortfolioResult
 ✓ PortfolioValuation
 ✓ PortfolioValuationOptions
 ✓ Position

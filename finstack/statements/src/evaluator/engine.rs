@@ -8,7 +8,7 @@ use crate::evaluator::dag::{evaluate_order, DependencyGraph};
 use crate::evaluator::forecast_eval;
 use crate::evaluator::formula::evaluate_formula;
 use crate::evaluator::precedence::{resolve_node_value, NodeValueSource};
-use crate::evaluator::results::{EvalWarning, Results, ResultsMeta};
+use crate::evaluator::results::{EvalWarning, ResultsMeta, StatementResult};
 use crate::types::{FinancialModelSpec, NodeValueType};
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::Expr;
@@ -121,13 +121,13 @@ impl Evaluator {
     ///
     /// # Returns
     ///
-    /// Returns `Results` containing the evaluated values for all nodes and periods.
+    /// Returns `StatementResult` containing the evaluated values for all nodes and periods.
     pub fn evaluate_with_market_context(
         &mut self,
         model: &FinancialModelSpec,
         market_ctx: Option<&finstack_core::market_data::context::MarketContext>,
         as_of: Option<finstack_core::dates::Date>,
-    ) -> Result<Results> {
+    ) -> Result<StatementResult> {
         #[cfg(not(target_arch = "wasm32"))]
         let start = Instant::now();
 
@@ -239,7 +239,7 @@ impl Evaluator {
         // Evaluate period-by-period
         let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
         let mut all_warnings = Vec::new();
-        let mut results = Results::new();
+        let mut results = StatementResult::new();
 
         // Sequential evaluation for all models
         for period in &model.periods {
@@ -382,8 +382,8 @@ impl Evaluator {
     /// * `model` - The financial model specification
     /// # Returns
     ///
-    /// Returns `Results` containing the evaluated values for all nodes and periods.
-    pub fn evaluate(&mut self, model: &FinancialModelSpec) -> Result<Results> {
+    /// Returns `StatementResult` containing the evaluated values for all nodes and periods.
+    pub fn evaluate(&mut self, model: &FinancialModelSpec) -> Result<StatementResult> {
         self.evaluate_with_market_context(model, None, None)
     }
 
@@ -976,8 +976,8 @@ impl EvaluatorWithContext {
     ///
     /// # Returns
     ///
-    /// Returns `Results` containing the evaluated values for all nodes and periods.
-    pub fn evaluate(&mut self, model: &FinancialModelSpec) -> Result<Results> {
+    /// Returns `StatementResult` containing the evaluated values for all nodes and periods.
+    pub fn evaluate(&mut self, model: &FinancialModelSpec) -> Result<StatementResult> {
         self.evaluator
             .evaluate_with_market_context(model, Some(&self.market_ctx), Some(self.as_of))
     }

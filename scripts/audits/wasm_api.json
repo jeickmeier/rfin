@@ -13381,8 +13381,8 @@
               ]
             },
             {
-              "name": "Results",
-              "js_name": "Results",
+              "name": "StatementResult",
+              "js_name": "StatementResult",
               "methods": [
                 {
                   "name": "eval_time_ms",
@@ -15350,7 +15350,7 @@
         "Registry",
         "DependencyTree",
         "ResultsMeta",
-        "Results",
+        "StatementResult",
         "Evaluator",
         "ExtensionMetadata",
         "ExtensionStatus",
@@ -18256,8 +18256,8 @@
           "path": "portfolio/results.rs",
           "classes": [
             {
-              "name": "PortfolioResults",
-              "js_name": "PortfolioResults",
+              "name": "PortfolioResult",
+              "js_name": "PortfolioResult",
               "methods": [
                 {
                   "name": "new",
@@ -19634,7 +19634,7 @@
         "Position",
         "PortfolioCashflows",
         "PortfolioCashflowBuckets",
-        "PortfolioResults",
+        "PortfolioResult",
         "AggregatedMetric",
         "PortfolioMetrics",
         "Portfolio",

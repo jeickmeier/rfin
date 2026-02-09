@@ -1,7 +1,7 @@
 //! DataFrame export functionality for Results.
 
 #[cfg(feature = "dataframes")]
-use super::Results;
+use super::StatementResult;
 #[cfg(feature = "dataframes")]
 use crate::error::Result;
 #[cfg(feature = "dataframes")]
@@ -32,7 +32,7 @@ use polars::prelude::*;
 /// // └─────────────┴───────────┴────────────┴──────────────┴──────────┴────────────┘
 /// ```
 #[cfg(feature = "dataframes")]
-pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
+pub fn to_polars_long(results: &StatementResult) -> Result<DataFrame> {
     use crate::types::NodeValueType;
 
     let mut node_ids = Vec::new();
@@ -93,7 +93,10 @@ pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
 /// let df = to_polars_long_filtered(&results, &["revenue", "cogs"])?;
 /// ```
 #[cfg(feature = "dataframes")]
-pub fn to_polars_long_filtered(results: &Results, node_filter: &[&str]) -> Result<DataFrame> {
+pub fn to_polars_long_filtered(
+    results: &StatementResult,
+    node_filter: &[&str],
+) -> Result<DataFrame> {
     use crate::types::NodeValueType;
 
     let mut node_ids = Vec::new();
@@ -164,7 +167,7 @@ pub fn to_polars_long_filtered(results: &Results, node_filter: &[&str]) -> Resul
 /// // └───────────┴────────────┴──────────┘
 /// ```
 #[cfg(feature = "dataframes")]
-pub fn to_polars_wide(results: &Results) -> Result<DataFrame> {
+pub fn to_polars_wide(results: &StatementResult) -> Result<DataFrame> {
     // Collect all unique periods in order
     let mut all_periods: Vec<PeriodId> = results
         .nodes
@@ -214,7 +217,7 @@ mod tests {
     use finstack_core::dates::PeriodId;
     use indexmap::IndexMap;
 
-    fn create_test_results() -> Results {
+    fn create_test_results() -> StatementResult {
         let mut nodes = IndexMap::new();
 
         // Revenue
@@ -235,7 +238,7 @@ mod tests {
         gp_periods.insert(PeriodId::quarter(2025, 2), 44_000.0);
         nodes.insert("gross_profit".to_string(), gp_periods);
 
-        Results {
+        StatementResult {
             nodes,
             monetary_nodes: IndexMap::new(),
             node_value_types: IndexMap::new(),
@@ -359,7 +362,7 @@ mod tests {
 
     #[test]
     fn test_empty_results() {
-        let results = Results {
+        let results = StatementResult {
             nodes: IndexMap::new(),
             monetary_nodes: IndexMap::new(),
             node_value_types: IndexMap::new(),

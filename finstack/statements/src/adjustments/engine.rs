@@ -5,7 +5,7 @@ use crate::adjustments::types::{
     NormalizationResult,
 };
 use crate::error::{Error, Result};
-use crate::evaluator::Results;
+use crate::evaluator::StatementResult;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
@@ -15,7 +15,7 @@ pub struct NormalizationEngine;
 impl NormalizationEngine {
     /// Normalize a target node across all periods in the results.
     pub fn normalize(
-        results: &Results,
+        results: &StatementResult,
         config: &NormalizationConfig,
     ) -> Result<Vec<NormalizationResult>> {
         let mut normalization_results = Vec::new();
@@ -69,9 +69,9 @@ impl NormalizationEngine {
         Ok(normalization_results)
     }
 
-    /// Merge normalization results back into the main Results object as a new node.
+    /// Merge normalization results back into the main StatementResult object as a new node.
     pub fn merge_into_results(
-        results: &mut Results,
+        results: &mut StatementResult,
         normalization_results: &[NormalizationResult],
         output_node_id: &str,
     ) {
@@ -86,7 +86,7 @@ impl NormalizationEngine {
     fn calculate_adjustment_value(
         adjustment: &Adjustment,
         period_id: PeriodId,
-        results: &Results,
+        results: &StatementResult,
     ) -> Result<f64> {
         match &adjustment.value {
             AdjustmentValue::Fixed { amounts } => Ok(*amounts.get(&period_id).unwrap_or(&0.0)),
@@ -114,7 +114,7 @@ impl NormalizationEngine {
         cap: &AdjustmentCap,
         raw_amount: f64,
         period_id: PeriodId,
-        results: &Results,
+        results: &StatementResult,
     ) -> Result<(f64, bool)> {
         let cap_limit = if let Some(base_node) = &cap.base_node {
             // Percentage of base node (e.g., 20% of EBITDA)
@@ -143,12 +143,12 @@ impl NormalizationEngine {
 mod tests {
     use super::*;
     use crate::adjustments::types::Adjustment;
-    use crate::evaluator::Results;
+    use crate::evaluator::StatementResult;
     use finstack_core::dates::PeriodId;
     use indexmap::IndexMap;
 
-    fn mock_results() -> Results {
-        let mut results = Results::new();
+    fn mock_results() -> StatementResult {
+        let mut results = StatementResult::new();
         let mut ebitda = IndexMap::new();
         ebitda.insert(PeriodId::quarter(2025, 1), 100.0);
         ebitda.insert(PeriodId::quarter(2025, 2), 120.0);

@@ -328,7 +328,7 @@ fn extract_currency_from_model(model: &FinancialModelSpec) -> Result<Currency> {
 /// This function attempts to find debt and cash nodes in the model results.
 fn calculate_net_debt_from_model(
     model: &FinancialModelSpec,
-    results: &crate::evaluator::Results,
+    results: &crate::evaluator::StatementResult,
 ) -> Result<f64> {
     // Get the last period (most recent balance sheet)
     let last_period = model

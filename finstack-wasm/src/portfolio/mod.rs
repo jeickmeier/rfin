@@ -28,7 +28,7 @@ pub use margin::{
 pub use metrics::{js_aggregate_metrics, js_is_summable, JsAggregatedMetric, JsPortfolioMetrics};
 pub use optimization::js_optimize_max_yield_with_ccc_limit;
 pub use portfolio::JsPortfolio;
-pub use results::JsPortfolioResults;
+pub use results::JsPortfolioResult;
 pub use types::{
     js_create_position_from_bond, js_create_position_from_deposit, JsEntity, JsPosition,
     JsPositionUnit,

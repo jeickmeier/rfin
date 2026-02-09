@@ -8,7 +8,7 @@ This module provides tools for:
 """
 
 from typing import Any, Dict, List, Optional
-from ..evaluator import Results, DependencyGraph
+from ..evaluator import StatementResult, DependencyGraph
 from ..types import FinancialModelSpec, NodeType
 from ...core.dates.periods import PeriodId
 
@@ -105,7 +105,7 @@ class SensitivityScenario:
     @property
     def parameter_values(self) -> Dict[str, float]: ...
     @property
-    def results(self) -> Results: ...
+    def results(self) -> StatementResult: ...
     def __repr__(self) -> str: ...
 
 class SensitivityResult:
@@ -243,12 +243,12 @@ class BridgeChart:
     def __repr__(self) -> str: ...
 
 class VarianceAnalyzer:
-    """Variance analyzer between two evaluated Results."""
+    """Variance analyzer between two evaluated StatementResult."""
 
     def __init__(
         self,
-        baseline: Results,
-        comparison: Results,
+        baseline: StatementResult,
+        comparison: StatementResult,
         baseline_label: str = "baseline",
         comparison_label: str = "comparison",
     ) -> None:
@@ -382,8 +382,8 @@ class ScenarioResults:
     @property
     def scenario_names(self) -> List[str]: ...
     def __len__(self) -> int: ...
-    def get(self, name: str) -> Results:
-        """Get the Results for a given scenario."""
+    def get(self, name: str) -> StatementResult:
+        """Get the StatementResult for a given scenario."""
         ...
 
     def to_comparison_df(self, metrics: List[str]) -> Any:
@@ -500,7 +500,7 @@ class Explanation:
 class FormulaExplainer:
     """Formula explainer for financial models."""
 
-    def __init__(self, model: FinancialModelSpec, results: Results) -> None:
+    def __init__(self, model: FinancialModelSpec, results: StatementResult) -> None:
         """Create a new formula explainer.
 
         Args:
@@ -620,7 +620,7 @@ def render_tree_ascii(tree: DependencyTree) -> str:
     """
     ...
 
-def render_tree_detailed(tree: DependencyTree, results: Results, period: PeriodId) -> str:
+def render_tree_detailed(tree: DependencyTree, results: StatementResult, period: PeriodId) -> str:
     """Render dependency tree with values from results.
 
     Args:
@@ -699,7 +699,7 @@ class TableBuilder:
 class PLSummaryReport:
     """P&L summary report."""
 
-    def __init__(self, results: Results, line_items: List[str], periods: List[PeriodId]) -> None:
+    def __init__(self, results: StatementResult, line_items: List[str], periods: List[PeriodId]) -> None:
         """Create a new P&L summary report.
 
         Args:
@@ -735,7 +735,7 @@ class PLSummaryReport:
 class CreditAssessmentReport:
     """Credit assessment report."""
 
-    def __init__(self, results: Results, as_of: PeriodId) -> None:
+    def __init__(self, results: StatementResult, as_of: PeriodId) -> None:
         """Create a new credit assessment report.
 
         Args:
@@ -770,7 +770,7 @@ class CreditAssessmentReport:
 class DebtSummaryReport:
     """Debt summary report."""
 
-    def __init__(self, model: FinancialModelSpec, results: Results, as_of: PeriodId) -> None:
+    def __init__(self, model: FinancialModelSpec, results: StatementResult, as_of: PeriodId) -> None:
         """Create a new debt summary report.
 
         Args:
@@ -803,7 +803,7 @@ class DebtSummaryReport:
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
-def print_debt_summary(model: FinancialModelSpec, results: Results, as_of: PeriodId) -> None:
+def print_debt_summary(model: FinancialModelSpec, results: StatementResult, as_of: PeriodId) -> None:
     """Convenience function to print debt summary.
 
     Args:

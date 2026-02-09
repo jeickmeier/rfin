@@ -3,7 +3,7 @@
 //! Provides types for normalizing financial metrics (e.g., EBITDA adjustments).
 
 use crate::core::error::js_error;
-use crate::statements::evaluator::JsResults;
+use crate::statements::evaluator::JsStatementResult;
 use crate::utils::json::{from_js_value, to_js_value};
 use finstack_core::dates::PeriodId;
 use finstack_statements::adjustments::engine::NormalizationEngine;
@@ -227,7 +227,7 @@ impl JsNormalizationEngine {
     /// Array of normalization results, one per period.
     #[wasm_bindgen(js_name = normalize)]
     pub fn normalize(
-        results: &JsResults,
+        results: &JsStatementResult,
         config: &JsNormalizationConfig,
     ) -> Result<js_sys::Array, JsValue> {
         let norm_results = NormalizationEngine::normalize(&results.inner, &config.inner)

@@ -88,7 +88,7 @@ class ModelBuilder:
     --------
     :class:`FinancialModelSpec`: Final model specification
     :class:`Evaluator`: Model evaluation engine
-    :class:`Results`: Evaluation results
+    :class:`StatementResult`: Evaluation results
     """
 
     @classmethod

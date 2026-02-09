@@ -37,13 +37,13 @@ use crate::error::Result;
 ///     .build()?;
 ///
 /// let mut evaluator = Evaluator::new();
-/// let results = evaluator.evaluate(&model)?;
-/// assert!(results.get("gross_profit", &PeriodId::quarter(2025, 1)).is_some());
+/// let result = evaluator.evaluate(&model)?;
+/// assert!(result.get("gross_profit", &PeriodId::quarter(2025, 1)).is_some());
 /// # Ok(())
 /// # }
 /// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Results {
+pub struct StatementResult {
     /// Map of node_id → (period_id → value) [f64 for backward compatibility]
     pub nodes: IndexMap<String, IndexMap<PeriodId, f64>>,
 
@@ -114,7 +114,7 @@ pub enum NumericMode {
     Decimal,
 }
 
-impl Results {
+impl StatementResult {
     /// Create empty results.
     ///
     /// Useful in tests or when you need a placeholder structure before running

@@ -1,4 +1,4 @@
-use crate::statements::evaluator::PyResults;
+use crate::statements::evaluator::PyStatementResult;
 use finstack_core::dates::PeriodId;
 use finstack_core::HashMap;
 use finstack_statements::adjustments::engine::NormalizationEngine as RustNormalizationEngine;
@@ -148,7 +148,7 @@ impl PyNormalizationEngine {
         let results_bound = results.bind(py);
         let config_bound = config.bind(py);
 
-        let results: &Bound<'_, PyResults> = results_bound.downcast()?;
+        let results: &Bound<'_, PyStatementResult> = results_bound.downcast()?;
         let config: &Bound<'_, PyNormalizationConfig> = config_bound.downcast()?;
 
         let results_ref = results.borrow();
@@ -170,7 +170,7 @@ impl PyNormalizationEngine {
         output_node_id: String,
     ) -> PyResult<()> {
         let results_bound = results.bind(py);
-        let results: &Bound<'_, PyResults> = results_bound.downcast()?;
+        let results: &Bound<'_, PyStatementResult> = results_bound.downcast()?;
 
         let rust_results: Vec<RustNormalizationResult> = normalization_results
             .into_iter()

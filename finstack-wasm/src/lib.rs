@@ -258,8 +258,9 @@ pub use statements::{
     JsMetricDefinition as MetricDefinition, JsMetricRegistry as StatementsMetricRegistry,
     JsModelBuilder as ModelBuilder, JsNodeSpec as NodeSpec, JsNodeType as NodeType,
     JsNormalizationConfig as NormalizationConfig, JsNormalizationEngine as NormalizationEngine,
-    JsNormalizationResult as NormalizationResult, JsRegistry as Registry, JsResults as Results,
-    JsResultsMeta as StatementsResultsMeta, JsSeasonalMode as SeasonalMode, JsUnitType as UnitType,
+    JsNormalizationResult as NormalizationResult, JsRegistry as Registry,
+    JsSeasonalMode as SeasonalMode, JsStatementResult as StatementResult,
+    JsStatementResultMeta as StatementResultsMeta, JsUnitType as UnitType,
 };
 
 // Statements analysis functions
@@ -300,7 +301,7 @@ pub use portfolio::{
     JsPortfolioCashflows as PortfolioCashflows,
     JsPortfolioMarginAggregator as PortfolioMarginAggregator,
     JsPortfolioMarginResult as PortfolioMarginResult, JsPortfolioMetrics as PortfolioMetrics,
-    JsPortfolioResults as PortfolioResults, JsPortfolioValuation as PortfolioValuation,
+    JsPortfolioResult as PortfolioResult, JsPortfolioValuation as PortfolioValuation,
     JsPortfolioValuationOptions as PortfolioValuationOptions, JsPosition as Position,
     JsPositionUnit as PositionUnit, JsPositionValue as PositionValue,
 };

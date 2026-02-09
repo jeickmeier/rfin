@@ -3,7 +3,7 @@
 use crate::core::money::PyMoney;
 use crate::portfolio::metrics::PyPortfolioMetrics;
 use crate::portfolio::valuation::PyPortfolioValuation;
-use finstack_portfolio::PortfolioResults;
+use finstack_portfolio::PortfolioResult;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule};
@@ -18,20 +18,20 @@ use pyo3::Bound;
 ///     Money(USD, 10000000.0)
 ///     >>> results.get_metric("dv01")
 ///     125.0
-#[pyclass(module = "finstack.portfolio", name = "PortfolioResults")]
+#[pyclass(module = "finstack.portfolio", name = "PortfolioResult")]
 #[derive(Clone)]
-pub struct PyPortfolioResults {
-    pub(crate) inner: PortfolioResults,
+pub struct PyPortfolioResult {
+    pub(crate) inner: PortfolioResult,
 }
 
-impl PyPortfolioResults {
-    pub(crate) fn new(inner: PortfolioResults) -> Self {
+impl PyPortfolioResult {
+    pub(crate) fn new(inner: PortfolioResult) -> Self {
         Self { inner }
     }
 }
 
 #[pymethods]
-impl PyPortfolioResults {
+impl PyPortfolioResult {
     #[new]
     #[pyo3(signature = (valuation, metrics, meta))]
     #[pyo3(text_signature = "(valuation, metrics, meta)")]
@@ -43,7 +43,7 @@ impl PyPortfolioResults {
     ///     meta: Metadata describing calculation context.
     ///
     /// Returns:
-    ///     PortfolioResults: New results instance.
+    ///     PortfolioResult: New results instance.
     fn new_py(
         valuation: &Bound<'_, PyAny>,
         metrics: &Bound<'_, PyAny>,
@@ -60,7 +60,7 @@ impl PyPortfolioResults {
         let meta_inner: finstack_core::config::ResultsMeta = pythonize::depythonize(meta)
             .map_err(|e| PyValueError::new_err(format!("Failed to convert meta: {}", e)))?;
 
-        Ok(Self::new(PortfolioResults::new(
+        Ok(Self::new(PortfolioResult::new(
             val_inner,
             metrics_inner,
             meta_inner,
@@ -118,7 +118,7 @@ impl PyPortfolioResults {
 
     fn __repr__(&self) -> String {
         format!(
-            "PortfolioResults(total={}, positions={}, metrics={})",
+            "PortfolioResult(total={}, positions={}, metrics={})",
             self.inner.valuation.total_base_ccy,
             self.inner.valuation.position_values.len(),
             self.inner.metrics.aggregated.len()
@@ -139,7 +139,7 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<String>> {
-    parent.add_class::<PyPortfolioResults>()?;
+    parent.add_class::<PyPortfolioResult>()?;
 
-    Ok(vec!["PortfolioResults".to_string()])
+    Ok(vec!["PortfolioResult".to_string()])
 }

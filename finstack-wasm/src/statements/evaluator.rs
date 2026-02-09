@@ -4,7 +4,7 @@ use crate::core::dates::FsDate;
 use crate::core::market_data::context::JsMarketContext;
 use crate::statements::types::JsFinancialModelSpec;
 use finstack_core::dates::PeriodId;
-use finstack_statements::evaluator::{Evaluator, Results, ResultsMeta};
+use finstack_statements::evaluator::{Evaluator, ResultsMeta, StatementResult};
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 
@@ -13,12 +13,12 @@ use wasm_bindgen::prelude::*;
 /// Contains information about the evaluation process including
 /// timing, node count, and period count.
 #[wasm_bindgen]
-pub struct JsResultsMeta {
+pub struct JsStatementResultMeta {
     inner: ResultsMeta,
 }
 
 #[wasm_bindgen]
-impl JsResultsMeta {
+impl JsStatementResultMeta {
     /// Evaluation time in milliseconds.
     #[wasm_bindgen(getter, js_name = evalTimeMs)]
     pub fn eval_time_ms(&self) -> Option<u64> {
@@ -47,7 +47,7 @@ impl JsResultsMeta {
     }
 }
 
-impl JsResultsMeta {
+impl JsStatementResultMeta {
     fn new(inner: ResultsMeta) -> Self {
         Self { inner }
     }
@@ -57,12 +57,12 @@ impl JsResultsMeta {
 ///
 /// Contains node values for each period and evaluation metadata.
 #[wasm_bindgen]
-pub struct JsResults {
-    pub(crate) inner: Results,
+pub struct JsStatementResult {
+    pub(crate) inner: StatementResult,
 }
 
 #[wasm_bindgen]
-impl JsResults {
+impl JsStatementResult {
     /// Get the value for a node at a specific period.
     ///
     /// # Arguments
@@ -162,8 +162,8 @@ impl JsResults {
 
     /// Get evaluation metadata.
     #[wasm_bindgen(getter)]
-    pub fn meta(&self) -> JsResultsMeta {
-        JsResultsMeta::new(self.inner.meta.clone())
+    pub fn meta(&self) -> JsStatementResultMeta {
+        JsStatementResultMeta::new(self.inner.meta.clone())
     }
 
     /// Convert to JSON representation.
@@ -175,9 +175,9 @@ impl JsResults {
 
     /// Create from JSON representation.
     #[wasm_bindgen(js_name = fromJSON)]
-    pub fn from_json(value: JsValue) -> Result<JsResults, JsValue> {
+    pub fn from_json(value: JsValue) -> Result<JsStatementResult, JsValue> {
         serde_wasm_bindgen::from_value(value)
-            .map(|inner| JsResults { inner })
+            .map(|inner| JsStatementResult { inner })
             .map_err(|e| JsValue::from_str(&format!("Failed to deserialize Results: {}", e)))
     }
 
@@ -185,15 +185,15 @@ impl JsResults {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
         format!(
-            "Results(nodes={}, periods={})",
+            "StatementResult(nodes={}, periods={})",
             self.inner.nodes.len(),
             self.inner.meta.num_periods
         )
     }
 }
 
-impl JsResults {
-    pub(crate) fn new(inner: Results) -> Self {
+impl JsStatementResult {
+    pub(crate) fn new(inner: StatementResult) -> Self {
         Self { inner }
     }
 }
@@ -242,12 +242,12 @@ impl JsEvaluator {
     /// # Returns
     /// Evaluation results
     #[wasm_bindgen]
-    pub fn evaluate(&mut self, model: &JsFinancialModelSpec) -> Result<JsResults, JsValue> {
+    pub fn evaluate(&mut self, model: &JsFinancialModelSpec) -> Result<JsStatementResult, JsValue> {
         let results = self
             .inner
             .evaluate(&model.inner)
             .map_err(|e| JsValue::from_str(&format!("Evaluation failed: {}", e)))?;
-        Ok(JsResults::new(results))
+        Ok(JsStatementResult::new(results))
     }
 
     /// Evaluate a financial model with market context for pricing.
@@ -269,7 +269,7 @@ impl JsEvaluator {
         model: &JsFinancialModelSpec,
         market_ctx: &JsMarketContext,
         as_of: &FsDate,
-    ) -> Result<JsResults, JsValue> {
+    ) -> Result<JsStatementResult, JsValue> {
         let results = self
             .inner
             .evaluate_with_market_context(
@@ -280,6 +280,6 @@ impl JsEvaluator {
             .map_err(|e| {
                 JsValue::from_str(&format!("Evaluation with market context failed: {}", e))
             })?;
-        Ok(JsResults::new(results))
+        Ok(JsStatementResult::new(results))
     }
 }

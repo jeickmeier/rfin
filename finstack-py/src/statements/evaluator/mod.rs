@@ -6,7 +6,7 @@ use crate::core::market_data::context::PyMarketContext;
 use crate::statements::error::stmt_to_py;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::analysis::{MonteCarloConfig, MonteCarloResults as RsMonteCarloResults};
-use finstack_statements::evaluator::{Evaluator, Results, ResultsMeta};
+use finstack_statements::evaluator::{Evaluator, ResultsMeta, StatementResult};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyAnyMethods, PyDict, PyList, PyModule, PyType};
@@ -15,18 +15,18 @@ use pyo3::Bound;
 /// Metadata about evaluation results.
 #[pyclass(module = "finstack.statements.evaluator", name = "ResultsMeta", frozen)]
 #[derive(Clone, Debug)]
-pub struct PyResultsMeta {
+pub struct PyStatementResultMeta {
     pub(crate) inner: ResultsMeta,
 }
 
-impl PyResultsMeta {
+impl PyStatementResultMeta {
     pub(crate) fn new(inner: ResultsMeta) -> Self {
         Self { inner }
     }
 }
 
 #[pymethods]
-impl PyResultsMeta {
+impl PyStatementResultMeta {
     #[getter]
     /// Evaluation time in milliseconds.
     ///
@@ -69,14 +69,14 @@ impl PyResultsMeta {
 }
 
 /// Results from evaluating a financial model.
-#[pyclass(module = "finstack.statements.evaluator", name = "Results")]
+#[pyclass(module = "finstack.statements.evaluator", name = "StatementResult")]
 #[derive(Clone, Debug)]
-pub struct PyResults {
-    pub(crate) inner: Results,
+pub struct PyStatementResult {
+    pub(crate) inner: StatementResult,
 }
 
-impl PyResults {
-    pub(crate) fn new(inner: Results) -> Self {
+impl PyStatementResult {
+    pub(crate) fn new(inner: StatementResult) -> Self {
         Self { inner }
     }
 }
@@ -99,7 +99,7 @@ impl PyMonteCarloResults {
 }
 
 #[pymethods]
-impl PyResults {
+impl PyStatementResult {
     #[pyo3(text_signature = "(self, node_id, period_id)")]
     /// Get the value for a node at a specific period.
     ///
@@ -210,8 +210,8 @@ impl PyResults {
     /// -------
     /// ResultsMeta
     ///     Evaluation metadata
-    fn meta(&self) -> PyResultsMeta {
-        PyResultsMeta::new(self.inner.meta.clone())
+    fn meta(&self) -> PyStatementResultMeta {
+        PyStatementResultMeta::new(self.inner.meta.clone())
     }
 
     /// Convert to JSON string.
@@ -236,7 +236,7 @@ impl PyResults {
     ///
     /// Returns
     /// -------
-    /// Results
+    /// StatementResult
     ///     Deserialized results
     fn from_json(_cls: &Bound<'_, PyType>, json_str: &str) -> PyResult<Self> {
         serde_json::from_str(json_str)
@@ -333,7 +333,7 @@ impl PyResults {
 
     fn __repr__(&self) -> String {
         format!(
-            "Results(nodes={}, periods={})",
+            "StatementResult(nodes={}, periods={})",
             self.inner.nodes.len(),
             self.inner.meta.num_periods
         )
@@ -466,12 +466,16 @@ impl PyEvaluator {
     ///
     /// Returns
     /// -------
-    /// Results
+    /// StatementResult
     ///     Evaluation results
-    fn evaluate(&mut self, py: Python<'_>, model: &PyFinancialModelSpec) -> PyResult<PyResults> {
+    fn evaluate(
+        &mut self,
+        py: Python<'_>,
+        model: &PyFinancialModelSpec,
+    ) -> PyResult<PyStatementResult> {
         // Release GIL for compute-heavy statement evaluation
         let results = py.detach(|| self.inner.evaluate(&model.inner).map_err(stmt_to_py))?;
-        Ok(PyResults::new(results))
+        Ok(PyStatementResult::new(results))
     }
 
     #[pyo3(text_signature = "(self, model, market_ctx, as_of)")]
@@ -493,7 +497,7 @@ impl PyEvaluator {
     ///
     /// Returns
     /// -------
-    /// Results
+    /// StatementResult
     ///     Evaluation results
     fn evaluate_with_market_context(
         &mut self,
@@ -501,7 +505,7 @@ impl PyEvaluator {
         model: &PyFinancialModelSpec,
         market_ctx: &PyMarketContext,
         as_of: &Bound<'_, PyAny>,
-    ) -> PyResult<PyResults> {
+    ) -> PyResult<PyStatementResult> {
         let as_of_date = py_to_date(as_of)?;
 
         // Release GIL for compute-heavy statement evaluation with market context
@@ -515,7 +519,7 @@ impl PyEvaluator {
                 .map_err(stmt_to_py)
         })?;
 
-        Ok(PyResults::new(results))
+        Ok(PyStatementResult::new(results))
     }
 
     #[pyo3(text_signature = "(self, model, n_paths, seed, percentiles=None)")]
@@ -619,11 +623,15 @@ impl PyEvaluatorWithContext {
     ///
     /// Returns
     /// -------
-    /// Results
+    /// StatementResult
     ///     Evaluation results
-    fn evaluate(&mut self, py: Python<'_>, model: &PyFinancialModelSpec) -> PyResult<PyResults> {
+    fn evaluate(
+        &mut self,
+        py: Python<'_>,
+        model: &PyFinancialModelSpec,
+    ) -> PyResult<PyStatementResult> {
         let results = py.detach(|| self.inner.evaluate(&model.inner).map_err(stmt_to_py))?;
-        Ok(PyResults::new(results))
+        Ok(PyStatementResult::new(results))
     }
 }
 
@@ -717,8 +725,8 @@ pub(crate) fn register<'py>(
     let module = PyModule::new(_py, "evaluator")?;
     module.setattr("__doc__", "Evaluator for financial models.")?;
 
-    module.add_class::<PyResultsMeta>()?;
-    module.add_class::<PyResults>()?;
+    module.add_class::<PyStatementResultMeta>()?;
+    module.add_class::<PyStatementResult>()?;
     module.add_class::<PyMonteCarloResults>()?;
     module.add_class::<PyEvaluator>()?;
     module.add_class::<PyEvaluatorWithContext>()?;
@@ -729,7 +737,7 @@ pub(crate) fn register<'py>(
 
     Ok(vec![
         "ResultsMeta",
-        "Results",
+        "StatementResult",
         "MonteCarloResults",
         "Evaluator",
         "EvaluatorWithContext",

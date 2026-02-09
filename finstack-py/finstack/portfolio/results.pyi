@@ -5,7 +5,7 @@ from finstack.core.money import Money
 from .valuation import PortfolioValuation
 from .metrics import PortfolioMetrics
 
-class PortfolioResults:
+class PortfolioResult:
     """Complete results from portfolio evaluation.
 
     Contains valuation, metrics, and metadata about the calculation. Instances
@@ -27,7 +27,7 @@ class PortfolioResults:
             meta: Metadata describing calculation context.
 
         Returns:
-            PortfolioResults: New results instance.
+            PortfolioResult: New results instance.
         """
         ...
 

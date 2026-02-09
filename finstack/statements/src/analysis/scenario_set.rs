@@ -37,7 +37,7 @@
 
 use crate::analysis::{VarianceAnalyzer, VarianceConfig, VarianceReport};
 use crate::error::{Error, Result};
-use crate::evaluator::Results;
+use crate::evaluator::StatementResult;
 use crate::types::{AmountOrScalar, FinancialModelSpec};
 use finstack_core::dates::PeriodId;
 use indexmap::{IndexMap, IndexSet};
@@ -106,8 +106,8 @@ pub struct ScenarioSet {
 /// Evaluated results for all scenarios in a [`ScenarioSet`].
 #[derive(Debug, Clone)]
 pub struct ScenarioResults {
-    /// Map of scenario name → evaluated [`Results`] for that scenario.
-    pub scenarios: IndexMap<String, Results>,
+    /// Map of scenario name → evaluated [`StatementResult`] for that scenario.
+    pub scenarios: IndexMap<String, StatementResult>,
 }
 
 /// Variance-style diff between two evaluated scenarios.

@@ -1,6 +1,6 @@
 use crate::core::dates::periods::PyPeriodId;
 use crate::core::dates::utils::date_to_py;
-use crate::statements::evaluator::PyResults;
+use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_core::dates::{Date, PeriodId};
 use finstack_valuations::covenants::{
@@ -365,13 +365,13 @@ impl PyCovenantForecast {
 
 struct StatementsAdapter<'a> {
     model: &'a finstack_statements::types::FinancialModelSpec,
-    results: &'a finstack_statements::evaluator::Results,
+    results: &'a finstack_statements::evaluator::StatementResult,
 }
 
 impl<'a> StatementsAdapter<'a> {
     fn new(
         model: &'a finstack_statements::types::FinancialModelSpec,
-        results: &'a finstack_statements::evaluator::Results,
+        results: &'a finstack_statements::evaluator::StatementResult,
     ) -> Self {
         Self { model, results }
     }
@@ -398,7 +398,7 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
 pub fn py_forecast_covenant(
     covenant_spec: &PyCovenantSpec,
     model: &PyFinancialModelSpec,
-    base_case: &PyResults,
+    base_case: &PyStatementResult,
     periods: Vec<PyPeriodId>,
     config: Option<&PyCovenantForecastConfig>,
 ) -> PyResult<PyCovenantForecast> {
@@ -473,7 +473,7 @@ impl PyFutureBreach {
 pub fn py_forecast_breaches(
     specs: Vec<PyCovenantSpec>,
     model: &PyFinancialModelSpec,
-    base_case: &PyResults,
+    base_case: &PyStatementResult,
     config: Option<&PyCovenantForecastConfig>,
 ) -> PyResult<Vec<PyFutureBreach>> {
     let mut engine = finstack_valuations::covenants::CovenantEngine::new();

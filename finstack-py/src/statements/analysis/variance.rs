@@ -1,5 +1,5 @@
 use crate::statements::error::stmt_to_py;
-use crate::statements::evaluator::PyResults;
+use crate::statements::evaluator::PyStatementResult;
 use finstack_core::dates::PeriodId;
 use finstack_statements::analysis::{
     BridgeChart, BridgeStep, VarianceAnalyzer, VarianceConfig, VarianceReport,
@@ -254,15 +254,15 @@ impl PyBridgeChart {
     }
 }
 
-/// Variance analyzer between two evaluated Results.
+/// Variance analyzer between two evaluated StatementResult objects.
 #[pyclass(
     module = "finstack.statements.analysis",
     name = "VarianceAnalyzer",
     unsendable
 )]
 pub struct PyVarianceAnalyzer {
-    baseline: PyResults,
-    comparison: PyResults,
+    baseline: PyStatementResult,
+    comparison: PyStatementResult,
     baseline_label: String,
     comparison_label: String,
 }
@@ -275,17 +275,17 @@ impl PyVarianceAnalyzer {
     ///
     /// Parameters
     /// ----------
-    /// baseline : Results
+    /// baseline : StatementResult
     ///     Baseline evaluation results (e.g. management case).
-    /// comparison : Results
+    /// comparison : StatementResult
     ///     Comparison evaluation results (e.g. bank base case or actuals).
     /// baseline_label : str, default \"baseline\"
     ///     Human-readable label for the baseline scenario.
     /// comparison_label : str, default \"comparison\"
     ///     Human-readable label for the comparison scenario.
     fn new(
-        baseline: &PyResults,
-        comparison: &PyResults,
+        baseline: &PyStatementResult,
+        comparison: &PyStatementResult,
         baseline_label: Option<String>,
         comparison_label: Option<String>,
     ) -> Self {
@@ -392,7 +392,7 @@ impl PyVarianceAnalyzer {
 }
 
 fn infer_periods_from_results(
-    results: &finstack_statements::evaluator::Results,
+    results: &finstack_statements::evaluator::StatementResult,
     metrics: &[String],
 ) -> PyResult<Vec<PeriodId>> {
     let first_metric = metrics
@@ -416,7 +416,7 @@ fn infer_periods_from_results(
 }
 
 fn infer_latest_period_for_metric(
-    results: &finstack_statements::evaluator::Results,
+    results: &finstack_statements::evaluator::StatementResult,
     metric: &str,
 ) -> PyResult<PeriodId> {
     let periods = results

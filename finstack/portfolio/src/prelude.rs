@@ -26,7 +26,7 @@ pub use crate::optimization::{
 };
 pub use crate::portfolio::{Portfolio, PortfolioSpec};
 pub use crate::position::{Position, PositionUnit};
-pub use crate::results::PortfolioResults;
+pub use crate::results::PortfolioResult;
 pub use crate::types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
 pub use crate::valuation::{value_portfolio, PortfolioValuation, PositionValue};
 

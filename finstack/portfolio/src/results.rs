@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Contains valuation, metrics, and metadata about the calculation.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PortfolioResults {
+pub struct PortfolioResult {
     /// Portfolio valuation results
     pub valuation: PortfolioValuation,
 
@@ -21,7 +21,7 @@ pub struct PortfolioResults {
     pub meta: ResultsMeta,
 }
 
-impl PortfolioResults {
+impl PortfolioResult {
     /// Create a new portfolio results instance.
     ///
     /// # Arguments
@@ -113,7 +113,7 @@ mod tests {
             aggregate_metrics(&valuation, Currency::USD, &market).expect("test should succeed");
         let meta = results_meta_now(&config);
 
-        let results = PortfolioResults::new(valuation, metrics, meta);
+        let results = PortfolioResult::new(valuation, metrics, meta);
 
         // Note: With flat curve, deposit PV is small but portfolio results should be present
         assert!(results.total_value().amount().abs() >= 0.0);

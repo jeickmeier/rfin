@@ -4,14 +4,14 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::capital_structure::{CapitalStructureCashflows, CashflowBreakdown};
-use finstack_statements::evaluator::{Evaluator, Results, ResultsMeta};
+use finstack_statements::evaluator::{Evaluator, ResultsMeta, StatementResult};
 use finstack_statements::types::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use indexmap::IndexMap;
 
 #[test]
 fn test_results_serialization() {
-    // Create a Results object
-    let mut results = Results::new();
+    // Create a StatementResult object
+    let mut results = StatementResult::new();
     let period = PeriodId::quarter(2025, 1);
 
     results.nodes.insert(
@@ -38,7 +38,7 @@ fn test_results_serialization() {
     println!("Serialized Results:\n{}", json);
 
     // Deserialize back
-    let deserialized: Results = serde_json::from_str(&json).expect("Failed to deserialize Results");
+    let deserialized: StatementResult = serde_json::from_str(&json).expect("Failed to deserialize StatementResult");
 
     // Verify round-trip
     assert_eq!(deserialized.get("revenue", &period), Some(100_000.0));
@@ -201,7 +201,7 @@ fn test_model_with_results_serialization() {
     // Deserialize both
     let deserialized_model: FinancialModelSpec =
         serde_json::from_str(&model_json).expect("Failed to deserialize model");
-    let deserialized_results: Results =
+    let deserialized_results: StatementResult =
         serde_json::from_str(&results_json).expect("Failed to deserialize results");
 
     // Verify model structure
@@ -262,11 +262,11 @@ fn test_node_spec_with_currency_serialization() {
 #[test]
 fn test_empty_results_serialization() {
     // Test edge case: empty results
-    let results = Results::new();
+    let results = StatementResult::new();
 
-    let json = serde_json::to_string(&results).expect("Failed to serialize empty Results");
-    let deserialized: Results =
-        serde_json::from_str(&json).expect("Failed to deserialize empty Results");
+    let json = serde_json::to_string(&results).expect("Failed to serialize empty StatementResult");
+    let deserialized: StatementResult =
+        serde_json::from_str(&json).expect("Failed to deserialize empty StatementResult");
 
     assert_eq!(deserialized.nodes.len(), 0);
     assert_eq!(deserialized.meta.num_nodes, 0);
@@ -277,7 +277,7 @@ fn test_empty_results_serialization() {
 #[test]
 fn test_results_to_json_file() {
     // Test that Results can be saved to and loaded from a JSON file
-    let mut results = Results::new();
+    let mut results = StatementResult::new();
     let period = PeriodId::quarter(2025, 1);
 
     results.nodes.insert(
@@ -294,7 +294,7 @@ fn test_results_to_json_file() {
     assert!(json.contains("2025Q1"));
 
     // Deserialize back
-    let deserialized: Results = serde_json::from_str(&json).expect("Failed to deserialize");
+    let deserialized: StatementResult = serde_json::from_str(&json).expect("Failed to deserialize");
 
     // Verify round-trip
     assert_eq!(deserialized.get("revenue", &period), Some(100_000.0));

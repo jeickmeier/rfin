@@ -1,7 +1,7 @@
 //! Tree visualization utilities.
 
 use super::DependencyTree;
-use crate::evaluator::Results;
+use crate::evaluator::StatementResult;
 use finstack_core::dates::PeriodId;
 
 /// Render dependency tree as ASCII art.
@@ -90,7 +90,11 @@ pub fn render_tree_ascii(tree: &DependencyTree) -> String {
 /// # Ok(())
 /// # }
 /// ```
-pub fn render_tree_detailed(tree: &DependencyTree, results: &Results, period: &PeriodId) -> String {
+pub fn render_tree_detailed(
+    tree: &DependencyTree,
+    results: &StatementResult,
+    period: &PeriodId,
+) -> String {
     let mut output = String::new();
     render_tree_with_values(tree, results, period, &mut output, "", true);
     output
@@ -130,7 +134,7 @@ fn render_tree_recursive(tree: &DependencyTree, output: &mut String, prefix: &st
 // Recursive helper for rendering with values
 fn render_tree_with_values(
     tree: &DependencyTree,
-    results: &Results,
+    results: &StatementResult,
     period: &PeriodId,
     output: &mut String,
     prefix: &str,

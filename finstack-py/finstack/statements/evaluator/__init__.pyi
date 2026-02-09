@@ -2,7 +2,7 @@
 
 from .evaluator import (
     ResultsMeta,
-    Results,
+    StatementResult,
     MonteCarloResults,
     Evaluator,
     EvaluatorWithContext,
@@ -11,7 +11,7 @@ from .evaluator import (
 
 __all__ = [
     "ResultsMeta",
-    "Results",
+    "StatementResult",
     "MonteCarloResults",
     "Evaluator",
     "EvaluatorWithContext",
