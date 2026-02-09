@@ -7,6 +7,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// Comprehensive error type for statements operations.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum Error {
     /// Model building error (e.g., invalid period range, missing periods)
     #[error("Model build error: {0}")]

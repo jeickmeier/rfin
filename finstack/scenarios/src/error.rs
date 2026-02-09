@@ -49,6 +49,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// assert_eq!(classify(Error::NodeNotFound { node_id: "Revenue".into() }), "statements");
 /// ```
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Market data element not found.
     #[error("Market data not found: {id}")]

@@ -43,5 +43,6 @@ pub fn scenario_to_py(err: finstack_scenarios::Error) -> PyErr {
         finstack_scenarios::Error::InstrumentNotFound(id) => {
             PyValueError::new_err(format!("Instrument not found: {}", id))
         }
+        other => PyRuntimeError::new_err(format!("Scenario error: {}", other)),
     }
 }
