@@ -353,13 +353,13 @@ pub fn geometric_asian_put_df(
 /// The method approximates the arithmetic average distribution as lognormal
 /// by matching the first two moments. For discrete monitoring with n equally-spaced fixings:
 ///
-/// M1 = E[A] = S * exp((r - q)T) * [1 - exp(-qT)] / (qT) for q ≠ 0
-/// M2 = E[A²] computed via double integral (see implementation)
+/// `M1 = E[A] = S * exp((r - q)T) * [1 - exp(-qT)] / (qT)` for `q != 0`
+/// `M2 = E[A^2]` computed via double integral (see implementation)
 ///
 /// Then solve for parameters (μ*, σ*) of lognormal matching M1, M2.
-/// For X ~ LogNormal(μ*, σ*²):
-/// - E[X] = m1 = exp(μ* + σ*²/2)
-/// - E[X²] = m2 = exp(2μ* + 2σ*²)
+/// For `X ~ LogNormal(mu*, sigma*^2)`:
+/// - `E[X] = m1 = exp(mu* + sigma*^2/2)`
+/// - `E[X²] = m2 = exp(2μ* + 2σ*²)`
 ///
 /// Solving: σ*² = ln(m2/m1²), μ* = ln(m1) - σ*²/2
 ///

@@ -10,8 +10,10 @@
 //!
 //! # FX Conversion Warning
 //!
-//! The convenience functions [`collapse_cashflows_to_base_by_date`] and
-//! [`cashflows_to_base_by_period`] convert using the spot-equivalent rate from
+//! The convenience functions
+//! [`collapse_cashflows_to_base_by_date`](crate::cashflows::collapse_cashflows_to_base_by_date)
+//! and [`cashflows_to_base_by_period`](crate::cashflows::cashflows_to_base_by_period)
+//! convert using the spot-equivalent rate from
 //! the [`FxMatrix`](finstack_core::money::fx::FxMatrix) for every cashflow date.
 //! This is **not** the same as discounting future foreign-currency cashflows at
 //! the appropriate forward FX rate. For NPV-grade accuracy, derive forward FX
@@ -148,7 +150,8 @@ pub fn aggregate_cashflows(
 ///
 /// # FX Conversion Note
 ///
-/// The conversion uses spot-equivalent rates from the [`FxMatrix`] for **all**
+/// The conversion uses spot-equivalent rates from
+/// [`FxMatrix`](finstack_core::money::fx::FxMatrix) for **all**
 /// cashflow dates, including future dates. In practice, the FX matrix typically
 /// stores today's spot rate and may not account for the forward basis (interest
 /// rate differential between currencies). For precise NPV-of-cashflows analysis
@@ -196,7 +199,8 @@ pub fn collapse_cashflows_to_base_by_date(
 /// Bucket base-currency cashflows by reporting period.
 ///
 /// This function assumes its input ladder has already been converted to
-/// base currency via [`collapse_cashflows_to_base_by_date`].
+/// base currency via
+/// [`collapse_cashflows_to_base_by_date`].
 ///
 /// See that function's documentation for important notes on the use of
 /// spot-equivalent FX rates for future cashflow conversion.

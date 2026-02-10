@@ -38,7 +38,7 @@
 //! # See Also
 //!
 //! - [`FxTouchOption`] for the instrument struct
-//! - [`FxTouchOptionCalculator`] for pricing calculations
+//! - `FxTouchOptionCalculator` for pricing calculations
 
 /// FX touch option calculator
 pub(crate) mod calculator;

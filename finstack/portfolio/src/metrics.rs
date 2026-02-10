@@ -12,7 +12,8 @@
 //!
 //! [`aggregate_metrics`] performs this conversion automatically using the FX rate
 //! implied by each position's native and base-currency valuations. Positions with
-//! zero native PV fall back to the FX matrix in the [`MarketContext`].
+//! zero native PV fall back to the FX matrix in the
+//! [`finstack_core::market_data::context::MarketContext`].
 
 use crate::error::Result;
 use crate::types::{EntityId, PositionId};

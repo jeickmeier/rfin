@@ -27,7 +27,7 @@
 //! # See Also
 //!
 //! - [`FxBarrierOption`] for instrument struct
-//! - [`fx_option`](super::fx_option) for vanilla FX options
+//! - [`crate::instruments::fx::fx_option`] for vanilla FX options
 
 pub(crate) mod metrics;
 pub(crate) mod pricer;

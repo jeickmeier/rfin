@@ -33,7 +33,7 @@ impl BilinearInterp {
     /// * `xs`: Grid points for X dimension (must be sorted)
     /// * `ys`: Grid points for Y dimension (must be sorted)
     /// * `z_flat`: Values at grid points, flattened (row-major: x varies slowest, y varies fastest? Or vice versa?)
-    ///   Let's assume: z corresponds to xs[i], ys[j].
+    ///   Let's assume: z corresponds to `xs[i]`, `ys[j]`.
     ///   If we iterate xs then ys, it's x-major?
     ///   Let's stick to: index = i * ys.len() + j
     pub fn new(xs: Vec<f64>, ys: Vec<f64>, z_flat: Vec<f64>) -> Result<Self> {

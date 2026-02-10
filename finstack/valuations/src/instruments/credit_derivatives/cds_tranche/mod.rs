@@ -78,10 +78,10 @@
 //! # See Also
 //!
 //! - [`CDSTranche`] for instrument struct
-//! - [`TrancheSide`] for buyer vs seller
-//! - [`copula`] for copula model implementations
-//! - [`recovery`] for stochastic recovery models
-//! - Base correlation calibration via plan-driven [`calibration::api`]
+//! - [`crate::instruments::credit_derivatives::cds_tranche::TrancheSide`] for buyer vs seller
+//! - [`crate::instruments::credit_derivatives::cds_tranche::copula`] for copula model implementations
+//! - [`crate::instruments::credit_derivatives::cds_tranche::recovery`] for stochastic recovery models
+//! - Base correlation calibration via plan-driven `calibration::api`
 
 pub mod copula;
 pub(crate) mod metrics;

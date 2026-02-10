@@ -11,7 +11,7 @@
 //!
 //! # Result Structure
 //!
-//! Every pricing operation returns a [`ValuationResult`] containing:
+//! Every pricing operation returns a [`crate::results::ValuationResult`] containing:
 //!
 //! ```text
 //! ValuationResult {
@@ -23,7 +23,7 @@
 //!
 //! # Metadata Tracking
 //!
-//! [`ResultsMeta`] captures important context for audit and reproducibility:
+//! [`crate::results::ResultsMeta`] captures important context for audit and reproducibility:
 //! - **Timestamp**: When the valuation was computed
 //! - **Rounding context**: Numeric precision policy applied
 //! - **FX policy**: Currency conversion method (if applicable)
@@ -55,8 +55,8 @@
 //!
 //! # See Also
 //!
-//! - [`ValuationResult`] for the main result type
-//! - [`ResultsMeta`] for execution metadata
+//! - [`crate::results::ValuationResult`] for the main result type
+//! - [`crate::results::ResultsMeta`] for execution metadata
 //! - [`crate::metrics`] for available metric calculators
 
 pub(crate) mod dataframe;

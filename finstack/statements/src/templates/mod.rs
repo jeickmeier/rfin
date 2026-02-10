@@ -12,8 +12,8 @@
 //!
 //! | Template | Build-time | Runtime Validation |
 //! |----------|------------|-------------------|
-//! | Roll-forward | [`TemplatesExtension::add_roll_forward`] | [`CorkscrewExtension`](crate::extensions::CorkscrewExtension) |
-//! | Vintage | [`VintageExtension::add_vintage_buildup`] | N/A |
+//! | Roll-forward | [`TemplatesExtension::add_roll_forward`](crate::templates::TemplatesExtension::add_roll_forward) | [`CorkscrewExtension`](crate::extensions::CorkscrewExtension) |
+//! | Vintage | [`VintageExtension::add_vintage_buildup`](crate::templates::VintageExtension::add_vintage_buildup) | N/A |
 //!
 //! # Example
 //!

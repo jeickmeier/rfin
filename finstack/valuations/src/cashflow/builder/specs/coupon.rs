@@ -207,6 +207,7 @@ fn default_reset_lag() -> i32 {
 ///     fixing_calendar_id: None,
 ///     end_of_month: false,
 ///     payment_lag_days: 0,
+///     overnight_compounding: None,
 /// };
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

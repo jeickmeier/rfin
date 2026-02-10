@@ -1,3 +1,5 @@
+#![cfg(all(target_arch = "wasm32", feature = "wasm_benchmarks"))]
+
 //! WASM micro-benchmarks for bridge overhead.
 //!
 //! These are intentionally lightweight and non-flaky:

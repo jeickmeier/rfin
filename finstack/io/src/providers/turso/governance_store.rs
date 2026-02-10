@@ -62,7 +62,7 @@ impl GovernanceStore for TursoStore {
             "SELECT resource_type, resource_id, owner_user_id, visibility_scope, visibility_id \
              FROM {table} WHERE resource_type = ?1 AND resource_id = ?2"
         );
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![resource_type, resource_id]).await?;
         match rows.next().await.map_err(Error::from)? {
             Some(row) => {
@@ -86,7 +86,7 @@ impl GovernanceStore for TursoStore {
             "SELECT resource_type, resource_id, owner_user_id, visibility_scope, visibility_id \
              FROM {table} WHERE resource_type = ?1"
         );
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![resource_type]).await?;
         let mut out = Vec::new();
         while let Some(row) = rows.next().await.map_err(Error::from)? {
@@ -139,7 +139,7 @@ impl GovernanceStore for TursoStore {
             "SELECT resource_type, resource_id, share_type, share_id, share_scope_id, permission \
              FROM {table} WHERE resource_type = ?1 AND resource_id = ?2"
         );
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![resource_type, resource_id]).await?;
         let mut out = Vec::new();
         while let Some(row) = rows.next().await.map_err(Error::from)? {
@@ -158,7 +158,7 @@ impl GovernanceStore for TursoStore {
             "SELECT resource_type, resource_id, share_type, share_id, share_scope_id, permission \
              FROM {table} WHERE resource_type = ?1"
         );
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![resource_type]).await?;
         let mut map: std::collections::HashMap<String, Vec<ResourceShare>> =
             std::collections::HashMap::new();
@@ -175,7 +175,7 @@ impl GovernanceStore for TursoStore {
         let conn = self.get_conn()?;
         let table = table_name(self, "auth_user_roles");
         let sql = format!("SELECT role_id, group_id FROM {table} WHERE user_id = ?1");
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![user_id]).await?;
         let mut out = Vec::new();
         while let Some(row) = rows.next().await.map_err(Error::from)? {
@@ -203,7 +203,7 @@ impl GovernanceStore for TursoStore {
         let mut seen = std::collections::HashSet::new();
         let mut out = Vec::new();
 
-        let mut stmt = conn.prepare(sql_groups.as_str()).await?;
+        let stmt = conn.prepare(sql_groups.as_str()).await?;
         let mut rows = stmt.query(params![user_id]).await?;
         while let Some(row) = rows.next().await.map_err(Error::from)? {
             let value = get_string(&row, 0)?;
@@ -212,7 +212,7 @@ impl GovernanceStore for TursoStore {
             }
         }
 
-        let mut stmt = conn.prepare(sql_roles.as_str()).await?;
+        let stmt = conn.prepare(sql_roles.as_str()).await?;
         let mut rows = stmt.query(params![user_id]).await?;
         while let Some(row) = rows.next().await.map_err(Error::from)? {
             let value = get_string(&row, 0)?;
@@ -231,7 +231,7 @@ impl GovernanceStore for TursoStore {
             "SELECT id, resource_type, visibility_scope, visibility_id, change_kind, base_verified_source, policy_id, priority \
              FROM {table} WHERE resource_type = ?1"
         );
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![resource_type]).await?;
         let mut out = Vec::new();
         while let Some(row) = rows.next().await.map_err(Error::from)? {
@@ -263,7 +263,7 @@ impl GovernanceStore for TursoStore {
                 require_distinct_from_last_actor \
              FROM {table} WHERE policy_id = ?1 AND from_state = ?2 AND to_state = ?3"
         );
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![policy_id, from_state, to_state]).await?;
         match rows.next().await.map_err(Error::from)? {
             Some(row) => Ok(Some(WorkflowTransition {
@@ -294,7 +294,7 @@ impl GovernanceStore for TursoStore {
             "SELECT policy_id, state_key, is_final, verified_source, system_only, category \
              FROM {table} WHERE policy_id = ?1 AND state_key = ?2"
         );
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![policy_id, state_key]).await?;
         match rows.next().await.map_err(Error::from)? {
             Some(row) => Ok(Some(WorkflowState {
@@ -353,7 +353,7 @@ impl GovernanceStore for TursoStore {
         let sql = format!(
             "SELECT actor_id FROM {table} WHERE change_id = ?1 ORDER BY at_ts DESC LIMIT 1"
         );
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![change_id]).await?;
         match rows.next().await.map_err(Error::from)? {
             Some(row) => Ok(Some(get_string(&row, 0)?)),
@@ -432,7 +432,7 @@ impl GovernanceStore for TursoStore {
             "SELECT change_id, resource_type, resource_id, resource_key2, change_kind, workflow_policy_id, workflow_state, owner_user_id, created_by_kind, created_by_id, submitted_at, applied_at, base_etag, ingestion_source, ingestion_run_id, payload, meta \
              FROM {table} WHERE change_id = ?1"
         );
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![change_id]).await?;
         match rows.next().await.map_err(Error::from)? {
             Some(row) => {
@@ -476,7 +476,7 @@ impl GovernanceStore for TursoStore {
             "SELECT change_id, resource_type, resource_id, resource_key2, change_kind, workflow_policy_id, workflow_state, owner_user_id, created_by_kind, created_by_id, submitted_at, applied_at, base_etag, ingestion_source, ingestion_run_id, payload, meta \
              FROM {table} WHERE owner_user_id = ?1"
         );
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![owner_user_id]).await?;
         let mut out = Vec::new();
         while let Some(row) = rows.next().await.map_err(Error::from)? {
@@ -522,7 +522,7 @@ impl GovernanceStore for TursoStore {
                AND workflow_state IN ('VERIFIED','SYSTEM_VERIFIED') \
              ORDER BY applied_at DESC, updated_at DESC LIMIT 1"
         );
-        let mut stmt = conn.prepare(sql.as_str()).await?;
+        let stmt = conn.prepare(sql.as_str()).await?;
         let mut rows = stmt.query(params![resource_type, resource_id]).await?;
         match rows.next().await.map_err(Error::from)? {
             Some(row) => Ok(Some(get_string(&row, 0)?)),

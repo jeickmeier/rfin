@@ -12,8 +12,8 @@
 //!
 //! # Example
 //!
-//! ```rust,no_run
-//! // TODO: Add example once implementation is complete
+//! ```text
+//! Example to be added once implementation is complete.
 //! ```
 
 pub(crate) mod metrics;

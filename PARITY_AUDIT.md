@@ -4,25 +4,27 @@
 
 ## Executive Summary
 
-- **Total types in Rust:** 2320
-- **Total classes in Python:** 366
-- **Total classes in WASM:** 286
-- **In all three:** 214
-- **Only in Rust:** 1966
-- **Only in Python:** 24
-- **Only in WASM:** 14
+- **Total types in Rust:** 2051
+- **Total classes in Python:** 395
+- **Total classes in WASM:** 340
+- **In all three:** 215
+- **Only in Rust:** 1699
+- **Only in Python:** 35
+- **Only in WASM:** 37
 
 ## Instrument Coverage
 
 - **Expected instruments:** 38
-- **In Rust:** 37 (97%)
-- **In Python:** 36 (94%)
+- **In Rust:** 35 (92%)
+- **In Python:** 34 (89%)
 - **In WASM:** 38 (100%)
-- **In all three:** 35
+- **In all three:** 33
 
 ### Missing in Rust
 
 ```
+- CdsOption
+- CdsTranche
 - FiIndexTotalReturnSwap
 ```
 
@@ -30,6 +32,8 @@
 
 ```
 - CDSIndex
+- CdsOption
+- CdsTranche
 - StructuredCredit
 ```
 
@@ -77,7 +81,7 @@
 
 ### Types/Classes in All Three
 
-**Count:** 214
+**Count:** 215
 
 ```
 ✓ Adjustment
@@ -95,11 +99,13 @@
 ✓ Autocallable
 ✓ BarrierOption
 ✓ BarrierType
+✓ BaseCorrelationCurve
 ✓ BasisSwap
 ✓ BasisSwapLeg
 ✓ Basket
 ✓ Bond
 ✓ BondFuture
+✓ BondFutureBuilder
 ✓ BondFutureSpecs
 ✓ Bps
 ✓ BrentSolver
@@ -116,9 +122,6 @@
 ✓ CdsConventionKey
 ✓ CdsConventions
 ✓ CdsDocClause
-✓ CdsOption
-✓ CdsTranche
-✓ CdsTrancheQuote
 ✓ CliquetOption
 ✓ CmoTranche
 ✓ CmoWaterfall
@@ -139,6 +142,7 @@
 ✓ CovenantSpec
 ✓ CovenantType
 ✓ CreditDefaultSwap
+✓ CreditIndexData
 ✓ CreditScorecardExtension
 ✓ CsaSpec
 ✓ CurveKind
@@ -146,6 +150,7 @@
 ✓ DebtInstrumentSpec
 ✓ DependencyTree
 ✓ Deposit
+✓ DiscountCurve
 ✓ DividendEvent
 ✓ DividendSchedule
 ✓ DividendScheduleBuilder
@@ -175,15 +180,18 @@
 ✓ FxSpot
 ✓ FxSwap
 ✓ FxVarianceSwap
+✓ FxVarianceSwapBuilder
 ✓ GaussHermiteQuadrature
 ✓ HazardCurve
 ✓ ImMethodology
 ✓ ImParameters
 ✓ InflationCapFloor
+✓ InflationCapFloorBuilder
 ✓ InflationCurve
 ✓ InflationLinkedBond
 ✓ InflationQuote
 ✓ InflationSwap
+✓ InflationSwapBuilder
 ✓ InflationSwapConventions
 ✓ InterestRateFuture
 ✓ InterestRateOption
@@ -197,13 +205,13 @@
 ✓ MarketContext
 ✓ MarketHistory
 ✓ MarketQuote
+✓ MarketScalar
 ✓ MarketScenario
 ✓ MetricDefinition
 ✓ MetricId
 ✓ MetricRegistry
 ✓ ModelParamsAttribution
 ✓ Money
-✓ MonteCarloResult
 ✓ Ndf
 ✓ NettingSet
 ✓ NettingSetId
@@ -218,8 +226,6 @@
 ✓ OperationSpec
 ✓ OptionConventions
 ✓ OptionType
-✓ PathDataset
-✓ PathPoint
 ✓ PayReceive
 ✓ Percentage
 ✓ Period
@@ -241,7 +247,6 @@
 ✓ PositionValue
 ✓ PricerRegistry
 ✓ PrivateMarketsFund
-✓ ProcessParams
 ✓ QuantoOption
 ✓ RangeAccrual
 ✓ Rate
@@ -258,8 +263,7 @@
 ✓ RiskFactorType
 ✓ RollForwardReport
 ✓ RoundingMode
-✓ SABRCalibrationDerivatives
-✓ SABRMarketData
+✓ ScalarTimeSeries
 ✓ ScenarioEngine
 ✓ ScenarioSpec
 ✓ Schedule
@@ -267,8 +271,8 @@
 ✓ ScheduleParams
 ✓ ScheduleSpec
 ✓ SeasonalMode
+✓ SeriesInterpolation
 ✓ SettlementType
-✓ SimulatedPath
 ✓ StubKind
 ✓ Swaption
 ✓ SwaptionConventions
@@ -291,6 +295,7 @@
 ✓ VolSurface
 ✓ VolSurfaceKind
 ✓ VolatilityConvention
+✓ VolatilityIndexCurve
 ✓ VolatilityIndexFuture
 ✓ VolatilityIndexOption
 ✓ WaterfallTier
@@ -298,16 +303,13 @@
 
 ### In Rust and Python (missing in WASM)
 
-**Count:** 105
+**Count:** 97
 
 ```
 - AccountType
 - Alignment
-- AmericanCall
-- AmericanPut
 - AntiDilutionPolicy
 - AveragingMethod
-- BondFutureBuilder
 - Book
 - BookId
 - BridgeChart
@@ -316,24 +318,30 @@
 - BumpRequest
 - BumpUnits
 - BusinessDayConvention
+- CDSOption
+- CDSTranche
+- CDSTrancheBuildOverrides
+- CDSTrancheQuote
 - CandidatePosition
 - CdsQuote
-- CdsTrancheBuildOverrides
 - Constraint
 - ConversionEvent
-... and 85 more
+... and 77 more
 ```
 
 ### In Rust and WASM (missing in Python)
 
-**Count:** 35
+**Count:** 40
 
 ```
+- AsianOptionBuilder
+- BarrierOptionBuilder
 - CDSIndex
 - ClearingStatus
 - CompiledExpr
 - CoverageTestRules
 - CoverageTrigger
+- CreditDefaultSwapBuilder
 - EvalOpts
 - EvaluationResult
 - Evaluator
@@ -346,43 +354,40 @@
 - FxForward
 - InflationCapFloorType
 - LegSide
-- ModelBuilder
-- NormalizationEngine
-- NotionalExchange
-... and 15 more
+... and 20 more
 ```
 
 ### In Python and WASM (missing in Rust)
 
-**Count:** 23
+**Count:** 48
 
 ```
-- BaseCorrelationCurve
+- BasisSwapBuilder
+- BondBuilder
 - CashflowBuilder
-- CreditIndexData
+- CommodityForwardBuilder
+- CommodityOptionBuilder
+- CommoditySwapBuilder
+- ConvertibleBondBuilder
 - CreditQuote
 - Currency
 - DayCountContext
 - DayCountContextState
-- DiscountCurve
+- DepositBuilder
+- EquityBuilder
+- EquityIndexFutureBuilder
+- EquityOptionBuilder
+- EquityTotalReturnSwapBuilder
 - FiIndexTotalReturnSwap
+- FiIndexTotalReturnSwapBuilder
+- ForwardRateAgreementBuilder
 - Frequency
-- FxConfig
-- FxConversionPolicy
-- FxRateResult
-- MarketScalar
-- PeriodPlan
-- RatesQuote
-- RepoCollateral
-- Rng
-- SABRModelParams
-- ScalarTimeSeries
-... and 3 more
+... and 28 more
 ```
 
 ### Only in Rust
 
-**Count:** 1966
+**Count:** 1699
 
 ```
 - // Configuration CoverageTestConfig
@@ -402,59 +407,66 @@
 - ABS_SERVICING_FEE_BPS
 - ATM_MONEYNESS
 - ATTRIBUTION_SCHEMA_V1
+- AVERAGE_DAYS_PER_YEAR
 - AbsCreditEnhancementCalculator
 - AbsDelinquencyCalculator
-- AbsExcessSpreadCalculator
-... and 1946 more
+... and 1679 more
 ```
 
 ### Only in Python
 
-**Count:** 24
+**Count:** 35
 
 ```
+- AgencyCmoBuilder
+- AgencyMbsPassthroughBuilder
+- AgencyTbaBuilder
+- AmericanCall
+- AmericanPut
 - BaseCorrelationCalibrator
-- BondBuilder
 - BuildCtx
 - BuiltInstrument
+- CDSOptionBuilder
+- CDSTrancheBuilder
 - CdsIndex
+- CdsIndexBuilder
 - CdsPayReceive
 - CrossCurrencySwap
 - CrossCurrencySwapBuilder
 - DebtSummaryReport
 - DiscountCurveCalibrator
+- DollarRollBuilder
 - EcfSweepSpec
-- EquityIndexFutureBuilder
-- ForwardCurveCalibrator
-- FxPayReceive
-- FxRealizedVarMethod
-- HazardCurveCalibrator
-- InflationCurveCalibrator
-- InterestRateSwapBuilder
-- LsmcResult
-- NdfBuilder
-... and 4 more
+- EnhancedMonteCarloResult
+... and 15 more
 ```
 
 ### Only in WASM
 
-**Count:** 14
+**Count:** 37
 
 ```
+- AutocallableBuilder
+- BasketBuilder
+- CDSIndexBuilder
+- CdsOption
+- CdsOptionBuilder
+- CdsTranche
+- CdsTrancheBuilder
+- CdsTrancheQuote
+- CliquetOptionBuilder
+- CmsOptionBuilder
 - CorrelatedBernoulliDist
 - EquityUnderlying
 - FsDate
 - FuturePosition
+- FxBarrierOptionBuilder
+- FxForwardBuilder
 - IndexUnderlying
 - MonteCarloPathGenerator
 - PricingRequest
-- SumAccumulator
-- TrsFinancingLegSpec
-- VarianceSwapSide
-- WasmExplanationTrace
-- WaterfallEngine
-- applyAndRevalue
-- applyScenario
+- PrivateMarketsFundBuilder
+... and 17 more
 ```
 
 ## Naming Convention Patterns
@@ -474,11 +486,11 @@
 
 ### High Priority
 
-1. **Add 1 missing instruments to Rust:** FiIndexTotalReturnSwap
-2. **Add 2 missing instruments to Python:** CDSIndex, StructuredCredit
-3. **Complete calibration API in Rust:** 9 types missing
-4. **Complete calibration API in WASM:** 7 types missing
-5. **Complete calibration API in Python:** 1 types missing
+1. **Add 3 missing instruments to Rust:** CdsOption, CdsTranche, FiIndexTotalReturnSwap
+3. **Add 4 missing instruments to Python:** CDSIndex, CdsOption, CdsTranche...
+4. **Complete calibration API in Rust:** 9 types missing
+5. **Complete calibration API in WASM:** 7 types missing
+6. **Complete calibration API in Python:** 1 types missing
 
 ### Medium Priority
 

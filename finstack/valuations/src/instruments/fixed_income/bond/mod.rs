@@ -101,10 +101,10 @@
 //! # See Also
 //!
 //! - [`Bond`] for the main bond struct and factory methods
-//! - [`CallPutSchedule`] for embedded option schedules
-//! - [`CashflowSpec`] for fixed/floating/amortizing specifications
-//! - [`AmortizationSpec`] for amortizing bonds
-//! - [`metrics`] for bond-specific risk metrics
+//! - `CallPutSchedule` for embedded option schedules
+//! - `CashflowSpec` for fixed/floating/amortizing specifications
+//! - `AmortizationSpec` for amortizing bonds
+//! - bond metrics module for bond-specific risk metrics
 
 pub mod cashflow_spec;
 pub mod cashflows;

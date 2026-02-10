@@ -57,9 +57,9 @@
 //!
 //! # See Also
 //!
-//! - [`BuildCtx`] for build context configuration
-//! - [`conventions::ConventionRegistry`] for convention lookups
-//! - [`quotes::MarketQuote`](quotes::market_quote::MarketQuote) for the unified quote enum
+//! - [`crate::market::BuildCtx`] for build context configuration
+//! - [`crate::market::conventions::ConventionRegistry`] for convention lookups
+//! - [`crate::market::quotes::market_quote::MarketQuote`] for the unified quote enum
 
 /// Quote-to-instrument builders and prepared quotes.
 pub(crate) mod build;

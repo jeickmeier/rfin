@@ -900,7 +900,7 @@ impl Swaption {
     ///
     /// For production systems requiring exact ISDA compliance, use
     /// `cash_settlement_method: CashSettlementMethod::IsdaParPar` which delegates
-    /// to [`swap_annuity`].
+    /// to `swap_annuity`.
     ///
     /// # Edge Cases
     ///

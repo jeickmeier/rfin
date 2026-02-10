@@ -2012,14 +2012,14 @@
               "name": "GaussHermiteQuadrature",
               "methods": [
                 {
-                  "name": "order_5",
+                  "name": "new",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
                   "signature": ""
                 },
                 {
-                  "name": "order_5",
+                  "name": "new",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -2982,7 +2982,7 @@
               "is_exported": true
             },
             {
-              "name": "CdsTrancheQuote",
+              "name": "CDSTrancheQuote",
               "methods": [
                 {
                   "name": "cds_tranche",
@@ -2996,7 +2996,7 @@
               "is_exported": true
             },
             {
-              "name": "CdsTrancheBuildOverrides",
+              "name": "CDSTrancheBuildOverrides",
               "methods": [
                 {
                   "name": "ctor",
@@ -4590,7 +4590,21 @@
               "name": "ForwardRateAgreement",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ForwardRateAgreementBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -4630,7 +4644,21 @@
               "name": "InflationLinkedBond",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "InflationLinkedBondBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -4650,7 +4678,21 @@
               "name": "EquityOption",
               "methods": [
                 {
-                  "name": "european_call",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "EquityOptionBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -4877,7 +4919,21 @@
               "name": "EquityTotalReturnSwap",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "EquityTotalReturnSwapBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -4891,7 +4947,21 @@
               "name": "FiIndexTotalReturnSwap",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FiIndexTotalReturnSwapBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -4923,7 +4993,21 @@
               "name": "VarianceSwap",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VarianceSwapBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -4963,7 +5047,7 @@
               "name": "Equity",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -4977,7 +5061,21 @@
               "name": "Equity",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "EquityBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -4997,7 +5095,21 @@
               "name": "CommoditySwap",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CommoditySwapBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5085,7 +5197,7 @@
               "name": "BasisSwap",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5099,7 +5211,21 @@
               "name": "BasisSwap",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BasisSwapBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5199,7 +5325,7 @@
               "name": "Deposit",
               "methods": [
                 {
-                  "name": "ctor",
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5213,7 +5339,21 @@
               "name": "Deposit",
               "methods": [
                 {
-                  "name": "ctor",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "DepositBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5267,7 +5407,21 @@
               "name": "VolatilityIndexFuture",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VolatilityIndexFutureBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5335,7 +5489,21 @@
               "name": "AgencyMbsPassthrough",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AgencyMbsPassthroughBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5349,7 +5517,7 @@
               "name": "AgencyTba",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5363,7 +5531,21 @@
               "name": "AgencyTba",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AgencyTbaBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5377,7 +5559,21 @@
               "name": "DollarRoll",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "DollarRollBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5447,7 +5643,7 @@
               "name": "AgencyCmo",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5461,7 +5657,21 @@
               "name": "AgencyCmo",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AgencyCmoBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5521,8 +5731,8 @@
               "name": "ConversionSpec",
               "methods": [
                 {
-                  "name": "create",
-                  "is_static": false,
+                  "name": "new",
+                  "is_static": true,
                   "is_property": false,
                   "is_classmethod": false,
                   "signature": ""
@@ -5535,7 +5745,21 @@
               "name": "ConvertibleBond",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ConvertibleBondBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5555,7 +5779,21 @@
               "name": "VolatilityIndexOption",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VolatilityIndexOptionBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5813,7 +6051,21 @@
               "name": "InflationSwap",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "InflationSwapBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5867,7 +6119,7 @@
               "name": "FxSpot",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5881,7 +6133,21 @@
               "name": "FxSpot",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxSpotBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5895,7 +6161,7 @@
               "name": "FxOption",
               "methods": [
                 {
-                  "name": "european_call",
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5909,7 +6175,21 @@
               "name": "FxOption",
               "methods": [
                 {
-                  "name": "european_call",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxOptionBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5923,7 +6203,7 @@
               "name": "FxSwap",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5937,7 +6217,21 @@
               "name": "FxSwap",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxSwapBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -5991,7 +6285,21 @@
               "name": "InterestRateFuture",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "InterestRateFutureBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6011,7 +6319,21 @@
               "name": "InterestRateOption",
               "methods": [
                 {
-                  "name": "cap",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "InterestRateOptionBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6045,7 +6367,7 @@
               "name": "Repo",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6059,7 +6381,21 @@
               "name": "Repo",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "RepoBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6113,7 +6449,7 @@
               "name": "CdsIndex",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6127,7 +6463,21 @@
               "name": "CdsIndex",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CdsIndexBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6144,10 +6494,24 @@
           "path": "valuations/instruments/cds_tranche.rs",
           "classes": [
             {
-              "name": "CdsTranche",
+              "name": "CDSTranche",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CDSTrancheBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6337,7 +6701,21 @@
               "name": "CommodityForward",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CommodityForwardBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6357,7 +6735,21 @@
               "name": "CommodityOption",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CommodityOptionBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6374,10 +6766,10 @@
           "path": "valuations/instruments/cds_option.rs",
           "classes": [
             {
-              "name": "CdsOption",
+              "name": "CDSOption",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6388,10 +6780,24 @@
               "is_exported": true
             },
             {
-              "name": "CdsOption",
+              "name": "CDSOption",
               "methods": [
                 {
-                  "name": "create",
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CDSOptionBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6487,8 +6893,8 @@
         "RateQuote",
         "CdsQuote",
         "CdsQuote",
-        "CdsTrancheQuote",
-        "CdsTrancheBuildOverrides",
+        "CDSTrancheQuote",
+        "CDSTrancheBuildOverrides",
         "BumpRequest",
         "BumpRequest",
         "CovenantReport",
@@ -6588,9 +6994,12 @@
         "MonteCarloResult",
         "MonteCarloResult",
         "ForwardRateAgreement",
+        "ForwardRateAgreementBuilder",
         "Autocallable",
         "InflationLinkedBond",
+        "InflationLinkedBondBuilder",
         "EquityOption",
+        "EquityOptionBuilder",
         "RevolvingCredit",
         "EnhancedMonteCarloResult",
         "EnhancedMonteCarloResult",
@@ -6606,20 +7015,26 @@
         "EquityUnderlyingParams",
         "IndexUnderlyingParams",
         "EquityTotalReturnSwap",
+        "EquityTotalReturnSwapBuilder",
         "FiIndexTotalReturnSwap",
+        "FiIndexTotalReturnSwapBuilder",
         "PayReceive",
         "RealizedVarMethod",
         "VarianceSwap",
+        "VarianceSwapBuilder",
         "RangeAccrual",
         "Equity",
         "Equity",
+        "EquityBuilder",
         "CommoditySwap",
+        "CommoditySwapBuilder",
         "CliquetOption",
         "LookbackType",
         "LookbackOption",
         "BasisSwapLeg",
         "BasisSwap",
         "BasisSwap",
+        "BasisSwapBuilder",
         "FxPayReceive",
         "FxRealizedVarMethod",
         "FxVarianceSwap",
@@ -6628,29 +7043,37 @@
         "Swaption",
         "Deposit",
         "Deposit",
+        "DepositBuilder",
         "CmsOption",
         "CmsOption",
         "VolatilityIndexFuture",
+        "VolatilityIndexFutureBuilder",
         "Ndf",
         "Ndf",
         "NdfBuilder",
         "AgencyMbsPassthrough",
+        "AgencyMbsPassthroughBuilder",
         "AgencyTba",
         "AgencyTba",
+        "AgencyTbaBuilder",
         "DollarRoll",
+        "DollarRollBuilder",
         "PacCollar",
         "PacCollar",
         "CmoTranche",
         "CmoWaterfall",
         "AgencyCmo",
         "AgencyCmo",
+        "AgencyCmoBuilder",
         "ConversionEvent",
         "ConversionPolicy",
         "AntiDilutionPolicy",
         "DividendAdjustment",
         "ConversionSpec",
         "ConvertibleBond",
+        "ConvertibleBondBuilder",
         "VolatilityIndexOption",
+        "VolatilityIndexOptionBuilder",
         "QuantoOption",
         "CrossCurrencySwap",
         "CrossCurrencySwapBuilder",
@@ -6667,26 +7090,35 @@
         "Bond",
         "BondBuilder",
         "InflationSwap",
+        "InflationSwapBuilder",
         "BarrierType",
         "BarrierOption",
         "FxSpot",
         "FxSpot",
+        "FxSpotBuilder",
         "FxOption",
         "FxOption",
+        "FxOptionBuilder",
         "FxSwap",
         "FxSwap",
+        "FxSwapBuilder",
         "AveragingMethod",
         "AsianOption",
         "InterestRateFuture",
+        "InterestRateFutureBuilder",
         "InterestRateOption",
+        "InterestRateOptionBuilder",
         "RepoCollateral",
         "Repo",
         "Repo",
+        "RepoBuilder",
         "Basket",
         "Basket",
         "CdsIndex",
         "CdsIndex",
-        "CdsTranche",
+        "CdsIndexBuilder",
+        "CDSTranche",
+        "CDSTrancheBuilder",
         "FxBarrierOption",
         "PrivateMarketsFund",
         "CdsPayReceive",
@@ -6698,9 +7130,12 @@
         "BondFutureSpecs",
         "BondFutureBuilder",
         "CommodityForward",
+        "CommodityForwardBuilder",
         "CommodityOption",
-        "CdsOption",
-        "CdsOption",
+        "CommodityOptionBuilder",
+        "CDSOption",
+        "CDSOption",
+        "CDSOptionBuilder",
         "WaterfallTier",
         "WaterfallTier"
       ],
@@ -8977,6 +9412,40 @@
           ],
           "functions": []
         },
+        "portfolio.positions": {
+          "path": "portfolio/positions.rs",
+          "classes": [
+            {
+              "name": "Portfolio",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Portfolio",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
         "portfolio.types": {
           "path": "portfolio/types.rs",
           "classes": [
@@ -9241,40 +9710,6 @@
               "methods": [
                 {
                   "name": "get_metric",
-                  "is_static": false,
-                  "is_property": false,
-                  "is_classmethod": false,
-                  "signature": ""
-                }
-              ],
-              "properties": [],
-              "is_exported": true
-            }
-          ],
-          "functions": []
-        },
-        "portfolio.portfolio": {
-          "path": "portfolio/portfolio.rs",
-          "classes": [
-            {
-              "name": "Portfolio",
-              "methods": [
-                {
-                  "name": "new_py",
-                  "is_static": false,
-                  "is_property": false,
-                  "is_classmethod": false,
-                  "signature": ""
-                }
-              ],
-              "properties": [],
-              "is_exported": true
-            },
-            {
-              "name": "Portfolio",
-              "methods": [
-                {
-                  "name": "new_py",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -9555,6 +9990,8 @@
         "NettingSet",
         "PortfolioMarginAggregator",
         "PortfolioMarginAggregator",
+        "Portfolio",
+        "Portfolio",
         "Entity",
         "Entity",
         "PositionUnit",
@@ -9571,8 +10008,6 @@
         "AggregatedMetric",
         "PortfolioMetrics",
         "PortfolioMetrics",
-        "Portfolio",
-        "Portfolio",
         "BookId",
         "BookId",
         "Book",

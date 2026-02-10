@@ -4,6 +4,7 @@ use crate::instruments::common_impl::traits::{
     CurveDependencies, EquityDependencies, InstrumentCurves,
 };
 use crate::instruments::exotics::asian_option::AsianOption;
+#[cfg(feature = "mc")]
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl CurveDependencies for AsianOption {
@@ -25,18 +26,21 @@ impl EquityDependencies for AsianOption {
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasPricingOverrides for AsianOption {
     fn pricing_overrides_mut(&mut self) -> &mut crate::instruments::PricingOverrides {
         &mut self.pricing_overrides
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasExpiry for AsianOption {
     fn expiry(&self) -> finstack_core::dates::Date {
         self.expiry
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasDayCount for AsianOption {
     fn day_count(&self) -> finstack_core::dates::DayCount {
         self.day_count

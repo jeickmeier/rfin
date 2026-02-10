@@ -59,7 +59,7 @@ class PortfolioMetrics:
         ...     .build()
         ... )
         >>> valuation = value_portfolio(portfolio, MarketContext())
-        >>> metrics = aggregate_metrics(valuation)
+        >>> metrics = aggregate_metrics(valuation, "USD", MarketContext())
         >>> metrics.get_total("delta")
         0.0
     """
@@ -113,7 +113,7 @@ class PortfolioMetrics:
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
-def aggregate_metrics(valuation: PortfolioValuation) -> PortfolioMetrics:
+def aggregate_metrics(valuation: PortfolioValuation, base_ccy: str, market_context: Any) -> PortfolioMetrics:
     """Aggregate risk metrics from portfolio valuation.
 
     Computes portfolio-wide risk metrics by summing position-level results
@@ -126,6 +126,10 @@ def aggregate_metrics(valuation: PortfolioValuation) -> PortfolioMetrics:
     valuation : PortfolioValuation
         Portfolio valuation results from value_portfolio(). Must include
         position-level metrics in ValuationResult.measures for each position.
+    base_ccy : str
+        Base currency code used for portfolio aggregation (e.g. "USD").
+    market_context : Any
+        Market context containing FX rates for cross-currency conversion.
 
     Returns
     -------
@@ -167,7 +171,7 @@ def aggregate_metrics(valuation: PortfolioValuation) -> PortfolioMetrics:
         ...     .build()
         ... )
         >>> valuation = value_portfolio(portfolio, MarketContext())
-        >>> metrics = aggregate_metrics(valuation)
+        >>> metrics = aggregate_metrics(valuation, "USD", MarketContext())
         >>> metrics.get_total("delta")
         0.0
 

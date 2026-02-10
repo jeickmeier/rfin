@@ -43,8 +43,8 @@
 //! # See Also
 //!
 //! - [`ConvertibleBond`] for instrument struct
-//! - [`ConversionSpec`] for conversion terms
-//! - [`AntiDilutionPolicy`] for adjustment policies
+//! - `ConversionSpec` for conversion terms
+//! - `AntiDilutionPolicy` for adjustment policies
 
 pub(crate) mod metrics;
 pub(crate) mod pricer;

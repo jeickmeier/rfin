@@ -67,7 +67,7 @@
 //!
 //! - [`super::types::TermLoan`] for the runtime instrument type
 //! - [`super::cashflows`] for cashflow generation
-//! - [`super::pricing`] for valuation
+//! - term loan pricing module for valuation
 
 use crate::instruments::pricing_overrides::PricingOverrides;
 use finstack_core::currency::Currency;

@@ -87,10 +87,10 @@
 //! # See Also
 //!
 //! - [`InterestRateSwap`] for the main swap struct
-//! - [`FixedLegSpec`] for fixed leg specification
-//! - [`FloatLegSpec`] for floating leg specification
-//! - [`PayReceive`] for swap direction
-//! - [`metrics`] for swap-specific risk metrics
+//! - `FixedLegSpec` for fixed leg specification
+//! - `FloatLegSpec` for floating leg specification
+//! - `PayReceive` for swap direction
+//! - swap metrics module for swap-specific risk metrics
 
 pub mod cashflow;
 pub mod compounding;

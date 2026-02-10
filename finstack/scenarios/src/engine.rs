@@ -97,7 +97,7 @@ pub struct ApplicationReport {
     pub rounding_context: Option<String>,
 }
 
-/// Orchestrates the deterministic application of a [`ScenarioSpec`](crate::spec::ScenarioSpec).
+/// Orchestrates the deterministic application of a [`ScenarioSpec`].
 ///
 /// The engine is intentionally lightweight: it does not own any state and can
 /// be cloned or reused freely. All mutable inputs are supplied via
@@ -132,7 +132,7 @@ impl ScenarioEngine {
     ///   operations appear first.
     ///
     /// # Returns
-    /// Combined [`ScenarioSpec`](crate::spec::ScenarioSpec) containing all
+    /// Combined [`ScenarioSpec`] containing all
     /// operations with deterministic ordering.
     ///
     /// # Examples

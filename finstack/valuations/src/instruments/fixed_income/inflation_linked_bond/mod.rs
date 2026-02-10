@@ -85,9 +85,9 @@
 //! # See Also
 //!
 //! - [`InflationLinkedBond`] for instrument struct
-//! - [`IndexationMethod`] for indexation type
-//! - [`DeflationProtection`] for floor specifications
-//! - [`metrics`] for inflation-specific risk metrics
+//! - [`crate::instruments::fixed_income::inflation_linked_bond::IndexationMethod`] for indexation type
+//! - [`crate::instruments::fixed_income::inflation_linked_bond::DeflationProtection`] for floor specifications
+//! - inflation-linked bond metrics module for inflation-specific risk metrics
 
 pub(crate) mod metrics;
 pub(crate) mod parameters;

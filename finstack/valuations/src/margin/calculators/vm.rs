@@ -64,7 +64,7 @@ impl VmResult {
 /// ```
 ///
 /// Implementation delegates CSA/MTA/rounding logic to
-/// [`VmParameters::calculate_margin_call`] to ensure consistent behavior
+/// `VmParameters::calculate_margin_call` to ensure consistent behavior
 /// across margin utilities.
 ///
 /// # Example

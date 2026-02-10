@@ -12,11 +12,13 @@
           "error",
           "explain",
           "expr",
+          "golden",
           "market_data",
           "math",
           "money",
           "prelude",
-          "types"
+          "types",
+          "validation"
         ],
         "types": [
           "HashMap",
@@ -34,7 +36,8 @@
           "error": [
             "Error",
             "InputError",
-            "NonFiniteKind"
+            "NonFiniteKind",
+            "Result"
           ]
         }
       },
@@ -48,15 +51,14 @@
             "InternalRateOfReturn"
           ],
           "functions": [
-            "npv_amounts",
             "npv",
-            "npv_constant"
+            "npv_amounts"
           ],
           "modules": {},
           "re_exports": {
             "discounting": [
               "npv",
-              "npv_constant",
+              "npv_amounts",
               "Discountable"
             ],
             "primitives": [
@@ -111,6 +113,8 @@
         "dates": {
           "path": "core/src/dates",
           "types": [
+            "CALENDAR_DAYS_PER_YEAR",
+            "AVERAGE_DAYS_PER_YEAR",
             "Date",
             "OffsetDateTime",
             "PrimitiveDateTime",
@@ -151,6 +155,8 @@
             "next_equity_option_expiry",
             "next_imm",
             "next_imm_option_expiry",
+            "next_sifma_settlement",
+            "sifma_settlement_date",
             "third_friday",
             "third_wednesday",
             "build_fiscal_periods",
@@ -186,8 +192,8 @@
                 "roll_spot_date",
                 "resolve",
                 "is_joint_business_day",
-                "add_joint_business_days_with_calendars",
-                "adjust_joint_calendar_with_calendars"
+                "add_joint_business_days",
+                "adjust_joint_calendar"
               ],
               "re_exports": {},
               "modules": {}
@@ -262,7 +268,6 @@
               "ScheduleWarning",
               "StubKind"
             ],
-            "fx": [],
             "tenor": [
               "Tenor",
               "TenorUnit"
@@ -275,6 +280,8 @@
               "next_equity_option_expiry",
               "next_imm",
               "next_imm_option_expiry",
+              "next_sifma_settlement",
+              "sifma_settlement_date",
               "third_friday",
               "third_wednesday"
             ],
@@ -293,7 +300,8 @@
           "types": [
             "InputError",
             "NonFiniteKind",
-            "Error"
+            "Error",
+            "Result"
           ],
           "functions": [
             "missing_curve_with_suggestions",
@@ -378,6 +386,84 @@
             ]
           }
         },
+        "golden": {
+          "path": "core/src/golden",
+          "types": [
+            "CaseMeta",
+            "Expectation",
+            "ExpectedValue",
+            "GeneratedInfo",
+            "GoldenSuite",
+            "LegacyGoldenFile",
+            "ReferenceSource",
+            "SuiteMeta",
+            "Tolerance",
+            "ValidatedInfo",
+            "ComparisonResult",
+            "GoldenAssert"
+          ],
+          "functions": [
+            "golden_data_dir",
+            "golden_dir",
+            "golden_path",
+            "is_suite_ready",
+            "load_cases_from_dir",
+            "load_suite_from_dir",
+            "load_suite_from_path",
+            "load_suite_from_str",
+            "assert_abs",
+            "assert_bp",
+            "assert_expected_f64",
+            "assert_expected_value",
+            "assert_map_f64",
+            "assert_money",
+            "assert_money_abs",
+            "assert_nested_map_f64",
+            "assert_pct",
+            "assert_range",
+            "assert_within_tolerance"
+          ],
+          "modules": {},
+          "re_exports": {
+            "types": [
+              "CaseMeta",
+              "Expectation",
+              "ExpectedValue",
+              "GeneratedInfo",
+              "GoldenSuite",
+              "LegacyGoldenFile",
+              "ReferenceSource",
+              "SuiteMeta",
+              "Tolerance",
+              "ValidatedInfo"
+            ],
+            "loader": [
+              "golden_data_dir",
+              "golden_dir",
+              "golden_path",
+              "is_suite_ready",
+              "load_cases_from_dir",
+              "load_suite_from_dir",
+              "load_suite_from_path",
+              "load_suite_from_str"
+            ],
+            "compare": [
+              "assert_abs",
+              "assert_bp",
+              "assert_expected_f64",
+              "assert_expected_value",
+              "assert_map_f64",
+              "assert_money",
+              "assert_money_abs",
+              "assert_nested_map_f64",
+              "assert_pct",
+              "assert_range",
+              "assert_within_tolerance",
+              "ComparisonResult",
+              "GoldenAssert"
+            ]
+          }
+        },
         "market_data": {
           "path": "core/src/market_data",
           "types": [],
@@ -399,8 +485,8 @@
                 "multiplier",
                 "inflation_shift_pct",
                 "correlation_shift_pct",
-                "validate_additive_bp",
-                "validate_parallel"
+                "validate_parallel",
+                "resolve_standard_values"
               ],
               "re_exports": {},
               "modules": {}
@@ -477,6 +563,7 @@
                 "DividendScheduleBuilder"
               ],
               "functions": [
+                "builder",
                 "new",
                 "with_underlying",
                 "with_currency",
@@ -500,25 +587,33 @@
             },
             "scalars": {
               "path": "core/src/market_data/scalars",
-              "types": [],
+              "types": [
+                "InflationIndex",
+                "InflationIndexBuilder",
+                "InflationInterpolation",
+                "InflationLag",
+                "MarketScalar",
+                "ScalarTimeSeries",
+                "SeriesInterpolation"
+              ],
               "functions": [],
               "modules": {},
               "re_exports": {
-                "inflation_index": [],
-                "primitives": []
+                "inflation_index": [
+                  "InflationIndex",
+                  "InflationIndexBuilder",
+                  "InflationInterpolation",
+                  "InflationLag"
+                ],
+                "primitives": [
+                  "MarketScalar",
+                  "ScalarTimeSeries",
+                  "SeriesInterpolation"
+                ]
               }
             },
             "surfaces": {
               "path": "core/src/market_data/surfaces",
-              "types": [],
-              "functions": [],
-              "modules": {},
-              "re_exports": {
-                "vol_surface": []
-              }
-            },
-            "term_structures": {
-              "path": "core/src/market_data/term_structures",
               "types": [
                 "VolSurface",
                 "VolSurfaceBuilder"
@@ -526,17 +621,82 @@
               "functions": [],
               "modules": {},
               "re_exports": {
-                "base_correlation": [],
-                "credit_index": [],
-                "discount_curve": [],
-                "flat": [],
-                "forward_curve": [],
-                "hazard_curve": [],
-                "inflation": [],
-                "vol_index_curve": [],
-                "crate": [
+                "vol_surface": [
                   "VolSurface",
                   "VolSurfaceBuilder"
+                ]
+              }
+            },
+            "term_structures": {
+              "path": "core/src/market_data/term_structures",
+              "types": [
+                "ArbitrageCheckResult",
+                "ArbitrageViolation",
+                "BaseCorrelationCurve",
+                "BaseCorrelationCurveBuilder",
+                "SmoothingMethod",
+                "CreditIndexData",
+                "CreditIndexDataBuilder",
+                "DiscountCurve",
+                "DiscountCurveBuilder",
+                "DEFAULT_MIN_FORWARD_TENOR",
+                "FlatCurve",
+                "ForwardCurve",
+                "ForwardCurveBuilder",
+                "HazardCurve",
+                "HazardCurveBuilder",
+                "ParInterp",
+                "Seniority",
+                "InflationCurve",
+                "InflationCurveBuilder",
+                "PriceCurve",
+                "PriceCurveBuilder",
+                "VolatilityIndexCurve",
+                "VolatilityIndexCurveBuilder"
+              ],
+              "functions": [],
+              "modules": {},
+              "re_exports": {
+                "base_correlation": [
+                  "ArbitrageCheckResult",
+                  "ArbitrageViolation",
+                  "BaseCorrelationCurve",
+                  "BaseCorrelationCurveBuilder",
+                  "SmoothingMethod"
+                ],
+                "credit_index": [
+                  "CreditIndexData",
+                  "CreditIndexDataBuilder"
+                ],
+                "discount_curve": [
+                  "DiscountCurve",
+                  "DiscountCurveBuilder",
+                  "DEFAULT_MIN_FORWARD_TENOR"
+                ],
+                "flat": [
+                  "FlatCurve"
+                ],
+                "forward_curve": [
+                  "ForwardCurve",
+                  "ForwardCurveBuilder"
+                ],
+                "hazard_curve": [
+                  "HazardCurve",
+                  "HazardCurveBuilder",
+                  "ParInterp",
+                  "Seniority"
+                ],
+                "inflation": [
+                  "InflationCurve",
+                  "InflationCurveBuilder"
+                ],
+                "price_curve": [
+                  "PriceCurve",
+                  "PriceCurveBuilder"
+                ],
+                "vol_index_curve": [
+                  "VolatilityIndexCurve",
+                  "VolatilityIndexCurveBuilder"
                 ]
               }
             },
@@ -574,6 +734,7 @@
             "MAX_SOBOL_DIMENSION",
             "Pcg64Rng",
             "RandomNumberGenerator",
+            "Compounding",
             "BracketHint",
             "BrentSolver",
             "NewtonSolver",
@@ -640,6 +801,24 @@
             "map_exercise_dates_to_steps"
           ],
           "modules": {
+            "compounding": {
+              "path": "core/src/math/compounding.rs",
+              "types": [
+                "Compounding",
+                "SEMI_ANNUAL",
+                "QUARTERLY",
+                "MONTHLY"
+              ],
+              "functions": [
+                "periods_per_year",
+                "is_periodic",
+                "df_from_rate",
+                "rate_from_df",
+                "convert_rate"
+              ],
+              "re_exports": {},
+              "modules": {}
+            },
             "distributions": {
               "path": "core/src/math/distributions.rs",
               "types": [],
@@ -674,11 +853,6 @@
               ],
               "functions": [
                 "new",
-                "order_5",
-                "order_7",
-                "order_10",
-                "order_15",
-                "order_20",
                 "integrate",
                 "integrate_adaptive",
                 "simpson_rule",
@@ -853,16 +1027,26 @@
               "functions": [
                 "to_bracket_size",
                 "new",
+                "tolerance",
+                "max_iterations",
+                "min_derivative",
+                "min_derivative_rel",
                 "with_tolerance",
                 "with_max_iterations",
                 "with_min_derivative",
                 "with_min_derivative_rel",
                 "solve_with_derivative",
                 "new",
+                "tolerance",
+                "initial_bracket_size",
+                "max_iterations",
+                "bracket_hint",
+                "bracket_bounds",
                 "with_tolerance",
                 "with_initial_bracket_size",
                 "with_max_iterations",
-                "with_bracket_hint"
+                "with_bracket_hint",
+                "with_bracket_bounds"
               ],
               "re_exports": {},
               "modules": {}
@@ -875,6 +1059,9 @@
                 "LmStats",
                 "LmSolution",
                 "MultiSolver",
+                "LAMBDA_MIN",
+                "LAMBDA_MAX",
+                "LAMBDA_BOUND_WARNING_THRESHOLD",
                 "LevenbergMarquardtSolver"
               ],
               "functions": [
@@ -995,11 +1182,87 @@
               ],
               "functions": [
                 "convert_atm_volatility",
-                "bachelier_price",
-                "black_price",
-                "black_shifted_price"
+                "bachelier_call",
+                "bachelier_delta_call",
+                "bachelier_delta_put",
+                "bachelier_gamma",
+                "bachelier_put",
+                "bachelier_vega",
+                "black_call",
+                "black_delta_call",
+                "black_delta_put",
+                "black_gamma",
+                "black_put",
+                "black_vega",
+                "black_shifted_call",
+                "black_shifted_put",
+                "black_shifted_vega",
+                "brenner_subrahmanyam_approx",
+                "implied_vol_initial_guess",
+                "manaster_koehler_approx",
+                "implied_vol_bachelier",
+                "implied_vol_black"
               ],
-              "modules": {},
+              "modules": {
+                "heston": {
+                  "path": "core/src/math/volatility/heston.rs",
+                  "types": [
+                    "HestonParams",
+                    "HestonCalibrationResult"
+                  ],
+                  "functions": [
+                    "new",
+                    "satisfies_feller_condition",
+                    "price_european",
+                    "calibrate_heston"
+                  ],
+                  "re_exports": {},
+                  "modules": {}
+                },
+                "local_vol": {
+                  "path": "core/src/math/volatility/local_vol.rs",
+                  "types": [
+                    "LocalVolSurface"
+                  ],
+                  "functions": [
+                    "from_implied_vol",
+                    "value",
+                    "expiries",
+                    "strikes",
+                    "grid_shape"
+                  ],
+                  "re_exports": {},
+                  "modules": {}
+                },
+                "sabr": {
+                  "path": "core/src/math/volatility/sabr.rs",
+                  "types": [
+                    "SabrParams"
+                  ],
+                  "functions": [
+                    "new",
+                    "implied_vol_lognormal",
+                    "implied_vol_normal",
+                    "calibrate_sabr"
+                  ],
+                  "re_exports": {},
+                  "modules": {}
+                },
+                "svi": {
+                  "path": "core/src/math/volatility/svi.rs",
+                  "types": [
+                    "SviParams"
+                  ],
+                  "functions": [
+                    "total_variance",
+                    "implied_vol",
+                    "validate",
+                    "calibrate_svi"
+                  ],
+                  "re_exports": {},
+                  "modules": {}
+                }
+              },
               "re_exports": {
                 "conventions": [
                   "VolatilityConvention"
@@ -1008,9 +1271,13 @@
                   "convert_atm_volatility"
                 ],
                 "pricing": [
-                  "bachelier_price",
-                  "black_price",
-                  "black_shifted_price"
+                  "brenner_subrahmanyam_approx",
+                  "implied_vol_initial_guess",
+                  "manaster_koehler_approx"
+                ],
+                "implied": [
+                  "implied_vol_bachelier",
+                  "implied_vol_black"
                 ]
               }
             }
@@ -1071,6 +1338,9 @@
               "Pcg64Rng",
               "RandomNumberGenerator"
             ],
+            "compounding": [
+              "Compounding"
+            ],
             "solver": [
               "BracketHint",
               "BrentSolver",
@@ -1118,8 +1388,7 @@
         "money": {
           "path": "core/src/money",
           "types": [
-            "Money",
-            "Try"
+            "Money"
           ],
           "functions": [],
           "modules": {
@@ -1149,8 +1418,7 @@
           },
           "re_exports": {
             "types": [
-              "Money",
-              "Try"
+              "Money"
             ]
           }
         },
@@ -1165,9 +1433,12 @@
             "DayCount",
             "ScheduleBuilder",
             "Tenor",
+            "DiscountCurve",
             "ForwardCurve",
             "HazardCurve",
             "InflationCurve",
+            "PriceCurve",
+            "VolatilityIndexCurve",
             "FinstackConfig",
             "RoundingMode",
             "Bps",
@@ -1185,7 +1456,7 @@
             "context::MarketContext",
             "scalars::MarketScalar",
             "surfaces::VolSurface",
-            "term_structures::{DiscountCurve"
+            "term_structures::{ BaseCorrelationCurve"
           ],
           "re_exports": {
             "crate": [
@@ -1212,11 +1483,7 @@
             "NotchedRating",
             "RatingFactorTable",
             "RatingLabel",
-            "RatingNotch",
-            "Date",
-            "OffsetDateTime",
-            "PrimitiveDateTime",
-            "Timestamp"
+            "RatingNotch"
           ],
           "functions": [
             "moodys_warf_factor"
@@ -1244,13 +1511,19 @@
               "RatingFactorTable",
               "RatingLabel",
               "RatingNotch"
-            ],
-            "crate": [
-              "Date",
-              "OffsetDateTime",
-              "PrimitiveDateTime"
             ]
           }
+        },
+        "validation": {
+          "path": "core/src/validation.rs",
+          "types": [],
+          "functions": [
+            "require",
+            "require_or",
+            "require_with"
+          ],
+          "re_exports": {},
+          "modules": {}
         }
       }
     },
@@ -1260,20 +1533,34 @@
           "calibration",
           "cashflow",
           "constants",
+          "error",
           "margin",
           "market",
           "prelude",
           "pricer",
           "results",
-          "test_utils",
+          "schema",
           "instruments",
           "attribution",
           "covenants",
-          "metrics"
+          "metrics",
+          "xva"
         ],
-        "types": [],
+        "types": [
+          "PricingError",
+          "Error",
+          "Result"
+        ],
         "functions": [],
-        "re_exports": {}
+        "re_exports": {
+          "pricer": [
+            "PricingError"
+          ],
+          "error": [
+            "Error",
+            "Result"
+          ]
+        }
       },
       "modules": {
         "calibration": {
@@ -1283,15 +1570,16 @@
             "CalibrationMethod",
             "DiscountCurveSolveConfig",
             "HazardCurveSolveConfig",
+            "InflationCurveSolveConfig",
             "RatesStepConventions",
             "ResidualWeightingScheme",
-            "CALIBRATION_CONFIG_KEY",
             "SolverConfig",
             "RateBounds",
             "RateBoundsPolicy",
             "ValidationConfig",
             "ValidationMode",
-            "CalibrationReport"
+            "CalibrationReport",
+            "CALIBRATION_CONFIG_KEY"
           ],
           "functions": [],
           "modules": {
@@ -1340,6 +1628,21 @@
               },
               "re_exports": {}
             },
+            "hull_white": {
+              "path": "valuations/src/calibration/hull_white.rs",
+              "types": [
+                "HullWhiteParams",
+                "SwaptionQuote"
+              ],
+              "functions": [
+                "new",
+                "b_function",
+                "bond_option_vol",
+                "calibrate_hull_white_to_swaptions"
+              ],
+              "re_exports": {},
+              "modules": {}
+            },
             "bumps": {
               "path": "valuations/src/calibration/bumps",
               "types": [
@@ -1370,12 +1673,6 @@
           },
           "re_exports": {
             "config": [
-              "CalibrationConfig",
-              "CalibrationMethod",
-              "DiscountCurveSolveConfig",
-              "HazardCurveSolveConfig",
-              "RatesStepConventions",
-              "ResidualWeightingScheme",
               "CALIBRATION_CONFIG_KEY"
             ],
             "solver": [
@@ -1447,6 +1744,7 @@
                 "FloatingCouponSpec",
                 "FloatingRateSpec",
                 "Notional",
+                "OvernightCompoundingMethod",
                 "PrepaymentCurve",
                 "PrepaymentModelSpec",
                 "RecoveryModelSpec",
@@ -1454,6 +1752,9 @@
               ],
               "functions": [
                 "build_dates",
+                "compute_compounded_rate",
+                "compute_overnight_rate",
+                "compute_simple_average_rate",
                 "project_floating_rate",
                 "project_floating_rate_from_market",
                 "evaluate_fee_tiers",
@@ -1466,13 +1767,38 @@
                 "emit_usage_fee_on"
               ],
               "modules": {
+                "calendar": {
+                  "path": "valuations/src/cashflow/builder/calendar.rs",
+                  "types": [
+                    "WEEKENDS_ONLY_ID"
+                  ],
+                  "functions": [
+                    "resolve_calendar_strict",
+                    "adjust_date"
+                  ],
+                  "re_exports": {},
+                  "modules": {}
+                },
                 "date_generation": {
                   "path": "valuations/src/cashflow/builder/date_generation.rs",
                   "types": [
+                    "SchedulePeriod",
                     "PeriodSchedule"
                   ],
                   "functions": [
                     "build_dates"
+                  ],
+                  "re_exports": {},
+                  "modules": {}
+                },
+                "periods": {
+                  "path": "valuations/src/cashflow/builder/periods.rs",
+                  "types": [
+                    "SchedulePeriod",
+                    "BuildPeriodsParams"
+                  ],
+                  "functions": [
+                    "build_periods"
                   ],
                   "re_exports": {},
                   "modules": {}
@@ -1492,7 +1818,10 @@
                     "calculate_floating_rate",
                     "project_fallback_rate",
                     "project_floating_rate",
-                    "project_floating_rate_from_market"
+                    "project_floating_rate_from_market",
+                    "compute_compounded_rate",
+                    "compute_simple_average_rate",
+                    "compute_overnight_rate"
                   ],
                   "re_exports": {},
                   "modules": {}
@@ -1528,6 +1857,7 @@
                     "FixedCouponSpec",
                     "FloatingCouponSpec",
                     "FloatingRateSpec",
+                    "OvernightCompoundingMethod",
                     "DefaultCurve",
                     "DefaultEvent",
                     "DefaultModelSpec",
@@ -1555,7 +1885,8 @@
                       "CouponType",
                       "FixedCouponSpec",
                       "FloatingCouponSpec",
-                      "FloatingRateSpec"
+                      "FloatingRateSpec",
+                      "OvernightCompoundingMethod"
                     ],
                     "default": [
                       "DefaultCurve",
@@ -1598,6 +1929,9 @@
                   "PeriodSchedule"
                 ],
                 "rate_helpers": [
+                  "compute_compounded_rate",
+                  "compute_overnight_rate",
+                  "compute_simple_average_rate",
                   "project_floating_rate",
                   "project_floating_rate_from_market",
                   "FloatingRateParams"
@@ -1623,6 +1957,7 @@
                   "FloatingCouponSpec",
                   "FloatingRateSpec",
                   "Notional",
+                  "OvernightCompoundingMethod",
                   "PrepaymentCurve",
                   "PrepaymentModelSpec",
                   "RecoveryModelSpec",
@@ -1673,21 +2008,47 @@
             "RATE_COMPARISON_TOLERANCE",
             "DIVISION_EPSILON",
             "RELATIVE_TOLERANCE",
+            "DF_EPSILON",
             "STANDARD_RECOVERY_SENIOR",
             "STANDARD_RECOVERY_SUB",
             "STANDARD_INTEGRATION_POINTS",
             "STANDARD_COUPON_DAY",
             "BUSINESS_DAYS_PER_YEAR_US",
             "BUSINESS_DAYS_PER_YEAR_UK",
-            "BUSINESS_DAYS_PER_YEAR_JP"
+            "BUSINESS_DAYS_PER_YEAR_JP",
+            "SURVIVAL_PROBABILITY_FLOOR",
+            "MIN_TIME_TO_EXPIRY_GREEKS",
+            "MIN_VOLATILITY_GREEKS",
+            "MIN_FORWARD_SPREAD",
+            "MIN_HAZARD_RATE",
+            "DEFAULT_MAX_HAZARD_RATE",
+            "HAZARD_RATE_BRACKET_MULTIPLIER",
+            "PAR_SPREAD_DENOM_TOLERANCE",
+            "SMALL_POOL_THRESHOLD"
           ],
-          "functions": [
-            "one_basis_point_dec",
-            "basis_points_per_unit_dec",
-            "percent_to_decimal_dec",
-            "decimal_to_percent_dec"
+          "functions": [],
+          "re_exports": {
+            "finstack_core": []
+          },
+          "modules": {}
+        },
+        "error": {
+          "path": "valuations/src/error.rs",
+          "types": [
+            "PricingError",
+            "PricingErrorContext",
+            "PricingResult",
+            "Error",
+            "Result"
           ],
-          "re_exports": {},
+          "functions": [],
+          "re_exports": {
+            "crate": [
+              "PricingError",
+              "PricingErrorContext",
+              "PricingResult"
+            ]
+          },
           "modules": {}
         },
         "margin": {
@@ -1863,7 +2224,6 @@
             "constants": {
               "path": "valuations/src/margin/constants.rs",
               "types": [
-                "DAYS_PER_YEAR",
                 "DURATION_APPROXIMATION_FACTOR",
                 "ONE_BP",
                 "STANDARD_CDS_MATURITY_YEARS",
@@ -1880,7 +2240,9 @@
                 "INVESTMENT_GRADE_SPREAD_THRESHOLD_BP"
               ],
               "functions": [],
-              "re_exports": {},
+              "re_exports": {
+                "finstack_core": []
+              },
               "modules": {}
             },
             "metrics": {
@@ -2099,7 +2461,7 @@
         "market": {
           "path": "valuations/src/market",
           "types": [
-            "CdsTrancheBuildOverrides"
+            "CDSTrancheBuildOverrides"
           ],
           "functions": [
             "build_cds_tranche_instrument"
@@ -2180,7 +2542,7 @@
                 "cds_tranche": {
                   "path": "valuations/src/market/quotes/cds_tranche.rs",
                   "types": [
-                    "CdsTrancheQuote"
+                    "CDSTrancheQuote"
                   ],
                   "functions": [
                     "id",
@@ -2274,6 +2636,8 @@
             "InstrumentType",
             "ModelKey",
             "PricerRegistry",
+            "PricingError",
+            "Result",
             "MetricContext",
             "MetricId",
             "MetricRegistry",
@@ -2329,15 +2693,21 @@
             "as_str",
             "new",
             "from_instrument",
+            "instrument_id",
+            "instrument_type",
+            "model",
+            "curve_id",
+            "curve_ids",
             "with_instrument_id",
             "with_instrument_type",
             "with_model",
             "with_curve_id",
             "with_curve_ids",
+            "from_core",
             "type_mismatch",
-            "model_failure_ctx",
-            "invalid_input_ctx",
-            "missing_market_data_ctx",
+            "model_failure_with_context",
+            "invalid_input_with_context",
+            "missing_market_data_with_context",
             "with_context",
             "with_instrument_id",
             "with_instrument_type",
@@ -2349,6 +2719,18 @@
             "get",
             "price_with_registry",
             "price_batch",
+            "register_rates_pricers",
+            "register_credit_pricers",
+            "register_equity_pricers",
+            "register_fx_pricers",
+            "register_fixed_income_pricers",
+            "register_inflation_pricers",
+            "register_exotic_pricers",
+            "register_commodity_pricers",
+            "create_rates_registry",
+            "create_credit_registry",
+            "create_equity_registry",
+            "create_fx_registry",
             "create_standard_registry"
           ],
           "re_exports": {},
@@ -2375,16 +2757,12 @@
             ]
           }
         },
-        "test_utils": {
-          "path": "valuations/src/test_utils.rs",
+        "schema": {
+          "path": "valuations/src/schema.rs",
           "types": [],
           "functions": [
-            "date",
-            "flat_discount",
-            "flat_discount_with_tenor",
-            "flat_forward_with_tenor",
-            "flat_vol_surface",
-            "execute_step"
+            "bond_schema",
+            "valuation_result_schema"
           ],
           "re_exports": {},
           "modules": {}
@@ -2392,6 +2770,17 @@
         "instruments": {
           "path": "valuations/src/instruments",
           "types": [
+            "FxPair",
+            "MarketDependencies",
+            "ResolvedCalendarPair",
+            "Attributes",
+            "CurveDependencies",
+            "CurveIdVec",
+            "EquityDependencies",
+            "EquityInstrumentDeps",
+            "Instrument",
+            "InstrumentCurves",
+            "PricingOptions",
             "AgencyCmo",
             "AgencyMbsPassthrough",
             "AgencyProgram",
@@ -2433,8 +2822,8 @@
             "XccySwap",
             "YoYInflationSwap",
             "CDSIndex",
-            "CdsOption",
-            "CdsTranche",
+            "CDSOption",
+            "CDSTranche",
             "CreditDefaultSwap",
             "Autocallable",
             "CliquetOption",
@@ -2455,6 +2844,12 @@
             "VolatilityIndexFuture",
             "VolatilityIndexOption",
             "FxVarianceSwap",
+            "BarrierDirection",
+            "DigitalPayoutType",
+            "FxDigitalOption",
+            "FxTouchOption",
+            "PayoutTiming",
+            "TouchType",
             "FxBarrierOption",
             "FxForward",
             "FxOption",
@@ -2462,6 +2857,7 @@
             "FxSwap",
             "Ndf",
             "QuantoOption",
+            "CommodityAsianOption",
             "CommodityForward",
             "CommodityOption",
             "CommoditySwap",
@@ -2472,6 +2868,11 @@
             "Basket",
             "LookbackOption",
             "LookbackType",
+            "FxPair",
+            "MarketDependencies",
+            "TotalReturnLegParams",
+            "TrsEngine",
+            "TrsReturnModel",
             "Attributes",
             "CurveDependencies",
             "CurveIdVec",
@@ -2514,2476 +2915,58 @@
             "InstrumentEnvelope",
             "InstrumentJson"
           ],
-          "functions": [],
+          "functions": [
+            "add_joint_business_days",
+            "adjust_joint_calendar",
+            "roll_spot_date"
+          ],
           "modules": {
             "common": {
               "path": "valuations/src/instruments/common",
               "types": [
-                "FxPair",
-                "InstrumentDependencies",
-                "Discountable",
-                "ResolvedCalendarPair",
-                "BinomialTree",
-                "EvolutionParams",
-                "NodeState",
-                "SABRCalibrator",
-                "SABRModel",
-                "SABRParameters",
-                "SABRSmile",
-                "ShortRateModel",
-                "ShortRateTree",
-                "ShortRateTreeConfig",
-                "StateVariables",
-                "TreeBranching",
-                "TreeGreeks",
-                "TreeModel",
-                "TreeParameters",
-                "TreeType",
-                "TreeValuator",
-                "TrinomialTree",
-                "TrinomialTreeType",
-                "BasisSwapLeg",
-                "BondConvention",
-                "ContractSpec",
-                "CreditParams",
-                "EquityOptionParams",
-                "EquityUnderlyingParams",
-                "ExerciseStyle",
-                "FinancingLegSpec",
-                "FixedLegSpec",
-                "FloatLegSpec",
-                "FxOptionParams",
-                "FxUnderlyingParams",
-                "IRSConvention",
-                "IndexUnderlyingParams",
-                "InterestRateOptionParams",
-                "OptionMarketParams",
-                "OptionType",
-                "ParRateMethod",
-                "PayReceive",
-                "PremiumLegSpec",
-                "ProtectionLegSpec",
-                "ScheduleSpec",
-                "SettlementType",
-                "TotalReturnLegSpec",
-                "TrsScheduleSpec",
-                "TrsSide",
-                "UnderlyingParams",
-                "PeriodizedPvExt",
-                "GenericInstrumentPricer",
-                "HasDiscountCurve",
-                "HasForwardCurves",
-                "TotalReturnLegParams",
-                "TrsEngine",
-                "TrsReturnModel",
-                "Attributes",
-                "CurveIdVec",
-                "EquityDependencies",
-                "EquityInstrumentDeps",
-                "Instrument",
-                "PricingOptions"
+                "GenericInstrumentPricer"
               ],
-              "functions": [
-                "add_joint_business_days",
-                "add_joint_business_days_with_calendars",
-                "adjust_joint_calendar",
-                "adjust_joint_calendar_with_calendars",
-                "roll_spot_date",
-                "validate_currency_consistency",
-                "d1",
-                "d1_d2",
-                "d1_d2_black76",
-                "d2",
-                "norm_cdf",
-                "norm_pdf",
-                "short_rate_keys",
-                "single_factor_equity_state",
-                "state_keys",
-                "two_factor_equity_rates_state"
-              ],
-              "modules": {
-                "models": {
-                  "path": "valuations/src/instruments/common/models",
-                  "types": [
-                    "AsianGreeks",
-                    "AsianPriceResult",
-                    "BarrierType",
-                    "BsGreeks",
-                    "HestonParams",
-                    "ONE_PERCENT",
-                    "ConstantRecovery",
-                    "Copula",
-                    "CopulaSpec",
-                    "CorrelatedBernoulli",
-                    "CorrelatedRecovery",
-                    "FactorModel",
-                    "FactorSpec",
-                    "GaussianCopula",
-                    "MultiFactorCopula",
-                    "RandomFactorLoadingCopula",
-                    "RecoveryModel",
-                    "RecoverySpec",
-                    "SingleFactorModel",
-                    "StudentTCopula",
-                    "TwoFactorModel",
-                    "BarrierSpec",
-                    "BarrierStyle",
-                    "BinomialTree",
-                    "EvolutionParams",
-                    "NodeState",
-                    "ShortRateModel",
-                    "ShortRateTree",
-                    "ShortRateTreeConfig",
-                    "StateVariables",
-                    "TreeBranching",
-                    "TreeGreeks",
-                    "TreeModel",
-                    "TreeParameters",
-                    "TreeType",
-                    "TreeValuator",
-                    "TrinomialTree",
-                    "TrinomialTreeType",
-                    "SABRCalibrator",
-                    "SABRModel",
-                    "SABRParameters",
-                    "SABRSmile"
-                  ],
-                  "functions": [
-                    "arithmetic_asian_call_tw",
-                    "arithmetic_asian_put_tw",
-                    "barrier_call_continuous",
-                    "barrier_put_continuous",
-                    "bs_call_delta",
-                    "bs_call_greeks",
-                    "bs_call_rho",
-                    "bs_call_theta",
-                    "bs_gamma",
-                    "bs_greeks",
-                    "bs_price",
-                    "bs_put_delta",
-                    "bs_put_greeks",
-                    "bs_put_rho",
-                    "bs_put_theta",
-                    "bs_vega",
-                    "down_in_call",
-                    "down_out_call",
-                    "fixed_strike_lookback_call",
-                    "fixed_strike_lookback_put",
-                    "floating_strike_lookback_call",
-                    "floating_strike_lookback_put",
-                    "geometric_asian_call",
-                    "geometric_asian_put",
-                    "heston_call_price_fourier",
-                    "heston_put_price_fourier",
-                    "quanto_call",
-                    "quanto_call_simple",
-                    "quanto_drift_adjustment",
-                    "quanto_put",
-                    "quanto_put_simple",
-                    "up_in_call",
-                    "up_out_call",
-                    "joint_probabilities",
-                    "short_rate_keys",
-                    "single_factor_equity_state",
-                    "state_keys",
-                    "two_factor_equity_rates_state",
-                    "d1",
-                    "d1_black76",
-                    "d1_d2",
-                    "d1_d2_black76",
-                    "d2",
-                    "d2_black76",
-                    "norm_cdf",
-                    "norm_pdf"
-                  ],
-                  "modules": {
-                    "closed_form": {
-                      "path": "valuations/src/instruments/common/models/closed_form",
-                      "types": [
-                        "AsianGreeks",
-                        "AsianPriceResult",
-                        "BarrierType",
-                        "HestonParams",
-                        "BsGreeks",
-                        "ONE_PERCENT"
-                      ],
-                      "functions": [
-                        "arithmetic_asian_call_tw",
-                        "arithmetic_asian_put_tw",
-                        "geometric_asian_call",
-                        "geometric_asian_put",
-                        "barrier_call_continuous",
-                        "barrier_put_continuous",
-                        "down_in_call",
-                        "down_out_call",
-                        "up_in_call",
-                        "up_out_call",
-                        "bs_call_delta",
-                        "bs_call_greeks",
-                        "bs_call_rho",
-                        "bs_call_theta",
-                        "bs_gamma",
-                        "bs_put_delta",
-                        "bs_put_greeks",
-                        "bs_put_rho",
-                        "bs_put_theta",
-                        "bs_vega",
-                        "heston_call_price_fourier",
-                        "heston_put_price_fourier",
-                        "fixed_strike_lookback_call",
-                        "fixed_strike_lookback_put",
-                        "floating_strike_lookback_call",
-                        "floating_strike_lookback_put",
-                        "quanto_call",
-                        "quanto_call_simple",
-                        "quanto_drift_adjustment",
-                        "quanto_put",
-                        "quanto_put_simple",
-                        "bs_greeks",
-                        "bs_price"
-                      ],
-                      "modules": {
-                        "asian": {
-                          "path": "valuations/src/instruments/common/models/closed_form/asian.rs",
-                          "types": [
-                            "AsianPriceResult",
-                            "AsianGreeks"
-                          ],
-                          "functions": [
-                            "geometric_asian_call",
-                            "geometric_asian_put",
-                            "arithmetic_asian_call_tw",
-                            "arithmetic_asian_put_tw"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "barrier": {
-                          "path": "valuations/src/instruments/common/models/closed_form/barrier.rs",
-                          "types": [
-                            "BarrierParams",
-                            "BarrierType"
-                          ],
-                          "functions": [
-                            "new",
-                            "barrier_touch_probability",
-                            "barrier_rebate_continuous",
-                            "up_out_call",
-                            "up_in_call",
-                            "down_out_call",
-                            "down_in_call",
-                            "barrier_call_continuous",
-                            "down_in_put",
-                            "down_out_put",
-                            "up_in_put",
-                            "up_out_put",
-                            "barrier_put_continuous"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "greeks": {
-                          "path": "valuations/src/instruments/common/models/closed_form/greeks.rs",
-                          "types": [],
-                          "functions": [
-                            "bs_call_delta",
-                            "bs_put_delta",
-                            "bs_gamma",
-                            "bs_vega",
-                            "bs_call_theta",
-                            "bs_put_theta",
-                            "bs_call_rho",
-                            "bs_put_rho",
-                            "bs_call_greeks",
-                            "bs_put_greeks"
-                          ],
-                          "re_exports": {
-                            "super": []
-                          },
-                          "modules": {}
-                        },
-                        "heston": {
-                          "path": "valuations/src/instruments/common/models/closed_form/heston.rs",
-                          "types": [
-                            "HestonParams",
-                            "HestonFourierSettings"
-                          ],
-                          "functions": [
-                            "new",
-                            "heston_call_price_fourier",
-                            "heston_call_price_fourier_with_settings",
-                            "heston_put_price_fourier",
-                            "heston_put_price_fourier_with_settings"
-                          ],
-                          "re_exports": {
-                            "crate": []
-                          },
-                          "modules": {}
-                        },
-                        "lookback": {
-                          "path": "valuations/src/instruments/common/models/closed_form/lookback.rs",
-                          "types": [],
-                          "functions": [
-                            "fixed_strike_lookback_call",
-                            "fixed_strike_lookback_put",
-                            "floating_strike_lookback_call",
-                            "floating_strike_lookback_put"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "quanto": {
-                          "path": "valuations/src/instruments/common/models/closed_form/quanto.rs",
-                          "types": [],
-                          "functions": [
-                            "quanto_drift_adjustment",
-                            "quanto_call",
-                            "quanto_put",
-                            "quanto_call_simple",
-                            "quanto_put_simple"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "vanilla": {
-                          "path": "valuations/src/instruments/common/models/closed_form/vanilla.rs",
-                          "types": [
-                            "ONE_PERCENT",
-                            "BsGreeks"
-                          ],
-                          "functions": [
-                            "is_valid",
-                            "clamped",
-                            "bs_price",
-                            "bs_greeks"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        }
-                      },
-                      "re_exports": {
-                        "asian": [
-                          "arithmetic_asian_call_tw",
-                          "arithmetic_asian_put_tw",
-                          "geometric_asian_call",
-                          "geometric_asian_put",
-                          "AsianGreeks",
-                          "AsianPriceResult"
-                        ],
-                        "barrier": [
-                          "barrier_call_continuous",
-                          "barrier_put_continuous",
-                          "down_in_call",
-                          "down_out_call",
-                          "up_in_call",
-                          "up_out_call",
-                          "BarrierType"
-                        ],
-                        "greeks": [
-                          "bs_call_delta",
-                          "bs_call_greeks",
-                          "bs_call_rho",
-                          "bs_call_theta",
-                          "bs_gamma",
-                          "bs_put_delta",
-                          "bs_put_greeks",
-                          "bs_put_rho",
-                          "bs_put_theta",
-                          "bs_vega"
-                        ],
-                        "heston": [
-                          "heston_call_price_fourier",
-                          "heston_put_price_fourier",
-                          "HestonParams"
-                        ],
-                        "lookback": [
-                          "fixed_strike_lookback_call",
-                          "fixed_strike_lookback_put",
-                          "floating_strike_lookback_call",
-                          "floating_strike_lookback_put"
-                        ],
-                        "quanto": [
-                          "quanto_call",
-                          "quanto_call_simple",
-                          "quanto_drift_adjustment",
-                          "quanto_put",
-                          "quanto_put_simple"
-                        ],
-                        "vanilla": [
-                          "bs_greeks",
-                          "bs_price",
-                          "BsGreeks",
-                          "ONE_PERCENT"
-                        ]
-                      }
-                    },
-                    "correlation": {
-                      "path": "valuations/src/instruments/common/models/correlation",
-                      "types": [
-                        "Copula",
-                        "CopulaSpec",
-                        "GaussianCopula",
-                        "MultiFactorCopula",
-                        "RandomFactorLoadingCopula",
-                        "StudentTCopula",
-                        "CorrelationMatrixError",
-                        "FactorModel",
-                        "FactorSpec",
-                        "MultiFactorModel",
-                        "SingleFactorModel",
-                        "TwoFactorModel",
-                        "CorrelatedBernoulli",
-                        "ConstantRecovery",
-                        "CorrelatedRecovery",
-                        "RecoveryModel",
-                        "RecoverySpec"
-                      ],
-                      "functions": [
-                        "cholesky_decompose",
-                        "validate_correlation_matrix",
-                        "correlation_bounds",
-                        "joint_probabilities"
-                      ],
-                      "modules": {
-                        "copula": {
-                          "path": "valuations/src/instruments/common/models/correlation/copula",
-                          "types": [
-                            "GaussianCopula",
-                            "MultiFactorCopula",
-                            "RandomFactorLoadingCopula",
-                            "StudentTCopula",
-                            "Copula",
-                            "CopulaSpec"
-                          ],
-                          "functions": [
-                            "gaussian",
-                            "student_t",
-                            "random_factor_loading",
-                            "multi_factor",
-                            "build_gaussian",
-                            "build_student_t",
-                            "build_rfl",
-                            "build_multi_factor",
-                            "is_gaussian",
-                            "is_student_t",
-                            "is_rfl",
-                            "is_multi_factor"
-                          ],
-                          "modules": {},
-                          "re_exports": {
-                            "gaussian": [
-                              "GaussianCopula"
-                            ],
-                            "multi_factor": [
-                              "MultiFactorCopula"
-                            ],
-                            "random_factor_loading": [
-                              "RandomFactorLoadingCopula"
-                            ],
-                            "student_t": [
-                              "StudentTCopula"
-                            ]
-                          }
-                        },
-                        "factor_model": {
-                          "path": "valuations/src/instruments/common/models/correlation/factor_model.rs",
-                          "types": [
-                            "CorrelationMatrixError",
-                            "FactorModel",
-                            "FactorSpec",
-                            "SingleFactorModel",
-                            "TwoFactorModel",
-                            "MultiFactorModel"
-                          ],
-                          "functions": [
-                            "validate_correlation_matrix",
-                            "cholesky_decompose",
-                            "single_factor",
-                            "two_factor",
-                            "build",
-                            "num_factors",
-                            "new",
-                            "volatility",
-                            "mean_reversion",
-                            "new",
-                            "rmbs_standard",
-                            "clo_standard",
-                            "prepay_vol",
-                            "credit_vol",
-                            "correlation",
-                            "cholesky_l10",
-                            "cholesky_l11",
-                            "new",
-                            "validated",
-                            "uncorrelated",
-                            "cholesky_factor",
-                            "generate_correlated_factors"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "joint_probability": {
-                          "path": "valuations/src/instruments/common/models/correlation/joint_probability.rs",
-                          "types": [
-                            "CorrelatedBernoulli"
-                          ],
-                          "functions": [
-                            "correlation_bounds",
-                            "joint_probabilities"
-                          ],
-                          "re_exports": {
-                            "finstack_core": [
-                              "correlation_bounds",
-                              "joint_probabilities",
-                              "CorrelatedBernoulli"
-                            ]
-                          },
-                          "modules": {}
-                        },
-                        "recovery": {
-                          "path": "valuations/src/instruments/common/models/correlation/recovery",
-                          "types": [
-                            "ConstantRecovery",
-                            "CorrelatedRecovery",
-                            "RecoveryModel",
-                            "RecoverySpec"
-                          ],
-                          "functions": [
-                            "constant",
-                            "market_correlated",
-                            "market_standard_stochastic",
-                            "beta",
-                            "frye",
-                            "build",
-                            "expected_recovery"
-                          ],
-                          "modules": {},
-                          "re_exports": {
-                            "constant": [
-                              "ConstantRecovery"
-                            ],
-                            "correlated": [
-                              "CorrelatedRecovery"
-                            ]
-                          }
-                        }
-                      },
-                      "re_exports": {
-                        "copula": [
-                          "Copula",
-                          "CopulaSpec",
-                          "GaussianCopula",
-                          "MultiFactorCopula",
-                          "RandomFactorLoadingCopula",
-                          "StudentTCopula"
-                        ],
-                        "factor_model": [
-                          "cholesky_decompose",
-                          "validate_correlation_matrix",
-                          "CorrelationMatrixError",
-                          "FactorModel",
-                          "FactorSpec",
-                          "MultiFactorModel",
-                          "SingleFactorModel",
-                          "TwoFactorModel"
-                        ],
-                        "joint_probability": [
-                          "correlation_bounds",
-                          "joint_probabilities",
-                          "CorrelatedBernoulli"
-                        ],
-                        "recovery": [
-                          "ConstantRecovery",
-                          "CorrelatedRecovery",
-                          "RecoveryModel",
-                          "RecoverySpec"
-                        ]
-                      }
-                    },
-                    "monte_carlo": {
-                      "path": "valuations/src/instruments/common/models/monte_carlo",
-                      "types": [
-                        "PathObserver",
-                        "Payoff",
-                        "McEngine",
-                        "McEngineBuilder",
-                        "McEngineConfig",
-                        "PathCaptureConfig",
-                        "PathCaptureMode",
-                        "MoneyEstimate",
-                        "MonteCarloResult",
-                        "AsianCall",
-                        "AsianPut",
-                        "AveragingMethod",
-                        "BarrierOptionPayoff",
-                        "BarrierType",
-                        "BasketCall",
-                        "BasketPut",
-                        "BasketType",
-                        "ExchangeOption",
-                        "Digital",
-                        "EuropeanCall",
-                        "EuropeanPut",
-                        "Forward",
-                        "LaguerreBasis",
-                        "PolynomialBasis",
-                        "EuropeanPricer",
-                        "EuropeanPricerConfig",
-                        "AmericanCall",
-                        "AmericanPut",
-                        "LsmcConfig",
-                        "LsmcPricer",
-                        "PathDependentPricer",
-                        "PathDependentPricerConfig",
-                        "PathDataset",
-                        "PathPoint",
-                        "PathSamplingMethod",
-                        "ProcessParams",
-                        "SimulatedPath",
-                        "Discretization",
-                        "PathState",
-                        "RandomStream",
-                        "StochasticProcess"
-                      ],
-                      "functions": [
-                        "geometric_asian_call_closed_form",
-                        "margrabe_exchange_option",
-                        "black_scholes_call",
-                        "black_scholes_put"
-                      ],
-                      "modules": {
-                        "barriers": {
-                          "path": "valuations/src/instruments/common/models/monte_carlo/barriers",
-                          "types": [],
-                          "functions": [],
-                          "modules": {
-                            "bridge": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/barriers/bridge.rs",
-                              "types": [
-                                "BarrierDirection"
-                              ],
-                              "functions": [
-                                "bridge_hit_probability",
-                                "check_barrier_hit"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "corrections": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/barriers/corrections.rs",
-                              "types": [
-                                "GOBET_MIRI_BETA"
-                              ],
-                              "functions": [
-                                "gobet_miri_adjusted_barrier",
-                                "half_step_adjusted_barrier"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            }
-                          },
-                          "re_exports": {}
-                        },
-                        "discretization": {
-                          "path": "valuations/src/instruments/common/models/monte_carlo/discretization",
-                          "types": [],
-                          "functions": [],
-                          "modules": {
-                            "revolving_credit": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/discretization/revolving_credit.rs",
-                              "types": [
-                                "RevolvingCreditDiscretization"
-                              ],
-                              "functions": [
-                                "new",
-                                "from_process"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            }
-                          },
-                          "re_exports": {}
-                        },
-                        "engine": {
-                          "path": "valuations/src/instruments/common/models/monte_carlo/engine.rs",
-                          "types": [
-                            "PathCaptureMode",
-                            "PathCaptureConfig",
-                            "McEngineConfig",
-                            "McEngineBuilder",
-                            "McEngine"
-                          ],
-                          "functions": [
-                            "new",
-                            "all",
-                            "sample",
-                            "with_payoffs",
-                            "disabled",
-                            "should_capture",
-                            "new",
-                            "with_seed",
-                            "with_target_ci",
-                            "with_parallel",
-                            "with_chunk_size",
-                            "with_path_capture",
-                            "with_antithetic",
-                            "capture_all_paths",
-                            "capture_sample_paths",
-                            "new",
-                            "num_paths",
-                            "seed",
-                            "time_grid",
-                            "uniform_grid",
-                            "target_ci",
-                            "parallel",
-                            "chunk_size",
-                            "path_capture",
-                            "capture_all_paths",
-                            "capture_sample_paths",
-                            "antithetic",
-                            "build",
-                            "builder",
-                            "new",
-                            "config",
-                            "price",
-                            "price_with_capture"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "greeks": {
-                          "path": "valuations/src/instruments/common/models/monte_carlo/greeks",
-                          "types": [],
-                          "functions": [],
-                          "modules": {
-                            "pathwise": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/greeks/pathwise.rs",
-                              "types": [],
-                              "functions": [
-                                "pathwise_delta_call",
-                                "pathwise_delta_put",
-                                "pathwise_vega"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "lrm": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/greeks/lrm.rs",
-                              "types": [],
-                              "functions": [
-                                "lrm_delta",
-                                "lrm_vega",
-                                "lrm_rho"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "finite_diff": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/greeks/finite_diff.rs",
-                              "types": [],
-                              "functions": [
-                                "finite_diff_delta",
-                                "finite_diff_gamma"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            }
-                          },
-                          "re_exports": {}
-                        },
-                        "payoff": {
-                          "path": "valuations/src/instruments/common/models/monte_carlo/payoff",
-                          "types": [],
-                          "functions": [],
-                          "modules": {
-                            "vanilla": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/vanilla.rs",
-                              "types": [
-                                "EuropeanCall",
-                                "EuropeanPut",
-                                "Digital",
-                                "Forward"
-                              ],
-                              "functions": [
-                                "new",
-                                "new",
-                                "call",
-                                "put",
-                                "long",
-                                "short"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "asian": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/asian.rs",
-                              "types": [
-                                "AveragingMethod",
-                                "AsianCall",
-                                "AsianPut"
-                              ],
-                              "functions": [
-                                "new",
-                                "with_history",
-                                "new",
-                                "with_history",
-                                "geometric_asian_call_closed_form"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "barrier": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/barrier.rs",
-                              "types": [
-                                "BarrierType",
-                                "BarrierOptionPayoff"
-                              ],
-                              "functions": [
-                                "is_knock_out",
-                                "is_knock_in",
-                                "direction",
-                                "is_up",
-                                "new",
-                                "effective_barrier"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "lookback": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/lookback.rs",
-                              "types": [
-                                "LookbackDirection",
-                                "Lookback",
-                                "FloatingStrikeLookbackCall"
-                              ],
-                              "functions": [
-                                "new",
-                                "new"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "basket": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/basket.rs",
-                              "types": [
-                                "BasketType",
-                                "BasketCall",
-                                "BasketPut",
-                                "ExchangeOption"
-                              ],
-                              "functions": [
-                                "new",
-                                "compute_basket_value",
-                                "new",
-                                "compute_basket_value",
-                                "new",
-                                "margrabe_exchange_option"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "rates": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/rates.rs",
-                              "types": [
-                                "RatesPayoffType",
-                                "HullWhiteParams",
-                                "RatesPayoff"
-                              ],
-                              "functions": [
-                                "new",
-                                "b_function",
-                                "forward_rate",
-                                "new",
-                                "with_hull_white",
-                                "set_hull_white_params",
-                                "cap_floor_parity_swap_value"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "swaption": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/swaption.rs",
-                              "types": [
-                                "SwaptionType",
-                                "SwapSchedule",
-                                "BermudanSwaptionPayoff"
-                              ],
-                              "functions": [
-                                "new",
-                                "annuity",
-                                "new",
-                                "compute_swap_value_from_rate",
-                                "set_swap_value"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "quanto": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/quanto.rs",
-                              "types": [
-                                "QuantoCallPayoff",
-                                "QuantoPutPayoff"
-                              ],
-                              "functions": [
-                                "new",
-                                "compute_quanto_adjustment",
-                                "new"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "autocallable": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/autocallable.rs",
-                              "types": [
-                                "FinalPayoffType",
-                                "AutocallablePayoff"
-                              ],
-                              "functions": [
-                                "final_spot",
-                                "new"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "cms": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/cms.rs",
-                              "types": [
-                                "CmsType",
-                                "CmsPayoff"
-                              ],
-                              "functions": [
-                                "new",
-                                "new_cap",
-                                "new_floor",
-                                "compute_convexity_adjustment"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "cliquet": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/cliquet.rs",
-                              "types": [
-                                "CliquetCallPayoff",
-                                "CliquetPayoffType"
-                              ],
-                              "functions": [
-                                "new"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "range_accrual": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/range_accrual.rs",
-                              "types": [
-                                "RangeAccrualPayoff"
-                              ],
-                              "functions": [
-                                "new"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "fx_barrier": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/payoff/fx_barrier.rs",
-                              "types": [
-                                "FxBarrierCall"
-                              ],
-                              "functions": [
-                                "new",
-                                "standard",
-                                "quanto"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            }
-                          },
-                          "re_exports": {
-                            "basket": [],
-                            "rates": [],
-                            "swaption": [],
-                            "quanto": [],
-                            "autocallable": [],
-                            "cms": [],
-                            "cliquet": [],
-                            "range_accrual": [],
-                            "fx_barrier": [],
-                            "traits": [],
-                            "vanilla": []
-                          }
-                        },
-                        "process": {
-                          "path": "valuations/src/instruments/common/models/monte_carlo/process",
-                          "types": [],
-                          "functions": [],
-                          "modules": {
-                            "revolving_credit": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/process/revolving_credit.rs",
-                              "types": [
-                                "UtilizationParams",
-                                "CreditSpreadParams",
-                                "InterestRateSpec",
-                                "RevolvingCreditProcessParams",
-                                "RevolvingCreditProcess"
-                              ],
-                              "functions": [
-                                "new",
-                                "new",
-                                "new",
-                                "with_correlation",
-                                "with_time_offset",
-                                "initial_state",
-                                "new",
-                                "params",
-                                "has_correlation",
-                                "correlation"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            }
-                          },
-                          "re_exports": {}
-                        },
-                        "results": {
-                          "path": "valuations/src/instruments/common/models/monte_carlo/results.rs",
-                          "types": [
-                            "MoneyEstimate",
-                            "MonteCarloResult",
-                            "MonteCarloGreeks"
-                          ],
-                          "functions": [
-                            "from_estimate",
-                            "relative_stderr",
-                            "new",
-                            "with_paths",
-                            "has_paths",
-                            "paths",
-                            "num_captured_paths",
-                            "estimate"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "seed": {
-                          "path": "valuations/src/instruments/common/models/monte_carlo/seed.rs",
-                          "types": [],
-                          "functions": [
-                            "derive_seed",
-                            "derive_seed_for_metric"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "variance_reduction": {
-                          "path": "valuations/src/instruments/common/models/monte_carlo/variance_reduction",
-                          "types": [],
-                          "functions": [],
-                          "modules": {
-                            "antithetic": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/variance_reduction/antithetic.rs",
-                              "types": [
-                                "AntitheticConfig"
-                              ],
-                              "functions": [
-                                "antithetic_price"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "control_variate": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/variance_reduction/control_variate.rs",
-                              "types": [],
-                              "functions": [
-                                "black_scholes_call",
-                                "black_scholes_put",
-                                "apply_control_variate",
-                                "covariance"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "moment_matching": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/variance_reduction/moment_matching.rs",
-                              "types": [],
-                              "functions": [
-                                "match_standard_normal_moments",
-                                "match_moments_per_step"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            },
-                            "importance_sampling": {
-                              "path": "valuations/src/instruments/common/models/monte_carlo/variance_reduction/importance_sampling.rs",
-                              "types": [
-                                "DEFAULT_ESS_THRESHOLD",
-                                "ImportanceSamplingResult"
-                              ],
-                              "functions": [
-                                "exponential_tilt",
-                                "weighted_estimate",
-                                "weighted_estimate_with_diagnostics",
-                                "effective_sample_size"
-                              ],
-                              "re_exports": {},
-                              "modules": {}
-                            }
-                          },
-                          "re_exports": {
-                            "antithetic": [],
-                            "control_variate": []
-                          }
-                        }
-                      },
-                      "re_exports": {
-                        "traits": [
-                          "PathObserver",
-                          "Payoff"
-                        ],
-                        "super": [
-                          "black_scholes_call",
-                          "black_scholes_put"
-                        ],
-                        "crate": [
-                          "Discretization",
-                          "PathState",
-                          "RandomStream",
-                          "StochasticProcess"
-                        ]
-                      }
-                    },
-                    "trees": {
-                      "path": "valuations/src/instruments/common/models/trees",
-                      "types": [
-                        "BinomialTree",
-                        "TreeType",
-                        "HullWhiteTree",
-                        "HullWhiteTreeConfig",
-                        "ShortRateModel",
-                        "ShortRateTree",
-                        "ShortRateTreeConfig",
-                        "DEFAULT_LOGNORMAL_VOL",
-                        "DEFAULT_NORMAL_VOL",
-                        "BarrierSpec",
-                        "BarrierStyle",
-                        "EvolutionParams",
-                        "GreeksBumpConfig",
-                        "NodeState",
-                        "StateVariables",
-                        "TreeBranching",
-                        "TreeGreeks",
-                        "TreeModel",
-                        "TreeParameters",
-                        "TreeValuator",
-                        "TrinomialTree",
-                        "TrinomialTreeType"
-                      ],
-                      "functions": [
-                        "short_rate_keys",
-                        "single_factor_equity_state",
-                        "state_keys",
-                        "two_factor_equity_rates_state"
-                      ],
-                      "modules": {
-                        "binomial_tree": {
-                          "path": "valuations/src/instruments/common/models/trees/binomial_tree.rs",
-                          "types": [
-                            "TreeType",
-                            "BinomialTree",
-                            "BinomialGreeks"
-                          ],
-                          "functions": [
-                            "new",
-                            "leisen_reimer",
-                            "leisen_reimer_odd",
-                            "crr",
-                            "price_american",
-                            "price_european",
-                            "price_bermudan",
-                            "calculate_greeks",
-                            "price_barrier_out",
-                            "price_barrier_in",
-                            "price_barrier_in_american",
-                            "price_barrier_in_bermudan",
-                            "price_generic",
-                            "richardson_extrapolate"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "hull_white_tree": {
-                          "path": "valuations/src/instruments/common/models/trees/hull_white_tree.rs",
-                          "types": [
-                            "HullWhiteTreeConfig",
-                            "HullWhiteTree"
-                          ],
-                          "functions": [
-                            "new",
-                            "with_max_nodes",
-                            "validate",
-                            "calibrate",
-                            "config",
-                            "num_steps",
-                            "time_at_step",
-                            "dt",
-                            "num_nodes",
-                            "rate_at_node",
-                            "probabilities",
-                            "state_price",
-                            "bond_price",
-                            "forward_swap_rate",
-                            "annuity",
-                            "backward_induction",
-                            "time_to_step"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "short_rate_tree": {
-                          "path": "valuations/src/instruments/common/models/trees/short_rate_tree.rs",
-                          "types": [
-                            "DEFAULT_NORMAL_VOL",
-                            "DEFAULT_LOGNORMAL_VOL",
-                            "ShortRateModel",
-                            "ShortRateTreeConfig",
-                            "CalibrationResult",
-                            "ShortRateTree",
-                            "SHORT_RATE",
-                            "OAS",
-                            "STEP",
-                            "NODE",
-                            "TIME"
-                          ],
-                          "functions": [
-                            "ho_lee",
-                            "bdt",
-                            "default_ho_lee",
-                            "default_bdt",
-                            "with_trinomial",
-                            "with_binomial",
-                            "from_normal_vol",
-                            "is_acceptable",
-                            "is_good",
-                            "new",
-                            "calibration_result",
-                            "ho_lee",
-                            "black_derman_toy",
-                            "default_ho_lee",
-                            "default_bdt",
-                            "calibrate",
-                            "rate_at_node",
-                            "probabilities",
-                            "time_at_step"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "tree_framework": {
-                          "path": "valuations/src/instruments/common/models/trees/tree_framework.rs",
-                          "types": [
-                            "SPOT",
-                            "INTEREST_RATE",
-                            "CREDIT_SPREAD",
-                            "HAZARD_RATE",
-                            "DIVIDEND_YIELD",
-                            "VOLATILITY",
-                            "BARRIER_TOUCHED_UP",
-                            "BARRIER_TOUCHED_DOWN",
-                            "StateVariables",
-                            "NodeState",
-                            "BarrierState",
-                            "BarrierType",
-                            "TreeValuator",
-                            "TreeModel",
-                            "TreeGreeks",
-                            "GreeksBumpConfig",
-                            "TreeBranching",
-                            "TreeParameters",
-                            "EvolutionParams",
-                            "BarrierStyle",
-                            "BarrierSpec",
-                            "StateGenerator",
-                            "RecombiningInputs"
-                          ],
-                          "functions": [
-                            "map_date_to_step",
-                            "map_dates_to_steps",
-                            "map_exercise_dates_to_steps",
-                            "new",
-                            "new_with_barrier",
-                            "get_var",
-                            "get_var_or",
-                            "spot",
-                            "interest_rate",
-                            "credit_spread",
-                            "hazard_rate",
-                            "discount_factor",
-                            "is_barrier_hit",
-                            "update_barrier_state",
-                            "is_knocked_out",
-                            "is_knocked_in",
-                            "barrier_touched_up",
-                            "barrier_touched_down",
-                            "richardson_extrapolate",
-                            "richardson_price",
-                            "adaptive",
-                            "with_spot_bump",
-                            "spot_bump",
-                            "equity_crr",
-                            "equity_trinomial",
-                            "interest_rate",
-                            "price_recombining_tree",
-                            "single_factor_equity_state",
-                            "two_factor_equity_rates_state"
-                          ],
-                          "re_exports": {
-                            "finstack_core": [
-                              "map_date_to_step",
-                              "map_dates_to_steps",
-                              "map_exercise_dates_to_steps"
-                            ]
-                          },
-                          "modules": {}
-                        },
-                        "trinomial_tree": {
-                          "path": "valuations/src/instruments/common/models/trees/trinomial_tree.rs",
-                          "types": [
-                            "TrinomialTreeType",
-                            "TrinomialTree"
-                          ],
-                          "functions": [
-                            "new",
-                            "standard",
-                            "boyle",
-                            "price_generic"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "two_factor_rates_credit": {
-                          "path": "valuations/src/instruments/common/models/trees/two_factor_rates_credit.rs",
-                          "types": [
-                            "RatesCreditConfig",
-                            "RatesCreditTree"
-                          ],
-                          "functions": [
-                            "new",
-                            "align_hazard_from_curve"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        }
-                      },
-                      "re_exports": {
-                        "binomial_tree": [
-                          "BinomialTree",
-                          "TreeType"
-                        ],
-                        "hull_white_tree": [
-                          "HullWhiteTree",
-                          "HullWhiteTreeConfig"
-                        ],
-                        "short_rate_tree": [
-                          "short_rate_keys",
-                          "ShortRateModel",
-                          "ShortRateTree",
-                          "ShortRateTreeConfig",
-                          "DEFAULT_LOGNORMAL_VOL",
-                          "DEFAULT_NORMAL_VOL"
-                        ],
-                        "tree_framework": [
-                          "single_factor_equity_state",
-                          "state_keys",
-                          "two_factor_equity_rates_state",
-                          "BarrierSpec",
-                          "BarrierStyle",
-                          "EvolutionParams",
-                          "GreeksBumpConfig",
-                          "NodeState",
-                          "StateVariables",
-                          "TreeBranching",
-                          "TreeGreeks",
-                          "TreeModel",
-                          "TreeParameters",
-                          "TreeValuator"
-                        ],
-                        "trinomial_tree": [
-                          "TrinomialTree",
-                          "TrinomialTreeType"
-                        ]
-                      }
-                    },
-                    "volatility": {
-                      "path": "valuations/src/instruments/common/models/volatility",
-                      "types": [
-                        "HestonModel",
-                        "HestonParameters",
-                        "LocalVolBuilder",
-                        "LocalVolSurface",
-                        "SABRCalibrator",
-                        "SABRModel",
-                        "SABRParameters",
-                        "SABRSmile",
-                        "SABRCalibrationDerivatives",
-                        "SABRMarketData"
-                      ],
-                      "functions": [
-                        "d1",
-                        "d1_black76",
-                        "d1_d2",
-                        "d1_d2_black76",
-                        "d2",
-                        "d2_black76",
-                        "norm_cdf",
-                        "norm_pdf",
-                        "bachelier_price",
-                        "d_bachelier"
-                      ],
-                      "modules": {
-                        "black": {
-                          "path": "valuations/src/instruments/common/models/volatility/black.rs",
-                          "types": [],
-                          "functions": [
-                            "d1",
-                            "d2",
-                            "d1_d2",
-                            "d1_black76",
-                            "d2_black76",
-                            "d1_d2_black76"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "heston": {
-                          "path": "valuations/src/instruments/common/models/volatility/heston.rs",
-                          "types": [
-                            "HestonParameters",
-                            "HestonModel"
-                          ],
-                          "functions": [
-                            "new",
-                            "satisfies_feller_condition",
-                            "new",
-                            "price_european_call",
-                            "price_european_put"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "local_vol": {
-                          "path": "valuations/src/instruments/common/models/volatility/local_vol.rs",
-                          "types": [
-                            "Interp2D",
-                            "BilinearInterp",
-                            "LocalVolSurface",
-                            "LocalVolBuilder"
-                          ],
-                          "functions": [
-                            "new",
-                            "new",
-                            "get_vol",
-                            "from_implied_vol"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "normal": {
-                          "path": "valuations/src/instruments/common/models/volatility/normal.rs",
-                          "types": [],
-                          "functions": [
-                            "d_bachelier",
-                            "bachelier_price"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "sabr": {
-                          "path": "valuations/src/instruments/common/models/volatility/sabr.rs",
-                          "types": [
-                            "SABRParameters",
-                            "fn",
-                            "fn",
-                            "SABRModel",
-                            "SABRCalibrator",
-                            "SABRSmile",
-                            "ArbitrageValidationResult",
-                            "ButterflyViolation",
-                            "MonotonicityViolation"
-                          ],
-                          "functions": [
-                            "new",
-                            "equity_standard",
-                            "rates_standard",
-                            "new_with_shift",
-                            "normal",
-                            "lognormal",
-                            "shifted_normal",
-                            "shifted_lognormal",
-                            "shift",
-                            "is_shifted",
-                            "new",
-                            "implied_volatility",
-                            "parameters",
-                            "set_parameters",
-                            "supports_negative_rates",
-                            "effective_rates",
-                            "validate_inputs",
-                            "new",
-                            "with_tolerance",
-                            "with_max_iterations",
-                            "with_fd_gradients",
-                            "calibrate_auto_shift",
-                            "calibrate_auto_shift_with_derivatives",
-                            "calibrate_shifted",
-                            "calibrate",
-                            "calibrate_with_derivatives",
-                            "calibrate_shifted_with_derivatives",
-                            "calibrate_with_atm_pinning",
-                            "is_arbitrage_free",
-                            "worst_butterfly_severity",
-                            "new",
-                            "atm_vol",
-                            "generate_smile",
-                            "strike_from_delta",
-                            "validate_no_arbitrage",
-                            "check_no_arbitrage",
-                            "repair_arbitrage"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "sabr_derivatives": {
-                          "path": "valuations/src/instruments/common/models/volatility/sabr_derivatives.rs",
-                          "types": [
-                            "SABRMarketData",
-                            "SABRCalibrationDerivatives"
-                          ],
-                          "functions": [
-                            "new",
-                            "new_with_shift",
-                            "new",
-                            "new_with_fd"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        }
-                      },
-                      "re_exports": {
-                        "black": [
-                          "d1",
-                          "d1_black76",
-                          "d1_d2",
-                          "d1_d2_black76",
-                          "d2",
-                          "d2_black76"
-                        ],
-                        "finstack_core": [
-                          "norm_cdf",
-                          "norm_pdf"
-                        ],
-                        "heston": [
-                          "HestonModel",
-                          "HestonParameters"
-                        ],
-                        "local_vol": [
-                          "LocalVolBuilder",
-                          "LocalVolSurface"
-                        ],
-                        "normal": [
-                          "bachelier_price",
-                          "d_bachelier"
-                        ],
-                        "sabr": [
-                          "SABRCalibrator",
-                          "SABRModel",
-                          "SABRParameters",
-                          "SABRSmile"
-                        ],
-                        "sabr_derivatives": [
-                          "SABRCalibrationDerivatives",
-                          "SABRMarketData"
-                        ]
-                      }
-                    }
-                  },
-                  "re_exports": {
-                    "closed_form": [
-                      "arithmetic_asian_call_tw",
-                      "arithmetic_asian_put_tw",
-                      "barrier_call_continuous",
-                      "barrier_put_continuous",
-                      "bs_call_delta",
-                      "bs_call_greeks",
-                      "bs_call_rho",
-                      "bs_call_theta",
-                      "bs_gamma",
-                      "bs_greeks",
-                      "bs_price",
-                      "bs_put_delta",
-                      "bs_put_greeks",
-                      "bs_put_rho",
-                      "bs_put_theta",
-                      "bs_vega",
-                      "down_in_call",
-                      "down_out_call",
-                      "fixed_strike_lookback_call",
-                      "fixed_strike_lookback_put",
-                      "floating_strike_lookback_call",
-                      "floating_strike_lookback_put",
-                      "geometric_asian_call",
-                      "geometric_asian_put",
-                      "heston_call_price_fourier",
-                      "heston_put_price_fourier",
-                      "quanto_call",
-                      "quanto_call_simple",
-                      "quanto_drift_adjustment",
-                      "quanto_put",
-                      "quanto_put_simple",
-                      "up_in_call",
-                      "up_out_call",
-                      "AsianGreeks",
-                      "AsianPriceResult",
-                      "BarrierType",
-                      "BsGreeks",
-                      "HestonParams",
-                      "ONE_PERCENT"
-                    ],
-                    "correlation": [
-                      "joint_probabilities",
-                      "ConstantRecovery",
-                      "Copula",
-                      "CopulaSpec",
-                      "CorrelatedBernoulli",
-                      "CorrelatedRecovery",
-                      "FactorModel",
-                      "FactorSpec",
-                      "GaussianCopula",
-                      "MultiFactorCopula",
-                      "RandomFactorLoadingCopula",
-                      "RecoveryModel",
-                      "RecoverySpec",
-                      "SingleFactorModel",
-                      "StudentTCopula",
-                      "TwoFactorModel"
-                    ],
-                    "trees": [
-                      "short_rate_keys",
-                      "single_factor_equity_state",
-                      "state_keys",
-                      "two_factor_equity_rates_state",
-                      "BarrierSpec",
-                      "BarrierStyle",
-                      "BinomialTree",
-                      "EvolutionParams",
-                      "NodeState",
-                      "ShortRateModel",
-                      "ShortRateTree",
-                      "ShortRateTreeConfig",
-                      "StateVariables",
-                      "TreeBranching",
-                      "TreeGreeks",
-                      "TreeModel",
-                      "TreeParameters",
-                      "TreeType",
-                      "TreeValuator",
-                      "TrinomialTree",
-                      "TrinomialTreeType"
-                    ],
-                    "volatility": [
-                      "d1",
-                      "d1_black76",
-                      "d1_d2",
-                      "d1_d2_black76",
-                      "d2",
-                      "d2_black76",
-                      "norm_cdf",
-                      "norm_pdf",
-                      "SABRCalibrator",
-                      "SABRModel",
-                      "SABRParameters",
-                      "SABRSmile"
-                    ]
-                  }
-                },
-                "mc": {
-                  "path": "valuations/src/instruments/common/mc",
-                  "types": [
-                    "Discretization",
-                    "PathState",
-                    "RandomStream",
-                    "StateVariables",
-                    "StochasticProcess",
-                    "OnlineCovariance",
-                    "OnlineStats",
-                    "CashflowType",
-                    "PathDataset",
-                    "PathPoint",
-                    "PathSamplingMethod",
-                    "ProcessParams",
-                    "SimulatedPath",
-                    "Discretization",
-                    "PathState",
-                    "RandomStream",
-                    "StochasticProcess",
-                    "BatesParams",
-                    "BatesProcess",
-                    "BrownianParams",
-                    "BrownianProcess",
-                    "MultiBrownianProcess",
-                    "CirParams",
-                    "CirPlusPlusProcess",
-                    "CirProcess",
-                    "GbmParams",
-                    "GbmProcess",
-                    "MultiGbmProcess",
-                    "HestonParams",
-                    "HestonProcess",
-                    "MertonJumpParams",
-                    "MertonJumpProcess",
-                    "MultiOuParams",
-                    "MultiOuProcess",
-                    "HullWhite1FParams",
-                    "HullWhite1FProcess",
-                    "VasicekProcess",
-                    "SchwartzSmithParams",
-                    "SchwartzSmithProcess",
-                    "EulerMaruyama",
-                    "LogEuler",
-                    "ExactGbm",
-                    "ExactMultiGbm",
-                    "ExactMultiGbmCorrelated",
-                    "LogMilstein",
-                    "Milstein"
-                  ],
-                  "functions": [
-                    "state_keys",
-                    "required_samples",
-                    "apply_correlation",
-                    "cholesky_decomposition"
-                  ],
-                  "modules": {
-                    "discretization": {
-                      "path": "valuations/src/instruments/common/mc/discretization",
-                      "types": [
-                        "ExactGbm",
-                        "ExactMultiGbm",
-                        "ExactMultiGbmCorrelated",
-                        "ExactGbmWithDividends",
-                        "ExactHullWhite1F",
-                        "EulerMaruyama",
-                        "LogEuler",
-                        "LogMilstein",
-                        "Milstein",
-                        "QeCir",
-                        "JumpEuler",
-                        "ExactSchwartzSmith"
-                      ],
-                      "functions": [],
-                      "modules": {
-                        "exact": {
-                          "path": "valuations/src/instruments/common/mc/discretization/exact.rs",
-                          "types": [
-                            "ExactGbm",
-                            "ExactMultiGbm",
-                            "ExactMultiGbmCorrelated"
-                          ],
-                          "functions": [
-                            "new",
-                            "new",
-                            "new",
-                            "from_process"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "exact_gbm_dividends": {
-                          "path": "valuations/src/instruments/common/mc/discretization/exact_gbm_dividends.rs",
-                          "types": [
-                            "ExactGbmWithDividends"
-                          ],
-                          "functions": [
-                            "new"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "exact_hw1f": {
-                          "path": "valuations/src/instruments/common/mc/discretization/exact_hw1f.rs",
-                          "types": [
-                            "ExactHullWhite1F"
-                          ],
-                          "functions": [
-                            "new"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "euler": {
-                          "path": "valuations/src/instruments/common/mc/discretization/euler.rs",
-                          "types": [
-                            "EulerMaruyama",
-                            "LogEuler"
-                          ],
-                          "functions": [
-                            "new",
-                            "new"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "milstein": {
-                          "path": "valuations/src/instruments/common/mc/discretization/milstein.rs",
-                          "types": [
-                            "Milstein",
-                            "LogMilstein"
-                          ],
-                          "functions": [
-                            "new",
-                            "new"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "qe_heston": {
-                          "path": "valuations/src/instruments/common/mc/discretization/qe_heston.rs",
-                          "types": [
-                            "IntegratedVarianceMethod",
-                            "QeHeston"
-                          ],
-                          "functions": [
-                            "new",
-                            "with_psi_c",
-                            "with_integrated_variance",
-                            "exact_variance"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "qe_cir": {
-                          "path": "valuations/src/instruments/common/mc/discretization/qe_cir.rs",
-                          "types": [
-                            "QeCir"
-                          ],
-                          "functions": [
-                            "new",
-                            "with_psi_c"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "jump_euler": {
-                          "path": "valuations/src/instruments/common/mc/discretization/jump_euler.rs",
-                          "types": [
-                            "JumpEuler"
-                          ],
-                          "functions": [
-                            "new",
-                            "with_max_jumps"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "schwartz_smith": {
-                          "path": "valuations/src/instruments/common/mc/discretization/schwartz_smith.rs",
-                          "types": [
-                            "ExactSchwartzSmith"
-                          ],
-                          "functions": [
-                            "new",
-                            "from_process"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        }
-                      },
-                      "re_exports": {
-                        "exact": [
-                          "ExactGbm",
-                          "ExactMultiGbm",
-                          "ExactMultiGbmCorrelated"
-                        ],
-                        "exact_gbm_dividends": [
-                          "ExactGbmWithDividends"
-                        ],
-                        "exact_gbm_dividends as exact_gbm_div": [],
-                        "exact_hw1f": [
-                          "ExactHullWhite1F"
-                        ],
-                        "euler": [
-                          "EulerMaruyama",
-                          "LogEuler"
-                        ],
-                        "milstein": [
-                          "LogMilstein",
-                          "Milstein"
-                        ],
-                        "qe_cir": [
-                          "QeCir"
-                        ],
-                        "jump_euler": [
-                          "JumpEuler"
-                        ],
-                        "schwartz_smith": [
-                          "ExactSchwartzSmith"
-                        ]
-                      }
-                    },
-                    "estimate": {
-                      "path": "valuations/src/instruments/common/mc/estimate.rs",
-                      "types": [
-                        "Estimate",
-                        "ConvergenceDiagnostics"
-                      ],
-                      "functions": [
-                        "new",
-                        "with_std_dev",
-                        "with_median",
-                        "with_percentiles",
-                        "with_range",
-                        "iqr",
-                        "range",
-                        "relative_stderr",
-                        "cv",
-                        "ci_half_width",
-                        "new",
-                        "with_stderr_decay",
-                        "with_ess",
-                        "with_vr_factor"
-                      ],
-                      "re_exports": {},
-                      "modules": {}
-                    },
-                    "online_stats": {
-                      "path": "valuations/src/instruments/common/mc/online_stats.rs",
-                      "types": [
-                        "OnlineCovariance",
-                        "OnlineStats"
-                      ],
-                      "functions": [
-                        "required_samples"
-                      ],
-                      "re_exports": {
-                        "finstack_core": [
-                          "required_samples",
-                          "OnlineCovariance",
-                          "OnlineStats"
-                        ]
-                      },
-                      "modules": {}
-                    },
-                    "paths": {
-                      "path": "valuations/src/instruments/common/mc/paths.rs",
-                      "types": [
-                        "IDX_SPOT",
-                        "IDX_VARIANCE",
-                        "IDX_SHORT_RATE",
-                        "IDX_CREDIT_SPREAD",
-                        "CashflowType",
-                        "PathPoint",
-                        "SimulatedPath",
-                        "PathSamplingMethod",
-                        "ProcessParams",
-                        "PathDataset"
-                      ],
-                      "functions": [
-                        "new",
-                        "with_state",
-                        "set_payoff",
-                        "spot",
-                        "variance",
-                        "short_rate",
-                        "add_cashflow",
-                        "add_typed_cashflow",
-                        "get_cashflows",
-                        "get_cashflows_by_type",
-                        "principal_flows",
-                        "interest_flows",
-                        "total_cashflow",
-                        "total_cashflow_by_type",
-                        "new",
-                        "with_capacity",
-                        "add_point",
-                        "set_final_value",
-                        "set_irr",
-                        "num_steps",
-                        "point",
-                        "initial_point",
-                        "terminal_point",
-                        "extract_cashflows",
-                        "extract_typed_cashflows",
-                        "extract_cashflows_by_type",
-                        "new",
-                        "add_param",
-                        "with_correlation",
-                        "with_factors",
-                        "dim",
-                        "new",
-                        "with_capacity",
-                        "add_path",
-                        "num_captured",
-                        "path",
-                        "is_complete",
-                        "sampling_ratio",
-                        "state_var_keys"
-                      ],
-                      "re_exports": {},
-                      "modules": {}
-                    },
-                    "process": {
-                      "path": "valuations/src/instruments/common/mc/process",
-                      "types": [],
-                      "functions": [],
-                      "modules": {
-                        "brownian": {
-                          "path": "valuations/src/instruments/common/mc/process/brownian.rs",
-                          "types": [
-                            "BrownianParams",
-                            "BrownianProcess",
-                            "MultiBrownianProcess"
-                          ],
-                          "functions": [
-                            "new",
-                            "new",
-                            "with_params",
-                            "mu",
-                            "sigma",
-                            "new",
-                            "dim",
-                            "correlation"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "correlation": {
-                          "path": "valuations/src/instruments/common/mc/process/correlation.rs",
-                          "types": [
-                            "CholeskyError"
-                          ],
-                          "functions": [
-                            "apply_correlation",
-                            "build_correlation_matrix",
-                            "cholesky_decomposition",
-                            "validate_correlation_matrix"
-                          ],
-                          "re_exports": {
-                            "finstack_core": [
-                              "apply_correlation",
-                              "build_correlation_matrix",
-                              "cholesky_decomposition",
-                              "validate_correlation_matrix",
-                              "CholeskyError"
-                            ]
-                          },
-                          "modules": {}
-                        },
-                        "gbm": {
-                          "path": "valuations/src/instruments/common/mc/process/gbm.rs",
-                          "types": [
-                            "GbmParams",
-                            "GbmProcess",
-                            "MultiGbmProcess"
-                          ],
-                          "functions": [
-                            "new",
-                            "from_market",
-                            "new",
-                            "with_params",
-                            "params",
-                            "drift_rate",
-                            "volatility",
-                            "new",
-                            "num_assets",
-                            "asset_params",
-                            "correlation"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "gbm_dividends": {
-                          "path": "valuations/src/instruments/common/mc/process/gbm_dividends.rs",
-                          "types": [
-                            "Dividend",
-                            "GbmWithDividends"
-                          ],
-                          "functions": [
-                            "amount",
-                            "apply",
-                            "new",
-                            "with_params",
-                            "params",
-                            "dividends",
-                            "dividends_in_interval",
-                            "apply_dividends"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "metadata": {
-                          "path": "valuations/src/instruments/common/mc/process/metadata.rs",
-                          "types": [
-                            "ProcessMetadata"
-                          ],
-                          "functions": [],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "multi_ou": {
-                          "path": "valuations/src/instruments/common/mc/process/multi_ou.rs",
-                          "types": [
-                            "MultiOuParams",
-                            "MultiOuProcess"
-                          ],
-                          "functions": [
-                            "new",
-                            "new",
-                            "dim",
-                            "correlation"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "heston": {
-                          "path": "valuations/src/instruments/common/mc/process/heston.rs",
-                          "types": [
-                            "HestonParams",
-                            "HestonProcess"
-                          ],
-                          "functions": [
-                            "new",
-                            "satisfies_feller",
-                            "new",
-                            "with_params",
-                            "params"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "ou": {
-                          "path": "valuations/src/instruments/common/mc/process/ou.rs",
-                          "types": [
-                            "HullWhite1FParams",
-                            "HullWhite1FProcess",
-                            "VasicekProcess"
-                          ],
-                          "functions": [
-                            "new",
-                            "with_time_dependent_theta",
-                            "theta_at_time",
-                            "new",
-                            "vasicek",
-                            "params",
-                            "theta_at_time",
-                            "calibrate_theta_from_curve"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "schwartz_smith": {
-                          "path": "valuations/src/instruments/common/mc/process/schwartz_smith.rs",
-                          "types": [
-                            "SchwartzSmithParams",
-                            "SchwartzSmithProcess"
-                          ],
-                          "functions": [
-                            "new",
-                            "new",
-                            "from_spot",
-                            "params",
-                            "initial_state",
-                            "spot_from_state"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "cir": {
-                          "path": "valuations/src/instruments/common/mc/process/cir.rs",
-                          "types": [
-                            "CirParams",
-                            "CirProcess",
-                            "CirPlusPlusProcess"
-                          ],
-                          "functions": [
-                            "new",
-                            "satisfies_feller",
-                            "default_psi_c",
-                            "new",
-                            "with_params",
-                            "params",
-                            "new",
-                            "with_constant_shift",
-                            "shift_at_time",
-                            "actual_rate",
-                            "cir"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "jump_diffusion": {
-                          "path": "valuations/src/instruments/common/mc/process/jump_diffusion.rs",
-                          "types": [
-                            "MertonJumpParams",
-                            "MertonJumpProcess"
-                          ],
-                          "functions": [
-                            "new",
-                            "jump_compensation",
-                            "compensated_drift",
-                            "new",
-                            "with_params",
-                            "params"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "bates": {
-                          "path": "valuations/src/instruments/common/mc/process/bates.rs",
-                          "types": [
-                            "BatesParams",
-                            "BatesProcess"
-                          ],
-                          "functions": [
-                            "new",
-                            "compensated_drift",
-                            "new",
-                            "params",
-                            "heston"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        }
-                      },
-                      "re_exports": {
-                        "brownian": [],
-                        "correlation": [],
-                        "gbm": [],
-                        "gbm_dividends": [],
-                        "metadata": [],
-                        "multi_ou": []
-                      }
-                    },
-                    "rng": {
-                      "path": "valuations/src/instruments/common/mc/rng",
-                      "types": [
-                        "BrownianBridge",
-                        "PhiloxRng"
-                      ],
-                      "functions": [],
-                      "modules": {
-                        "brownian_bridge": {
-                          "path": "valuations/src/instruments/common/mc/rng/brownian_bridge.rs",
-                          "types": [],
-                          "functions": [],
-                          "re_exports": {
-                            "finstack_core": []
-                          },
-                          "modules": {}
-                        },
-                        "philox": {
-                          "path": "valuations/src/instruments/common/mc/rng/philox.rs",
-                          "types": [
-                            "PhiloxRng"
-                          ],
-                          "functions": [
-                            "new",
-                            "with_stream",
-                            "deterministic_from_str"
-                          ],
-                          "re_exports": {},
-                          "modules": {}
-                        },
-                        "sobol": {
-                          "path": "valuations/src/instruments/common/mc/rng/sobol.rs",
-                          "types": [
-                            "SobolRng",
-                            "MAX_SOBOL_DIMENSION"
-                          ],
-                          "functions": [],
-                          "re_exports": {
-                            "finstack_core": [
-                              "SobolRng",
-                              "MAX_SOBOL_DIMENSION"
-                            ]
-                          },
-                          "modules": {}
-                        },
-                        "sobol_pca": {
-                          "path": "valuations/src/instruments/common/mc/rng/sobol_pca.rs",
-                          "types": [],
-                          "functions": [
-                            "effective_dimension",
-                            "pca_ordering",
-                            "transform_pca_to_assets"
-                          ],
-                          "re_exports": {
-                            "finstack_core": [
-                              "effective_dimension",
-                              "pca_ordering",
-                              "transform_pca_to_assets"
-                            ]
-                          },
-                          "modules": {}
-                        },
-                        "poisson": {
-                          "path": "valuations/src/instruments/common/mc/rng/poisson.rs",
-                          "types": [],
-                          "functions": [
-                            "poisson_from_normal",
-                            "poisson_inverse_cdf"
-                          ],
-                          "re_exports": {
-                            "finstack_core": [
-                              "poisson_from_normal",
-                              "poisson_inverse_cdf"
-                            ]
-                          },
-                          "modules": {}
-                        }
-                      },
-                      "re_exports": {
-                        "brownian_bridge": [
-                          "BrownianBridge"
-                        ],
-                        "philox": [
-                          "PhiloxRng"
-                        ]
-                      }
-                    },
-                    "time_grid": {
-                      "path": "valuations/src/instruments/common/mc/time_grid.rs",
-                      "types": [],
-                      "functions": [],
-                      "re_exports": {
-                        "finstack_core": []
-                      },
-                      "modules": {}
-                    }
-                  },
-                  "re_exports": {
-                    "traits": [
-                      "state_keys",
-                      "Discretization",
-                      "PathState",
-                      "RandomStream",
-                      "StateVariables",
-                      "StochasticProcess"
-                    ],
-                    "super": []
-                  }
-                }
-              },
+              "functions": [],
+              "modules": {},
               "re_exports": {
-                "dependencies": [
-                  "FxPair",
-                  "InstrumentDependencies"
-                ],
-                "discountable": [
-                  "Discountable"
-                ],
-                "finstack_core": [],
-                "fx_dates": [
-                  "add_joint_business_days",
-                  "add_joint_business_days_with_calendars",
-                  "adjust_joint_calendar",
-                  "adjust_joint_calendar_with_calendars",
-                  "roll_spot_date",
-                  "ResolvedCalendarPair"
-                ],
-                "helpers": [
-                  "validate_currency_consistency"
-                ],
-                "models": [
-                  "d1",
-                  "d1_d2",
-                  "d1_d2_black76",
-                  "d2",
-                  "norm_cdf",
-                  "norm_pdf",
-                  "short_rate_keys",
-                  "single_factor_equity_state",
-                  "state_keys",
-                  "two_factor_equity_rates_state",
-                  "BinomialTree",
-                  "EvolutionParams",
-                  "NodeState",
-                  "SABRCalibrator",
-                  "SABRModel",
-                  "SABRParameters",
-                  "SABRSmile",
-                  "ShortRateModel",
-                  "ShortRateTree",
-                  "ShortRateTreeConfig",
-                  "StateVariables",
-                  "TreeBranching",
-                  "TreeGreeks",
-                  "TreeModel",
-                  "TreeParameters",
-                  "TreeType",
-                  "TreeValuator",
-                  "TrinomialTree",
-                  "TrinomialTreeType"
-                ],
-                "parameters": [
-                  "BasisSwapLeg",
-                  "BondConvention",
-                  "ContractSpec",
-                  "CreditParams",
-                  "EquityOptionParams",
-                  "EquityUnderlyingParams",
-                  "ExerciseStyle",
-                  "FinancingLegSpec",
-                  "FixedLegSpec",
-                  "FloatLegSpec",
-                  "FxOptionParams",
-                  "FxUnderlyingParams",
-                  "IRSConvention",
-                  "IndexUnderlyingParams",
-                  "InterestRateOptionParams",
-                  "OptionMarketParams",
-                  "OptionType",
-                  "ParRateMethod",
-                  "PayReceive",
-                  "PremiumLegSpec",
-                  "ProtectionLegSpec",
-                  "ScheduleSpec",
-                  "SettlementType",
-                  "TotalReturnLegSpec",
-                  "TrsScheduleSpec",
-                  "TrsSide",
-                  "UnderlyingParams"
-                ],
-                "period_pv": [
-                  "PeriodizedPvExt"
-                ],
                 "pricing": [
-                  "GenericInstrumentPricer",
-                  "HasDiscountCurve",
-                  "HasForwardCurves",
-                  "TotalReturnLegParams",
-                  "TrsEngine",
-                  "TrsReturnModel"
-                ],
-                "traits": [
-                  "Attributes",
-                  "CurveIdVec",
-                  "EquityDependencies",
-                  "EquityInstrumentDeps",
-                  "Instrument",
-                  "PricingOptions"
+                  "GenericInstrumentPricer"
                 ]
               }
             },
             "commodity": {
               "path": "valuations/src/instruments/commodity",
               "types": [
+                "CommodityAsianOption",
                 "CommodityForward",
                 "CommodityOption",
                 "CommoditySwap"
               ],
               "functions": [],
               "modules": {
+                "commodity_asian_option": {
+                  "path": "valuations/src/instruments/commodity/commodity_asian_option",
+                  "types": [
+                    "CommodityAsianOptionAnalyticalPricer",
+                    "CommodityAsianOption"
+                  ],
+                  "functions": [],
+                  "modules": {},
+                  "re_exports": {
+                    "pricer": [
+                      "CommodityAsianOptionAnalyticalPricer"
+                    ],
+                    "types": [
+                      "CommodityAsianOption"
+                    ]
+                  }
+                },
                 "commodity_forward": {
                   "path": "valuations/src/instruments/commodity/commodity_forward",
                   "types": [
                     "CommodityForwardDiscountingPricer",
                     "CommodityForward",
+                    "Position",
                     "SettlementType"
                   ],
                   "functions": [],
@@ -5033,6 +3016,9 @@
                 }
               },
               "re_exports": {
+                "commodity_asian_option": [
+                  "CommodityAsianOption"
+                ],
                 "commodity_forward": [
                   "CommodityForward"
                 ],
@@ -5049,8 +3035,8 @@
               "types": [
                 "CreditDefaultSwap",
                 "CDSIndex",
-                "CdsOption",
-                "CdsTranche"
+                "CDSOption",
+                "CDSTranche"
               ],
               "functions": [],
               "modules": {
@@ -5060,9 +3046,6 @@
                     "RECOVERY_HIGH_YIELD_DEFAULT",
                     "RECOVERY_SENIOR_UNSECURED",
                     "RECOVERY_SUBORDINATED",
-                    "CDSPricer",
-                    "CDSPricerConfig",
-                    "IntegrationMethod",
                     "CDSConvention",
                     "CreditDefaultSwap",
                     "CreditDefaultSwapBuilder",
@@ -5078,11 +3061,6 @@
                       "RECOVERY_SENIOR_UNSECURED",
                       "RECOVERY_SUBORDINATED"
                     ],
-                    "pricer": [
-                      "CDSPricer",
-                      "CDSPricerConfig",
-                      "IntegrationMethod"
-                    ],
                     "types": [
                       "ProtectionLegSpec"
                     ]
@@ -5096,7 +3074,11 @@
                     "CDSIndexParams",
                     "CDSIndex",
                     "CDSIndexConstituent",
-                    "IndexPricing"
+                    "ConstituentResult",
+                    "IndexParSpreadResult",
+                    "IndexPricing",
+                    "IndexResult",
+                    "ParSpreadMethod"
                   ],
                   "functions": [],
                   "modules": {},
@@ -5107,30 +3089,30 @@
                       "CDSIndexParams"
                     ],
                     "types": [
-                      "IndexPricing"
+                      "CDSIndex",
+                      "CDSIndexConstituent",
+                      "ConstituentResult",
+                      "IndexParSpreadResult",
+                      "IndexPricing",
+                      "IndexResult",
+                      "ParSpreadMethod"
                     ]
                   }
                 },
                 "cds_option": {
                   "path": "valuations/src/instruments/credit_derivatives/cds_option",
                   "types": [
-                    "CdsOptionParams",
-                    "CdsOptionPricer",
-                    "CdsOptionPricerConfig",
-                    "CdsOption"
+                    "CDSOptionParams",
+                    "CDSOption"
                   ],
                   "functions": [],
                   "modules": {},
                   "re_exports": {
                     "parameters": [
-                      "CdsOptionParams"
-                    ],
-                    "pricer": [
-                      "CdsOptionPricer",
-                      "CdsOptionPricerConfig"
+                      "CDSOptionParams"
                     ],
                     "types": [
-                      "CdsOption"
+                      "CDSOption"
                     ]
                   }
                 },
@@ -5140,14 +3122,14 @@
                     "Copula",
                     "CopulaSpec",
                     "CDSTrancheParams",
+                    "RecoveryModel",
+                    "RecoverySpec",
+                    "CDSTranche",
+                    "TrancheSide",
                     "CDSTranchePricer",
                     "CDSTranchePricerConfig",
                     "Cs01BumpUnits",
-                    "HeteroMethod",
-                    "RecoveryModel",
-                    "RecoverySpec",
-                    "CdsTranche",
-                    "TrancheSide"
+                    "HeteroMethod"
                   ],
                   "functions": [],
                   "modules": {
@@ -5178,19 +3160,19 @@
                     "parameters": [
                       "CDSTrancheParams"
                     ],
-                    "pricer": [
-                      "CDSTranchePricer",
-                      "CDSTranchePricerConfig",
-                      "Cs01BumpUnits",
-                      "HeteroMethod"
-                    ],
                     "recovery": [
                       "RecoveryModel",
                       "RecoverySpec"
                     ],
                     "types": [
-                      "CdsTranche",
+                      "CDSTranche",
                       "TrancheSide"
+                    ],
+                    "pricer": [
+                      "CDSTranchePricer",
+                      "CDSTranchePricerConfig",
+                      "Cs01BumpUnits",
+                      "HeteroMethod"
                     ]
                   }
                 }
@@ -5203,10 +3185,10 @@
                   "CDSIndex"
                 ],
                 "cds_option": [
-                  "CdsOption"
+                  "CDSOption"
                 ],
                 "cds_tranche": [
-                  "CdsTranche"
+                  "CDSTranche"
                 ]
               }
             },
@@ -5805,6 +3787,7 @@
                             "TreePricer"
                           ],
                           "functions": [
+                            "bond_tree_config",
                             "production_ho_lee",
                             "production_ho_lee_pct",
                             "production_bdt",
@@ -6004,13 +3987,13 @@
                 "convertible": {
                   "path": "valuations/src/instruments/fixed_income/convertible",
                   "types": [
-                    "ConvertibleTreeType",
                     "AntiDilutionPolicy",
                     "ConversionEvent",
                     "ConversionPolicy",
                     "ConversionSpec",
                     "ConvertibleBond",
-                    "DividendAdjustment"
+                    "DividendAdjustment",
+                    "ConvertibleTreeType"
                   ],
                   "functions": [
                     "calculate_conversion_premium",
@@ -6020,13 +4003,6 @@
                   ],
                   "modules": {},
                   "re_exports": {
-                    "pricer": [
-                      "calculate_conversion_premium",
-                      "calculate_convertible_greeks",
-                      "calculate_parity",
-                      "price_convertible_bond",
-                      "ConvertibleTreeType"
-                    ],
                     "types": [
                       "AntiDilutionPolicy",
                       "ConversionEvent",
@@ -6034,6 +4010,13 @@
                       "ConversionSpec",
                       "ConvertibleBond",
                       "DividendAdjustment"
+                    ],
+                    "pricer": [
+                      "calculate_conversion_premium",
+                      "calculate_convertible_greeks",
+                      "calculate_parity",
+                      "price_convertible_bond",
+                      "ConvertibleTreeType"
                     ]
                   }
                 },
@@ -6206,8 +4189,6 @@
                     "MAX_RECOVERY_RATE",
                     "PathAwareCashflowSchedule",
                     "ThreeFactorPathData",
-                    "EnhancedMonteCarloResult",
-                    "PathResult",
                     "RevolvingCreditPricer",
                     "BaseRateSpec",
                     "DrawRepayEvent",
@@ -6245,7 +4226,6 @@
                       "ThreeFactorPathData"
                     ],
                     "pricer": [
-                      "PathResult",
                       "RevolvingCreditPricer"
                     ],
                     "types": [
@@ -6517,6 +4497,8 @@
                         "allocate_generic_pool",
                         "estimated_psa_multiplier",
                         "meets_good_delivery",
+                        "meets_good_delivery_with_face",
+                        "validate_sifma_variance",
                         "calculate_pay_up"
                       ],
                       "re_exports": {},
@@ -6692,10 +4674,16 @@
               "path": "valuations/src/instruments/fx",
               "types": [
                 "FxBarrierOption",
+                "DigitalPayoutType",
+                "FxDigitalOption",
                 "FxForward",
                 "FxOption",
                 "FxSpot",
                 "FxSwap",
+                "BarrierDirection",
+                "FxTouchOption",
+                "PayoutTiming",
+                "TouchType",
                 "FxVarianceSwap",
                 "Ndf",
                 "QuantoOption"
@@ -6705,13 +4693,48 @@
                 "fx_barrier_option": {
                   "path": "valuations/src/instruments/fx/fx_barrier_option",
                   "types": [
-                    "FxBarrierOption"
+                    "FxBarrierOption",
+                    "VannaVolgaQuotes"
+                  ],
+                  "functions": [],
+                  "modules": {
+                    "vanna_volga": {
+                      "path": "valuations/src/instruments/fx/fx_barrier_option/vanna_volga.rs",
+                      "types": [
+                        "VannaVolgaQuotes"
+                      ],
+                      "functions": [
+                        "vanna_volga_barrier_adjustment"
+                      ],
+                      "re_exports": {},
+                      "modules": {}
+                    }
+                  },
+                  "re_exports": {
+                    "types": [
+                      "FxBarrierOption"
+                    ],
+                    "vanna_volga": [
+                      "VannaVolgaQuotes"
+                    ]
+                  }
+                },
+                "fx_digital_option": {
+                  "path": "valuations/src/instruments/fx/fx_digital_option",
+                  "types": [
+                    "SimpleFxDigitalOptionPricer",
+                    "DigitalPayoutType",
+                    "FxDigitalOption"
                   ],
                   "functions": [],
                   "modules": {},
                   "re_exports": {
+                    "pricer": [
+                      "SimpleFxDigitalOptionPricer"
+                    ],
                     "types": [
-                      "FxBarrierOption"
+                      "DigitalPayoutType",
+                      "FxDigitalOption"
                     ]
                   }
                 },
@@ -6735,8 +4758,6 @@
                 "fx_option": {
                   "path": "valuations/src/instruments/fx/fx_option",
                   "types": [
-                    "FxOptionCalculator",
-                    "FxOptionGreeks",
                     "FxOptionParams",
                     "SimpleFxOptionBlackPricer",
                     "FxOption"
@@ -6745,10 +4766,6 @@
                   "modules": {},
                   "re_exports": {
                     "crate": [],
-                    "calculator": [
-                      "FxOptionCalculator",
-                      "FxOptionGreeks"
-                    ],
                     "parameters": [
                       "FxOptionParams"
                     ],
@@ -6796,6 +4813,29 @@
                     ]
                   }
                 },
+                "fx_touch_option": {
+                  "path": "valuations/src/instruments/fx/fx_touch_option",
+                  "types": [
+                    "SimpleFxTouchOptionPricer",
+                    "BarrierDirection",
+                    "FxTouchOption",
+                    "PayoutTiming",
+                    "TouchType"
+                  ],
+                  "functions": [],
+                  "modules": {},
+                  "re_exports": {
+                    "pricer": [
+                      "SimpleFxTouchOptionPricer"
+                    ],
+                    "types": [
+                      "BarrierDirection",
+                      "FxTouchOption",
+                      "PayoutTiming",
+                      "TouchType"
+                    ]
+                  }
+                },
                 "fx_variance_swap": {
                   "path": "valuations/src/instruments/fx/fx_variance_swap",
                   "types": [
@@ -6817,7 +4857,9 @@
                   "path": "valuations/src/instruments/fx/ndf",
                   "types": [
                     "NdfDiscountingPricer",
-                    "Ndf"
+                    "Ndf",
+                    "NdfFixingSource",
+                    "NdfQuoteConvention"
                   ],
                   "functions": [],
                   "modules": {},
@@ -6826,7 +4868,9 @@
                       "NdfDiscountingPricer"
                     ],
                     "types": [
-                      "Ndf"
+                      "Ndf",
+                      "NdfFixingSource",
+                      "NdfQuoteConvention"
                     ]
                   }
                 },
@@ -6848,6 +4892,10 @@
                 "fx_barrier_option": [
                   "FxBarrierOption"
                 ],
+                "fx_digital_option": [
+                  "DigitalPayoutType",
+                  "FxDigitalOption"
+                ],
                 "fx_forward": [
                   "FxForward"
                 ],
@@ -6859,6 +4907,12 @@
                 ],
                 "fx_swap": [
                   "FxSwap"
+                ],
+                "fx_touch_option": [
+                  "BarrierDirection",
+                  "FxTouchOption",
+                  "PayoutTiming",
+                  "TouchType"
                 ],
                 "fx_variance_swap": [
                   "FxVarianceSwap"
@@ -6919,6 +4973,7 @@
                   "path": "valuations/src/instruments/rates/cap_floor",
                   "types": [
                     "InterestRateOptionParams",
+                    "CapFloorVolType",
                     "InterestRateOption",
                     "RateOptionType"
                   ],
@@ -6929,6 +4984,7 @@
                       "InterestRateOptionParams"
                     ],
                     "types": [
+                      "CapFloorVolType",
                       "InterestRateOption",
                       "RateOptionType"
                     ]
@@ -6940,7 +4996,20 @@
                     "CmsOption"
                   ],
                   "functions": [],
-                  "modules": {},
+                  "modules": {
+                    "pricer": {
+                      "path": "valuations/src/instruments/rates/cms_option/pricer.rs",
+                      "types": [
+                        "CmsOptionPricer"
+                      ],
+                      "functions": [
+                        "new",
+                        "convexity_adjustment"
+                      ],
+                      "re_exports": {},
+                      "modules": {}
+                    }
+                  },
                   "re_exports": {
                     "types": [
                       "CmsOption"
@@ -7048,9 +5117,7 @@
                     "ParRateMethod",
                     "PayReceive"
                   ],
-                  "functions": [
-                    "npv"
-                  ],
+                  "functions": [],
                   "modules": {
                     "cashflow": {
                       "path": "valuations/src/instruments/rates/irs/cashflow.rs",
@@ -7093,9 +5160,6 @@
                   "re_exports": {
                     "compounding": [
                       "FloatingLegCompounding"
-                    ],
-                    "pricer": [
-                      "npv"
                     ],
                     "types": [
                       "FixedLegSpec",
@@ -7153,13 +5217,16 @@
                     "SwaptionParams",
                     "BermudanPricingMethod",
                     "BermudanSwaptionPricer",
+                    "CalibratedHullWhiteModel",
                     "HullWhiteParams",
                     "SimpleSwaptionBlackPricer",
                     "BermudanSwaptionTreeValuator",
                     "BermudanSchedule",
                     "BermudanSwaption",
                     "BermudanType",
+                    "CashSettlementMethod",
                     "GreekInputs",
+                    "SABRParameters",
                     "Swaption",
                     "SwaptionExercise",
                     "SwaptionSettlement",
@@ -7174,6 +5241,7 @@
                     "pricer": [
                       "BermudanPricingMethod",
                       "BermudanSwaptionPricer",
+                      "CalibratedHullWhiteModel",
                       "HullWhiteParams",
                       "SimpleSwaptionBlackPricer"
                     ],
@@ -7184,7 +5252,9 @@
                       "BermudanSchedule",
                       "BermudanSwaption",
                       "BermudanType",
+                      "CashSettlementMethod",
                       "GreekInputs",
+                      "SABRParameters",
                       "Swaption",
                       "SwaptionExercise",
                       "SwaptionSettlement",
@@ -7272,6 +5342,7 @@
                 "TermLoanOverrides"
               ],
               "functions": [
+                "rho_bump_bp",
                 "none",
                 "with_clean_price",
                 "with_implied_vol",
@@ -7324,6 +5395,8 @@
             }
           },
           "re_exports": {
+            "super": [],
+            "finstack_core": [],
             "fixed_income": [
               "AgencyCmo",
               "AgencyMbsPassthrough",
@@ -7370,8 +5443,8 @@
             ],
             "credit_derivatives": [
               "CDSIndex",
-              "CdsOption",
-              "CdsTranche",
+              "CDSOption",
+              "CDSTranche",
               "CreditDefaultSwap"
             ],
             "equity": [
@@ -7404,6 +5477,7 @@
               "QuantoOption"
             ],
             "commodity": [
+              "CommodityAsianOption",
               "CommodityForward",
               "CommodityOption",
               "CommoditySwap"
@@ -7417,11 +5491,10 @@
               "LookbackOption",
               "LookbackType"
             ],
-            "common": [
+            "common_impl": [
               "TrsScheduleSpec",
               "TrsSide"
             ],
-            "super": [],
             "pricing_overrides": [
               "PricingOverrides"
             ],
@@ -7677,6 +5750,58 @@
             ],
             "sensitivities": []
           }
+        },
+        "xva": {
+          "path": "valuations/src/xva",
+          "types": [],
+          "functions": [],
+          "modules": {
+            "cva": {
+              "path": "valuations/src/xva/cva.rs",
+              "types": [],
+              "functions": [
+                "compute_cva"
+              ],
+              "re_exports": {},
+              "modules": {}
+            },
+            "exposure": {
+              "path": "valuations/src/xva/exposure.rs",
+              "types": [],
+              "functions": [
+                "compute_exposure_profile"
+              ],
+              "re_exports": {},
+              "modules": {}
+            },
+            "netting": {
+              "path": "valuations/src/xva/netting.rs",
+              "types": [],
+              "functions": [
+                "apply_netting",
+                "apply_collateral"
+              ],
+              "re_exports": {},
+              "modules": {}
+            },
+            "types": {
+              "path": "valuations/src/xva/types.rs",
+              "types": [
+                "XvaConfig",
+                "XvaResult",
+                "ExposureProfile",
+                "NettingSet",
+                "CsaTerms"
+              ],
+              "functions": [
+                "validate",
+                "validate"
+              ],
+              "re_exports": {},
+              "modules": {}
+            }
+          },
+          "re_exports": {}
         }
       }
     },
@@ -7692,10 +5817,10 @@
           "evaluator",
           "extensions",
           "forecast",
+          "prelude",
           "registry",
           "templates",
-          "types",
-          "prelude"
+          "types"
         ],
         "types": [
           "Error",
@@ -7710,54 +5835,9 @@
           "NodeSpec",
           "NodeType",
           "NodeValueType",
-          "SeasonalMode",
-          "BridgeChart",
-          "BridgeStep",
-          "MonteCarloConfig",
-          "MonteCarloResults",
-          "ScenarioDefinition",
-          "ScenarioDiff",
-          "ScenarioResults",
-          "ScenarioSet",
-          "VarianceAnalyzer",
-          "VarianceConfig",
-          "VarianceReport",
-          "VarianceRow",
-          "MixedNodeBuilder",
-          "ModelBuilder",
-          "NeedPeriods",
-          "Ready",
-          "Error",
-          "Result",
-          "Evaluator",
-          "EvaluatorWithContext",
-          "NumericMode",
-          "StatementResult",
-          "CorkscrewExtension",
-          "CreditScorecardExtension",
-          "Extension",
-          "ExtensionContext",
-          "ExtensionMetadata",
-          "ExtensionRegistry",
-          "ExtensionResult",
-          "ExtensionStatus",
-          "TemplatesExtension",
-          "VintageExtension",
-          "AmountOrScalar",
-          "FinancialModelSpec",
-          "ForecastMethod",
-          "ForecastSpec",
-          "NodeSpec",
-          "NodeType",
-          "NodeValueType",
-          "SeasonalMode",
-          "Period",
-          "PeriodId",
-          "PeriodKind"
+          "SeasonalMode"
         ],
-        "functions": [
-          "build_periods"
-        ],
+        "functions": [],
         "re_exports": {
           "error": [
             "Error",
@@ -7777,18 +5857,7 @@
             "NodeType",
             "NodeValueType",
             "SeasonalMode"
-          ],
-          "crate": [
-            "AmountOrScalar",
-            "FinancialModelSpec",
-            "ForecastMethod",
-            "ForecastSpec",
-            "NodeSpec",
-            "NodeType",
-            "NodeValueType",
-            "SeasonalMode"
-          ],
-          "finstack_core": []
+          ]
         }
       },
       "modules": {
@@ -8300,8 +6369,8 @@
             "NodeValueSource",
             "EvalWarning",
             "NumericMode",
-            "StatementResult",
-            "ResultsMeta"
+            "ResultsMeta",
+            "StatementResult"
           ],
           "functions": [
             "evaluate_order",
@@ -8330,8 +6399,8 @@
             "results": [
               "EvalWarning",
               "NumericMode",
-              "StatementResult",
-              "ResultsMeta"
+              "ResultsMeta",
+              "StatementResult"
             ],
             "export": [
               "to_polars_long",
@@ -8416,6 +6485,76 @@
               "timeseries_forecast"
             ]
           }
+        },
+        "prelude": {
+          "path": "statements/src/prelude.rs",
+          "types": [
+            "BridgeChart",
+            "BridgeStep",
+            "MonteCarloConfig",
+            "MonteCarloResults",
+            "ScenarioDefinition",
+            "ScenarioDiff",
+            "ScenarioResults",
+            "ScenarioSet",
+            "VarianceAnalyzer",
+            "VarianceConfig",
+            "VarianceReport",
+            "VarianceRow",
+            "MixedNodeBuilder",
+            "ModelBuilder",
+            "NeedPeriods",
+            "Ready",
+            "Error",
+            "Result",
+            "Evaluator",
+            "EvaluatorWithContext",
+            "NumericMode",
+            "StatementResult",
+            "CorkscrewExtension",
+            "CreditScorecardExtension",
+            "Extension",
+            "ExtensionContext",
+            "ExtensionMetadata",
+            "ExtensionRegistry",
+            "ExtensionResult",
+            "ExtensionStatus",
+            "TemplatesExtension",
+            "VintageExtension",
+            "AmountOrScalar",
+            "FinancialModelSpec",
+            "ForecastMethod",
+            "ForecastSpec",
+            "NodeSpec",
+            "NodeType",
+            "NodeValueType",
+            "SeasonalMode",
+            "Period",
+            "PeriodId",
+            "PeriodKind"
+          ],
+          "functions": [
+            "build_periods"
+          ],
+          "re_exports": {
+            "crate": [
+              "AmountOrScalar",
+              "FinancialModelSpec",
+              "ForecastMethod",
+              "ForecastSpec",
+              "NodeSpec",
+              "NodeType",
+              "NodeValueType",
+              "SeasonalMode"
+            ],
+            "finstack_core": [
+              "build_periods",
+              "Period",
+              "PeriodId",
+              "PeriodKind"
+            ]
+          },
+          "modules": {}
         },
         "registry": {
           "path": "statements/src/registry",
@@ -8655,7 +6794,8 @@
           "functions": [
             "apply_asset_correlation_shock",
             "apply_prepay_default_correlation_shock",
-            "apply_selective_correlation_shock"
+            "apply_selective_correlation_shock",
+            "check_arbitrage"
           ],
           "modules": {
             "asset_corr": {
@@ -8764,7 +6904,9 @@
                 "ArbitrageViolation",
                 "VolAdapter"
               ],
-              "functions": [],
+              "functions": [
+                "check_arbitrage"
+              ],
               "re_exports": {},
               "modules": {}
             }
@@ -8779,6 +6921,7 @@
               "RollForwardReport"
             ],
             "vol": [
+              "check_arbitrage",
               "ArbitrageViolation"
             ]
           }
@@ -8844,7 +6987,9 @@
         },
         "utils": {
           "path": "scenarios/src/utils.rs",
-          "types": [],
+          "types": [
+            "InterpolationResult"
+          ],
           "functions": [
             "parse_tenor_to_years",
             "parse_tenor_to_years_with_context",
@@ -8853,7 +6998,8 @@
             "tenor_years_from_forward_curve",
             "tenor_years_from_binding",
             "parse_period_to_days",
-            "calculate_interpolation_weights"
+            "calculate_interpolation_weights",
+            "calculate_interpolation_weights_with_info"
           ],
           "re_exports": {},
           "modules": {}
@@ -8874,6 +7020,7 @@
           "optimization",
           "portfolio",
           "position",
+          "prelude",
           "results",
           "types",
           "valuation",
@@ -8914,6 +7061,7 @@
           "TradeUniverse",
           "WeightingScheme",
           "Portfolio",
+          "PortfolioSpec",
           "Position",
           "PositionUnit",
           "PortfolioResult",
@@ -8995,7 +7143,7 @@
             "WeightingScheme"
           ],
           "portfolio": [
-            "Portfolio"
+            "PortfolioSpec"
           ],
           "position": [
             "Position",
@@ -9134,6 +7282,7 @@
             "PortfolioMarginAggregator",
             "NettingSet",
             "NettingSetManager",
+            "CurrencyMismatchError",
             "NettingSetMargin",
             "PortfolioMarginResult"
           ],
@@ -9148,6 +7297,7 @@
               "NettingSetManager"
             ],
             "results": [
+              "CurrencyMismatchError",
               "NettingSetMargin",
               "PortfolioMarginResult"
             ]
@@ -9173,6 +7323,7 @@
           "path": "portfolio/src/optimization",
           "types": [
             "Constraint",
+            "ConstraintValidationError",
             "Inequality",
             "MaxYieldWithCccLimitResult",
             "DefaultLpOptimizer",
@@ -9199,6 +7350,7 @@
           "re_exports": {
             "constraints": [
               "Constraint",
+              "ConstraintValidationError",
               "Inequality"
             ],
             "helpers": [
@@ -9241,6 +7393,7 @@
           ],
           "functions": [
             "new",
+            "rebuild_index",
             "get_position",
             "positions_for_entity",
             "positions_with_tag",
@@ -9272,6 +7425,72 @@
             "from_spec"
           ],
           "re_exports": {},
+          "modules": {}
+        },
+        "prelude": {
+          "path": "portfolio/src/prelude.rs",
+          "types": [
+            "PortfolioAttribution",
+            "Book",
+            "BookId",
+            "PortfolioCashflows",
+            "Error",
+            "Result",
+            "NettingSet",
+            "NettingSetManager",
+            "NettingSetMargin",
+            "PortfolioMarginAggregator",
+            "PortfolioMarginResult",
+            "AggregatedMetric",
+            "PortfolioMetrics",
+            "CandidatePosition",
+            "Constraint",
+            "DefaultLpOptimizer",
+            "Inequality",
+            "MaxYieldWithCccLimitResult",
+            "MetricExpr",
+            "MissingMetricPolicy",
+            "Objective",
+            "PerPositionMetric",
+            "PortfolioOptimizationProblem",
+            "PortfolioOptimizationResult",
+            "PortfolioOptimizer",
+            "PositionFilter",
+            "TradeDirection",
+            "TradeSpec",
+            "TradeType",
+            "TradeUniverse",
+            "WeightingScheme",
+            "Portfolio",
+            "PortfolioSpec",
+            "Position",
+            "PositionUnit",
+            "Entity",
+            "EntityId",
+            "PositionId",
+            "DUMMY_ENTITY_ID",
+            "PortfolioValuation",
+            "PositionValue"
+          ],
+          "functions": [
+            "attribute_portfolio_pnl",
+            "aggregate_cashflows",
+            "aggregate_by_attribute",
+            "aggregate_by_book",
+            "group_by_attribute",
+            "aggregate_metrics",
+            "optimize_max_yield_with_ccc_limit",
+            "value_portfolio",
+            "apply_and_revalue",
+            "apply_scenario"
+          ],
+          "re_exports": {
+            "crate": [
+              "apply_and_revalue",
+              "apply_scenario"
+            ],
+            "finstack_core": []
+          },
           "modules": {}
         },
         "results": {
@@ -9353,12 +7572,299 @@
     },
     "io": {
       "exports": {
-        "modules": [],
-        "types": [],
-        "functions": [],
-        "re_exports": {}
+        "modules": [
+          "config",
+          "error",
+          "governance",
+          "store",
+          "providers"
+        ],
+        "types": [
+          "FinstackIoConfig",
+          "IoBackend",
+          "StoreHandle",
+          "Error",
+          "Result",
+          "ActorContext",
+          "ActorKind",
+          "ChangeKind",
+          "GovernanceConfig",
+          "GovernedHandle",
+          "ResourceChange",
+          "ResourceChangeInsert",
+          "ResourceEntity",
+          "ResourceShare",
+          "SharePermission",
+          "ShareType",
+          "UserRole",
+          "VisibilityScope",
+          "BulkStore",
+          "LookbackStore",
+          "MarketContextSnapshot",
+          "PortfolioSnapshot",
+          "SeriesKey",
+          "SeriesKind",
+          "Store",
+          "TimeSeriesPoint",
+          "TimeSeriesStore",
+          "MAX_BATCH_SIZE",
+          "PostgresConfig",
+          "PostgresStore",
+          "DEFAULT_POOL_SIZE",
+          "DEFAULT_STATEMENT_TIMEOUT",
+          "SqliteStore",
+          "TursoStore"
+        ],
+        "functions": [
+          "postgres",
+          "sqlite",
+          "turso",
+          "open_store_from_env"
+        ],
+        "re_exports": {
+          "providers": [
+            "turso"
+          ],
+          "config": [
+            "open_store_from_env",
+            "FinstackIoConfig",
+            "IoBackend",
+            "StoreHandle"
+          ],
+          "error": [
+            "Error",
+            "Result"
+          ],
+          "governance": [
+            "ActorContext",
+            "ActorKind",
+            "ChangeKind",
+            "GovernanceConfig",
+            "GovernedHandle",
+            "ResourceChange",
+            "ResourceChangeInsert",
+            "ResourceEntity",
+            "ResourceShare",
+            "SharePermission",
+            "ShareType",
+            "UserRole",
+            "VisibilityScope"
+          ],
+          "store": [
+            "BulkStore",
+            "LookbackStore",
+            "MarketContextSnapshot",
+            "PortfolioSnapshot",
+            "SeriesKey",
+            "SeriesKind",
+            "Store",
+            "TimeSeriesPoint",
+            "TimeSeriesStore",
+            "MAX_BATCH_SIZE"
+          ],
+          "postgres": [
+            "PostgresConfig",
+            "PostgresStore",
+            "DEFAULT_POOL_SIZE",
+            "DEFAULT_STATEMENT_TIMEOUT"
+          ],
+          "sqlite": [
+            "SqliteStore"
+          ],
+          "turso": [
+            "TursoStore"
+          ]
+        }
       },
-      "modules": {}
+      "modules": {
+        "config": {
+          "path": "io/src/config.rs",
+          "types": [
+            "IoBackend",
+            "FinstackIoConfig",
+            "StoreHandle"
+          ],
+          "functions": [
+            "from_env",
+            "as_actor",
+            "open_store_from_env"
+          ],
+          "re_exports": {},
+          "modules": {}
+        },
+        "error": {
+          "path": "io/src/error.rs",
+          "types": [
+            "Result",
+            "Error"
+          ],
+          "functions": [
+            "not_found",
+            "invalid_series_kind"
+          ],
+          "re_exports": {},
+          "modules": {}
+        },
+        "governance": {
+          "path": "io/src/governance.rs",
+          "types": [
+            "ActorKind",
+            "ActorContext",
+            "VisibilityScope",
+            "ShareType",
+            "SharePermission",
+            "ChangeKind",
+            "DRAFT",
+            "PENDING",
+            "CHECKING",
+            "VERIFIED",
+            "SYSTEM_VERIFIED",
+            "UserRole",
+            "ResourceEntity",
+            "ResourceShare",
+            "WorkflowBinding",
+            "WorkflowTransition",
+            "WorkflowState",
+            "ResourceChange",
+            "ResourceChangeInsert",
+            "GovernanceConfig",
+            "INSTRUMENT",
+            "PORTFOLIO",
+            "MARKET_CONTEXT",
+            "SCENARIO",
+            "STATEMENT_MODEL",
+            "METRIC_REGISTRY",
+            "SERIES_META",
+            "GovernedHandle"
+          ],
+          "functions": [
+            "as_str",
+            "parse",
+            "user",
+            "system",
+            "as_str",
+            "parse",
+            "as_str",
+            "parse",
+            "as_str",
+            "parse",
+            "allows",
+            "as_str",
+            "parse",
+            "can_access_resource",
+            "can_read_resource",
+            "can_write_resource",
+            "is_admin",
+            "select_workflow_binding",
+            "validate_transition",
+            "from_env",
+            "new",
+            "with_config",
+            "actor",
+            "get_instrument",
+            "list_instruments",
+            "get_market_context",
+            "get_portfolio_spec",
+            "get_scenario",
+            "list_scenarios",
+            "get_statement_model",
+            "list_statement_models",
+            "get_metric_registry",
+            "list_metric_registries",
+            "get_series_meta",
+            "list_series",
+            "list_market_contexts",
+            "list_portfolios",
+            "latest_market_context_on_or_before",
+            "latest_portfolio_on_or_before",
+            "set_visibility",
+            "create_draft_change",
+            "submit_change",
+            "transition_change",
+            "ingest_system_change",
+            "get_change",
+            "list_changes_for_owner"
+          ],
+          "re_exports": {},
+          "modules": {}
+        },
+        "store": {
+          "path": "io/src/store.rs",
+          "types": [
+            "MAX_BATCH_SIZE",
+            "Store",
+            "BulkStore",
+            "MarketContextSnapshot",
+            "PortfolioSnapshot",
+            "LookbackStore",
+            "SeriesKind",
+            "SeriesKey",
+            "TimeSeriesPoint",
+            "TimeSeriesStore"
+          ],
+          "functions": [
+            "as_str",
+            "parse",
+            "try_parse",
+            "new"
+          ],
+          "re_exports": {},
+          "modules": {}
+        },
+        "providers": {
+          "path": "io/src/providers",
+          "types": [],
+          "functions": [],
+          "modules": {
+            "postgres": {
+              "path": "io/src/providers/postgres",
+              "types": [
+                "PostgresConfig",
+                "PostgresStore",
+                "DEFAULT_POOL_SIZE",
+                "DEFAULT_STATEMENT_TIMEOUT"
+              ],
+              "functions": [],
+              "modules": {},
+              "re_exports": {
+                "store": [
+                  "PostgresConfig",
+                  "PostgresStore",
+                  "DEFAULT_POOL_SIZE",
+                  "DEFAULT_STATEMENT_TIMEOUT"
+                ]
+              }
+            },
+            "sqlite": {
+              "path": "io/src/providers/sqlite",
+              "types": [
+                "SqliteStore"
+              ],
+              "functions": [],
+              "modules": {},
+              "re_exports": {
+                "store": [
+                  "SqliteStore"
+                ]
+              }
+            },
+            "turso": {
+              "path": "io/src/providers/turso",
+              "types": [
+                "TursoStore"
+              ],
+              "functions": [],
+              "modules": {},
+              "re_exports": {
+                "store": [
+                  "TursoStore"
+                ]
+              }
+            }
+          },
+          "re_exports": {}
+        }
+      }
     }
   },
   "exports": {

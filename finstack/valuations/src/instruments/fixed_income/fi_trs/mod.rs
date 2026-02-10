@@ -13,7 +13,7 @@
 //! ```
 //!
 //! where `y` is the continuous index yield and `dt` is the accrual period year fraction.
-//! See [`pricer`] for full model documentation and rationale.
+//! See the pricer module for full model documentation and rationale.
 //!
 //! # Use Cases
 //!
@@ -40,7 +40,7 @@
 //!
 //! # See Also
 //!
-//! - [`crate::instruments::equity_trs`] for equity TRS
+//! - equity TRS module for equity total return swaps
 //! - [`TrsEngine`](crate::instruments::common::pricing::TrsEngine) for shared pricing logic
 
 pub(crate) mod metrics;

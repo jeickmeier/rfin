@@ -221,10 +221,10 @@ impl MetricRegistry {
     ///
     /// # Errors
     /// Returns an error if:
-    /// - Any requested metric is not registered ([`Error::UnknownMetric`])
-    /// - Any metric is not applicable to the instrument type ([`Error::MetricNotApplicable`])
-    /// - Any metric calculation fails ([`Error::MetricCalculationFailed`])
-    /// - Circular dependencies are detected ([`Error::CircularDependency`])
+    /// - Any requested metric is not registered (`Error::UnknownMetric`)
+    /// - Any metric is not applicable to the instrument type (`Error::MetricNotApplicable`)
+    /// - Any metric calculation fails (`Error::MetricCalculationFailed`)
+    /// - Circular dependencies are detected (`Error::CircularDependency`)
     ///
     /// # Examples
     ///

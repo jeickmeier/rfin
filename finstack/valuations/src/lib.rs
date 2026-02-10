@@ -196,43 +196,43 @@
 //! # Supported Instruments
 //!
 //! ## Fixed Income
-//! - [`Bond`](instruments::Bond): Fixed and floating-rate bonds, callable/putable, amortizing
-//! - [`InterestRateSwap`](instruments::InterestRateSwap): Plain vanilla and basis swaps
-//! - [`Swaption`](instruments::Swaption): European and Bermudan swaptions
-//! - [`CapFloor`](instruments::cap_floor): Interest rate caps and floors
-//! - [`Deposit`](instruments::Deposit): Money market deposits
-//! - [`ForwardRateAgreement`](instruments::ForwardRateAgreement): FRAs
-//! - [`InterestRateFuture`](instruments::InterestRateFuture): Futures contracts
+//! - `Bond`: Fixed and floating-rate bonds, callable/putable, amortizing
+//! - `InterestRateSwap`: Plain vanilla and basis swaps
+//! - `Swaption`: European and Bermudan swaptions
+//! - `InterestRateOption`: Interest rate caps and floors
+//! - `Deposit`: Money market deposits
+//! - `ForwardRateAgreement`: FRAs
+//! - `InterestRateFuture`: Futures contracts
 //!
 //! ## Credit
-//! - [`CreditDefaultSwap`](instruments::CreditDefaultSwap): Single-name CDS
-//! - [`CDSIndex`](instruments::CDSIndex): Credit indices (CDX, iTraxx)
-//! - [`CDSTranche`](instruments::CDSTranche): Synthetic CDO tranches
-//! - [`CDSOption`](instruments::CDSOption): Options on CDS
-//! - [`StructuredCredit`](instruments::StructuredCredit): ABS, RMBS, CMBS, CLO
+//! - `CreditDefaultSwap`: Single-name CDS
+//! - `CDSIndex`: Credit indices (CDX, iTraxx)
+//! - `CDSTranche`: Synthetic CDO tranches
+//! - `CDSOption`: Options on CDS
+//! - `StructuredCredit`: ABS, RMBS, CMBS, CLO
 //!
 //! ## Equity & FX
-//! - [`Equity`](instruments::Equity): Equity spot positions
-//! - [`EquityOption`](instruments::EquityOption): Vanilla equity options
-//! - [`FxSpot`](instruments::FxSpot): FX spot positions
-//! - [`FxOption`](instruments::FxOption): Vanilla FX options (Garman-Kohlhagen)
-//! - [`FxSwap`](instruments::FxSwap): FX forwards and swaps
-//! - [`Basket`](instruments::Basket): Multi-asset baskets
+//! - `Equity`: Equity spot positions
+//! - `EquityOption`: Vanilla equity options
+//! - `FxSpot`: FX spot positions
+//! - `FxOption`: Vanilla FX options (Garman-Kohlhagen)
+//! - `FxSwap`: FX forwards and swaps
+//! - `Basket`: Multi-asset baskets
 //!
 //! ## Exotic Options (requires `mc` feature)
-//! - [`AsianOption`](instruments::AsianOption): Asian (average price/strike) options
-//! - [`BarrierOption`](instruments::BarrierOption): Barrier options (knock-in/out)
-//! - [`LookbackOption`](instruments::LookbackOption): Lookback options
-//! - [`Autocallable`](instruments::Autocallable): Autocallable notes
-//! - [`CliquetOption`](instruments::CliquetOption): Cliquet/ratchet options
-//! - [`QuantoOption`](instruments::QuantoOption): Quanto options
+//! - `AsianOption`: Asian (average price/strike) options
+//! - `BarrierOption`: Barrier options (knock-in/out)
+//! - `LookbackOption`: Lookback options
+//! - `Autocallable`: Autocallable notes
+//! - `CliquetOption`: Cliquet/ratchet options
+//! - `QuantoOption`: Quanto options
 //!
 //! ## Structured Products
-//! - [`ConvertibleBond`](instruments::ConvertibleBond): Convertible bonds
-//! - [`Repo`](instruments::Repo): Repurchase agreements
-//! - [`VarianceSwap`](instruments::VarianceSwap): Variance and volatility swaps
-//! - [`PrivateMarketsFund`](instruments::PrivateMarketsFund): Private equity/credit funds
-//! - [`RevolvingCredit`](instruments::RevolvingCredit): Revolving credit facilities
+//! - `ConvertibleBond`: Convertible bonds
+//! - `Repo`: Repurchase agreements
+//! - `VarianceSwap`: Variance and volatility swaps
+//! - `PrivateMarketsFund`: Private equity/credit funds
+//! - `RevolvingCredit`: Revolving credit facilities
 //!
 //! # Pricing Models
 //!
@@ -286,10 +286,10 @@
 //!
 //! # See Also
 //!
-//! - [`finstack_core`]: Core primitives (Money, dates, curves, expressions)
-//! - [`finstack_statements`]: Financial statement modeling
-//! - [`finstack_portfolio`]: Multi-instrument portfolio aggregation
-//! - [`finstack_scenarios`]: Scenario analysis and stress testing
+//! - `finstack_core`: Core primitives (Money, dates, curves, expressions)
+//! - `finstack_statements`: Financial statement modeling
+//! - `finstack_portfolio`: Multi-instrument portfolio aggregation
+//! - `finstack_scenarios`: Scenario analysis and stress testing
 
 extern crate self as finstack_valuations;
 

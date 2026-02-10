@@ -53,7 +53,7 @@ pub struct ConventionRegistry {
 impl ConventionRegistry {
     /// Create a new registry from in-memory maps.
     ///
-    /// This constructor is primarily used for testing. In production, use [`global()`](Self::global)
+    /// This constructor is primarily used for testing. In production, use `global()`
     /// to access the singleton registry loaded from embedded JSON data.
     ///
     /// # Arguments
@@ -133,7 +133,7 @@ impl ConventionRegistry {
 
     /// Access the global singleton registry (fallible).
     ///
-    /// This is the error-returning variant of [`global()`](Self::global). It is preferred in
+    /// This is the error-returning variant of `global()`. It is preferred in
     /// library/binding contexts where panics are unacceptable.
     pub fn try_global() -> Result<&'static Self> {
         static REGISTRY: OnceLock<ConventionRegistry> = OnceLock::new();

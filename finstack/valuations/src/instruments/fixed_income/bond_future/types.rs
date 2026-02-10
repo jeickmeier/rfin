@@ -603,7 +603,7 @@ impl BondFuture {
     ///
     /// # Errors
     ///
-    /// Returns an error if validation fails (see [`BondFuture::validate`]).
+    /// Returns an error if validation fails (see `BondFuture::validate`).
     #[allow(clippy::too_many_arguments)]
     pub fn ust_10y(
         id: InstrumentId,
@@ -719,7 +719,7 @@ impl BondFuture {
     ///
     /// # Errors
     ///
-    /// Returns an error if validation fails (see [`BondFuture::validate`]).
+    /// Returns an error if validation fails (see `BondFuture::validate`).
     #[allow(clippy::too_many_arguments)]
     pub fn ust_5y(
         id: InstrumentId,
@@ -798,7 +798,7 @@ impl BondFuture {
     ///
     /// # Errors
     ///
-    /// Returns an error if validation fails (see [`BondFuture::validate`]).
+    /// Returns an error if validation fails (see `BondFuture::validate`).
     #[allow(clippy::too_many_arguments)]
     pub fn ust_2y(
         id: InstrumentId,
@@ -875,7 +875,7 @@ impl BondFuture {
     ///
     /// # Errors
     ///
-    /// Returns an error if validation fails (see [`BondFuture::validate`]).
+    /// Returns an error if validation fails (see `BondFuture::validate`).
     #[allow(clippy::too_many_arguments)]
     pub fn bund(
         id: InstrumentId,
@@ -954,7 +954,7 @@ impl BondFuture {
     ///
     /// # Errors
     ///
-    /// Returns an error if validation fails (see [`BondFuture::validate`]).
+    /// Returns an error if validation fails (see `BondFuture::validate`).
     #[allow(clippy::too_many_arguments)]
     pub fn gilt(
         id: InstrumentId,
@@ -1485,7 +1485,7 @@ impl BondFutureBuilder {
     ///
     /// Returns an error if:
     /// - Any required field is missing (from the generated builder)
-    /// - Validation fails (from [`BondFuture::validate`])
+    /// - Validation fails (from `BondFuture::validate`)
     ///
     /// # Examples
     ///
@@ -1494,7 +1494,7 @@ impl BondFutureBuilder {
     /// use finstack_core::money::Money;
     /// use finstack_core::types::{CurveId, InstrumentId};
     /// use finstack_valuations::instruments::fixed_income::bond_future::{
-    ///     BondFutureBuilder, BondFutureSpecs, DeliverableBond, Position,
+    ///     BondFuture, BondFutureSpecs, DeliverableBond, Position,
     /// };
     /// use time::macros::date;
     ///

@@ -281,12 +281,12 @@
               "js_name": "toJson"
             },
             {
-              "name": "from_json",
-              "js_name": "fromJson"
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
-              "name": "to_state",
-              "js_name": "toState"
+              "name": "from_json",
+              "js_name": "fromJson"
             },
             {
               "name": "from_state",
@@ -514,6 +514,10 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "from_json",
@@ -827,6 +831,10 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "from_json",
@@ -1165,6 +1173,10 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "from_json",
@@ -1629,6 +1641,10 @@
               "js_name": "toJson"
             },
             {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
+            },
+            {
               "name": "from_json",
               "js_name": "fromJson"
             },
@@ -1657,12 +1673,12 @@
               "js_name": "toJson"
             },
             {
-              "name": "from_json",
-              "js_name": "fromJson"
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
-              "name": "to_state",
-              "js_name": "toState"
+              "name": "from_json",
+              "js_name": "fromJson"
             }
           ]
         },
@@ -2164,16 +2180,16 @@
               "js_name": "clone"
             },
             {
-              "name": "to_state",
-              "js_name": "toState"
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
               "name": "from_state",
               "js_name": "fromState"
             },
             {
-              "name": "to_json",
-              "js_name": "toJson"
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "from_json",
@@ -3229,8 +3245,8 @@
         "setOutputScale",
         "setExtension",
         "toJson",
+        "toJsonString",
         "fromJson",
-        "toState",
         "fromState",
         "trace_type",
         "traceType",
@@ -3252,6 +3268,7 @@
         "ifThenElse",
         "withId",
         "toJson",
+        "toJsonString",
         "fromJson",
         "toString",
         "roots",
@@ -3318,6 +3335,7 @@
         "frequency",
         "busBasis",
         "toJson",
+        "toJsonString",
         "fromJson",
         "new_from_name",
         "new_from_name",
@@ -3387,6 +3405,7 @@
         "build",
         "calendarId",
         "toJson",
+        "toJsonString",
         "fromJson",
         "nextImm",
         "nextCdsDate",
@@ -3479,6 +3498,7 @@
         "value",
         "bumpType",
         "toJson",
+        "toJsonString",
         "fromJson",
         "curve",
         "fxPct",
@@ -3486,8 +3506,8 @@
         "baseCorrBucketPts",
         "kind",
         "toJson",
+        "toJsonString",
         "fromJson",
-        "toState",
         "linear",
         "Linear",
         "LogLinear",
@@ -3580,9 +3600,9 @@
         "new",
         "new",
         "clone",
-        "toState",
-        "fromState",
         "toJson",
+        "fromState",
+        "toJsonString",
         "fromJson",
         "insertDiscount",
         "insertForward",
@@ -4492,156 +4512,24 @@
               "js_name": "priceInstrument"
             },
             {
-              "name": "price_bond",
-              "js_name": "priceBond"
-            },
-            {
-              "name": "price_deposit",
-              "js_name": "priceDeposit"
-            },
-            {
-              "name": "price_interest_rate_swap",
-              "js_name": "priceInterestRateSwap"
-            },
-            {
-              "name": "price_range_accrual",
-              "js_name": "priceRangeAccrual"
-            },
-            {
-              "name": "price_forward_rate_agreement",
-              "js_name": "priceForwardRateAgreement"
-            },
-            {
-              "name": "price_swaption",
-              "js_name": "priceSwaption"
-            },
-            {
-              "name": "price_cms_option",
-              "js_name": "priceCmsOption"
-            },
-            {
-              "name": "price_basis_swap",
-              "js_name": "priceBasisSwap"
-            },
-            {
-              "name": "price_interest_rate_option",
-              "js_name": "priceInterestRateOption"
-            },
-            {
-              "name": "price_interest_rate_future",
-              "js_name": "priceInterestRateFuture"
-            },
-            {
-              "name": "price_fx_spot",
-              "js_name": "priceFxSpot"
-            },
-            {
-              "name": "price_fx_option",
-              "js_name": "priceFxOption"
-            },
-            {
-              "name": "price_fx_barrier_option",
-              "js_name": "priceFxBarrierOption"
-            },
-            {
-              "name": "price_quanto_option",
-              "js_name": "priceQuantoOption"
-            },
-            {
-              "name": "price_fx_swap",
-              "js_name": "priceFxSwap"
-            },
-            {
-              "name": "price_credit_default_swap",
-              "js_name": "priceCreditDefaultSwap"
-            },
-            {
-              "name": "price_cds_index",
-              "js_name": "priceCDSIndex"
-            },
-            {
-              "name": "price_cds_tranche",
-              "js_name": "priceCdsTranche"
-            },
-            {
-              "name": "price_cds_option",
-              "js_name": "priceCdsOption"
-            },
-            {
-              "name": "price_equity",
-              "js_name": "priceEquity"
-            },
-            {
-              "name": "price_equity_option",
-              "js_name": "priceEquityOption"
-            },
-            {
-              "name": "price_barrier_option",
-              "js_name": "priceBarrierOption"
-            },
-            {
-              "name": "price_asian_option",
-              "js_name": "priceAsianOption"
-            },
-            {
-              "name": "price_lookback_option",
-              "js_name": "priceLookbackOption"
-            },
-            {
-              "name": "price_cliquet_option",
-              "js_name": "priceCliquetOption"
-            },
-            {
-              "name": "price_repo",
-              "js_name": "priceRepo"
-            },
-            {
-              "name": "price_inflation_linked_bond",
-              "js_name": "priceInflationLinkedBond"
-            },
-            {
-              "name": "price_inflation_swap",
-              "js_name": "priceInflationSwap"
-            },
-            {
-              "name": "price_variance_swap",
-              "js_name": "priceVarianceSwap"
-            },
-            {
-              "name": "price_convertible_bond",
-              "js_name": "priceConvertibleBond"
-            },
-            {
-              "name": "price_equity_total_return_swap",
-              "js_name": "priceEquityTotalReturnSwap"
-            },
-            {
-              "name": "price_fi_index_total_return_swap",
-              "js_name": "priceFiIndexTotalReturnSwap"
-            },
-            {
-              "name": "price_structured_credit",
-              "js_name": "priceStructuredCredit"
-            },
-            {
-              "name": "price_basket",
-              "js_name": "priceBasket"
-            },
-            {
-              "name": "price_private_markets_fund",
-              "js_name": "pricePrivateMarketsFund"
-            },
-            {
-              "name": "price_autocallable",
-              "js_name": "priceAutocallable"
-            },
-            {
-              "name": "price_revolving_credit",
-              "js_name": "priceRevolvingCredit"
-            },
-            {
               "name": "create_standard_registry_js",
               "js_name": "createStandardRegistry"
+            },
+            {
+              "name": "create_rates_registry_js",
+              "js_name": "createRatesRegistry"
+            },
+            {
+              "name": "create_credit_registry_js",
+              "js_name": "createCreditRegistry"
+            },
+            {
+              "name": "create_equity_registry_js",
+              "js_name": "createEquityRegistry"
+            },
+            {
+              "name": "create_fx_registry_js",
+              "js_name": "createFxRegistry"
             }
           ]
         },
@@ -5735,7 +5623,7 @@
               "properties": []
             },
             {
-              "name": "CdsTrancheQuote",
+              "name": "CDSTrancheQuote",
               "js_name": "CdsTrancheQuote",
               "methods": [],
               "properties": []
@@ -7007,6 +6895,12 @@
           "path": "valuations/instruments/fra.rs",
           "classes": [
             {
+              "name": "ForwardRateAgreementBuilder",
+              "js_name": "ForwardRateAgreementBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "ForwardRateAgreement",
               "js_name": "ForwardRateAgreement",
               "methods": [],
@@ -7021,6 +6915,70 @@
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "fixed_rate",
+              "js_name": "fixedRate"
+            },
+            {
+              "name": "fixing_date",
+              "js_name": "fixingDate"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "end_date",
+              "js_name": "endDate"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "forward_curve",
+              "js_name": "forwardCurve"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "reset_lag",
+              "js_name": "resetLag"
+            },
+            {
+              "name": "receive_fixed",
+              "js_name": "receiveFixed"
+            },
+            {
+              "name": "pay_fixed",
+              "js_name": "payFixed"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "instrument_id",
@@ -7072,6 +7030,12 @@
           "path": "valuations/instruments/autocallable.rs",
           "classes": [
             {
+              "name": "AutocallableBuilder",
+              "js_name": "AutocallableBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "Autocallable",
               "js_name": "Autocallable",
               "methods": [],
@@ -7080,8 +7044,20 @@
           ],
           "functions": [
             {
-              "name": "from_json",
-              "js_name": "from_json"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "from_json",
@@ -7094,6 +7070,10 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "instrument_type",
@@ -7117,12 +7097,70 @@
               "js_name": "InflationLinkedBond",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "InflationLinkedBondBuilder",
+              "js_name": "InflationLinkedBondBuilder",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "real_coupon",
+              "js_name": "realCoupon"
+            },
+            {
+              "name": "issue",
+              "js_name": "issue"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "base_index",
+              "js_name": "baseIndex"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "inflation_curve",
+              "js_name": "inflationCurve"
+            },
+            {
+              "name": "indexation",
+              "js_name": "indexation"
+            },
+            {
+              "name": "frequency",
+              "js_name": "frequency"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "deflation_protection",
+              "js_name": "deflationProtection"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "new",
@@ -7145,6 +7183,18 @@
               "js_name": "maturity"
             },
             {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
@@ -7162,6 +7212,12 @@
           "path": "valuations/instruments/equity_option.rs",
           "classes": [
             {
+              "name": "EquityOptionBuilder",
+              "js_name": "EquityOptionBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "EquityOption",
               "js_name": "EquityOption",
               "methods": [],
@@ -7170,16 +7226,52 @@
           ],
           "functions": [
             {
-              "name": "european_call",
-              "js_name": "european_call"
+              "name": "new",
+              "js_name": "new"
             },
             {
-              "name": "european_call",
-              "js_name": "europeanCall"
+              "name": "new",
+              "js_name": "new"
             },
             {
-              "name": "european_put",
-              "js_name": "europeanPut"
+              "name": "ticker",
+              "js_name": "ticker"
+            },
+            {
+              "name": "strike",
+              "js_name": "strike"
+            },
+            {
+              "name": "option_type",
+              "js_name": "optionType"
+            },
+            {
+              "name": "expiry",
+              "js_name": "expiry"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "contract_size",
+              "js_name": "contractSize"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
               "name": "instrument_id",
@@ -7219,6 +7311,12 @@
           "path": "valuations/instruments/revolving_credit.rs",
           "classes": [
             {
+              "name": "RevolvingCreditBuilder",
+              "js_name": "RevolvingCreditBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "RevolvingCredit",
               "js_name": "RevolvingCredit",
               "methods": [],
@@ -7227,8 +7325,20 @@
           ],
           "functions": [
             {
-              "name": "from_json",
-              "js_name": "from_json"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "from_json",
@@ -7241,6 +7351,14 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "instrument_type",
@@ -7270,6 +7388,12 @@
           "path": "valuations/instruments/term_loan.rs",
           "classes": [
             {
+              "name": "TermLoanBuilder",
+              "js_name": "TermLoanBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "TermLoan",
               "js_name": "TermLoan",
               "methods": [],
@@ -7278,12 +7402,36 @@
           ],
           "functions": [
             {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
               "name": "from_json",
               "js_name": "fromJson"
             },
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "instrument_id",
@@ -7357,8 +7505,20 @@
               "properties": []
             },
             {
+              "name": "EquityTotalReturnSwapBuilder",
+              "js_name": "EquityTotalReturnSwapBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "FiIndexTotalReturnSwap",
               "js_name": "FiIndexTotalReturnSwap",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "FiIndexTotalReturnSwapBuilder",
+              "js_name": "FiIndexTotalReturnSwapBuilder",
               "methods": [],
               "properties": []
             }
@@ -7389,16 +7549,32 @@
               "js_name": "new"
             },
             {
-              "name": "new",
-              "js_name": "new"
+              "name": "money",
+              "js_name": "money"
             },
             {
-              "name": "new",
-              "js_name": "new"
+              "name": "underlying",
+              "js_name": "underlying"
             },
             {
-              "name": "new",
-              "js_name": "new"
+              "name": "financing",
+              "js_name": "financing"
+            },
+            {
+              "name": "schedule",
+              "js_name": "schedule"
+            },
+            {
+              "name": "receive_total_return",
+              "js_name": "receiveTotalReturn"
+            },
+            {
+              "name": "initial_level",
+              "js_name": "initialLevel"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "new",
@@ -7411,6 +7587,18 @@
             {
               "name": "notional",
               "js_name": "notional"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "instrument_type",
@@ -7433,12 +7621,56 @@
               "js_name": "new"
             },
             {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "underlying",
+              "js_name": "underlying"
+            },
+            {
+              "name": "financing",
+              "js_name": "financing"
+            },
+            {
+              "name": "schedule",
+              "js_name": "schedule"
+            },
+            {
+              "name": "receive_total_return",
+              "js_name": "receiveTotalReturn"
+            },
+            {
+              "name": "initial_level",
+              "js_name": "initialLevel"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
               "name": "instrument_id",
               "js_name": "instrumentId"
             },
             {
               "name": "notional",
               "js_name": "notional"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "instrument_type",
@@ -7462,12 +7694,62 @@
               "js_name": "VarianceSwap",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "VarianceSwapBuilder",
+              "js_name": "VarianceSwapBuilder",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "underlying_id",
+              "js_name": "underlyingId"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "strike_variance",
+              "js_name": "strikeVariance"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "observation_frequency",
+              "js_name": "observationFrequency"
+            },
+            {
+              "name": "realized_method",
+              "js_name": "realizedMethod"
+            },
+            {
+              "name": "side",
+              "js_name": "side"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "new",
@@ -7482,41 +7764,8 @@
               "js_name": "strikeVariance"
             },
             {
-              "name": "instrument_type",
-              "js_name": "instrumentType"
-            },
-            {
-              "name": "to_string_js",
-              "js_name": "toString"
-            },
-            {
-              "name": "clone_js",
-              "js_name": "clone"
-            }
-          ]
-        },
-        "valuations.instruments.range_accrual": {
-          "path": "valuations/instruments/range_accrual.rs",
-          "classes": [
-            {
-              "name": "RangeAccrual",
-              "js_name": "RangeAccrual",
-              "methods": [],
-              "properties": []
-            }
-          ],
-          "functions": [
-            {
-              "name": "from_json",
-              "js_name": "from_json"
-            },
-            {
               "name": "from_json",
               "js_name": "fromJson"
-            },
-            {
-              "name": "instrument_id",
-              "js_name": "instrumentId"
             },
             {
               "name": "to_json",
@@ -7536,9 +7785,82 @@
             }
           ]
         },
+        "valuations.instruments.range_accrual": {
+          "path": "valuations/instruments/range_accrual.rs",
+          "classes": [
+            {
+              "name": "RangeAccrualBuilder",
+              "js_name": "RangeAccrualBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "RangeAccrual",
+              "js_name": "RangeAccrual",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "clone_js",
+              "js_name": "clone"
+            }
+          ]
+        },
         "valuations.instruments.equity": {
           "path": "valuations/instruments/equity.rs",
           "classes": [
+            {
+              "name": "EquityBuilder",
+              "js_name": "EquityBuilder",
+              "methods": [],
+              "properties": []
+            },
             {
               "name": "Equity",
               "js_name": "Equity",
@@ -7550,6 +7872,30 @@
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "ticker",
+              "js_name": "ticker"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "shares",
+              "js_name": "shares"
+            },
+            {
+              "name": "price",
+              "js_name": "price"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "new",
@@ -7572,6 +7918,14 @@
               "js_name": "shares"
             },
             {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
@@ -7589,6 +7943,12 @@
           "path": "valuations/instruments/commodity_swap.rs",
           "classes": [
             {
+              "name": "CommoditySwapBuilder",
+              "js_name": "CommoditySwapBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "CommoditySwap",
               "js_name": "CommoditySwap",
               "methods": [],
@@ -7596,6 +7956,70 @@
             }
           ],
           "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "commodity_type",
+              "js_name": "commodityType"
+            },
+            {
+              "name": "ticker",
+              "js_name": "ticker"
+            },
+            {
+              "name": "unit",
+              "js_name": "unit"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "notional_quantity",
+              "js_name": "notionalQuantity"
+            },
+            {
+              "name": "fixed_price",
+              "js_name": "fixedPrice"
+            },
+            {
+              "name": "floating_index_id",
+              "js_name": "floatingIndexId"
+            },
+            {
+              "name": "pay_fixed",
+              "js_name": "payFixed"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "end_date",
+              "js_name": "endDate"
+            },
+            {
+              "name": "payment_frequency",
+              "js_name": "paymentFrequency"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "bdc",
+              "js_name": "bdc"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
             {
               "name": "new",
               "js_name": "new"
@@ -7649,6 +8073,14 @@
               "js_name": "discountCurveId"
             },
             {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
@@ -7666,6 +8098,12 @@
           "path": "valuations/instruments/cliquet_option.rs",
           "classes": [
             {
+              "name": "CliquetOptionBuilder",
+              "js_name": "CliquetOptionBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "CliquetOption",
               "js_name": "CliquetOption",
               "methods": [],
@@ -7674,8 +8112,20 @@
           ],
           "functions": [
             {
-              "name": "from_json",
-              "js_name": "from_json"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "from_json",
@@ -7688,6 +8138,10 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "instrument_type",
@@ -7707,6 +8161,12 @@
           "path": "valuations/instruments/lookback_option.rs",
           "classes": [
             {
+              "name": "LookbackOptionBuilder",
+              "js_name": "LookbackOptionBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "LookbackOption",
               "js_name": "LookbackOption",
               "methods": [],
@@ -7715,8 +8175,20 @@
           ],
           "functions": [
             {
-              "name": "from_json",
-              "js_name": "from_json"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "from_json",
@@ -7729,6 +8201,10 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "instrument_type",
@@ -7758,13 +8234,15 @@
               "js_name": "BasisSwap",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "BasisSwapBuilder",
+              "js_name": "BasisSwapBuilder",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
-            {
-              "name": "new",
-              "js_name": "new"
-            },
             {
               "name": "new",
               "js_name": "new"
@@ -7784,6 +8262,58 @@
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "primary_leg",
+              "js_name": "primaryLeg"
+            },
+            {
+              "name": "reference_leg",
+              "js_name": "referenceLeg"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "calendar",
+              "js_name": "calendar"
+            },
+            {
+              "name": "stub",
+              "js_name": "stub"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "instrument_id",
@@ -7825,6 +8355,12 @@
               "js_name": "FxVarianceSwap",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "FxVarianceSwapBuilder",
+              "js_name": "FxVarianceSwapBuilder",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
@@ -7839,6 +8375,62 @@
             {
               "name": "receive",
               "js_name": "Receive"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "base_currency",
+              "js_name": "baseCurrency"
+            },
+            {
+              "name": "quote_currency",
+              "js_name": "quoteCurrency"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "strike_variance",
+              "js_name": "strikeVariance"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "observation_freq",
+              "js_name": "observationFreq"
+            },
+            {
+              "name": "side",
+              "js_name": "side"
+            },
+            {
+              "name": "domestic_curve_id",
+              "js_name": "domesticCurveId"
+            },
+            {
+              "name": "foreign_curve_id",
+              "js_name": "foreignCurveId"
+            },
+            {
+              "name": "vol_surface_id",
+              "js_name": "volSurfaceId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "new",
@@ -7865,18 +8457,28 @@
               "js_name": "annualizationFactor"
             },
             {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
               "name": "from_json",
-              "js_name": "fromJSON"
+              "js_name": "fromJson"
             },
             {
               "name": "to_json",
-              "js_name": "toJSON"
+              "js_name": "toJson"
             }
           ]
         },
         "valuations.instruments.swaption": {
           "path": "valuations/instruments/swaption.rs",
           "classes": [
+            {
+              "name": "SwaptionBuilder",
+              "js_name": "SwaptionBuilder",
+              "methods": [],
+              "properties": []
+            },
             {
               "name": "Swaption",
               "js_name": "Swaption",
@@ -7886,16 +8488,92 @@
           ],
           "functions": [
             {
-              "name": "payer",
-              "js_name": "payer"
+              "name": "new",
+              "js_name": "new"
             },
             {
-              "name": "payer",
-              "js_name": "payer"
+              "name": "new",
+              "js_name": "new"
             },
             {
-              "name": "receiver",
-              "js_name": "receiver"
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "strike",
+              "js_name": "strike"
+            },
+            {
+              "name": "swaption_type",
+              "js_name": "swaptionType"
+            },
+            {
+              "name": "expiry",
+              "js_name": "expiry"
+            },
+            {
+              "name": "swap_start",
+              "js_name": "swapStart"
+            },
+            {
+              "name": "swap_end",
+              "js_name": "swapEnd"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "forward_curve",
+              "js_name": "forwardCurve"
+            },
+            {
+              "name": "vol_surface",
+              "js_name": "volSurface"
+            },
+            {
+              "name": "exercise",
+              "js_name": "exercise"
+            },
+            {
+              "name": "settlement",
+              "js_name": "settlement"
+            },
+            {
+              "name": "fixed_frequency",
+              "js_name": "fixedFrequency"
+            },
+            {
+              "name": "float_frequency",
+              "js_name": "floatFrequency"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "business_day_convention",
+              "js_name": "businessDayConvention"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
               "name": "instrument_id",
@@ -7947,6 +8625,12 @@
           "path": "valuations/instruments/deposit.rs",
           "classes": [
             {
+              "name": "DepositBuilder",
+              "js_name": "DepositBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "Deposit",
               "js_name": "Deposit",
               "methods": [],
@@ -7961,6 +8645,50 @@
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "start",
+              "js_name": "start"
+            },
+            {
+              "name": "end",
+              "js_name": "end"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "quote_rate",
+              "js_name": "quoteRate"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "instrument_id",
@@ -8008,6 +8736,12 @@
           "path": "valuations/instruments/fx_forward.rs",
           "classes": [
             {
+              "name": "FxForwardBuilder",
+              "js_name": "FxForwardBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "FxForward",
               "js_name": "FxForward",
               "methods": [],
@@ -8015,6 +8749,42 @@
             }
           ],
           "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "base_currency",
+              "js_name": "baseCurrency"
+            },
+            {
+              "name": "quote_currency",
+              "js_name": "quoteCurrency"
+            },
+            {
+              "name": "maturity_date",
+              "js_name": "maturityDate"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "domestic_curve_id",
+              "js_name": "domesticCurveId"
+            },
+            {
+              "name": "foreign_curve_id",
+              "js_name": "foreignCurveId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
             {
               "name": "new",
               "js_name": "new"
@@ -8056,18 +8826,28 @@
               "js_name": "marketForwardRate"
             },
             {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
               "name": "from_json",
-              "js_name": "fromJSON"
+              "js_name": "fromJson"
             },
             {
               "name": "to_json",
-              "js_name": "toJSON"
+              "js_name": "toJson"
             }
           ]
         },
         "valuations.instruments.cms_option": {
           "path": "valuations/instruments/cms_option.rs",
           "classes": [
+            {
+              "name": "CmsOptionBuilder",
+              "js_name": "CmsOptionBuilder",
+              "methods": [],
+              "properties": []
+            },
             {
               "name": "CmsOption",
               "js_name": "CmsOption",
@@ -8077,8 +8857,20 @@
           ],
           "functions": [
             {
-              "name": "from_json",
-              "js_name": "from_json"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "from_json",
@@ -8091,6 +8883,14 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "instrument_type",
@@ -8110,6 +8910,12 @@
           "path": "valuations/instruments/vol_index_future.rs",
           "classes": [
             {
+              "name": "VolatilityIndexFutureBuilder",
+              "js_name": "VolatilityIndexFutureBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "VolatilityIndexFuture",
               "js_name": "VolatilityIndexFuture",
               "methods": [],
@@ -8117,6 +8923,58 @@
             }
           ],
           "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "quoted_price",
+              "js_name": "quotedPrice"
+            },
+            {
+              "name": "expiry",
+              "js_name": "expiry"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "vol_index_curve",
+              "js_name": "volIndexCurve"
+            },
+            {
+              "name": "position",
+              "js_name": "position"
+            },
+            {
+              "name": "multiplier",
+              "js_name": "multiplier"
+            },
+            {
+              "name": "tick_size",
+              "js_name": "tickSize"
+            },
+            {
+              "name": "tick_value",
+              "js_name": "tickValue"
+            },
+            {
+              "name": "index_id",
+              "js_name": "indexId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
             {
               "name": "new",
               "js_name": "new"
@@ -8132,6 +8990,14 @@
             {
               "name": "quoted_price",
               "js_name": "quotedPrice"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
               "name": "instrument_type",
@@ -8151,6 +9017,12 @@
           "path": "valuations/instruments/ndf.rs",
           "classes": [
             {
+              "name": "NdfBuilder",
+              "js_name": "NdfBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "Ndf",
               "js_name": "Ndf",
               "methods": [],
@@ -8158,6 +9030,46 @@
             }
           ],
           "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "base_currency",
+              "js_name": "baseCurrency"
+            },
+            {
+              "name": "settlement_currency",
+              "js_name": "settlementCurrency"
+            },
+            {
+              "name": "fixing_date",
+              "js_name": "fixingDate"
+            },
+            {
+              "name": "maturity_date",
+              "js_name": "maturityDate"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "contract_rate",
+              "js_name": "contractRate"
+            },
+            {
+              "name": "settlement_curve_id",
+              "js_name": "settlementCurveId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
             {
               "name": "new",
               "js_name": "new"
@@ -8199,12 +9111,16 @@
               "js_name": "setForeignCurveId"
             },
             {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
               "name": "from_json",
-              "js_name": "fromJSON"
+              "js_name": "fromJson"
             },
             {
               "name": "to_json",
-              "js_name": "toJSON"
+              "js_name": "toJson"
             }
           ]
         },
@@ -8252,10 +9168,6 @@
             {
               "name": "new",
               "js_name": "new"
-            },
-            {
-              "name": "example",
-              "js_name": "example"
             },
             {
               "name": "instrument_id",
@@ -8306,12 +9218,16 @@
               "js_name": "discountCurveId"
             },
             {
-              "name": "new",
-              "js_name": "new"
+              "name": "from_json",
+              "js_name": "fromJson"
             },
             {
-              "name": "example",
-              "js_name": "example"
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
             },
             {
               "name": "instrument_id",
@@ -8350,12 +9266,16 @@
               "js_name": "discountCurveId"
             },
             {
-              "name": "new",
-              "js_name": "new"
+              "name": "from_json",
+              "js_name": "fromJson"
             },
             {
-              "name": "example",
-              "js_name": "example"
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
             },
             {
               "name": "instrument_id",
@@ -8388,6 +9308,14 @@
             {
               "name": "discount_curve_id",
               "js_name": "discountCurveId"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
               "name": "sequential",
@@ -8438,6 +9366,14 @@
               "js_name": "priority"
             },
             {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
               "name": "new",
               "js_name": "new"
             },
@@ -8450,12 +9386,16 @@
               "js_name": "totalCurrentFace"
             },
             {
-              "name": "new",
-              "js_name": "new"
+              "name": "from_json",
+              "js_name": "fromJson"
             },
             {
-              "name": "example",
-              "js_name": "example"
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
             },
             {
               "name": "instrument_id",
@@ -8480,6 +9420,14 @@
             {
               "name": "discount_curve_id",
               "js_name": "discountCurveId"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             }
           ]
         },
@@ -8503,13 +9451,15 @@
               "js_name": "ConvertibleBond",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "ConvertibleBondBuilder",
+              "js_name": "ConvertibleBondBuilder",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
-            {
-              "name": "voluntary",
-              "js_name": "voluntary"
-            },
             {
               "name": "voluntary",
               "js_name": "voluntary"
@@ -8535,6 +9485,34 @@
               "js_name": "new"
             },
             {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "issue",
+              "js_name": "issue"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "conversion",
+              "js_name": "conversion"
+            },
+            {
+              "name": "underlying_equity_id",
+              "js_name": "underlyingEquityId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
               "name": "new",
               "js_name": "new"
             },
@@ -8553,6 +9531,18 @@
             {
               "name": "conversion_price",
               "js_name": "conversionPrice"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
               "name": "instrument_type",
@@ -8577,6 +9567,12 @@
           "path": "valuations/instruments/vol_index_option.rs",
           "classes": [
             {
+              "name": "VolatilityIndexOptionBuilder",
+              "js_name": "VolatilityIndexOptionBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "VolatilityIndexOption",
               "js_name": "VolatilityIndexOption",
               "methods": [],
@@ -8584,6 +9580,58 @@
             }
           ],
           "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "strike",
+              "js_name": "strike"
+            },
+            {
+              "name": "expiry",
+              "js_name": "expiry"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "vol_index_curve",
+              "js_name": "volIndexCurve"
+            },
+            {
+              "name": "vol_of_vol_surface",
+              "js_name": "volOfVolSurface"
+            },
+            {
+              "name": "option_type",
+              "js_name": "optionType"
+            },
+            {
+              "name": "exercise_style",
+              "js_name": "exerciseStyle"
+            },
+            {
+              "name": "multiplier",
+              "js_name": "multiplier"
+            },
+            {
+              "name": "index_id",
+              "js_name": "indexId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
             {
               "name": "new",
               "js_name": "new"
@@ -8605,6 +9653,14 @@
               "js_name": "optionType"
             },
             {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
@@ -8622,6 +9678,12 @@
           "path": "valuations/instruments/quanto_option.rs",
           "classes": [
             {
+              "name": "QuantoOptionBuilder",
+              "js_name": "QuantoOptionBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "QuantoOption",
               "js_name": "QuantoOption",
               "methods": [],
@@ -8630,8 +9692,20 @@
           ],
           "functions": [
             {
-              "name": "from_json",
-              "js_name": "from_json"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "from_json",
@@ -8644,6 +9718,10 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "instrument_type",
@@ -8681,8 +9759,20 @@
               "properties": []
             },
             {
+              "name": "XccySwapLegBuilder",
+              "js_name": "XccySwapLegBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "XccySwap",
               "js_name": "XccySwap",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "XccySwapBuilder",
+              "js_name": "XccySwapBuilder",
               "methods": [],
               "properties": []
             }
@@ -8721,6 +9811,62 @@
               "js_name": "new"
             },
             {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "side",
+              "js_name": "side"
+            },
+            {
+              "name": "forward_curve_id",
+              "js_name": "forwardCurveId"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "frequency",
+              "js_name": "frequency"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "bdc",
+              "js_name": "businessDayConvention"
+            },
+            {
+              "name": "spread",
+              "js_name": "spread"
+            },
+            {
+              "name": "payment_lag_days",
+              "js_name": "paymentLagDays"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
               "name": "currency",
               "js_name": "currency"
             },
@@ -8731,6 +9877,46 @@
             {
               "name": "spread",
               "js_name": "spread"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "maturity_date",
+              "js_name": "maturityDate"
+            },
+            {
+              "name": "leg1",
+              "js_name": "leg1"
+            },
+            {
+              "name": "leg2",
+              "js_name": "leg2"
+            },
+            {
+              "name": "reporting_currency",
+              "js_name": "reportingCurrency"
+            },
+            {
+              "name": "notional_exchange",
+              "js_name": "notionalExchange"
+            },
+            {
+              "name": "stub_kind",
+              "js_name": "stubKind"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "new",
@@ -8753,16 +9939,24 @@
               "js_name": "reportingCurrency"
             },
             {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
             {
               "name": "from_json",
-              "js_name": "fromJSON"
+              "js_name": "fromJson"
             },
             {
               "name": "to_json",
-              "js_name": "toJSON"
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "to_string_js",
@@ -8778,6 +9972,12 @@
           "path": "valuations/instruments/irs.rs",
           "classes": [
             {
+              "name": "InterestRateSwapBuilder",
+              "js_name": "InterestRateSwapBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "InterestRateSwap",
               "js_name": "InterestRateSwap",
               "methods": [],
@@ -8792,6 +9992,90 @@
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "fixed_rate",
+              "js_name": "fixedRate"
+            },
+            {
+              "name": "start",
+              "js_name": "start"
+            },
+            {
+              "name": "end",
+              "js_name": "end"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "forward_curve",
+              "js_name": "forwardCurve"
+            },
+            {
+              "name": "side",
+              "js_name": "side"
+            },
+            {
+              "name": "fixed_frequency",
+              "js_name": "fixedFrequency"
+            },
+            {
+              "name": "fixed_day_count",
+              "js_name": "fixedDayCount"
+            },
+            {
+              "name": "float_frequency",
+              "js_name": "floatFrequency"
+            },
+            {
+              "name": "float_day_count",
+              "js_name": "floatDayCount"
+            },
+            {
+              "name": "business_day_convention",
+              "js_name": "businessDayConvention"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "stub_kind",
+              "js_name": "stubKind"
+            },
+            {
+              "name": "reset_lag_days",
+              "js_name": "resetLagDays"
+            },
+            {
+              "name": "float_spread_bp",
+              "js_name": "floatSpreadBp"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "instrument_id",
@@ -8853,6 +10137,12 @@
               "js_name": "EquityIndexFuture",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "EquityIndexFutureBuilder",
+              "js_name": "EquityIndexFutureBuilder",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
@@ -8897,6 +10187,54 @@
               "js_name": "new"
             },
             {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "index_ticker",
+              "js_name": "indexTicker"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "quantity",
+              "js_name": "quantity"
+            },
+            {
+              "name": "expiry_date",
+              "js_name": "expiryDate"
+            },
+            {
+              "name": "last_trading_date",
+              "js_name": "lastTradingDate"
+            },
+            {
+              "name": "position",
+              "js_name": "position"
+            },
+            {
+              "name": "specs",
+              "js_name": "specs"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "index_price_id",
+              "js_name": "indexPriceId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
               "name": "id",
               "js_name": "id"
             },
@@ -8933,12 +10271,16 @@
               "js_name": "fairForward"
             },
             {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
               "name": "from_json",
-              "js_name": "fromJSON"
+              "js_name": "fromJson"
             },
             {
               "name": "to_json",
-              "js_name": "toJSON"
+              "js_name": "toJson"
             }
           ]
         },
@@ -8954,6 +10296,12 @@
             {
               "name": "RealEstateAsset",
               "js_name": "RealEstateAsset",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "RealEstateAssetBuilder",
+              "js_name": "RealEstateAssetBuilder",
               "methods": [],
               "properties": []
             }
@@ -8974,6 +10322,58 @@
             {
               "name": "is_dcf",
               "js_name": "isDcf"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "valuation_date",
+              "js_name": "valuationDate"
+            },
+            {
+              "name": "valuation_method",
+              "js_name": "valuationMethod"
+            },
+            {
+              "name": "noi_schedule",
+              "js_name": "noiSchedule"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "discount_rate",
+              "js_name": "discountRate"
+            },
+            {
+              "name": "cap_rate",
+              "js_name": "capRate"
+            },
+            {
+              "name": "stabilized_noi",
+              "js_name": "stabilizedNoi"
+            },
+            {
+              "name": "terminal_cap_rate",
+              "js_name": "terminalCapRate"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "new",
@@ -9012,16 +10412,20 @@
               "js_name": "setAppraisalValue"
             },
             {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
             {
               "name": "from_json",
-              "js_name": "fromJSON"
+              "js_name": "fromJson"
             },
             {
               "name": "to_json",
-              "js_name": "toJSON"
+              "js_name": "toJson"
             },
             {
               "name": "to_string_js",
@@ -9037,6 +10441,12 @@
           "path": "valuations/instruments/bond.rs",
           "classes": [
             {
+              "name": "BondBuilder",
+              "js_name": "BondBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "Bond",
               "js_name": "Bond",
               "methods": [],
@@ -9045,36 +10455,104 @@
           ],
           "functions": [
             {
-              "name": "builder",
-              "js_name": "builder"
+              "name": "new",
+              "js_name": "new"
             },
             {
-              "name": "builder",
-              "js_name": "builder"
+              "name": "new",
+              "js_name": "new"
             },
             {
-              "name": "fixed_semiannual",
-              "js_name": "fixedSemiannual"
+              "name": "money",
+              "js_name": "money"
             },
             {
-              "name": "treasury",
-              "js_name": "treasury"
+              "name": "issue",
+              "js_name": "issue"
             },
             {
-              "name": "zero_coupon",
-              "js_name": "zeroCoupon"
+              "name": "maturity",
+              "js_name": "maturity"
             },
             {
-              "name": "floating",
-              "js_name": "floating"
+              "name": "discount_curve",
+              "js_name": "discountCurve"
             },
             {
-              "name": "pik_toggle",
-              "js_name": "pikToggle"
+              "name": "hazard_curve",
+              "js_name": "hazardCurve"
             },
             {
-              "name": "fixed_to_floating",
-              "js_name": "fixedToFloating"
+              "name": "coupon_rate",
+              "js_name": "couponRate"
+            },
+            {
+              "name": "frequency",
+              "js_name": "frequency"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "business_day_convention",
+              "js_name": "businessDayConvention"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "stub_kind",
+              "js_name": "stubKind"
+            },
+            {
+              "name": "amortization",
+              "js_name": "amortization"
+            },
+            {
+              "name": "call_schedule",
+              "js_name": "callSchedule"
+            },
+            {
+              "name": "put_schedule",
+              "js_name": "putSchedule"
+            },
+            {
+              "name": "quoted_clean_price",
+              "js_name": "quotedCleanPrice"
+            },
+            {
+              "name": "forward_curve",
+              "js_name": "forwardCurve"
+            },
+            {
+              "name": "float_margin_bp",
+              "js_name": "floatMarginBp"
+            },
+            {
+              "name": "float_gearing",
+              "js_name": "floatGearing"
+            },
+            {
+              "name": "float_reset_lag_days",
+              "js_name": "floatResetLagDays"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
               "name": "instrument_id",
@@ -9146,6 +10624,12 @@
               "js_name": "InflationSwap",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "InflationSwapBuilder",
+              "js_name": "InflationSwapBuilder",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
@@ -9156,6 +10640,58 @@
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "fixed_rate",
+              "js_name": "fixedRate"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "inflation_curve",
+              "js_name": "inflationCurve"
+            },
+            {
+              "name": "side",
+              "js_name": "side"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "instrument_id",
@@ -9191,6 +10727,12 @@
           "path": "valuations/instruments/barrier_option.rs",
           "classes": [
             {
+              "name": "BarrierOptionBuilder",
+              "js_name": "BarrierOptionBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "BarrierOption",
               "js_name": "BarrierOption",
               "methods": [],
@@ -9199,12 +10741,76 @@
           ],
           "functions": [
             {
-              "name": "builder",
-              "js_name": "builder"
+              "name": "new",
+              "js_name": "new"
             },
             {
-              "name": "builder",
-              "js_name": "builder"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "ticker",
+              "js_name": "ticker"
+            },
+            {
+              "name": "strike",
+              "js_name": "strike"
+            },
+            {
+              "name": "barrier",
+              "js_name": "barrier"
+            },
+            {
+              "name": "option_type",
+              "js_name": "optionType"
+            },
+            {
+              "name": "barrier_type",
+              "js_name": "barrierType"
+            },
+            {
+              "name": "expiry",
+              "js_name": "expiry"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "spot_id",
+              "js_name": "spotId"
+            },
+            {
+              "name": "vol_surface",
+              "js_name": "volSurface"
+            },
+            {
+              "name": "div_yield_id",
+              "js_name": "divYieldId"
+            },
+            {
+              "name": "use_gobet_miri",
+              "js_name": "useGobetMiri"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
               "name": "instrument_id",
@@ -9276,14 +10882,32 @@
           "path": "valuations/instruments/fx.rs",
           "classes": [
             {
+              "name": "FxSpotBuilder",
+              "js_name": "FxSpotBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "FxSpot",
               "js_name": "FxSpot",
               "methods": [],
               "properties": []
             },
             {
+              "name": "FxOptionBuilder",
+              "js_name": "FxOptionBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "FxOption",
               "js_name": "FxOption",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "FxSwapBuilder",
+              "js_name": "FxSwapBuilder",
               "methods": [],
               "properties": []
             },
@@ -9298,6 +10922,34 @@
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "base_currency",
+              "js_name": "baseCurrency"
+            },
+            {
+              "name": "quote_currency",
+              "js_name": "quoteCurrency"
+            },
+            {
+              "name": "settlement",
+              "js_name": "settlement"
+            },
+            {
+              "name": "spot_rate",
+              "js_name": "spotRate"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "new",
@@ -9332,16 +10984,72 @@
               "js_name": "clone"
             },
             {
-              "name": "european_call",
-              "js_name": "european_call"
+              "name": "from_json",
+              "js_name": "fromJson"
             },
             {
-              "name": "european_call",
-              "js_name": "europeanCall"
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
-              "name": "european_put",
-              "js_name": "europeanPut"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "base_currency",
+              "js_name": "baseCurrency"
+            },
+            {
+              "name": "quote_currency",
+              "js_name": "quoteCurrency"
+            },
+            {
+              "name": "strike",
+              "js_name": "strike"
+            },
+            {
+              "name": "option_type",
+              "js_name": "optionType"
+            },
+            {
+              "name": "expiry",
+              "js_name": "expiry"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "domestic_curve",
+              "js_name": "domesticCurve"
+            },
+            {
+              "name": "foreign_curve",
+              "js_name": "foreignCurve"
+            },
+            {
+              "name": "vol_surface",
+              "js_name": "volSurface"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
               "name": "instrument_id",
@@ -9388,6 +11096,50 @@
               "js_name": "new"
             },
             {
+              "name": "base_currency",
+              "js_name": "baseCurrency"
+            },
+            {
+              "name": "quote_currency",
+              "js_name": "quoteCurrency"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "near_date",
+              "js_name": "nearDate"
+            },
+            {
+              "name": "far_date",
+              "js_name": "farDate"
+            },
+            {
+              "name": "domestic_curve",
+              "js_name": "domesticCurve"
+            },
+            {
+              "name": "foreign_curve",
+              "js_name": "foreignCurve"
+            },
+            {
+              "name": "near_rate",
+              "js_name": "nearRate"
+            },
+            {
+              "name": "far_rate",
+              "js_name": "farRate"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
               "name": "instrument_id",
               "js_name": "instrumentId"
             },
@@ -9422,6 +11174,14 @@
             {
               "name": "clone_js",
               "js_name": "clone"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             }
           ]
         },
@@ -9433,12 +11193,70 @@
               "js_name": "AsianOption",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "AsianOptionBuilder",
+              "js_name": "AsianOptionBuilder",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
             {
-              "name": "builder",
-              "js_name": "builder"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "ticker",
+              "js_name": "ticker"
+            },
+            {
+              "name": "strike",
+              "js_name": "strike"
+            },
+            {
+              "name": "expiry",
+              "js_name": "expiry"
+            },
+            {
+              "name": "fixing_dates",
+              "js_name": "fixingDates"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "spot_id",
+              "js_name": "spotId"
+            },
+            {
+              "name": "vol_surface",
+              "js_name": "volSurface"
+            },
+            {
+              "name": "averaging_method",
+              "js_name": "averagingMethod"
+            },
+            {
+              "name": "option_type",
+              "js_name": "optionType"
+            },
+            {
+              "name": "div_yield_id",
+              "js_name": "divYieldId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "builder",
@@ -9493,6 +11311,14 @@
               "js_name": "dividendYieldId"
             },
             {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
@@ -9510,6 +11336,12 @@
           "path": "valuations/instruments/ir_future.rs",
           "classes": [
             {
+              "name": "InterestRateFutureBuilder",
+              "js_name": "InterestRateFutureBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "InterestRateFuture",
               "js_name": "InterestRateFuture",
               "methods": [],
@@ -9524,6 +11356,62 @@
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "quoted_price",
+              "js_name": "quotedPrice"
+            },
+            {
+              "name": "expiry",
+              "js_name": "expiry"
+            },
+            {
+              "name": "fixing_date",
+              "js_name": "fixingDate"
+            },
+            {
+              "name": "period_start",
+              "js_name": "periodStart"
+            },
+            {
+              "name": "period_end",
+              "js_name": "periodEnd"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "forward_curve",
+              "js_name": "forwardCurve"
+            },
+            {
+              "name": "position",
+              "js_name": "position"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
               "name": "instrument_id",
@@ -9559,12 +11447,66 @@
               "js_name": "InterestRateOption",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "InterestRateOptionBuilder",
+              "js_name": "InterestRateOptionBuilder",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
             {
-              "name": "cap",
-              "js_name": "cap"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "kind",
+              "js_name": "kind"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "strike",
+              "js_name": "strike"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "end_date",
+              "js_name": "endDate"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "forward_curve",
+              "js_name": "forwardCurve"
+            },
+            {
+              "name": "vol_surface",
+              "js_name": "volSurface"
+            },
+            {
+              "name": "payments_per_year",
+              "js_name": "paymentsPerYear"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "cap",
@@ -9603,6 +11545,14 @@
               "js_name": "forwardCurve"
             },
             {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
@@ -9619,6 +11569,12 @@
         "valuations.instruments.repo": {
           "path": "valuations/instruments/repo.rs",
           "classes": [
+            {
+              "name": "RepoBuilder",
+              "js_name": "RepoBuilder",
+              "methods": [],
+              "properties": []
+            },
             {
               "name": "RepoCollateral",
               "js_name": "RepoCollateral",
@@ -9642,12 +11598,68 @@
               "js_name": "new"
             },
             {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "collateral",
+              "js_name": "collateral"
+            },
+            {
+              "name": "repo_rate",
+              "js_name": "repoRate"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "repo_type",
+              "js_name": "repoType"
+            },
+            {
+              "name": "haircut",
+              "js_name": "haircut"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "business_day_convention",
+              "js_name": "businessDayConvention"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
               "name": "new",
               "js_name": "new"
             },
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "instrument_id",
@@ -9691,6 +11703,12 @@
               "js_name": "CDSIndex",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "CDSIndexBuilder",
+              "js_name": "CDSIndexBuilder",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
@@ -9701,6 +11719,74 @@
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "index_name",
+              "js_name": "indexName"
+            },
+            {
+              "name": "series",
+              "js_name": "series"
+            },
+            {
+              "name": "version",
+              "js_name": "version"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "fixed_coupon_bp",
+              "js_name": "fixedCouponBp"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "credit_curve",
+              "js_name": "creditCurve"
+            },
+            {
+              "name": "side",
+              "js_name": "side"
+            },
+            {
+              "name": "recovery_rate",
+              "js_name": "recoveryRate"
+            },
+            {
+              "name": "index_factor",
+              "js_name": "indexFactor"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "instrument_id",
@@ -9740,8 +11826,14 @@
           "path": "valuations/instruments/cds_tranche.rs",
           "classes": [
             {
-              "name": "CdsTranche",
+              "name": "CDSTranche",
               "js_name": "CdsTranche",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "CDSTrancheBuilder",
+              "js_name": "CdsTrancheBuilder",
               "methods": [],
               "properties": []
             }
@@ -9754,6 +11846,74 @@
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "index_name",
+              "js_name": "indexName"
+            },
+            {
+              "name": "series",
+              "js_name": "series"
+            },
+            {
+              "name": "attach_pct",
+              "js_name": "attachPct"
+            },
+            {
+              "name": "detach_pct",
+              "js_name": "detachPct"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "running_coupon_bp",
+              "js_name": "runningCouponBp"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "credit_index_curve",
+              "js_name": "creditIndexCurve"
+            },
+            {
+              "name": "side",
+              "js_name": "side"
+            },
+            {
+              "name": "payments_per_year",
+              "js_name": "paymentsPerYear"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "instrument_id",
@@ -9797,6 +11957,12 @@
           "path": "valuations/instruments/fx_barrier_option.rs",
           "classes": [
             {
+              "name": "FxBarrierOptionBuilder",
+              "js_name": "FxBarrierOptionBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "FxBarrierOption",
               "js_name": "FxBarrierOption",
               "methods": [],
@@ -9805,8 +11971,20 @@
           ],
           "functions": [
             {
-              "name": "from_json",
-              "js_name": "from_json"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "from_json",
@@ -9819,6 +11997,10 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "instrument_type",
@@ -9838,6 +12020,12 @@
           "path": "valuations/instruments/private_markets_fund.rs",
           "classes": [
             {
+              "name": "PrivateMarketsFundBuilder",
+              "js_name": "PrivateMarketsFundBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "PrivateMarketsFund",
               "js_name": "PrivateMarketsFund",
               "methods": [],
@@ -9846,8 +12034,20 @@
           ],
           "functions": [
             {
-              "name": "from_json",
-              "js_name": "from_json"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "from_json",
@@ -9864,6 +12064,10 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "instrument_type",
@@ -9883,6 +12087,12 @@
           "path": "valuations/instruments/cds.rs",
           "classes": [
             {
+              "name": "CreditDefaultSwapBuilder",
+              "js_name": "CreditDefaultSwapBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "CreditDefaultSwap",
               "js_name": "CreditDefaultSwap",
               "methods": [],
@@ -9891,16 +12101,64 @@
           ],
           "functions": [
             {
-              "name": "buy_protection",
-              "js_name": "buy_protection"
+              "name": "new",
+              "js_name": "new"
             },
             {
-              "name": "buy_protection",
-              "js_name": "buyProtection"
+              "name": "new",
+              "js_name": "new"
             },
             {
-              "name": "sell_protection",
-              "js_name": "sellProtection"
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "spread_bp",
+              "js_name": "spreadBp"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "credit_curve",
+              "js_name": "creditCurve"
+            },
+            {
+              "name": "side",
+              "js_name": "side"
+            },
+            {
+              "name": "recovery_rate",
+              "js_name": "recoveryRate"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "instrument_id",
@@ -9962,6 +12220,12 @@
               "js_name": "YoYInflationSwap",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "YoYInflationSwapBuilder",
+              "js_name": "YoYInflationSwapBuilder",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
@@ -9990,6 +12254,54 @@
               "js_name": "new"
             },
             {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "fixed_rate",
+              "js_name": "fixedRate"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "inflation_index_id",
+              "js_name": "inflationIndexId"
+            },
+            {
+              "name": "frequency",
+              "js_name": "frequency"
+            },
+            {
+              "name": "side",
+              "js_name": "side"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
               "name": "id",
               "js_name": "id"
             },
@@ -10010,16 +12322,24 @@
               "js_name": "maturity"
             },
             {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
             {
               "name": "from_json",
-              "js_name": "fromJSON"
+              "js_name": "fromJson"
             },
             {
               "name": "to_json",
-              "js_name": "toJSON"
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "to_string_js",
@@ -10043,6 +12363,12 @@
             {
               "name": "InflationCapFloor",
               "js_name": "InflationCapFloor",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "InflationCapFloorBuilder",
+              "js_name": "InflationCapFloorBuilder",
               "methods": [],
               "properties": []
             }
@@ -10081,6 +12407,70 @@
               "js_name": "new"
             },
             {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "option_type",
+              "js_name": "optionType"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "strike_rate",
+              "js_name": "strikeRate"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "end_date",
+              "js_name": "endDate"
+            },
+            {
+              "name": "inflation_index_id",
+              "js_name": "inflationIndexId"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "vol_surface_id",
+              "js_name": "volSurfaceId"
+            },
+            {
+              "name": "frequency",
+              "js_name": "frequency"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "stub_kind",
+              "js_name": "stubKind"
+            },
+            {
+              "name": "bdc",
+              "js_name": "businessDayConvention"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
               "name": "id",
               "js_name": "id"
             },
@@ -10105,16 +12495,24 @@
               "js_name": "isCap"
             },
             {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
             {
               "name": "from_json",
-              "js_name": "fromJSON"
+              "js_name": "fromJson"
             },
             {
               "name": "to_json",
-              "js_name": "toJSON"
+              "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
             },
             {
               "name": "to_string_js",
@@ -10144,6 +12542,12 @@
             {
               "name": "BondFuture",
               "js_name": "BondFuture",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "BondFutureBuilder",
+              "js_name": "BondFutureBuilder",
               "methods": [],
               "properties": []
             }
@@ -10198,6 +12602,62 @@
               "js_name": "new"
             },
             {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "expiry_date",
+              "js_name": "expiryDate"
+            },
+            {
+              "name": "delivery_start",
+              "js_name": "deliveryStart"
+            },
+            {
+              "name": "delivery_end",
+              "js_name": "deliveryEnd"
+            },
+            {
+              "name": "quoted_price",
+              "js_name": "quotedPrice"
+            },
+            {
+              "name": "position",
+              "js_name": "position"
+            },
+            {
+              "name": "specs",
+              "js_name": "specs"
+            },
+            {
+              "name": "deliverable_basket",
+              "js_name": "deliverableBasket"
+            },
+            {
+              "name": "ctd_bond_id",
+              "js_name": "ctdBondId"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
               "name": "id",
               "js_name": "id"
             },
@@ -10214,18 +12674,28 @@
               "js_name": "ctdBondId"
             },
             {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
               "name": "from_json",
-              "js_name": "fromJSON"
+              "js_name": "fromJson"
             },
             {
               "name": "to_json",
-              "js_name": "toJSON"
+              "js_name": "toJson"
             }
           ]
         },
         "valuations.instruments.commodity_forward": {
           "path": "valuations/instruments/commodity_forward.rs",
           "classes": [
+            {
+              "name": "CommodityForwardBuilder",
+              "js_name": "CommodityForwardBuilder",
+              "methods": [],
+              "properties": []
+            },
             {
               "name": "CommodityForward",
               "js_name": "CommodityForward",
@@ -10234,6 +12704,62 @@
             }
           ],
           "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "commodity_type",
+              "js_name": "commodityType"
+            },
+            {
+              "name": "ticker",
+              "js_name": "ticker"
+            },
+            {
+              "name": "quantity",
+              "js_name": "quantity"
+            },
+            {
+              "name": "unit",
+              "js_name": "unit"
+            },
+            {
+              "name": "settlement_date",
+              "js_name": "settlementDate"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "forward_curve_id",
+              "js_name": "forwardCurveId"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "multiplier",
+              "js_name": "multiplier"
+            },
+            {
+              "name": "quoted_price",
+              "js_name": "quotedPrice"
+            },
+            {
+              "name": "settlement_type",
+              "js_name": "settlementType"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
             {
               "name": "new",
               "js_name": "new"
@@ -10291,6 +12817,14 @@
               "js_name": "contractMonth"
             },
             {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
@@ -10308,6 +12842,12 @@
           "path": "valuations/instruments/commodity_option.rs",
           "classes": [
             {
+              "name": "CommodityOptionBuilder",
+              "js_name": "CommodityOptionBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "CommodityOption",
               "js_name": "CommodityOption",
               "methods": [],
@@ -10315,6 +12855,66 @@
             }
           ],
           "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "commodity_type",
+              "js_name": "commodityType"
+            },
+            {
+              "name": "ticker",
+              "js_name": "ticker"
+            },
+            {
+              "name": "strike",
+              "js_name": "strike"
+            },
+            {
+              "name": "option_type",
+              "js_name": "optionType"
+            },
+            {
+              "name": "exercise_style",
+              "js_name": "exerciseStyle"
+            },
+            {
+              "name": "expiry",
+              "js_name": "expiry"
+            },
+            {
+              "name": "quantity",
+              "js_name": "quantity"
+            },
+            {
+              "name": "unit",
+              "js_name": "unit"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "forward_curve_id",
+              "js_name": "forwardCurveId"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "vol_surface_id",
+              "js_name": "volSurfaceId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
             {
               "name": "new",
               "js_name": "new"
@@ -10348,12 +12948,16 @@
               "js_name": "setSettlement"
             },
             {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
               "name": "from_json",
-              "js_name": "fromJSON"
+              "js_name": "fromJson"
             },
             {
               "name": "to_json",
-              "js_name": "toJSON"
+              "js_name": "toJson"
             }
           ]
         },
@@ -10361,8 +12965,14 @@
           "path": "valuations/instruments/cds_option.rs",
           "classes": [
             {
-              "name": "CdsOption",
+              "name": "CDSOption",
               "js_name": "CdsOption",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "CDSOptionBuilder",
+              "js_name": "CdsOptionBuilder",
               "methods": [],
               "properties": []
             }
@@ -10375,6 +12985,66 @@
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "money",
+              "js_name": "money"
+            },
+            {
+              "name": "strike_spread_bp",
+              "js_name": "strikeSpreadBp"
+            },
+            {
+              "name": "expiry",
+              "js_name": "expiry"
+            },
+            {
+              "name": "cds_maturity",
+              "js_name": "cdsMaturity"
+            },
+            {
+              "name": "discount_curve",
+              "js_name": "discountCurve"
+            },
+            {
+              "name": "credit_curve",
+              "js_name": "creditCurve"
+            },
+            {
+              "name": "vol_surface",
+              "js_name": "volSurface"
+            },
+            {
+              "name": "option_type",
+              "js_name": "optionType"
+            },
+            {
+              "name": "recovery_rate",
+              "js_name": "recoveryRate"
+            },
+            {
+              "name": "underlying_is_index",
+              "js_name": "underlyingIsIndex"
+            },
+            {
+              "name": "index_factor",
+              "js_name": "indexFactor"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             },
             {
               "name": "instrument_id",
@@ -10414,6 +13084,12 @@
           "path": "valuations/instruments/structured_credit/mod.rs",
           "classes": [
             {
+              "name": "BasketBuilder",
+              "js_name": "BasketBuilder",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "Basket",
               "js_name": "Basket",
               "methods": [],
@@ -10422,6 +13098,12 @@
             {
               "name": "StructuredCredit",
               "js_name": "StructuredCredit",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "StructuredCreditBuilder",
+              "js_name": "StructuredCreditBuilder",
               "methods": [],
               "properties": []
             },
@@ -10440,8 +13122,20 @@
           ],
           "functions": [
             {
-              "name": "from_json",
-              "js_name": "from_json"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "from_json",
@@ -10456,6 +13150,10 @@
               "js_name": "toJson"
             },
             {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
+            },
+            {
               "name": "instrument_type",
               "js_name": "instrumentType"
             },
@@ -10468,8 +13166,20 @@
               "js_name": "clone"
             },
             {
-              "name": "from_json",
-              "js_name": "from_json"
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "json_string",
+              "js_name": "jsonString"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
             },
             {
               "name": "from_json",
@@ -10486,6 +13196,14 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "get_cashflows",
+              "js_name": "getCashflows"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "instrument_type",
@@ -10505,7 +13223,15 @@
             },
             {
               "name": "from_json",
-              "js_name": "from_json"
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "from_json",
@@ -10516,16 +13242,8 @@
               "js_name": "toJson"
             },
             {
-              "name": "from_json",
-              "js_name": "from_json"
-            },
-            {
-              "name": "from_json",
-              "js_name": "fromJson"
-            },
-            {
-              "name": "to_json",
-              "js_name": "toJson"
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             }
           ]
         },
@@ -10575,6 +13293,10 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "tier_id",
@@ -10637,6 +13359,10 @@
               "js_name": "toJson"
             },
             {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
+            },
+            {
               "name": "add_tier",
               "js_name": "addTier"
             },
@@ -10653,6 +13379,10 @@
               "js_name": "toJson"
             },
             {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
+            },
+            {
               "name": "from_json",
               "js_name": "from_json"
             },
@@ -10665,12 +13395,20 @@
               "js_name": "toJson"
             },
             {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
+            },
+            {
               "name": "to_json",
               "js_name": "to_json"
             },
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "payment_date",
@@ -11180,33 +13918,55 @@
         "ProcessParams",
         "MonteCarloResult",
         "MonteCarloPathGenerator",
+        "ForwardRateAgreementBuilder",
         "ForwardRateAgreement",
+        "AutocallableBuilder",
         "Autocallable",
         "InflationLinkedBond",
+        "InflationLinkedBondBuilder",
+        "EquityOptionBuilder",
         "EquityOption",
+        "RevolvingCreditBuilder",
         "RevolvingCredit",
+        "TermLoanBuilder",
         "TermLoan",
         "TrsScheduleSpec",
         "TrsFinancingLegSpec",
         "EquityUnderlying",
         "IndexUnderlying",
         "EquityTotalReturnSwap",
+        "EquityTotalReturnSwapBuilder",
         "FiIndexTotalReturnSwap",
+        "FiIndexTotalReturnSwapBuilder",
         "VarianceSwap",
+        "VarianceSwapBuilder",
+        "RangeAccrualBuilder",
         "RangeAccrual",
+        "EquityBuilder",
         "Equity",
+        "CommoditySwapBuilder",
         "CommoditySwap",
+        "CliquetOptionBuilder",
         "CliquetOption",
+        "LookbackOptionBuilder",
         "LookbackOption",
         "BasisSwapLeg",
         "BasisSwap",
+        "BasisSwapBuilder",
         "VarianceSwapSide",
         "FxVarianceSwap",
+        "FxVarianceSwapBuilder",
+        "SwaptionBuilder",
         "Swaption",
+        "DepositBuilder",
         "Deposit",
+        "FxForwardBuilder",
         "FxForward",
+        "CmsOptionBuilder",
         "CmsOption",
+        "VolatilityIndexFutureBuilder",
         "VolatilityIndexFuture",
+        "NdfBuilder",
         "Ndf",
         "AgencyMbsPassthrough",
         "AgencyTba",
@@ -11217,45 +13977,76 @@
         "ConversionPolicy",
         "ConversionSpec",
         "ConvertibleBond",
+        "ConvertibleBondBuilder",
+        "VolatilityIndexOptionBuilder",
         "VolatilityIndexOption",
+        "QuantoOptionBuilder",
         "QuantoOption",
         "NotionalExchange",
         "LegSide",
         "XccySwapLeg",
+        "XccySwapLegBuilder",
         "XccySwap",
+        "XccySwapBuilder",
+        "InterestRateSwapBuilder",
         "InterestRateSwap",
         "EquityFutureSpecs",
         "EquityIndexFuture",
+        "EquityIndexFutureBuilder",
         "RealEstateValuationMethod",
         "RealEstateAsset",
+        "RealEstateAssetBuilder",
+        "BondBuilder",
         "Bond",
         "InflationSwap",
+        "InflationSwapBuilder",
+        "BarrierOptionBuilder",
         "BarrierOption",
+        "FxSpotBuilder",
         "FxSpot",
+        "FxOptionBuilder",
         "FxOption",
+        "FxSwapBuilder",
         "FxSwap",
         "AsianOption",
+        "AsianOptionBuilder",
+        "InterestRateFutureBuilder",
         "InterestRateFuture",
         "InterestRateOption",
+        "InterestRateOptionBuilder",
+        "RepoBuilder",
         "RepoCollateral",
         "Repo",
         "CDSIndex",
+        "CDSIndexBuilder",
         "CdsTranche",
+        "CdsTrancheBuilder",
+        "FxBarrierOptionBuilder",
         "FxBarrierOption",
+        "PrivateMarketsFundBuilder",
         "PrivateMarketsFund",
+        "CreditDefaultSwapBuilder",
         "CreditDefaultSwap",
         "PayReceiveInflation",
         "YoYInflationSwap",
+        "YoYInflationSwapBuilder",
         "InflationCapFloorType",
         "InflationCapFloor",
+        "InflationCapFloorBuilder",
         "FuturePosition",
         "BondFutureSpecs",
         "BondFuture",
+        "BondFutureBuilder",
+        "CommodityForwardBuilder",
         "CommodityForward",
+        "CommodityOptionBuilder",
         "CommodityOption",
         "CdsOption",
+        "CdsOptionBuilder",
+        "BasketBuilder",
         "Basket",
         "StructuredCredit",
+        "StructuredCreditBuilder",
         "TrancheStructure",
         "Pool",
         "WaterfallTier",
@@ -11317,44 +14108,11 @@
         "withMetrics",
         "new_empty",
         "priceInstrument",
-        "priceBond",
-        "priceDeposit",
-        "priceInterestRateSwap",
-        "priceRangeAccrual",
-        "priceForwardRateAgreement",
-        "priceSwaption",
-        "priceCmsOption",
-        "priceBasisSwap",
-        "priceInterestRateOption",
-        "priceInterestRateFuture",
-        "priceFxSpot",
-        "priceFxOption",
-        "priceFxBarrierOption",
-        "priceQuantoOption",
-        "priceFxSwap",
-        "priceCreditDefaultSwap",
-        "priceCDSIndex",
-        "priceCdsTranche",
-        "priceCdsOption",
-        "priceEquity",
-        "priceEquityOption",
-        "priceBarrierOption",
-        "priceAsianOption",
-        "priceLookbackOption",
-        "priceCliquetOption",
-        "priceRepo",
-        "priceInflationLinkedBond",
-        "priceInflationSwap",
-        "priceVarianceSwap",
-        "priceConvertibleBond",
-        "priceEquityTotalReturnSwap",
-        "priceFiIndexTotalReturnSwap",
-        "priceStructuredCredit",
-        "priceBasket",
-        "pricePrivateMarketsFund",
-        "priceAutocallable",
-        "priceRevolvingCredit",
         "createStandardRegistry",
+        "createRatesRegistry",
+        "createCreditRegistry",
+        "createEquityRegistry",
+        "createFxRegistry",
         "xirr",
         "calculateNpv",
         "irrPeriodic",
@@ -11815,6 +14573,22 @@
         "generateGbmPaths",
         "new",
         "new",
+        "money",
+        "fixedRate",
+        "fixingDate",
+        "startDate",
+        "endDate",
+        "discountCurve",
+        "forwardCurve",
+        "dayCount",
+        "resetLag",
+        "receiveFixed",
+        "payFixed",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentId",
         "notional",
         "fixedRate",
@@ -11826,25 +14600,54 @@
         "instrumentType",
         "toString",
         "clone",
-        "from_json",
+        "new",
+        "new",
+        "jsonString",
+        "build",
         "fromJson",
         "instrumentId",
         "toJson",
+        "toJsonString",
         "instrumentType",
         "toString",
         "clone",
         "new",
+        "new",
+        "money",
+        "realCoupon",
+        "issue",
+        "maturity",
+        "baseIndex",
+        "discountCurve",
+        "inflationCurve",
+        "indexation",
+        "frequency",
+        "dayCount",
+        "deflationProtection",
+        "build",
         "new",
         "instrumentId",
         "notional",
         "realCoupon",
         "maturity",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentType",
         "toString",
         "clone",
-        "european_call",
-        "europeanCall",
-        "europeanPut",
+        "new",
+        "new",
+        "ticker",
+        "strike",
+        "optionType",
+        "expiry",
+        "money",
+        "contractSize",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
         "instrumentId",
         "ticker",
         "strike",
@@ -11853,16 +14656,27 @@
         "instrumentType",
         "toString",
         "clone",
-        "from_json",
+        "new",
+        "new",
+        "jsonString",
+        "build",
         "fromJson",
         "instrumentId",
         "toJson",
+        "getCashflows",
+        "toJsonString",
         "instrumentType",
         "toString",
         "clone",
         "evaluateDcf",
+        "new",
+        "new",
+        "jsonString",
+        "build",
         "fromJson",
         "toJson",
+        "getCashflows",
+        "toJsonString",
         "instrumentId",
         "currency",
         "notionalLimit",
@@ -11878,45 +14692,105 @@
         "new",
         "new",
         "new",
-        "new",
-        "new",
-        "new",
+        "money",
+        "underlying",
+        "financing",
+        "schedule",
+        "receiveTotalReturn",
+        "initialLevel",
+        "build",
         "new",
         "instrumentId",
         "notional",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentType",
         "toString",
         "clone",
         "new",
         "new",
+        "money",
+        "underlying",
+        "financing",
+        "schedule",
+        "receiveTotalReturn",
+        "initialLevel",
+        "build",
+        "new",
         "instrumentId",
         "notional",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentType",
         "toString",
         "clone",
         "new",
+        "new",
+        "underlyingId",
+        "money",
+        "strikeVariance",
+        "startDate",
+        "maturity",
+        "discountCurve",
+        "observationFrequency",
+        "realizedMethod",
+        "side",
+        "build",
         "new",
         "instrumentId",
         "strikeVariance",
-        "instrumentType",
-        "toString",
-        "clone",
-        "from_json",
         "fromJson",
-        "instrumentId",
         "toJson",
         "instrumentType",
         "toString",
         "clone",
         "new",
         "new",
+        "jsonString",
+        "build",
+        "fromJson",
+        "instrumentId",
+        "toJson",
+        "getCashflows",
+        "toJsonString",
+        "instrumentType",
+        "toString",
+        "clone",
+        "new",
+        "new",
+        "ticker",
+        "currency",
+        "shares",
+        "price",
+        "build",
+        "new",
         "instrumentId",
         "ticker",
         "currency",
         "shares",
+        "fromJson",
+        "toJson",
         "instrumentType",
         "toString",
         "clone",
+        "new",
+        "new",
+        "commodityType",
+        "ticker",
+        "unit",
+        "currency",
+        "notionalQuantity",
+        "fixedPrice",
+        "floatingIndexId",
+        "payFixed",
+        "startDate",
+        "endDate",
+        "paymentFrequency",
+        "discountCurveId",
+        "bdc",
+        "build",
         "new",
         "instrumentId",
         "commodityType",
@@ -11930,29 +14804,51 @@
         "endDate",
         "floatingIndexId",
         "discountCurveId",
-        "instrumentType",
-        "toString",
-        "clone",
-        "from_json",
         "fromJson",
-        "instrumentId",
-        "toJson",
-        "instrumentType",
-        "toString",
-        "clone",
-        "from_json",
-        "fromJson",
-        "instrumentId",
         "toJson",
         "instrumentType",
         "toString",
         "clone",
         "new",
+        "new",
+        "jsonString",
+        "build",
+        "fromJson",
+        "instrumentId",
+        "toJson",
+        "toJsonString",
+        "instrumentType",
+        "toString",
+        "clone",
+        "new",
+        "new",
+        "jsonString",
+        "build",
+        "fromJson",
+        "instrumentId",
+        "toJson",
+        "toJsonString",
+        "instrumentType",
+        "toString",
+        "clone",
         "new",
         "forwardCurve",
         "spread",
         "new",
         "new",
+        "money",
+        "startDate",
+        "maturity",
+        "primaryLeg",
+        "referenceLeg",
+        "discountCurve",
+        "calendar",
+        "stub",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentId",
         "notional",
         "discountCurve",
@@ -11963,16 +14859,50 @@
         "Pay",
         "Receive",
         "new",
+        "new",
+        "baseCurrency",
+        "quoteCurrency",
+        "notional",
+        "strikeVariance",
+        "startDate",
+        "maturity",
+        "observationFreq",
+        "side",
+        "domesticCurveId",
+        "foreignCurveId",
+        "volSurfaceId",
+        "build",
+        "new",
         "id",
         "strikeVariance",
         "notional",
         "strikeVol",
         "annualizationFactor",
-        "fromJSON",
-        "toJSON",
-        "payer",
-        "payer",
-        "receiver",
+        "value",
+        "fromJson",
+        "toJson",
+        "new",
+        "new",
+        "money",
+        "strike",
+        "swaptionType",
+        "expiry",
+        "swapStart",
+        "swapEnd",
+        "discountCurve",
+        "forwardCurve",
+        "volSurface",
+        "exercise",
+        "settlement",
+        "fixedFrequency",
+        "floatFrequency",
+        "dayCount",
+        "businessDayConvention",
+        "calendarId",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
         "instrumentId",
         "notional",
         "strike",
@@ -11986,6 +14916,17 @@
         "clone",
         "new",
         "new",
+        "money",
+        "start",
+        "end",
+        "dayCount",
+        "discountCurve",
+        "quoteRate",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentId",
         "notional",
         "start",
@@ -11997,6 +14938,15 @@
         "toString",
         "clone",
         "new",
+        "new",
+        "baseCurrency",
+        "quoteCurrency",
+        "maturityDate",
+        "notional",
+        "domesticCurveId",
+        "foreignCurveId",
+        "build",
+        "new",
         "id",
         "baseCurrency",
         "quoteCurrency",
@@ -12006,22 +14956,53 @@
         "setSpotRate",
         "setForwardPoints",
         "marketForwardRate",
-        "fromJSON",
-        "toJSON",
-        "from_json",
+        "value",
+        "fromJson",
+        "toJson",
+        "new",
+        "new",
+        "jsonString",
+        "build",
         "fromJson",
         "instrumentId",
+        "toJson",
+        "getCashflows",
+        "toJsonString",
+        "instrumentType",
+        "toString",
+        "clone",
+        "new",
+        "new",
+        "money",
+        "quotedPrice",
+        "expiry",
+        "discountCurve",
+        "volIndexCurve",
+        "position",
+        "multiplier",
+        "tickSize",
+        "tickValue",
+        "indexId",
+        "build",
+        "new",
+        "instrumentId",
+        "notional",
+        "quotedPrice",
+        "fromJson",
         "toJson",
         "instrumentType",
         "toString",
         "clone",
         "new",
-        "instrumentId",
+        "new",
+        "baseCurrency",
+        "settlementCurrency",
+        "fixingDate",
+        "maturityDate",
         "notional",
-        "quotedPrice",
-        "instrumentType",
-        "toString",
-        "clone",
+        "contractRate",
+        "settlementCurveId",
+        "build",
         "new",
         "id",
         "baseCurrency",
@@ -12032,10 +15013,10 @@
         "setFixingRate",
         "setSpotRate",
         "setForeignCurveId",
-        "fromJSON",
-        "toJSON",
+        "value",
+        "fromJson",
+        "toJson",
         "new",
-        "example",
         "instrumentId",
         "poolId",
         "agency",
@@ -12048,8 +15029,9 @@
         "issueDate",
         "maturityDate",
         "discountCurveId",
+        "fromJson",
+        "toJson",
         "new",
-        "example",
         "instrumentId",
         "agency",
         "coupon",
@@ -12059,8 +15041,9 @@
         "notional",
         "tradePrice",
         "discountCurveId",
+        "fromJson",
+        "toJson",
         "new",
-        "example",
         "instrumentId",
         "agency",
         "coupon",
@@ -12069,6 +15052,8 @@
         "dropValue",
         "drop32nds",
         "discountCurveId",
+        "fromJson",
+        "toJson",
         "sequential",
         "sequential",
         "pac",
@@ -12081,44 +15066,77 @@
         "currentFace",
         "coupon",
         "priority",
+        "fromJson",
+        "toJson",
         "new",
         "new",
         "totalCurrentFace",
+        "fromJson",
+        "toJson",
         "new",
-        "example",
         "instrumentId",
         "dealName",
         "agency",
         "issueDate",
         "referenceTrancheId",
         "discountCurveId",
-        "voluntary",
+        "fromJson",
+        "toJson",
         "voluntary",
         "mandatoryOn",
         "uponEvent",
         "new",
         "new",
         "new",
+        "money",
+        "issue",
+        "maturity",
+        "discountCurve",
+        "conversion",
+        "underlyingEquityId",
+        "build",
         "new",
         "instrumentId",
         "notional",
         "conversionRatio",
         "conversionPrice",
+        "getCashflows",
+        "fromJson",
+        "toJson",
         "instrumentType",
         "toString",
         "clone",
+        "new",
+        "new",
+        "money",
+        "strike",
+        "expiry",
+        "discountCurve",
+        "volIndexCurve",
+        "volOfVolSurface",
+        "optionType",
+        "exerciseStyle",
+        "multiplier",
+        "indexId",
+        "build",
         "new",
         "instrumentId",
         "notional",
         "strike",
         "optionType",
+        "fromJson",
+        "toJson",
         "instrumentType",
         "toString",
         "clone",
-        "from_json",
+        "new",
+        "new",
+        "jsonString",
+        "build",
         "fromJson",
         "instrumentId",
         "toJson",
+        "toJsonString",
         "instrumentType",
         "toString",
         "clone",
@@ -12130,21 +15148,68 @@
         "Receive",
         "Pay",
         "new",
+        "new",
+        "currency",
+        "notional",
+        "side",
+        "forwardCurveId",
+        "discountCurveId",
+        "frequency",
+        "dayCount",
+        "businessDayConvention",
+        "spread",
+        "paymentLagDays",
+        "calendarId",
+        "build",
+        "new",
         "currency",
         "notional",
         "spread",
+        "new",
+        "new",
+        "startDate",
+        "maturityDate",
+        "leg1",
+        "leg2",
+        "reportingCurrency",
+        "notionalExchange",
+        "stubKind",
+        "build",
         "new",
         "id",
         "startDate",
         "maturityDate",
         "reportingCurrency",
+        "value",
         "instrumentType",
-        "fromJSON",
-        "toJSON",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "toString",
         "clone",
         "new",
         "new",
+        "money",
+        "fixedRate",
+        "start",
+        "end",
+        "discountCurve",
+        "forwardCurve",
+        "side",
+        "fixedFrequency",
+        "fixedDayCount",
+        "floatFrequency",
+        "floatDayCount",
+        "businessDayConvention",
+        "calendarId",
+        "stubKind",
+        "resetLagDays",
+        "floatSpreadBp",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentId",
         "notional",
         "fixedRate",
@@ -12166,6 +15231,18 @@
         "tickSize",
         "tickValue",
         "new",
+        "new",
+        "indexTicker",
+        "currency",
+        "quantity",
+        "expiryDate",
+        "lastTradingDate",
+        "position",
+        "specs",
+        "discountCurveId",
+        "indexPriceId",
+        "build",
+        "new",
         "id",
         "indexTicker",
         "quantity",
@@ -12175,12 +15252,26 @@
         "setQuotedPrice",
         "notionalValue",
         "fairForward",
-        "fromJSON",
-        "toJSON",
+        "value",
+        "fromJson",
+        "toJson",
         "dcf",
         "Dcf",
         "DirectCap",
         "isDcf",
+        "new",
+        "new",
+        "currency",
+        "valuationDate",
+        "valuationMethod",
+        "noiSchedule",
+        "discountCurveId",
+        "dayCount",
+        "discountRate",
+        "capRate",
+        "stabilizedNoi",
+        "terminalCapRate",
+        "build",
         "new",
         "id",
         "currency",
@@ -12190,19 +15281,37 @@
         "stabilizedNoi",
         "appraisalValue",
         "setAppraisalValue",
+        "value",
         "instrumentType",
-        "fromJSON",
-        "toJSON",
+        "fromJson",
+        "toJson",
         "toString",
         "clone",
-        "builder",
-        "builder",
-        "fixedSemiannual",
-        "treasury",
-        "zeroCoupon",
-        "floating",
-        "pikToggle",
-        "fixedToFloating",
+        "new",
+        "new",
+        "money",
+        "issue",
+        "maturity",
+        "discountCurve",
+        "hazardCurve",
+        "couponRate",
+        "frequency",
+        "dayCount",
+        "businessDayConvention",
+        "calendarId",
+        "stubKind",
+        "amortization",
+        "callSchedule",
+        "putSchedule",
+        "quotedCleanPrice",
+        "forwardCurve",
+        "floatMarginBp",
+        "floatGearing",
+        "floatResetLagDays",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
         "instrumentId",
         "notional",
         "coupon",
@@ -12220,6 +15329,19 @@
         "clone",
         "new",
         "new",
+        "money",
+        "fixedRate",
+        "startDate",
+        "maturity",
+        "discountCurve",
+        "inflationCurve",
+        "side",
+        "dayCount",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentId",
         "notional",
         "fixedRate",
@@ -12227,8 +15349,24 @@
         "instrumentType",
         "toString",
         "clone",
-        "builder",
-        "builder",
+        "new",
+        "new",
+        "ticker",
+        "strike",
+        "barrier",
+        "optionType",
+        "barrierType",
+        "expiry",
+        "money",
+        "discountCurve",
+        "spotId",
+        "volSurface",
+        "divYieldId",
+        "useGobetMiri",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
         "instrumentId",
         "ticker",
         "strike",
@@ -12247,6 +15385,13 @@
         "clone",
         "new",
         "new",
+        "baseCurrency",
+        "quoteCurrency",
+        "settlement",
+        "spotRate",
+        "notional",
+        "build",
+        "new",
         "instrumentId",
         "baseCurrency",
         "quoteCurrency",
@@ -12254,9 +15399,23 @@
         "instrumentType",
         "toString",
         "clone",
-        "european_call",
-        "europeanCall",
-        "europeanPut",
+        "fromJson",
+        "toJson",
+        "new",
+        "new",
+        "baseCurrency",
+        "quoteCurrency",
+        "strike",
+        "optionType",
+        "expiry",
+        "money",
+        "domesticCurve",
+        "foreignCurve",
+        "volSurface",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
         "instrumentId",
         "baseCurrency",
         "quoteCurrency",
@@ -12268,6 +15427,17 @@
         "clone",
         "new",
         "new",
+        "baseCurrency",
+        "quoteCurrency",
+        "notional",
+        "nearDate",
+        "farDate",
+        "domesticCurve",
+        "foreignCurve",
+        "nearRate",
+        "farRate",
+        "build",
+        "new",
         "instrumentId",
         "baseCurrency",
         "quoteCurrency",
@@ -12277,7 +15447,22 @@
         "instrumentType",
         "toString",
         "clone",
-        "builder",
+        "fromJson",
+        "toJson",
+        "new",
+        "new",
+        "ticker",
+        "strike",
+        "expiry",
+        "fixingDates",
+        "money",
+        "discountCurve",
+        "spotId",
+        "volSurface",
+        "averagingMethod",
+        "optionType",
+        "divYieldId",
+        "build",
         "builder",
         "instrumentId",
         "ticker",
@@ -12291,18 +15476,46 @@
         "spotId",
         "volSurface",
         "dividendYieldId",
+        "fromJson",
+        "toJson",
         "instrumentType",
         "toString",
         "clone",
         "new",
         "new",
+        "money",
+        "quotedPrice",
+        "expiry",
+        "fixingDate",
+        "periodStart",
+        "periodEnd",
+        "discountCurve",
+        "forwardCurve",
+        "position",
+        "dayCount",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
         "instrumentId",
         "notional",
         "quotedPrice",
         "instrumentType",
         "toString",
         "clone",
-        "cap",
+        "new",
+        "new",
+        "kind",
+        "money",
+        "strike",
+        "startDate",
+        "endDate",
+        "discountCurve",
+        "forwardCurve",
+        "volSurface",
+        "paymentsPerYear",
+        "dayCount",
+        "build",
         "cap",
         "floor",
         "instrumentId",
@@ -12312,13 +15525,29 @@
         "endDate",
         "discountCurve",
         "forwardCurve",
+        "fromJson",
+        "toJson",
         "instrumentType",
         "toString",
         "clone",
         "new",
         "new",
+        "money",
+        "collateral",
+        "repoRate",
+        "startDate",
+        "maturity",
+        "discountCurve",
+        "repoType",
+        "haircut",
+        "dayCount",
+        "businessDayConvention",
+        "build",
         "new",
         "new",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentId",
         "cashAmount",
         "repoRate",
@@ -12329,6 +15558,23 @@
         "clone",
         "new",
         "new",
+        "indexName",
+        "series",
+        "version",
+        "money",
+        "fixedCouponBp",
+        "startDate",
+        "maturity",
+        "discountCurve",
+        "creditCurve",
+        "side",
+        "recoveryRate",
+        "indexFactor",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentId",
         "indexName",
         "notional",
@@ -12339,6 +15585,23 @@
         "clone",
         "new",
         "new",
+        "indexName",
+        "series",
+        "attachPct",
+        "detachPct",
+        "money",
+        "maturity",
+        "runningCouponBp",
+        "discountCurve",
+        "creditIndexCurve",
+        "side",
+        "paymentsPerYear",
+        "dayCount",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentId",
         "notional",
         "attachPct",
@@ -12348,24 +15611,44 @@
         "instrumentType",
         "toString",
         "clone",
-        "from_json",
+        "new",
+        "new",
+        "jsonString",
+        "build",
         "fromJson",
         "instrumentId",
         "toJson",
+        "toJsonString",
         "instrumentType",
         "toString",
         "clone",
-        "from_json",
+        "new",
+        "new",
+        "jsonString",
+        "build",
         "fromJson",
         "instrumentId",
         "currency",
         "toJson",
+        "toJsonString",
         "instrumentType",
         "toString",
         "clone",
-        "buy_protection",
-        "buyProtection",
-        "sellProtection",
+        "new",
+        "new",
+        "money",
+        "spreadBp",
+        "startDate",
+        "maturity",
+        "discountCurve",
+        "creditCurve",
+        "side",
+        "recoveryRate",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "instrumentId",
         "notional",
         "spreadBp",
@@ -12383,14 +15666,28 @@
         "isPayFixed",
         "toString",
         "new",
+        "new",
+        "money",
+        "fixedRate",
+        "startDate",
+        "maturity",
+        "discountCurve",
+        "inflationIndexId",
+        "frequency",
+        "side",
+        "dayCount",
+        "build",
+        "new",
         "id",
         "notional",
         "fixedRate",
         "startDate",
         "maturity",
+        "value",
         "instrumentType",
-        "fromJSON",
-        "toJSON",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "toString",
         "clone",
         "cap",
@@ -12401,15 +15698,33 @@
         "isCap",
         "toString",
         "new",
+        "new",
+        "optionType",
+        "money",
+        "strikeRate",
+        "startDate",
+        "endDate",
+        "inflationIndexId",
+        "discountCurveId",
+        "volSurfaceId",
+        "frequency",
+        "dayCount",
+        "stubKind",
+        "businessDayConvention",
+        "calendarId",
+        "build",
+        "new",
         "id",
         "notional",
         "strikeRate",
         "startDate",
         "endDate",
         "isCap",
+        "value",
         "instrumentType",
-        "fromJSON",
-        "toJSON",
+        "fromJson",
+        "toJson",
+        "getCashflows",
         "toString",
         "clone",
         "long",
@@ -12424,12 +15739,41 @@
         "tickSize",
         "tickValue",
         "new",
+        "new",
+        "notional",
+        "currency",
+        "expiryDate",
+        "deliveryStart",
+        "deliveryEnd",
+        "quotedPrice",
+        "position",
+        "specs",
+        "deliverableBasket",
+        "ctdBondId",
+        "discountCurveId",
+        "build",
+        "new",
         "id",
         "quotedPrice",
         "notional",
         "ctdBondId",
-        "fromJSON",
-        "toJSON",
+        "value",
+        "fromJson",
+        "toJson",
+        "new",
+        "new",
+        "commodityType",
+        "ticker",
+        "quantity",
+        "unit",
+        "settlementDate",
+        "currency",
+        "forwardCurveId",
+        "discountCurveId",
+        "multiplier",
+        "quotedPrice",
+        "settlementType",
+        "build",
         "new",
         "instrumentId",
         "commodityType",
@@ -12444,9 +15788,26 @@
         "discountCurveId",
         "exchange",
         "contractMonth",
+        "fromJson",
+        "toJson",
         "instrumentType",
         "toString",
         "clone",
+        "new",
+        "new",
+        "commodityType",
+        "ticker",
+        "strike",
+        "optionType",
+        "exerciseStyle",
+        "expiry",
+        "quantity",
+        "unit",
+        "currency",
+        "forwardCurveId",
+        "discountCurveId",
+        "volSurfaceId",
+        "build",
         "new",
         "id",
         "strike",
@@ -12455,10 +15816,26 @@
         "quantity",
         "setQuotedForward",
         "setSettlement",
-        "fromJSON",
-        "toJSON",
+        "value",
+        "fromJson",
+        "toJson",
         "new",
         "new",
+        "money",
+        "strikeSpreadBp",
+        "expiry",
+        "cdsMaturity",
+        "discountCurve",
+        "creditCurve",
+        "volSurface",
+        "optionType",
+        "recoveryRate",
+        "underlyingIsIndex",
+        "indexFactor",
+        "build",
+        "new",
+        "fromJson",
+        "toJson",
         "instrumentId",
         "notional",
         "strikeSpreadBp",
@@ -12467,31 +15844,41 @@
         "instrumentType",
         "toString",
         "clone",
-        "from_json",
+        "new",
+        "new",
+        "jsonString",
+        "build",
         "fromJson",
         "instrumentId",
         "toJson",
+        "toJsonString",
         "instrumentType",
         "toString",
         "clone",
-        "from_json",
+        "new",
+        "new",
+        "jsonString",
+        "build",
         "fromJson",
         "instrumentId",
         "dealType",
         "toJson",
+        "getCashflows",
+        "toJsonString",
         "instrumentType",
         "toString",
         "clone",
         "trancheCount",
+        "fromJson",
+        "toJson",
+        "toJsonString",
+        "fromJson",
+        "toJson",
+        "toJsonString",
         "from_json",
         "fromJson",
         "toJson",
-        "from_json",
-        "fromJson",
-        "toJson",
-        "from_json",
-        "fromJson",
-        "toJson",
+        "toJsonString",
         "tierId",
         "priority",
         "recipientCount",
@@ -12507,15 +15894,19 @@
         "from_json",
         "fromJson",
         "toJson",
+        "toJsonString",
         "addTier",
         "from_json",
         "fromJson",
         "toJson",
+        "toJsonString",
         "from_json",
         "fromJson",
         "toJson",
+        "toJsonString",
         "to_json",
         "toJson",
+        "toJsonString",
         "paymentDate",
         "totalAvailable",
         "tierAllocations",
@@ -12655,6 +16046,10 @@
               "js_name": "toJson"
             },
             {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
+            },
+            {
               "name": "from_json",
               "js_name": "fromJson"
             },
@@ -12673,6 +16068,10 @@
             {
               "name": "to_json",
               "js_name": "toJson"
+            },
+            {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
             },
             {
               "name": "from_json",
@@ -13289,6 +16688,10 @@
               "js_name": "toJson"
             },
             {
+              "name": "to_json_string",
+              "js_name": "toJsonString"
+            },
+            {
               "name": "direct_dependencies",
               "js_name": "directDependencies"
             },
@@ -13314,8 +16717,8 @@
           "path": "statements/evaluator.rs",
           "classes": [
             {
-              "name": "ResultsMeta",
-              "js_name": "ResultsMeta",
+              "name": "StatementResultMeta",
+              "js_name": "StatementResultMeta",
               "methods": [
                 {
                   "name": "eval_time_ms",
@@ -15349,7 +18752,7 @@
         "MetricRegistry",
         "Registry",
         "DependencyTree",
-        "ResultsMeta",
+        "StatementResultMeta",
         "StatementResult",
         "Evaluator",
         "ExtensionMetadata",
@@ -15373,11 +18776,13 @@
         "new",
         "addAdjustment",
         "toJson",
+        "toJsonString",
         "fromJson",
         "fixed",
         "percentage",
         "withCap",
         "toJson",
+        "toJsonString",
         "fromJson",
         "name",
         "name",
@@ -15425,6 +18830,7 @@
         "nodeCount",
         "toAscii",
         "toJson",
+        "toJsonString",
         "directDependencies",
         "allDependencies",
         "dependencyTree",
@@ -17536,6 +20942,298 @@
             }
           ]
         },
+        "portfolio.positions": {
+          "path": "portfolio/positions.rs",
+          "classes": [
+            {
+              "name": "Portfolio",
+              "js_name": "Portfolio",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_constructor": true,
+                  "is_getter": false,
+                  "js_name": "new"
+                },
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "new"
+                },
+                {
+                  "name": "id",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "id"
+                },
+                {
+                  "name": "id",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "id"
+                },
+                {
+                  "name": "name",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "name"
+                },
+                {
+                  "name": "name",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "name"
+                },
+                {
+                  "name": "set_name",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "set_name"
+                },
+                {
+                  "name": "set_name",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "set_name"
+                },
+                {
+                  "name": "base_ccy",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "baseCcy"
+                },
+                {
+                  "name": "base_ccy",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "base_ccy"
+                },
+                {
+                  "name": "as_of",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "asOf"
+                },
+                {
+                  "name": "as_of",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "as_of"
+                },
+                {
+                  "name": "entities",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "entities"
+                },
+                {
+                  "name": "entities",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "entities"
+                },
+                {
+                  "name": "positions",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "positions"
+                },
+                {
+                  "name": "positions",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "positions"
+                },
+                {
+                  "name": "tags",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "tags"
+                },
+                {
+                  "name": "tags",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "tags"
+                },
+                {
+                  "name": "get_position",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "getPosition"
+                },
+                {
+                  "name": "get_position",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "get_position"
+                },
+                {
+                  "name": "positions_for_entity",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "positionsForEntity"
+                },
+                {
+                  "name": "positions_for_entity",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "positions_for_entity"
+                },
+                {
+                  "name": "positions_with_tag",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "positionsWithTag"
+                },
+                {
+                  "name": "positions_with_tag",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "positions_with_tag"
+                },
+                {
+                  "name": "validate",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "validate"
+                },
+                {
+                  "name": "validate",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "validate"
+                },
+                {
+                  "name": "from_json",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "fromJSON"
+                },
+                {
+                  "name": "from_json",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "from_json"
+                },
+                {
+                  "name": "to_json",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "toJSON"
+                },
+                {
+                  "name": "to_json",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "to_json"
+                }
+              ],
+              "properties": [
+                "id",
+                "name",
+                "base_ccy",
+                "as_of",
+                "entities",
+                "positions",
+                "tags"
+              ]
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "name",
+              "js_name": "name"
+            },
+            {
+              "name": "set_name",
+              "js_name": "set_name"
+            },
+            {
+              "name": "base_ccy",
+              "js_name": "baseCcy"
+            },
+            {
+              "name": "as_of",
+              "js_name": "asOf"
+            },
+            {
+              "name": "entities",
+              "js_name": "entities"
+            },
+            {
+              "name": "positions",
+              "js_name": "positions"
+            },
+            {
+              "name": "tags",
+              "js_name": "tags"
+            },
+            {
+              "name": "get_position",
+              "js_name": "getPosition"
+            },
+            {
+              "name": "positions_for_entity",
+              "js_name": "positionsForEntity"
+            },
+            {
+              "name": "positions_with_tag",
+              "js_name": "positionsWithTag"
+            },
+            {
+              "name": "validate",
+              "js_name": "validate"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            }
+          ]
+        },
         "portfolio.types": {
           "path": "portfolio/types.rs",
           "classes": [
@@ -18680,298 +22378,6 @@
             }
           ]
         },
-        "portfolio.portfolio": {
-          "path": "portfolio/portfolio.rs",
-          "classes": [
-            {
-              "name": "Portfolio",
-              "js_name": "Portfolio",
-              "methods": [
-                {
-                  "name": "new",
-                  "is_static": false,
-                  "is_constructor": true,
-                  "is_getter": false,
-                  "js_name": "new"
-                },
-                {
-                  "name": "new",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "new"
-                },
-                {
-                  "name": "id",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": true,
-                  "js_name": "id"
-                },
-                {
-                  "name": "id",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "id"
-                },
-                {
-                  "name": "name",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": true,
-                  "js_name": "name"
-                },
-                {
-                  "name": "name",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "name"
-                },
-                {
-                  "name": "set_name",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "set_name"
-                },
-                {
-                  "name": "set_name",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "set_name"
-                },
-                {
-                  "name": "base_ccy",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": true,
-                  "js_name": "baseCcy"
-                },
-                {
-                  "name": "base_ccy",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "base_ccy"
-                },
-                {
-                  "name": "as_of",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": true,
-                  "js_name": "asOf"
-                },
-                {
-                  "name": "as_of",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "as_of"
-                },
-                {
-                  "name": "entities",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": true,
-                  "js_name": "entities"
-                },
-                {
-                  "name": "entities",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "entities"
-                },
-                {
-                  "name": "positions",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": true,
-                  "js_name": "positions"
-                },
-                {
-                  "name": "positions",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "positions"
-                },
-                {
-                  "name": "tags",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": true,
-                  "js_name": "tags"
-                },
-                {
-                  "name": "tags",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "tags"
-                },
-                {
-                  "name": "get_position",
-                  "is_static": true,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "getPosition"
-                },
-                {
-                  "name": "get_position",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "get_position"
-                },
-                {
-                  "name": "positions_for_entity",
-                  "is_static": true,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "positionsForEntity"
-                },
-                {
-                  "name": "positions_for_entity",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "positions_for_entity"
-                },
-                {
-                  "name": "positions_with_tag",
-                  "is_static": true,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "positionsWithTag"
-                },
-                {
-                  "name": "positions_with_tag",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "positions_with_tag"
-                },
-                {
-                  "name": "validate",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "validate"
-                },
-                {
-                  "name": "validate",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "validate"
-                },
-                {
-                  "name": "from_json",
-                  "is_static": true,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "fromJSON"
-                },
-                {
-                  "name": "from_json",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "from_json"
-                },
-                {
-                  "name": "to_json",
-                  "is_static": true,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "toJSON"
-                },
-                {
-                  "name": "to_json",
-                  "is_static": false,
-                  "is_constructor": false,
-                  "is_getter": false,
-                  "js_name": "to_json"
-                }
-              ],
-              "properties": [
-                "id",
-                "name",
-                "base_ccy",
-                "as_of",
-                "entities",
-                "positions",
-                "tags"
-              ]
-            }
-          ],
-          "functions": [
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "id",
-              "js_name": "id"
-            },
-            {
-              "name": "name",
-              "js_name": "name"
-            },
-            {
-              "name": "set_name",
-              "js_name": "set_name"
-            },
-            {
-              "name": "base_ccy",
-              "js_name": "baseCcy"
-            },
-            {
-              "name": "as_of",
-              "js_name": "asOf"
-            },
-            {
-              "name": "entities",
-              "js_name": "entities"
-            },
-            {
-              "name": "positions",
-              "js_name": "positions"
-            },
-            {
-              "name": "tags",
-              "js_name": "tags"
-            },
-            {
-              "name": "get_position",
-              "js_name": "getPosition"
-            },
-            {
-              "name": "positions_for_entity",
-              "js_name": "positionsForEntity"
-            },
-            {
-              "name": "positions_with_tag",
-              "js_name": "positionsWithTag"
-            },
-            {
-              "name": "validate",
-              "js_name": "validate"
-            },
-            {
-              "name": "from_json",
-              "js_name": "fromJSON"
-            },
-            {
-              "name": "to_json",
-              "js_name": "toJSON"
-            }
-          ]
-        },
         "portfolio": {
           "path": "portfolio/mod.rs",
           "classes": [],
@@ -19629,6 +23035,7 @@
         "NettingSetMargin",
         "PortfolioMarginResult",
         "PortfolioMarginAggregator",
+        "Portfolio",
         "Entity",
         "PositionUnit",
         "Position",
@@ -19637,7 +23044,6 @@
         "PortfolioResult",
         "AggregatedMetric",
         "PortfolioMetrics",
-        "Portfolio",
         "PortfolioBuilder",
         "PortfolioValuationOptions",
         "PositionValue",
@@ -19691,6 +23097,21 @@
         "new",
         "fromPortfolio",
         "addPosition",
+        "new",
+        "id",
+        "name",
+        "set_name",
+        "baseCcy",
+        "asOf",
+        "entities",
+        "positions",
+        "tags",
+        "getPosition",
+        "positionsForEntity",
+        "positionsWithTag",
+        "validate",
+        "fromJSON",
+        "toJSON",
         "new",
         "withName",
         "withTag",
@@ -19752,21 +23173,6 @@
         "toJSON",
         "aggregateMetrics",
         "isSummable",
-        "new",
-        "id",
-        "name",
-        "set_name",
-        "baseCcy",
-        "asOf",
-        "entities",
-        "positions",
-        "tags",
-        "getPosition",
-        "positionsForEntity",
-        "positionsWithTag",
-        "validate",
-        "fromJSON",
-        "toJSON",
         "new",
         "name",
         "baseCcy",

@@ -222,6 +222,7 @@ pub(crate) use core::finite_difference::{
 };
 pub(crate) use sensitivities::cs01::{GenericBucketedCs01, GenericParallelCs01};
 pub(crate) use sensitivities::dv01::{Dv01CalculatorConfig, UnifiedDv01Calculator};
+#[cfg(feature = "mc")]
 pub(crate) use sensitivities::fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga, HasDayCount,
     HasExpiry, HasPricingOverrides,

@@ -17,7 +17,7 @@ use finstack_core::dates::Date;
 /// Bump inflation curve by shocking implied zero-coupon swap rates and re-calibrating.
 ///
 /// Converts the current inflation curve back to implied ZCIS rates,
-/// applies shocks to those rates, and re-executes the [`InflationBootstrapper`].
+/// applies shocks to those rates, and re-executes the inflation bootstrapper.
 pub fn bump_inflation_rates(
     curve: &InflationCurve,
     context: &MarketContext,

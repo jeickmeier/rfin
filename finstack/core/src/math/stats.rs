@@ -599,7 +599,7 @@ impl OnlineCovariance {
     /// Optimal beta coefficient for control variate.
     ///
     /// Returns Cov(X, Y) / Var(Y), the coefficient that minimizes
-    /// the variance of X - β(Y - E[Y]).
+    /// the variance of `X - beta(Y - E[Y])`.
     pub fn optimal_beta(&self) -> f64 {
         let var_y = self.variance_y();
         if var_y < 1e-20 {

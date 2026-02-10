@@ -53,7 +53,7 @@ use super::discount_engine::BondEngine;
 ///
 /// # Examples
 ///
-/// Use the [`SimpleBondHazardPricer`] for public API access to hazard-rate pricing:
+/// Use `SimpleBondHazardPricer` for public API access to hazard-rate pricing:
 ///
 /// ```rust,ignore
 /// use finstack_valuations::instruments::Bond;
@@ -70,7 +70,6 @@ use super::discount_engine::BondEngine;
 /// let result = registry.price(&bond, &market, as_of)?;
 /// ```
 ///
-/// [`SimpleBondHazardPricer`]: crate::instruments::fixed_income::bond::pricing::SimpleBondHazardPricer
 pub struct HazardBondEngine;
 
 impl HazardBondEngine {

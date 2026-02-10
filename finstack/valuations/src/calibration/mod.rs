@@ -50,8 +50,8 @@
 //! ```
 //!
 //! # See Also
-//! - [`api`] for the plan schema and engine.
-//! - [`solver`] for the underlying numerical solvers.
+//! - `api` for the plan schema and engine.
+//! - `solver` for the underlying numerical solvers.
 //! - [`crate::market::quotes`] for market data representation.
 
 /// Plan-driven calibration API (schema + execution engine).

@@ -6,24 +6,24 @@
 //! # Public API
 //!
 //! ## Primary Types (stable)
-//! - [`CashFlowSchedule`] — Output schedule containing ordered cashflows
-//! - [`CashFlowBuilder`] — Fluent builder for constructing schedules
-//! - [`Notional`] — Principal amount with optional amortization
+//! - `CashFlowSchedule` — Output schedule containing ordered cashflows
+//! - `CashFlowBuilder` — Fluent builder for constructing schedules
+//! - `Notional` — Principal amount with optional amortization
 //!
 //! ## Coupon Specifications (stable)
-//! - [`FixedCouponSpec`] — Fixed-rate coupon configuration
-//! - [`FloatingCouponSpec`] — Floating-rate coupon with index, spread, caps/floors
-//! - [`CouponType`] — Payment type (Cash, PIK, or Split)
+//! - `FixedCouponSpec` — Fixed-rate coupon configuration
+//! - `FloatingCouponSpec` — Floating-rate coupon with index, spread, caps/floors
+//! - `CouponType` — Payment type (Cash, PIK, or Split)
 //!
 //! ## Amortization & Fees (stable)
-//! - [`AmortizationSpec`] — Principal behavior (None, Linear, Step, Percent, Custom)
-//! - [`FeeSpec`] — Fixed or periodic fee configuration
+//! - `AmortizationSpec` — Principal behavior (None, Linear, Step, Percent, Custom)
+//! - `FeeSpec` — Fixed or periodic fee configuration
 //!
 //! ## Schedule Parameters (stable)
-//! - [`ScheduleParams`] — Frequency, day count, business day convention
+//! - `ScheduleParams` — Frequency, day count, business day convention
 //!
 //! ## Credit Models (for structured products)
-//! - [`PrepaymentModelSpec`], [`DefaultModelSpec`], [`RecoveryModelSpec`]
+//! - `PrepaymentModelSpec`, `DefaultModelSpec`, `RecoveryModelSpec`
 //!
 //! # Usage
 //!

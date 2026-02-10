@@ -47,7 +47,7 @@
 //!
 //! ## Core API (Stable)
 //! - [`currency`]: Currency types and ISO-4217 codes
-//! - [`money`]: Monetary amounts with currency safety
+//! - [`mod@money`]: Monetary amounts with currency safety
 //! - [`dates`]: Date handling, calendars, and schedules
 //! - [`market_data`]: Term structures and market data containers
 //! - [`config`]: Configuration and global settings

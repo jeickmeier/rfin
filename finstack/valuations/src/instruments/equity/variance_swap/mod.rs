@@ -66,7 +66,7 @@
 //! # See Also
 //!
 //! - [`VarianceSwap`] for instrument struct
-//! - [`RealizedVarMethod`] for variance calculation methods
+//! - `RealizedVarMethod` for variance calculation methods
 //! - Variance calculation functions in [`finstack_core::math::stats`]
 
 pub(crate) mod metrics;

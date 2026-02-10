@@ -84,10 +84,10 @@
 //!
 //! # See Also
 //!
-//! - [`CDSIndex`] for index CDS struct
-//! - [`CDSIndexConstituent`] for constituent entity information
-//! - [`IndexPricing`] for intrinsic vs index-level pricing mode
-//! - [`metrics`] for index risk metrics
+//! - `CDSIndex` for index CDS struct
+//! - `CDSIndexConstituent` for constituent entity information
+//! - `IndexPricing` for intrinsic vs index-level pricing mode
+//! - index metrics module for index risk metrics
 
 pub(crate) mod metrics;
 pub(crate) mod parameters;

@@ -75,7 +75,7 @@
 //!
 //! - [`InterestRateOption`] for cap/floor instrument struct
 //! - [`RateOptionType`] for cap vs floor distinction
-//! - [`metrics`] for cap/floor risk metrics (DV01, vega)
+//! - cap/floor metrics module for risk metrics (DV01, vega)
 
 pub(crate) mod metrics;
 pub(crate) mod parameters;

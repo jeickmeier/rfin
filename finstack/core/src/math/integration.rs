@@ -271,7 +271,7 @@ impl GaussHermiteQuadrature {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Validation`](crate::Error::Validation) if the order is not
+    /// Returns [`Error::Validation`] if the order is not
     /// one of the supported values (5, 7, 10, 15, 20).
     ///
     /// # Example
@@ -436,7 +436,7 @@ impl GaussHermiteQuadrature {
 ///
 /// # Errors
 ///
-/// Returns [`InputError::Invalid`](crate::error::InputError::Invalid) when:
+/// Returns [`InputError::Invalid`] when:
 /// - `n` is zero
 /// - `n` is not an even number
 ///
@@ -700,7 +700,7 @@ fn gl_nodes_weights(order: usize) -> Result<(&'static [f64], &'static [f64]), Er
 ///
 /// # Errors
 ///
-/// Returns [`InputError::Invalid`](crate::error::InputError::Invalid) when:
+/// Returns [`InputError::Invalid`] when:
 /// - `a` or `b` is not finite (NaN or infinity)
 /// - `order` is not one of the supported values (2, 4, 8, 16)
 ///
@@ -770,7 +770,7 @@ where
 ///
 /// # Errors
 ///
-/// Returns [`InputError::Invalid`](crate::error::InputError::Invalid) when:
+/// Returns [`InputError::Invalid`] when:
 /// - `panels` is zero
 /// - `order` is unsupported (see [`gauss_legendre_integrate`])
 ///
@@ -907,7 +907,7 @@ where
 ///
 /// # Errors
 ///
-/// Returns [`InputError::Invalid`](crate::error::InputError::Invalid) when `n` is zero.
+/// Returns [`InputError::Invalid`] when `n` is zero.
 ///
 /// # Complexity
 ///

@@ -11,7 +11,7 @@
 //!
 //! For sensitivity analysis and explanation functionality, use the dedicated modules:
 //! - [`crate::analysis`] - Sensitivity analysis, goal seek, DCF valuation
-//! - [`crate::explain`] - Dependency tracing and formula explanation
+//! - `crate::analysis::explain` - Dependency tracing and formula explanation
 //!
 //! # Examples
 //!

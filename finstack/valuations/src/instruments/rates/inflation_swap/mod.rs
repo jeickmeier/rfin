@@ -55,8 +55,8 @@
 //! # See Also
 //!
 //! - [`InflationSwap`] for instrument struct
-//! - [`inflation_linked_bond`](super::inflation_linked_bond) for linkers
-//! - Plan-driven calibration in [`calibration::api`] (Inflation step)
+//! - fixed income inflation-linked bond module for linkers
+//! - Plan-driven calibration in `calibration::api` (Inflation step)
 
 pub(crate) mod metrics;
 /// Inflation swap pricer implementation

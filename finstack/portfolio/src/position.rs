@@ -69,7 +69,7 @@ pub struct Position {
     pub meta: IndexMap<String, serde_json::Value>,
 }
 
-/// Serializable position specification (without Arc<dyn Instrument>).
+/// Serializable position specification (without `Arc<dyn Instrument>`).
 ///
 /// This struct allows positions to be serialized and deserialized by storing
 /// the instrument definition as JSON rather than a trait object.

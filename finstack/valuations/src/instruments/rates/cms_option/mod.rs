@@ -38,7 +38,7 @@
 //! # See Also
 //!
 //! - [`CmsOption`] for instrument struct
-//! - [`metrics`] for CMS option risk metrics
+//! - CMS option metrics module for risk metrics
 
 pub(crate) mod metrics;
 pub mod pricer;

@@ -7,12 +7,12 @@
 //! ## Organization
 //!
 //! Specifications are organized into logical modules:
-//! - [`coupon`]: Fixed and floating coupon specifications
-//! - [`fees`]: Fee specifications and tier evaluation
-//! - [`schedule`]: Schedule parameters and timing windows
-//! - [`prepayment`]: Prepayment models (CPR/PSA)
-//! - [`default`]: Default models (CDR/SDA) and events
-//! - [`recovery`]: Recovery specifications
+//! - `coupon`: Fixed and floating coupon specifications
+//! - `fees`: Fee specifications and tier evaluation
+//! - `schedule`: Schedule parameters and timing windows
+//! - `prepayment`: Prepayment models (CPR/PSA)
+//! - `default`: Default models (CDR/SDA) and events
+//! - `recovery`: Recovery specifications
 //!
 //! ## Responsibilities
 //!

@@ -113,8 +113,8 @@ impl BrownianBridge {
     ///
     /// # Notes
     ///
-    /// w_out[0] = 0 (Brownian motion starts at 0)
-    /// w_out[i] = cumulative Brownian motion at step i
+    /// `w_out[0] = 0` (Brownian motion starts at 0)
+    /// `w_out[i] = cumulative Brownian motion at step i`
     pub fn construct_path(&self, z: &[f64], w_out: &mut [f64], dt: f64) {
         let num_steps = z.len();
         assert_eq!(w_out.len(), num_steps + 1);

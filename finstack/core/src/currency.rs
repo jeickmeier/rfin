@@ -1,6 +1,6 @@
 //! Currency types and operations based on ISO 4217 standard.
 //!
-//! This module provides the [`Currency`] enum representing all ISO 4217 currencies,
+//! This module provides the `Currency` enum representing all ISO 4217 currencies,
 //! with numeric discriminants matching the official ISO currency codes. The currency
 //! data is automatically generated from the official ISO 4217 currency list.
 //!

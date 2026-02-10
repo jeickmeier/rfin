@@ -9,18 +9,18 @@
 //!
 //! # Module Organization
 //!
-//! - [`types`]: All data structures (instrument, pool, tranches, waterfall, results)
-//! - [`pricing`]: Pure functions for cashflow simulation and waterfall execution
-//! - [`metrics`]: Risk metrics organized by category
-//! - [`utils`]: Helper functions (rate conversions, validation)
+//! - `types`: All data structures (instrument, pool, tranches, waterfall, results)
+//! - `pricing`: Pure functions for cashflow simulation and waterfall execution
+//! - `metrics`: Risk metrics organized by category
+//! - `utils`: Helper functions (rate conversions, validation)
 //!
 //! # See Also
 //!
-//! - [`StructuredCredit`] for main instrument struct
-//! - [`DealType`] for ABS/RMBS/CMBS/CLO specification
-//! - [`Pool`] for collateral pool modeling
-//! - [`Tranche`] for tranche structure
-//! - [`Waterfall`] for cashflow distribution
+//! - `StructuredCredit` for main instrument struct
+//! - `DealType` for ABS/RMBS/CMBS/CLO specification
+//! - `Pool` for collateral pool modeling
+//! - `Tranche` for tranche structure
+//! - waterfall engine for cashflow distribution
 
 // ============================================================================
 // MODULES

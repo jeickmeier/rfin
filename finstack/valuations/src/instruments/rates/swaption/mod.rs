@@ -94,12 +94,12 @@
 //!
 //! # See Also
 //!
-//! - [`Swaption`] for swaption instrument struct
-//! - [`SwaptionExercise`] for exercise style specification
-//! - [`SwaptionSettlement`] for settlement type
-//! - [`metrics`] for swaption risk metrics
-//! - [`SimpleSwaptionBlackPricer`] for Black model pricer
-//! - [`types::VolatilityModel`] for selecting Black vs Normal
+//! - [`crate::instruments::rates::swaption::Swaption`] for swaption instrument struct
+//! - [`crate::instruments::rates::swaption::SwaptionExercise`] for exercise style specification
+//! - [`crate::instruments::rates::swaption::SwaptionSettlement`] for settlement type
+//! - swaption metrics module for risk metrics
+//! - [`crate::instruments::rates::swaption::SimpleSwaptionBlackPricer`] for Black model pricer
+//! - [`crate::instruments::rates::swaption::VolatilityModel`] for selecting Black vs Normal
 
 /// Swaption risk metrics (delta, vega, theta, rho)
 pub(crate) mod metrics;

@@ -23,9 +23,9 @@ use ts_rs::TS;
 /// solves all parameters simultaneously.
 ///
 /// # Variants
-/// - [`Bootstrap`]: Traditional sequential bootstrap where each knot is solved
+/// - `Bootstrap`: Traditional sequential bootstrap where each knot is solved
 ///   independently based on the previous knots.
-/// - [`GlobalSolve`]: Simultaneous optimization of all knots using Levenberg-Marquardt
+/// - `GlobalSolve`: Simultaneous optimization of all knots using Levenberg-Marquardt
 ///   or Newton-Raphson.
 ///
 /// # Examples
@@ -55,10 +55,10 @@ pub enum CalibrationMethod {
 /// errors (residuals) during optimization.
 ///
 /// # Variants
-/// - [`Equal`]: Every instrument contributes equally to the objective.
-/// - [`LinearTime`]: Weights increase linearly with time to maturity.
-/// - [`SqrtTime`]: Weights increase with the square root of time (market-standard).
-/// - [`InverseDuration`]: Weights based on inverse DV01 approximation.
+/// - `Equal`: Every instrument contributes equally to the objective.
+/// - `LinearTime`: Weights increase linearly with time to maturity.
+/// - `SqrtTime`: Weights increase with the square root of time (market-standard).
+/// - `InverseDuration`: Weights based on inverse DV01 approximation.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]

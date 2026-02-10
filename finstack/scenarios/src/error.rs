@@ -9,7 +9,7 @@ use thiserror::Error;
 /// Convenient result alias used across the crate.
 ///
 /// Returning this type ensures downstream callers can pattern match on
-/// [`Error`] without importing `std::result::Result`.
+/// [`enum@Error`] without importing `std::result::Result`.
 ///
 /// # Examples
 /// ```rust

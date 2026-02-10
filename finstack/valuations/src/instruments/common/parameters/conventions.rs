@@ -221,7 +221,7 @@ impl std::str::FromStr for BondConvention {
 /// Note: OIS swaps (SOFR, ESTR, SONIA, TONAR) use **daily compounded** rates
 /// with observation shift (typically 2 days lookback). The float frequency
 /// indicates the payment/reset frequency, not the compounding frequency.
-/// See [`CompoundingMethod`] for compounding details.
+/// See compounding method guidance below for details.
 ///
 /// # Sources
 ///
@@ -312,7 +312,7 @@ impl IRSConvention {
     /// # Note on OIS Compounding
     ///
     /// For OIS swaps, this is the **payment frequency**, not the compounding frequency.
-    /// OIS rates are compounded daily. Use [`compounding_method`](Self::compounding_method)
+    /// OIS rates are compounded daily. Use `uses_daily_compounding()`
     /// to determine whether daily compounding applies.
     pub fn float_frequency(&self) -> Tenor {
         match self {

@@ -7,7 +7,7 @@
 //! # Features
 //!
 //! - **Stable serde names**: All quote types use strict field names for long-lived pipelines
-//! - **Type-safe identifiers**: [`QuoteId`](ids::QuoteId) and convention IDs prevent mismatches
+//! - **Type-safe identifiers**: `QuoteId` and convention IDs prevent mismatches
 //! - **Pillar support**: Quotes support both tenor-based and date-based maturity pillars
 //! - **Bump operations**: Quotes support bumping values for sensitivity calculations
 //! - **TypeScript export**: Quotes can be exported to TypeScript when `ts_export` feature is enabled
@@ -35,9 +35,9 @@
 //!
 //! # See Also
 //!
-//! - [`MarketQuote`](market_quote::MarketQuote) for the unified quote enum
-//! - [`ids::QuoteId`](ids::QuoteId) for quote identifiers
-//! - [`ids::Pillar`](ids::Pillar) for maturity pillars
+//! - [`crate::market::quotes::market_quote::MarketQuote`] for the unified quote enum
+//! - [`crate::market::quotes::ids::QuoteId`] for quote identifiers
+//! - [`crate::market::quotes::ids::Pillar`] for maturity pillars
 
 /// Credit quotes (CDS).
 pub mod cds;

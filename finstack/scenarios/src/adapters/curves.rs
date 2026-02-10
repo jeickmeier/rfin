@@ -1,7 +1,7 @@
 //! Curve shock adapters (discount, forecast, hazard, and inflation).
 //!
 //! This module contains helpers that translate curve-oriented
-//! [`OperationSpec`](crate::spec::OperationSpec) variants into concrete market
+//! [`OperationSpec`] variants into concrete market
 //! data updates. Functions rebuild the underlying curve types rather than
 //! mutating them in place to preserve determinism and metadata (such as curve
 //! identifiers and base dates).

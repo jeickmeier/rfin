@@ -37,7 +37,7 @@ impl TimeSeriesStore for TursoStore {
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![namespace, kind, series_id]).await?;
 
         match rows.next().await.map_err(Error::from)? {
@@ -57,7 +57,7 @@ impl TimeSeriesStore for TursoStore {
         let sql = statements::list_series_sql_with_naming(Backend::Sqlite, self.naming());
         let namespace = namespace.to_string();
         let kind_str = kind.as_str().to_string();
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![namespace, kind_str]).await?;
 
         let mut out = Vec::new();
@@ -125,7 +125,7 @@ impl TimeSeriesStore for TursoStore {
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
-        let mut stmt = conn.prepare(&sql).await?;
+        let stmt = conn.prepare(&sql).await?;
         let mut rows = stmt
             .query(params![namespace, kind, series_id, start_ts, end_ts])
             .await?;
@@ -167,7 +167,7 @@ impl TimeSeriesStore for TursoStore {
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt
             .query(params![namespace, kind, series_id, ts_str])
             .await?;

@@ -73,7 +73,7 @@ pub const MIN_VALID_RATE: f64 = -0.999;
 /// # Required Methods
 ///
 /// - [`irr`](Self::irr) - Calculate IRR (for dated flows, prefer `irr_with_daycount` for explicit control)
-/// - [`irr_with_daycount`](Self::irr_with_daycount) - Calculate IRR with specific day count
+/// - `irr_with_daycount` - Calculate IRR with specific day count
 ///
 /// # Provided Implementations
 ///
@@ -128,7 +128,7 @@ pub trait InternalRateOfReturn {
     /// # Deprecation Note (for dated cashflows)
     ///
     /// For `[(Date, f64)]` cashflows, this method uses a hidden default of `Act365F`.
-    /// Prefer [`irr_with_daycount`](Self::irr_with_daycount) for explicit day count:
+    /// Prefer `irr_with_daycount` for explicit day count:
     ///
     /// ```rust
     /// use finstack_core::cashflow::InternalRateOfReturn;
@@ -228,7 +228,7 @@ impl InternalRateOfReturn for [(Date, f64)] {
     /// Calculate XIRR with default Act365F day count.
     ///
     /// **Note**: This method uses a hidden default of `Act365F`. For explicit
-    /// control over the day count convention, use [`irr_with_daycount`](Self::irr_with_daycount)
+    /// control over the day count convention, use `irr_with_daycount`
     /// instead.
     fn irr(&self, guess: Option<f64>) -> crate::Result<f64> {
         self.irr_with_daycount(DayCount::Act365F, guess)

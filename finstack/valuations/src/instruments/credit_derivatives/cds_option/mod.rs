@@ -33,7 +33,7 @@
 //! # See Also
 //!
 //! - [`CDSOption`] for instrument struct
-//! - [`cds`](super::cds) for underlying CDS pricing
+//! - [`crate::instruments::credit_derivatives::cds`] for underlying CDS pricing
 
 pub(crate) mod metrics;
 pub(crate) mod parameters;

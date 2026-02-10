@@ -37,8 +37,8 @@
 //! # See Also
 //!
 //! - [`PrivateMarketsFund`] for fund struct
-//! - [`waterfall`] for distribution waterfall logic
-//! - [`metrics`] for private markets metrics
+//! - private markets waterfall module for distribution waterfall logic
+//! - private markets metrics module for private markets metrics
 
 pub(crate) mod metrics;
 /// Private markets fund pricer implementation

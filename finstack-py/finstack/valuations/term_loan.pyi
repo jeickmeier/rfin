@@ -45,6 +45,7 @@ class TermLoan:
         ...     "covenants": null,
         ...     "pricing_overrides": {"adaptive_bumps": false, "spot_bump_pct": null, "vol_bump_pct": null, "rate_bump_bp": null},
         ...     "call_schedule": null,
+        ...     "settlement_days": 1,
         ...     "attributes": {"meta": {}, "tags": []}
         ... }''')
         >>> loan.instrument_id

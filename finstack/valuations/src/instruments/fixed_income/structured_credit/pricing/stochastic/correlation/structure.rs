@@ -345,8 +345,8 @@ impl CorrelationStructure {
 
     /// Validate the correlation structure.
     ///
-    /// For [`Flat`] and [`Sectored`] variants, checks that every correlation is
-    /// within \[-1, 1\].  For [`Matrix`], additionally verifies that:
+    /// For `Flat` and `Sectored` variants, checks that every correlation is
+    /// within \[-1, 1\]. For `Matrix`, additionally verifies that:
     /// - diagonal elements are 1.0
     /// - the matrix is symmetric
     /// - all entries are within \[-1, 1\]

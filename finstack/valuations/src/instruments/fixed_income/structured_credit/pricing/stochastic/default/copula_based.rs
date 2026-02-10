@@ -170,7 +170,7 @@ impl CopulaBasedDefault {
 
     /// Standard RMBS calibration.
     ///
-    /// Uses shared calibration constants from [`RMBS_STANDARD`]:
+    /// Uses shared calibration constants from `RMBS_STANDARD`:
     /// - Base CDR: 2%
     /// - Correlation: 5% (low for diversified pools)
     /// - SDA seasoning curve (100%)
@@ -181,7 +181,7 @@ impl CopulaBasedDefault {
 
     /// Standard CLO calibration.
     ///
-    /// Uses shared calibration constants from [`CLO_STANDARD`]:
+    /// Uses shared calibration constants from `CLO_STANDARD`:
     /// - Base CDR: 3%
     /// - Correlation: 20% (higher for corporate loans)
     /// - No seasoning curve (flat CDR)

@@ -20,7 +20,7 @@
 //!
 //! # Quote Conventions
 //!
-//! NDFs support two quote conventions via [`NdfQuoteConvention`]:
+//! NDFs support two quote conventions via [`crate::instruments::fx::ndf::NdfQuoteConvention`]:
 //!
 //! ## BasePerSettlement (default)
 //!
@@ -63,7 +63,7 @@
 //! - Fixing source determines the official rate used
 //! - Once fixed, the NDF becomes a simple cash flow
 //!
-//! Use [`NdfFixingSource`] for type-safe fixing source specification:
+//! Use [`crate::instruments::fx::ndf::NdfFixingSource`] for type-safe fixing source specification:
 //!
 //! | Currency | Fixing Source | Enum Variant |
 //! |----------|---------------|--------------|
@@ -88,8 +88,8 @@
 //!
 //! # See Also
 //!
-//! - [`FxForward`](super::fx_forward::FxForward) for deliverable forwards
-//! - [`FxSwap`](super::fx_swap::FxSwap) for FX swap instruments
+//! - [`crate::instruments::fx::fx_forward::FxForward`] for deliverable forwards
+//! - [`crate::instruments::fx::fx_swap::FxSwap`] for FX swap instruments
 
 /// Pricer for NDF instruments.
 pub(crate) mod pricer;

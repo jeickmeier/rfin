@@ -248,7 +248,7 @@ impl FxSpot {
 
     /// Set the spot rate without validation (unchecked).
     ///
-    /// **Warning**: This method bypasses rate validation. Use [`with_rate`] for
+    /// **Warning**: This method bypasses rate validation. Use `with_rate` for
     /// normal usage. This method exists for testing edge cases or when the rate
     /// has already been validated externally.
     ///
@@ -363,7 +363,7 @@ impl FxSpot {
     /// - **USD/TRY**: Turkish Lira settles T+1 per Istanbul market convention
     ///
     /// Note: This is informational only and does not affect settlement calculation.
-    /// Use [`new_t1`] or [`with_settlement_lag_days(1)`] to set T+1 settlement.
+    /// Use `new_t1` or `with_settlement_lag_days(1)` to set T+1 settlement.
     pub fn is_t1_pair(&self) -> bool {
         // USD/CAD and USD/TRY are the most common T+1 pairs
         let pair = (self.base, self.quote);

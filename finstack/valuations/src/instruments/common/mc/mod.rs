@@ -185,8 +185,10 @@
 //!
 //! ```rust,no_run
 //! use finstack_core::currency::Currency;
-//! use crate::instruments::common::mc::prelude::{ExactGbm, GbmProcess, PhiloxRng};
-//! use crate::instruments::common::models::monte_carlo::prelude::{EuropeanCall, McEngine};
+//! use finstack_valuations::instruments::common::mc::prelude::{ExactGbm, GbmProcess, PhiloxRng};
+//! use finstack_valuations::instruments::common::models::monte_carlo::prelude::{
+//!     EuropeanCall, McEngine,
+//! };
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! // Create MC engine with deterministic seed
@@ -222,8 +224,8 @@
 //!
 //! ```rust,no_run
 //! use finstack_core::currency::Currency;
-//! use crate::instruments::common::mc::prelude::GbmProcess;
-//! use crate::instruments::common::models::monte_carlo::prelude::{
+//! use finstack_valuations::instruments::common::mc::prelude::GbmProcess;
+//! use finstack_valuations::instruments::common::models::monte_carlo::prelude::{
 //!     AmericanPut, LaguerreBasis, LsmcConfig, LsmcPricer,
 //! };
 //!

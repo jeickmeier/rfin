@@ -80,7 +80,7 @@ impl IntensityProcessDefault {
 
     /// Standard RMBS calibration.
     ///
-    /// Uses shared calibration constants from [`RMBS_STANDARD`]:
+    /// Uses shared calibration constants from `RMBS_STANDARD`:
     /// - Base hazard: 2% annual
     /// - Factor sensitivity: 0.5
     /// - Mean reversion: 0.5 (2-year half-life)
@@ -97,7 +97,7 @@ impl IntensityProcessDefault {
 
     /// Standard CLO calibration.
     ///
-    /// Uses shared calibration constants from [`CLO_STANDARD`]:
+    /// Uses shared calibration constants from `CLO_STANDARD`:
     /// Higher base hazard and factor sensitivity for corporate loans.
     pub fn clo_standard() -> Self {
         Self::new(

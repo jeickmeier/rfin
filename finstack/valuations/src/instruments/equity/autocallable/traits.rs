@@ -4,6 +4,7 @@ use crate::instruments::common_impl::traits::{
     CurveDependencies, EquityDependencies, InstrumentCurves,
 };
 use crate::instruments::equity::autocallable::Autocallable;
+#[cfg(feature = "mc")]
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl CurveDependencies for Autocallable {
@@ -25,12 +26,14 @@ impl EquityDependencies for Autocallable {
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasPricingOverrides for Autocallable {
     fn pricing_overrides_mut(&mut self) -> &mut crate::instruments::PricingOverrides {
         &mut self.pricing_overrides
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasExpiry for Autocallable {
     fn expiry(&self) -> finstack_core::dates::Date {
         // Autocallable uses final observation date as expiry
@@ -41,6 +44,7 @@ impl HasExpiry for Autocallable {
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasDayCount for Autocallable {
     fn day_count(&self) -> finstack_core::dates::DayCount {
         self.day_count

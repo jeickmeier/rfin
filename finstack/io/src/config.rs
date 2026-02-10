@@ -553,7 +553,7 @@ impl TimeSeriesStore for StoreHandle {
 ///
 /// # Errors
 ///
-/// - [`Error::Invariant`](crate::Error::Invariant) if the required path/URL
+/// - [`Error::Invariant`] if the required path/URL
 ///   variable is not set for the selected backend, or if the selected feature
 ///   is not compiled in.
 /// - Backend-specific errors from opening the connection.

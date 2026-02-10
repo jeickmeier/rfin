@@ -1,13 +1,13 @@
 //! Numeric precision, rounding rules, and IO metadata for `finstack-core`.
 //!
 //! FinStack opts into *explicit* configuration: there is no global state and all
-//! helpers in this module expect a [`FinstackConfig`] supplied by the caller. The
+//! helpers in this module expect a `FinstackConfig` supplied by the caller. The
 //! config captures per-currency rounding scales, the active numeric engine, and
 //! helper utilities for stamping outputs.
 //!
 //! # When to use
 //! - to determine ingest/output decimal scales for [`crate::money::Money`]
-//! - to stamp result envelopes with the numeric configuration via [`results_meta`]
+//! - to stamp result envelopes with the numeric configuration via `results_meta`
 //! - to snapshot the rounding policy that produced an output
 //!
 //! # Examples
@@ -29,9 +29,9 @@
 //!
 //! ## Numeric mode
 //!
-//! The engine currently operates in a single numeric mode: [`NumericMode::F64`].
+//! The engine currently operates in a single numeric mode: `NumericMode::F64`.
 //! To make this explicit and avoid unnecessary function calls, the active mode
-//! is exposed as a constant: [`NUMERIC_MODE`]. Future releases may introduce
+//! is exposed as a constant: `NUMERIC_MODE`. Future releases may introduce
 //! additional modes (e.g., alternative numeric strategies) or feature-gated switching; in that case
 //! the constant will remain stable and reflect the compile-time choice.
 

@@ -80,7 +80,7 @@ pub trait CashflowProvider: Send + Sync {
 
     /// Convenience: build holder-view `(Date, Money)` flows derived from the full schedule.
     ///
-    /// Most callers that previously used [`CashflowProvider::build_schedule`] should call this
+    /// Most callers that previously used `build_schedule` should call this
     /// helper, which simply converts the [`CashFlowSchedule`] returned by
     /// [`CashflowProvider::build_full_schedule`] into a `Vec<(Date, Money)>`.
     fn build_dated_flows(

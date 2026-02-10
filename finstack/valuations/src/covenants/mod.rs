@@ -55,10 +55,10 @@
 //!
 //! # See Also
 //!
-//! - [`CovenantEngine`] for covenant evaluation
-//! - [`CovenantSpec`] for covenant definition
-//! - [`ThresholdSchedule`] for time-varying thresholds
-//! - [`forecast_breaches_generic`] for breach forecasting
+//! - [`crate::covenants::CovenantEngine`] for covenant evaluation
+//! - [`crate::covenants::CovenantSpec`] for covenant definition
+//! - [`crate::covenants::ThresholdSchedule`] for time-varying thresholds
+//! - [`crate::covenants::forecast_breaches_generic`] for breach forecasting
 
 pub(crate) mod engine;
 pub(crate) mod forward;

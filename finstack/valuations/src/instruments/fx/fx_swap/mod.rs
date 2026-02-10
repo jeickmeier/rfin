@@ -49,9 +49,9 @@
 //!
 //! # See Also
 //!
-//! - [`FxSwap`] for instrument struct
-//! - [`fx_spot`](super::fx_spot) for spot FX positions
-//! - [`fx_option`](super::fx_option) for FX options
+//! - `FxSwap` for instrument struct
+//! - [`crate::instruments::fx::fx_spot`] for spot FX positions
+//! - [`crate::instruments::fx::fx_option`] for FX options
 
 pub(crate) mod metrics;
 pub(crate) mod parameters;

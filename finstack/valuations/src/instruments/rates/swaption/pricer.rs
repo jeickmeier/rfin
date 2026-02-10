@@ -287,7 +287,7 @@ impl CalibratedHullWhiteModel {
 /// # Model Reuse
 ///
 /// For portfolio pricing, calibrate the Hull-White model once and reuse it
-/// across multiple instruments using [`with_calibrated_model`]:
+/// across multiple instruments using `with_calibrated_model`:
 ///
 /// ```text
 /// use finstack_valuations::instruments::rates::swaption::pricer::{

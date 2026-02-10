@@ -19,7 +19,7 @@ use finstack_core::types::CurveId;
 ///
 /// This is the standard "Risk Re-calibration" approach. It extracts par
 /// points from the current curve, applies shocks, and builds a new
-/// [`CreditQuote`] set to solve for a new hazard curve.
+/// credit-quote set to solve for a new hazard curve.
 ///
 /// This function is strictly recalibration-only; callers that want a
 /// model hazard shift should call [`bump_hazard_shift`] explicitly.

@@ -32,7 +32,7 @@
 //!
 //! # See Also
 //!
-//! - [`Bond`] for bond construction using cashflow specs
+//! - [`crate::instruments::fixed_income::bond::Bond`] for bond construction using cashflow specs
 //! - [`crate::cashflow::builder::specs`] for full builder coupon specifications
 
 use crate::cashflow::builder::specs::{

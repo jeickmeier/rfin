@@ -15,18 +15,18 @@
 //!
 //! ## Solver Selection Guide
 //!
-//! ### 1D Root Finding ([`solver`] module)
+//! ### 1D Root Finding (`solver` module)
 //!
 //! | Use Case | Recommended Solver | Method | Why |
 //! |----------|-------------------|--------|-----|
-//! | **Implied volatility** | [`NewtonSolver`] | `solve_with_derivative()` | Vega (∂Price/∂σ) available |
-//! | **Yield-to-maturity** | [`NewtonSolver`] | `solve_with_derivative()` | Duration (∂Price/∂y) known |
-//! | **IRR/XIRR** | [`NewtonSolver`] | `solve_with_derivative()` | Analytic d(NPV)/dr |
-//! | **Piecewise functions** | [`BrentSolver`] | `solve()` | Robust to discontinuities |
-//! | **Poor initial guess** | [`BrentSolver`] | `solve()` | Guaranteed convergence |
-//! | **Smooth function, no derivatives** | [`NewtonSolver`] | `solve()` | Auto finite differences |
+//! | **Implied volatility** | `NewtonSolver` | `solve_with_derivative()` | Vega (∂Price/∂σ) available |
+//! | **Yield-to-maturity** | `NewtonSolver` | `solve_with_derivative()` | Duration (∂Price/∂y) known |
+//! | **IRR/XIRR** | `NewtonSolver` | `solve_with_derivative()` | Analytic d(NPV)/dr |
+//! | **Piecewise functions** | `BrentSolver` | `solve()` | Robust to discontinuities |
+//! | **Poor initial guess** | `BrentSolver` | `solve()` | Guaranteed convergence |
+//! | **Smooth function, no derivatives** | `NewtonSolver` | `solve()` | Auto finite differences |
 //!
-//! ### Multi-Dimensional Optimization ([`solver_multi`] module)
+//! ### Multi-Dimensional Optimization (`solver_multi` module)
 //!
 //! | Use Case | Recommended Method | Why |
 //! |----------|-------------------|-----|

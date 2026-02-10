@@ -8,7 +8,7 @@
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-/// Re-export [`InstrumentType`](finstack_valuations::pricer::InstrumentType) for
+/// Re-export [`InstrumentType`] for
 /// type-safe instrument shock operations.
 pub use finstack_valuations::pricer::InstrumentType;
 

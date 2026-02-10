@@ -43,7 +43,7 @@
 //! # See Also
 //!
 //! - [`FxDigitalOption`] for the instrument struct
-//! - [`FxDigitalOptionCalculator`] for pricing calculations
+//! - `FxDigitalOptionCalculator` for pricing calculations
 
 /// FX digital option calculator and Greeks computation
 pub(crate) mod calculator;

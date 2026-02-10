@@ -47,7 +47,7 @@
 //!
 //! - [`VolatilityIndexFuture`] for instrument struct
 //! - [`VolIndexContractSpecs`] for contract specifications
-//! - [`crate::instruments::vol_index_option`] for VIX options
+//! - [`crate::instruments::equity::vol_index_option`] for VIX options
 
 pub(crate) mod metrics;
 mod types;

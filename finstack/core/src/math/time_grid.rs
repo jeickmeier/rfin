@@ -65,7 +65,7 @@ use thiserror::Error;
 pub struct TimeGrid {
     /// Time points in years (monotonically increasing)
     times: Vec<f64>,
-    /// Time steps (dt[i] = times[i+1] - times[i])
+    /// Time steps (`dt[i] = times[i+1] - times[i]`).
     dts: Vec<f64>,
     /// Maximum time (cached from times.last())
     t_max: f64,
@@ -198,7 +198,7 @@ impl TimeGrid {
         self.times[step]
     }
 
-    /// Get time step size at step i (dt[i] = t[i+1] - t[i]).
+    /// Get time step size at step `i` (`dt[i] = t[i+1] - t[i]`).
     pub fn dt(&self, step: usize) -> f64 {
         self.dts[step]
     }

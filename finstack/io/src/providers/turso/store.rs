@@ -147,7 +147,7 @@ impl TursoStore {
         let conn = self.get_conn()?;
 
         // Get current schema version using PRAGMA user_version
-        let mut stmt = conn.prepare("PRAGMA user_version").await?;
+        let stmt = conn.prepare("PRAGMA user_version").await?;
         let mut rows = stmt.query(()).await?;
         let current: i64 = match rows.next().await? {
             Some(row) => row.get::<i64>(0).map_err(Error::from)?,

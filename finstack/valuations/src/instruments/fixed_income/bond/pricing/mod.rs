@@ -32,10 +32,10 @@
 //!
 //! # See Also
 //!
-//! - [`Bond`] for bond construction
-//! - [`discount_engine::BondEngine`] for standard discounting
-//! - [`hazard_engine::HazardBondEngine`] for credit-adjusted pricing
-//! - [`tree_engine::TreePricer`] for OAS and embedded options
+//! - Bond for bond construction
+//! - discount engine (`discount_engine::BondEngine`) for standard discounting
+//! - hazard engine (`hazard_engine::HazardBondEngine`) for credit-adjusted pricing
+//! - tree engine (`tree_engine`) for OAS and embedded options
 
 /// Bond pricing engine (discount curve-based valuation logic)
 pub mod discount_engine;

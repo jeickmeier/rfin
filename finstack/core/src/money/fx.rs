@@ -8,7 +8,7 @@
 //! The public surface remains stable:
 //! - `FxProvider` trait for on-demand quotes
 //! - `FxMatrix` offering `FxMatrix::rate` for consumers and `MarketContext`
-//! - standard provider implementations (e.g. [`SimpleFxProvider`])
+//! - standard provider implementations (e.g. `SimpleFxProvider`)
 //!
 //! # Examples
 //! ```rust

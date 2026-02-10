@@ -25,8 +25,8 @@
 //!
 //! # See Also
 //!
-//! - [`ConventionRegistry`] for convention lookups
-//! - [`ids`](ids) for convention identifiers
+//! - `ConventionRegistry` for convention lookups
+//! - convention `ids` module for convention identifiers
 
 /// Data structures for conventions.
 pub(crate) mod defs;

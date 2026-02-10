@@ -2,6 +2,7 @@
 
 use crate::instruments::commodity::commodity_option::CommodityOption;
 use crate::instruments::common_impl::traits::{EquityDependencies, EquityInstrumentDeps};
+#[cfg(feature = "mc")]
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl EquityDependencies for CommodityOption {
@@ -14,18 +15,21 @@ impl EquityDependencies for CommodityOption {
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasPricingOverrides for CommodityOption {
     fn pricing_overrides_mut(&mut self) -> &mut crate::instruments::PricingOverrides {
         &mut self.pricing_overrides
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasExpiry for CommodityOption {
     fn expiry(&self) -> finstack_core::dates::Date {
         self.expiry
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasDayCount for CommodityOption {
     fn day_count(&self) -> finstack_core::dates::DayCount {
         self.day_count

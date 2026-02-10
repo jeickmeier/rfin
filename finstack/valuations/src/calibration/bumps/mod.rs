@@ -4,9 +4,9 @@
 //! applying shifts to market data and observing the impact on calibrated objects.
 //!
 //! # Submodules
-//! - [`rates`]: Bumping logic for Interest Rate curves.
-//! - [`hazard`]: Bumping logic for Credit (Hazard) curves.
-//! - [`inflation`]: Bumping logic for Inflation curves.
+//! - `rates`: Bumping logic for Interest Rate curves.
+//! - `hazard`: Bumping logic for Credit (Hazard) curves.
+//! - `inflation`: Bumping logic for Inflation curves.
 
 pub(crate) mod hazard;
 pub(crate) mod inflation;

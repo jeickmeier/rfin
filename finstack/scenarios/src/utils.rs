@@ -8,8 +8,10 @@
 //! # Calendar-Aware Parsing
 //!
 //! For market-standard calculations that respect business day conventions and
-//! holiday calendars, use [`parse_tenor_to_years_with_context`]. For simple
-//! approximations suitable for most scenarios, use [`parse_tenor_to_years`].
+//! holiday calendars, use
+//! [`parse_tenor_to_years_with_context`](crate::utils::parse_tenor_to_years_with_context).
+//! For simple approximations suitable for most scenarios, use
+//! [`parse_tenor_to_years`](crate::utils::parse_tenor_to_years).
 
 use crate::error::{Error, Result};
 use crate::spec::RateBindingSpec;
@@ -24,8 +26,8 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 /// - Months: 1M = 1/12 years
 /// - Years: 1Y = 1 year
 ///
-/// For calendar-aware calculations that respect business days and holidays,
-/// use [`parse_tenor_to_years_with_context`].
+/// For calendar-aware calculations that respect business days and holidays, use
+/// [`parse_tenor_to_years_with_context`].
 ///
 /// # Arguments
 /// - `tenor`: Tenor string in formats like "1D", "1W", "3M", "5Y".
@@ -36,7 +38,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 /// `0.5` and `"1W"` produces roughly `0.01918`.
 ///
 /// # Errors
-/// Returns [`Error::InvalidTenor`](crate::error::Error::InvalidTenor) if the
+/// Returns [`Error::InvalidTenor`] if the
 /// string is empty, lacks a unit component, contains a non-numeric value, or
 /// specifies an unsupported unit.
 ///
@@ -167,7 +169,7 @@ pub fn tenor_years_from_binding(
 /// Number of days represented by the period.
 ///
 /// # Errors
-/// Returns [`Error::InvalidPeriod`](crate::error::Error::InvalidPeriod) if the
+/// Returns [`Error::InvalidPeriod`] if the
 /// string cannot be parsed.
 ///
 /// # Examples

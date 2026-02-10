@@ -39,8 +39,8 @@
 //! # See Also
 //!
 //! - [`FxSpot`] for instrument struct
-//! - [`fx_option`](super::fx_option) for FX option pricing
-//! - [`fx_swap`](super::fx_swap) for FX forwards
+//! - [`crate::instruments::fx::fx_option`] for FX option pricing
+//! - [`crate::instruments::fx::fx_swap`] for FX forwards
 
 pub(crate) mod metrics;
 /// FX spot pricer implementation

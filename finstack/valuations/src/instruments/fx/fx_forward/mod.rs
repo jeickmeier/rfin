@@ -51,9 +51,9 @@
 //!
 //! # See Also
 //!
-//! - [`FxSwap`](super::fx_swap::FxSwap) for FX swap instruments
-//! - [`FxSpot`](super::fx_spot::FxSpot) for spot FX positions
-//! - [`FxOption`](super::fx_option::FxOption) for FX options
+//! - [`crate::instruments::fx::fx_swap::FxSwap`] for FX swap instruments
+//! - [`crate::instruments::fx::fx_spot::FxSpot`] for spot FX positions
+//! - [`crate::instruments::fx::fx_option::FxOption`] for FX options
 
 /// Pricer for FX forwards.
 pub(crate) mod pricer;

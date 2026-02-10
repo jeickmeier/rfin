@@ -1,19 +1,19 @@
 //! Cashflow schedule generation, aggregation, and currency-safe operations.
 //!
 //! Provides comprehensive cashflow modeling infrastructure for bonds, swaps,
-//! loans, and structured products. All cashflows use currency-tagged [`Money`]
+//! loans, and structured products. All cashflows use currency-tagged `Money`
 //! types to prevent accidental cross-currency arithmetic.
 //!
 //! # Core Components
 //!
-//! - **Primitives**: Fundamental [`CashFlow`] type with date, amount, and classification
+//! - **Primitives**: Fundamental `CashFlow` type with date, amount, and classification
 //! - **Builder**: Composable schedule builder for coupons, principal, and amortization
 //! - **Aggregation**: Currency-preserving cashflow merging and rollup
-//! - **Traits**: [`CashflowProvider`] trait for instruments to expose schedules
+//! - **Traits**: `CashflowProvider` trait for instruments to expose schedules
 //!
 //! # Cashflow Classification
 //!
-//! Each cashflow is tagged with [`CFKind`]:
+//! Each cashflow is tagged with `CFKind`:
 //! - `Principal`: Principal repayments
 //! - `Interest`: Coupon or interest payments
 //! - `Fee`: Management, servicing, or structuring fees
@@ -79,7 +79,7 @@
 //!
 //! ### From an Instrument (Recommended)
 //!
-//! Any instrument implementing [`CashflowProvider`] + [`crate::instruments::common::traits::CurveDependencies`]
+//! Any instrument implementing `CashflowProvider` + `CurveDependencies`
 //! automatically gains periodized PV methods via the [`crate::instruments::common::period_pv::PeriodizedPvExt`] trait:
 //!
 //! ```rust
@@ -136,15 +136,15 @@
 //!
 //! ### From a Schedule Directly
 //!
-//! For lower-level control, use [`builder::CashFlowSchedule::pv_by_period`] or
-//! [`builder::CashFlowSchedule::pv_by_period_with_market`] directly.
+//! For lower-level control, use `CashFlowSchedule::pv_by_period` or
+//! `CashFlowSchedule::pv_by_period_with_market` directly.
 //!
 //! # See Also
 //!
-//! - [`primitives`] for core [`CashFlow`] type from finstack-core
-//! - [`builder`] for schedule construction
-//! - [`aggregation`] for currency-safe merging and [`pv_by_period`](aggregation::pv_by_period)
-//! - [`CashflowProvider`] and [`schedule_from_dated_flows`] for schedule interfaces
+//! - `primitives` for core `CashFlow` type from finstack-core
+//! - `builder` for schedule construction
+//! - `aggregation` for currency-safe merging and `pv_by_period`
+//! - `CashflowProvider` and `schedule_from_dated_flows` for schedule interfaces
 
 /// Cash-flow primitives (`CashFlow`, `CFKind`, etc.).
 pub mod primitives {

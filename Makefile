@@ -128,7 +128,7 @@ lint-rust-fix:
 .PHONY: check-no-doctest-ignore
 check-no-doctest-ignore:
 	@set -e; \
-	if rg -n '^[[:space:]]*```[^\n]*\bignore\b' --glob '**/*.rs' ; then \
+	if rg -n '^[[:space:]]*```[^\n]*\bignore\b' --glob '**/*.rs' finstack finstack-wasm finstack-py/src ; then \
 		printf "ERROR: Found doctest code fences using 'ignore'.\n"; \
 		printf "Use 'rust,no_run' for compile-only examples, 'rust' for runnable examples, or 'text' for non-Rust snippets.\n"; \
 		exit 1; \

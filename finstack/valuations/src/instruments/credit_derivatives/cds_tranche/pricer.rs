@@ -2203,7 +2203,7 @@ impl CDSTranchePricer {
     /// entity defaults instantly. This is distinct from correlation sensitivity.
     ///
     /// Returns the average JTD across all constituents. For detailed min/max/avg,
-    /// use [`calculate_jump_to_default_detail`].
+    /// use `calculate_jump_to_default_detail`.
     #[must_use = "JTD result should be used for risk management"]
     pub fn calculate_jump_to_default(
         &self,
@@ -2222,7 +2222,7 @@ impl CDSTranchePricer {
     ///
     /// # Returns
     ///
-    /// [`JumpToDefaultResult`] containing:
+    /// `JumpToDefaultResult` containing:
     /// - `min`: JTD for the smallest impact name
     /// - `max`: JTD for the largest impact name (worst case for risk)
     /// - `average`: Average JTD across all names

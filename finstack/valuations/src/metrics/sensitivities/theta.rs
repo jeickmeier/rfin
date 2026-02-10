@@ -243,7 +243,7 @@ use std::marker::PhantomData;
 /// # Deprecation Notice
 ///
 /// **This function uses fixed approximations (30 days/month, 365 days/year) and should
-/// be used with caution.** For accurate date arithmetic, use [`calculate_theta_date`]
+/// be used with caution.** For accurate date arithmetic, use `calculate_theta_date`
 /// which performs proper calendar-aware month and year rolling with end-of-month handling.
 ///
 /// This function is primarily retained for backward compatibility and for cases where
@@ -277,7 +277,7 @@ use std::marker::PhantomData;
 ///
 /// # See Also
 ///
-/// - [`calculate_theta_date`]: Calendar-aware date rolling (recommended for theta calculations)
+/// - `calculate_theta_date`: Calendar-aware date rolling (recommended for theta calculations)
 #[allow(dead_code)]
 pub fn parse_period_days(period: &str) -> Result<i64> {
     let period = period.trim().to_uppercase();

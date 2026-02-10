@@ -68,11 +68,11 @@
 //!
 //! # Architecture
 //!
-//! - [`rule`]: Rule-based holiday definitions (Easter, IMM, lunar calendars)
-//! - [`registry`]: Calendar registration and lookup system
-//! - [`business_days`]: Business day adjustment and counting
-//! - [`composite`]: Multi-calendar union support
-//! - [`generated`]: Build-time generated bitsets for performance
+//! - `rule`: Rule-based holiday definitions (Easter, IMM, lunar calendars)
+//! - `registry`: Calendar registration and lookup system
+//! - `business_days`: Business day adjustment and counting
+//! - `composite`: Multi-calendar union support
+//! - `generated`: Build-time generated bitsets for performance
 //!
 //! # See Also
 //!

@@ -48,7 +48,7 @@ impl Store for TursoStore {
 
         let conn = self.get_conn()?;
         let sql = statements::select_market_context_sql_with_naming(Backend::Sqlite, self.naming());
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![market_id, as_of]).await?;
 
         match rows.next().await.map_err(Error::from)? {
@@ -81,7 +81,7 @@ impl Store for TursoStore {
     async fn get_instrument(&self, instrument_id: &str) -> Result<Option<InstrumentJson>> {
         let conn = self.get_conn()?;
         let sql = statements::select_instrument_sql_with_naming(Backend::Sqlite, self.naming());
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![instrument_id]).await?;
 
         match rows.next().await.map_err(Error::from)? {
@@ -112,7 +112,7 @@ impl Store for TursoStore {
                 self.naming(),
                 chunk.len(),
             );
-            let mut stmt = conn.prepare(&sql).await?;
+            let stmt = conn.prepare(&sql).await?;
 
             // Build params dynamically
             let params: Vec<libsql::Value> = chunk
@@ -136,7 +136,7 @@ impl Store for TursoStore {
     async fn list_instruments(&self) -> Result<Vec<String>> {
         let conn = self.get_conn()?;
         let sql = statements::list_instruments_sql_with_naming(Backend::Sqlite, self.naming());
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();
@@ -173,7 +173,7 @@ impl Store for TursoStore {
 
         let conn = self.get_conn()?;
         let sql = statements::select_portfolio_sql_with_naming(Backend::Sqlite, self.naming());
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![portfolio_id, as_of]).await?;
 
         match rows.next().await.map_err(Error::from)? {
@@ -204,7 +204,7 @@ impl Store for TursoStore {
     async fn get_scenario(&self, scenario_id: &str) -> Result<Option<ScenarioSpec>> {
         let conn = self.get_conn()?;
         let sql = statements::select_scenario_sql_with_naming(Backend::Sqlite, self.naming());
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![scenario_id]).await?;
 
         match rows.next().await.map_err(Error::from)? {
@@ -219,7 +219,7 @@ impl Store for TursoStore {
     async fn list_scenarios(&self) -> Result<Vec<String>> {
         let conn = self.get_conn()?;
         let sql = statements::list_scenarios_sql_with_naming(Backend::Sqlite, self.naming());
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();
@@ -250,7 +250,7 @@ impl Store for TursoStore {
         let conn = self.get_conn()?;
         let sql =
             statements::select_statement_model_sql_with_naming(Backend::Sqlite, self.naming());
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![model_id]).await?;
 
         match rows.next().await.map_err(Error::from)? {
@@ -265,7 +265,7 @@ impl Store for TursoStore {
     async fn list_statement_models(&self) -> Result<Vec<String>> {
         let conn = self.get_conn()?;
         let sql = statements::list_statement_models_sql_with_naming(Backend::Sqlite, self.naming());
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();
@@ -296,7 +296,7 @@ impl Store for TursoStore {
         let conn = self.get_conn()?;
         let sql =
             statements::select_metric_registry_sql_with_naming(Backend::Sqlite, self.naming());
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![namespace]).await?;
 
         match rows.next().await.map_err(Error::from)? {
@@ -312,7 +312,7 @@ impl Store for TursoStore {
         let conn = self.get_conn()?;
         let sql =
             statements::list_metric_registries_sql_with_naming(Backend::Sqlite, self.naming());
-        let mut stmt = conn.prepare(sql.as_ref()).await?;
+        let stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();

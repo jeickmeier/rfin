@@ -322,7 +322,7 @@ impl ProtectionLegSpec {
 
     /// Validate that recovery rate is within valid bounds [0, 1].
     ///
-    /// Delegates to [`crate::instruments::common_impl::validation::validate_recovery_rate`].
+    /// Delegates to the shared internal recovery-rate validator.
     ///
     /// # Errors
     /// Returns an error if recovery rate is outside the valid range.

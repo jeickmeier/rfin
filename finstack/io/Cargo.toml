@@ -40,7 +40,9 @@ tokio-postgres = { version = "0.7", features = ["with-serde_json-1", "with-chron
 chrono = { version = "0.4", optional = true }
 
 # Turso: libsql native async
-libsql = { version = "0.6", optional = true }
+# We only use local SQLite-compatible mode (`Builder::new_local`), so avoid
+# remote/replication/tls defaults that pull extra transitive risk surface.
+libsql = { version = "0.9", optional = true, default-features = false, features = ["core"] }
 
 [dev-dependencies]
 indexmap = { workspace = true }

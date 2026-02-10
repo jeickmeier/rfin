@@ -81,8 +81,8 @@
 //! # See Also
 //!
 //! - [`EquityOption`] for equity option struct
-//! - [`metrics`] for complete Greeks calculations
-//! - [`pricer`] for pricing implementations
+//! - equity option metrics module for complete Greeks calculations
+//! - equity option pricer module for pricing implementations
 
 pub(crate) mod metrics;
 pub(crate) mod parameters;

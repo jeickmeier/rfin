@@ -9,9 +9,9 @@
 //!
 //! The framework consists of:
 //!
-//! - **Types** ([`types`]): Data structures for suites, cases, metadata, and tolerances
-//! - **Loaders** ([`loader`]): Functions to load suites from files or strings
-//! - **Comparisons** ([`compare`]): Assertion helpers with actionable error messages
+//! - **Types** (`types`): Data structures for suites, cases, metadata, and tolerances
+//! - **Loaders** (`loader`): Functions to load suites from files or strings
+//! - **Comparisons** (`compare`): Assertion helpers with actionable error messages
 //!
 //! # Fixture Format
 //!

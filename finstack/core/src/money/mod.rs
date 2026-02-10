@@ -1,11 +1,11 @@
 //! Money primitives and FX conversion utilities.
 //!
 //! This module provides:
-//! - [`Money`] – a currency-tagged monetary amount with safe arithmetic
-//! - [`fx`] – foreign-exchange interfaces and helpers used by conversions
+//! - `Money` – a currency-tagged monetary amount with safe arithmetic
+//! - `fx` – foreign-exchange interfaces and helpers used by conversions
 //!
 //! Arithmetic refuses to mix currencies unless converted explicitly using an
-//! [`FxProvider`](fx::FxProvider). Rounding follows per-currency scale with configurable
+//! `FxProvider` (`fx::FxProvider`). Rounding follows per-currency scale with configurable
 //! policies via [`crate::config`].
 //!
 //! # Examples

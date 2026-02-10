@@ -44,8 +44,8 @@
 //! # See Also
 //!
 //! - [`Equity`] for instrument struct
-//! - [`Ticker`] for symbol type
-//! - [`equity_option`](super::equity_option) for options on equities
+//! - [`crate::instruments::equity::spot::Ticker`] for symbol type
+//! - [`crate::instruments::equity::equity_option`] for options on equities
 
 pub(crate) mod metrics;
 pub(crate) mod pricer;

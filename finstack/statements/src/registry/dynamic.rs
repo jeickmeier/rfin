@@ -90,7 +90,7 @@ impl Registry {
 
     /// Load metrics from a JSON string.
     ///
-    /// Returns the deserialized [`MetricRegistry`](crate::registry::MetricRegistry)
+    /// Returns the deserialized [`MetricRegistry`]
     /// for further inspection when needed.
     pub fn load_from_json_str(&mut self, json: &str) -> Result<MetricRegistry> {
         let registry: MetricRegistry = serde_json::from_str(json)?;

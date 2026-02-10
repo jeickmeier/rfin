@@ -699,7 +699,7 @@ pub trait Instrument: Send + Sync {
 
     /// Get mutable reference to pricing overrides for scenario shocks.
     ///
-    /// Returns a mutable reference to the instrument's [`PricingOverrides`],
+    /// Returns a mutable reference to the instrument's `PricingOverrides`,
     /// allowing scenarios to apply price and spread shocks that affect
     /// actual pricing calculations.
     ///

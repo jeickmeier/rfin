@@ -134,7 +134,7 @@ impl StochasticPrepaySpec {
 
     /// RMBS agency standard calibration.
     ///
-    /// Uses shared calibration constants from [`RMBS_STANDARD`].
+    /// Uses shared calibration constants from `RMBS_STANDARD`.
     pub fn rmbs_agency(pool_coupon: f64) -> Self {
         StochasticPrepaySpec::RichardRoll {
             base_cpr: RMBS_STANDARD.base_cpr,
@@ -148,7 +148,7 @@ impl StochasticPrepaySpec {
 
     /// CLO standard calibration.
     ///
-    /// Uses shared calibration constants from [`CLO_STANDARD`].
+    /// Uses shared calibration constants from `CLO_STANDARD`.
     pub fn clo_standard() -> Self {
         StochasticPrepaySpec::FactorCorrelated {
             base_spec: PrepaymentModelSpec::constant_cpr(CLO_STANDARD.base_cpr),

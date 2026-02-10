@@ -1279,7 +1279,7 @@ pub fn chi_squared_quantile(p: f64, df: f64) -> crate::Result<f64> {
 ///
 /// The Student's t distribution is essential for modeling heavy-tailed returns,
 /// fat-tailed risk metrics (VaR/ES), and robust statistical estimation. The
-/// CDF and inverse CDF are already available in [`special_functions`].
+/// CDF and inverse CDF are already available in `special_functions`.
 ///
 /// # Mathematical Definition
 ///

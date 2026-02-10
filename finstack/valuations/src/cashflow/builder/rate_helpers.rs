@@ -478,7 +478,7 @@ pub fn compute_simple_average_rate(daily_rates: &[(f64, u32)], total_days: u32) 
 
 /// Apply overnight compounding method to compute the period rate from daily fixings.
 ///
-/// Dispatches to the appropriate calculation based on the [`OvernightCompoundingMethod`].
+/// Dispatches to the appropriate calculation based on `OvernightCompoundingMethod`.
 ///
 /// # Arguments
 ///

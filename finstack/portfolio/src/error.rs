@@ -6,7 +6,7 @@ use thiserror::Error;
 
 /// Convenience result type used throughout the portfolio crate.
 ///
-/// This alias helps reduce boilerplate when returning [`Error`].
+/// This alias helps reduce boilerplate when returning [`enum@Error`].
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors that can occur during portfolio operations.

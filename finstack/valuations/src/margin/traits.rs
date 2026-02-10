@@ -320,12 +320,12 @@ impl std::fmt::Display for NettingSetId {
 ///
 /// # Implementors
 ///
-/// - [`InterestRateSwap`] - OTC interest rate derivatives
-/// - [`CreditDefaultSwap`] - OTC credit derivatives
-/// - [`CDSIndex`] - Credit index derivatives
-/// - [`EquityTotalReturnSwap`] - Equity TRS
-/// - [`FIIndexTotalReturnSwap`] - Fixed income TRS
-/// - [`Repo`] - Repurchase agreements
+/// - `InterestRateSwap` - OTC interest rate derivatives
+/// - `CreditDefaultSwap` - OTC credit derivatives
+/// - `CDSIndex` - Credit index derivatives
+/// - `EquityTotalReturnSwap` - Equity TRS
+/// - `FIIndexTotalReturnSwap` - Fixed income TRS
+/// - `Repo` - Repurchase agreements
 pub trait Marginable: Instrument {
     /// Get the margin specification for this instrument.
     ///

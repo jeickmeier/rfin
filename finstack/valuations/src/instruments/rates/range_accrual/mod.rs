@@ -30,7 +30,7 @@
 //! # See Also
 //!
 //! - [`RangeAccrual`] for instrument struct
-//! - [`pricer`] for Static Replication and MC implementations
+//! - range accrual pricer module for Static Replication and MC implementations
 //!
 
 pub(crate) mod metrics;

@@ -53,10 +53,10 @@
 //!
 //! # See Also
 //!
-//! - [`RevolvingCredit`] for instrument struct
-//! - [`DrawRepayEvent`] for utilization events
-//! - [`RevolvingCreditFees`] for fee specifications
-//! - [`UtilizationProcess`] for stochastic modeling
+//! - [`crate::instruments::fixed_income::revolving_credit::RevolvingCredit`] for instrument struct
+//! - [`crate::instruments::fixed_income::revolving_credit::DrawRepayEvent`] for utilization events
+//! - [`crate::instruments::fixed_income::revolving_credit::RevolvingCreditFees`] for fee specifications
+//! - [`crate::instruments::fixed_income::revolving_credit::UtilizationProcess`] for stochastic modeling
 
 pub mod cashflow_engine;
 pub(crate) mod metrics;

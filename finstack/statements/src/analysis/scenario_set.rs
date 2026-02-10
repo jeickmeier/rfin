@@ -1,13 +1,13 @@
 //! Multi-scenario management and comparison for statement models.
 //!
 //! This module provides a lightweight registry for named scenarios built on
-//! top of a single [`FinancialModelSpec`](crate::types::FinancialModelSpec).
+//! top of a single [`FinancialModelSpec`].
 //!
 //! A `ScenarioSet` stores a map of scenario name → [`ScenarioDefinition`],
 //! supports simple parent chaining with override merging, and can:
 //! - Evaluate all scenarios into a [`ScenarioResults`] envelope.
 //! - Compute variance-style diffs between two scenarios using
-//!   [`VarianceAnalyzer`](crate::analysis::VarianceAnalyzer).
+//!   [`VarianceAnalyzer`].
 //! - Export wide comparison tables as Polars DataFrames when the
 //!   `dataframes` feature is enabled.
 //!

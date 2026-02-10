@@ -440,7 +440,7 @@ pub struct ResourceChange {
     ///
     /// Must use the same serialization format as the corresponding `put_*`
     /// method for the resource type. See
-    /// [`GovernanceStore::apply_change_to_verified`](crate::store::GovernanceStore::apply_change_to_verified)
+    /// `GovernanceStore::apply_change_to_verified`
     /// for the expected types per resource.
     pub payload: serde_json::Value,
     /// Metadata.
@@ -478,7 +478,7 @@ pub struct ResourceChangeInsert {
     ///
     /// Must use the same serialization format as the corresponding `put_*`
     /// method for the resource type. See
-    /// [`GovernanceStore::apply_change_to_verified`](crate::store::GovernanceStore::apply_change_to_verified)
+    /// `GovernanceStore::apply_change_to_verified`
     /// for the expected types per resource.
     pub payload: serde_json::Value,
     /// Metadata.
@@ -723,7 +723,7 @@ fn specificity(binding: &WorkflowBinding) -> usize {
 ///
 /// # Errors
 ///
-/// Returns [`Error::PermissionDenied`](crate::Error::PermissionDenied) if any
+/// Returns [`Error::PermissionDenied`] if any
 /// check fails.
 pub fn validate_transition(
     transition: &WorkflowTransition,
@@ -1307,7 +1307,7 @@ impl GovernedHandle {
     ///
     /// # Errors
     ///
-    /// - [`Error::PermissionDenied`](crate::Error::PermissionDenied) if the
+    /// - [`Error::PermissionDenied`] if the
     ///   actor is not the owner and not an admin.
     /// - Backend errors from reading or writing the resource entity.
     pub async fn set_visibility(
@@ -1375,12 +1375,12 @@ impl GovernedHandle {
     ///
     /// # Errors
     ///
-    /// - [`Error::PermissionDenied`](crate::Error::PermissionDenied) if the
+    /// - [`Error::PermissionDenied`] if the
     ///   actor is a system principal, the change kind is `Ingest`, or the
     ///   actor lacks write permission on an existing resource.
-    /// - [`Error::Invariant`](crate::Error::Invariant) if attempting
+    /// - [`Error::Invariant`] if attempting
     ///   `Create` on an existing resource or `Edit` on a missing one.
-    /// - [`Error::NotFound`](crate::Error::NotFound) if the resource entity
+    /// - [`Error::NotFound`] if the resource entity
     ///   does not exist for an edit.
     #[allow(clippy::too_many_arguments)]
     pub async fn create_draft_change(
@@ -1481,11 +1481,11 @@ impl GovernedHandle {
     ///
     /// # Errors
     ///
-    /// - [`Error::NotFound`](crate::Error::NotFound) if the change or its
+    /// - [`Error::NotFound`] if the change or its
     ///   resource entity does not exist.
-    /// - [`Error::Invariant`](crate::Error::Invariant) if the change is not
+    /// - [`Error::Invariant`] if the change is not
     ///   in `DRAFT` state or no workflow binding matches.
-    /// - [`Error::PermissionDenied`](crate::Error::PermissionDenied) if the
+    /// - [`Error::PermissionDenied`] if the
     ///   actor is not the change owner or fails transition validation.
     pub async fn submit_change(&self, change_id: &str) -> Result<()> {
         let change = self
@@ -1708,9 +1708,9 @@ impl GovernedHandle {
     ///
     /// # Errors
     ///
-    /// - [`Error::PermissionDenied`](crate::Error::PermissionDenied) if the
+    /// - [`Error::PermissionDenied`] if the
     ///   actor is not a system principal.
-    /// - [`Error::Invariant`](crate::Error::Invariant) if no workflow binding
+    /// - [`Error::Invariant`] if no workflow binding
     ///   matches the ingestion criteria.
     /// - Backend errors from writing the change or applying to verified tables.
     #[allow(clippy::too_many_arguments)]
@@ -1782,7 +1782,7 @@ impl GovernedHandle {
     ///
     /// # Errors
     ///
-    /// - [`Error::PermissionDenied`](crate::Error::PermissionDenied) if
+    /// - [`Error::PermissionDenied`] if
     ///   governance is enabled and the actor is neither the owner nor an admin.
     /// - Backend errors from reading the change.
     pub async fn get_change(&self, change_id: &str) -> Result<Option<ResourceChange>> {

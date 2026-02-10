@@ -117,7 +117,7 @@ pub struct PortfolioValuationOptions {
     /// Optional list of additional metrics to request from instruments.
     ///
     /// When `None`, only the standard portfolio metrics (see
-    /// [`standard_portfolio_metrics`]) are requested.
+    /// `standard_portfolio_metrics`) are requested.
     /// When `Some`, the metrics are merged with the standard set unless
     /// [`PortfolioValuationOptions::replace_standard_metrics`] is `true`.
     pub additional_metrics: Option<Vec<MetricId>>,

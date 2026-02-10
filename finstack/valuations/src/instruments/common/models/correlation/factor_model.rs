@@ -62,7 +62,7 @@ pub enum CorrelationMatrixError {
         i: usize,
         /// Column index.
         j: usize,
-        /// Absolute difference |ρ[i,j] - ρ[j,i]|.
+        /// Absolute difference `|rho[i,j] - rho[j,i]|`.
         diff: f64,
     },
     /// Matrix is not positive semi-definite (Cholesky failed).
@@ -202,7 +202,7 @@ pub trait FactorModel: Send + Sync + std::fmt::Debug {
 
     /// Get the factor correlation matrix (flattened row-major).
     ///
-    /// For n factors, returns n×n values where element [i,j] = correlation(Zᵢ, Zⱼ).
+    /// For n factors, returns n×n values where element `matrix[i,j] = correlation(Zᵢ, Zⱼ)`.
     fn correlation_matrix(&self) -> &[f64];
 
     /// Get factor volatilities.
@@ -471,7 +471,7 @@ impl TwoFactorModel {
         self.correlation
     }
 
-    /// Get Cholesky L[1][0] coefficient for correlated factor generation.
+    /// Get Cholesky `L[1][0]` coefficient for correlated factor generation.
     ///
     /// For generating correlated factors from independent normals (z1, z2):
     /// - Factor 1 = z1 * prepay_vol
@@ -480,7 +480,7 @@ impl TwoFactorModel {
         self.cholesky_l10
     }
 
-    /// Get Cholesky L[1][1] coefficient for correlated factor generation.
+    /// Get Cholesky `L[1][1]` coefficient for correlated factor generation.
     pub fn cholesky_l11(&self) -> f64 {
         self.cholesky_l11
     }

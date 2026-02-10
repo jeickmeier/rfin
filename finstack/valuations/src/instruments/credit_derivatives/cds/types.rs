@@ -587,11 +587,11 @@ impl CreditDefaultSwap {
     ///         bdc: CDSConvention::IsdaNa.business_day_convention(),
     ///         calendar_id: Some(CDSConvention::IsdaNa.default_calendar().to_string()),
     ///         dc: CDSConvention::IsdaNa.day_count(),
-    ///         spread_bp: Decimal::try_from(100.0).expect(\"valid bps\"),
-    ///         discount_curve_id: CurveId::new(\"USD-OIS\"),
+    ///         spread_bp: Decimal::try_from(100.0).expect("valid bps"),
+    ///         discount_curve_id: CurveId::new("USD-OIS"),
     ///     })
     ///     .protection(ProtectionLegSpec {
-    ///         credit_curve_id: CurveId::new(\"CORP-HAZARD\"),
+    ///         credit_curve_id: CurveId::new("CORP-HAZARD"),
     ///         recovery_rate: RECOVERY_SENIOR_UNSECURED,
     ///         settlement_delay: CDSConvention::IsdaNa.settlement_delay(),
     ///     })

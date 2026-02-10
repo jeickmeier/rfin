@@ -67,7 +67,7 @@
 //!
 //! # See Also
 //!
-//! - [`Registry`] - Main registry type
+//! - [`crate::registry::Registry`] - Main registry type
 //! - [`ModelBuilder::with_builtin_metrics`](crate::builder::ModelBuilder::with_builtin_metrics)
 //! - Metric files in `finstack/statements/data/metrics/`
 

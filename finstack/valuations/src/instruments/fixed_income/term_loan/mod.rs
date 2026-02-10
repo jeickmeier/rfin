@@ -71,11 +71,11 @@
 //!
 //! # See Also
 //!
-//! - [`TermLoanSpec`] for complete specification structure
+//! - [`crate::instruments::fixed_income::term_loan::TermLoanSpec`] for complete specification structure
 //! - [`TermLoan`] for the instrument type
-//! - [`cashflows`] module for cashflow generation details
-//! - [`pricing`] module for valuation methodology
-//! - [`metrics`] module for available metrics
+//! - term loan cashflows module for cashflow generation details
+//! - term loan pricing module for valuation methodology
+//! - term loan metrics module for available metrics
 
 pub mod cashflows;
 pub(crate) mod metrics;

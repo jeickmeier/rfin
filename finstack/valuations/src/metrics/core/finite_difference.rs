@@ -205,6 +205,7 @@ pub fn bump_surface_vol_absolute(
 /// variables with absolute bump sizes `h` (first variable) and `k` (second).
 ///
 /// Returns `[f(+h,+k) - f(+h,-k) - f(-h,+k) + f(-h,-k)] / (4 h k)`.
+#[cfg(any(feature = "mc", test))]
 pub fn central_mixed<EEpp, EEpm, EEmp, Eemm, E1, E2, E3, E4>(
     eval_pp: EEpp,
     eval_pm: EEpm,

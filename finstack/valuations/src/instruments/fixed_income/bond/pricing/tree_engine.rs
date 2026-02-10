@@ -33,9 +33,9 @@
 //!
 //! # See Also
 //!
-//! - [`TreePricer`] for OAS calculation
-//! - [`BondValuator`] for tree valuator implementation
-//! - [`TreePricerConfig`] for configuration options
+//! - `TreePricer` for OAS calculation
+//! - tree-valuator implementation details in this module
+//! - `TreePricerConfig` for configuration options
 
 #![allow(clippy::module_inception)]
 #![allow(dead_code)] // Public API items may be used by external bindings or tests

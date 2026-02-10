@@ -81,7 +81,7 @@
 //! ## ISDA Standards (Primary Sources)
 //!
 //! - ISDA (2009). "ISDA CDS Standard Model." Version 1.8.2, October 2009.
-//!   Available at: https://www.cdsmodel.com/
+//!   Available at: <https://www.cdsmodel.com/>
 //!   (Industry-standard implementation)
 //!
 //! - ISDA (2009). "CDS Small Bang" Protocol. April 2009.
@@ -123,11 +123,11 @@
 //!
 //! # See Also
 //!
-//! - [`CreditDefaultSwap`] for single-name CDS struct
-//! - [`CDSConvention`] for regional standard conventions
-//! - [`PremiumLegSpec`] for premium leg configuration
-//! - [`ProtectionLegSpec`] for protection leg configuration
-//! - [`metrics`] for CDS risk metrics (CS01, DV01, recovery sensitivity)
+//! - `CreditDefaultSwap` for single-name CDS struct
+//! - `CDSConvention` for regional standard conventions
+//! - `PremiumLegSpec` for premium leg configuration
+//! - `ProtectionLegSpec` for protection leg configuration
+//! - CDS metrics module for CDS risk metrics (CS01, DV01, recovery sensitivity)
 
 pub(crate) mod metrics;
 pub(crate) mod parameters;

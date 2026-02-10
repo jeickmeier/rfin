@@ -23,9 +23,9 @@
 //!
 //! # Module Organization
 //!
-//! - [`types`]: Core margin types (CSA, collateral, thresholds, margin calls)
-//! - [`calculators`]: VM and IM calculation engines
-//! - [`metrics`]: Margin-specific risk metrics
+//! - `types`: Core margin types (CSA, collateral, thresholds, margin calls)
+//! - `calculators`: VM and IM calculation engines
+//! - `metrics`: Margin-specific risk metrics
 //!
 //! # Example: Creating a CSA Specification
 //!

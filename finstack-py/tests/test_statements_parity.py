@@ -26,10 +26,10 @@ from finstack.statements import (
     ParameterSpec,
     PLSummaryReport,
     Registry,
-    Results,
     SensitivityAnalyzer,
     SensitivityConfig,
     SensitivityMode,
+    StatementResult,
     TableBuilder,
     TornadoEntry,
     render_tree_ascii,
@@ -704,7 +704,7 @@ class TestComprehensiveParity:
         assert len(results_json) > 0
 
         # Deserialize results
-        results_restored = Results.from_json(results_json)
+        results_restored = StatementResult.from_json(results_json)
         assert results_restored.get("revenue", PeriodId.quarter(2025, 1)) == pytest.approx(100000.0)
 
 

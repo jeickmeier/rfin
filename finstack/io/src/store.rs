@@ -406,11 +406,11 @@ pub trait Store: Send + Sync {
     /// Load a market context snapshot, returning a not-found error if missing.
     ///
     /// This is a convenience wrapper around [`get_market_context`](Store::get_market_context)
-    /// that converts `None` into [`Error::NotFound`](crate::Error::NotFound).
+    /// that converts `None` into [`Error::NotFound`].
     ///
     /// # Errors
     ///
-    /// Returns [`Error::NotFound`](crate::Error::NotFound) if no snapshot exists
+    /// Returns [`Error::NotFound`] if no snapshot exists
     /// for the given `(market_id, as_of)`. Also propagates backend errors.
     async fn load_market_context(&self, market_id: &str, as_of: Date) -> Result<MarketContext> {
         self.get_market_context(market_id, as_of)
@@ -421,11 +421,11 @@ pub trait Store: Send + Sync {
     /// Load a portfolio spec snapshot, returning a not-found error if missing.
     ///
     /// This is a convenience wrapper around [`get_portfolio_spec`](Store::get_portfolio_spec)
-    /// that converts `None` into [`Error::NotFound`](crate::Error::NotFound).
+    /// that converts `None` into [`Error::NotFound`].
     ///
     /// # Errors
     ///
-    /// Returns [`Error::NotFound`](crate::Error::NotFound) if no snapshot exists
+    /// Returns [`Error::NotFound`] if no snapshot exists
     /// for the given `(portfolio_id, as_of)`. Also propagates backend errors.
     async fn load_portfolio_spec(&self, portfolio_id: &str, as_of: Date) -> Result<PortfolioSpec> {
         self.get_portfolio_spec(portfolio_id, as_of)
@@ -436,11 +436,11 @@ pub trait Store: Send + Sync {
     /// Load a metric registry, returning a not-found error if missing.
     ///
     /// This is a convenience wrapper around [`get_metric_registry`](Store::get_metric_registry)
-    /// that converts `None` into [`Error::NotFound`](crate::Error::NotFound).
+    /// that converts `None` into [`Error::NotFound`].
     ///
     /// # Errors
     ///
-    /// Returns [`Error::NotFound`](crate::Error::NotFound) if no registry exists
+    /// Returns [`Error::NotFound`] if no registry exists
     /// for the given namespace. Also propagates backend errors.
     async fn load_metric_registry(&self, namespace: &str) -> Result<MetricRegistry> {
         self.get_metric_registry(namespace)
@@ -476,7 +476,7 @@ pub trait Store: Send + Sync {
     ///
     /// # Errors
     ///
-    /// - [`Error::NotFound`](crate::Error::NotFound) if the portfolio spec or any
+    /// - [`Error::NotFound`] if the portfolio spec or any
     ///   referenced instrument does not exist.
     /// - Backend or deserialization errors from the underlying reads.
     ///
@@ -536,7 +536,7 @@ pub trait Store: Send + Sync {
     ///
     /// # Errors
     ///
-    /// - [`Error::NotFound`](crate::Error::NotFound) if either the portfolio or
+    /// - [`Error::NotFound`] if either the portfolio or
     ///   the market context does not exist.
     /// - Backend or deserialization errors from the underlying reads.
     ///

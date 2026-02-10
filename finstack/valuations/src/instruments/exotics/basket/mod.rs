@@ -115,16 +115,16 @@
 //!
 //! # Module Organization
 //!
-//! - [`types`]: `Basket` instrument struct and constituent definitions
-//! - [`pricer`]: Basket valuation calculator
-//! - [`metrics`]: Constituent-level risk metrics
+//! - `types`: `Basket` instrument struct and constituent definitions
+//! - `pricer`: Basket valuation calculator
+//! - `metrics`: Constituent-level risk metrics
 //!
 //! # See Also
 //!
 //! - [`Basket`] for main instrument struct
-//! - [`BasketConstituent`] for constituent specification
-//! - [`ConstituentReference`] for market data vs instrument references
-//! - [`AssetType`] for constituent asset classification
+//! - `BasketConstituent` for constituent specification
+//! - `ConstituentReference` for market data vs instrument references
+//! - `AssetType` for constituent asset classification
 
 pub(crate) mod metrics;
 pub(crate) mod pricer;

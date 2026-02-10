@@ -101,9 +101,9 @@
 //! # See Also
 //!
 //! - [`FxOption`] for FX option struct
-//! - [`FxOptionCalculator`] for pricing calculations
-//! - [`FxOptionGreeks`] for Greeks computation
-//! - [`metrics`] for FX option risk metrics
+//! - `FxOptionCalculator` for pricing calculations
+//! - `FxOptionGreeks` for Greeks computation
+//! - FX option metrics module for risk metrics
 
 /// Garman-Kohlhagen FX option calculator and Greeks computation
 pub(crate) mod calculator;

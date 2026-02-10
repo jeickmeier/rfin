@@ -2,7 +2,9 @@
 
 use crate::instruments::common_impl::traits::EquityDependencies;
 use crate::instruments::rates::range_accrual::RangeAccrual;
+#[cfg(feature = "mc")]
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
+#[cfg(feature = "mc")]
 use finstack_core::dates::Date;
 
 impl EquityDependencies for RangeAccrual {
@@ -16,12 +18,14 @@ impl EquityDependencies for RangeAccrual {
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasPricingOverrides for RangeAccrual {
     fn pricing_overrides_mut(&mut self) -> &mut crate::instruments::PricingOverrides {
         &mut self.pricing_overrides
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasExpiry for RangeAccrual {
     fn expiry(&self) -> finstack_core::dates::Date {
         // RangeAccrual uses last observation date as expiry
@@ -33,6 +37,7 @@ impl HasExpiry for RangeAccrual {
     }
 }
 
+#[cfg(feature = "mc")]
 impl HasDayCount for RangeAccrual {
     fn day_count(&self) -> finstack_core::dates::DayCount {
         self.day_count
