@@ -11,7 +11,7 @@
 //! ├── Core(finstack_core::Error)         ← propagated core errors
 //! ├── Pricing(PricingError)              ← pricer registry, model failures
 //! ├── Correlation(CorrelationMatrixError) ← factor model validation
-//! └── Validation(ValidationError)        ← structured credit waterfall
+//! └── WaterfallValidation(ValidationError) ← structured credit waterfall
 //! ```
 //!
 //! All variants convert one-way into [`finstack_core::Error`] via [`From`] for

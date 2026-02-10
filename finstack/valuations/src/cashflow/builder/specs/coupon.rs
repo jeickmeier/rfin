@@ -285,10 +285,7 @@ pub struct FloatingRateSpec {
     /// rather than looking up a single forward rate for the period.
     ///
     /// Leave as `None` for term rates (e.g., 3M EURIBOR, 6M LIBOR).
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overnight_compounding: Option<OvernightCompoundingMethod>,
 }
 

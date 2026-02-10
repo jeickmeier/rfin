@@ -86,19 +86,13 @@ pub struct DefaultEvent {
     ///
     /// When `None`, recovery dates are computed using a simple calendar
     /// month offset with no adjustment.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_bdc: Option<BusinessDayConvention>,
     /// Optional holiday calendar identifier used for recovery date adjustment.
     ///
     /// When `None`, calendar-aware adjustment is skipped and the recovery
     /// date is left as the raw lagged date.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_calendar_id: Option<String>,
 }
 

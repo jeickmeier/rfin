@@ -82,26 +82,17 @@ pub struct CommoditySwap {
     pub payment_frequency: Tenor,
     /// Optional calendar ID for date adjustments.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calendar_id: Option<String>,
     /// Business day convention for date adjustments.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bdc: Option<BusinessDayConvention>,
     /// Discount curve ID.
     pub discount_curve_id: CurveId,
     /// Optional index lag in days (for averaging period).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub index_lag_days: Option<i32>,
     /// Attributes for tagging and selection.
     #[builder(default)]

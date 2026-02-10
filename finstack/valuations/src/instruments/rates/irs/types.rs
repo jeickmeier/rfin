@@ -123,10 +123,7 @@ pub struct InterestRateSwap {
     /// When present, enables margin calculation using SIMM or schedule-based
     /// methodologies. For cleared swaps, specify clearing house in
     /// `OtcMarginSpec::cleared()`.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin_spec: Option<OtcMarginSpec>,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,

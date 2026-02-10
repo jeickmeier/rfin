@@ -991,7 +991,7 @@ impl DiscountCurve {
 
 /// Fluent builder for [`DiscountCurve`].
 ///
-/// Typical usage chains `base_date`, `knots`, and `set_interp` (optional)
+/// Typical usage chains `base_date`, `knots`, and `interp` (optional)
 /// before calling [`DiscountCurveBuilder::build`].
 ///
 /// # Examples

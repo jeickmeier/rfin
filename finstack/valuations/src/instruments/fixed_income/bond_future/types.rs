@@ -440,10 +440,7 @@ pub struct BondFuture {
     ///
     /// If `None`, pricing will return a validation error instructing callers to
     /// provide the CTD bond at the pricing boundary.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[builder(default)]
     pub ctd_bond: Option<crate::instruments::fixed_income::bond::Bond>,
 

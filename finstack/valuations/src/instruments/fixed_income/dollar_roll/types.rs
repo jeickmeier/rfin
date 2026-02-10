@@ -83,10 +83,7 @@ pub struct DollarRoll {
     pub back_price: f64,
     /// Trade date.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trade_date: Option<Date>,
     /// Discount curve identifier.
     pub discount_curve_id: CurveId,

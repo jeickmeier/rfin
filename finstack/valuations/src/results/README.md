@@ -502,12 +502,12 @@ To add a new top-level field to `ValuationResult`:
 
 ```rust
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct ValuationResult {
     // ... existing fields ...
 
     /// Your new field with documentation
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub new_field: Option<YourType>,
 }
 ```

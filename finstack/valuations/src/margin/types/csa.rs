@@ -103,10 +103,7 @@ pub struct CsaSpec {
     ///
     /// If None, no IM is exchanged (either not in scope for regulations
     /// or trade is cleared).
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub im_params: Option<ImParameters>,
 
     /// Eligible collateral schedule.

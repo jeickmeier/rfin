@@ -127,10 +127,7 @@ pub struct RepoMarginSpec {
     /// Margin interest rate (if applicable).
     ///
     /// Typically tied to overnight rates (Fed Funds, SONIA, ESTR).
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin_interest_rate: Option<f64>,
 
     /// Whether collateral substitution is permitted.
@@ -139,10 +136,7 @@ pub struct RepoMarginSpec {
     pub substitution_allowed: bool,
 
     /// Eligible collateral for substitution (if allowed).
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub eligible_substitutes: Option<EligibleCollateralSchedule>,
 }
 

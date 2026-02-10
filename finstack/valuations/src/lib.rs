@@ -293,11 +293,6 @@
 
 extern crate self as finstack_valuations;
 
-// Serde is used unconditionally throughout valuations (derives, envelopes, JSON loader).
-// This guard gives a clear message instead of hundreds of derive errors.
-#[cfg(not(feature = "serde"))]
-compile_error!("finstack-valuations requires the `serde` feature (enabled by default).");
-
 /// Curve and surface calibration tooling.
 pub mod calibration;
 /// Cashflow schedule generation and builders.

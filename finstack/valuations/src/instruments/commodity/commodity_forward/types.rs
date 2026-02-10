@@ -106,10 +106,7 @@ pub struct CommodityForward {
     pub settlement_date: Date,
     /// Settlement type (physical or cash).
     #[builder(default)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settlement_type: Option<SettlementType>,
     /// Currency for pricing.
     pub currency: Currency,
@@ -128,20 +125,14 @@ pub struct CommodityForward {
     /// If `Some(K)`, the forward is **off-market** and NPV reflects the
     /// mark-to-market difference: sign × (F - K) × Q × M × DF.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contract_price: Option<f64>,
     /// Optional quoted forward price (overrides curve lookup for F).
     ///
     /// This is a market price override, not the contract entry price.
     /// Use `contract_price` for the trade entry price K.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quoted_price: Option<f64>,
     /// Forward/futures price curve ID for price interpolation.
     ///
@@ -149,36 +140,24 @@ pub struct CommodityForward {
     pub forward_curve_id: CurveId,
     /// Optional spot price ID (for delta calculations).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_price_id: Option<String>,
     /// Discount curve ID.
     pub discount_curve_id: CurveId,
     /// Optional exchange identifier (e.g., "NYMEX", "ICE").
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exchange: Option<String>,
     /// Optional contract month (e.g., "2025M03" for March 2025).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contract_month: Option<String>,
     /// Optional market convention for this commodity.
     ///
     /// When set, provides default settlement days and calendar if not
     /// explicitly specified. See [`CommodityConvention`] for available options.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub convention: Option<CommodityConvention>,
     /// Settlement lag in business days (T+N).
     ///
@@ -194,30 +173,21 @@ pub struct CommodityForward {
     /// | Base metals (LME) | T+2 |
     /// | Power | T+1 |
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settlement_lag_days: Option<u32>,
     /// Calendar ID for settlement date adjustments.
     ///
     /// Used for business day adjustment of the settlement date. If `convention`
     /// is set, uses the convention's calendar unless explicitly overridden.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settlement_calendar_id: Option<String>,
     /// Business day convention for settlement date adjustment.
     ///
     /// Defaults to `Following` for energy commodities, `ModifiedFollowing`
     /// for precious metals.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settlement_bdc: Option<BusinessDayConvention>,
     /// Attributes for tagging and selection.
     #[builder(default)]

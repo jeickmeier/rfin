@@ -171,10 +171,7 @@ pub struct AgencyMbsPassthrough {
     pub maturity_date: Date,
     /// Optional custom payment delay (overrides agency default).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payment_delay_days: Option<u32>,
     /// Prepayment model specification.
     pub prepayment_model: PrepaymentModelSpec,

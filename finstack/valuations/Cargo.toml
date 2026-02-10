@@ -13,8 +13,8 @@ finstack-valuations-macros = { path = "macros" }
 indexmap = { workspace = true, features = ["serde"] }
 smallvec = { version = "1.15", default-features = false, features = ["serde"] }
 rayon = { version = "1.11", optional = true }
-serde = { workspace = true, optional = true }
-serde_json = { workspace = true, features = ["raw_value"], optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
 time = { workspace = true }
 rust_decimal = { workspace = true }
 nalgebra = { version = "0.34", optional = true }
@@ -34,8 +34,7 @@ rust_decimal_macros = { workspace = true }
 
 
 [features]
-default = ["serde", "parallel"]
-serde = ["dep:serde", "dep:serde_json"]
+default = ["parallel"]
 parallel = ["dep:rayon"]
 mc = ["dep:nalgebra"]
 slow = []  # Enable slow-running tests (200k+ MC paths, jump-diffusion, etc.)

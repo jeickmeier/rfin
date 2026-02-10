@@ -119,10 +119,7 @@ pub struct XccySwapLeg {
     #[serde(default)]
     pub payment_lag_days: i32,
     /// Calendar identifier for schedule generation and lags.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calendar_id: Option<String>,
     /// Allow calendar-day fallback when the calendar cannot be resolved.
     ///

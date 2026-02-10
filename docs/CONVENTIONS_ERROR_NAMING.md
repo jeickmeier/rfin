@@ -9,7 +9,7 @@ Two valid patterns coexist. Both are intentional.
 
 | Pattern | When to use | Example |
 |---------|-------------|---------|
-| **Plain `Error`** | Crate-level root error that is the *only* error callers interact with | `finstack_core::Error`, `finstack_scenarios::error::Error` |
+| **Plain `Error`** | Crate-level root error that is the *only* error callers interact with | `finstack_core::Error`, `finstack_scenarios::Error` |
 | **`{Domain}Error`** | Domain-specific sub-errors, or root errors in crates whose name alone is ambiguous | `InputError`, `PricingError` |
 
 ## Per-Crate Inventory
@@ -19,8 +19,8 @@ Two valid patterns coexist. Both are intentional.
 | `finstack_core` | `Error` | `InputError` | `finstack_core::Error`, `finstack_core::InputError` |
 | `finstack_valuations` | `error::Error` | `PricingError`, `CorrelationMatrixError`, `ValidationError` | `finstack_valuations::Error` |
 | `finstack_portfolio` | `error::Error` | — | `finstack_portfolio::Error` |
-| `finstack_scenarios` | `error::Error` | — | `finstack_scenarios::error::Error` |
-| `finstack_statements` | `error::Error` | — | `finstack_statements::error::Error` |
+| `finstack_scenarios` | `error::Error` | — | `finstack_scenarios::Error` |
+| `finstack_statements` | `error::Error` | — | `finstack_statements::Error` |
 
 ## Design Rationale
 
@@ -70,9 +70,10 @@ in import blocks when needed.
 
 These crates follow the same pattern as `finstack_core`: a single root error
 enum living in `error::Error` with a `Result<T>` alias. Because they are
-typically used in isolation or through the `finstack_core::Error` conversion
-(`From` impl), name collisions are rare. If a crate needs to be imported
-alongside core, callers can qualify: `scenarios::error::Error`.
+typically used in isolation, name collisions are rare. If a crate needs to be
+imported alongside core, callers can qualify via module path
+(`finstack_scenarios::Error` vs `finstack_core::Error`) or use an alias in
+import blocks when needed.
 
 ## Guidelines for New Crates
 

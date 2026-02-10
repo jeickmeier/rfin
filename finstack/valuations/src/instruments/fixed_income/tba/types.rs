@@ -127,18 +127,12 @@ pub struct AgencyTba {
     pub trade_price: f64,
     /// Trade date.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trade_date: Option<Date>,
     /// Expected pool factor for valuation.
     /// Defaults to 1.0 (newly issued) if not specified.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pool_factor: Option<f64>,
     /// Optional assumed pool for valuation.
     /// If not provided, generic pool characteristics are assumed.

@@ -436,20 +436,14 @@ pub struct CreditDefaultSwap {
     /// The amount is defined as a payment from Protection Buyer to Protection Seller.
     /// - If positive: Buyer pays Seller.
     /// - If negative: Seller pays Buyer.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upfront: Option<(Date, Money)>,
     /// Optional OTC margin specification for VM/IM.
     ///
     /// For cleared CDS (e.g., via ICE Clear Credit), use
     /// `OtcMarginSpec::ice_clear_credit()`. For bilateral CDS,
     /// use `OtcMarginSpec::bilateral_simm()`.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin_spec: Option<OtcMarginSpec>,
     /// Additional attributes
     pub attributes: Attributes,

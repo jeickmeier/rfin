@@ -596,8 +596,8 @@ pub struct CovenantSpec {
 
 ```rust
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct YourEvent {
     pub date: Date,
     pub parameter: YourParam,
@@ -668,7 +668,7 @@ PIK capitalization affects the outstanding principal path and is reflected in th
 
 All specification types (`TermLoanSpec`, `DdtlSpec`, `CovenantSpec`, etc.) use:
 
-- `#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]` for strict deserialization
+- `#[serde(deny_unknown_fields)]` for strict deserialization
 - Stable field names for long-lived pipelines and golden tests
 
 ### Integration Points

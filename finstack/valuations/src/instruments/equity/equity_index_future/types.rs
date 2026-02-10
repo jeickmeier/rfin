@@ -236,17 +236,11 @@ pub struct EquityIndexFuture {
     pub last_trading_date: Date,
     /// Entry price at trade inception (optional for new trades).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub entry_price: Option<f64>,
     /// Current quoted market price (if available, overrides fair value).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quoted_price: Option<f64>,
     /// Position side (Long or Short).
     pub position: Position,
@@ -259,10 +253,7 @@ pub struct EquityIndexFuture {
     pub index_price_id: String,
     /// Optional dividend yield identifier for fair value calculation.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dividend_yield_id: Option<String>,
     /// Attributes for tagging and selection.
     #[builder(default)]

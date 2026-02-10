@@ -178,11 +178,3 @@ pub fn from_finstack_config_or_default(
 
     Ok(base)
 }
-
-/// Resolve sensitivities defaults without requiring the `serde` feature.
-#[cfg(not(feature = "serde"))]
-pub fn from_finstack_config_or_default(
-    _cfg: &FinstackConfig,
-) -> finstack_core::Result<SensitivitiesConfig> {
-    Ok(SensitivitiesConfig::default())
-}

@@ -445,15 +445,6 @@ impl CalibrationConfig {
         }
     }
 
-    /// Build a calibration config from a `FinstackConfig` (non-serde fallback).
-    ///
-    /// When the `serde` feature is disabled, extensions are not available and
-    /// this method always returns `CalibrationConfig::default()`.
-    #[cfg(not(feature = "serde"))]
-    pub fn from_finstack_config_or_default(_cfg: &FinstackConfig) -> finstack_core::Result<Self> {
-        Ok(Self::default())
-    }
-
     /// Resolve effective rate bounds for a given currency based on `rate_bounds_policy`.
     pub fn effective_rate_bounds(&self, currency: Currency) -> RateBounds {
         match self.rate_bounds_policy {

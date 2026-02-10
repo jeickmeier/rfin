@@ -101,10 +101,7 @@ pub struct VolatilityIndexOption {
     pub expiry: Date,
     /// Settlement date (typically same as expiry for cash-settled).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settlement_date: Option<Date>,
     /// Contract specifications.
     #[builder(default)]

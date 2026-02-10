@@ -312,50 +312,32 @@ pub struct Ndf {
     /// Optional foreign (base) currency discount curve ID.
     /// If not provided, forward rate estimation uses settlement curve as fallback.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub foreign_curve_id: Option<CurveId>,
     /// Observed fixing rate. Interpretation depends on `quote_convention`.
     /// If Some, NDF is post-fixing.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing_rate: Option<f64>,
     /// Official fixing source/benchmark enum for type-safe specification.
     ///
     /// Use this field for validated fixing sources.
     /// See [`NdfFixingSource`] for supported benchmarks and their typical currencies.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing_source_enum: Option<NdfFixingSource>,
     /// Optional spot rate override for forward rate calculation.
     /// Interpretation depends on `quote_convention`.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_rate_override: Option<f64>,
     /// Optional base currency calendar.
     #[builder(default)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_calendar_id: Option<String>,
     /// Optional settlement currency calendar.
     #[builder(default)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settlement_calendar_id: Option<String>,
     /// Attributes for tagging and selection.
     #[builder(default)]

@@ -90,10 +90,7 @@ pub struct MarginCall {
     pub amount: Money,
 
     /// Specific collateral type requested (if applicable)
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub collateral_type: Option<CollateralAssetClass>,
 
     /// Mark-to-market value that triggered the call

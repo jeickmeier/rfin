@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 finstack-core = { path = "../finstack/core" }
 finstack-statements = { path = "../finstack/statements" }
-finstack-valuations = { path = "../finstack/valuations", default-features = false, features = ["serde", "mc"] }
+finstack-valuations = { path = "../finstack/valuations", default-features = false, features = ["mc"] }
 finstack-scenarios = { path = "../finstack/scenarios" }
 finstack-portfolio = { path = "../finstack/portfolio", default-features = false, features = ["scenarios"] }
 wasm-bindgen = "0.2"

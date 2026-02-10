@@ -535,13 +535,12 @@ All public APIs return `Result<T, finstack_core::Error>` with structured error t
 
 ```toml
 [dependencies]
-finstack-valuations = { version = "0.1", features = ["mc", "serde", "parallel"] }
+finstack-valuations = { version = "0.1", features = ["mc"] }
 ```
 
 **Available Features**:
 
 - `mc`: Enable Monte Carlo pricing (~200KB binary increase)
-- `serde`: Enable JSON serialization/deserialization
 - `parallel`: Enable Rayon parallelism (deterministic results maintained)
 
 ---

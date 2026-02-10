@@ -42,38 +42,23 @@ pub struct RealEstateAsset {
     pub noi_schedule: Vec<(Date, f64)>,
     /// Discount rate for DCF (annualized).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub discount_rate: Option<f64>,
     /// Capitalization rate for direct cap (annualized).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cap_rate: Option<f64>,
     /// Optional stabilized NOI override for direct cap.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stabilized_noi: Option<f64>,
     /// Optional terminal cap rate for DCF (uses last NOI).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal_cap_rate: Option<f64>,
     /// Optional appraisal override value.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub appraisal_value: Option<Money>,
     /// Day count convention for year fractions.
     pub day_count: DayCount,

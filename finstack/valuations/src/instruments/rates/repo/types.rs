@@ -187,10 +187,7 @@ pub struct Repo {
     ///
     /// When present, enables margin call generation, collateral valuation,
     /// and margin interest calculations. See [`RepoMarginSpec`] for details.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin_spec: Option<RepoMarginSpec>,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,

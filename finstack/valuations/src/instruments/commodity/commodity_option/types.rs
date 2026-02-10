@@ -78,17 +78,11 @@ pub struct CommodityOption {
     pub vol_surface_id: CurveId,
     /// Optional spot price ID (for spot-based pricing and American options).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_price_id: Option<String>,
     /// Optional quoted forward price (overrides curve lookup).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quoted_forward: Option<f64>,
     /// Day count convention for time to expiry.
     pub day_count: DayCount,
@@ -98,10 +92,7 @@ pub struct CommodityOption {
     ///
     /// When set, provides default premium settlement days and calendar.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub convention: Option<CommodityConvention>,
     /// Premium settlement lag in business days after trade date.
     ///
@@ -109,10 +100,7 @@ pub struct CommodityOption {
     /// If not set and `convention` is provided, uses convention default.
     /// Otherwise defaults to 1 (T+1).
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub premium_settlement_days: Option<u32>,
     /// Attributes for tagging and selection.
     #[builder(default)]

@@ -67,10 +67,7 @@ pub struct EquityTotalReturnSwap {
     /// Optional OTC margin specification for VM/IM.
     ///
     /// Equity TRS use SIMM equity bucket for margin calculation.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin_spec: Option<OtcMarginSpec>,
     /// Dividend withholding tax rate for net return calculation.
     ///

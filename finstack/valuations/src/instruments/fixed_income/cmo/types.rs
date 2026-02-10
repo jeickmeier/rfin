@@ -80,10 +80,7 @@ pub struct CmoTranche {
     /// Payment priority (1 = highest for sequential)
     pub priority: u32,
     /// PAC collar (if PAC tranche)
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pac_collar: Option<PacCollar>,
 }
 
@@ -243,17 +240,11 @@ pub struct AgencyCmo {
     pub collateral: Option<Box<AgencyMbsPassthrough>>,
     /// Collateral WAC (if no explicit collateral)
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub collateral_wac: Option<f64>,
     /// Collateral WAM (if no explicit collateral)
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub collateral_wam: Option<u32>,
     /// Discount curve identifier.
     pub discount_curve_id: CurveId,

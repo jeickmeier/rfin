@@ -52,7 +52,7 @@
 //!
 //! ## Choosing an interpolation style
 //! All curves are bootstrapped from knot points and allow selecting an
-//! [`crate::math::interp::InterpStyle`] via a single `set_interp(...)`
+//! [`crate::math::interp::InterpStyle`] via a single `interp(...)`
 //! method on their builders.
 //!
 //! ## Example – assembling curves inside a `MarketContext`

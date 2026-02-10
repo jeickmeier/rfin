@@ -238,18 +238,12 @@ pub struct StructuredCredit {
 
     /// Optional payment calendar identifier for schedule adjustments.
     #[builder(default)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payment_calendar_id: Option<String>,
 
     /// Business day convention for tranche payments (defaults to Following).
     #[builder(default)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payment_bdc: Option<BusinessDayConvention>,
 
     /// Discount curve for valuation.
@@ -259,24 +253,15 @@ pub struct StructuredCredit {
     pub attributes: Attributes,
 
     /// Prepayment model specification.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default = "StructuredCredit::default_prepayment_spec")
-    )]
+    #[serde(default = "StructuredCredit::default_prepayment_spec")]
     pub prepayment_spec: PrepaymentModelSpec,
 
     /// Default model specification.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default = "StructuredCredit::default_default_spec")
-    )]
+    #[serde(default = "StructuredCredit::default_default_spec")]
     pub default_spec: DefaultModelSpec,
 
     /// Recovery model specification.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default = "StructuredCredit::default_recovery_spec")
-    )]
+    #[serde(default = "StructuredCredit::default_recovery_spec")]
     pub recovery_spec: RecoveryModelSpec,
 
     /// Market conditions impacting behavior.
@@ -298,24 +283,15 @@ pub struct StructuredCredit {
     pub default_assumptions: DefaultAssumptions,
 
     /// Optional stochastic prepayment model specification.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stochastic_prepay_spec: Option<StochasticPrepaySpec>,
 
     /// Optional stochastic default model specification.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stochastic_default_spec: Option<StochasticDefaultSpec>,
 
     /// Optional correlation structure for stochastic modeling.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub correlation_structure: Option<CorrelationStructure>,
 
     /// Interest rate swaps used to hedge basis or interest rate risk.

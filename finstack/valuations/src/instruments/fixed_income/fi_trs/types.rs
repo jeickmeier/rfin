@@ -66,10 +66,7 @@ pub struct FIIndexTotalReturnSwap {
     /// Optional OTC margin specification for VM/IM.
     ///
     /// Fixed income index TRS use duration-based margin calculations.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin_spec: Option<OtcMarginSpec>,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,

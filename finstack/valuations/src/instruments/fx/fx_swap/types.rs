@@ -45,17 +45,11 @@ pub struct FxSwap {
     pub far_rate: Option<f64>,
     /// Optional base currency calendar for spot/settlement adjustment metadata.
     #[builder(default)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_calendar_id: Option<String>,
     /// Optional quote currency calendar for spot/settlement adjustment metadata.
     #[builder(default)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quote_calendar_id: Option<String>,
     /// Attributes for tagging and selection
     pub attributes: Attributes,

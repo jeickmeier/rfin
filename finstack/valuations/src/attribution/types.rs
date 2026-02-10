@@ -1527,7 +1527,7 @@ pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
     }
 }
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod json_envelope_tests {
     use super::*;

@@ -71,10 +71,7 @@ pub struct FxForward {
     pub notional: Money,
     /// Contract forward rate (quote per base). If None, valued at-market.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contract_rate: Option<f64>,
     /// Domestic (quote currency) discount curve ID.
     pub domestic_discount_curve_id: CurveId,
@@ -82,24 +79,15 @@ pub struct FxForward {
     pub foreign_discount_curve_id: CurveId,
     /// Optional spot rate override (quote per base). If None, source from FxMatrix.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_rate_override: Option<f64>,
     /// Optional base currency calendar for business day adjustment.
     #[builder(default)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_calendar_id: Option<String>,
     /// Optional quote currency calendar for business day adjustment.
     #[builder(default)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quote_calendar_id: Option<String>,
     /// Attributes for tagging and selection.
     #[builder(default)]

@@ -57,10 +57,7 @@ pub struct ForwardRateAgreement {
     pub notional: Money,
     /// Rate fixing date. If `None`, inferred from `start_date - reset_lag` business days.
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing_date: Option<Date>,
     /// Interest period start date
     pub start_date: Date,
@@ -74,24 +71,15 @@ pub struct ForwardRateAgreement {
     pub reset_lag: i32,
     /// Optional fixing calendar identifier for business day adjustment
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing_calendar_id: Option<String>,
     /// Optional business day convention for fixing date adjustment (default: ModifiedFollowing)
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing_bdc: Option<BusinessDayConvention>,
     /// Optional observed fixing (locked rate) when known
     #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub observed_fixing: Option<f64>,
     /// Discount curve identifier
     pub discount_curve_id: CurveId,

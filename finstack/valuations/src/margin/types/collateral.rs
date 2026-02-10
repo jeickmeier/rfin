@@ -196,17 +196,11 @@ pub struct CollateralEligibility {
     /// Minimum credit rating requirement (e.g., "A-", "BBB")
     ///
     /// If None, no rating constraint applies.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_rating: Option<String>,
 
     /// Remaining maturity constraints
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub maturity_constraints: Option<MaturityConstraints>,
 
     /// Haircut as decimal (e.g., 0.02 = 2%)
@@ -221,10 +215,7 @@ pub struct CollateralEligibility {
     /// Concentration limit as fraction of total collateral (optional)
     ///
     /// E.g., 0.30 means max 30% of collateral can be this type.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub concentration_limit: Option<f64>,
 }
 
@@ -301,10 +292,7 @@ pub struct EligibleCollateralSchedule {
     /// Default haircut for unlisted collateral (if accepted)
     ///
     /// If None, only explicitly listed collateral types are accepted.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_haircut: Option<f64>,
 
     /// Whether rehypothecation of posted collateral is permitted
