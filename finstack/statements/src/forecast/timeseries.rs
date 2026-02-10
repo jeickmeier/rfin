@@ -369,7 +369,7 @@ fn seasonal_forecast_with_decomposition(
                 // matching classical seasonal decomposition (X-11, STL).
                 let ref_trend = last_trend;
                 let seasonal_factor = if ref_trend.abs() < EPSILON {
-                    log::warn!(
+                    tracing::warn!(
                         "Near-zero reference trend ({:.2e}) in multiplicative seasonal decomposition at period {:?}; \
                          using seasonal_factor=1.0 to avoid division instability",
                         ref_trend,

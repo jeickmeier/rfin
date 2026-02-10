@@ -308,7 +308,7 @@ pub(crate) fn evaluate_expr(
                 BinOp::Mul => left_val * right_val,
                 BinOp::Div => {
                     if right_val == 0.0 {
-                        log::warn!(
+                        tracing::warn!(
                             "Division by zero in formula evaluation (period: {:?})",
                             context.period_id
                         );
@@ -485,7 +485,7 @@ fn evaluate_function(
                 {
                     if lagged_value.abs() < EPSILON {
                         // Avoid division by zero
-                        log::warn!(
+                        tracing::warn!(
                             "pct_change() division by near-zero lagged value in period {:?}",
                             context.period_id
                         );
@@ -553,7 +553,7 @@ fn evaluate_function(
                 let target_period = offset_period(context.period_id, -periods, node_id)?;
                 if let Some(start_value) = context.get_historical_value(node_name, &target_period) {
                     if start_value.abs() < EPSILON {
-                        log::warn!(
+                        tracing::warn!(
                             "growth_rate() division by near-zero base value in period {:?}",
                             context.period_id
                         );
@@ -679,7 +679,7 @@ fn evaluate_function(
                     for &v in &values {
                         product *= v;
                         if !product.is_finite() {
-                            log::warn!(
+                            tracing::warn!(
                                 "cumprod() overflow detected in period {:?}",
                                 context.period_id
                             );
@@ -1173,7 +1173,7 @@ fn evaluate_function(
                 if result.is_finite() {
                     Ok(result)
                 } else {
-                    log::warn!(
+                    tracing::warn!(
                         "annualize_rate() overflow: (1 + {})^{} is not finite",
                         rate,
                         periods_per_year

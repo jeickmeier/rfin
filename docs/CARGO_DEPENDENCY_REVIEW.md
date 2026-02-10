@@ -28,13 +28,9 @@ After comprehensive analysis of all 11 `Cargo.toml` files and codebase usage pat
 | Dependency | Usage | Status | Notes |
 |------------|-------|--------|-------|
 | `nom` | ✅ Active | **KEEP** | Used in `dsl/parser.rs` for DSL parsing - core feature |
-| `log` | ✅ Active | **KEEP** | Used for warnings in 5 files (integration.rs, formula.rs, timeseries.rs, statistical.rs, deterministic.rs) |
+| `tracing` | ✅ Active | **KEEP** | Used for warnings across formula/forecast/integration codepaths |
 
-**Optimization Opportunity:**
-- `log` is only used for `log::warn!()` calls. Other crates (`valuations`, `portfolio`) use `tracing` for logging.
-- **Recommendation:** Consider migrating to `tracing` for consistency, but `log` is very lightweight (~50KB) and is a standard Rust logging facade, so the refactoring effort may not be worth it unless you want unified logging infrastructure.
-
-**Verdict:** All dependencies are essential. Optional consolidation opportunity exists.
+**Verdict:** All dependencies are essential.
 
 ### finstack-valuations
 
@@ -125,11 +121,8 @@ All dependencies are actively used and serve essential purposes. The codebase is
 
 ### 2. **Optional: Logging Consolidation** (Low Priority)
 
-- **Current:** `finstack-statements` uses `log`, while `finstack-valuations` and `finstack-portfolio` use `tracing`
-- **Impact:** Minimal - `log` is very lightweight (~50KB)
-- **Effort:** Medium - requires refactoring 5 files in `finstack-statements`
-- **Benefit:** Unified logging infrastructure, but `log` is a standard Rust facade that many crates use
-- **Recommendation:** Only do this if you want unified logging infrastructure. Not necessary for footprint reduction.
+- **Current:** Core/domain crates use `tracing` consistently.
+- **Recommendation:** Keep `tracing` as the single API in domain crates; if `log`-based dependencies must be supported, bridge at the application boundary (see `docs/CONVENTIONS_OBSERVABILITY.md`).
 
 ### 3. **Verify Build Profile Optimization**
 
@@ -170,11 +163,11 @@ For ongoing monitoring:
 
 **No crates should be removed** - all are necessary for the library's functionality.
 
-The only potential optimization is consolidating `log` → `tracing` in `finstack-statements` for consistency, but this is a code quality improvement rather than a footprint reduction (both crates are similarly sized).
+Observability is standardized on `tracing` in domain crates. Any `log` usage should be confined to external dependencies and bridged at the application boundary.
 
 ## Next Steps
 
 1. ✅ **No action required** - dependencies are optimal
-2. Optional: Consider `log` → `tracing` migration for consistency (low priority)
+2. Keep `tracing` as the single observability API (see `docs/CONVENTIONS_OBSERVABILITY.md`)
 3. Continue using `cargo-deny` and `cargo-udeps` for ongoing monitoring
 4. Monitor dependency updates for potential bloat in future versions

@@ -167,7 +167,7 @@ pub fn lognormal_forecast(
 
     // Warn on degenerate distribution (all values will be identical)
     if p.std_dev == 0.0 {
-        log::warn!(
+        tracing::warn!(
             "LogNormal forecast with std_dev=0.0 produces degenerate distribution (all values identical)"
         );
     }

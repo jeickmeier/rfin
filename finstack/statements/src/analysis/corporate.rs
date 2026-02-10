@@ -313,7 +313,7 @@ fn extract_currency_from_model(model: &FinancialModelSpec) -> Result<Currency> {
     }
 
     // Warn instead of silently defaulting — callers should set model.meta["currency"]
-    log::warn!(
+    tracing::warn!(
         "No 'currency' key in model metadata for '{}'; defaulting to USD. \
          Set model.meta[\"currency\"] to avoid this warning.",
         model.id
@@ -346,13 +346,13 @@ fn calculate_net_debt_from_model(
         .or_else(|| results.get("cash_and_equivalents", &last_period.id));
 
     if total_debt.is_none() {
-        log::warn!(
+        tracing::warn!(
             "Net debt: 'total_debt' / 'debt' node not found in model results; assuming 0.0. \
              Add a 'total_debt' node or use net_debt_override for accurate equity value."
         );
     }
     if cash.is_none() {
-        log::warn!(
+        tracing::warn!(
             "Net debt: 'cash' / 'cash_and_equivalents' node not found in model results; assuming 0.0. \
              Add a 'cash' node or use net_debt_override for accurate equity value."
         );

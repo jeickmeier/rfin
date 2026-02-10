@@ -122,7 +122,7 @@ pub fn calculate_period_flows(
                 }
                 CFKind::DefaultedNotional | CFKind::Recovery => {
                     // Credit events are not modeled as part of standard debt service in statements.
-                    log::warn!(
+                    tracing::warn!(
                         "Ignoring credit-event CFKind={:?} for period flow calc (date={:?})",
                         cf.kind,
                         cf.date
@@ -130,7 +130,7 @@ pub fn calculate_period_flows(
                 }
                 _ => {
                     // CFKind is non-exhaustive; ignore unknown variants to avoid misclassification.
-                    log::warn!(
+                    tracing::warn!(
                         "Unhandled CFKind={:?} for period flow calc (date={:?}); ignoring",
                         cf.kind,
                         cf.date
@@ -375,7 +375,7 @@ pub fn aggregate_instrument_cashflows(
                         }
                         CFKind::DefaultedNotional | CFKind::Recovery => {
                             // Credit events are not modeled as part of standard debt service in statements.
-                            log::warn!(
+                            tracing::warn!(
                                 "Ignoring credit-event CFKind={:?} in CS aggregation (instrument={}, date={:?})",
                                 cf.kind,
                                 instrument_id,
@@ -393,7 +393,7 @@ pub fn aggregate_instrument_cashflows(
                         }
                         _ => {
                             // CFKind is non-exhaustive; ignore unknown variants to avoid misclassification.
-                            log::warn!(
+                            tracing::warn!(
                                 "Unhandled CFKind={:?} in CS aggregation (instrument={}, date={:?}); ignoring",
                                 cf.kind,
                                 instrument_id,

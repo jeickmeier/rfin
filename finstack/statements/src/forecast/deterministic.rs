@@ -87,7 +87,7 @@ pub fn growth_pct(
 
     // Warn on extreme growth rates (>100% per period)
     if rate.abs() > 1.0 {
-        log::warn!(
+        tracing::warn!(
             "Growth rate {:.2}% exceeds 100% per period - verify this is intentional",
             rate * 100.0
         );
