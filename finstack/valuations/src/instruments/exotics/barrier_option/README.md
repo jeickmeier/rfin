@@ -4,7 +4,9 @@
 
 - Supports up/down and in/out structures with optional cash rebate, governed by `BarrierType`.
 - Call/put payoffs with explicit barrier level, Gobet–Miri adjustment toggle, and optional dividend yield.
-- Analytical Reiner–Rubinstein pricing with fallback Monte Carlo GBM pricer when the `mc` feature is enabled.
+- Explicit dispatch by monitoring mode:
+  - `use_gobet_miri = false`: analytical Reiner–Rubinstein (continuous monitoring)
+  - `use_gobet_miri = true`: Monte Carlo discrete-monitoring-corrected pricing (`mc` feature required)
 
 ## Methodology & References
 
@@ -26,7 +28,8 @@ let pv = option.value(&market_context, as_of)?;
 
 ## Limitations / Known Issues
 
-- Analytical path assumes continuous monitoring and log-normal GBM dynamics.
+- Continuous analytics assume log-normal GBM dynamics.
+- Discrete-monitoring mode requires `mc`; without it, pricing returns an explicit validation error (no silent fallback).
 - Monte Carlo pricing requires the `mc` feature and does not model stochastic volatility or jumps.
 - No American-style early exercise; rebates are paid at expiry only.
 

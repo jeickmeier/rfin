@@ -407,11 +407,35 @@ impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
         Ok(deps)
     }
 
+    /// Compute present value with explicit monitoring semantics.
+    ///
+    /// Dispatch rules:
+    /// - `use_gobet_miri = false` -> analytical continuous-monitoring pricer
+    /// - `use_gobet_miri = true` -> MC discrete-monitoring-corrected pricer
+    ///
+    /// If `use_gobet_miri = true` but `mc` is disabled, this returns an error.
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        if self.use_gobet_miri {
+            #[cfg(feature = "mc")]
+            {
+                return self.npv_mc(market, as_of);
+            }
+            #[cfg(not(feature = "mc"))]
+            {
+                return Err(finstack_core::Error::Validation(
+                    "FxBarrierOption is configured for discrete monitoring correction \
+                     (use_gobet_miri=true), but Monte Carlo support is disabled. \
+                     Rebuild with feature `mc` or set use_gobet_miri=false for \
+                     continuous-monitoring analytical pricing."
+                        .to_string(),
+                ));
+            }
+        }
+
         use crate::instruments::fx::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer;
         use crate::pricer::Pricer;
 
@@ -526,5 +550,23 @@ mod tests {
         assert_eq!(option.strike.currency(), Currency::USD);
         assert_eq!(option.barrier.currency(), Currency::USD);
         assert_eq!(option.notional.currency(), Currency::EUR);
+    }
+
+    #[cfg(not(feature = "mc"))]
+    #[test]
+    fn value_rejects_discrete_mode_when_mc_disabled() {
+        let mut option = FxBarrierOption::example();
+        option.use_gobet_miri = true;
+        let market = finstack_core::market_data::context::MarketContext::new();
+        let err = crate::instruments::common_impl::traits::Instrument::value(
+            &option,
+            &market,
+            option.expiry,
+        )
+        .expect_err("discrete mode should fail without mc feature");
+        assert!(
+            format!("{err}").contains("use_gobet_miri=true"),
+            "Error should explain explicit discrete-mode requirement"
+        );
     }
 }

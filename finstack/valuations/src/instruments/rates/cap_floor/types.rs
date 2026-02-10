@@ -3,6 +3,8 @@
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, SettlementType};
+use crate::market::conventions::ids::IndexId;
+use crate::market::conventions::ConventionRegistry;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -266,6 +268,17 @@ impl InterestRateOption {
         self.vol_type = vol_type;
         self
     }
+
+    fn resolved_payment_lag_days(&self) -> i32 {
+        let Ok(registry) = ConventionRegistry::try_global() else {
+            return 0;
+        };
+        let idx = IndexId::new(self.forward_id.as_str());
+        registry
+            .require_rate_index(&idx)
+            .map(|conv| conv.default_payment_delay_days)
+            .unwrap_or(0)
+    }
 }
 
 impl crate::instruments::common_impl::traits::Instrument for InterestRateOption {
@@ -301,7 +314,9 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
         use crate::instruments::common_impl::pricing::time::{
             rate_period_on_dates, relative_df_discount_curve,
         };
-        use crate::instruments::rates::cap_floor::pricing::black as black_ir;
+        use crate::instruments::rates::cap_floor::pricing::{
+            black as black_ir, normal as normal_ir,
+        };
 
         // Get market curves
         let disc_curve = curves.get_discount(self.discount_curve_id.as_ref())?;
@@ -355,17 +370,34 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                 self.rate_option_type,
                 RateOptionType::Caplet | RateOptionType::Cap
             );
-            return black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
-                is_cap,
-                notional: self.notional.amount(),
-                strike: self.strike_rate,
-                forward,
-                discount_factor: df,
-                volatility: sigma,
-                time_to_fixing: t_fix,
-                accrual_year_fraction: tau,
-                currency: self.notional.currency(),
-            });
+            return match self.vol_type {
+                CapFloorVolType::Lognormal => {
+                    black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
+                        is_cap,
+                        notional: self.notional.amount(),
+                        strike: self.strike_rate,
+                        forward,
+                        discount_factor: df,
+                        volatility: sigma,
+                        time_to_fixing: t_fix,
+                        accrual_year_fraction: tau,
+                        currency: self.notional.currency(),
+                    })
+                }
+                CapFloorVolType::Normal => {
+                    normal_ir::price_caplet_floorlet(normal_ir::CapletFloorletInputs {
+                        is_cap,
+                        notional: self.notional.amount(),
+                        strike: self.strike_rate,
+                        forward,
+                        discount_factor: df,
+                        volatility: sigma,
+                        time_to_fixing: t_fix,
+                        accrual_year_fraction: tau,
+                        currency: self.notional.currency(),
+                    })
+                }
+            };
         }
 
         // Cap/floor portfolio of caplets/floorlets
@@ -382,7 +414,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                     .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
                 end_of_month: false,
                 day_count: self.day_count,
-                payment_lag_days: 0,
+                payment_lag_days: self.resolved_payment_lag_days(),
                 reset_lag_days: None,
             },
         )?;
@@ -430,17 +462,34 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             // Include ALL periods where payment_date > as_of, including
             // seasoned periods where fixing_date <= as_of < payment_date.
             // The Black formula handles t_fix <= 0 by computing intrinsic value.
-            let leg_pv = black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
-                is_cap,
-                notional: self.notional.amount(),
-                strike: self.strike_rate,
-                forward,
-                discount_factor: df,
-                volatility: sigma,
-                time_to_fixing: t_fix,
-                accrual_year_fraction: tau,
-                currency: self.notional.currency(),
-            })?;
+            let leg_pv = match self.vol_type {
+                CapFloorVolType::Lognormal => {
+                    black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
+                        is_cap,
+                        notional: self.notional.amount(),
+                        strike: self.strike_rate,
+                        forward,
+                        discount_factor: df,
+                        volatility: sigma,
+                        time_to_fixing: t_fix,
+                        accrual_year_fraction: tau,
+                        currency: self.notional.currency(),
+                    })?
+                }
+                CapFloorVolType::Normal => {
+                    normal_ir::price_caplet_floorlet(normal_ir::CapletFloorletInputs {
+                        is_cap,
+                        notional: self.notional.amount(),
+                        strike: self.strike_rate,
+                        forward,
+                        discount_factor: df,
+                        volatility: sigma,
+                        time_to_fixing: t_fix,
+                        accrual_year_fraction: tau,
+                        currency: self.notional.currency(),
+                    })?
+                }
+            };
             total_pv = total_pv.checked_add(leg_pv)?;
         }
 
@@ -708,5 +757,101 @@ mod tests {
             // Monotonicity: cap value decreases with strike, floor increases
             // (This is tested implicitly by comparing adjacent strikes)
         }
+    }
+
+    #[test]
+    fn normal_vol_type_handles_negative_forward() {
+        let base_date = date(2024, 1, 1);
+        let start_date = date(2024, 3, 1);
+        let end_date = date(2025, 3, 1);
+        let notional = Money::new(1_000_000.0, Currency::USD);
+
+        let mut ctx = test_market_context(base_date);
+        let neg_fwd = ForwardCurve::builder(CurveId::new("TEST-FWD-NEG"), 0.25)
+            .base_date(base_date)
+            .day_count(DayCount::Act360)
+            .knots(vec![
+                (0.0, -0.01),
+                (0.5, -0.008),
+                (1.0, -0.006),
+                (2.0, -0.004),
+            ])
+            .build()
+            .expect("negative forward curve should build");
+        ctx = ctx.insert_forward(neg_fwd);
+
+        // Build a floorlet with explicit negative forward via pricing override.
+        let mut normal_floorlet = InterestRateOption::new_floor(
+            "NORM-FLOORLET",
+            notional,
+            0.0,
+            start_date,
+            end_date,
+            Tenor::quarterly(),
+            DayCount::Act360,
+            "TEST-DISC",
+            "TEST-FWD-NEG",
+            "TEST-VOL",
+        )
+        .with_vol_type(CapFloorVolType::Normal);
+        normal_floorlet.pricing_overrides.implied_volatility = Some(0.005); // 50bp normal vol
+
+        let black_floorlet = normal_floorlet
+            .clone()
+            .with_vol_type(CapFloorVolType::Lognormal);
+
+        // This should succeed under normal model.
+        let normal_pv = normal_floorlet
+            .value(&ctx, base_date)
+            .expect("normal cap/floor pricing should succeed");
+        assert!(
+            normal_pv.amount().is_finite() && normal_pv.amount() >= 0.0,
+            "Normal cap/floor PV should be finite and non-negative"
+        );
+
+        // For black model the same negative forward should fail with a clear error.
+        let black_result = black_floorlet.value(&ctx, base_date);
+        assert!(
+            black_result.is_err(),
+            "Black model should reject non-positive forwards"
+        );
+    }
+
+    #[test]
+    fn payment_lag_resolution_uses_convention_or_fallback() {
+        let instrument_with_unknown_index = InterestRateOption::new_cap(
+            "CAP-LAG-UNKNOWN",
+            Money::new(1_000_000.0, Currency::USD),
+            0.04,
+            date(2024, 3, 1),
+            date(2025, 3, 1),
+            Tenor::quarterly(),
+            DayCount::Act360,
+            "TEST-DISC",
+            "DOES-NOT-EXIST",
+            "TEST-VOL",
+        );
+        assert_eq!(
+            instrument_with_unknown_index.resolved_payment_lag_days(),
+            0,
+            "Unknown index should fall back to zero lag for backward compatibility"
+        );
+
+        let instrument_with_convention = InterestRateOption::new_cap(
+            "CAP-LAG-CONVENTION",
+            Money::new(1_000_000.0, Currency::USD),
+            0.04,
+            date(2024, 3, 1),
+            date(2025, 3, 1),
+            Tenor::quarterly(),
+            DayCount::Act360,
+            "TEST-DISC",
+            "USD-SOFR-OIS",
+            "TEST-VOL",
+        );
+        assert!(
+            instrument_with_convention.resolved_payment_lag_days() >= 0,
+            "Convention-based lag should resolve to a non-negative business-day delay"
+        );
     }
 }

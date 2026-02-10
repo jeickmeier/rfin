@@ -5,5 +5,6 @@
 //! Black model helpers and registry integration.
 
 pub mod black;
+pub mod normal;
 /// Cap/floor pricer implementation
 pub(crate) mod pricer;

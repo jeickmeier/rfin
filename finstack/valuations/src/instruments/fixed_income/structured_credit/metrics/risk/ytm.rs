@@ -5,6 +5,43 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::DayCountCtx;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
+use serde::Deserialize;
+
+/// Extension key for structured-credit YTM settings.
+pub const STRUCTURED_CREDIT_YTM_CONFIG_KEY_V1: &str = "valuations.structured_credit.ytm.v1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum YtmCompounding {
+    Annual,
+    SemiAnnual,
+    Quarterly,
+    Monthly,
+}
+
+impl Default for YtmCompounding {
+    fn default() -> Self {
+        Self::Annual
+    }
+}
+
+impl YtmCompounding {
+    fn periods_per_year(self) -> f64 {
+        match self {
+            Self::Annual => 1.0,
+            Self::SemiAnnual => 2.0,
+            Self::Quarterly => 4.0,
+            Self::Monthly => 12.0,
+        }
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StructuredCreditYtmConfigV1 {
+    #[serde(default)]
+    compounding: Option<YtmCompounding>,
+}
 
 /// Calculates YTM (Yield to Maturity) for structured credit.
 ///
@@ -28,10 +65,6 @@ use finstack_core::Result;
 /// - **CLO**: Often quarterly (matching coupon frequency)
 /// - **CMBS**: Often semi-annual
 ///
-/// TODO: Make compounding frequency configurable via deal parameters or a
-/// `CompoundingFrequency` field so callers can select the appropriate
-/// convention for their asset class.
-///
 /// # Typical Yield Ranges
 ///
 /// - **ABS (fixed)**: 4-7% typical for AAA
@@ -45,6 +78,29 @@ use finstack_core::Result;
 /// because it properly accounts for the term structure of rates.
 ///
 pub struct YtmCalculator;
+
+impl YtmCalculator {
+    fn compounding_from_config(context: &MetricContext) -> finstack_core::Result<YtmCompounding> {
+        if let Some(raw) = context
+            .config()
+            .extensions
+            .get(STRUCTURED_CREDIT_YTM_CONFIG_KEY_V1)
+        {
+            let cfg: StructuredCreditYtmConfigV1 =
+                serde_json::from_value(raw.clone()).map_err(|e| {
+                    finstack_core::Error::Calibration {
+                        message: format!(
+                            "Failed to parse extension '{}': {}",
+                            STRUCTURED_CREDIT_YTM_CONFIG_KEY_V1, e
+                        ),
+                        category: "config".to_string(),
+                    }
+                })?;
+            return Ok(cfg.compounding.unwrap_or_default());
+        }
+        Ok(YtmCompounding::default())
+    }
+}
 
 impl MetricCalculator for YtmCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -76,9 +132,15 @@ impl MetricCalculator for YtmCalculator {
 
         // Day count for year fractions
         let day_count = finstack_core::dates::DayCount::Act365F;
+        let compounding = Self::compounding_from_config(context)?;
+        let periods_per_year = compounding.periods_per_year();
 
         // Objective function: PV(y) - target = 0
         let objective = |y: f64| -> f64 {
+            let base = 1.0 + y / periods_per_year;
+            if base <= 0.0 {
+                return f64::INFINITY;
+            }
             let mut pv = finstack_core::math::summation::NeumaierAccumulator::new();
             for (date, amount) in flows {
                 if *date <= context.as_of {
@@ -90,7 +152,7 @@ impl MetricCalculator for YtmCalculator {
                     .unwrap_or(0.0);
 
                 if t > 0.0 {
-                    let df = (1.0 + y).powf(-t);
+                    let df = base.powf(-periods_per_year * t);
                     pv.add(amount.amount() * df);
                 }
             }
@@ -109,5 +171,33 @@ impl MetricCalculator for YtmCalculator {
 
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::DirtyPrice]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ytm_compounding_periods_per_year() {
+        assert_eq!(YtmCompounding::Annual.periods_per_year(), 1.0);
+        assert_eq!(YtmCompounding::SemiAnnual.periods_per_year(), 2.0);
+        assert_eq!(YtmCompounding::Quarterly.periods_per_year(), 4.0);
+        assert_eq!(YtmCompounding::Monthly.periods_per_year(), 12.0);
+    }
+
+    #[test]
+    fn ytm_config_deserializes_compounding() {
+        let raw = serde_json::json!({ "compounding": "quarterly" });
+        let parsed: std::result::Result<StructuredCreditYtmConfigV1, _> =
+            serde_json::from_value(raw);
+        assert!(
+            parsed.is_ok(),
+            "config should deserialize, got {:?}",
+            parsed.err()
+        );
+        if let Ok(cfg) = parsed {
+            assert_eq!(cfg.compounding, Some(YtmCompounding::Quarterly));
+        }
     }
 }

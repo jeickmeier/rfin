@@ -417,6 +417,7 @@ impl PyEquityTotalReturnSwapBuilder {
             side: slf.side.unwrap(),
             initial_level: slf.initial_level,
             dividend_tax_rate: 0.0, // Default: no withholding tax
+            discrete_dividends: Vec::new(),
             attributes: Attributes::new(),
             margin_spec: None,
         };

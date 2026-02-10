@@ -8,7 +8,7 @@
 
 ## Methodology & References
 
-- Black (1976) lognormal model for caplet/floorlet pricing and Greeks (`pricing/black.rs`).
+- Black (1976) lognormal model and Bachelier normal model for caplet/floorlet pricing (`pricing/black.rs`, `pricing/normal.rs`).
 - Deterministic projection of forward rates with discounting from the chosen curve; no stochastic rates beyond the supplied curves.
 - Conventions follow ISDA interest-rate option market standards (Act/360, modified following, IMM-style stubs).
 
@@ -36,14 +36,14 @@ let pv = cap.value(&market_context, Date::from_calendar_date(2024, Month::Januar
 
 ## Limitations / Known Issues
 
-- Pricing assumes European exercise and Black lognormal dynamics; no Bachelier/normal or displaced-diffusion variants.
+- Pricing assumes European exercise; displaced-diffusion and SABR-local-vol hybrid dynamics are not included.
 - Volatility smile handled only through the supplied surface; no stochastic volatility or SABR inside the pricer.
 - Does not include convexity adjustments for futures-style margined underlyings.
 
 ## Pricing Methodology
 
 - Projects forward rates on the specified forward curve and discounts on the chosen discount curve.
-- Prices each caplet/floorlet via Black (1976) using surface or override vol; aggregates across schedule with day-count accruals.
+- Routes by `vol_type`: Black (lognormal) for `Lognormal`, Bachelier for `Normal`, then aggregates caplets/floorlets across schedule.
 - Handles stubs/BDC/holiday adjustments via schedule parameters; supports cash settlement.
 
 ## Metrics
@@ -54,6 +54,6 @@ let pv = cap.value(&market_context, Date::from_calendar_date(2024, Month::Januar
 
 ## Future Enhancements
 
-- Add Bachelier/normal and displaced-diffusion pricing paths for low-rate regimes.
+- Add displaced-diffusion pricing path for shifted/lognormal low-rate regimes.
 - Support SABR/shifted-lognormal smile integration for more accurate vol skews.
 - Include gamma/volga analytics and callable-cap style optionality extensions.

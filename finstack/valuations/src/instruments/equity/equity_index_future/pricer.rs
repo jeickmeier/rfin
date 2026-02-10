@@ -197,6 +197,42 @@ mod tests {
     }
 
     #[test]
+    fn test_discrete_dividends_reduce_fair_value() {
+        let pricer = EquityIndexFutureDiscountingPricer::new();
+        let future_no_divs = create_test_future_without_quoted_price();
+        let mut future_with_divs = create_test_future_without_quoted_price();
+        future_with_divs.discrete_dividends = vec![
+            (
+                Date::from_calendar_date(2025, Month::March, 15).expect("valid date"),
+                20.0,
+            ),
+            (
+                Date::from_calendar_date(2025, Month::May, 15).expect("valid date"),
+                20.0,
+            ),
+        ];
+
+        let market = create_test_market();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+
+        let pv_no_divs = pricer
+            .price_dyn(&future_no_divs, &market, as_of)
+            .expect("pricing without discrete dividends")
+            .value
+            .amount();
+        let pv_with_divs = pricer
+            .price_dyn(&future_with_divs, &market, as_of)
+            .expect("pricing with discrete dividends")
+            .value
+            .amount();
+
+        assert!(
+            pv_with_divs < pv_no_divs,
+            "Discrete dividends should reduce fair forward and PV"
+        );
+    }
+
+    #[test]
     fn test_expired_future_zero_value() {
         let pricer = EquityIndexFutureDiscountingPricer::new();
         let future = create_test_future_with_quoted_price();

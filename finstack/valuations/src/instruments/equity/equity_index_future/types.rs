@@ -255,6 +255,13 @@ pub struct EquityIndexFuture {
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dividend_yield_id: Option<String>,
+    /// Optional discrete cash dividend schedule `(ex_date, amount)` for index carry.
+    ///
+    /// When non-empty, fair forward pricing uses PV spot adjustment and treats
+    /// continuous dividend yield as zero to avoid double counting.
+    #[builder(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub discrete_dividends: Vec<(Date, f64)>,
     /// Attributes for tagging and selection.
     #[builder(default)]
     pub attributes: Attributes,
@@ -479,10 +486,32 @@ impl EquityIndexFuture {
         // Get risk-free rate
         let r = disc.zero(t);
 
-        // Get dividend yield (validated: must be Unitless)
-        let q = self.resolve_dividend_yield(context)?;
+        // If discrete dividends are provided, use spot-adjustment method and zero q.
+        if !self.discrete_dividends.is_empty() {
+            let day_count = DayCount::Act365F;
+            let mut future_divs = Vec::new();
+            for (div_date, amount) in &self.discrete_dividends {
+                if *div_date <= as_of
+                    || *div_date > self.expiry_date
+                    || !amount.is_finite()
+                    || *amount <= 0.0
+                {
+                    continue;
+                }
+                let t_div = day_count
+                    .year_fraction(as_of, *div_date, DayCountCtx::default())?
+                    .max(0.0);
+                future_divs.push((t_div, *amount));
+            }
+            let spot_adj =
+                crate::instruments::equity::equity_option::pricer::adjust_spot_for_discrete_dividends(
+                    spot, r, &future_divs,
+                );
+            return Ok(spot_adj * (r * t).exp());
+        }
 
-        // F = S₀ × exp((r - q) × T)
+        // Fallback to continuous dividend yield carry model.
+        let q = self.resolve_dividend_yield(context)?;
         Ok(spot * ((r - q) * t).exp())
     }
 }

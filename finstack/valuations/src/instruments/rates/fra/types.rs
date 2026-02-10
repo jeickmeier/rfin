@@ -7,6 +7,8 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
+use crate::market::conventions::ids::IndexId;
+use crate::market::conventions::ConventionRegistry;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{adjust, BusinessDayConvention, CalendarRegistry, Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -183,6 +185,20 @@ impl ForwardRateAgreement {
         Ok(())
     }
 
+    fn resolved_fixing_calendar_id(&self) -> Option<String> {
+        if let Some(id) = &self.fixing_calendar_id {
+            return Some(id.clone());
+        }
+        let Ok(registry) = ConventionRegistry::try_global() else {
+            return None;
+        };
+        let index_id = IndexId::new(self.forward_id.as_str());
+        registry
+            .require_rate_index(&index_id)
+            .ok()
+            .map(|conv| conv.market_calendar_id.clone())
+    }
+
     /// Create a canonical example FRA for testing and documentation.
     ///
     /// Returns a 3x6 FRA (3 months forward, 3 month tenor).
@@ -237,9 +253,10 @@ impl ForwardRateAgreement {
                 let bdc = self
                     .fixing_bdc
                     .unwrap_or(BusinessDayConvention::ModifiedFollowing);
+                let resolved_cal_id = self.resolved_fixing_calendar_id();
 
                 // Compute base fixing date by subtracting reset_lag business days
-                let base_fixing_date = if let Some(cal_id) = self.fixing_calendar_id.as_deref() {
+                let base_fixing_date = if let Some(cal_id) = resolved_cal_id.as_deref() {
                     if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
                         // Use calendar-aware business day subtraction
                         self.start_date.add_business_days(-(self.reset_lag), cal)?
@@ -248,17 +265,21 @@ impl ForwardRateAgreement {
                         tracing::warn!(
                             instrument_id = %self.id.as_str(),
                             calendar_id = cal_id,
-                            "FRA fixing calendar not found; using weekday-only reset lag"
+                            "FRA fixing calendar not found; using degraded weekday-only reset lag"
                         );
                         self.start_date.add_weekdays(-(self.reset_lag))
                     }
                 } else {
-                    // No calendar specified - use weekday-only (Mon-Fri) subtraction
+                    tracing::warn!(
+                        instrument_id = %self.id.as_str(),
+                        forward_curve_id = %self.forward_id.as_str(),
+                        "FRA fixing calendar could not be resolved from explicit fixing_calendar_id or market conventions; using degraded weekday-only reset lag"
+                    );
                     self.start_date.add_weekdays(-(self.reset_lag))
                 };
 
                 // Apply business day convention adjustment to the resulting date
-                if let Some(cal_id) = self.fixing_calendar_id.as_deref() {
+                if let Some(cal_id) = resolved_cal_id.as_deref() {
                     if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
                         adjust(base_fixing_date, bdc, cal)?
                     } else {

@@ -12,6 +12,25 @@ use finstack_core::types::{CurveId, InstrumentId};
 // Re-export Position from ir_future module
 pub use crate::instruments::rates::ir_future::Position;
 
+/// Day-count basis used to annualize implied repo rates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RepoDayCountBasis {
+    /// ACT/360 convention (common in USD and EUR money markets)
+    Act360,
+    /// ACT/365 convention (common in GBP money markets)
+    Act365,
+}
+
+impl RepoDayCountBasis {
+    fn annualization_denominator(self) -> f64 {
+        match self {
+            Self::Act360 => 360.0,
+            Self::Act365 => 365.0,
+        }
+    }
+}
+
 /// A bond in the deliverable basket with its conversion factor.
 ///
 /// Each bond future contract has a basket of deliverable bonds that can be delivered
@@ -92,10 +111,17 @@ pub struct BondFutureSpecs {
     /// Use "target2" for European government bond futures.
     #[serde(default = "default_calendar_id")]
     pub calendar_id: String,
+    /// Day-count basis for implied repo rate annualization.
+    #[serde(default = "default_repo_day_count_basis")]
+    pub repo_day_count_basis: RepoDayCountBasis,
 }
 
 fn default_calendar_id() -> String {
     "nyse".to_string()
+}
+
+fn default_repo_day_count_basis() -> RepoDayCountBasis {
+    RepoDayCountBasis::Act360
 }
 
 impl Default for BondFutureSpecs {
@@ -118,6 +144,7 @@ impl Default for BondFutureSpecs {
             standard_maturity_years: 10.0,
             settlement_days: 2,
             calendar_id: "nyse".to_string(),
+            repo_day_count_basis: RepoDayCountBasis::Act360,
         }
     }
 }
@@ -189,6 +216,7 @@ impl BondFutureSpecs {
             standard_maturity_years: 5.0,
             settlement_days: 2,
             calendar_id: "nyse".to_string(),
+            repo_day_count_basis: RepoDayCountBasis::Act360,
         }
     }
 
@@ -228,6 +256,7 @@ impl BondFutureSpecs {
             standard_maturity_years: 2.0,
             settlement_days: 2,
             calendar_id: "nyse".to_string(),
+            repo_day_count_basis: RepoDayCountBasis::Act360,
         }
     }
 
@@ -273,6 +302,7 @@ impl BondFutureSpecs {
             standard_maturity_years: 10.0,
             settlement_days: 2,
             calendar_id: "target2".to_string(), // European settlement calendar
+            repo_day_count_basis: RepoDayCountBasis::Act360,
         }
     }
 
@@ -319,6 +349,7 @@ impl BondFutureSpecs {
             standard_maturity_years: 10.0,
             settlement_days: 2,
             calendar_id: "gblo".to_string(), // London settlement calendar
+            repo_day_count_basis: RepoDayCountBasis::Act365,
         }
     }
 }
@@ -1431,12 +1462,13 @@ impl BondFuture {
         // Invoice price at delivery
         let invoice_price = (self.quoted_price * cf) + accrued_at_delivery;
 
-        // Implied repo rate (money market convention: ACT/360)
-        // NOTE: 360-day basis is the US convention (ACT/360). For non-USD markets
-        // (e.g., GBP Gilts use ACT/365), this should be configurable.
-        // TODO: Make repo day count basis configurable for non-USD markets.
+        // Implied repo rate annualization uses contract-specific day-count basis.
+        let annualization_basis = self
+            .contract_specs
+            .repo_day_count_basis
+            .annualization_denominator();
         let holding_period_return = (invoice_price / purchase_price) - 1.0;
-        let annualized = holding_period_return * (360.0 / days_to_delivery as f64);
+        let annualized = holding_period_return * (annualization_basis / days_to_delivery as f64);
 
         Ok(annualized)
     }
@@ -1534,6 +1566,7 @@ mod tests {
         assert_eq!(specs.standard_coupon, 0.06);
         assert_eq!(specs.standard_maturity_years, 10.0);
         assert_eq!(specs.settlement_days, 2);
+        assert_eq!(specs.repo_day_count_basis, RepoDayCountBasis::Act360);
     }
 
     #[test]
@@ -1578,6 +1611,7 @@ mod tests {
         assert_eq!(specs.standard_coupon, 0.04); // Different from UST/Bund
         assert_eq!(specs.standard_maturity_years, 10.0);
         assert_eq!(specs.settlement_days, 2);
+        assert_eq!(specs.repo_day_count_basis, RepoDayCountBasis::Act365);
     }
 
     #[test]

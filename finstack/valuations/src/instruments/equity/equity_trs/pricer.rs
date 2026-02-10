@@ -68,8 +68,8 @@ struct EquityReturnModel<'a> {
 impl TrsReturnModel for EquityReturnModel<'_> {
     fn period_return(
         &self,
-        _period_start: Date,
-        _period_end: Date,
+        period_start: Date,
+        period_end: Date,
         t_start: f64,
         t_end: f64,
         initial_level: f64,
@@ -79,10 +79,17 @@ impl TrsReturnModel for EquityReturnModel<'_> {
         let df_start = disc.df(t_start);
         let df_end = disc.df(t_end);
 
+        let uses_discrete_dividends = !self.trs.discrete_dividends.is_empty();
+        let carry_div_yield = if uses_discrete_dividends {
+            0.0
+        } else {
+            self.div_yield
+        };
+
         // Price return component (Forward Price change)
         // F_t = S_0 * e^{(r-q)t}
-        let fwd_start = initial_level * df_start.recip() * (-self.div_yield * t_start).exp();
-        let fwd_end = initial_level * df_end.recip() * (-self.div_yield * t_end).exp();
+        let fwd_start = initial_level * df_start.recip() * (-carry_div_yield * t_start).exp();
+        let fwd_end = initial_level * df_end.recip() * (-carry_div_yield * t_end).exp();
         let price_return = (fwd_end - fwd_start) / fwd_start;
 
         // Dividend return component (Income), net of withholding tax
@@ -93,7 +100,28 @@ impl TrsReturnModel for EquityReturnModel<'_> {
         // When dividend_tax_rate > 0.0, this is a Net TRS (reduced by withholding)
         let dt = t_end - t_start;
         let tax_rate = self.trs.dividend_tax_rate.clamp(0.0, 1.0);
-        let dividend_return = self.div_yield * dt * (1.0 - tax_rate);
+        let dividend_return = if uses_discrete_dividends {
+            // Sum discrete dividends paid in the period, normalized by start forward level.
+            let gross_divs: f64 = self
+                .trs
+                .discrete_dividends
+                .iter()
+                .filter(|(div_date, amount)| {
+                    *div_date > period_start
+                        && *div_date <= period_end
+                        && amount.is_finite()
+                        && *amount > 0.0
+                })
+                .map(|(_, amount)| *amount)
+                .sum();
+            if fwd_start.abs() > 1e-12 {
+                (gross_divs / fwd_start) * (1.0 - tax_rate)
+            } else {
+                0.0
+            }
+        } else {
+            self.div_yield * dt * (1.0 - tax_rate)
+        };
 
         Ok(price_return + dividend_return)
     }

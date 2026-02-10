@@ -119,17 +119,17 @@ impl PyBondFutureSpecs {
         settlement_days: u32,
         calendar_id: String,
     ) -> Self {
-        Self {
-            inner: BondFutureSpecs {
-                contract_size,
-                tick_size,
-                tick_value,
-                standard_coupon,
-                standard_maturity_years,
-                settlement_days,
-                calendar_id,
-            },
-        }
+        let specs = BondFutureSpecs {
+            contract_size,
+            tick_size,
+            tick_value,
+            standard_coupon,
+            standard_maturity_years,
+            settlement_days,
+            calendar_id,
+            ..BondFutureSpecs::default()
+        };
+        Self { inner: specs }
     }
 
     /// Contract size (face value per contract).

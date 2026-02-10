@@ -257,6 +257,7 @@ impl JsEquityTotalReturnSwapBuilder {
             side,
             initial_level: self.initial_level,
             dividend_tax_rate: 0.0, // Default: no withholding tax
+            discrete_dividends: Vec::new(),
             attributes: Default::default(),
             margin_spec: None,
         };
@@ -309,6 +310,7 @@ impl JsEquityTotalReturnSwap {
             side,
             initial_level,
             dividend_tax_rate: 0.0, // Default: no withholding tax
+            discrete_dividends: Vec::new(),
             attributes: Default::default(),
             margin_spec: None,
         };

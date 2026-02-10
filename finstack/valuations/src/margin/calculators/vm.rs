@@ -4,9 +4,11 @@
 //! threshold, MTA, and rounding rules.
 
 use crate::margin::types::{CsaSpec, MarginCall, MarginTenor};
-use finstack_core::dates::Date;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt};
 use finstack_core::money::Money;
 use finstack_core::Result;
+use time::Month;
 
 /// Variation margin calculation result.
 #[derive(Debug, Clone, PartialEq)]
@@ -92,6 +94,63 @@ pub struct VmCalculator {
 }
 
 impl VmCalculator {
+    fn default_calendar_id_for_currency(currency: Currency) -> &'static str {
+        match currency {
+            Currency::USD => "USNY",
+            Currency::EUR => "TARGET2",
+            Currency::GBP => "GBLO",
+            Currency::JPY => "JPTO",
+            Currency::CHF => "CHZU",
+            Currency::CAD => "CATO",
+            Currency::AUD => "AUSY",
+            _ => crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
+        }
+    }
+
+    fn calendar_for_csa(&self) -> Option<&'static dyn finstack_core::dates::HolidayCalendar> {
+        let cal_id = Self::default_calendar_id_for_currency(self.csa.base_currency);
+        CalendarRegistry::global().resolve_str(cal_id)
+    }
+
+    fn add_business_days(&self, date: Date, days: i32) -> Date {
+        if days == 0 {
+            return date;
+        }
+        if let Some(cal) = self.calendar_for_csa() {
+            if let Ok(d) = date.add_business_days(days, cal) {
+                return d;
+            }
+        }
+        date.add_weekdays(days)
+    }
+
+    fn adjust_to_business_day(&self, date: Date) -> Date {
+        if let Some(cal) = self.calendar_for_csa() {
+            return adjust(date, BusinessDayConvention::Following, cal).unwrap_or(date);
+        }
+        date
+    }
+
+    fn add_month_clamped(&self, date: Date) -> Date {
+        let (y, m, d) = date.to_calendar_date();
+        let m_num = m as i32;
+        let mut target_year = y;
+        let mut target_month = m_num + 1;
+        if target_month > 12 {
+            target_month = 1;
+            target_year += 1;
+        }
+        let month = Month::try_from(target_month as u8).unwrap_or(Month::December);
+        let mut day = d;
+        loop {
+            if let Ok(candidate) = Date::from_calendar_date(target_year, month, day) {
+                return self.adjust_to_business_day(candidate);
+            }
+            // Clamp to last valid day of month
+            day = u8::try_from((day as i32 - 1).max(1)).unwrap_or(1);
+        }
+    }
+
     /// Create a new VM calculator with the given CSA specification.
     #[must_use]
     pub fn new(csa: CsaSpec) -> Self {
@@ -212,24 +271,19 @@ impl VmCalculator {
     /// Generate margin call dates based on frequency.
     pub fn margin_call_dates(&self, start: Date, end: Date) -> Vec<Date> {
         let mut dates = Vec::new();
-        let mut current = start;
+        let adjusted_start = self.adjust_to_business_day(start);
+        let mut current = adjusted_start;
 
         while current <= end {
             dates.push(current);
             current = match self.csa.vm_params.frequency {
-                MarginTenor::Daily => {
-                    // Add 1 day (simplified - should use calendar)
-                    current + time::Duration::days(1)
-                }
-                MarginTenor::Weekly => current + time::Duration::weeks(1),
-                MarginTenor::Monthly => {
-                    // Add approximately 1 month
-                    current + time::Duration::days(30)
-                }
+                MarginTenor::Daily => self.add_business_days(current, 1),
+                MarginTenor::Weekly => self.add_business_days(current, 5),
+                MarginTenor::Monthly => self.add_month_clamped(current),
                 MarginTenor::OnDemand => {
                     // For on-demand, just return start and end
-                    if current == start {
-                        end
+                    if current == adjusted_start {
+                        self.adjust_to_business_day(end)
                     } else {
                         break;
                     }
@@ -242,9 +296,8 @@ impl VmCalculator {
 
     /// Calculate settlement date based on lag.
     fn calculate_settlement_date(&self, call_date: Date) -> Result<Date> {
-        // Simplified: add business days (should use calendar)
-        let lag = self.csa.vm_params.settlement_lag as i64;
-        Ok(call_date + time::Duration::days(lag))
+        let lag = self.csa.vm_params.settlement_lag as i32;
+        Ok(self.add_business_days(call_date, lag))
     }
 }
 
@@ -400,5 +453,33 @@ mod tests {
         assert_eq!(calls[0].call_type, MarginCallType::VariationMarginDelivery);
         assert_eq!(calls[1].call_type, MarginCallType::VariationMarginDelivery);
         assert_eq!(calls[2].call_type, MarginCallType::VariationMarginReturn);
+    }
+
+    #[test]
+    fn settlement_lag_uses_business_days() {
+        let csa = CsaSpec::usd_regulatory(); // settlement_lag = 1
+        let calc = VmCalculator::new(csa);
+        let friday = test_date(2025, 1, 10);
+        let exposure = Money::new(1_000_000.0, Currency::USD);
+        let posted = Money::new(0.0, Currency::USD);
+
+        let result = calc.calculate(exposure, posted, friday).expect("calc ok");
+        // T+1 business day from Friday should be Monday.
+        assert_eq!(result.settlement_date, test_date(2025, 1, 13));
+    }
+
+    #[test]
+    fn daily_margin_call_dates_skip_weekends() {
+        let csa = CsaSpec::usd_regulatory();
+        let calc = VmCalculator::new(csa);
+        let dates = calc.margin_call_dates(test_date(2025, 1, 10), test_date(2025, 1, 14));
+        assert_eq!(
+            dates,
+            vec![
+                test_date(2025, 1, 10),
+                test_date(2025, 1, 13),
+                test_date(2025, 1, 14)
+            ]
+        );
     }
 }

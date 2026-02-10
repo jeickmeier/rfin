@@ -182,16 +182,36 @@ impl crate::instruments::common_impl::traits::Instrument for BarrierOption {
         )
     }
 
-    /// Compute the present value using the analytical (continuous monitoring) pricer.
+    /// Compute the present value with explicit monitoring semantics.
     ///
-    /// **Note**: This uses continuous monitoring Reiner-Rubinstein formulas regardless
-    /// of the `use_gobet_miri` setting. For discrete-monitoring-corrected prices,
-    /// use [`npv_mc()`](BarrierOption::npv_mc) instead.
+    /// Dispatch rules:
+    /// - `use_gobet_miri = false` -> analytical continuous-monitoring pricer
+    /// - `use_gobet_miri = true` -> MC discrete-monitoring-corrected pricer
+    ///
+    /// If `use_gobet_miri = true` but the crate is built without the `mc` feature,
+    /// this returns an error instead of silently falling back to continuous pricing.
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        if self.use_gobet_miri {
+            #[cfg(feature = "mc")]
+            {
+                return self.npv_mc(market, as_of);
+            }
+            #[cfg(not(feature = "mc"))]
+            {
+                return Err(finstack_core::Error::Validation(
+                    "BarrierOption is configured for discrete monitoring correction \
+                     (use_gobet_miri=true), but Monte Carlo support is disabled. \
+                     Rebuild with feature `mc` or set use_gobet_miri=false for \
+                     continuous-monitoring analytical pricing."
+                        .to_string(),
+                ));
+            }
+        }
+
         use crate::instruments::exotics::barrier_option::pricer::BarrierOptionAnalyticalPricer;
         use crate::pricer::Pricer;
 
@@ -222,5 +242,24 @@ impl crate::instruments::common_impl::traits::Instrument for BarrierOption {
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         None
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    #[cfg(not(feature = "mc"))]
+    #[test]
+    fn value_rejects_discrete_mode_when_mc_disabled() {
+        let option = super::BarrierOption::example();
+        let market = finstack_core::market_data::context::MarketContext::new();
+        let as_of = option.expiry;
+        let err =
+            crate::instruments::common_impl::traits::Instrument::value(&option, &market, as_of)
+                .expect_err("discrete mode should fail without mc feature");
+        assert!(
+            format!("{err}").contains("use_gobet_miri=true"),
+            "Error should explain explicit discrete-mode requirement"
+        );
     }
 }

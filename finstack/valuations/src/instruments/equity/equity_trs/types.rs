@@ -87,6 +87,13 @@ pub struct EquityTotalReturnSwap {
     #[serde(default)]
     #[builder(default)]
     pub dividend_tax_rate: f64,
+    /// Optional discrete cash dividends `(ex_date, amount)` for the underlying.
+    ///
+    /// When non-empty, pricing uses explicit period dividend pass-through and does
+    /// not add continuous-yield dividend return to avoid double counting.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[builder(default)]
+    pub discrete_dividends: Vec<(Date, f64)>,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
 }
@@ -197,11 +204,14 @@ impl EquityTotalReturnSwap {
     /// Returns an error if validation fails.
     fn validate(&self) -> Result<()> {
         // Warn if dividend_tax_rate is set but no dividend yield is provided
-        if self.dividend_tax_rate > 0.0 && self.underlying.div_yield_id.is_none() {
+        if self.dividend_tax_rate > 0.0
+            && self.underlying.div_yield_id.is_none()
+            && self.discrete_dividends.is_empty()
+        {
             return Err(finstack_core::Error::Validation(format!(
                 "EquityTRS '{}' has dividend_tax_rate={:.2}% but no div_yield_id is set. \
                  Set underlying.div_yield_id to enable dividend return calculation, \
-                 or set dividend_tax_rate to 0.0 if dividends are not applicable.",
+                 provide discrete_dividends, or set dividend_tax_rate to 0.0 if dividends are not applicable.",
                 self.id.as_str(),
                 self.dividend_tax_rate * 100.0
             )));
