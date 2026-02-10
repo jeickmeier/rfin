@@ -345,6 +345,8 @@ pub struct Ndf {
 }
 
 impl Ndf {
+    const MIN_POSITIVE_RATE: f64 = 1.0e-12;
+
     /// Create a canonical example NDF for testing and documentation.
     ///
     /// Returns a 3-month USD/CNY NDF with realistic parameters.
@@ -462,7 +464,9 @@ impl Ndf {
         fixing_offset_days: i64,
         bdc: finstack_core::dates::BusinessDayConvention,
     ) -> finstack_core::Result<Self> {
-        use crate::instruments::common_impl::fx_dates::{adjust_joint_calendar, roll_spot_date};
+        use crate::instruments::common_impl::fx_dates::{
+            adjust_joint_calendar, roll_spot_date, ResolvedCalendarPair,
+        };
 
         let spot_date = roll_spot_date(
             trade_date,
@@ -479,8 +483,29 @@ impl Ndf {
             settlement_calendar_id.as_deref(),
         )?;
 
-        // Fixing date is typically T-2 before maturity
-        let fixing_unadjusted = maturity_date - time::Duration::days(fixing_offset_days);
+        // Fixing date is typically T-2 before maturity using joint-business-day stepping.
+        let joint_cal = ResolvedCalendarPair::resolve(
+            base_calendar_id.as_deref(),
+            settlement_calendar_id.as_deref(),
+        )?;
+        let mut fixing_unadjusted = maturity_date;
+        if fixing_offset_days >= 0 {
+            let mut remaining = fixing_offset_days as u32;
+            while remaining > 0 {
+                fixing_unadjusted -= time::Duration::days(1);
+                if joint_cal.is_joint_business_day(fixing_unadjusted) {
+                    remaining -= 1;
+                }
+            }
+        } else {
+            let n_days = u32::try_from(fixing_offset_days.unsigned_abs()).map_err(|_| {
+                finstack_core::Error::Validation(format!(
+                    "NDF fixing_offset_days magnitude too large: {}",
+                    fixing_offset_days
+                ))
+            })?;
+            fixing_unadjusted = joint_cal.add_joint_business_days(fixing_unadjusted, n_days)?;
+        }
         let fixing_date = adjust_joint_calendar(
             fixing_unadjusted,
             finstack_core::dates::BusinessDayConvention::Preceding,
@@ -596,6 +621,17 @@ impl Ndf {
         self.quote_convention = convention;
         self
     }
+
+    #[inline]
+    fn validate_rate(name: &str, rate: f64) -> Result<()> {
+        if !rate.is_finite() || rate <= Self::MIN_POSITIVE_RATE {
+            return Err(finstack_core::Error::Validation(format!(
+                "NDF invalid {name}: {rate}. Must be finite and > {}",
+                Self::MIN_POSITIVE_RATE
+            )));
+        }
+        Ok(())
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for Ndf {
@@ -655,6 +691,14 @@ impl crate::instruments::common_impl::traits::Instrument for Ndf {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        Self::validate_rate("contract_rate", self.contract_rate)?;
+        if let Some(rate) = self.fixing_rate {
+            Self::validate_rate("fixing_rate", rate)?;
+        }
+        if let Some(rate) = self.spot_rate_override {
+            Self::validate_rate("spot_rate_override", rate)?;
+        }
+
         // If maturity has passed, value is zero
         if self.maturity_date < as_of {
             return Ok(Money::new(0.0, self.settlement_currency));
@@ -679,6 +723,7 @@ impl crate::instruments::common_impl::traits::Instrument for Ndf {
             // Pre-fixing: estimate forward rate
             self.estimate_forward_rate(market, as_of)?
         };
+        Self::validate_rate("effective_forward", effective_forward)?;
 
         // Validate notional currency
         if self.notional.currency() != self.base_currency {
@@ -736,6 +781,7 @@ impl crate::instruments::common_impl::traits::Instrument for Ndf {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common_impl::traits::Instrument;
     use time::Month;
 
     #[test]
@@ -1115,5 +1161,64 @@ mod tests {
             .expect("should build");
 
         assert_eq!(ndf_enum.effective_fixing_source(), Some("PBOC".to_string()));
+    }
+
+    #[test]
+    fn test_ndf_invalid_contract_rate_errors() {
+        let ndf = Ndf::builder()
+            .id(InstrumentId::new("USDCNY"))
+            .base_currency(Currency::CNY)
+            .settlement_currency(Currency::USD)
+            .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
+            .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+            .notional(Money::new(10_000_000.0, Currency::CNY))
+            .contract_rate(0.0)
+            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
+            .attributes(Attributes::new())
+            .build()
+            .expect("builder allows economic validation at valuation time");
+
+        let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let err = ndf
+            .value(
+                &finstack_core::market_data::context::MarketContext::new(),
+                as_of,
+            )
+            .expect_err("invalid contract rate should fail");
+        assert!(
+            err.to_string().contains("contract_rate"),
+            "error should mention contract_rate: {err}"
+        );
+    }
+
+    #[test]
+    fn test_ndf_invalid_fixing_rate_errors() {
+        let ndf = Ndf::builder()
+            .id(InstrumentId::new("USDCNY"))
+            .base_currency(Currency::CNY)
+            .settlement_currency(Currency::USD)
+            .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
+            .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+            .notional(Money::new(10_000_000.0, Currency::CNY))
+            .contract_rate(7.25)
+            .fixing_rate_opt(Some(f64::INFINITY))
+            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
+            .attributes(Attributes::new())
+            .build()
+            .expect("builder allows economic validation at valuation time");
+
+        let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let err = ndf
+            .value(
+                &finstack_core::market_data::context::MarketContext::new(),
+                as_of,
+            )
+            .expect_err("invalid fixing rate should fail");
+        assert!(
+            err.to_string().contains("fixing_rate"),
+            "error should mention fixing_rate: {err}"
+        );
     }
 }

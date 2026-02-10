@@ -119,10 +119,26 @@ impl VmParameters {
     ///
     /// The net margin amount to be delivered (positive) or returned (negative).
     /// Returns zero if the amount is below MTA.
-    pub fn calculate_margin_call(&self, exposure: Money, current_collateral: Money) -> Money {
-        // Ensure same currency
-        debug_assert_eq!(exposure.currency(), self.threshold.currency());
-        debug_assert_eq!(current_collateral.currency(), self.threshold.currency());
+    pub fn calculate_margin_call(
+        &self,
+        exposure: Money,
+        current_collateral: Money,
+    ) -> Result<Money> {
+        // Prevent silent currency mixing in release builds.
+        if exposure.currency() != self.threshold.currency() {
+            return Err(finstack_core::Error::Validation(format!(
+                "VM exposure currency mismatch: expected {}, got {}",
+                self.threshold.currency(),
+                exposure.currency()
+            )));
+        }
+        if current_collateral.currency() != self.threshold.currency() {
+            return Err(finstack_core::Error::Validation(format!(
+                "VM collateral currency mismatch: expected {}, got {}",
+                self.threshold.currency(),
+                current_collateral.currency()
+            )));
+        }
 
         let currency = exposure.currency();
 
@@ -139,11 +155,11 @@ impl VmParameters {
         // Apply MTA
         let mta_amount = self.mta.amount();
         if credit_support_amount.abs() < mta_amount {
-            return Money::new(0.0, currency);
+            return Ok(Money::new(0.0, currency));
         }
 
         // Apply rounding
-        self.round_to_nearest(Money::new(credit_support_amount, currency))
+        Ok(self.round_to_nearest(Money::new(credit_support_amount, currency)))
     }
 
     /// Round an amount to the nearest rounding increment.
@@ -326,17 +342,23 @@ mod tests {
         // Exposure below threshold: no margin call
         let exposure = Money::new(500_000.0, Currency::USD);
         let collateral = Money::new(0.0, Currency::USD);
-        let call = params.calculate_margin_call(exposure, collateral);
+        let call = params
+            .calculate_margin_call(exposure, collateral)
+            .expect("matching currencies should succeed");
         assert_eq!(call, Money::new(0.0, Currency::USD));
 
         // Exposure above threshold: margin call
         let exposure = Money::new(2_000_000.0, Currency::USD);
-        let call = params.calculate_margin_call(exposure, collateral);
+        let call = params
+            .calculate_margin_call(exposure, collateral)
+            .expect("matching currencies should succeed");
         assert_eq!(call, Money::new(1_000_000.0, Currency::USD)); // 2M - 1M threshold
 
         // Amount below MTA: no call
         let exposure = Money::new(1_050_000.0, Currency::USD);
-        let call = params.calculate_margin_call(exposure, collateral);
+        let call = params
+            .calculate_margin_call(exposure, collateral)
+            .expect("matching currencies should succeed");
         assert_eq!(call, Money::new(0.0, Currency::USD)); // 50K < 100K MTA
     }
 

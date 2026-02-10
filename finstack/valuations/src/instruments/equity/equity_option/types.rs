@@ -18,19 +18,17 @@
 //! - Short-dated options where discrete jumps are material
 //! - High-yield stocks with large dividend payments
 //!
-//! ## Discrete Dividend Adjustment (Not Yet Implemented)
+//! ## Discrete Dividend Adjustment
 //!
 //! For stocks with known discrete dividends, use the **spot adjustment method**:
 //! ```text
 //! S_adj = S - Σ D_i × e^{-r × t_i}  (for all dividends D_i at times t_i before expiry)
 //! ```
 //!
-//! This is the QuantLib default approach. Until discrete dividend support is added,
-//! users pricing single-stock options near ex-dividend dates should:
-//!
-//! 1. **Pre-adjust spot externally**: Calculate `S_adj` and pass as the spot price
-//! 2. **Use implied dividend yield**: Back-solve for `q` from market option prices
-//! 3. **Use terminal forward**: If forward prices are available, use `F = S × e^{(r-q)T}`
+//! This is the QuantLib default approach and is supported via the
+//! `discrete_dividends` field. When a non-empty discrete schedule is provided,
+//! the pricer applies spot adjustment and sets continuous dividend yield `q = 0`.
+//! When no discrete schedule is provided, pricing uses the continuous `q` model.
 //!
 //! ## Example: Manual Discrete Dividend Adjustment
 //!

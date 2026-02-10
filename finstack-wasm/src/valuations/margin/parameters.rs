@@ -1,6 +1,7 @@
 //! Margin parameter types for WASM bindings.
 
 use crate::core::currency::JsCurrency;
+use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::margin::enums::{JsImMethodology, JsMarginTenor};
@@ -192,11 +193,12 @@ impl JsVmParameters {
         &self,
         exposure: &JsMoney,
         current_collateral: &JsMoney,
-    ) -> JsMoney {
+    ) -> Result<JsMoney, JsValue> {
         let result = self
             .inner
-            .calculate_margin_call(exposure.inner(), current_collateral.inner());
-        JsMoney::from_inner(result)
+            .calculate_margin_call(exposure.inner(), current_collateral.inner())
+            .map_err(|e| js_error(e.to_string()))?;
+        Ok(JsMoney::from_inner(result))
     }
 
     /// Create from JSON representation.

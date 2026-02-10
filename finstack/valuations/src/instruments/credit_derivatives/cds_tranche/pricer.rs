@@ -1680,7 +1680,7 @@ impl CDSTranchePricer {
         let el_curve = self.build_el_curve(tranche, index_data, &payment_dates)?;
 
         let mut pv_premium = 0.0;
-        let mut prev_el_fraction = 0.0; // Start with no loss
+        let mut prev_el_fraction = self.calculate_prior_tranche_loss(tranche);
 
         for (i, &payment_date) in payment_dates.iter().enumerate() {
             let t = self.years_from_base(index_data, payment_date)?;
@@ -1689,7 +1689,7 @@ impl CDSTranchePricer {
             }
 
             let el_fraction = el_curve[i].1; // Current EL fraction
-            let delta_el_fraction = el_fraction - prev_el_fraction;
+            let delta_el_fraction = (el_fraction - prev_el_fraction).max(0.0);
 
             // Outstanding notional at beginning of period
             let outstanding_notional = tranche_notional * (1.0 - prev_el_fraction);
@@ -1763,7 +1763,7 @@ impl CDSTranchePricer {
         let el_curve = self.build_el_curve(tranche, index_data, &payment_dates)?;
 
         let mut pv_protection = 0.0;
-        let mut prev_el_fraction = 0.0; // Start with no loss
+        let mut prev_el_fraction = self.calculate_prior_tranche_loss(tranche);
 
         for (i, &payment_date) in payment_dates.iter().enumerate() {
             let t = self.years_from_base(index_data, payment_date)?;
@@ -1772,7 +1772,7 @@ impl CDSTranchePricer {
             }
 
             let el_fraction = el_curve[i].1; // Current EL fraction
-            let delta_el_fraction = el_fraction - prev_el_fraction;
+            let delta_el_fraction = (el_fraction - prev_el_fraction).max(0.0);
 
             // Incremental loss amount in currency
             let incremental_loss_amount = tranche_notional * delta_el_fraction;

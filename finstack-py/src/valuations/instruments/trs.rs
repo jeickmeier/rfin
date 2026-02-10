@@ -311,6 +311,8 @@ pub struct PyEquityTotalReturnSwapBuilder {
     schedule: Option<TrsScheduleSpec>,
     side: Option<TrsSide>,
     initial_level: Option<f64>,
+    dividend_tax_rate: f64,
+    discrete_dividends: Vec<(finstack_core::dates::Date, f64)>,
 }
 
 impl PyEquityTotalReturnSwapBuilder {
@@ -323,6 +325,8 @@ impl PyEquityTotalReturnSwapBuilder {
             schedule: None,
             side: None,
             initial_level: None,
+            dividend_tax_rate: 0.0,
+            discrete_dividends: Vec::new(),
         }
     }
 
@@ -405,6 +409,33 @@ impl PyEquityTotalReturnSwapBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, rate)")]
+    fn dividend_tax_rate(mut slf: PyRefMut<'_, Self>, rate: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if !rate.is_finite() || !(0.0..=1.0).contains(&rate) {
+            return Err(PyValueError::new_err(
+                "dividend_tax_rate must be finite and in [0, 1]",
+            ));
+        }
+        slf.dividend_tax_rate = rate;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, ex_date, amount)")]
+    fn add_discrete_dividend<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ex_date: Bound<'py, PyAny>,
+        amount: f64,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        if !amount.is_finite() {
+            return Err(PyValueError::new_err(
+                "discrete dividend amount must be finite",
+            ));
+        }
+        let ex_date = py_to_date(&ex_date)?;
+        slf.discrete_dividends.push((ex_date, amount));
+        Ok(slf)
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyEquityTotalReturnSwap> {
         slf.ensure_ready()?;
@@ -416,8 +447,8 @@ impl PyEquityTotalReturnSwapBuilder {
             schedule: slf.schedule.clone().unwrap(),
             side: slf.side.unwrap(),
             initial_level: slf.initial_level,
-            dividend_tax_rate: 0.0, // Default: no withholding tax
-            discrete_dividends: Vec::new(),
+            dividend_tax_rate: slf.dividend_tax_rate,
+            discrete_dividends: slf.discrete_dividends.clone(),
             attributes: Attributes::new(),
             margin_spec: None,
         };

@@ -261,21 +261,16 @@ impl ForwardRateAgreement {
                         // Use calendar-aware business day subtraction
                         self.start_date.add_business_days(-(self.reset_lag), cal)?
                     } else {
-                        // Calendar specified but not found - fall back to weekday-only
-                        tracing::warn!(
-                            instrument_id = %self.id.as_str(),
-                            calendar_id = cal_id,
-                            "FRA fixing calendar not found; using degraded weekday-only reset lag"
-                        );
-                        self.start_date.add_weekdays(-(self.reset_lag))
+                        return Err(finstack_core::Error::Validation(format!(
+                            "FRA '{}': fixing calendar '{}' could not be resolved",
+                            self.id, cal_id
+                        )));
                     }
                 } else {
-                    tracing::warn!(
-                        instrument_id = %self.id.as_str(),
-                        forward_curve_id = %self.forward_id.as_str(),
-                        "FRA fixing calendar could not be resolved from explicit fixing_calendar_id or market conventions; using degraded weekday-only reset lag"
-                    );
-                    self.start_date.add_weekdays(-(self.reset_lag))
+                    return Err(finstack_core::Error::Validation(format!(
+                        "FRA '{}': fixing calendar is required to apply business-day reset lag",
+                        self.id
+                    )));
                 };
 
                 // Apply business day convention adjustment to the resulting date

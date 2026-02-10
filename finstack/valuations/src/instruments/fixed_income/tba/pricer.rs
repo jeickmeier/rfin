@@ -12,7 +12,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
@@ -28,9 +28,7 @@ pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPas
 
     // Use provided pool factor or default to 1.0 (newly issued)
     let factor = tba.pool_factor.unwrap_or(1.0);
-    let maturity_date = settlement_date
-        .checked_add(time::Duration::days((term_months as i64) * 30))
-        .ok_or_else(|| finstack_core::Error::Validation("Invalid maturity date".to_string()))?;
+    let maturity_date = settlement_date.add_months(term_months as i32);
 
     // Standard servicing and g-fee assumptions
     let servicing_fee = 0.0025; // 25 bps
@@ -94,8 +92,11 @@ pub fn price_tba(tba: &AgencyTba, market: &MarketContext, as_of: Date) -> Result
     // The discount factor is 1.0 since settlement has already occurred.
     // For unsettled TBAs, discount the trade value back to the valuation date.
     let discount_curve = market.get_discount(&tba.discount_curve_id)?;
-    let years_to_settle = ((settlement_date - as_of).whole_days() as f64 / 365.0).max(0.0);
-    let df_to_settle = discount_curve.df(years_to_settle);
+    let df_to_settle = if settlement_date <= as_of {
+        1.0
+    } else {
+        discount_curve.df_between_dates(as_of, settlement_date)?
+    };
 
     // Trade value at settlement = notional × trade_price / 100
     let trade_value_at_settle = tba.notional.amount() * tba.trade_price / 100.0;

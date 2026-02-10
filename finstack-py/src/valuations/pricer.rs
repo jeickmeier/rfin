@@ -9,7 +9,7 @@ use finstack_valuations::instruments::fixed_income::bond::{
     asw_market_with_forward, asw_par_with_forward,
 };
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::pricer::{create_standard_registry, PricerRegistry};
+use finstack_valuations::pricer::{create_standard_registry, ModelKey, PricerRegistry};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -205,8 +205,14 @@ impl PyPricerRegistry {
         let InstrumentHandle {
             instrument: inst, ..
         } = extract_instrument(&instrument)?;
-        // Note: model_key is unused as Instrument::price_with_metrics uses the instrument's default pricing
-        let ModelKeyArg(_model_key) = model.extract()?;
+        let ModelKeyArg(model_key) = model.extract()?;
+        if model_key != ModelKey::Discounting {
+            return Err(PyValueError::new_err(
+                "price_with_metrics currently prices with instrument-default model; \
+                 non-discounting model override is not supported in this API. \
+                 Use price() for explicit model selection.",
+            ));
+        }
 
         // Parse metrics
         let mut metric_ids: Vec<MetricId> = Vec::with_capacity(metrics.len());

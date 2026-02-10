@@ -121,28 +121,38 @@ impl CollateralAssetClass {
     /// # Returns
     ///
     /// Haircut as a decimal (e.g., 0.02 = 2%)
-    #[must_use]
-    pub fn standard_haircut(&self) -> f64 {
-        let registry = embedded_registry().unwrap();
+    pub fn standard_haircut(&self) -> finstack_core::Result<f64> {
+        let registry =
+            embedded_registry().map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
         registry
             .collateral_asset_class_defaults
             .get(self)
             .map(|d| d.standard_haircut)
-            .unwrap()
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "No standard haircut configured for collateral asset class '{}'",
+                    self
+                ))
+            })
     }
 
     /// Get the FX haircut add-on for currency mismatch.
     ///
     /// Per BCBS-IOSCO, an 8% add-on applies when collateral currency
     /// differs from the settlement currency of the derivative.
-    #[must_use]
-    pub fn fx_addon(&self) -> f64 {
-        let registry = embedded_registry().unwrap();
+    pub fn fx_addon(&self) -> finstack_core::Result<f64> {
+        let registry =
+            embedded_registry().map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
         registry
             .collateral_asset_class_defaults
             .get(self)
             .map(|d| d.fx_addon)
-            .unwrap()
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "No FX addon configured for collateral asset class '{}'",
+                    self
+                ))
+            })
     }
 }
 
@@ -228,7 +238,7 @@ impl CollateralEligibility {
             min_rating: None,
             maturity_constraints: None,
             haircut: 0.0,
-            fx_haircut_addon: CollateralAssetClass::Cash.fx_addon(),
+            fx_haircut_addon: CollateralAssetClass::Cash.fx_addon().unwrap_or(0.08),
             concentration_limit: None,
         }
     }
@@ -241,7 +251,9 @@ impl CollateralEligibility {
             min_rating: Some("A-".to_string()),
             maturity_constraints: None,
             haircut,
-            fx_haircut_addon: CollateralAssetClass::GovernmentBonds.fx_addon(),
+            fx_haircut_addon: CollateralAssetClass::GovernmentBonds
+                .fx_addon()
+                .unwrap_or(0.08),
             concentration_limit: None,
         }
     }
@@ -254,7 +266,9 @@ impl CollateralEligibility {
             min_rating: Some(min_rating.to_string()),
             maturity_constraints: None,
             haircut,
-            fx_haircut_addon: CollateralAssetClass::CorporateBonds.fx_addon(),
+            fx_haircut_addon: CollateralAssetClass::CorporateBonds
+                .fx_addon()
+                .unwrap_or(0.08),
             concentration_limit: Some(0.30), // 30% concentration limit typical
         }
     }
@@ -394,9 +408,36 @@ mod tests {
 
     #[test]
     fn collateral_asset_class_haircuts() {
-        assert_eq!(CollateralAssetClass::Cash.standard_haircut(), 0.0);
-        assert_eq!(CollateralAssetClass::Equity.standard_haircut(), 0.15);
-        assert_eq!(CollateralAssetClass::Gold.standard_haircut(), 0.15);
+        assert_eq!(
+            CollateralAssetClass::Cash
+                .standard_haircut()
+                .expect("standard class should have haircut"),
+            0.0
+        );
+        assert_eq!(
+            CollateralAssetClass::Equity
+                .standard_haircut()
+                .expect("standard class should have haircut"),
+            0.15
+        );
+        assert_eq!(
+            CollateralAssetClass::Gold
+                .standard_haircut()
+                .expect("standard class should have haircut"),
+            0.15
+        );
+    }
+
+    #[test]
+    fn custom_asset_class_returns_error() {
+        let custom = CollateralAssetClass::Custom("crypto".to_string());
+        let err = custom
+            .standard_haircut()
+            .expect_err("custom class should require explicit configuration");
+        assert!(
+            err.to_string().contains("No standard haircut configured"),
+            "error should explain missing defaults: {err}"
+        );
     }
 
     #[test]

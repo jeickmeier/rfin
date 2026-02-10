@@ -173,6 +173,8 @@ pub struct JsEquityTotalReturnSwapBuilder {
     schedule: Option<TrsScheduleSpec>,
     receive_total_return: Option<bool>,
     initial_level: Option<f64>,
+    dividend_tax_rate: Option<f64>,
+    discrete_dividends: Vec<(finstack_core::dates::Date, f64)>,
 }
 
 #[wasm_bindgen(js_class = EquityTotalReturnSwapBuilder)]
@@ -224,6 +226,36 @@ impl JsEquityTotalReturnSwapBuilder {
         self
     }
 
+    #[wasm_bindgen(js_name = dividendTaxRate)]
+    pub fn dividend_tax_rate(
+        mut self,
+        dividend_tax_rate: f64,
+    ) -> Result<JsEquityTotalReturnSwapBuilder, JsValue> {
+        if !dividend_tax_rate.is_finite() || !(0.0..=1.0).contains(&dividend_tax_rate) {
+            return Err(js_error(
+                "EquityTotalReturnSwapBuilder: dividendTaxRate must be finite and in [0, 1]"
+                    .to_string(),
+            ));
+        }
+        self.dividend_tax_rate = Some(dividend_tax_rate);
+        Ok(self)
+    }
+
+    #[wasm_bindgen(js_name = addDiscreteDividend)]
+    pub fn add_discrete_dividend(
+        mut self,
+        ex_date: &JsDate,
+        amount: f64,
+    ) -> Result<JsEquityTotalReturnSwapBuilder, JsValue> {
+        if !amount.is_finite() {
+            return Err(js_error(
+                "EquityTotalReturnSwapBuilder: discrete dividend amount must be finite".to_string(),
+            ));
+        }
+        self.discrete_dividends.push((ex_date.inner(), amount));
+        Ok(self)
+    }
+
     #[wasm_bindgen(js_name = build)]
     pub fn build(self) -> Result<JsEquityTotalReturnSwap, JsValue> {
         let notional = self.notional.ok_or_else(|| {
@@ -256,8 +288,8 @@ impl JsEquityTotalReturnSwapBuilder {
             schedule,
             side,
             initial_level: self.initial_level,
-            dividend_tax_rate: 0.0, // Default: no withholding tax
-            discrete_dividends: Vec::new(),
+            dividend_tax_rate: self.dividend_tax_rate.unwrap_or(0.0),
+            discrete_dividends: self.discrete_dividends,
             attributes: Default::default(),
             margin_spec: None,
         };

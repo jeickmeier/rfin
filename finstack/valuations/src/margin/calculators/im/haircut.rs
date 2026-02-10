@@ -111,13 +111,13 @@ impl HaircutImCalculator {
         asset_class: &CollateralAssetClass,
         currency_mismatch: bool,
     ) -> Result<Money> {
-        let haircut = self
-            .eligible_collateral
-            .haircut_for(asset_class)
-            .unwrap_or(asset_class.standard_haircut());
+        let haircut = match self.eligible_collateral.haircut_for(asset_class) {
+            Some(h) => h,
+            None => asset_class.standard_haircut()?,
+        };
 
         let total_haircut = if currency_mismatch && self.apply_fx_addon {
-            haircut + asset_class.fx_addon()
+            haircut + asset_class.fx_addon()?
         } else {
             haircut
         };
@@ -126,11 +126,11 @@ impl HaircutImCalculator {
     }
 
     /// Get the haircut for an asset class.
-    #[must_use]
-    pub fn haircut_for(&self, asset_class: &CollateralAssetClass) -> f64 {
-        self.eligible_collateral
-            .haircut_for(asset_class)
-            .unwrap_or(asset_class.standard_haircut())
+    pub fn haircut_for(&self, asset_class: &CollateralAssetClass) -> Result<f64> {
+        match self.eligible_collateral.haircut_for(asset_class) {
+            Some(h) => Ok(h),
+            None => asset_class.standard_haircut(),
+        }
     }
 }
 
@@ -217,8 +217,23 @@ mod tests {
 
     #[test]
     fn default_haircuts() {
-        assert_eq!(CollateralAssetClass::Cash.standard_haircut(), 0.0);
-        assert_eq!(CollateralAssetClass::Equity.standard_haircut(), 0.15);
-        assert_eq!(CollateralAssetClass::Gold.standard_haircut(), 0.15);
+        assert_eq!(
+            CollateralAssetClass::Cash
+                .standard_haircut()
+                .expect("default class should be configured"),
+            0.0
+        );
+        assert_eq!(
+            CollateralAssetClass::Equity
+                .standard_haircut()
+                .expect("default class should be configured"),
+            0.15
+        );
+        assert_eq!(
+            CollateralAssetClass::Gold
+                .standard_haircut()
+                .expect("default class should be configured"),
+            0.15
+        );
     }
 }

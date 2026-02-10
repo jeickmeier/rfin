@@ -148,8 +148,10 @@ pub fn compute_cva(
     // Effective EPE: non-decreasing version of EPE (Basel III SA-CCR)
     let mut effective_epe_running: f64 = 0.0;
 
-    // Time-weighted average of effective EPE (regulatory scalar metric)
+    // Time-weighted average of effective EPE over the first-year horizon.
     let mut eff_epe_time_integral: f64 = 0.0;
+    let maturity = exposure_profile.times[n - 1];
+    let effective_epe_horizon = maturity.min(1.0);
 
     // Previous values for midpoint/trapezoidal integration
     let mut prev_survival = 1.0; // S(0) = 1.0
@@ -190,9 +192,11 @@ pub fn compute_cva(
         // Effective EPE: non-decreasing (running max)
         effective_epe_running = effective_epe_running.max(epe_t);
 
-        // M1: Accumulate time-weighted integral for average effective EPE
-        let dt = t - prev_t;
-        eff_epe_time_integral += effective_epe_running * dt;
+        // M1: Accumulate only over [0, min(1Y, maturity)].
+        if prev_t < effective_epe_horizon {
+            let dt = (t.min(effective_epe_horizon) - prev_t).max(0.0);
+            eff_epe_time_integral += effective_epe_running * dt;
+        }
 
         // In deterministic model, PFE = EPE (single scenario)
         let pfe_t = epe_t;
@@ -211,8 +215,7 @@ pub fn compute_cva(
 
     // M1: Time-weighted average effective EPE per BCBS 279
     // Effective_EPE_avg = (1 / min(1, M)) × ∫₀ᴹ Effective_EPE(t) dt
-    let maturity = exposure_profile.times[n - 1];
-    let normalization = maturity.min(1.0);
+    let normalization = effective_epe_horizon;
     let effective_epe = if normalization > 0.0 {
         eff_epe_time_integral / normalization
     } else {
@@ -593,7 +596,7 @@ mod tests {
 
     #[test]
     fn effective_epe_uniform_profile() {
-        // For uniform EPE, effective EPE time-weighted average should equal EPE
+        // For uniform EPE, first-year Effective EPE average should equal EPE.
         let hazard = flat_hazard_curve(0.02);
         let discount = flat_discount_curve(0.03);
         let times: Vec<f64> = (1..=20).map(|i| i as f64 * 0.5).collect();
@@ -602,29 +605,10 @@ mod tests {
         let result =
             compute_cva(&profile, &hazard, &discount, 0.40).expect("CVA computation should work");
 
-        // For uniform EPE = 1M, effective EPE running max is always 1M,
-        // so time-weighted average = 1M × T / min(1, T)
-        // With T=10: = 1M × 10 / 1 = 10M... wait, that's the integral.
-        // Actually: eff_epe = integral / normalization
-        // integral = 1M × 10 = 10M, normalization = min(1, 10) = 1
-        // effective_epe = 10M / 1 = 10M
-        // No wait — that's the total integral divided by 1Y cap.
-        // Let me think: BCBS 279 says Effective EPE is the time-weighted average
-        // over min(1Y, maturity). So for a 10Y portfolio:
-        // eff_epe = (1/1) × ∫₀¹⁰ Eff_EPE(t) dt = 10M (seems too large)
-        //
-        // Actually the BCBS formula caps at 1Y for the denominator, meaning
-        // for portfolios > 1Y, the denominator is 1Y but the integral
-        // extends over the full profile. This captures the fact that
-        // long-dated portfolios have more exposure.
-        //
-        // For uniform EPE of 1M over 10Y grid:
-        // integral = 1M × (0.5 + 0.5 + ... + 0.5) [20 steps] = 1M × 10 = 10M
-        // normalization = min(1, 10) = 1
-        // effective_epe = 10M
         assert!(
-            result.effective_epe > 0.0,
-            "Effective EPE should be positive for non-zero exposure"
+            (result.effective_epe - 1_000_000.0).abs() < 1e-6,
+            "For uniform EPE, effective EPE should equal 1M, got {}",
+            result.effective_epe
         );
     }
 

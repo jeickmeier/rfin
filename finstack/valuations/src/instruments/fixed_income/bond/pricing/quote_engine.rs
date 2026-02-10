@@ -10,6 +10,7 @@
 #![allow(dead_code)] // Public API items may be used by external bindings or tests
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::traits::Instrument;
+use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::fixed_income::bond::Bond;
 use crate::metrics::{standard_registry, MetricRegistry};
 use crate::metrics::{MetricContext, MetricId};
@@ -895,13 +896,9 @@ pub fn compute_quotes(
     // Work on a local clone so we never mutate the caller's bond instance.
     let mut bond_for_metrics = bond.clone();
 
-    // Accrued interest using generic cashflow accrual engine
-    let schedule = bond_for_metrics.get_full_schedule(curves)?;
-    let accrued_ccy = crate::cashflow::accrual::accrued_interest_amount(
-        &schedule,
-        as_of,
-        &bond_for_metrics.accrual_config(),
-    )?;
+    // Quote normalization (clean/dirty conversion) must use accrued at quote/settlement date.
+    let quote_ctx = QuoteDateContext::new(&bond_for_metrics, curves, as_of)?;
+    let accrued_ccy = quote_ctx.accrued_at_quote_date;
 
     let notional = bond_for_metrics.notional.amount();
     if notional == 0.0 {

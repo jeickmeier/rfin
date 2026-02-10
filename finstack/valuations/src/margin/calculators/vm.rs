@@ -176,9 +176,20 @@ impl VmCalculator {
     ) -> Result<VmResult> {
         let currency = self.csa.base_currency;
 
-        // Ensure same currency (would need FX conversion in production)
-        debug_assert_eq!(exposure.currency(), currency);
-        debug_assert_eq!(posted_collateral.currency(), currency);
+        if exposure.currency() != currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "VM exposure currency mismatch: expected {}, got {}",
+                currency,
+                exposure.currency()
+            )));
+        }
+        if posted_collateral.currency() != currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "VM collateral currency mismatch: expected {}, got {}",
+                currency,
+                posted_collateral.currency()
+            )));
+        }
 
         let vm_params = &self.csa.vm_params;
 
@@ -188,7 +199,7 @@ impl VmCalculator {
         let required = (exposure.amount() - threshold + ia).max(0.0);
 
         // Delegate CSA/MTA/rounding logic to VmParameters for consistency
-        let net_call = vm_params.calculate_margin_call(exposure, posted_collateral);
+        let net_call = vm_params.calculate_margin_call(exposure, posted_collateral)?;
         let (delivery, ret) = if net_call.amount() > 0.0 {
             (net_call, Money::new(0.0, currency))
         } else if net_call.amount() < 0.0 {
@@ -404,7 +415,10 @@ mod tests {
         let exposure = Money::new(2_000_000.0, Currency::USD);
         let posted = Money::new(0.0, Currency::USD);
 
-        let params_call = csa.vm_params.calculate_margin_call(exposure, posted);
+        let params_call = csa
+            .vm_params
+            .calculate_margin_call(exposure, posted)
+            .expect("matching currencies should succeed");
         let result = calc.calculate(exposure, posted, as_of).expect("calc ok");
 
         assert_eq!(result.delivery_amount, params_call);
@@ -414,7 +428,10 @@ mod tests {
         let exposure = Money::new(500_000.0, Currency::USD);
         let posted = Money::new(3_000_000.0, Currency::USD);
 
-        let params_call = csa.vm_params.calculate_margin_call(exposure, posted);
+        let params_call = csa
+            .vm_params
+            .calculate_margin_call(exposure, posted)
+            .expect("matching currencies should succeed");
         let result = calc.calculate(exposure, posted, as_of).expect("calc ok");
 
         assert_eq!(result.delivery_amount.amount(), 0.0);

@@ -43,17 +43,6 @@ impl Pricer for NdfDiscountingPricer {
     ) -> PricingResult<ValuationResult> {
         let ndf = expect_inst::<Ndf>(instrument, InstrumentType::Ndf)?;
 
-        // Validate maturity
-        if ndf.maturity_date <= as_of {
-            return Err(PricingError::invalid_input_with_context(
-                format!(
-                    "NDF maturity {} must be after valuation date {}",
-                    ndf.maturity_date, as_of
-                ),
-                PricingErrorContext::default(),
-            ));
-        }
-
         // Validate fixing date <= maturity
         if ndf.fixing_date > ndf.maturity_date {
             return Err(PricingError::invalid_input_with_context(
@@ -229,9 +218,9 @@ mod tests {
             .expect("valid");
 
         let pricer = NdfDiscountingPricer;
-        let result = pricer.price_dyn(&ndf, &market, as_of);
-
-        // Should return error for expired NDF
-        assert!(result.is_err());
+        let result = pricer
+            .price_dyn(&ndf, &market, as_of)
+            .expect("expired trades should value as zero");
+        assert_eq!(result.value.amount(), 0.0);
     }
 }

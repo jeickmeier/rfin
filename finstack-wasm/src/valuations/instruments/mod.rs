@@ -259,9 +259,8 @@ pub use yoy_inflation_swap::{
 /// This performs only type checks and cloning; it does not add any binding-specific logic,
 /// keeping bindings as thin passthroughs to the Rust implementations.
 ///
-/// Note: Since wasm_bindgen doesn't automatically implement `JsCast` for structs with private fields,
-/// we use runtime type checking via constructor name matching and then borrow the
-/// underlying Rust value via `WasmRefCell<T>`.
+/// Note: These wrappers currently do not implement `JsCast`, so extraction uses
+/// constructor-name checks and wasm-bindgen-managed pointers.
 #[allow(unsafe_code)]
 pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>, JsValue> {
     macro_rules! try_extract {
@@ -276,7 +275,6 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
 
             if is_instance {
                 // wasm-bindgen stores a pointer to a `WasmRefCell<T>` in `__wbg_ptr`.
-                // Borrow it, then call `inner()` on the borrowed Rust value.
                 let ptr_val = Reflect::get(value, &JsValue::from_str("__wbg_ptr"))
                     .or_else(|_| Reflect::get(value, &JsValue::from_str("ptr")))
                     .map_err(|_| JsValue::from_str("Could not find Rust pointer"))?;
@@ -295,16 +293,11 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
 
                 let ptr_u32 = ptr_f64 as u32;
                 let cell_ptr = ptr_u32 as usize as *const WasmRefCell<$js_type>;
-
-                if cell_ptr.is_null() {
-                    return Err(JsValue::from_str("Rust pointer is null"));
-                }
-                // Avoid clearly-invalid pointers.
-                if (cell_ptr as usize) < 0x1000 {
+                if cell_ptr.is_null() || (cell_ptr as usize) < 0x1000 {
                     return Err(JsValue::from_str("Rust pointer is invalid"));
                 }
 
-                // SAFETY: `__wbg_ptr` points at a `WasmRefCell<T>` allocated by wasm-bindgen.
+                // SAFETY: pointer is managed by wasm-bindgen for this wrapper type.
                 let cell = unsafe { &*cell_ptr };
                 let borrowed = cell.borrow();
                 return Ok(Box::new(borrowed.inner()));
