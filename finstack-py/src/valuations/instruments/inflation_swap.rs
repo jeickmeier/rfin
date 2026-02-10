@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;

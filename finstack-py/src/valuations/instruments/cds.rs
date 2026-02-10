@@ -391,6 +391,7 @@ impl fmt::Display for PyCreditDefaultSwap {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn construct_cds(
     instrument_id: Bound<'_, PyAny>,
     notional: Bound<'_, PyAny>,

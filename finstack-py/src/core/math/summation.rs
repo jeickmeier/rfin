@@ -66,7 +66,7 @@ pub(crate) fn register<'py>(
     module.add_function(wrap_pyfunction!(neumaier_sum_py, &module)?)?;
 
     let exports = ["kahan_sum", "neumaier_sum"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

@@ -198,6 +198,7 @@ impl PyTraceEntry {
     #[pyo3(
         text_signature = "(cls, date, cashflow_amount, cashflow_currency, discount_factor, pv_amount, pv_currency, curve_id)"
     )]
+    #[allow(clippy::too_many_arguments)]
     fn cashflow_pv(
         _cls: &Bound<'_, PyType>,
         date: String,
@@ -223,6 +224,7 @@ impl PyTraceEntry {
     #[pyo3(
         text_signature = "(cls, period, step_name, cash_in_amount, cash_in_currency, cash_out_amount, cash_out_currency, shortfall_amount=None, shortfall_currency=None)"
     )]
+    #[allow(clippy::too_many_arguments)]
     fn waterfall_step(
         _cls: &Bound<'_, PyType>,
         period: usize,
@@ -308,7 +310,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyTraceEntry>()?;
 
     let exports = ["ExplainOpts", "ExplanationTrace", "TraceEntry"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

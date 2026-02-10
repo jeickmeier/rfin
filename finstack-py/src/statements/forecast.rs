@@ -57,7 +57,7 @@ pub(crate) fn register<'py>(
 
     module.add_function(wrap_pyfunction!(apply_forecast_py, &module)?)?;
     let exports = ["apply_forecast"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     parent.setattr("forecast", &module)?;
     Ok(exports.to_vec())

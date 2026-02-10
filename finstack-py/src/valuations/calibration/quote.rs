@@ -259,6 +259,7 @@ impl PyCreditQuote {
     #[pyo3(
         text_signature = "(cls, id, entity, pillar, spread_bp, recovery_rate, currency, doc_clause='XR14')"
     )]
+    #[allow(clippy::too_many_arguments)]
     fn cds_par_spread(
         _cls: &Bound<'_, PyType>,
         id: &str,

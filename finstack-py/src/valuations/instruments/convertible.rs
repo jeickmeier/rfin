@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
@@ -516,7 +518,6 @@ impl PyConvertibleBondBuilder {
             Some(CallPutSchedule {
                 calls: slf.calls.clone(),
                 puts: slf.puts.clone(),
-                ..Default::default()
             })
         };
 

@@ -9,9 +9,7 @@ use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
 
 fn resolve_validation_config(config: Option<PyRef<'_, PyValidationConfig>>) -> ValidationConfig {
-    config
-        .map(|cfg| cfg.inner.clone())
-        .unwrap_or_else(ValidationConfig::default)
+    config.map(|cfg| cfg.inner.clone()).unwrap_or_default()
 }
 
 #[pyfunction]
@@ -137,6 +135,7 @@ impl PyValidationConfig {
     ///
     /// Raises:
     ///     ValueError: If parameters are inconsistent
+    #[allow(clippy::too_many_arguments)]
     fn ctor(
         check_forward_positivity: Option<bool>,
         min_forward_rate: Option<f64>,
@@ -351,6 +350,6 @@ pub(crate) fn register<'py>(
         "ValidationError",
         "ValidationConfig",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     Ok(exports.to_vec())
 }

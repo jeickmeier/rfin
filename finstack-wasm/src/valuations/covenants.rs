@@ -205,7 +205,7 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
                 return p.end;
             }
         }
-        Date::from_calendar_date(period.year, time::Month::December, 31).unwrap()
+        Date::from_calendar_date(period.year, time::Month::December, 31).unwrap_or(Date::MIN)
     }
 }
 

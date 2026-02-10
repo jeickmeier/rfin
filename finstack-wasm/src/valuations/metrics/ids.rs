@@ -61,6 +61,7 @@ impl JsMetricId {
     /// console.log(custom.name); // "my_custom_metric"
     /// ```
     #[wasm_bindgen(js_name = fromName)]
+    #[allow(clippy::expect_used)]
     pub fn from_name(name: &str) -> JsMetricId {
         // SAFETY: MetricId::from_str() never fails - unknown names become Custom(name)
         // Error type is () and all code paths return Ok(_)

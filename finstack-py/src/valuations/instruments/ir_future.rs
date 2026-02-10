@@ -326,14 +326,16 @@ impl PyInterestRateFutureBuilder {
             )
         })?;
 
-        let mut specs = FutureContractSpecs::default();
-        specs.face_value = slf.face_value;
-        specs.tick_size = slf.tick_size;
+        let mut specs = FutureContractSpecs {
+            face_value: slf.face_value,
+            tick_size: slf.tick_size,
+            delivery_months: slf.delivery_months,
+            convexity_adjustment: slf.convexity_adjustment,
+            ..Default::default()
+        };
         if let Some(v) = slf.tick_value {
             specs.tick_value = v;
         }
-        specs.delivery_months = slf.delivery_months;
-        specs.convexity_adjustment = slf.convexity_adjustment;
 
         InterestRateFuture::builder()
             .id(slf.instrument_id.clone())

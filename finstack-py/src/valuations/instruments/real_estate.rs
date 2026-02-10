@@ -102,6 +102,7 @@ impl PyRealEstateAsset {
     ///
     /// Returns:
     ///     RealEstateAsset: Configured real estate asset with DCF valuation.
+    #[allow(clippy::too_many_arguments)]
     fn create_dcf(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -204,6 +205,7 @@ impl PyRealEstateAsset {
     ///
     /// Returns:
     ///     RealEstateAsset: Configured real estate asset with direct cap valuation.
+    #[allow(clippy::too_many_arguments)]
     fn create_direct_cap(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,

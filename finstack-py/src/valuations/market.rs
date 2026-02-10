@@ -386,6 +386,7 @@ impl PyCdsQuote {
         signature = (id, entity, convention, pillar, running_spread_bp, upfront_pct, *, recovery_rate=0.40),
         text_signature = "(cls, id, entity, convention, pillar, running_spread_bp, upfront_pct, *, recovery_rate=0.40)"
     )]
+    #[allow(clippy::too_many_arguments)]
     fn upfront(
         _cls: &Bound<'_, PyType>,
         id: &Bound<'_, PyAny>,
@@ -445,6 +446,7 @@ impl PyCDSTrancheQuote {
         signature = (id, index, attachment, detachment, maturity, upfront_pct, running_spread_bp, convention),
         text_signature = "(cls, id, index, attachment, detachment, maturity, upfront_pct, running_spread_bp, convention)"
     )]
+    #[allow(clippy::too_many_arguments)]
     fn cds_tranche(
         _cls: &Bound<'_, PyType>,
         id: &Bound<'_, PyAny>,
@@ -617,7 +619,7 @@ pub(crate) fn register<'py>(
         "build_cds_instrument",
         "build_cds_tranche_instrument",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     parent.setattr("market", &module)?;
     Ok(exports.to_vec())

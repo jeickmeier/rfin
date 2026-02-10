@@ -323,11 +323,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_exception_hierarchy() {
-        Python::attach(|py| {
+    fn test_exception_hierarchy() -> PyResult<()> {
+        Python::attach(|py| -> PyResult<()> {
             // Create a test module to register exceptions
-            let m = PyModule::new(py, "test_module").unwrap();
-            register_exceptions(py, &m).unwrap();
+            let m = PyModule::new(py, "test_module")?;
+            register_exceptions(py, &m)?;
 
             // Verify exceptions are registered
             assert!(m.getattr("FinstackError").is_ok());
@@ -335,7 +335,9 @@ mod tests {
             assert!(m.getattr("MissingCurveError").is_ok());
             assert!(m.getattr("ConvergenceError").is_ok());
             assert!(m.getattr("CurrencyMismatchError").is_ok());
-        });
+            Ok(())
+        })?;
+        Ok(())
     }
 
     #[test]

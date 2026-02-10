@@ -3,7 +3,7 @@
 use crate::core::config::PyFinstackConfig;
 use crate::core::market_data::context::PyMarketContext;
 use crate::portfolio::error::portfolio_to_py;
-use crate::portfolio::portfolio::{extract_portfolio, PyPortfolio};
+use crate::portfolio::positions::{extract_portfolio, PyPortfolio};
 use crate::portfolio::valuation::PyPortfolioValuation;
 use crate::scenarios::spec::PyScenarioSpec;
 use pyo3::prelude::*;

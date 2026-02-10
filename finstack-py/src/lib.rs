@@ -12,7 +12,14 @@
 //! No financial calculations, validation logic, or algorithms should be implemented here.
 //! Centralized argument extraction types are in `crate::core::common::args`.
 
-#![allow(clippy::all)]
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+#![warn(clippy::new_without_default)]
+#![warn(clippy::float_cmp)]
+#![cfg_attr(test, allow(clippy::float_cmp))]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
 
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyModuleMethods};

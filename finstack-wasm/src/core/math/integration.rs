@@ -22,6 +22,7 @@ struct JsClosureAdapter<'a> {
     error_cell: &'a RefCell<Option<JsValue>>,
 }
 
+#[allow(clippy::panic)]
 impl JsClosureAdapter<'_> {
     fn invoke(&self, x: f64) -> f64 {
         match call_js_fn_safe(self.func, x) {

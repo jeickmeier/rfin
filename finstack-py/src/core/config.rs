@@ -467,10 +467,7 @@ impl PyRoundingMode {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = match extract_rounding_mode(&other) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        };
+        let rhs = extract_rounding_mode(&other).ok();
         richcmp_eq_ne(py, &self.inner, rhs, op)
     }
 }

@@ -310,10 +310,7 @@ impl PyEquityIndexFutureBuilder {
             .clone()
             .ok_or_else(|| PyValueError::new_err("index_price_id is required"))?;
 
-        let contract_specs = self
-            .contract_specs
-            .clone()
-            .unwrap_or_else(EquityFutureSpecs::default);
+        let contract_specs = self.contract_specs.clone().unwrap_or_default();
 
         EquityIndexFuture::builder()
             .id(self.instrument_id.clone())

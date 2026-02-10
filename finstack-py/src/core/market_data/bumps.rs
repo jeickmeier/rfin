@@ -406,7 +406,7 @@ pub(crate) fn register<'py>(
         "BumpSpec",
         "MarketBump",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

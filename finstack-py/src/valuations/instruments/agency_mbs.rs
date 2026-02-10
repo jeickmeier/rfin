@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 //! Python bindings for Agency MBS instruments.
 //!
 //! This module provides Python bindings for:
@@ -120,19 +122,19 @@ impl PyPoolType {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PyTbaTerm {
     /// 15-year original term.
-    FifteenYear,
+    Fifteen,
     /// 20-year original term.
-    TwentyYear,
+    Twenty,
     /// 30-year original term.
-    ThirtyYear,
+    Thirty,
 }
 
 impl From<PyTbaTerm> for TbaTerm {
     fn from(py: PyTbaTerm) -> Self {
         match py {
-            PyTbaTerm::FifteenYear => TbaTerm::FifteenYear,
-            PyTbaTerm::TwentyYear => TbaTerm::TwentyYear,
-            PyTbaTerm::ThirtyYear => TbaTerm::ThirtyYear,
+            PyTbaTerm::Fifteen => TbaTerm::FifteenYear,
+            PyTbaTerm::Twenty => TbaTerm::TwentyYear,
+            PyTbaTerm::Thirty => TbaTerm::ThirtyYear,
         }
     }
 }
@@ -140,9 +142,9 @@ impl From<PyTbaTerm> for TbaTerm {
 impl From<TbaTerm> for PyTbaTerm {
     fn from(rust: TbaTerm) -> Self {
         match rust {
-            TbaTerm::FifteenYear => PyTbaTerm::FifteenYear,
-            TbaTerm::TwentyYear => PyTbaTerm::TwentyYear,
-            TbaTerm::ThirtyYear => PyTbaTerm::ThirtyYear,
+            TbaTerm::FifteenYear => PyTbaTerm::Fifteen,
+            TbaTerm::TwentyYear => PyTbaTerm::Twenty,
+            TbaTerm::ThirtyYear => PyTbaTerm::Thirty,
             _ => unreachable!("unknown TbaTerm variant"),
         }
     }

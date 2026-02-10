@@ -182,7 +182,7 @@ pub(crate) fn register<'py>(
     module.setattr("__doc__", "Metric identifiers for finstack valuations.")?;
     module.add_class::<PyMetricId>()?;
     let exports = ["MetricId"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

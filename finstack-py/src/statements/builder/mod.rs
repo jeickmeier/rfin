@@ -457,6 +457,7 @@ impl PyModelBuilder {
     /// Returns
     /// -------
     /// None
+    #[allow(clippy::too_many_arguments)]
     fn add_swap(
         &mut self,
         id: String,
@@ -774,7 +775,7 @@ fn parse_period_values(values: &Bound<'_, PyAny>) -> PyResult<Vec<(PeriodId, Amo
         for (key, value) in dict.iter() {
             let period_id: crate::core::dates::periods::PyPeriodId = key.extract()?;
             let amount: PyAmountOrScalar = value.extract()?;
-            vec.push((period_id.inner, amount.inner.clone()));
+            vec.push((period_id.inner, amount.inner));
         }
     } else if let Ok(list) = values.downcast::<PyList>() {
         // List of tuples format
@@ -786,7 +787,7 @@ fn parse_period_values(values: &Bound<'_, PyAny>) -> PyResult<Vec<(PeriodId, Amo
                         "Invalid values[{idx}] (expected (PeriodId, AmountOrScalar)): {err}"
                     ))
                 })?;
-            vec.push((period.inner, amount.inner.clone()));
+            vec.push((period.inner, amount.inner));
         }
     } else {
         return Err(PyValueError::new_err(
@@ -803,6 +804,7 @@ fn parse_period_values(values: &Bound<'_, PyAny>) -> PyResult<Vec<(PeriodId, Amo
     name = "MixedNodeBuilder",
     unsendable
 )]
+#[derive(Default)]
 pub struct PyMixedNodeBuilder {
     parent_builder: Option<ModelBuilder<Ready>>,
     node_id: String,
@@ -810,19 +812,6 @@ pub struct PyMixedNodeBuilder {
     forecast: Option<finstack_statements::types::ForecastSpec>,
     formula: Option<String>,
     name: Option<String>,
-}
-
-impl Default for PyMixedNodeBuilder {
-    fn default() -> Self {
-        Self {
-            parent_builder: None,
-            node_id: String::new(),
-            values: None,
-            forecast: None,
-            formula: None,
-            name: None,
-        }
-    }
 }
 
 #[pymethods]

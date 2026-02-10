@@ -32,15 +32,11 @@ use time::{Date, Duration, Month};
 ///     If `value` is not a `datetime.date` or `datetime.datetime`.
 pub(crate) fn py_to_date(value: &Bound<'_, PyAny>) -> PyResult<Date> {
     if let Ok(date) = value.downcast::<PyDate>() {
-        return build_date(
-            date.get_year(),
-            date.get_month() as u8,
-            date.get_day() as u8,
-        );
+        return build_date(date.get_year(), date.get_month(), date.get_day());
     }
 
     if let Ok(dt) = value.downcast::<PyDateTime>() {
-        return build_date(dt.get_year(), dt.get_month() as u8, dt.get_day() as u8);
+        return build_date(dt.get_year(), dt.get_month(), dt.get_day());
     }
 
     Err(PyTypeError::new_err(
@@ -298,7 +294,9 @@ fn days_in_month_py(_year: i32, month: u8) -> PyResult<u8> {
             "Month out of range: {month}"
         )));
     }
-    let m = Month::try_from(month).expect("Month validated in range");
+    let m = Month::try_from(month).map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!("Invalid month {month}: {e}"))
+    })?;
     Ok(m.length(_year))
 }
 
@@ -332,7 +330,9 @@ fn is_leap_year_py(year: i32) -> bool {
 #[pyfunction(name = "date_to_days_since_epoch", text_signature = "(date)")]
 fn date_to_days_since_epoch_py(date: Bound<'_, PyAny>) -> PyResult<i32> {
     let d = py_to_date(&date)?;
-    let epoch = Date::from_calendar_date(1970, Month::January, 1).expect("Epoch valid");
+    let epoch = Date::from_calendar_date(1970, Month::January, 1).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to construct epoch date: {e}"))
+    })?;
     Ok((d - epoch).whole_days() as i32)
 }
 
@@ -349,7 +349,9 @@ fn date_to_days_since_epoch_py(date: Bound<'_, PyAny>) -> PyResult<i32> {
 ///     Date corresponding to the epoch offset.
 #[pyfunction(name = "days_since_epoch_to_date", text_signature = "(days)")]
 fn days_since_epoch_to_date_py(py: Python<'_>, days: i32) -> PyResult<Py<PyAny>> {
-    let epoch = Date::from_calendar_date(1970, Month::January, 1).expect("Epoch valid");
+    let epoch = Date::from_calendar_date(1970, Month::January, 1).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to construct epoch date: {e}"))
+    })?;
     let date = epoch + Duration::days(days as i64);
     date_to_py(py, date)
 }
@@ -381,7 +383,9 @@ fn create_date_py(py: Python<'_>, year: i32, month: u8, day: u8) -> PyResult<Py<
             "Month out of range: {month}"
         )));
     }
-    let month_enum = Month::try_from(month).expect("Month validated in range");
+    let month_enum = Month::try_from(month).map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!("Invalid month {month}: {e}"))
+    })?;
     let date = finstack_core::dates::create_date(year, month_enum, day).map_err(core_to_py)?;
     date_to_py(py, date)
 }
@@ -425,7 +429,7 @@ pub(crate) fn register<'py>(
         "months_until",
         "quarter",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

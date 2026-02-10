@@ -220,7 +220,7 @@ impl PyNodeSpec {
                 let dict = PyDict::new(py);
                 for (period_id, amount_or_scalar) in values {
                     let py_period_id = PyPeriodId::new(*period_id);
-                    let py_amount = PyAmountOrScalar::new(amount_or_scalar.clone());
+                    let py_amount = PyAmountOrScalar::new(*amount_or_scalar);
                     dict.set_item(py_period_id, py_amount)?;
                 }
                 Ok(dict.into())
@@ -339,7 +339,7 @@ fn parse_period_values(
         for (key, value) in dict.iter() {
             let period_id: PyPeriodId = key.extract()?;
             let amount: PyAmountOrScalar = value.extract()?;
-            map.insert(period_id.inner, amount.inner.clone());
+            map.insert(period_id.inner, amount.inner);
         }
     } else if let Ok(list) = values.downcast::<PyList>() {
         // List of tuples format
@@ -351,7 +351,7 @@ fn parse_period_values(
                             "Invalid values[{idx}] (expected (PeriodId, AmountOrScalar)): {err}"
                         ))
                     })?;
-            map.insert(period.inner, amount.inner.clone());
+            map.insert(period.inner, amount.inner);
         }
     } else {
         return Err(PyValueError::new_err(

@@ -90,10 +90,15 @@ impl JsRangeAccrual {
     /// since the realized in-range fraction depends on the path of the underlying.
     #[wasm_bindgen(js_name = getCashflows)]
     pub fn get_cashflows(&self) -> Result<Array, JsValue> {
-        let pay_date = self
-            .inner
-            .payment_date
-            .unwrap_or_else(|| *self.inner.observation_dates.last().unwrap());
+        let pay_date = if let Some(date) = self.inner.payment_date {
+            date
+        } else if let Some(last_obs) = self.inner.observation_dates.last() {
+            *last_obs
+        } else {
+            return Err(JsValue::from_str(
+                "RangeAccrual has no payment date and no observation dates",
+            ));
+        };
 
         let entry = Array::new();
         entry.push(&JsDate::from_core(pay_date).into());

@@ -375,9 +375,10 @@ impl PyEvalOpts {
     #[pyo3(signature = (*, plan=None, cache_budget_mb=None))]
     #[pyo3(text_signature = "(*, plan=None, cache_budget_mb=None)")]
     fn ctor(plan: Option<PyRef<PyExecutionPlan>>, cache_budget_mb: Option<usize>) -> Self {
-        let mut opts = EvalOpts::default();
-        opts.plan = plan.map(|p| p.inner.clone());
-        opts.cache_budget_mb = cache_budget_mb;
+        let opts = EvalOpts {
+            plan: plan.map(|p| p.inner.clone()),
+            cache_budget_mb,
+        };
         Self::new(opts)
     }
 
@@ -462,9 +463,7 @@ impl PyCompiledExpr {
 
         let ctx = SimpleContext::new(columns);
         let slices: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
-        let eval_opts = opts
-            .map(|o| o.inner.clone())
-            .unwrap_or_else(EvalOpts::default);
+        let eval_opts = opts.map(|o| o.inner.clone()).unwrap_or_default();
 
         let result = self.inner.eval(&ctx, &slices, eval_opts);
         Ok(PyEvaluationResult::new(result))
@@ -497,7 +496,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
         "CompiledExpr",
         "EvaluationResult",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(())
 }

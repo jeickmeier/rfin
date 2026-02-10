@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use crate::core::common::args::{BusinessDayConventionArg, CurrencyArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -624,9 +626,9 @@ impl PyFxOptionBuilder {
         builder = builder.day_count(slf.day_count);
         builder = builder.notional(notional);
         builder = builder.settlement(slf.settlement);
-        builder = builder.domestic_discount_curve_id(slf.domestic_curve.clone().unwrap().into());
-        builder = builder.foreign_discount_curve_id(slf.foreign_curve.clone().unwrap().into());
-        builder = builder.vol_surface_id(slf.vol_surface.clone().unwrap().into());
+        builder = builder.domestic_discount_curve_id(slf.domestic_curve.clone().unwrap());
+        builder = builder.foreign_discount_curve_id(slf.foreign_curve.clone().unwrap());
+        builder = builder.vol_surface_id(slf.vol_surface.clone().unwrap());
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder = builder.attributes(finstack_valuations::instruments::Attributes::new());
@@ -1008,8 +1010,8 @@ impl PyFxSwapBuilder {
         builder = builder.near_date(near);
         builder = builder.far_date(far);
         builder = builder.base_notional(base_notional);
-        builder = builder.domestic_discount_curve_id(slf.domestic_curve.clone().unwrap().into());
-        builder = builder.foreign_discount_curve_id(slf.foreign_curve.clone().unwrap().into());
+        builder = builder.domestic_discount_curve_id(slf.domestic_curve.clone().unwrap());
+        builder = builder.foreign_discount_curve_id(slf.foreign_curve.clone().unwrap());
         if let Some(rate) = slf.near_rate {
             builder = builder.near_rate(rate);
         }

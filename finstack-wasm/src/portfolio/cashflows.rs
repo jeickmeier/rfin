@@ -3,7 +3,7 @@
 use crate::core::currency::JsCurrency;
 use crate::core::market_data::context::JsMarketContext;
 use crate::core::money::JsMoney;
-use crate::portfolio::portfolio::JsPortfolio;
+use crate::portfolio::positions::JsPortfolio;
 use finstack_portfolio::cashflows::{
     aggregate_cashflows, cashflows_to_base_by_period, collapse_cashflows_to_base_by_date,
     PortfolioCashflowBuckets, PortfolioCashflows,

@@ -103,10 +103,7 @@ impl PyBusinessDayConvention {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = match extract_business_day_convention(&other) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        };
+        let rhs = extract_business_day_convention(&other).ok();
         richcmp_eq_ne(py, &self.inner, rhs, op)
     }
 }

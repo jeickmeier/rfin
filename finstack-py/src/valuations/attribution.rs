@@ -455,8 +455,7 @@ pub fn attribute_pnl(
 
     // Extract instrument using existing pattern
     let handle = crate::valuations::instruments::extract_instrument(&instrument)?;
-    let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> =
-        Arc::from(handle.instrument);
+    let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> = handle.instrument;
 
     // Get attribution method (default to Parallel)
     let method_inner = method
@@ -689,7 +688,7 @@ impl PyPortfolioAttribution {
 #[pyfunction]
 #[pyo3(signature = (portfolio, market_t0, market_t1, as_of_t0, as_of_t1, method=None))]
 pub fn attribute_portfolio_pnl(
-    portfolio: &crate::portfolio::portfolio::PyPortfolio,
+    portfolio: &crate::portfolio::positions::PyPortfolio,
     market_t0: &crate::core::market_data::PyMarketContext,
     market_t1: &crate::core::market_data::PyMarketContext,
     as_of_t0: &Bound<'_, pyo3::PyAny>,

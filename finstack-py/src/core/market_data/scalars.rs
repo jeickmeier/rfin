@@ -61,7 +61,7 @@ fn parse_observations(
             PyTypeError::new_err("observations must be iterable of (date, value) pairs")
         })?;
         let bound = date_obj.bind(py);
-        let date = py_to_date(&bound)?;
+        let date = py_to_date(bound)?;
         result.push((date, value));
     }
     Ok(result)
@@ -455,7 +455,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyMarketScalar>()?;
     module.add_class::<PyScalarTimeSeries>()?;
     let exports = ["SeriesInterpolation", "MarketScalar", "ScalarTimeSeries"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

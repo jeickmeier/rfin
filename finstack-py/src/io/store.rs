@@ -4,7 +4,7 @@ use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::io::error::map_io_error;
 use crate::io::types::{PyMarketContextSnapshot, PyPortfolioSnapshot, PyPortfolioSpec};
-use crate::portfolio::portfolio::PyPortfolio;
+use crate::portfolio::positions::PyPortfolio;
 use crate::scenarios::spec::PyScenarioSpec;
 use crate::statements::registry::PyMetricRegistry;
 use crate::statements::types::model::PyFinancialModelSpec;
@@ -92,9 +92,11 @@ fn create_runtime() -> PyResult<PyRuntime> {
         pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to create async runtime: {e}"))
     })?;
     if RUNTIME.set(runtime.clone()).is_err() {
-        let shared = RUNTIME
-            .get()
-            .expect("Runtime initialized after set failure");
+        let shared = RUNTIME.get().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "Runtime initialization race: shared runtime missing",
+            )
+        })?;
         return Ok(PyRuntime::new(shared.clone()));
     }
     Ok(PyRuntime::new(runtime))
@@ -908,6 +910,7 @@ impl PyStore {
     /// Retrieve points in a time range.
     #[pyo3(signature = (namespace, kind, series_id, start, end, limit=None))]
     #[pyo3(text_signature = "($self, namespace, kind, series_id, start, end, limit=None)")]
+    #[allow(clippy::too_many_arguments)]
     fn get_points_range(
         &self,
         py: Python<'_>,
@@ -1309,15 +1312,14 @@ fn py_to_offset_datetime(obj: &Bound<'_, PyAny>) -> PyResult<OffsetDateTime> {
     if let Ok(dt) = obj.downcast::<PyDateTime>() {
         let date = TimeDate::from_calendar_date(
             dt.get_year(),
-            Month::try_from(dt.get_month() as u8)
-                .map_err(|_| PyValueError::new_err("Invalid month"))?,
+            Month::try_from(dt.get_month()).map_err(|_| PyValueError::new_err("Invalid month"))?,
             dt.get_day(),
         )
         .map_err(|e| PyValueError::new_err(format!("Invalid date: {e}")))?;
         let time = Time::from_hms_micro(
-            dt.get_hour() as u8,
-            dt.get_minute() as u8,
-            dt.get_second() as u8,
+            dt.get_hour(),
+            dt.get_minute(),
+            dt.get_second(),
             dt.get_microsecond(),
         )
         .map_err(|e| PyValueError::new_err(format!("Invalid time: {e}")))?;
@@ -1348,8 +1350,7 @@ fn py_to_offset_datetime(obj: &Bound<'_, PyAny>) -> PyResult<OffsetDateTime> {
     } else if let Ok(d) = obj.downcast::<PyDate>() {
         let date = TimeDate::from_calendar_date(
             d.get_year(),
-            Month::try_from(d.get_month() as u8)
-                .map_err(|_| PyValueError::new_err("Invalid month"))?,
+            Month::try_from(d.get_month()).map_err(|_| PyValueError::new_err("Invalid month"))?,
             d.get_day(),
         )
         .map_err(|e| PyValueError::new_err(format!("Invalid date: {e}")))?;

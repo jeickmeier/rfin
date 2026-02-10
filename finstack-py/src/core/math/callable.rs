@@ -78,6 +78,7 @@ impl CallableAdapter {
     }
 }
 
+#[allow(clippy::panic)]
 impl<'a> CallableProxy<'a> {
     fn invoke(&self, x: f64) -> f64 {
         Python::attach(|py| {
@@ -175,6 +176,7 @@ impl VectorCallableAdapter {
     }
 }
 
+#[allow(clippy::panic)]
 impl<'a> VectorCallableProxy<'a> {
     fn invoke_objective(&self, params: &[f64]) -> f64 {
         Python::attach(|py| {

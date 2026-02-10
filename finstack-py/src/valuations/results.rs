@@ -443,7 +443,7 @@ impl PyValuationResult {
         use pythonize::pythonize;
 
         // Convert single result to row format
-        let rows = finstack_valuations::results::results_to_rows(&[self.inner.clone()]);
+        let rows = finstack_valuations::results::results_to_rows(std::slice::from_ref(&self.inner));
 
         // Convert to Python dict
         let py_rows: Vec<Py<PyAny>> = rows
@@ -533,7 +533,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyResultsMeta>()?;
     module.add_class::<PyCovenantReport>()?;
     let exports = ["ValuationResult", "ResultsMeta", "CovenantReport"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

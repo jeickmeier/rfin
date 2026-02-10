@@ -108,8 +108,7 @@ impl PyQuantoOption {
         let equity_strike_money = finstack_core::money::Money::new(equity_strike, for_currency);
         let notional_money = extract_money(&notional).context("notional")?;
 
-        let fx_vol_curve_id =
-            fx_vol_id.and_then(|v| v.extract::<&str>().ok().map(|s| CurveId::new(s)));
+        let fx_vol_curve_id = fx_vol_id.and_then(|v| v.extract::<&str>().ok().map(CurveId::new));
 
         let mut builder = QuantoOption::builder();
         builder = builder.id(id);
@@ -127,7 +126,7 @@ impl PyQuantoOption {
         builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.foreign_discount_curve_id(foreign_discount_curve_id);
         builder = builder.spot_id(spot_id.to_string());
-        builder = builder.vol_surface_id(vol_surface_id.into());
+        builder = builder.vol_surface_id(vol_surface_id);
         if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(div.to_string());
         }

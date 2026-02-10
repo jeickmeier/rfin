@@ -264,11 +264,13 @@ impl PyCovenantForecastConfig {
         seed: Option<u64>,
         antithetic: Option<bool>,
     ) -> Self {
-        let mut cfg = ValCovForecastConfig::default();
-        cfg.stochastic = stochastic.unwrap_or(false);
-        cfg.num_paths = num_paths.unwrap_or(0);
-        cfg.volatility = volatility;
-        cfg.random_seed = seed;
+        let mut cfg = ValCovForecastConfig {
+            stochastic: stochastic.unwrap_or(false),
+            num_paths: num_paths.unwrap_or(0),
+            volatility,
+            random_seed: seed,
+            ..Default::default()
+        };
         if antithetic.unwrap_or(false) {
             cfg.mc = Some(ValMcConfig { antithetic: true });
         }
@@ -388,9 +390,7 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
             }
         }
         // Fall back to a deterministic date instead of panicking.
-        Date::from_calendar_date(period.year, Month::December, 31).unwrap_or_else(|_| {
-            Date::from_calendar_date(1970, Month::January, 1).expect("Epoch valid")
-        })
+        Date::from_calendar_date(period.year, Month::December, 31).unwrap_or(Date::MIN)
     }
 }
 
@@ -534,7 +534,7 @@ pub(crate) fn register<'py>(
         "forecast_covenant",
         "forecast_breaches",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

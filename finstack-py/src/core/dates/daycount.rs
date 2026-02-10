@@ -440,7 +440,7 @@ pub(crate) fn register<'py>(
         "DayCountContextState",
         "Thirty360Convention",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     for name in exports {
         let attr = module.getattr(name)?;

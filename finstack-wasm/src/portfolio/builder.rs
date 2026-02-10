@@ -2,7 +2,7 @@
 
 use crate::core::currency::JsCurrency;
 use crate::core::dates::FsDate;
-use crate::portfolio::portfolio::JsPortfolio;
+use crate::portfolio::positions::JsPortfolio;
 use crate::portfolio::types::{JsEntity, JsPosition};
 use finstack_portfolio::{Entity, PortfolioBuilder};
 use js_sys::Array;

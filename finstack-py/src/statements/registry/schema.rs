@@ -119,6 +119,7 @@ impl PyMetricDefinition {
     /// -------
     /// MetricDefinition
     ///     Metric definition
+    #[allow(clippy::too_many_arguments)]
     fn new_py(
         id: String,
         name: String,

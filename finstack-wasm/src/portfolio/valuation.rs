@@ -3,7 +3,7 @@
 use crate::core::config::JsFinstackConfig;
 use crate::core::market_data::context::JsMarketContext;
 use crate::core::money::JsMoney;
-use crate::portfolio::portfolio::JsPortfolio;
+use crate::portfolio::positions::JsPortfolio;
 use crate::valuations::results::JsValuationResult;
 use finstack_portfolio::valuation::{
     value_portfolio_with_options, PortfolioValuation, PortfolioValuationOptions, PositionValue,

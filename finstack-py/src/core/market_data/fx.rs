@@ -336,7 +336,7 @@ impl PyFxMatrix {
     #[pyo3(text_signature = "(*, config=None)")]
     fn ctor(config: Option<&PyFxConfig>) -> Self {
         let provider = Arc::new(SimpleFxProvider::new());
-        let cfg = config.map(|c| c.inner.clone()).unwrap_or_default();
+        let cfg = config.map(|c| c.inner).unwrap_or_default();
         Self::new_with(provider, cfg)
     }
 
@@ -474,7 +474,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyFxRateResult>()?;
     module.add_class::<PyFxMatrix>()?;
     let exports = ["FxConversionPolicy", "FxConfig", "FxRateResult", "FxMatrix"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

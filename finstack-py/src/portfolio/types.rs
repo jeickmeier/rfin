@@ -11,7 +11,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyTuple};
 use pyo3::Bound;
 use pythonize::{depythonize, pythonize};
-use std::sync::Arc;
 
 /// An entity that can hold positions.
 ///
@@ -340,7 +339,7 @@ impl PyPosition {
             position_id,
             entity_id,
             instrument_id,
-            Arc::from(handle.instrument),
+            handle.instrument,
             quantity,
             unit.inner,
         )

@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use crate::core::common::args::DayCountArg;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
@@ -195,7 +197,7 @@ impl PyInflationLinkedBondBuilder {
 
     #[pyo3(text_signature = "($self, indexation)")]
     fn indexation(mut slf: PyRefMut<'_, Self>, indexation: String) -> PyResult<PyRefMut<'_, Self>> {
-        slf.indexation = parse_indexation_method(Some(indexation.as_str())).map_err(|e| e)?;
+        slf.indexation = parse_indexation_method(Some(indexation.as_str()))?;
         Ok(slf)
     }
 
@@ -263,7 +265,7 @@ impl PyInflationLinkedBondBuilder {
         builder = builder.stub(StubKind::None);
         builder = builder.calendar_id_opt(slf.calendar.clone());
         builder = builder.discount_curve_id(slf.discount_curve.clone().unwrap());
-        builder = builder.inflation_index_id(slf.inflation_curve.clone().unwrap().into());
+        builder = builder.inflation_index_id(slf.inflation_curve.clone().unwrap());
         builder = builder.attributes(Default::default());
 
         let bond = builder.build().map_err(core_to_py)?;

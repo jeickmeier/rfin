@@ -13,7 +13,7 @@ pub(crate) mod grouping;
 pub(crate) mod margin;
 pub(crate) mod metrics;
 pub(crate) mod optimization;
-pub(crate) mod portfolio;
+pub(crate) mod positions;
 pub(crate) mod results;
 pub(crate) mod types;
 pub(crate) mod valuation;
@@ -45,7 +45,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let book_exports = book::register(py, &module)?;
 
     // Register portfolio and builder
-    let portfolio_exports = portfolio::register(py, &module)?;
+    let portfolio_exports = positions::register(py, &module)?;
     let builder_exports = builder::register(py, &module)?;
 
     // Register valuation and metrics

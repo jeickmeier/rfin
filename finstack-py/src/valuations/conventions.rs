@@ -101,7 +101,7 @@ impl PyCdsDocClause {
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
         name.parse::<CdsDocClause>()
             .map(Self::new)
-            .map_err(|e| PyValueError::new_err(e))
+            .map_err(PyValueError::new_err)
     }
 
     #[getter]

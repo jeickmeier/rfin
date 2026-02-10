@@ -277,7 +277,7 @@ pub(crate) fn register<'py>(
         "realized_variance",
         "realized_variance_ohlc",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

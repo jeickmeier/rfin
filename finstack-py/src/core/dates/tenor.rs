@@ -173,8 +173,8 @@ impl PyTenor {
         PyTenorUnit::new(self.inner.unit)
     }
 
-    #[pyo3(text_signature = "(self)")]
-    fn to_years_simple(&self) -> f64 {
+    #[pyo3(name = "to_years_simple", text_signature = "(self)")]
+    fn years_simple(&self) -> f64 {
         self.inner.to_years_simple()
     }
 
@@ -207,7 +207,8 @@ impl PyTenor {
         signature = (as_of, *, calendar=None, convention=None, day_count),
         text_signature = "(self, as_of, *, calendar=None, convention=None, day_count)"
     )]
-    fn to_years_with_context(
+    #[pyo3(name = "to_years_with_context")]
+    fn years_with_context(
         &self,
         as_of: Bound<'_, PyAny>,
         calendar: Option<Bound<'_, PyAny>>,
@@ -274,7 +275,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyTenor>()?;
 
     let exports = ["TenorUnit", "Tenor"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

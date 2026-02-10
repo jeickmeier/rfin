@@ -390,6 +390,7 @@ impl PyCalibrationConfig {
         ),
         text_signature = "(tolerance=None, max_iterations=None, use_parallel=None, verbose=None, solver_kind=None, calibration_method=None, validation_mode=None, validation=None, rate_bounds=None, explain=None)"
     )]
+    #[allow(clippy::too_many_arguments)]
     fn ctor(
         tolerance: Option<f64>,
         max_iterations: Option<usize>,

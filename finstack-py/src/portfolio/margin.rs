@@ -5,7 +5,7 @@ use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::PyMoney;
 use crate::portfolio::error::portfolio_to_py;
-use crate::portfolio::portfolio::extract_portfolio;
+use crate::portfolio::positions::extract_portfolio;
 use crate::portfolio::types::extract_position;
 use finstack_portfolio::margin::{
     NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,

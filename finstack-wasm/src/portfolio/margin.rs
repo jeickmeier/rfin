@@ -4,7 +4,7 @@ use crate::core::currency::JsCurrency;
 use crate::core::dates::FsDate;
 use crate::core::market_data::context::JsMarketContext;
 use crate::core::money::JsMoney;
-use crate::portfolio::portfolio::JsPortfolio;
+use crate::portfolio::positions::JsPortfolio;
 use crate::portfolio::types::JsPosition;
 use finstack_portfolio::margin::{
     NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,

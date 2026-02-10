@@ -1,4 +1,13 @@
-#![allow(clippy::module_inception)]
+#![deny(unsafe_code)]
+#![warn(clippy::new_without_default)]
+#![warn(clippy::float_cmp)]
+#![cfg_attr(test, allow(clippy::float_cmp))]
+#![cfg_attr(test, allow(clippy::expect_used))]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
+#![cfg_attr(test, allow(clippy::panic))]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
 
 //! JavaScript/TypeScript bindings for the Finstack financial computation library.
 //!

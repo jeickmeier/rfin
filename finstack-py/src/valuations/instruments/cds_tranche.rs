@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
@@ -290,8 +292,8 @@ impl PyCDSTrancheBuilder {
         builder = builder.day_count(slf.day_count);
         builder = builder.business_day_convention(slf.business_day_convention);
         builder = builder.calendar_id_opt(to_optional_string(slf.calendar.as_deref()));
-        builder = builder.discount_curve_id(slf.discount_curve_id.clone().unwrap().into());
-        builder = builder.credit_index_id(slf.credit_index_id.clone().unwrap().into());
+        builder = builder.discount_curve_id(slf.discount_curve_id.clone().unwrap());
+        builder = builder.credit_index_id(slf.credit_index_id.clone().unwrap());
         builder = builder.side(slf.side);
         builder = builder.effective_date_opt(slf.effective_date);
         builder = builder.attributes(Default::default());

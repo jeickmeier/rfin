@@ -4,7 +4,7 @@ use crate::core::config::PyFinstackConfig;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::PyMoney;
 use crate::portfolio::error::portfolio_to_py;
-use crate::portfolio::portfolio::extract_portfolio;
+use crate::portfolio::positions::extract_portfolio;
 use finstack_portfolio::valuation::{
     value_portfolio, value_portfolio_with_options, PortfolioValuation, PortfolioValuationOptions,
     PositionValue,

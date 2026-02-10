@@ -3,7 +3,7 @@
 /// This module is only available when the `scenarios` feature is enabled.
 use crate::core::config::JsFinstackConfig;
 use crate::core::market_data::context::JsMarketContext;
-use crate::portfolio::portfolio::JsPortfolio;
+use crate::portfolio::positions::JsPortfolio;
 use crate::portfolio::valuation::JsPortfolioValuation;
 use crate::scenarios::spec::JsScenarioSpec;
 use wasm_bindgen::prelude::*;

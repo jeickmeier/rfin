@@ -129,8 +129,7 @@ impl PyCmsOption {
             DayCount::Thirty360
         };
 
-        let vol_surface_id =
-            vol_surface.and_then(|v| v.extract::<&str>().ok().map(|s| CurveId::new(s)));
+        let vol_surface_id = vol_surface.and_then(|v| v.extract::<&str>().ok().map(CurveId::new));
 
         let mut builder = CmsOption::builder();
         builder = builder.id(id);

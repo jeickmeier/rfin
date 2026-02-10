@@ -352,7 +352,7 @@ impl PyDiscountCurve {
     #[pyo3(text_signature = "(self, date)")]
     fn df_on_date(&self, _py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
-        Ok(self.inner.df_on_date_curve(d).map_err(core_to_py)?)
+        self.inner.df_on_date_curve(d).map_err(core_to_py)
     }
 
     /// Continuously compounded zero rate on a calendar date.
@@ -734,14 +734,14 @@ impl PyForwardCurve {
     /// curve table comparisons.
     #[pyo3(text_signature = "(self, t)")]
     fn df(&self, t: f64) -> PyResult<f64> {
-        Ok(self.inner.df(t).map_err(core_to_py)?)
+        self.inner.df(t).map_err(core_to_py)
     }
 
     /// Implied projection discount factor on a calendar date using the curve's day-count.
     #[pyo3(text_signature = "(self, date)")]
     fn df_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
-        Ok(self.inner.df_on_date_curve(d).map_err(core_to_py)?)
+        self.inner.df_on_date_curve(d).map_err(core_to_py)
     }
 }
 
@@ -805,6 +805,7 @@ impl PyHazardCurve {
     /// Construct a hazard (default intensity) curve from `(time, hazard)` knots.
     #[new]
     #[pyo3(signature = (id, base_date, knots, recovery_rate=None, day_count=None, issuer=None, seniority=None, currency=None, par_points=None))]
+    #[allow(clippy::too_many_arguments)]
     fn ctor(
         id: &str,
         base_date: Bound<'_, PyAny>,
@@ -1547,7 +1548,7 @@ pub(crate) fn register<'py>(
         "CreditIndexData",
         "VolatilityIndexCurve",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

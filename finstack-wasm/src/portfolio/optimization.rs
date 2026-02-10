@@ -4,7 +4,7 @@
 
 use crate::core::config::JsFinstackConfig;
 use crate::core::market_data::context::JsMarketContext;
-use crate::portfolio::portfolio::JsPortfolio;
+use crate::portfolio::positions::JsPortfolio;
 use finstack_portfolio::optimization::optimize_max_yield_with_ccc_limit;
 use wasm_bindgen::prelude::*;
 

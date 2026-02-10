@@ -2,7 +2,7 @@
 
 use crate::core::money::PyMoney;
 use crate::portfolio::error::portfolio_to_py;
-use crate::portfolio::portfolio::extract_portfolio;
+use crate::portfolio::positions::extract_portfolio;
 use crate::portfolio::types::PyPosition;
 use crate::portfolio::valuation::extract_portfolio_valuation;
 use finstack_portfolio::grouping::{aggregate_by_attribute, aggregate_by_book, group_by_attribute};

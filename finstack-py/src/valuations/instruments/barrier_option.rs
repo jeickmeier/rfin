@@ -188,7 +188,7 @@ impl PyBarrierOption {
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.spot_id(spot_id.to_string());
-        builder = builder.vol_surface_id(vol_surface_id.into());
+        builder = builder.vol_surface_id(vol_surface_id);
         if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(div.into());
         }

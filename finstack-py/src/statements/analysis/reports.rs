@@ -97,7 +97,7 @@ impl PyTableBuilder {
         self.inner.add_row(cells);
     }
 
-    #[pyo3(signature = ())]
+    #[pyo3(name = "to_string", signature = ())]
     /// Build ASCII table.
     ///
     /// Returns
@@ -170,7 +170,7 @@ impl PyPLSummaryReport {
     /// -------
     /// str
     ///     Formatted report
-    fn to_string(&self) -> String {
+    fn render_string(&self) -> String {
         let report = PLSummaryReport::new(
             &self.results.inner,
             self.line_items.clone(),
@@ -215,7 +215,7 @@ impl PyPLSummaryReport {
     }
 
     fn __str__(&self) -> String {
-        self.to_string()
+        self.render_string()
     }
 }
 
@@ -253,14 +253,14 @@ impl PyCreditAssessmentReport {
         }
     }
 
-    #[pyo3(signature = ())]
+    #[pyo3(name = "to_string", signature = ())]
     /// Convert report to string format.
     ///
     /// Returns
     /// -------
     /// str
     ///     Formatted report
-    fn to_string(&self) -> String {
+    fn render_string(&self) -> String {
         let report = CreditAssessmentReport::new(&self.results.inner, self.as_of);
         report.to_string()
     }
@@ -289,7 +289,7 @@ impl PyCreditAssessmentReport {
     }
 
     fn __str__(&self) -> String {
-        self.to_string()
+        self.render_string()
     }
 }
 
@@ -324,22 +324,22 @@ impl PyDebtSummaryReport {
         }
     }
 
-    #[pyo3(signature = ())]
+    #[pyo3(name = "to_string", signature = ())]
     /// Convert the report to a formatted string.
-    fn to_string(&self) -> String {
+    fn render_string(&self) -> String {
         render_debt_summary(&self.model.inner, &self.results.inner, self.as_of)
     }
 
     #[pyo3(signature = ())]
     /// Convert the report to Markdown format (currently same as text).
     fn to_markdown(&self) -> String {
-        self.to_string()
+        self.render_string()
     }
 
     #[pyo3(signature = ())]
     /// Print the report to stdout.
     fn print(&self) {
-        println!("{}", self.to_string());
+        println!("{}", self.render_string());
     }
 
     fn __repr__(&self) -> String {
@@ -347,7 +347,7 @@ impl PyDebtSummaryReport {
     }
 
     fn __str__(&self) -> String {
-        self.to_string()
+        self.render_string()
     }
 }
 
@@ -360,7 +360,7 @@ fn print_debt_summary(
     as_of: &PyPeriodId,
 ) {
     let report = PyDebtSummaryReport::new(model, results, as_of);
-    println!("{}", report.to_string());
+    println!("{}", report.render_string());
 }
 
 /// Register reports types with the analysis module.

@@ -70,6 +70,7 @@ impl PyScheduleParams {
     #[pyo3(
         text_signature = "(cls, freq, day_count, bdc, calendar_id, stub=None, end_of_month=False, payment_lag_days=0)"
     )]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         _cls: &Bound<'_, PyType>,
         freq: crate::core::dates::schedule::PyFrequency,
@@ -571,8 +572,11 @@ impl PyCashFlowSchedule {
             .map_err(core_to_py)?;
 
         // Convert dates to Polars Date (days since epoch)
-        let epoch =
-            time::Date::from_calendar_date(1970, time::Month::January, 1).expect("Epoch valid");
+        let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "Failed to construct epoch date: {e}"
+            ))
+        })?;
         let start_dates: Vec<i32> = frame
             .start_dates
             .iter()
@@ -677,6 +681,7 @@ impl PyCashFlowSchedule {
         signature = (periods, market_or_curve, *, discount_curve_id=None, hazard_curve_id=None, as_of=None, day_count=None),
         text_signature = "(periods, market_or_curve, /, *, discount_curve_id=None, hazard_curve_id=None, as_of=None, day_count=None)"
     )]
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn per_period_pv(
         &self,
         _py: Python<'_>,

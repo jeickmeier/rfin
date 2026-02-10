@@ -255,6 +255,6 @@ finstack.core.market_data.term_structures : Discount curve construction
     module.add_function(wrap_pyfunction!(py_npv_static, module)?)?;
     module.add_function(wrap_pyfunction!(py_npv_using_curve_dc, module)?)?;
     let exports = ["npv_static", "npv_using_curve_dc"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     Ok(exports.to_vec())
 }

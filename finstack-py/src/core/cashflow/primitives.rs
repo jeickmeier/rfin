@@ -44,6 +44,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyModule, PyType};
 use pyo3::Bound;
 
+type CashFlowTuple = (Py<PyAny>, PyMoney, PyCFKind, f64, Option<Py<PyAny>>);
+
 /// Enumeration of cash-flow categories used across finstack-core.
 ///
 /// `CFKind` classifies cashflows by their economic nature, enabling proper
@@ -260,10 +262,7 @@ impl PyCFKind {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = match extract_cf_kind(&other) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        };
+        let rhs = extract_cf_kind(&other).ok();
         richcmp_eq_ne(py, &self.inner, rhs, op)
     }
 }
@@ -512,10 +511,7 @@ impl PyCashFlow {
     /// -------
     /// tuple
     ///     Tuple containing date, :class:`Money`, :class:`CFKind`, accrual factor, and optional reset date.
-    pub fn to_tuple(
-        &self,
-        py: Python<'_>,
-    ) -> PyResult<(Py<PyAny>, PyMoney, PyCFKind, f64, Option<Py<PyAny>>)> {
+    pub fn to_tuple(&self, py: Python<'_>) -> PyResult<CashFlowTuple> {
         let date = date_to_py(py, self.inner.date)?;
         let reset = match self.inner.reset_date {
             Some(value) => Some(date_to_py(py, value)?),

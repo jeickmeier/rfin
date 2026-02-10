@@ -155,10 +155,7 @@ impl PyInstrumentType {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = match extract_instrument_type(&other) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        };
+        let rhs = extract_instrument_type(&other).ok();
         richcmp_eq_ne(py, &(self.inner as u16), rhs.map(|v| v as u16), op)
     }
 }
@@ -272,10 +269,7 @@ impl PyModelKey {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = match extract_model_key(&other) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        };
+        let rhs = extract_model_key(&other).ok();
         richcmp_eq_ne(py, &(self.inner as u16), rhs.map(|v| v as u16), op)
     }
 }

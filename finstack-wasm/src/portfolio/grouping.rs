@@ -1,7 +1,7 @@
 //! Attribute-based grouping and aggregation for WASM.
 
 use crate::core::money::JsMoney;
-use crate::portfolio::portfolio::JsPortfolio;
+use crate::portfolio::positions::JsPortfolio;
 use crate::portfolio::types::JsPosition;
 use crate::portfolio::valuation::JsPortfolioValuation;
 use js_sys::{Array, Object};

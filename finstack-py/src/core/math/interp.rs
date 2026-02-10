@@ -212,7 +212,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyInterpStyle>()?;
     module.add_class::<PyExtrapolationPolicy>()?;
     let exports = ["InterpStyle", "ExtrapolationPolicy"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

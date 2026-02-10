@@ -69,7 +69,7 @@ impl PyExecutionContext {
             let mut rust_instruments = Vec::with_capacity(list.len());
             for obj in list {
                 let bound = obj.bind(py);
-                let handle = extract_instrument(&bound)?;
+                let handle = extract_instrument(bound)?;
                 rust_instruments.push(handle.instrument.clone_box());
             }
             Ok(Some(rust_instruments))
@@ -406,7 +406,7 @@ impl PyScenarioEngine {
         // Convert rate_bindings to IndexMap if present
         let rate_bindings = context.rate_bindings.clone();
 
-        let instruments_option = context.rust_instruments.as_mut().map(|vec| vec.as_mut());
+        let instruments_option = context.rust_instruments.as_mut();
         let calendar = context
             .calendar
             .as_ref()

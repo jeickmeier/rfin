@@ -221,9 +221,7 @@ impl PyInterestRateSwapBuilder {
             return Ok(py_side.inner);
         }
         if let Ok(name) = value.extract::<&str>() {
-            return name
-                .parse::<PayReceive>()
-                .map_err(|e| PyValueError::new_err(e));
+            return name.parse::<PayReceive>().map_err(PyValueError::new_err);
         }
         Err(pyo3::exceptions::PyTypeError::new_err(
             "side expects PayReceive or str label",

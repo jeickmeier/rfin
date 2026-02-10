@@ -32,8 +32,7 @@ fn parse_margin_tenor(v: &Bound<'_, PyAny>) -> PyResult<MarginTenor> {
     if let Ok(py) = v.extract::<PyRef<PyMarginTenor>>() {
         Ok(py.inner)
     } else if let Ok(s) = v.extract::<String>() {
-        s.parse()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+        s.parse().map_err(pyo3::exceptions::PyValueError::new_err)
     } else {
         Err(PyTypeError::new_err("Expected MarginTenor or string"))
     }
@@ -43,8 +42,7 @@ fn parse_im_methodology(v: &Bound<'_, PyAny>) -> PyResult<ImMethodology> {
     if let Ok(py) = v.extract::<PyRef<PyImMethodology>>() {
         Ok(py.inner)
     } else if let Ok(s) = v.extract::<String>() {
-        s.parse()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+        s.parse().map_err(pyo3::exceptions::PyValueError::new_err)
     } else {
         Err(PyTypeError::new_err("Expected ImMethodology or string"))
     }
@@ -618,7 +616,7 @@ pub(crate) fn register<'py>(
         "EligibleCollateralSchedule",
         "CsaSpec",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     parent.setattr("margin", &module)?;
     Ok(exports.to_vec())

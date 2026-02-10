@@ -447,7 +447,7 @@ fn bucketed_metric(
 
     let registry = standard_registry();
     registry
-        .compute(&[metric_id.clone()], &mut context)
+        .compute(std::slice::from_ref(&metric_id), &mut context)
         .map_err(|e| PyValueError::new_err(format!("Metric computation failed: {}", e)))?;
 
     let series = context

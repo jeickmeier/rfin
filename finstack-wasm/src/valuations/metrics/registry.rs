@@ -127,6 +127,7 @@ impl Default for JsMetricRegistry {
 // ============================================================================
 
 /// Parse MetricId from JsValue (currently only supports string names).
+#[allow(clippy::expect_used)]
 fn parse_metric_id(value: JsValue) -> Result<MetricId, JsValue> {
     // Extract string name
     if let Some(name) = value.as_string() {

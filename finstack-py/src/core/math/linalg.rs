@@ -141,7 +141,7 @@ pub(crate) fn register<'py>(
         "apply_correlation",
         "build_correlation_matrix",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

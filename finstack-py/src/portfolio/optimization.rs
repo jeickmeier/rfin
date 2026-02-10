@@ -6,7 +6,7 @@
 use crate::core::config::PyFinstackConfig;
 use crate::core::market_data::context::PyMarketContext;
 use crate::portfolio::error::portfolio_to_py;
-use crate::portfolio::portfolio::{extract_portfolio, PyPortfolio};
+use crate::portfolio::positions::{extract_portfolio, PyPortfolio};
 use crate::valuations::instruments::extract_instrument;
 use crate::valuations::metrics::ids::PyMetricId;
 use finstack_portfolio::optimization::{
@@ -908,7 +908,7 @@ impl PyCandidatePosition {
     ) -> PyResult<Self> {
         // Extract instrument and convert Box to Arc
         let instrument_handle = extract_instrument(instrument)?;
-        let instrument_arc = instrument_handle.instrument.into();
+        let instrument_arc = instrument_handle.instrument;
 
         // Extract PositionUnit
         let unit_inner = if let Ok(units) = unit.extract::<String>() {

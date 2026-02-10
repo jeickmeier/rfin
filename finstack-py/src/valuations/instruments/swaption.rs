@@ -213,6 +213,7 @@ impl fmt::Display for PySwaption {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn construct_swaption(
     instrument_id: Bound<'_, PyAny>,
     notional: Bound<'_, PyAny>,

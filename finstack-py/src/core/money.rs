@@ -164,14 +164,14 @@ impl PyMoney {
         PyCurrency::new(self.inner.currency())
     }
 
-    #[pyo3(text_signature = "(self)")]
+    #[pyo3(name = "to_tuple", text_signature = "(self)")]
     /// Return ``(amount, currency)`` tuple.
     ///
     /// Returns
     /// -------
     /// tuple[float, Currency]
     ///     Tuple containing the numeric amount and currency object.
-    fn to_tuple(&self) -> PyResult<(f64, PyCurrency)> {
+    fn as_tuple(&self) -> PyResult<(f64, PyCurrency)> {
         Ok((self.inner.amount(), PyCurrency::new(self.inner.currency())))
     }
 
@@ -255,7 +255,7 @@ impl PyMoney {
         let fx_policy = parse_policy(py, policy)?;
         // Manual conversion since Arc<dyn FxProvider> can't be passed to convert directly
         if self.inner.currency() == target {
-            return Ok(self.clone());
+            return Ok(*self);
         }
         let provider = fx_matrix.inner.provider();
         let rate = provider
@@ -264,8 +264,7 @@ impl PyMoney {
         if !rate.is_finite() {
             return Err(core_to_py(finstack_core::InputError::Invalid.into()));
         }
-        let converted =
-            finstack_core::money::Money::new((self.inner.amount() * rate).into(), target);
+        let converted = finstack_core::money::Money::new(self.inner.amount() * rate, target);
         Ok(Self::new(converted))
     }
 
@@ -344,16 +343,14 @@ impl PyMoney {
         Self::new(self.inner * -1.0)
     }
 
+    #[allow(clippy::float_cmp)]
     fn __richcmp__(
         &self,
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = match extract_money(&other) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        };
+        let rhs = extract_money(&other).ok();
 
         let result = match op {
             CompareOp::Eq => rhs

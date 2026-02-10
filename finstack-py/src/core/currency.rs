@@ -112,14 +112,14 @@ impl PyCurrency {
         self.inner.decimals()
     }
 
-    #[pyo3(text_signature = "(self)")]
+    #[pyo3(name = "to_tuple", text_signature = "(self)")]
     /// Return this currency as a tuple of `(code, numeric, decimals)`.
     ///
     /// Returns
     /// -------
     /// tuple[str, int, int]
     ///     Tuple containing ISO code, numeric id, and decimal count.
-    fn to_tuple(&self) -> (String, u16, u8) {
+    fn as_tuple(&self) -> (String, u16, u8) {
         (self.code(), self.numeric(), self.decimals())
     }
 
@@ -153,10 +153,7 @@ impl PyCurrency {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = match extract_currency(&other) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        };
+        let rhs = extract_currency(&other).ok();
 
         let result = match op {
             CompareOp::Eq => rhs.map(|v| v == self.inner).unwrap_or(false),
@@ -220,9 +217,7 @@ pub(crate) fn extract_currency(value: &Bound<'_, PyAny>) -> PyResult<Currency> {
     }
 
     if let Ok(code) = value.extract::<&str>() {
-        return Currency::from_str(code)
-            .map_err(|_| unknown_currency(code))
-            .map(|c| c);
+        return Currency::from_str(code).map_err(|_| unknown_currency(code));
     }
 
     Err(PyTypeError::new_err(

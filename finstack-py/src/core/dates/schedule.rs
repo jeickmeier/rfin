@@ -472,6 +472,7 @@ impl PyScheduleSpec {
         cds_imm_mode=false,
         graceful=false
     ))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         start: Bound<'_, PyAny>,
         end: Bound<'_, PyAny>,
@@ -568,7 +569,7 @@ pub(crate) fn register<'py>(
         "Schedule",
         "ScheduleSpec",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

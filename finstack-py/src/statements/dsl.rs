@@ -75,7 +75,7 @@ pub(crate) fn register<'py>(
         "compile_formula",
         "parse_and_compile",
     ];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     parent.setattr("dsl", &module)?;
     Ok(exports.to_vec())

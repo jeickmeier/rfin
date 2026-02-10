@@ -176,7 +176,7 @@ pub(crate) fn register<'py>(
 
     // Export both names for compatibility
     let exports = ["Rng", "SimpleRng", "box_muller_transform"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }

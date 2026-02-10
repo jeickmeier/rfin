@@ -133,7 +133,7 @@ impl PyFxBarrierOption {
         builder = builder.domestic_discount_curve_id(domestic_discount_curve_id);
         builder = builder.foreign_discount_curve_id(foreign_discount_curve_id);
         builder = builder.fx_spot_id(fx_spot_id.to_string());
-        builder = builder.fx_vol_id(fx_vol_id.into());
+        builder = builder.fx_vol_id(fx_vol_id);
         let option = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!(
                 "Failed to build FxBarrierOption: {e}"

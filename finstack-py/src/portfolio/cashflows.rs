@@ -6,7 +6,7 @@ use crate::core::dates::utils::date_to_py;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::PyMoney;
 use crate::portfolio::error::portfolio_to_py;
-use crate::portfolio::portfolio::extract_portfolio;
+use crate::portfolio::positions::extract_portfolio;
 use finstack_portfolio::cashflows::{
     aggregate_cashflows, cashflows_to_base_by_period, collapse_cashflows_to_base_by_date,
     PortfolioCashflowBuckets, PortfolioCashflows,

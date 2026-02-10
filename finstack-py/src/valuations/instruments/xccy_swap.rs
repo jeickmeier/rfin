@@ -514,8 +514,8 @@ impl PyCrossCurrencySwap {
         Ok(format!(
             "CrossCurrencySwap(id='{}', {}/{}, maturity='{}')",
             self.inner.id,
-            self.inner.leg1.currency.to_string(),
-            self.inner.leg2.currency.to_string(),
+            self.inner.leg1.currency,
+            self.inner.leg2.currency,
             self.inner.maturity_date
         ))
     }

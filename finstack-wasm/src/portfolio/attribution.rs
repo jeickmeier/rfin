@@ -4,7 +4,7 @@ use crate::core::config::JsFinstackConfig;
 use crate::core::dates::FsDate;
 use crate::core::market_data::context::JsMarketContext;
 use crate::core::money::JsMoney;
-use crate::portfolio::portfolio::JsPortfolio;
+use crate::portfolio::positions::JsPortfolio;
 use crate::valuations::attribution::WasmAttributionMethod;
 use finstack_portfolio::PortfolioAttribution;
 use finstack_valuations::attribution::PnlAttribution;

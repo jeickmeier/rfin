@@ -4,7 +4,7 @@ use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
 use crate::portfolio::book::{extract_book, extract_book_id};
 use crate::portfolio::error::portfolio_to_py;
-use crate::portfolio::portfolio::PyPortfolio;
+use crate::portfolio::positions::PyPortfolio;
 use crate::portfolio::types::{extract_entity, extract_position};
 use finstack_portfolio::PortfolioBuilder;
 use pyo3::exceptions::{PyTypeError, PyValueError};
