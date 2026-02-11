@@ -51,9 +51,9 @@ impl FxOptionCalculator {
         self.validate_exercise_style(inst)?;
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
-        if spot <= 0.0 || inst.strike <= 0.0 || inst.notional.amount() <= 0.0 {
+        if spot <= 0.0 || inst.strike < 0.0 || inst.notional.amount() <= 0.0 {
             return Err(finstack_core::Error::Validation(format!(
-                "FxOption requires spot > 0, strike > 0, and notional > 0; got spot={spot}, strike={}, notional={}",
+                "FxOption requires spot > 0, strike >= 0, and notional > 0; got spot={spot}, strike={}, notional={}",
                 inst.strike,
                 inst.notional.amount()
             )));
@@ -67,6 +67,20 @@ impl FxOptionCalculator {
             };
             return Ok(Money::new(
                 intrinsic * inst.notional.amount(),
+                inst.quote_currency,
+            ));
+        }
+
+        // Strike = 0 edge case:
+        // - Call with K=0 is always exercised: PV = S * exp(-r_f * t)
+        // - Put with K=0 is worthless: PV = 0
+        if inst.strike == 0.0 {
+            let unit_price = match inst.option_type {
+                OptionType::Call => spot * (-r_f * t).exp(),
+                OptionType::Put => 0.0,
+            };
+            return Ok(Money::new(
+                unit_price * inst.notional.amount(),
                 inst.quote_currency,
             ));
         }
@@ -227,9 +241,9 @@ impl FxOptionCalculator {
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, t) = self.collect_inputs_no_vol(inst, curves, as_of)?;
         if t <= 0.0 {
-            return Err(finstack_core::Error::Validation(
-                "Implied vol is undefined for expired FX options".to_string(),
-            ));
+            // Expired options have no time value; implied vol is not identifiable.
+            // Returning 0.0 is a pragmatic convention used in analytics pipelines.
+            return Ok(0.0);
         }
         if spot <= 0.0 || inst.strike <= 0.0 || inst.notional.amount() <= 0.0 {
             return Err(finstack_core::Error::Validation(format!(
@@ -269,6 +283,13 @@ impl FxOptionCalculator {
     ) -> Result<FxOptionGreeks> {
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
+        if spot <= 0.0 || inst.strike < 0.0 || inst.notional.amount() <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "FxOption greeks require spot > 0, strike >= 0, and notional > 0; got spot={spot}, strike={}, notional={}",
+                inst.strike,
+                inst.notional.amount()
+            )));
+        }
 
         // Expired handling
         if t <= 0.0 {
@@ -290,6 +311,22 @@ impl FxOptionCalculator {
                 }
             };
             let scale = inst.notional.amount();
+            return Ok(FxOptionGreeks {
+                delta: delta_unit * scale,
+                ..Default::default()
+            });
+        }
+
+        // Strike = 0 edge case:
+        // - Call: PV = S * exp(-r_f t) → delta = exp(-r_f t), gamma/vega/theta = 0
+        // - Put: PV = 0 → all greeks = 0
+        if inst.strike == 0.0 {
+            let scale = inst.notional.amount();
+            let exp_rf_t = (-r_f * t).exp();
+            let delta_unit = match inst.option_type {
+                OptionType::Call => exp_rf_t,
+                OptionType::Put => 0.0,
+            };
             return Ok(FxOptionGreeks {
                 delta: delta_unit * scale,
                 ..Default::default()

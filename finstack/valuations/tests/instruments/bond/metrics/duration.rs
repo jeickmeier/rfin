@@ -112,22 +112,23 @@ fn test_convexity_matches_numerical_second_derivative() {
     let conv_closed = *res.measures.get("convexity").unwrap();
 
     let flows = bond.build_dated_flows(&market, as_of).unwrap();
+    let quote_date = as_of + time::Duration::days(bond.settlement_days.unwrap_or(0) as i64);
     let dy = 1e-4;
     let p0 = finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
-        &bond, &flows, as_of, ytm,
+        &bond, &flows, quote_date, ytm,
     )
     .unwrap();
     let p_up = finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
         &bond,
         &flows,
-        as_of,
+        quote_date,
         ytm + dy,
     )
     .unwrap();
     let p_dn = finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
         &bond,
         &flows,
-        as_of,
+        quote_date,
         ytm - dy,
     )
     .unwrap();

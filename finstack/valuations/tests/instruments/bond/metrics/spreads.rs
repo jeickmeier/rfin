@@ -155,16 +155,30 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
     ];
 
     for (target_z, base_bond) in scenarios {
+        let settlement_days = base_bond.settlement_days.unwrap_or(0) as i64;
+        let quote_date = as_of + time::Duration::days(settlement_days);
+
         // Price the bond at the target Z-spread to obtain a dirty price.
         let dirty_target =
             finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_z_spread(
-                &base_bond, &market, as_of, target_z,
+                &base_bond, &market, quote_date, target_z,
             )
             .expect("pricing with target Z-spread should succeed");
 
-        // Convert to a clean price (% of par) assuming valuation on a coupon date
-        // (zero accrual).
-        let clean_px = dirty_target / notional.amount() * 100.0;
+        // Convert to a clean price (% of par) at the quote/settlement date
+        // (dirty = clean + accrued at quote_date).
+        // Accrued must be computed at the quote/settlement date, not `as_of`.
+        let schedule = base_bond
+            .get_full_schedule(&market)
+            .expect("build full schedule");
+        let accrued = finstack_valuations::cashflow::accrued_interest_amount(
+            &schedule,
+            quote_date,
+            &base_bond.accrual_config(),
+        )
+        .expect("accrued at quote date");
+        let clean_ccy = dirty_target - accrued;
+        let clean_px = clean_ccy / notional.amount() * 100.0;
 
         let mut bond = base_bond.clone();
         bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
@@ -188,7 +202,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
         // Re-price with solved z and verify price residual is tiny.
         let dirty_repriced =
             finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_z_spread(
-                &bond, &market, as_of, z,
+                &bond, &market, quote_date, z,
             )
             .expect("repricing with solved Z-spread should succeed");
         let price_error = (dirty_repriced - dirty_target).abs() / notional.amount();

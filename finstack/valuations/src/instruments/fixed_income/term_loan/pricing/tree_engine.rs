@@ -1,0 +1,626 @@
+//! Tree-based pricing engine for callable term loans.
+//!
+//! This module provides market-style optionality pricing for term loans with borrower
+//! call schedules, using backward induction on a tree and a frictional exercise rule.
+//!
+//! Design goals:
+//! - Use the shared tree framework (`TreeModel` + `TreeValuator`)
+//! - Support deterministic discounting (via the calibrated rate tree) and an optional
+//!   credit-spread tree path
+//! - Apply `PricingOverrides::call_friction_cents` as an exercise threshold uplift
+
+use crate::instruments::common_impl::models::trees::tree_framework::state_keys as tf_keys;
+use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
+    RatesCreditConfig, RatesCreditTree,
+};
+use crate::instruments::common_impl::models::{
+    short_rate_keys, NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
+    TreeValuator,
+};
+use crate::instruments::common_impl::traits::Instrument;
+use crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows;
+use crate::instruments::fixed_income::term_loan::TermLoan;
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
+use crate::results::ValuationResult;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::solver::{BrentSolver, Solver};
+use finstack_core::money::Money;
+use finstack_core::Result;
+
+/// Configuration for tree-based term loan pricing (callable PV, OAS).
+#[derive(Debug, Clone)]
+pub struct TermLoanTreePricerConfig {
+    pub tree_steps: usize,
+    pub volatility: f64,
+    pub tolerance: f64,
+    pub max_iterations: usize,
+    pub initial_bracket_size_bp: Option<f64>,
+}
+
+impl Default for TermLoanTreePricerConfig {
+    fn default() -> Self {
+        Self {
+            tree_steps: 100,
+            volatility: 0.01,
+            tolerance: 1e-6,
+            max_iterations: 50,
+            initial_bracket_size_bp: Some(1000.0),
+        }
+    }
+}
+
+/// Term loan valuator for tree-based callable pricing.
+///
+/// Implements `TreeValuator` by mapping dated loan cashflows and call schedules into
+/// step-indexed vectors and applying borrower call exercise with friction costs.
+pub struct TermLoanValuator {
+    loan: TermLoan,
+    /// Coupon + fee cashflows by step (paid regardless of call decision).
+    coupon_fee_vec: Vec<f64>,
+    /// Scheduled principal cashflows by step (only received if not called).
+    principal_vec: Vec<f64>,
+    /// Call redemption by step (principal-only, based on pre-exercise outstanding).
+    call_vec: Vec<Option<f64>>,
+    /// Outstanding principal (pre-exercise) corresponding to `call_vec` steps.
+    ///
+    /// This is used to compute exercise friction consistently with the call redemption.
+    call_outstanding_vec: Vec<Option<f64>>,
+    /// Outstanding principal at start of step (used for friction and recovery).
+    outstanding_vec: Vec<f64>,
+    /// Optional recovery rate from hazard curve.
+    recovery_rate: Option<f64>,
+    /// Call friction in cents per 100 of outstanding.
+    call_friction_cents: f64,
+}
+
+impl TermLoanValuator {
+    pub fn new(
+        loan: TermLoan,
+        market: &MarketContext,
+        as_of: Date,
+        origin: Date,
+        time_to_maturity: f64,
+        tree_steps: usize,
+    ) -> Result<Self> {
+        use crate::cashflow::primitives::CFKind;
+        let dt = time_to_maturity / tree_steps as f64;
+        let time_steps: Vec<f64> = (0..=tree_steps).map(|i| i as f64 * dt).collect();
+        let num_steps = tree_steps + 1;
+
+        let disc = market.get_discount(&loan.discount_curve_id)?;
+        let dc_curve = disc.day_count();
+
+        let schedule = generate_cashflows(&loan, market, as_of)?;
+        let out_path = schedule.outstanding_by_date()?;
+
+        // Helper: outstanding BEFORE a target date (pre-exercise).
+        let outstanding_before = |target: Date| -> f64 {
+            let mut last = 0.0;
+            for (d, amt) in &out_path {
+                if *d < target {
+                    last = amt.amount();
+                } else {
+                    break;
+                }
+            }
+            last
+        };
+
+        // Build coupon/fee and principal flow vectors.
+        let mut coupon_fee_vec = vec![0.0; num_steps];
+        let mut principal_vec = vec![0.0; num_steps];
+
+        // Identify exercise dates for snapping cashflows to exercise steps.
+        let mut exercise_dates = std::collections::HashSet::new();
+        if let Some(ref cs) = loan.call_schedule {
+            for c in &cs.calls {
+                if c.date >= origin && c.date <= loan.maturity {
+                    exercise_dates.insert(c.date);
+                }
+            }
+        }
+
+        for cf in &schedule.flows {
+            if cf.date < origin {
+                continue;
+            }
+            let t = dc_curve.year_fraction(
+                origin,
+                cf.date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let raw = (t / time_to_maturity) * tree_steps as f64;
+            let raw_clamped = raw.clamp(0.0, tree_steps as f64);
+
+            // Map to step index.
+            let step = if exercise_dates.contains(&cf.date) {
+                raw_clamped.ceil() as usize
+            } else {
+                raw_clamped.round() as usize
+            }
+            .clamp(0, num_steps - 1);
+
+            match cf.kind {
+                CFKind::Fixed
+                | CFKind::FloatReset
+                | CFKind::Stub
+                | CFKind::Fee
+                | CFKind::CommitmentFee
+                | CFKind::UsageFee
+                | CFKind::FacilityFee => {
+                    coupon_fee_vec[step] += cf.amount.amount();
+                }
+                CFKind::Amortization => {
+                    // Principal repayment (positive to holder)
+                    if cf.amount.amount() > 0.0 {
+                        principal_vec[step] += cf.amount.amount();
+                    }
+                }
+                CFKind::Notional => {
+                    // Only include positive notional (redemptions), exclude funding legs
+                    if cf.amount.amount() > 0.0 {
+                        principal_vec[step] += cf.amount.amount();
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Outstanding principal by step: use the last outstanding level strictly before the
+        // calendar date implied by the step time. We approximate by mapping event times.
+        let mut outstanding_events: Vec<(f64, f64)> = out_path
+            .iter()
+            .filter(|(d, _)| *d >= origin && *d <= loan.maturity)
+            .filter_map(|(d, amt)| {
+                dc_curve
+                    .year_fraction(origin, *d, finstack_core::dates::DayCountCtx::default())
+                    .ok()
+                    .map(|t| (t, amt.amount()))
+            })
+            .collect();
+        outstanding_events
+            .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut outstanding_vec = vec![0.0; num_steps];
+        let mut last_out = outstanding_before(origin);
+        let mut ev_idx = 0usize;
+        for step in 0..num_steps {
+            let st = time_steps[step];
+            while ev_idx < outstanding_events.len() && outstanding_events[ev_idx].0 < st {
+                last_out = outstanding_events[ev_idx].1;
+                ev_idx += 1;
+            }
+            outstanding_vec[step] = last_out.max(0.0);
+        }
+
+        // Call redemption vector (pre-exercise outstanding × call price).
+        let mut call_vec: Vec<Option<f64>> = vec![None; num_steps];
+        let mut call_outstanding_vec: Vec<Option<f64>> = vec![None; num_steps];
+        if let Some(ref cs) = loan.call_schedule {
+            for c in &cs.calls {
+                if c.date < origin || c.date > loan.maturity {
+                    continue;
+                }
+                let t = dc_curve.year_fraction(
+                    origin,
+                    c.date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
+                let raw = (t / time_to_maturity) * tree_steps as f64;
+                let step =
+                    (raw.clamp(0.0, tree_steps as f64).ceil() as usize).clamp(0, num_steps - 1);
+
+                let out = outstanding_before(c.date).max(0.0);
+                let redemption = out * (c.price_pct_of_par / 100.0);
+
+                // If multiple calls map to the same step, use the minimum redemption (most issuer-friendly),
+                // which is conservative for the lender (lower PV).
+                match call_vec[step] {
+                    Some(existing) => {
+                        // Keep the minimum redemption (most borrower-friendly), and keep the
+                        // associated outstanding used to compute friction.
+                        if redemption < existing {
+                            call_vec[step] = Some(redemption);
+                            call_outstanding_vec[step] = Some(out);
+                        }
+                    }
+                    None => {
+                        call_vec[step] = Some(redemption);
+                        call_outstanding_vec[step] = Some(out);
+                    }
+                }
+            }
+        }
+
+        // Recovery rate (if hazard curve present). Precedence mirrors other credit-aware pricers:
+        // 1) credit_curve_id (if set)
+        // 2) discount_curve_id
+        // 3) "{discount_curve_id}-CREDIT"
+        let recovery_rate = {
+            if let Some(ref credit_id) = loan.credit_curve_id {
+                market
+                    .get_hazard(credit_id.as_str())
+                    .ok()
+                    .map(|hc| hc.recovery_rate())
+            } else {
+                market
+                    .get_hazard(loan.discount_curve_id.as_str())
+                    .ok()
+                    .or_else(|| {
+                        market
+                            .get_hazard(format!("{}-CREDIT", loan.discount_curve_id.as_str()))
+                            .ok()
+                    })
+                    .map(|hc| hc.recovery_rate())
+            }
+        };
+
+        let call_friction_cents = loan.pricing_overrides.call_friction_cents.unwrap_or(0.0);
+
+        Ok(Self {
+            loan,
+            coupon_fee_vec,
+            principal_vec,
+            call_vec,
+            call_outstanding_vec,
+            outstanding_vec,
+            recovery_rate,
+            call_friction_cents,
+        })
+    }
+
+    #[inline]
+    fn coupon_fee_at(&self, step: usize) -> f64 {
+        self.coupon_fee_vec.get(step).copied().unwrap_or(0.0)
+    }
+
+    #[inline]
+    fn principal_cf_at(&self, step: usize) -> f64 {
+        self.principal_vec.get(step).copied().unwrap_or(0.0)
+    }
+
+    #[inline]
+    fn call_at(&self, step: usize) -> Option<f64> {
+        self.call_vec.get(step).copied().flatten()
+    }
+
+    #[inline]
+    fn call_outstanding_at(&self, step: usize) -> Option<f64> {
+        self.call_outstanding_vec.get(step).copied().flatten()
+    }
+
+    #[inline]
+    fn outstanding_at(&self, step: usize) -> f64 {
+        self.outstanding_vec
+            .get(step)
+            .copied()
+            .unwrap_or(self.loan.notional_limit.amount())
+    }
+}
+
+impl TreeValuator for TermLoanValuator {
+    fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
+        let step = state.step;
+        // At maturity, scheduled principal repayment is already in principal_vec.
+        Ok(self.coupon_fee_at(step) + self.principal_cf_at(step))
+    }
+
+    fn value_at_node(&self, state: &NodeState, continuation_value: f64, dt: f64) -> Result<f64> {
+        let step = state.step;
+
+        let coupon_fee = self.coupon_fee_at(step);
+        let principal_cf = self.principal_cf_at(step);
+
+        // Baseline (no call): receive scheduled principal cashflow then continue.
+        let mut principal_value = continuation_value + principal_cf;
+
+        // Borrower call: borrower can redeem at call price if continuation sufficiently high,
+        // subject to friction threshold.
+        if let Some(call_price) = self.call_at(step) {
+            let outstanding = self
+                .call_outstanding_at(step)
+                .unwrap_or_else(|| self.outstanding_at(step));
+            let friction_amount = outstanding * (self.call_friction_cents / 10_000.0);
+            let threshold = call_price + friction_amount;
+            if principal_value > threshold {
+                // If called, redemption replaces scheduled principal cashflow on this date.
+                principal_value = call_price;
+            }
+        }
+
+        let alive_value = coupon_fee + principal_value;
+
+        // Default handling when hazard rate is provided by the tree state.
+        if let Some(hazard) = state.hazard_rate {
+            let df = state.df.unwrap_or(1.0);
+            let p_surv = (-hazard.max(0.0) * dt).exp();
+            let default_prob = (1.0 - p_surv).clamp(0.0, 1.0);
+            let outstanding = self.outstanding_at(step);
+            let recovery = self
+                .recovery_rate
+                .map(|rr| rr.clamp(0.0, 1.0) * outstanding)
+                .unwrap_or(0.0);
+            Ok(p_surv * alive_value + default_prob * df * recovery)
+        } else {
+            Ok(alive_value)
+        }
+    }
+}
+
+/// Tree-based pricer for callable term loans.
+#[derive(Debug, Clone)]
+pub struct TermLoanTreePricer {
+    config: TermLoanTreePricerConfig,
+}
+
+impl Default for TermLoanTreePricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TermLoanTreePricer {
+    /// Create a tree pricer with default configuration.
+    pub fn new() -> Self {
+        Self {
+            config: TermLoanTreePricerConfig::default(),
+        }
+    }
+
+    /// Create a tree pricer with a custom configuration.
+    pub fn with_config(config: TermLoanTreePricerConfig) -> Self {
+        Self { config }
+    }
+
+    /// Price a callable term loan using tree-based backward induction.
+    pub fn price_callable(
+        &self,
+        loan: &TermLoan,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
+        let origin = loan.settlement_date(as_of)?;
+        if origin >= loan.maturity {
+            return Ok(Money::new(0.0, loan.currency));
+        }
+
+        let disc = market.get_discount(&loan.discount_curve_id)?;
+        let dc_curve = disc.day_count();
+        let time_to_maturity = dc_curve.year_fraction(
+            origin,
+            loan.maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if time_to_maturity <= 0.0 {
+            return Ok(Money::new(0.0, loan.currency));
+        }
+
+        let cfg = TermLoanTreePricerConfig {
+            tree_steps: loan
+                .pricing_overrides
+                .tree_steps
+                .unwrap_or(self.config.tree_steps),
+            volatility: loan
+                .pricing_overrides
+                .tree_volatility
+                .unwrap_or(self.config.volatility),
+            tolerance: self.config.tolerance,
+            max_iterations: self.config.max_iterations,
+            initial_bracket_size_bp: self.config.initial_bracket_size_bp,
+        };
+        let steps = cfg.tree_steps;
+        let vol = cfg.volatility;
+
+        // Choose model: if hazard curve is available, use the rates+credit tree; otherwise short-rate.
+        // Precedence mirrors TermLoan's `credit_curve_id` semantics.
+        let hazard_curve = if let Some(ref id) = loan.credit_curve_id {
+            market.get_hazard(id.as_str()).ok()
+        } else {
+            market
+                .get_hazard(loan.discount_curve_id.as_str())
+                .ok()
+                .or_else(|| {
+                    market
+                        .get_hazard(format!("{}-CREDIT", loan.discount_curve_id.as_str()))
+                        .ok()
+                })
+        };
+
+        let valuator =
+            TermLoanValuator::new(loan.clone(), market, as_of, origin, time_to_maturity, steps)?;
+
+        let price_amount = if let Some(hc) = hazard_curve.as_ref() {
+            // Credit-spread tree path: align hazard from curve; keep rate volatility at 0 to approximate
+            // deterministic forward rates as requested.
+            let mut tree = RatesCreditTree::new(RatesCreditConfig {
+                steps,
+                rate_vol: 0.0,
+                hazard_vol: vol,
+                base_rate: disc.zero(0.0),
+                ..Default::default()
+            });
+            let _recovery = tree.align_hazard_from_curve(hc.as_ref());
+
+            let mut vars = StateVariables::default();
+            vars.insert(tf_keys::INTEREST_RATE, disc.zero(0.0));
+            // Seed hazard at first knot (fallback to 1%)
+            if let Some((_, lambda0)) = hc.knot_points().next() {
+                vars.insert(tf_keys::HAZARD_RATE, lambda0.max(0.0));
+            } else {
+                vars.insert(tf_keys::HAZARD_RATE, 0.01);
+            }
+            tree.price(vars, time_to_maturity, market, &valuator)?
+        } else {
+            // Short-rate tree calibrated to the discount curve.
+            let mut tree = ShortRateTree::new(ShortRateTreeConfig {
+                steps,
+                volatility: vol,
+                ..Default::default()
+            });
+            tree.calibrate(disc.as_ref(), time_to_maturity)?;
+
+            let initial_rate = tree.rate_at_node(0, 0).unwrap_or_else(|_| disc.zero(0.0));
+            let mut vars = StateVariables::default();
+            vars.insert(short_rate_keys::SHORT_RATE, initial_rate);
+            vars.insert(short_rate_keys::OAS, 0.0);
+            tree.price(vars, time_to_maturity, market, &valuator)?
+        };
+
+        Ok(Money::new(price_amount, loan.currency))
+    }
+
+    /// Calculate OAS (in bp) for a callable term loan given a market clean price (% of par).
+    ///
+    /// Mirrors bond OAS: solves for constant spread that matches market dirty price.
+    pub fn calculate_oas(
+        &self,
+        loan: &TermLoan,
+        market: &MarketContext,
+        as_of: Date,
+        clean_price_pct_of_par: f64,
+    ) -> Result<f64> {
+        let origin = loan.settlement_date(as_of)?;
+        if origin >= loan.maturity {
+            return Ok(0.0);
+        }
+
+        // Target dirty price in currency.
+        let notional = loan.notional_limit.amount();
+        let dirty_target = clean_price_pct_of_par * notional / 100.0;
+
+        let disc = market.get_discount(&loan.discount_curve_id)?;
+        let dc_curve = disc.day_count();
+        let time_to_maturity = dc_curve.year_fraction(
+            origin,
+            loan.maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if time_to_maturity <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let cfg = TermLoanTreePricerConfig {
+            tree_steps: loan
+                .pricing_overrides
+                .tree_steps
+                .unwrap_or(self.config.tree_steps),
+            volatility: loan
+                .pricing_overrides
+                .tree_volatility
+                .unwrap_or(self.config.volatility),
+            tolerance: self.config.tolerance,
+            max_iterations: self.config.max_iterations,
+            initial_bracket_size_bp: self.config.initial_bracket_size_bp,
+        };
+        let steps = cfg.tree_steps;
+        let vol = cfg.volatility;
+
+        // Choose model based on hazard availability.
+        let hazard_curve = if let Some(ref id) = loan.credit_curve_id {
+            market.get_hazard(id.as_str()).ok()
+        } else {
+            market
+                .get_hazard(loan.discount_curve_id.as_str())
+                .ok()
+                .or_else(|| {
+                    market
+                        .get_hazard(format!("{}-CREDIT", loan.discount_curve_id.as_str()))
+                        .ok()
+                })
+        };
+
+        // Build valuator once.
+        let valuator =
+            TermLoanValuator::new(loan.clone(), market, as_of, origin, time_to_maturity, steps)?;
+
+        let objective_fn = |oas_bp: f64| -> f64 {
+            if hazard_curve.is_some() {
+                // Credit tree: approximate OAS by shifting the base rate seed.
+                let mut tree = RatesCreditTree::new(RatesCreditConfig {
+                    steps,
+                    rate_vol: 0.0,
+                    hazard_vol: vol,
+                    base_rate: disc.zero(0.0),
+                    ..Default::default()
+                });
+                if let Some(hc) = hazard_curve.as_ref() {
+                    let _ = tree.align_hazard_from_curve(hc.as_ref());
+                }
+                let mut vars = StateVariables::default();
+                vars.insert(tf_keys::INTEREST_RATE, disc.zero(0.0) + oas_bp / 10_000.0);
+                if let Some(hc) = hazard_curve.as_ref() {
+                    if let Some((_, lambda0)) = hc.knot_points().next() {
+                        vars.insert(tf_keys::HAZARD_RATE, lambda0.max(0.0));
+                    } else {
+                        vars.insert(tf_keys::HAZARD_RATE, 0.01);
+                    }
+                } else {
+                    vars.insert(tf_keys::HAZARD_RATE, 0.01);
+                }
+                match tree.price(vars, time_to_maturity, market, &valuator) {
+                    Ok(model_price) => model_price - dirty_target,
+                    Err(_) => 1.0e6,
+                }
+            } else {
+                // Short-rate tree: use built-in OAS key (bp) like the bond pricer.
+                let mut tree = ShortRateTree::new(ShortRateTreeConfig {
+                    steps,
+                    volatility: vol,
+                    ..Default::default()
+                });
+                if tree.calibrate(disc.as_ref(), time_to_maturity).is_err() {
+                    return 1.0e6;
+                }
+                let initial_rate = tree.rate_at_node(0, 0).unwrap_or_else(|_| disc.zero(0.0));
+                let mut vars = StateVariables::default();
+                vars.insert(short_rate_keys::SHORT_RATE, initial_rate);
+                vars.insert(short_rate_keys::OAS, oas_bp);
+                match tree.price(vars, time_to_maturity, market, &valuator) {
+                    Ok(model_price) => model_price - dirty_target,
+                    Err(_) => {
+                        if oas_bp > 0.0 {
+                            1.0e6
+                        } else {
+                            -1.0e6
+                        }
+                    }
+                }
+            }
+        };
+
+        let mut solver = BrentSolver::new()
+            .tolerance(cfg.tolerance)
+            .initial_bracket_size(cfg.initial_bracket_size_bp);
+        solver.max_iterations = cfg.max_iterations;
+        solver.solve(objective_fn, 0.0)
+    }
+}
+
+impl Pricer for TermLoanTreePricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::TermLoan, ModelKey::Tree)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> PricingResult<ValuationResult> {
+        let loan = instrument
+            .as_any()
+            .downcast_ref::<TermLoan>()
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::TermLoan, instrument.key())
+            })?;
+
+        let pv = self.price_callable(loan, market, as_of).map_err(|e| {
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+        })?;
+
+        Ok(ValuationResult::stamped(loan.id(), as_of, pv))
+    }
+}

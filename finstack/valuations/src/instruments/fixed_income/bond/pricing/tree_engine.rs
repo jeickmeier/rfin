@@ -495,6 +495,11 @@ pub struct BondValuator {
     time_steps: Vec<f64>,
     /// Optional recovery rate sourced from a hazard curve in MarketContext
     recovery_rate: Option<f64>,
+    /// Issuer call exercise friction in **cents per 100** of outstanding principal.
+    ///
+    /// This raises the exercise threshold (issuer calls only when continuation exceeds
+    /// `call_price + friction_amount`), but redemption still occurs at `call_price`.
+    call_friction_cents: f64,
 }
 
 impl BondValuator {
@@ -730,6 +735,7 @@ impl BondValuator {
         // 3. discount_curve_id with "-CREDIT" suffix
         // This ensures consistency across all credit-aware pricing paths.
         let recovery_rate = Self::resolve_recovery_rate(&bond, market_context);
+        let call_friction_cents = bond.pricing_overrides.call_friction_cents.unwrap_or(0.0);
 
         Ok(Self {
             bond,
@@ -739,6 +745,7 @@ impl BondValuator {
             outstanding_principal_vec,
             time_steps,
             recovery_rate,
+            call_friction_cents,
         })
     }
 
@@ -835,9 +842,19 @@ impl TreeValuator for BondValuator {
             principal_value = principal_value.max(put_price);
         }
 
-        // Call option: issuer can exercise if redemption < continuation
+        // Call option: issuer can exercise if redemption < continuation, subject to friction.
+        //
+        // With friction, the issuer only calls when continuation exceeds:
+        //   call_price + (outstanding_principal × call_friction_cents / 10_000)
+        //
+        // (because 1 cent per 100 of par = 0.0001 of notional).
         if let Some(call_price) = self.call_at(step) {
-            principal_value = principal_value.min(call_price);
+            let outstanding = self.outstanding_principal_at(step);
+            let friction_amount = outstanding * (self.call_friction_cents / 10_000.0);
+            let threshold = call_price + friction_amount;
+            if principal_value > threshold {
+                principal_value = principal_value.min(call_price);
+            }
         }
 
         // Coupon is added after exercise decision (coupon is paid regardless)

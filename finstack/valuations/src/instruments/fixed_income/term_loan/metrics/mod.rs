@@ -64,7 +64,9 @@
 
 mod all_in_rate;
 mod discount_margin;
+mod embedded_option_value;
 mod irr_helpers;
+mod oas;
 mod oid_eir;
 mod ytc;
 mod ytm;
@@ -73,6 +75,8 @@ mod ytw;
 
 pub use all_in_rate::AllInRateCalculator;
 pub use discount_margin::DiscountMarginCalculator;
+pub use embedded_option_value::EmbeddedOptionValueCalculator;
+pub use oas::OasCalculator;
 pub use oid_eir::OidEirAmortizationCalculator;
 pub use ytc::YtcCalculator;
 pub use ytm::YtmCalculator;
@@ -149,6 +153,18 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::DiscountMargin,
         Arc::new(DiscountMarginCalculator),
+        &[InstrumentType::TermLoan],
+    );
+
+    // Callable-tree metrics
+    registry.register_metric(
+        MetricId::Oas,
+        Arc::new(OasCalculator),
+        &[InstrumentType::TermLoan],
+    );
+    registry.register_metric(
+        MetricId::EmbeddedOptionValue,
+        Arc::new(EmbeddedOptionValueCalculator),
         &[InstrumentType::TermLoan],
     );
 

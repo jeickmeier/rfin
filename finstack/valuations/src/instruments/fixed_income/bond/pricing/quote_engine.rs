@@ -933,31 +933,34 @@ pub fn compute_quotes(
             // Use standard holder-view flows and price_from_ytm helper.
             let flows =
                 <Bond as CashflowProvider>::build_dated_flows(&bond_for_metrics, curves, as_of)?;
-            let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, as_of, ytm)?;
+            let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, quote_ctx.quote_date, ytm)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
             (clean_pct, clean_ccy, dirty_ccy)
         }
         BondQuoteInput::ZSpread(z) => {
-            let dirty_ccy = price_from_z_spread(&bond_for_metrics, curves, as_of, z)?;
+            let dirty_ccy =
+                price_from_z_spread(&bond_for_metrics, curves, quote_ctx.quote_date, z)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
             (clean_pct, clean_ccy, dirty_ccy)
         }
         BondQuoteInput::DiscountMargin(dm) => {
-            let dirty_ccy = price_from_dm(&bond_for_metrics, curves, as_of, dm)?;
+            let dirty_ccy = price_from_dm(&bond_for_metrics, curves, quote_ctx.quote_date, dm)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
             (clean_pct, clean_ccy, dirty_ccy)
         }
         BondQuoteInput::Oas(oas_decimal) => {
-            let dirty_ccy = price_from_oas(&bond_for_metrics, curves, as_of, oas_decimal)?;
+            let dirty_ccy =
+                price_from_oas(&bond_for_metrics, curves, quote_ctx.quote_date, oas_decimal)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
             (clean_pct, clean_ccy, dirty_ccy)
         }
         BondQuoteInput::AswMarket(asw_mkt) => {
-            let dirty_ccy = price_from_asw_market(&bond_for_metrics, curves, as_of, asw_mkt)?;
+            let dirty_ccy =
+                price_from_asw_market(&bond_for_metrics, curves, quote_ctx.quote_date, asw_mkt)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
             (clean_pct, clean_ccy, dirty_ccy)
@@ -968,7 +971,7 @@ pub fn compute_quotes(
             let ytm = i_spread + par_swap_rate;
             let flows =
                 <Bond as CashflowProvider>::build_dated_flows(&bond_for_metrics, curves, as_of)?;
-            let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, as_of, ytm)?;
+            let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, quote_ctx.quote_date, ytm)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
             (clean_pct, clean_ccy, dirty_ccy)
@@ -1057,9 +1060,27 @@ fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date)
     let ispread_cfg =
         crate::instruments::fixed_income::bond::metrics::price_yield_spread::i_spread::ISpreadConfig::default();
 
+    // Mirror the fallback logic in `ISpreadCalculator`:
+    // when using the default (annual Act/Act) proxy-leg config, use the bond's
+    // fixed-coupon conventions for the proxy fixed leg.
+    let mut fixed_leg_day_count = ispread_cfg.fixed_leg_day_count;
+    let mut fixed_leg_frequency = ispread_cfg.fixed_leg_frequency;
+    if matches!(
+        ispread_cfg.fixed_leg_day_count,
+        finstack_core::dates::DayCount::ActAct
+    ) && ispread_cfg.fixed_leg_frequency == finstack_core::dates::Tenor::annual()
+    {
+        if let crate::instruments::fixed_income::bond::CashflowSpec::Fixed(spec) =
+            &bond.cashflow_spec
+        {
+            fixed_leg_day_count = spec.dc;
+            fixed_leg_frequency = spec.freq;
+        }
+    }
+
     // Mirror the schedule and fixed-leg conventions used in ISpreadCalculator defaults.
     let dates: Vec<Date> = ScheduleBuilder::new(as_of, bond.maturity)?
-        .frequency(ispread_cfg.fixed_leg_frequency)
+        .frequency(fixed_leg_frequency)
         .stub_rule(StubKind::ShortFront)
         .build()?
         .into_iter()
@@ -1072,7 +1093,7 @@ fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date)
     }
 
     let (par_rate, annuity) =
-        par_rate_and_annuity_from_discount(disc.as_ref(), ispread_cfg.fixed_leg_day_count, &dates)?;
+        par_rate_and_annuity_from_discount(disc.as_ref(), fixed_leg_day_count, &dates)?;
     if annuity.abs() < 1e-12 {
         return Err(finstack_core::Error::Validation(
             "I-spread proxy par-swap calculation is undefined for near-zero annuity".to_string(),
@@ -1119,6 +1140,11 @@ fn price_from_asw_market(
 
     // Mirror the schedule and annuity definition used by AssetSwapMarketCalculator
     // (discount-ratio approximation on the fixed-leg schedule).
+    if as_of >= bond.maturity {
+        return Err(finstack_core::Error::Validation(
+            "ASW market price inversion requires at least two fixed-leg schedule dates".to_string(),
+        ));
+    }
     let mut builder = ScheduleBuilder::new(as_of, bond.maturity)?
         .frequency(freq)
         .stub_rule(stub);

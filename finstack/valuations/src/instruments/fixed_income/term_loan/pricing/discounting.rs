@@ -56,8 +56,8 @@ use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
-use super::cashflows::generate_cashflows;
-use super::types::TermLoan;
+use crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows;
+use crate::instruments::fixed_income::term_loan::TermLoan;
 
 /// Term loan pricer using deterministic cashflow discounting.
 ///

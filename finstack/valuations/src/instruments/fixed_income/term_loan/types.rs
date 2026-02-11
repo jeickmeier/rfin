@@ -478,7 +478,17 @@ impl crate::instruments::common_impl::traits::Instrument for TermLoan {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        // Delegate to discounting pricer (deterministic v1)
+        // If the loan has a borrower call schedule, use tree-based pricing to capture
+        // optionality with frictional exercise.
+        if let Some(ref cs) = self.call_schedule {
+            if !cs.calls.is_empty() {
+                return crate::instruments::fixed_income::term_loan::pricing::TermLoanTreePricer::new(
+                )
+                .price_callable(self, curves, as_of);
+            }
+        }
+
+        // Otherwise delegate to deterministic discounting pricer.
         crate::instruments::fixed_income::term_loan::pricing::TermLoanDiscountingPricer::price(
             self, curves, as_of,
         )

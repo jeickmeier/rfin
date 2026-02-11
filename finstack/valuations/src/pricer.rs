@@ -1853,6 +1853,12 @@ pub fn register_fixed_income_pricers(registry: &mut PricerRegistry) {
         Discounting,
         crate::instruments::fixed_income::term_loan::pricing::TermLoanDiscountingPricer
     );
+    register_pricer!(
+        registry,
+        TermLoan,
+        Tree,
+        crate::instruments::fixed_income::term_loan::pricing::TermLoanTreePricer::default()
+    );
 
     // Agency MBS Passthrough
     register_pricer!(

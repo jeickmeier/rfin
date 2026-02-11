@@ -6,4 +6,5 @@ mod integration;
 mod metrics;
 mod pricing;
 mod term_loan_tests;
+mod tree_pricing;
 mod validation;

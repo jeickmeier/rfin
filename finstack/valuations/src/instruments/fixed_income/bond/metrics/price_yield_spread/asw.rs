@@ -208,6 +208,12 @@ pub fn asw_par_with_forward_config(
     let disc = curves.get_discount(&bond.discount_curve_id)?;
     let fwd = curves.get_forward(fwd_curve_id)?;
 
+    // Trivial: zero-notional instruments have zero ASW by definition.
+    // Return early to avoid validating schedule construction on a degenerate notionals.
+    if bond.notional.amount().abs() < 1e-12 {
+        return Ok(0.0);
+    }
+
     // Mirror the bond schedule via holder flows
     let flows = bond.build_dated_flows(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
@@ -226,10 +232,6 @@ pub fn asw_par_with_forward_config(
             "ASW forward par calculation is undefined for near-zero fixed-leg annuity".to_string(),
         ));
     }
-    if bond.notional.amount().abs() < 1e-12 {
-        return Ok(0.0);
-    }
-
     let f_base = fwd.base_date();
     let f_dc = fwd.day_count();
     let spread = float_spread_bp * 1e-4;

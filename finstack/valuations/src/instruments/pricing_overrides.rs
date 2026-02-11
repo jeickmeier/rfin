@@ -134,6 +134,21 @@ pub struct PricingOverrides {
     /// Interpretation depends on the model (Normal vs Lognormal).
     pub tree_volatility: Option<f64>,
 
+    // ----- Callability / Exercise Friction -----
+    /// Exercise friction cost for issuer/borrower calls, expressed as **cents per 100 of par**.
+    ///
+    /// This models the real-world costs of refinancing / reissue (fees, OID, documentation),
+    /// by requiring the issuer/borrower to see sufficient economic benefit before exercising.
+    ///
+    /// ## Convention
+    /// - `0.0` (or `None`) means frictionless optimal exercise (pure model)
+    /// - `50.0` means **$0.50 per $100** of outstanding principal (0.50 points)
+    /// - `200.0` means **$2.00 per $100** of outstanding principal (2.00 points)
+    ///
+    /// The friction affects the **exercise decision threshold**, but redemption still occurs
+    /// at the contractual call price.
+    pub call_friction_cents: Option<f64>,
+
     // ----- Scenario Shock Fields -----
     /// Scenario price shock as decimal percentage (e.g., -0.05 for -5% price shock).
     ///
@@ -337,6 +352,12 @@ impl PricingOverrides {
         self
     }
 
+    /// Set issuer/borrower call exercise friction, in **cents per 100** of par.
+    pub fn with_call_friction_cents(mut self, cents: f64) -> Self {
+        self.call_friction_cents = Some(cents);
+        self
+    }
+
     /// Apply a scenario price shock (as decimal percentage).
     ///
     /// The shock is applied as a multiplier: `price * (1 + shock_pct)`.
@@ -438,6 +459,11 @@ impl PricingOverrides {
             }
         }
         if let Some(v) = self.tree_volatility {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
+        if let Some(v) = self.call_friction_cents {
             if !nonneg(v) {
                 return Err(InputError::NegativeValue.into());
             }

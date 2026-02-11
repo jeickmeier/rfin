@@ -93,3 +93,4 @@ pub use types::{RateSpec, TermLoan};
 
 // Re-export pricer for backward compatibility with tests.
 pub use pricing::TermLoanDiscountingPricer;
+pub use pricing::TermLoanTreePricer;

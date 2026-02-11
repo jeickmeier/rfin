@@ -10,6 +10,7 @@
 
 mod bond_accrued_interest;
 mod cashflows;
+mod friction_cost;
 mod helpers_tests;
 mod integration;
 mod metrics;
