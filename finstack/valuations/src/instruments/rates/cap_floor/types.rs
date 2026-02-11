@@ -49,6 +49,14 @@ pub enum CapFloorVolType {
     #[default]
     Lognormal,
 
+    /// Shifted lognormal (displaced diffusion / shifted Black).
+    ///
+    /// Uses Black pricing on shifted rates:
+    /// `F' = F + shift`, `K' = K + shift`.
+    /// This is standard for low/negative rate regimes while preserving
+    /// lognormal smile conventions.
+    ShiftedLognormal,
+
     /// Normal (Bachelier) volatility - absolute rate terms.
     ///
     /// Volatility is quoted in the same units as rates (e.g., 0.0050 for 50bp).
@@ -60,6 +68,7 @@ impl std::fmt::Display for CapFloorVolType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CapFloorVolType::Lognormal => write!(f, "lognormal"),
+            CapFloorVolType::ShiftedLognormal => write!(f, "shifted_lognormal"),
             CapFloorVolType::Normal => write!(f, "normal"),
         }
     }
@@ -269,6 +278,14 @@ impl InterestRateOption {
         self
     }
 
+    /// Set displacement shift used for shifted-lognormal pricing.
+    pub fn with_vol_shift(mut self, vol_shift: f64) -> Self {
+        self.attributes
+            .meta
+            .insert("vol_shift".to_string(), vol_shift.to_string());
+        self
+    }
+
     fn resolved_payment_lag_days(&self) -> i32 {
         let Ok(registry) = ConventionRegistry::try_global() else {
             return 0;
@@ -278,6 +295,24 @@ impl InterestRateOption {
             .require_rate_index(&idx)
             .map(|conv| conv.default_payment_delay_days)
             .unwrap_or(0)
+    }
+
+    fn resolved_reset_lag_days(&self) -> Option<i32> {
+        let Ok(registry) = ConventionRegistry::try_global() else {
+            return None;
+        };
+        let idx = IndexId::new(self.forward_id.as_str());
+        registry
+            .require_rate_index(&idx)
+            .map(|conv| conv.default_reset_lag_days)
+            .ok()
+    }
+
+    fn resolved_vol_shift(&self) -> f64 {
+        self.attributes
+            .get_meta("vol_shift")
+            .and_then(|v| v.parse::<f64>().ok())
+            .unwrap_or(0.0)
     }
 }
 
@@ -370,19 +405,24 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                 self.rate_option_type,
                 RateOptionType::Caplet | RateOptionType::Cap
             );
+            let black_price = |strike: f64, forward: f64| {
+                black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
+                    is_cap,
+                    notional: self.notional.amount(),
+                    strike,
+                    forward,
+                    discount_factor: df,
+                    volatility: sigma,
+                    time_to_fixing: t_fix,
+                    accrual_year_fraction: tau,
+                    currency: self.notional.currency(),
+                })
+            };
             return match self.vol_type {
-                CapFloorVolType::Lognormal => {
-                    black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
-                        is_cap,
-                        notional: self.notional.amount(),
-                        strike: self.strike_rate,
-                        forward,
-                        discount_factor: df,
-                        volatility: sigma,
-                        time_to_fixing: t_fix,
-                        accrual_year_fraction: tau,
-                        currency: self.notional.currency(),
-                    })
+                CapFloorVolType::Lognormal => black_price(self.strike_rate, forward),
+                CapFloorVolType::ShiftedLognormal => {
+                    let vol_shift = self.resolved_vol_shift();
+                    black_price(self.strike_rate + vol_shift, forward + vol_shift)
                 }
                 CapFloorVolType::Normal => {
                     normal_ir::price_caplet_floorlet(normal_ir::CapletFloorletInputs {
@@ -415,7 +455,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                 end_of_month: false,
                 day_count: self.day_count,
                 payment_lag_days: self.resolved_payment_lag_days(),
-                reset_lag_days: None,
+                reset_lag_days: self.resolved_reset_lag_days(),
             },
         )?;
 
@@ -469,6 +509,20 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                         notional: self.notional.amount(),
                         strike: self.strike_rate,
                         forward,
+                        discount_factor: df,
+                        volatility: sigma,
+                        time_to_fixing: t_fix,
+                        accrual_year_fraction: tau,
+                        currency: self.notional.currency(),
+                    })?
+                }
+                CapFloorVolType::ShiftedLognormal => {
+                    let vol_shift = self.resolved_vol_shift();
+                    black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
+                        is_cap,
+                        notional: self.notional.amount(),
+                        strike: self.strike_rate + vol_shift,
+                        forward: forward + vol_shift,
                         discount_factor: df,
                         volatility: sigma,
                         time_to_fixing: t_fix,

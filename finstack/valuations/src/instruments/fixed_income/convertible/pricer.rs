@@ -12,7 +12,7 @@
 //! - `calculate_parity`: Equity parity ratio
 //! - `calculate_conversion_premium`: Conversion premium versus equity value
 
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
@@ -62,6 +62,8 @@ pub struct ConvertibleBondValuator {
     base_date: Date,
     /// Credit spread for the debt component
     credit_spread: f64,
+    /// Day-count convention for time mapping in the tree.
+    day_count: DayCount,
 }
 
 impl ConvertibleBondValuator {
@@ -147,6 +149,7 @@ impl ConvertibleBondValuator {
             time_steps,
             base_date,
             credit_spread,
+            day_count: cashflow_schedule.day_count,
         })
     }
 
@@ -158,7 +161,8 @@ impl ConvertibleBondValuator {
             ConversionPolicy::Voluntary => true,
             ConversionPolicy::MandatoryOn(date) => {
                 // Allow conversion only when time matches the mandatory conversion date
-                let target_time = finstack_core::dates::DayCount::Act365F
+                let target_time = self
+                    .day_count
                     .year_fraction(
                         self.base_date,
                         *date,
@@ -170,14 +174,16 @@ impl ConvertibleBondValuator {
             }
             ConversionPolicy::Window { start, end } => {
                 // Allow conversion when time falls within the window
-                let start_time = finstack_core::dates::DayCount::Act365F
+                let start_time = self
+                    .day_count
                     .year_fraction(
                         self.base_date,
                         *start,
                         finstack_core::dates::DayCountCtx::default(),
                     )
                     .unwrap_or(0.0);
-                let end_time = finstack_core::dates::DayCount::Act365F
+                let end_time = self
+                    .day_count
                     .year_fraction(
                         self.base_date,
                         *end,
@@ -500,6 +506,7 @@ fn extract_equity_state(
     bond: &ConvertibleBond,
     ctx: &MarketContext,
     as_of: Date,
+    day_count: DayCount,
 ) -> Result<(f64, f64, f64, f64, f64, f64)> {
     let underlying_id = bond
         .underlying_equity_id
@@ -523,7 +530,7 @@ fn extract_equity_state(
     let discount_curve = ctx.get_discount(bond.discount_curve_id.as_str())?;
 
     // Calculate time to maturity using the provided as_of date
-    let time_to_maturity = finstack_core::dates::DayCount::Act365F
+    let time_to_maturity = day_count
         .year_fraction(
             as_of,
             bond.maturity,
@@ -669,8 +676,9 @@ fn prepare_for_pricing(
     as_of: Date,
 ) -> Result<PricingInputs> {
     let cashflow_schedule = build_convertible_schedule(bond)?;
+    let day_count = cashflow_schedule.day_count;
     let (spot, volatility, dividend_yield, risk_free_rate, credit_spread, time_to_maturity) =
-        extract_equity_state(bond, market_context, as_of)?;
+        extract_equity_state(bond, market_context, as_of, day_count)?;
 
     Ok(PricingInputs {
         cashflow_schedule,

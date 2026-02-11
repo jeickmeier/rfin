@@ -4,6 +4,8 @@
 //! contributions for a given functional form (e.g., delta/gamma/vega/theta).
 
 use crate::instruments::rates::cap_floor::InterestRateOption;
+use crate::market::conventions::ids::IndexId;
+use crate::market::conventions::ConventionRegistry;
 use crate::metrics::MetricContext;
 
 /// Iterate over caplets/floorlets and aggregate contributions.
@@ -86,6 +88,19 @@ where
     }
 
     // Cap/floor: iterate schedule
+    let (payment_lag_days, reset_lag_days) = match ConventionRegistry::try_global() {
+        Ok(registry) => {
+            let idx = IndexId::new(option.forward_id.as_str());
+            match registry.require_rate_index(&idx) {
+                Ok(conv) => (
+                    conv.default_payment_delay_days,
+                    Some(conv.default_reset_lag_days),
+                ),
+                Err(_) => (0, None),
+            }
+        }
+        Err(_) => (0, None),
+    };
     let periods = crate::cashflow::builder::periods::build_periods(
         crate::cashflow::builder::periods::BuildPeriodsParams {
             start: option.start_date,
@@ -99,8 +114,8 @@ where
                 .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             end_of_month: false,
             day_count: option.day_count,
-            payment_lag_days: 0,
-            reset_lag_days: None,
+            payment_lag_days,
+            reset_lag_days,
         },
     )?;
     if periods.is_empty() {

@@ -176,7 +176,7 @@ impl FxForward {
     /// | Pair | Settlement | Notes |
     /// |------|------------|-------|
     /// | USD/CAD | T+1 | North American same-day zone |
-    /// | USD/MXN | T+1 | North American same-day zone |
+    /// | USD/MXN | T+2 | Standard emerging market convention |
     /// | USD/TRY | T+1 | Istanbul market convention |
     /// | Other | T+2 | Standard settlement |
     ///
@@ -195,8 +195,6 @@ impl FxForward {
             (base, quote),
             (Currency::USD, Currency::CAD)
                 | (Currency::CAD, Currency::USD)
-                | (Currency::USD, Currency::MXN)
-                | (Currency::MXN, Currency::USD)
                 | (Currency::USD, Currency::TRY)
                 | (Currency::TRY, Currency::USD)
         );

@@ -310,16 +310,26 @@ impl FxOptionCalculator {
         // Forward delta: N(d1) for calls, N(d1) - 1 for puts (no foreign discount factor).
         // This is the interbank FX convention used for vol surface interpolation.
         let d1 = crate::instruments::common_impl::models::d1(spot, inst.strike, r_d, sigma, t, r_f);
+        let d2 = d1 - sigma * t.sqrt();
         let cdf_d1 = finstack_core::math::norm_cdf(d1);
+        let cdf_d2 = finstack_core::math::norm_cdf(d2);
+        let exp_rf_t = (-r_f * t).exp();
         let delta_forward_unit = match inst.option_type {
             OptionType::Call => cdf_d1,
             OptionType::Put => cdf_d1 - 1.0,
+        };
+        // Premium-adjusted spot delta is the convention used in many EM FX option markets.
+        // Under Garman-Kohlhagen this corresponds to N(d2)-style spot sensitivity.
+        let delta_premium_adjusted_unit = match inst.option_type {
+            OptionType::Call => exp_rf_t * cdf_d2,
+            OptionType::Put => exp_rf_t * (cdf_d2 - 1.0),
         };
 
         let scale = inst.notional.amount();
         Ok(FxOptionGreeks {
             delta: greeks_unit.delta * scale,
             delta_forward: delta_forward_unit * scale,
+            delta_premium_adjusted: delta_premium_adjusted_unit * scale,
             gamma: greeks_unit.gamma * scale,
             vega: greeks_unit.vega * scale,
             theta: greeks_unit.theta * scale,
@@ -374,6 +384,11 @@ pub struct FxOptionGreeks {
     /// - Garman, M. & Kohlhagen, S. (1983). "Foreign Currency Option Values"
     /// - Clark, I. (2011). "Foreign Exchange Option Pricing" Chapter 2
     pub delta_forward: f64,
+    /// Premium-adjusted spot delta used in many EM FX option markets.
+    ///
+    /// This convention adjusts spot delta for premium effects and is commonly
+    /// quoted for options where premium-adjusted hedging is standard.
+    pub delta_premium_adjusted: f64,
     /// Gamma: rate of change of delta with respect to spot
     pub gamma: f64,
     /// Vega: sensitivity to 1% change in volatility

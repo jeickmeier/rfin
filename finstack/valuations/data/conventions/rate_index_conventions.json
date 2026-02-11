@@ -186,7 +186,7 @@
         "tenor": null,
         "day_count": "Act365F",
         "default_payment_frequency": "1Y",
-        "default_payment_delay_days": 2,
+        "default_payment_delay_days": 0,
         "default_reset_lag_days": 0,
         "ois_compounding": "sonia",
         "market_calendar_id": "gblo",

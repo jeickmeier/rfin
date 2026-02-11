@@ -39,7 +39,9 @@
 //! - [`super::spec`] module for all specification types
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+use finstack_core::dates::{
+    calendar::calendar_by_id, BusinessDayConvention, Date, DateExt, DayCount, StubKind, Tenor,
+};
 use finstack_core::money::Money;
 use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
 use finstack_core::InputError;
@@ -306,6 +308,27 @@ impl TermLoan {
             .unwrap_or_else(|_| {
                 unreachable!("Example TermLoan with valid constants should never fail")
             })
+    }
+
+    /// Resolve settlement date from `as_of` using business-day conventions when available.
+    ///
+    /// If `calendar_id` is set, settlement days are treated as business days on that calendar.
+    /// Otherwise, a weekends-only weekday roll is used for backward compatibility.
+    pub fn settlement_date(&self, as_of: Date) -> finstack_core::Result<Date> {
+        if self.settlement_days == 0 {
+            return Ok(as_of);
+        }
+
+        if let Some(calendar_id) = &self.calendar_id {
+            let calendar = calendar_by_id(calendar_id).ok_or_else(|| {
+                finstack_core::Error::Input(InputError::NotFound {
+                    id: format!("calendar:{}", calendar_id),
+                })
+            })?;
+            return as_of.add_business_days(self.settlement_days as i32, calendar);
+        }
+
+        Ok(as_of.add_weekdays(self.settlement_days as i32))
     }
 }
 

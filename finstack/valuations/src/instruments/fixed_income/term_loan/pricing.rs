@@ -164,8 +164,8 @@ impl TermLoanDiscountingPricer {
     ) -> finstack_core::Result<Money> {
         use finstack_core::cashflow::CFKind;
 
-        // Compute settlement date (T+n, default T+1 per LSTA conventions)
-        let settlement_date = as_of + time::Duration::days(i64::from(loan.settlement_days));
+        // Compute settlement date using business-day conventions when calendar is available.
+        let settlement_date = loan.settlement_date(as_of)?;
 
         // Build full cashflow schedule
         let schedule = generate_cashflows(loan, market, as_of)?;

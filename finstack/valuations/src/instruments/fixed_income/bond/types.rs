@@ -285,6 +285,9 @@ impl Bond {
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
+            // Bond::fixed follows US corporate defaults: T+2 settlement, no ex-coupon window.
+            .settlement_days_opt(Some(2))
+            .ex_coupon_days_opt(Some(0))
             .ex_coupon_calendar_id_opt(None)
             .build()?;
 

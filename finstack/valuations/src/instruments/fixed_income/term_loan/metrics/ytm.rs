@@ -20,8 +20,8 @@ impl MetricCalculator for YtmCalculator {
         let loan: &TermLoan = context.instrument_as()?;
         let as_of = context.as_of;
 
-        // Compute settlement date (T+n per LSTA conventions)
-        let settlement_date = as_of + time::Duration::days(i64::from(loan.settlement_days));
+        // Compute settlement date using loan calendar/business-day conventions.
+        let settlement_date = loan.settlement_date(as_of)?;
 
         // Use holder-view schedule (via CashflowProvider::build_dated_flows)
         // This filters to contractual inflows: coupons, amortization, positive redemptions

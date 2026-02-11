@@ -8,7 +8,7 @@
 //! `CurveId`. Calendar identifiers remain `Option<&'static str>` for stable
 //! serde and lookups.
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -153,6 +153,11 @@ impl InterestRateSwap {
 
     pub(crate) fn resolved_fixed_leg(&self) -> FixedLegSpec {
         let mut fixed = self.fixed.clone();
+        let is_eom_swap =
+            fixed.start.end_of_month() == fixed.start && fixed.end.end_of_month() == fixed.end;
+        if is_eom_swap && !fixed.end_of_month {
+            fixed.end_of_month = true;
+        }
         if let Some(conv) = self.rate_index_conventions() {
             // Note: calendar_id: None is intentionally NOT overridden.
             // None means "no calendar" (weekends-only), which is a valid explicit choice.
@@ -169,6 +174,11 @@ impl InterestRateSwap {
 
     pub(crate) fn resolved_float_leg(&self) -> FloatLegSpec {
         let mut float = self.float.clone();
+        let is_eom_swap =
+            float.start.end_of_month() == float.start && float.end.end_of_month() == float.end;
+        if is_eom_swap && !float.end_of_month {
+            float.end_of_month = true;
+        }
         if let Some(conv) = self.rate_index_conventions() {
             // Note: calendar_id and fixing_calendar_id: None are intentionally NOT overridden.
             // None means "no calendar" (weekends-only), which is a valid explicit choice.

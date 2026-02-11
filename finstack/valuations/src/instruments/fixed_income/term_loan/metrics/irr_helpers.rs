@@ -52,8 +52,8 @@ pub(super) fn solve_irr_to_exercise(
     exercise_date: Date,
     redemption: Money,
 ) -> finstack_core::Result<f64> {
-    // Compute settlement date (T+n per LSTA conventions)
-    let settlement_date = as_of + time::Duration::days(i64::from(loan.settlement_days));
+    // Compute settlement date using loan calendar/business-day conventions.
+    let settlement_date = loan.settlement_date(as_of)?;
 
     let mut flows: Vec<(Date, f64)> = Vec::with_capacity(schedule.flows.len() + 2);
 

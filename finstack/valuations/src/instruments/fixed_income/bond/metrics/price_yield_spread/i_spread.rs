@@ -98,9 +98,21 @@ impl MetricCalculator for ISpreadCalculator {
         // Build proxy fixed-leg schedule using configured frequency and standard
         // business-day / stub rules. This approximates a plain-vanilla par swap
         // fixed leg at the bond maturity.
+        let mut fixed_leg_day_count = self.config.fixed_leg_day_count;
+        let mut fixed_leg_frequency = self.config.fixed_leg_frequency;
+        if matches!(self.config.fixed_leg_day_count, DayCount::ActAct)
+            && self.config.fixed_leg_frequency == Tenor::annual()
+        {
+            if let crate::instruments::fixed_income::bond::CashflowSpec::Fixed(spec) =
+                &bond.cashflow_spec
+            {
+                fixed_leg_day_count = spec.dc;
+                fixed_leg_frequency = spec.freq;
+            }
+        }
         let dates: Vec<Date> =
             finstack_core::dates::ScheduleBuilder::new(context.as_of, bond.maturity)?
-                .frequency(self.config.fixed_leg_frequency)
+                .frequency(fixed_leg_frequency)
                 .stub_rule(StubKind::ShortFront)
                 .build()?
                 .into_iter()
@@ -115,7 +127,7 @@ impl MetricCalculator for ISpreadCalculator {
         let (par_swap_rate, annuity) =
             crate::instruments::fixed_income::bond::pricing::quote_engine::par_rate_and_annuity_from_discount(
                 disc.as_ref(),
-                self.config.fixed_leg_day_count,
+                fixed_leg_day_count,
                 &dates,
             )?;
         if annuity.abs() < 1e-12 {
