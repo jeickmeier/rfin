@@ -7,7 +7,7 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::specs::CouponType;
 use finstack_valuations::instruments::fixed_income::term_loan::{
-    AmortizationSpec, LoanCall, LoanCallSchedule, RateSpec, TermLoan,
+    AmortizationSpec, LoanCall, LoanCallSchedule, LoanCallType, RateSpec, TermLoan,
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -46,6 +46,7 @@ fn test_ytc_callable_loan() {
         calls: vec![LoanCall {
             date: date!(2027 - 01 - 01),
             price_pct_of_par: 101.0,
+            call_type: LoanCallType::Hard,
         }],
     });
 

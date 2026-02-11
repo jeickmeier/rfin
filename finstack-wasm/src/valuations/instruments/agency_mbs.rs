@@ -89,10 +89,12 @@ impl JsAgencyMbsPassthrough {
         let agency_enum = match agency.to_lowercase().as_str() {
             "fnma" | "fannie" => AgencyProgram::Fnma,
             "fhlmc" | "freddie" => AgencyProgram::Fhlmc,
+            "gnma_i" | "gnmai" => AgencyProgram::GnmaI,
+            "gnma_ii" | "gnmaii" => AgencyProgram::GnmaII,
             "gnma" | "ginnie" => AgencyProgram::Gnma,
             _ => {
                 return Err(JsValue::from_str(&format!(
-                    "Invalid agency: '{}'. Must be 'fnma', 'fhlmc', or 'gnma'",
+                    "Invalid agency: '{}'. Must be 'fnma', 'fhlmc', 'gnma', 'gnma_i', or 'gnma_ii'",
                     agency
                 )));
             }
@@ -145,6 +147,8 @@ impl JsAgencyMbsPassthrough {
             AgencyProgram::Fnma => "fnma".to_string(),
             AgencyProgram::Fhlmc => "fhlmc".to_string(),
             AgencyProgram::Gnma => "gnma".to_string(),
+            AgencyProgram::GnmaI => "gnma_i".to_string(),
+            AgencyProgram::GnmaII => "gnma_ii".to_string(),
         }
     }
 
@@ -256,10 +260,12 @@ impl JsAgencyTba {
         let agency_enum = match agency.to_lowercase().as_str() {
             "fnma" | "fannie" => AgencyProgram::Fnma,
             "fhlmc" | "freddie" => AgencyProgram::Fhlmc,
+            "gnma_i" | "gnmai" => AgencyProgram::GnmaI,
+            "gnma_ii" | "gnmaii" => AgencyProgram::GnmaII,
             "gnma" | "ginnie" => AgencyProgram::Gnma,
             _ => {
                 return Err(JsValue::from_str(&format!(
-                    "Invalid agency: '{}'. Must be 'fnma', 'fhlmc', or 'gnma'",
+                    "Invalid agency: '{}'. Must be 'fnma', 'fhlmc', 'gnma', 'gnma_i', or 'gnma_ii'",
                     agency
                 )));
             }
@@ -307,6 +313,8 @@ impl JsAgencyTba {
             AgencyProgram::Fnma => "fnma".to_string(),
             AgencyProgram::Fhlmc => "fhlmc".to_string(),
             AgencyProgram::Gnma => "gnma".to_string(),
+            AgencyProgram::GnmaI => "gnma_i".to_string(),
+            AgencyProgram::GnmaII => "gnma_ii".to_string(),
         }
     }
 
@@ -419,10 +427,12 @@ impl JsDollarRoll {
         let agency_enum = match agency.to_lowercase().as_str() {
             "fnma" | "fannie" => AgencyProgram::Fnma,
             "fhlmc" | "freddie" => AgencyProgram::Fhlmc,
+            "gnma_i" | "gnmai" => AgencyProgram::GnmaI,
+            "gnma_ii" | "gnmaii" => AgencyProgram::GnmaII,
             "gnma" | "ginnie" => AgencyProgram::Gnma,
             _ => {
                 return Err(JsValue::from_str(&format!(
-                    "Invalid agency: '{}'. Must be 'fnma', 'fhlmc', or 'gnma'",
+                    "Invalid agency: '{}'. Must be 'fnma', 'fhlmc', 'gnma', 'gnma_i', or 'gnma_ii'",
                     agency
                 )));
             }
@@ -473,6 +483,8 @@ impl JsDollarRoll {
             AgencyProgram::Fnma => "fnma".to_string(),
             AgencyProgram::Fhlmc => "fhlmc".to_string(),
             AgencyProgram::Gnma => "gnma".to_string(),
+            AgencyProgram::GnmaI => "gnma_i".to_string(),
+            AgencyProgram::GnmaII => "gnma_ii".to_string(),
         }
     }
 
@@ -749,10 +761,12 @@ impl JsAgencyCmo {
         let agency_enum = match agency.to_lowercase().as_str() {
             "fnma" | "fannie" => AgencyProgram::Fnma,
             "fhlmc" | "freddie" => AgencyProgram::Fhlmc,
+            "gnma_i" | "gnmai" => AgencyProgram::GnmaI,
+            "gnma_ii" | "gnmaii" => AgencyProgram::GnmaII,
             "gnma" | "ginnie" => AgencyProgram::Gnma,
             _ => {
                 return Err(JsValue::from_str(&format!(
-                    "Invalid agency: '{}'. Must be 'fnma', 'fhlmc', or 'gnma'",
+                    "Invalid agency: '{}'. Must be 'fnma', 'fhlmc', 'gnma', 'gnma_i', or 'gnma_ii'",
                     agency
                 )));
             }
@@ -798,6 +812,8 @@ impl JsAgencyCmo {
             AgencyProgram::Fnma => "fnma".to_string(),
             AgencyProgram::Fhlmc => "fhlmc".to_string(),
             AgencyProgram::Gnma => "gnma".to_string(),
+            AgencyProgram::GnmaI => "gnma_i".to_string(),
+            AgencyProgram::GnmaII => "gnma_ii".to_string(),
         }
     }
 

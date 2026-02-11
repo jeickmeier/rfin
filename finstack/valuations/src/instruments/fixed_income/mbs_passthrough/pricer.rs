@@ -2,6 +2,13 @@
 //!
 //! This module provides discounting-based pricing for agency MBS passthroughs,
 //! generating projected cashflows with prepayment and payment delay adjustments.
+//!
+//! # SIFMA Settlement
+//!
+//! TBA-eligible agency MBS settle on SIFMA Good Delivery dates (third Wednesday
+//! of each month). The [`sifma_settlement_for_period`] helper derives the SIFMA
+//! settlement date for a given accrual period, useful for aligning TBA trade
+//! settlement and pool allocation.
 
 use super::delay::actual_payment_date;
 use super::AgencyMbsPassthrough;
@@ -23,6 +30,12 @@ pub struct MbsCashflow {
     pub period_end: Date,
     /// Actual payment date (after delay)
     pub payment_date: Date,
+    /// SIFMA Good Delivery settlement date for this period.
+    ///
+    /// This is the third Wednesday of the month containing `period_end`,
+    /// used for TBA settlement alignment. For specified pools not trading
+    /// on a TBA basis, this may not be relevant.
+    pub sifma_date: Date,
     /// Scheduled principal payment
     pub scheduled_principal: f64,
     /// Prepayment (unscheduled principal)
@@ -37,6 +50,22 @@ pub struct MbsCashflow {
     pub ending_balance: f64,
     /// SMM used for this period
     pub smm: f64,
+}
+
+/// Derive the SIFMA Good Delivery settlement date for a given accrual period.
+///
+/// The SIFMA settlement date is the third Wednesday of the month, used for
+/// TBA (To Be Announced) settlement in agency MBS markets.
+///
+/// # Arguments
+///
+/// * `period_end` - End date of the accrual period (typically month-end)
+///
+/// # Returns
+///
+/// The SIFMA settlement date (third Wednesday) for the month of `period_end`.
+pub fn sifma_settlement_for_period(period_end: Date) -> Date {
+    finstack_core::dates::sifma_settlement_date(period_end.month(), period_end.year())
 }
 
 /// Generate projected cashflows for an agency MBS.
@@ -150,10 +179,14 @@ pub fn generate_cashflows(
         // Update ending balance
         let ending_balance = (balance - total_principal).max(0.0);
 
+        // SIFMA settlement date for this period (third Wednesday of the month)
+        let sifma_date = sifma_settlement_for_period(period_end);
+
         cashflows.push(MbsCashflow {
             period_start,
             period_end,
             payment_date,
+            sifma_date,
             scheduled_principal,
             prepayment,
             interest,

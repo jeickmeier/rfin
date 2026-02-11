@@ -44,7 +44,12 @@ pub enum PyAgencyProgram {
     /// Federal Home Loan Mortgage Corporation (Freddie Mac).
     Fhlmc,
     /// Government National Mortgage Association (Ginnie Mae).
+    /// Deprecated: use GnmaI or GnmaII for specific program type.
     Gnma,
+    /// GNMA I (single-family MBS, 14-day payment delay).
+    GnmaI,
+    /// GNMA II (single-family MBS, 45-day payment delay).
+    GnmaII,
 }
 
 impl From<PyAgencyProgram> for AgencyProgram {
@@ -53,6 +58,8 @@ impl From<PyAgencyProgram> for AgencyProgram {
             PyAgencyProgram::Fnma => AgencyProgram::Fnma,
             PyAgencyProgram::Fhlmc => AgencyProgram::Fhlmc,
             PyAgencyProgram::Gnma => AgencyProgram::Gnma,
+            PyAgencyProgram::GnmaI => AgencyProgram::GnmaI,
+            PyAgencyProgram::GnmaII => AgencyProgram::GnmaII,
         }
     }
 }
@@ -63,6 +70,8 @@ impl From<AgencyProgram> for PyAgencyProgram {
             AgencyProgram::Fnma => PyAgencyProgram::Fnma,
             AgencyProgram::Fhlmc => PyAgencyProgram::Fhlmc,
             AgencyProgram::Gnma => PyAgencyProgram::Gnma,
+            AgencyProgram::GnmaI => PyAgencyProgram::GnmaI,
+            AgencyProgram::GnmaII => PyAgencyProgram::GnmaII,
         }
     }
 }

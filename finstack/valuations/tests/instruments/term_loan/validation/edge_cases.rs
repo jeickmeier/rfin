@@ -197,7 +197,7 @@ fn ddtl_spec_template() -> TermLoanSpec {
         pricing_overrides: Default::default(),
         oid_eir: None,
         call_schedule: None,
-        settlement_days: 1,
+        settlement_days: 2,
     }
 }
 

@@ -5,7 +5,8 @@
 //!
 //! - **FNMA**: 55 calendar days (actual stated delay)
 //! - **FHLMC**: 75 calendar days (actual stated delay)
-//! - **GNMA**: 45 calendar days (GNMA II; GNMA I uses 14 days)
+//! - **GNMA I**: 14 calendar days (single-issuer pools, payment on the 15th)
+//! - **GNMA II**: 45 calendar days (multi-issuer pools, payment on the 20th)
 //!
 //! The delay is measured from the accrual period end (typically the last day
 //! of the month) to the payment date.
@@ -34,7 +35,8 @@ use finstack_core::Result;
 ///
 /// assert_eq!(payment_delay_days(AgencyProgram::Fnma), 55);
 /// assert_eq!(payment_delay_days(AgencyProgram::Fhlmc), 75);
-/// assert_eq!(payment_delay_days(AgencyProgram::Gnma), 45);
+/// assert_eq!(payment_delay_days(AgencyProgram::GnmaI), 14);
+/// assert_eq!(payment_delay_days(AgencyProgram::GnmaII), 45);
 /// ```
 pub fn payment_delay_days(agency: AgencyProgram) -> u32 {
     agency.payment_delay_days()
@@ -200,6 +202,8 @@ mod tests {
         assert_eq!(payment_delay_days(AgencyProgram::Fnma), 55);
         assert_eq!(payment_delay_days(AgencyProgram::Fhlmc), 75);
         assert_eq!(payment_delay_days(AgencyProgram::Gnma), 45);
+        assert_eq!(payment_delay_days(AgencyProgram::GnmaI), 14);
+        assert_eq!(payment_delay_days(AgencyProgram::GnmaII), 45);
     }
 
     #[test]

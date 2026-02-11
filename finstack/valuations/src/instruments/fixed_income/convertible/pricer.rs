@@ -64,6 +64,10 @@ pub struct ConvertibleBondValuator {
     credit_spread: f64,
     /// Day-count convention for time mapping in the tree.
     day_count: DayCount,
+    /// Conversion price per share (for soft-call trigger evaluation).
+    conversion_price: f64,
+    /// Optional soft-call trigger condition.
+    soft_call_trigger: Option<super::SoftCallTrigger>,
 }
 
 impl ConvertibleBondValuator {
@@ -139,6 +143,13 @@ impl ConvertibleBondValuator {
             }
         }
 
+        // Derive conversion price from notional / ratio
+        let conversion_price = if conversion_ratio > 0.0 {
+            bond.notional.amount() / conversion_ratio
+        } else {
+            0.0
+        };
+
         Ok(Self {
             conversion_ratio,
             face_value: bond.notional.amount(),
@@ -150,6 +161,8 @@ impl ConvertibleBondValuator {
             base_date,
             credit_spread,
             day_count: cashflow_schedule.day_count,
+            conversion_price,
+            soft_call_trigger: bond.soft_call_trigger.clone(),
         })
     }
 
@@ -396,25 +409,36 @@ impl<'a> TsiveriotisZhangEngine<'a> {
                 }
 
                 // 2. Call (Issuer minimizes value)
-                if let Some(call_price) = self.valuator.call_price_at_step(step) {
-                    // Issuer calls when continuation exceeds what they owe.
-                    // Holder chooses max(conversion_value, call_price).
-                    let val_if_called = if can_convert {
-                        conversion_val.max(call_price)
-                    } else {
-                        call_price
-                    };
+                // Soft-call trigger: issuer can only call if spot exceeds
+                // the trigger level (e.g., 130% of conversion price).
+                // In the tree, we approximate by checking node spot vs trigger.
+                let call_allowed = if let Some(ref trigger) = self.valuator.soft_call_trigger {
+                    trigger.is_triggered(node_spot, self.valuator.conversion_price)
+                } else {
+                    true // No soft-call trigger means unconditional call
+                };
 
-                    if final_total > val_if_called {
-                        // Call constrains value
-                        if conversion_val >= val_if_called {
-                            // Holder converts (better than accepting call)
-                            final_total = conversion_val;
-                            final_cash = 0.0; // Equity delivery, no cash component
+                if call_allowed {
+                    if let Some(call_price) = self.valuator.call_price_at_step(step) {
+                        // Issuer calls when continuation exceeds what they owe.
+                        // Holder chooses max(conversion_value, call_price).
+                        let val_if_called = if can_convert {
+                            conversion_val.max(call_price)
                         } else {
-                            // Holder accepts call
-                            final_total = val_if_called;
-                            final_cash = val_if_called; // Cash redemption at call price
+                            call_price
+                        };
+
+                        if final_total > val_if_called {
+                            // Call constrains value
+                            if conversion_val >= val_if_called {
+                                // Holder converts (better than accepting call)
+                                final_total = conversion_val;
+                                final_cash = 0.0; // Equity delivery, no cash component
+                            } else {
+                                // Holder accepts call
+                                final_total = val_if_called;
+                                final_cash = val_if_called; // Cash redemption at call price
+                            }
                         }
                     }
                 }
@@ -941,6 +965,7 @@ mod tests {
             policy: ConversionPolicy::Voluntary,
             anti_dilution: AntiDilutionPolicy::None,
             dividend_adjustment: DividendAdjustment::None,
+            dilution_events: Vec::new(),
         };
 
         let fixed_coupon = FixedCouponSpec {
@@ -965,6 +990,7 @@ mod tests {
             conversion: conversion_spec,
             underlying_equity_id: Some("AAPL".to_string()),
             call_put: None,
+            soft_call_trigger: None,
             fixed_coupon: Some(fixed_coupon),
             floating_coupon: None,
             attributes: Default::default(),

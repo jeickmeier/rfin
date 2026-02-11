@@ -45,6 +45,7 @@ fn create_test_convertible() -> ConvertibleBond {
         policy: ConversionPolicy::Voluntary,
         anti_dilution: AntiDilutionPolicy::None,
         dividend_adjustment: DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     let fixed_coupon = FixedCouponSpec {
@@ -69,6 +70,7 @@ fn create_test_convertible() -> ConvertibleBond {
         conversion: conversion_spec,
         underlying_equity_id: Some("EQUITY".to_string()),
         call_put: None,
+        soft_call_trigger: None,
         fixed_coupon: Some(fixed_coupon),
         floating_coupon: None,
         attributes: Default::default(),

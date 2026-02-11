@@ -6,7 +6,7 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::specs::{CouponType, FloatingRateSpec};
 use finstack_valuations::instruments::fixed_income::term_loan::{
-    self, LoanCall, LoanCallSchedule, RateSpec, TermLoan,
+    self, LoanCall, LoanCallSchedule, LoanCallType, RateSpec, TermLoan,
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -59,6 +59,7 @@ fn test_term_loan_yields_with_callability() {
         calls: vec![LoanCall {
             date: date!(2027 - 01 - 01),
             price_pct_of_par: 101.0,
+            call_type: LoanCallType::Hard,
         }],
     });
 

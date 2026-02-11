@@ -191,6 +191,7 @@ fn test_time_mapping_with_quarterly_coupons() {
         anti_dilution: finstack_valuations::instruments::fixed_income::convertible::AntiDilutionPolicy::None,
         dividend_adjustment:
             finstack_valuations::instruments::fixed_income::convertible::DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     let fixed_coupon = FixedCouponSpec {
@@ -215,6 +216,7 @@ fn test_time_mapping_with_quarterly_coupons() {
         conversion: conversion_spec,
         underlying_equity_id: Some("AAPL".to_string()),
         call_put: None,
+        soft_call_trigger: None,
         fixed_coupon: Some(fixed_coupon),
         floating_coupon: None,
         attributes: Default::default(),
@@ -399,6 +401,7 @@ fn test_zero_conversion_ratio() {
             finstack_valuations::instruments::fixed_income::convertible::AntiDilutionPolicy::None,
         dividend_adjustment:
             finstack_valuations::instruments::fixed_income::convertible::DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     let market = create_market_context();
@@ -432,6 +435,7 @@ fn test_very_high_conversion_ratio() {
             finstack_valuations::instruments::fixed_income::convertible::AntiDilutionPolicy::None,
         dividend_adjustment:
             finstack_valuations::instruments::fixed_income::convertible::DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     let market = create_market_context();

@@ -300,6 +300,7 @@ impl PyConversionSpec {
             dividend_adjustment: dividend_adjustment
                 .map(|v| v.inner)
                 .unwrap_or(DividendAdjustment::None),
+            dilution_events: Vec::new(),
         }))
     }
 
@@ -531,6 +532,7 @@ impl PyConvertibleBondBuilder {
             conversion: slf.conversion.clone().unwrap(),
             underlying_equity_id: slf.underlying_equity_id.clone(),
             call_put,
+            soft_call_trigger: None,
             fixed_coupon: slf.fixed_coupon.clone(),
             floating_coupon: slf.floating_coupon.clone(),
             attributes: Attributes::new(),

@@ -6,7 +6,8 @@
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::fixed_income::structured_credit::types::constants::POOL_BALANCE_CLEANUP_THRESHOLD;
 use crate::instruments::fixed_income::structured_credit::types::{
-    Pool, PoolState, RecipientType, StructuredCredit, TrancheCashflows, TrancheStructure, Waterfall,
+    Pool, PoolState, RecipientType, StructuredCredit, TrancheCashflows, TrancheSeniority,
+    TrancheStructure, Waterfall,
 };
 use crate::instruments::fixed_income::structured_credit::utils::simulation::RecoveryQueue;
 use finstack_core::cashflow::{CFKind, CashFlow};
@@ -241,10 +242,19 @@ impl<'a> SimulationState<'a> {
             .map(|t| (t.id.to_string(), t.current_balance))
             .collect();
 
+        // Map each tranche to its waterfall distribution key.
+        // Equity tranches receive residual via RecipientType::Equity in the
+        // standard waterfall, so their key must match that variant.
         let tranche_recipient_keys: Vec<RecipientType> = tranches
             .tranches
             .iter()
-            .map(|t| RecipientType::Tranche(t.id.to_string()))
+            .map(|t| {
+                if t.seniority == TrancheSeniority::Equity {
+                    RecipientType::Equity
+                } else {
+                    RecipientType::Tranche(t.id.to_string())
+                }
+            })
             .collect();
 
         // Initialize PoolState

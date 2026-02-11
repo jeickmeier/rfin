@@ -33,8 +33,8 @@ pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPas
     // Standard servicing and g-fee assumptions
     let servicing_fee = 0.0025; // 25 bps
     let guarantee_fee = match tba.agency {
-        AgencyProgram::Gnma => 0.0006, // 6 bps for GNMA
-        _ => 0.0025,                   // 25 bps for FNMA/FHLMC
+        AgencyProgram::Gnma | AgencyProgram::GnmaI | AgencyProgram::GnmaII => 0.0006, // 6 bps for GNMA
+        _ => 0.0025, // 25 bps for FNMA/FHLMC
     };
 
     // WAC = pass-through + fees

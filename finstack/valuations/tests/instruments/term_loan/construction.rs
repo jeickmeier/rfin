@@ -6,7 +6,7 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::specs::{CouponType, FloatingRateSpec};
 use finstack_valuations::instruments::fixed_income::term_loan::{
-    AmortizationSpec, LoanCall, LoanCallSchedule, RateSpec, TermLoan,
+    AmortizationSpec, LoanCall, LoanCallSchedule, LoanCallType, RateSpec, TermLoan,
 };
 use time::macros::date;
 
@@ -134,10 +134,12 @@ fn test_builder_with_callability() {
             LoanCall {
                 date: date!(2027 - 01 - 01),
                 price_pct_of_par: 102.0,
+                call_type: LoanCallType::Hard,
             },
             LoanCall {
                 date: date!(2028 - 01 - 01),
                 price_pct_of_par: 101.0,
+                call_type: LoanCallType::Hard,
             },
         ],
     };

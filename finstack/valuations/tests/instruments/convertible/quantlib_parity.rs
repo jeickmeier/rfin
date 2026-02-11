@@ -83,6 +83,7 @@ fn create_quantlib_convertible(
         policy: ConversionPolicy::Voluntary,
         anti_dilution: AntiDilutionPolicy::None,
         dividend_adjustment: DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     let fixed_coupon = FixedCouponSpec {
@@ -107,6 +108,7 @@ fn create_quantlib_convertible(
         conversion: conversion_spec,
         underlying_equity_id: Some("EQUITY".to_string()),
         call_put: None,
+        soft_call_trigger: None,
         fixed_coupon: Some(fixed_coupon),
         floating_coupon: None,
         attributes: Default::default(),
@@ -624,6 +626,7 @@ fn quantlib_parity_zero_coupon_convertible() {
         policy: ConversionPolicy::Voluntary,
         anti_dilution: AntiDilutionPolicy::None,
         dividend_adjustment: DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     let zero_coupon = ConvertibleBond {
@@ -636,6 +639,7 @@ fn quantlib_parity_zero_coupon_convertible() {
         conversion: conversion_spec,
         underlying_equity_id: Some("EQUITY".to_string()),
         call_put: None,
+        soft_call_trigger: None,
         fixed_coupon: None, // Zero coupon
         floating_coupon: None,
         attributes: Default::default(),
@@ -880,6 +884,7 @@ fn quantlib_parity_mandatory_conversion() {
         policy: ConversionPolicy::MandatoryOn(maturity),
         anti_dilution: AntiDilutionPolicy::None,
         dividend_adjustment: DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     let fixed_coupon = FixedCouponSpec {
@@ -904,6 +909,7 @@ fn quantlib_parity_mandatory_conversion() {
         conversion: conversion_spec,
         underlying_equity_id: Some("EQUITY".to_string()),
         call_put: None,
+        soft_call_trigger: None,
         fixed_coupon: Some(fixed_coupon),
         floating_coupon: None,
         attributes: Default::default(),
@@ -954,6 +960,7 @@ fn quantlib_parity_window_conversion() {
         },
         anti_dilution: AntiDilutionPolicy::None,
         dividend_adjustment: DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     let fixed_coupon = FixedCouponSpec {
@@ -978,6 +985,7 @@ fn quantlib_parity_window_conversion() {
         conversion: conversion_spec,
         underlying_equity_id: Some("EQUITY".to_string()),
         call_put: None,
+        soft_call_trigger: None,
         fixed_coupon: Some(fixed_coupon),
         floating_coupon: None,
         attributes: Default::default(),

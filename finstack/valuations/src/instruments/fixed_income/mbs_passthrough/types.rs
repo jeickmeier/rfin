@@ -17,6 +17,15 @@ use finstack_core::Result;
 ///
 /// Identifies the government-sponsored enterprise (GSE) or government agency
 /// that guarantees the mortgage-backed security.
+///
+/// # GNMA Programs
+///
+/// Ginnie Mae has two distinct programs with different payment delay conventions:
+/// - **GNMA I**: Single-issuer pools with a 14-day stated delay. Payments on the 15th.
+/// - **GNMA II**: Multi-issuer pools with a 45-day stated delay. Payments on the 20th.
+///
+/// Use `GnmaI` or `GnmaII` to select the appropriate convention. The legacy `Gnma`
+/// variant maps to GNMA II (the larger and more actively traded program).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AgencyProgram {
@@ -24,8 +33,22 @@ pub enum AgencyProgram {
     Fnma,
     /// Freddie Mac (Federal Home Loan Mortgage Corporation)
     Fhlmc,
-    /// Ginnie Mae (Government National Mortgage Association) - government-backed
+    /// Ginnie Mae II (Government National Mortgage Association) - multi-issuer pools.
+    ///
+    /// This is the legacy variant; equivalent to `GnmaII`. Use `GnmaI` or `GnmaII`
+    /// for explicit program selection.
     Gnma,
+    /// Ginnie Mae I - single-issuer pools with 14-day stated delay.
+    ///
+    /// GNMA I securities pay on the 15th of the month following the accrual
+    /// period, resulting in a 14-day stated delay from month-end.
+    GnmaI,
+    /// Ginnie Mae II - multi-issuer pools with 45-day stated delay.
+    ///
+    /// GNMA II securities pay on the 20th of the month following the accrual
+    /// period, resulting in a 45-day stated delay from month-end. This is the
+    /// larger and more actively traded GNMA program.
+    GnmaII,
 }
 
 impl AgencyProgram {
@@ -33,19 +56,18 @@ impl AgencyProgram {
     ///
     /// # Payment Delay Conventions
     ///
-    /// - FNMA: 55 days (Fannie Mae actual stated delay)
-    /// - FHLMC: 75 days (Freddie Mac actual stated delay)
-    /// - GNMA: 45 days (Ginnie Mae II)
-    ///
-    /// Note: GNMA I has a 14-day delay while GNMA II has a 45-day delay.
-    /// This enum does not currently distinguish between them; the GNMA II
-    /// convention (45 days) is used as it represents the majority of
-    /// outstanding GNMA pools.
+    /// | Program | Delay | Payment Day | Source |
+    /// |---------|-------|-------------|--------|
+    /// | FNMA | 55 days | 25th of month | Fannie Mae |
+    /// | FHLMC | 75 days | ~15th of following month | Freddie Mac |
+    /// | GNMA I | 14 days | 15th of month | Ginnie Mae |
+    /// | GNMA II | 45 days | 20th of month | Ginnie Mae |
     pub fn payment_delay_days(&self) -> u32 {
         match self {
             AgencyProgram::Fnma => 55,
             AgencyProgram::Fhlmc => 75,
-            AgencyProgram::Gnma => 45,
+            AgencyProgram::GnmaI => 14,
+            AgencyProgram::Gnma | AgencyProgram::GnmaII => 45,
         }
     }
 
@@ -54,8 +76,17 @@ impl AgencyProgram {
         match self {
             AgencyProgram::Fnma => "FNMA",
             AgencyProgram::Fhlmc => "FHLMC",
-            AgencyProgram::Gnma => "GNMA",
+            AgencyProgram::Gnma | AgencyProgram::GnmaII => "GNMA_II",
+            AgencyProgram::GnmaI => "GNMA_I",
         }
+    }
+
+    /// Returns `true` if this is a Ginnie Mae program (any variant).
+    pub fn is_gnma(&self) -> bool {
+        matches!(
+            self,
+            AgencyProgram::Gnma | AgencyProgram::GnmaI | AgencyProgram::GnmaII
+        )
     }
 }
 
@@ -361,13 +392,26 @@ mod tests {
         assert_eq!(AgencyProgram::Fnma.payment_delay_days(), 55);
         assert_eq!(AgencyProgram::Fhlmc.payment_delay_days(), 75);
         assert_eq!(AgencyProgram::Gnma.payment_delay_days(), 45);
+        assert_eq!(AgencyProgram::GnmaI.payment_delay_days(), 14);
+        assert_eq!(AgencyProgram::GnmaII.payment_delay_days(), 45);
     }
 
     #[test]
     fn test_agency_program_display() {
         assert_eq!(AgencyProgram::Fnma.as_str(), "FNMA");
         assert_eq!(AgencyProgram::Fhlmc.as_str(), "FHLMC");
-        assert_eq!(AgencyProgram::Gnma.as_str(), "GNMA");
+        assert_eq!(AgencyProgram::Gnma.as_str(), "GNMA_II");
+        assert_eq!(AgencyProgram::GnmaI.as_str(), "GNMA_I");
+        assert_eq!(AgencyProgram::GnmaII.as_str(), "GNMA_II");
+    }
+
+    #[test]
+    fn test_agency_program_is_gnma() {
+        assert!(!AgencyProgram::Fnma.is_gnma());
+        assert!(!AgencyProgram::Fhlmc.is_gnma());
+        assert!(AgencyProgram::Gnma.is_gnma());
+        assert!(AgencyProgram::GnmaI.is_gnma());
+        assert!(AgencyProgram::GnmaII.is_gnma());
     }
 
     #[test]

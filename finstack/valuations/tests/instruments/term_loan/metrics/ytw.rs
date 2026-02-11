@@ -7,7 +7,7 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::specs::CouponType;
 use finstack_valuations::instruments::fixed_income::term_loan::{
-    AmortizationSpec, LoanCall, LoanCallSchedule, RateSpec, TermLoan,
+    AmortizationSpec, LoanCall, LoanCallSchedule, LoanCallType, RateSpec, TermLoan,
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -46,6 +46,7 @@ fn test_ytw_is_minimum_of_ytm_and_ytc() {
         calls: vec![LoanCall {
             date: date!(2027 - 01 - 01),
             price_pct_of_par: 101.0,
+            call_type: LoanCallType::Hard,
         }],
     });
 
@@ -111,6 +112,7 @@ fn test_ytw_callable_amortizing_loan_coupon_on_call_date() {
         calls: vec![LoanCall {
             date: call_date,
             price_pct_of_par: 102.0,
+            call_type: LoanCallType::Hard,
         }],
     });
 

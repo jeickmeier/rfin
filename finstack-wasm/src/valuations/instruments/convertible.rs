@@ -94,6 +94,7 @@ impl JsConversionSpec {
                 policy: policy.inner.clone(),
                 anti_dilution: AntiDilutionPolicy::None,
                 dividend_adjustment: DividendAdjustment::None,
+                dilution_events: Vec::new(),
             },
         })
     }
@@ -204,6 +205,7 @@ impl JsConvertibleBondBuilder {
             conversion,
             underlying_equity_id: self.underlying_equity_id,
             call_put: None,
+            soft_call_trigger: None,
             fixed_coupon: None,
             floating_coupon: None,
             attributes: Default::default(),
@@ -270,6 +272,7 @@ impl JsConvertibleBond {
             conversion: conversion.inner.clone(),
             underlying_equity_id,
             call_put: None,
+            soft_call_trigger: None,
             fixed_coupon: None,
             floating_coupon: None,
             attributes: Default::default(),

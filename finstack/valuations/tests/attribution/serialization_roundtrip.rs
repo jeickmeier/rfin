@@ -391,6 +391,7 @@ fn test_model_params_snapshot_convertible_roundtrip() {
         policy: ConversionPolicy::Voluntary,
         anti_dilution: AntiDilutionPolicy::None,
         dividend_adjustment: DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     let snapshot = ModelParamsSnapshot::Convertible {

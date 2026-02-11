@@ -57,7 +57,7 @@
 //!     pricing_overrides: PricingOverrides::default(),
 //!     oid_eir: None,
 //!     call_schedule: None,
-//!     settlement_days: 1,
+//!     settlement_days: 2,
 //! };
 //! # Ok(())
 //! # }
@@ -468,7 +468,7 @@ impl AmortizationSpec {
 ///     pricing_overrides: PricingOverrides::default(),
 ///     oid_eir: None,
 ///     call_schedule: None,
-///     settlement_days: 1,
+///     settlement_days: 2,
 /// };
 /// # Ok(())
 /// # }
@@ -528,13 +528,56 @@ pub struct TermLoanSpec {
     pub oid_eir: Option<OidEirSpec>,
     /// Optional call schedule (borrower callability)
     pub call_schedule: Option<LoanCallSchedule>,
-    /// Settlement days (T+n). Default is 1 for leveraged loans per LSTA conventions.
+    /// Settlement days (T+n). Default is 2 for leveraged loans per LSTA conventions.
+    ///
+    /// LSTA standard for secondary market loan trades is T+2 (effective since 2023).
+    /// Primary market trades may use different conventions.
     #[serde(default = "default_settlement_days")]
     pub settlement_days: u32,
 }
 
 fn default_settlement_days() -> u32 {
-    1
+    2
+}
+
+/// Type of borrower call provision on a term loan.
+///
+/// Institutional term loans use several types of call provisions:
+/// - **Hard call**: Non-callable until the call date, then callable at the stated price.
+/// - **Soft call**: Callable at any time, but subject to a premium (call protection).
+///   Typically applies for the first 6-24 months ("non-call period").
+/// - **Make-whole**: Borrower must pay the present value of remaining cashflows
+///   discounted at a reference rate (typically a Treasury rate) plus a spread.
+///   This ensures the lender receives full economic value upon early prepayment.
+///
+/// # Industry Practice
+///
+/// Leveraged term loans typically have 6-12 months of soft call protection
+/// (101% of par, sometimes called "soft call 101"), after which they become
+/// callable at par. Make-whole provisions are more common in investment-grade
+/// term loans and private placements.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
+pub enum LoanCallType {
+    /// Hard call: callable at the stated price on or after the call date.
+    /// This is the default if no call type is specified.
+    Hard,
+    /// Soft call: callable with a premium during the call protection period.
+    /// After the protection period, callable at par.
+    Soft,
+    /// Make-whole call: borrower pays PV of remaining cashflows at a reference
+    /// rate plus the specified spread. Ensures lender receives full economic value.
+    MakeWhole {
+        /// Spread over the reference rate in basis points (e.g., 50 = T+50bps).
+        treasury_spread_bp: i32,
+    },
+}
+
+impl Default for LoanCallType {
+    fn default() -> Self {
+        Self::Hard
+    }
 }
 
 /// Borrower call option on term loan.
@@ -542,13 +585,28 @@ fn default_settlement_days() -> u32 {
 /// Represents the borrower's right to prepay the loan at a specified
 /// redemption price (typically at premium to par for early calls,
 /// approaching par near maturity).
+///
+/// # Call Types
+///
+/// The `call_type` field determines how the call is exercised:
+/// - `Hard`: Standard call at `price_pct_of_par` on or after `date`
+/// - `Soft`: Premium call during protection period
+/// - `MakeWhole`: PV-based redemption at Treasury + spread
+///
+/// For `MakeWhole` calls, `price_pct_of_par` serves as the minimum
+/// (floor) redemption price. The actual price is the greater of
+/// `price_pct_of_par` and the make-whole amount.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LoanCall {
     /// Call date (earliest prepayment date for this call provision)
     pub date: Date,
-    /// Redemption price as percentage of par (e.g., 102.0 = 102% of par)
+    /// Redemption price as percentage of par (e.g., 102.0 = 102% of par).
+    /// For make-whole calls, this is the minimum (floor) price.
     pub price_pct_of_par: f64,
+    /// Type of call provision. Defaults to `Hard` for backward compatibility.
+    #[serde(default)]
+    pub call_type: LoanCallType,
 }
 
 /// Complete call schedule for callable term loans.

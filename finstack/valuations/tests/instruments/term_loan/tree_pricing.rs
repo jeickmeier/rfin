@@ -5,7 +5,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::cashflow::builder::specs::CouponType;
 use finstack_valuations::instruments::fixed_income::term_loan::{
-    LoanCall, LoanCallSchedule, TermLoan,
+    LoanCall, LoanCallSchedule, LoanCallType, TermLoan,
 };
 use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 use time::macros::date;
@@ -45,6 +45,7 @@ fn build_callable_loan(as_of: Date) -> TermLoan {
             calls: vec![LoanCall {
                 date: date!(2027 - 01 - 01),
                 price_pct_of_par: 101.0,
+                call_type: LoanCallType::Hard,
             }],
         }))
         .settlement_days(1)
@@ -280,6 +281,7 @@ fn call_at_settlement_date_produces_nonzero_pv() {
             calls: vec![LoanCall {
                 date: as_of, // Call right at settlement
                 price_pct_of_par: 100.0,
+                call_type: LoanCallType::Hard,
             }],
         }))
         .settlement_days(0)

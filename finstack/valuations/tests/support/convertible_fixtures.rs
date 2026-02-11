@@ -112,6 +112,7 @@ pub fn create_convertible_with_policy(policy: ConversionPolicy) -> ConvertibleBo
         policy,
         anti_dilution: AntiDilutionPolicy::None,
         dividend_adjustment: DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     let fixed_coupon = FixedCouponSpec {
@@ -136,6 +137,7 @@ pub fn create_convertible_with_policy(policy: ConversionPolicy) -> ConvertibleBo
         conversion: conversion_spec,
         underlying_equity_id: Some("AAPL".to_string()),
         call_put: None,
+        soft_call_trigger: None,
         fixed_coupon: Some(fixed_coupon),
         floating_coupon: None,
         attributes: Default::default(),

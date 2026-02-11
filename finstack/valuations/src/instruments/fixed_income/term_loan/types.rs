@@ -255,8 +255,11 @@ pub struct TermLoan {
     /// Optional call schedule (borrower callability)
     pub call_schedule: Option<LoanCallSchedule>,
 
-    /// Settlement days (T+n). Default is 1 for leveraged loans per LSTA conventions.
-    #[builder(default = 1)]
+    /// Settlement days (T+n). Default is 2 for leveraged loans per LSTA conventions.
+    ///
+    /// LSTA standard for secondary market loan trades is T+2 (effective since 2023).
+    /// Primary market trades may use different conventions.
+    #[builder(default = 2)]
     pub settlement_days: u32,
 
     /// Attributes for tagging and scenarios
@@ -682,7 +685,7 @@ mod tests {
             pricing_overrides: PricingOverrides::default(),
             oid_eir: None,
             call_schedule: None,
-            settlement_days: 1,
+            settlement_days: 2,
         };
 
         let loan: TermLoan = spec.try_into().expect("conversion should succeed");
@@ -730,7 +733,7 @@ mod tests {
             pricing_overrides: PricingOverrides::default(),
             oid_eir: None,
             call_schedule: None,
-            settlement_days: 1,
+            settlement_days: 2,
         };
 
         let loan: TermLoan = spec.try_into().expect("conversion should succeed");
@@ -764,7 +767,7 @@ mod tests {
             pricing_overrides: PricingOverrides::default(),
             oid_eir: None,
             call_schedule: None,
-            settlement_days: 1,
+            settlement_days: 2,
         };
 
         let err = TermLoan::try_from(spec).expect_err("missing notional should fail");

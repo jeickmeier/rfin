@@ -52,7 +52,7 @@ mod types;
 
 pub use types::{
     AntiDilutionPolicy, ConversionEvent, ConversionPolicy, ConversionSpec, ConvertibleBond,
-    DividendAdjustment,
+    DilutionEvent, DividendAdjustment, SoftCallTrigger,
 };
 
 // Re-export pricing helpers for benches/tools.

@@ -934,6 +934,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             policy: ConversionPolicy::Voluntary,
             anti_dilution: AntiDilutionPolicy::None,
             dividend_adjustment: DividendAdjustment::None,
+            dilution_events: Vec::new(),
         };
 
         let fixed_coupon = FixedCouponSpec {
@@ -958,6 +959,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             conversion: conversion_spec,
             underlying_equity_id: Some("AAPL".to_string()),
             call_put: None,
+            soft_call_trigger: None,
             fixed_coupon: Some(fixed_coupon),
             floating_coupon: None,
             attributes: Default::default(),

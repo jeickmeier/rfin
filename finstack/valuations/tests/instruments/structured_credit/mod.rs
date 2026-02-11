@@ -56,3 +56,6 @@ pub mod academic_golden;
 
 // BucketedDv01 smoke tests
 pub mod test_bucketed_dv01;
+
+// Cashflow sensitivity sweep tests (CDR/CPR/Recovery/Lag)
+pub mod cashflow_sweep_tests;

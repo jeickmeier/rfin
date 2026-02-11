@@ -15,6 +15,66 @@ use crate::instruments::fixed_income::bond::CallPutSchedule;
 
 use super::pricer;
 
+/// Soft-call trigger condition for convertible bonds.
+///
+/// A soft call allows the issuer to call the bond only if the underlying stock
+/// price has been trading above a threshold (typically 130% of the conversion
+/// price) for a sustained period. This protects holders from having their
+/// conversion option terminated when the stock is only marginally above parity.
+///
+/// # Industry Practice
+///
+/// The standard soft-call trigger is:
+/// - **Threshold**: 130% of conversion price (most common)
+/// - **Observation period**: 20 of 30 consecutive trading days
+///
+/// Some issuances use 120% or 150% thresholds.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SoftCallTrigger {
+    /// Threshold as a percentage of conversion price (e.g., 130.0 = 130%).
+    ///
+    /// The issuer can only exercise the call if the stock price exceeds
+    /// `threshold_pct / 100 * conversion_price` for the required number of days.
+    pub threshold_pct: f64,
+    /// Number of trading days in the observation window (e.g., 30).
+    pub observation_days: u32,
+    /// Minimum number of days within the window that the stock must exceed
+    /// the threshold (e.g., 20 out of 30 days).
+    pub required_days_above: u32,
+}
+
+impl Default for SoftCallTrigger {
+    /// Standard market convention: 130% trigger, 20 of 30 days.
+    fn default() -> Self {
+        Self {
+            threshold_pct: 130.0,
+            observation_days: 30,
+            required_days_above: 20,
+        }
+    }
+}
+
+impl SoftCallTrigger {
+    /// Check if the soft-call condition is met based on the current spot price.
+    ///
+    /// For tree-based pricing this is a simplification: we check if the current
+    /// spot exceeds the threshold. In practice, the full lookback observation
+    /// window would be evaluated against historical prices.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_spot` - Current underlying stock price
+    /// * `conversion_price` - Current conversion price per share
+    ///
+    /// # Returns
+    ///
+    /// `true` if the soft-call condition is satisfied (spot above threshold).
+    pub fn is_triggered(&self, current_spot: f64, conversion_price: f64) -> bool {
+        let trigger_level = conversion_price * (self.threshold_pct / 100.0);
+        current_spot >= trigger_level
+    }
+}
+
 /// Convertible bond instrument with embedded equity conversion option.
 ///
 /// This fixed income instrument combines debt characteristics (coupons, principal)
@@ -47,6 +107,14 @@ pub struct ConvertibleBond {
     /// Optional call/put schedule (issuer/holder redemption before maturity).
     #[builder(optional)]
     pub call_put: Option<CallPutSchedule>,
+    /// Optional soft-call trigger condition.
+    ///
+    /// When set, the issuer can only exercise call provisions if the underlying
+    /// stock price satisfies the trigger condition (e.g., above 130% of conversion
+    /// price for 20 of 30 trading days).
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub soft_call_trigger: Option<SoftCallTrigger>,
     /// Fixed coupon specification (if applicable).
     #[builder(optional)]
     pub fixed_coupon: Option<FixedCouponSpec>,
@@ -117,25 +185,62 @@ pub enum ConversionEvent {
 }
 
 /// Anti-dilution protection applied to conversion terms.
+///
+/// When dilutive events occur (stock splits, below-market issuances, special
+/// dividends), the conversion ratio is adjusted to protect bondholders from
+/// value erosion.
+///
+/// # Industry Practice
+///
+/// Most convertible bonds use **Weighted Average** anti-dilution, which is
+/// less protective but more issuer-friendly. **Full Ratchet** is mainly seen
+/// in private placements and venture-style convertibles.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum AntiDilutionPolicy {
-    /// None variant.
+    /// No anti-dilution protection.
     None,
-    /// Full Ratchet variant.
+    /// Full ratchet: conversion price is reduced to the new issue price
+    /// regardless of how many shares were issued. Most protective for holders.
+    ///
+    /// Formula: `new_conversion_price = min(current_conversion_price, new_issue_price)`
     FullRatchet,
-    /// Weighted Average variant.
+    /// Broad-based weighted average: conversion price is adjusted based on the
+    /// weighted average of the old and new share prices, factoring in the number
+    /// of shares. Less dilutive to existing shareholders than full ratchet.
+    ///
+    /// Formula:
+    /// ```text
+    /// new_cp = old_cp × (shares_outstanding + new_money / old_cp)
+    ///                  / (shares_outstanding + new_shares_issued)
+    /// ```
     WeightedAverage,
 }
 
 /// How dividends affect conversion terms.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum DividendAdjustment {
-    /// None variant.
+    /// No dividend adjustment.
     None,
-    /// Adjust Price variant.
+    /// Adjust conversion price downward by the dividend amount.
     AdjustPrice,
-    /// Adjust Ratio variant.
+    /// Adjust conversion ratio upward to compensate for dividends.
     AdjustRatio,
+}
+
+/// A dilutive event that triggers anti-dilution adjustment.
+///
+/// Records details of an equity issuance or corporate action that may
+/// affect the conversion ratio under the bond's anti-dilution provisions.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DilutionEvent {
+    /// Date of the dilutive event.
+    pub date: Date,
+    /// New issue price per share (for below-market issuances).
+    pub new_issue_price: f64,
+    /// Number of new shares issued.
+    pub new_shares_issued: f64,
+    /// Number of shares outstanding before the event.
+    pub shares_outstanding_before: f64,
 }
 
 /// Conversion specification for the instrument.
@@ -151,6 +256,10 @@ pub struct ConversionSpec {
     pub anti_dilution: AntiDilutionPolicy,
     /// Dividend adjustment mechanism.
     pub dividend_adjustment: DividendAdjustment,
+    /// Historical dilution events that affect the conversion ratio.
+    /// Events are applied in chronological order.
+    #[serde(default)]
+    pub dilution_events: Vec<DilutionEvent>,
 }
 
 impl ConvertibleBond {
@@ -167,13 +276,72 @@ impl ConvertibleBond {
 
     /// Effective conversion ratio after anti-dilution adjustments.
     ///
-    /// Currently returns the base conversion ratio. Anti-dilution
-    /// adjustments for stock splits, dividends, and dilutive events
-    /// should be applied via the `anti_dilution` and `dividend_adjustment`
-    /// fields on [`ConversionSpec`] when available.
+    /// Applies all recorded [`DilutionEvent`]s in chronological order using
+    /// the bond's [`AntiDilutionPolicy`]:
+    ///
+    /// - **None**: Returns the base conversion ratio unchanged.
+    /// - **FullRatchet**: Conversion price is reduced to the lowest new issue
+    ///   price across all dilution events. The ratio is then `notional / adjusted_price`.
+    /// - **WeightedAverage**: Conversion price is adjusted using the broad-based
+    ///   weighted average formula for each event sequentially.
+    ///
+    /// # Returns
+    ///
+    /// The adjusted conversion ratio, or `None` if neither ratio nor price is set.
     pub fn effective_conversion_ratio(&self) -> Option<f64> {
-        // TODO: Apply anti-dilution adjustments from events
-        self.conversion_ratio()
+        let base_ratio = self.conversion_ratio()?;
+
+        // If no anti-dilution or no events, return base ratio
+        if matches!(self.conversion.anti_dilution, AntiDilutionPolicy::None)
+            || self.conversion.dilution_events.is_empty()
+        {
+            return Some(base_ratio);
+        }
+
+        // Start with the original conversion price
+        let notional = self.notional.amount();
+        let mut current_cp = notional / base_ratio;
+
+        // Sort events by date and apply sequentially
+        let mut events = self.conversion.dilution_events.clone();
+        events.sort_by_key(|e| e.date);
+
+        for event in &events {
+            match &self.conversion.anti_dilution {
+                AntiDilutionPolicy::None => unreachable!(), // guarded above
+                AntiDilutionPolicy::FullRatchet => {
+                    // Full ratchet: conversion price drops to the new issue price
+                    // if it is below the current conversion price.
+                    if event.new_issue_price < current_cp {
+                        current_cp = event.new_issue_price;
+                    }
+                }
+                AntiDilutionPolicy::WeightedAverage => {
+                    // Broad-based weighted average formula:
+                    //   new_cp = old_cp × (O + new_money / old_cp) / (O + N)
+                    // where:
+                    //   O = shares outstanding before the event
+                    //   N = new shares issued
+                    //   new_money = N × new_issue_price
+                    let o = event.shares_outstanding_before;
+                    let n = event.new_shares_issued;
+                    let new_money = n * event.new_issue_price;
+
+                    if (o + n) > 0.0 {
+                        let numerator = o + new_money / current_cp;
+                        let denominator = o + n;
+                        current_cp *= numerator / denominator;
+                    }
+                }
+            }
+        }
+
+        // Conversion price cannot go below a small epsilon
+        if current_cp < 1e-10 {
+            return Some(base_ratio);
+        }
+
+        Some(notional / current_cp)
     }
 
     /// Create a canonical example convertible bond for testing and documentation.
@@ -198,6 +366,7 @@ impl ConvertibleBond {
                 policy: ConversionPolicy::Voluntary,
                 anti_dilution: AntiDilutionPolicy::None,
                 dividend_adjustment: DividendAdjustment::None,
+                dilution_events: Vec::new(),
             })
             .underlying_equity_id_opt(Some("TECH".to_string()))
             .call_put_opt(None)

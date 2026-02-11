@@ -10,9 +10,13 @@
 
 pub mod duration;
 pub mod key_rate;
+#[allow(dead_code)] // Public API items used by external bindings
+pub mod mc_oas;
 pub mod oas;
 
 pub use duration::{effective_convexity, effective_duration};
+#[allow(unused_imports)] // Public API re-exports for external consumers
+pub use mc_oas::{calculate_mc_oas, McOasConfig, McOasResult};
 pub use oas::calculate_oas;
 
 use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;

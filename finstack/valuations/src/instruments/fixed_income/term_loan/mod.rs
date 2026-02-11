@@ -60,7 +60,7 @@
 //!     pricing_overrides: PricingOverrides::default(),
 //!     oid_eir: None,
 //!     call_schedule: None,
-//!     settlement_days: 1,
+//!     settlement_days: 2,
 //! };
 //!
 //! let loan: TermLoan = spec.try_into()?;
@@ -86,8 +86,8 @@ pub(crate) mod types;
 // Re-export main type
 pub use spec::{
     AmortizationSpec, CashSweepEvent, CommitmentFeeBase, CommitmentStepDown, CovenantSpec,
-    DdtlSpec, DrawEvent, LoanCall, LoanCallSchedule, OidEirSpec, OidPolicy, PikToggle,
-    TermLoanSpec,
+    DdtlSpec, DrawEvent, LoanCall, LoanCallSchedule, LoanCallType, OidEirSpec, OidPolicy,
+    PikToggle, TermLoanSpec,
 };
 pub use types::{RateSpec, TermLoan};
 

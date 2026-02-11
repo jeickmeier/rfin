@@ -84,6 +84,7 @@ fn create_standard_convertible() -> ConvertibleBond {
         policy: ConversionPolicy::Voluntary,
         anti_dilution: AntiDilutionPolicy::None,
         dividend_adjustment: DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     let fixed_coupon = FixedCouponSpec {
@@ -108,6 +109,7 @@ fn create_standard_convertible() -> ConvertibleBond {
         conversion: conversion_spec,
         underlying_equity_id: Some("AAPL".to_string()),
         call_put: None,
+        soft_call_trigger: None,
         fixed_coupon: Some(fixed_coupon),
         floating_coupon: None,
         attributes: Default::default(),
@@ -134,6 +136,7 @@ fn create_zero_coupon_convertible() -> ConvertibleBond {
         policy: ConversionPolicy::Voluntary,
         anti_dilution: AntiDilutionPolicy::None,
         dividend_adjustment: DividendAdjustment::None,
+        dilution_events: Vec::new(),
     };
 
     ConvertibleBond {
@@ -146,6 +149,7 @@ fn create_zero_coupon_convertible() -> ConvertibleBond {
         conversion: conversion_spec,
         underlying_equity_id: Some("AAPL".to_string()),
         call_put: None,
+        soft_call_trigger: None,
         fixed_coupon: None,
         floating_coupon: None,
         attributes: Default::default(),

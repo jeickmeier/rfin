@@ -148,6 +148,7 @@ fn test_conversion_shift_measurement() {
             policy: ConversionPolicy::Voluntary,
             anti_dilution: AntiDilutionPolicy::None,
             dividend_adjustment: DividendAdjustment::None,
+            dilution_events: Vec::new(),
         },
     };
 
@@ -158,6 +159,7 @@ fn test_conversion_shift_measurement() {
             policy: ConversionPolicy::Voluntary,
             anti_dilution: AntiDilutionPolicy::None,
             dividend_adjustment: DividendAdjustment::None,
+            dilution_events: Vec::new(),
         },
     };
 
