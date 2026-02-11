@@ -263,8 +263,8 @@ impl YtmSolver {
         }
 
         // Special case: zero coupon bond (single cashflow at maturity).
-        // YTM = (Face/Price)^(1/t) - 1
-        // This avoids the iterative solver and gives an exact closed-form result.
+        // Use compounding-aware closed form so ZCB yields are consistent with
+        // the selected YTM convention used for coupon-bearing bonds.
         if cashflows.len() == 1 {
             let (maturity_date, face_value) = &cashflows[0];
             let years = spec.day_count.year_fraction(
@@ -274,7 +274,20 @@ impl YtmSolver {
             )?;
             let fv = face_value.amount();
             if years > 0.0 && fv > 0.0 && target > 0.0 {
-                let ytm = (fv / target).powf(1.0 / years) - 1.0;
+                let ratio = fv / target;
+                let ytm = match spec.compounding {
+                    YieldCompounding::Simple => (ratio - 1.0) / years,
+                    YieldCompounding::Annual => ratio.powf(1.0 / years) - 1.0,
+                    YieldCompounding::Continuous => ratio.ln() / years,
+                    YieldCompounding::Street | YieldCompounding::TreasuryActual => {
+                        let m = super::quote_engine::periods_per_year(spec.frequency)?.max(1.0);
+                        m * (ratio.powf(1.0 / (m * years)) - 1.0)
+                    }
+                    YieldCompounding::Periodic(periods) => {
+                        let m = (periods as f64).max(1.0);
+                        m * (ratio.powf(1.0 / (m * years)) - 1.0)
+                    }
+                };
                 return Ok(ytm);
             }
         }
@@ -449,5 +462,34 @@ mod tests {
             )
             .expect("should succeed");
         assert!((ytm - coupon_rate).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_zcb_ytm_honors_street_compounding() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 1).expect("valid date");
+        let cashflows = vec![(maturity, Money::new(1000.0, Currency::USD))];
+        let target_price = Money::new(900.0, Currency::USD);
+        let solver = YtmSolver::new();
+
+        let ytm = solver
+            .solve(
+                &cashflows,
+                as_of,
+                target_price,
+                YtmPricingSpec {
+                    day_count: DayCount::Act365F,
+                    notional: Money::new(1000.0, Currency::USD),
+                    coupon_rate: 0.0,
+                    compounding: YieldCompounding::Street,
+                    frequency: Tenor::semi_annual(),
+                },
+            )
+            .expect("should solve");
+
+        let m = 2.0_f64;
+        let years = 2.0_f64;
+        let expected = m * ((1000.0_f64 / 900.0_f64).powf(1.0 / (m * years)) - 1.0);
+        assert!((ytm - expected).abs() < 1e-12);
     }
 }

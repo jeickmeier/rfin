@@ -171,7 +171,9 @@ impl BondEngine {
         let mut pv_values: Vec<f64> = Vec::with_capacity(flows.len());
 
         for (d, amt) in &flows {
-            if *d <= as_of {
+            // Include same-day cashflows with DF(as_of, as_of)=1.0 for consistency with
+            // shared schedule-based pricing helpers used by other fixed-income instruments.
+            if *d < as_of {
                 continue;
             }
             let df = disc.df_between_dates(as_of, *d)?;

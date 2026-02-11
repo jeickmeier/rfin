@@ -212,13 +212,21 @@ pub fn asw_par_with_forward_config(
     let flows = bond.build_dated_flows(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
     if sched.len() < 2 {
-        return Ok(0.0);
+        return Err(finstack_core::Error::Validation(
+            "ASW forward par calculation requires at least two fixed-leg schedule dates"
+                .to_string(),
+        ));
     }
 
     let fixed_dc = fixed_leg_day_count.unwrap_or_else(|| bond.cashflow_spec.day_count());
     let ann = fixed_leg_annuity(disc.as_ref(), fixed_dc, &sched)?;
-    // Use epsilon check to avoid division by near-zero values that could amplify numerical noise
-    if ann.abs() < 1e-12 || bond.notional.amount().abs() < 1e-12 {
+    // Use epsilon check to avoid unstable ratios when annuity is degenerate.
+    if ann.abs() < 1e-12 {
+        return Err(finstack_core::Error::Validation(
+            "ASW forward par calculation is undefined for near-zero fixed-leg annuity".to_string(),
+        ));
+    }
+    if bond.notional.amount().abs() < 1e-12 {
         return Ok(0.0);
     }
 
@@ -306,12 +314,20 @@ pub fn asw_market_with_forward_config(
     let flows = bond.build_dated_flows(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
     if sched.len() < 2 {
-        return Ok(0.0);
+        return Err(finstack_core::Error::Validation(
+            "ASW forward market calculation requires at least two fixed-leg schedule dates"
+                .to_string(),
+        ));
     }
     let fixed_dc = fixed_leg_day_count.unwrap_or_else(|| bond.cashflow_spec.day_count());
     let ann = fixed_leg_annuity(disc.as_ref(), fixed_dc, &sched)?;
-    // Use epsilon check to avoid division by near-zero values
-    if ann.abs() < 1e-12 || bond.notional.amount().abs() < 1e-12 {
+    if ann.abs() < 1e-12 {
+        return Err(finstack_core::Error::Validation(
+            "ASW forward market calculation is undefined for near-zero fixed-leg annuity"
+                .to_string(),
+        ));
+    }
+    if bond.notional.amount().abs() < 1e-12 {
         return Ok(0.0);
     }
 
@@ -429,13 +445,16 @@ impl MetricCalculator for AssetSwapParCalculator {
 
         let sched: Vec<Date> = builder.build()?.into_iter().collect();
         if sched.len() < 2 {
-            return Ok(0.0);
+            return Err(finstack_core::Error::Validation(
+                "ASW par calculation requires at least two fixed-leg schedule dates".to_string(),
+            ));
         }
         let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(bond_dc);
         let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc_fixed, &sched)?;
-        // Use epsilon check to avoid division by near-zero values
         if ann.abs() < 1e-12 {
-            return Ok(0.0);
+            return Err(finstack_core::Error::Validation(
+                "ASW par calculation is undefined for near-zero fixed-leg annuity".to_string(),
+            ));
         }
         // Use stated coupon for non-custom bonds; for custom bonds, this branch is not reached
         let coupon = match &bond.cashflow_spec {
@@ -587,10 +606,19 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         }
 
         let sched: Vec<Date> = builder.build()?.into_iter().collect();
+        if sched.len() < 2 {
+            return Err(finstack_core::Error::Validation(
+                "ASW market calculation requires at least two fixed-leg schedule dates".to_string(),
+            ));
+        }
         let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(dc);
         let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc_fixed, &sched)?;
-        // Use epsilon check to avoid division by near-zero values
-        if ann.abs() < 1e-12 || notional_amt.abs() < 1e-12 {
+        if ann.abs() < 1e-12 {
+            return Err(finstack_core::Error::Validation(
+                "ASW market calculation is undefined for near-zero fixed-leg annuity".to_string(),
+            ));
+        }
+        if notional_amt.abs() < 1e-12 {
             return Ok(0.0);
         }
         // Equivalent coupon from coupon PV only for custom bonds; otherwise stated coupon

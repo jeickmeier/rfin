@@ -70,13 +70,23 @@ pub fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Res
         OptionType::Put
     };
 
-    // Bachelier implementation handles t<=0 intrinsic value internally.
-    let effective_sigma = sigma.max(0.0);
+    // For near-zero/invalid vol, return intrinsic to avoid unstable Bachelier numerics.
+    const MIN_NORMAL_VOL: f64 = 1e-8;
+    let effective_sigma = if sigma.is_finite() { sigma } else { 0.0 };
+    if effective_sigma < MIN_NORMAL_VOL {
+        let intrinsic = if is_cap {
+            (forward - strike).max(0.0)
+        } else {
+            (strike - forward).max(0.0)
+        };
+        return Ok(Money::new(intrinsic * annuity, ccy));
+    }
+
     let pv = bachelier_price(
         option_type,
         forward,
         strike,
-        effective_sigma,
+        effective_sigma.max(MIN_NORMAL_VOL),
         t_fix.max(0.0),
         annuity,
     );

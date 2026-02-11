@@ -63,6 +63,12 @@ impl MetricCalculator for ModifiedDurationCalculator {
             bond.cashflow_spec.frequency(),
         )?
         .max(1.0);
-        Ok(d_mac / (1.0 + ytm / m))
+        let denom = 1.0 + ytm / m;
+        if denom.abs() < 1e-12 {
+            return Err(finstack_core::Error::Validation(
+                "Modified duration undefined when 1 + ytm/m is near zero".to_string(),
+            ));
+        }
+        Ok(d_mac / denom)
     }
 }

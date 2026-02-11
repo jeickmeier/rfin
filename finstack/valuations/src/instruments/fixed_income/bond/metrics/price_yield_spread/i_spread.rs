@@ -1,7 +1,7 @@
 #![allow(dead_code)] // Public API items may be used by external bindings
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{Date, DayCount, DayCountCtx, StubKind, Tenor};
+use finstack_core::dates::{Date, DayCount, StubKind, Tenor};
 
 /// Configuration for I-Spread fixed-leg conventions.
 ///
@@ -107,29 +107,22 @@ impl MetricCalculator for ISpreadCalculator {
                 .collect();
 
         if dates.len() < 2 {
-            return Ok(0.0);
+            return Err(finstack_core::Error::Validation(
+                "I-spread calculation requires at least two fixed-leg schedule dates".to_string(),
+            ));
         }
 
-        // Par rate approx: (P(0,T0) - P(0,Tn)) / Sum alpha_i P(0,Ti)
-        let p0 = disc.df_on_date_curve(dates[0])?;
-        // Safe: we checked dates.len() >= 2 above
-        let pn = disc.df_on_date_curve(dates[dates.len() - 1])?;
-        let num = p0 - pn;
-        let mut den = 0.0;
-        for w in dates.windows(2) {
-            let (a, b) = (w[0], w[1]);
-            // Use configured fixed-leg day-count for accrual factors.
-            let alpha =
-                self.config
-                    .fixed_leg_day_count
-                    .year_fraction(a, b, DayCountCtx::default())?;
-            let p = disc.df_on_date_curve(b)?;
-            den += alpha * p;
+        let (par_swap_rate, annuity) =
+            crate::instruments::fixed_income::bond::pricing::quote_engine::par_rate_and_annuity_from_discount(
+                disc.as_ref(),
+                self.config.fixed_leg_day_count,
+                &dates,
+            )?;
+        if annuity.abs() < 1e-12 {
+            return Err(finstack_core::Error::Validation(
+                "I-spread calculation is undefined for near-zero fixed-leg annuity".to_string(),
+            ));
         }
-        if den == 0.0 {
-            return Ok(0.0);
-        }
-        let par_swap_rate = num / den;
 
         Ok(ytm - par_swap_rate)
     }

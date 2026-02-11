@@ -358,6 +358,12 @@ impl Deposit {
     ///
     /// The end date is adjusted using the business day convention and calendar if set.
     ///
+    /// # Convention note
+    ///
+    /// Spot lag is only applied to the start leg (`effective_start_date`), not to this
+    /// end leg. This follows common money-market convention where maturity is determined
+    /// from the agreed term after spot settlement, then adjusted by BDC/calendar.
+    ///
     /// # Returns
     /// The effective end date after all adjustments.
     pub fn effective_end_date(&self) -> finstack_core::Result<Date> {

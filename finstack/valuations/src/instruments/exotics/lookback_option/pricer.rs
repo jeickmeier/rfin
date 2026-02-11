@@ -58,8 +58,13 @@ impl LookbackOptionMcPricer {
         }
 
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
-        let r = disc_curve.zero(t);
         let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
+        // Keep drift consistent with date-based discounting for MC simulation.
+        let r = if t > 0.0 && discount_factor > 0.0 {
+            -discount_factor.ln() / t
+        } else {
+            0.0
+        };
 
         let spot_scalar = curves.price(&inst.spot_id)?;
         let spot = match spot_scalar {
@@ -295,7 +300,13 @@ fn collect_lookback_inputs(
         .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
     let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
-    let r = disc_curve.zero(t);
+    let df = disc_curve.df_between_dates(as_of, inst.expiry)?;
+    // Keep analytical rate consistent with date-based discounting used by the curve.
+    let r = if t > 0.0 && df > 0.0 {
+        -df.ln() / t
+    } else {
+        0.0
+    };
 
     let spot_scalar = curves.price(&inst.spot_id)?;
     let spot = match spot_scalar {

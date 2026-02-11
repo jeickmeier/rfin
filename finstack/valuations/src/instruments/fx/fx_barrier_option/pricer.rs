@@ -64,29 +64,47 @@ impl FxBarrierOptionMcPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        validate_fx_barrier_currencies(inst)?;
+
+        let spot_scalar = curves.price(&inst.fx_spot_id)?;
+        let fx_spot = match spot_scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+        };
+        if !fx_spot.is_finite() || fx_spot <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "FxBarrierOption spot must be finite and > 0, got {}",
+                fx_spot
+            )));
+        }
+
         let t = inst
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
         if t <= 0.0 {
+            let per_unit = expired_barrier_value_per_unit(inst, fx_spot);
             return Ok(finstack_core::money::Money::new(
-                0.0,
+                per_unit * inst.notional.amount(),
                 inst.domestic_currency,
             ));
         }
 
         // Domestic curve (discounting)
         let disc_curve = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
-        let r_dom = disc_curve.zero(t);
         let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
+        let r_dom = if t > 0.0 && discount_factor > 0.0 {
+            -discount_factor.ln() / t
+        } else {
+            0.0
+        };
 
         // Foreign curve (risk-free rate for drift)
         let for_curve = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
-        let r_for = for_curve.zero(t);
-
-        let spot_scalar = curves.price(&inst.fx_spot_id)?;
-        let fx_spot = match spot_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+        let df_for = for_curve.df_between_dates(as_of, inst.expiry)?;
+        let r_for = if t > 0.0 && df_for > 0.0 {
+            -df_for.ln() / t
+        } else {
+            0.0
         };
 
         let vol_surface = curves.surface(inst.fx_vol_id.as_str())?;
@@ -218,6 +236,58 @@ use crate::instruments::common_impl::models::closed_form::barrier::{
     BarrierType as AnalyticalBarrierType,
 };
 
+#[inline]
+fn barrier_is_knock_in(
+    bt: crate::instruments::exotics::barrier_option::types::BarrierType,
+) -> bool {
+    matches!(
+        bt,
+        crate::instruments::exotics::barrier_option::types::BarrierType::UpAndIn
+            | crate::instruments::exotics::barrier_option::types::BarrierType::DownAndIn
+    )
+}
+
+#[inline]
+fn spot_implies_barrier_hit(
+    bt: crate::instruments::exotics::barrier_option::types::BarrierType,
+    spot: f64,
+    barrier: f64,
+) -> bool {
+    use crate::instruments::exotics::barrier_option::types::BarrierType;
+    match bt {
+        BarrierType::UpAndIn | BarrierType::UpAndOut => spot >= barrier,
+        BarrierType::DownAndIn | BarrierType::DownAndOut => spot <= barrier,
+    }
+}
+
+fn expired_barrier_value_per_unit(inst: &FxBarrierOption, spot: f64) -> f64 {
+    let strike = inst.strike.amount();
+    let barrier = inst.barrier.amount();
+    let barrier_hit = spot_implies_barrier_hit(inst.barrier_type, spot, barrier);
+    let activated = if barrier_is_knock_in(inst.barrier_type) {
+        barrier_hit
+    } else {
+        !barrier_hit
+    };
+
+    let intrinsic = if activated {
+        match inst.option_type {
+            crate::instruments::OptionType::Call => (spot - strike).max(0.0),
+            crate::instruments::OptionType::Put => (strike - spot).max(0.0),
+        }
+    } else {
+        0.0
+    };
+
+    let rebate = if barrier_hit {
+        inst.rebate.map(|m| m.amount()).unwrap_or(0.0)
+    } else {
+        0.0
+    };
+
+    intrinsic + rebate
+}
+
 /// Validate currency semantics for FX barrier option.
 ///
 /// # Currency Conventions
@@ -261,6 +331,34 @@ fn validate_fx_barrier_currencies(inst: &FxBarrierOption) -> finstack_core::Resu
         }
     }
 
+    let strike = inst.strike.amount();
+    if !strike.is_finite() || strike <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "FxBarrierOption strike must be finite and > 0, got {}",
+            strike
+        )));
+    }
+    let barrier = inst.barrier.amount();
+    if !barrier.is_finite() || barrier <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "FxBarrierOption barrier must be finite and > 0, got {}",
+            barrier
+        )));
+    }
+    if (barrier - strike).abs() < 1e-12 {
+        return Err(finstack_core::Error::Validation(
+            "FxBarrierOption barrier must differ from strike for stable barrier analytics"
+                .to_string(),
+        ));
+    }
+    let notional = inst.notional.amount();
+    if !notional.is_finite() || notional <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "FxBarrierOption notional must be finite and > 0, got {}",
+            notional
+        )));
+    }
+
     Ok(())
 }
 
@@ -302,9 +400,21 @@ fn collect_fx_barrier_inputs(
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
     };
+    if !fx_spot.is_finite() || fx_spot <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "FxBarrierOption spot must be finite and > 0, got {}",
+            fx_spot
+        )));
+    }
 
     let vol_surface = curves.surface(inst.fx_vol_id.as_str())?;
     let sigma = vol_surface.value_clamped(t, inst.strike.amount());
+    if !sigma.is_finite() || sigma < 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "FxBarrierOption volatility must be finite and non-negative, got {}",
+            sigma
+        )));
+    }
 
     Ok((fx_spot, r_dom, r_for, sigma, t))
 }
@@ -419,10 +529,14 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
             })?;
 
         if t <= 0.0 {
+            let per_unit = expired_barrier_value_per_unit(fx_barrier, fx_spot);
             return Ok(ValuationResult::stamped(
                 fx_barrier.id(),
                 as_of,
-                Money::new(0.0, fx_barrier.domestic_currency),
+                Money::new(
+                    per_unit * fx_barrier.notional.amount(),
+                    fx_barrier.domestic_currency,
+                ),
             ));
         }
 
@@ -485,7 +599,11 @@ impl FxBarrierOptionVannaVolgaPricer {
             })?;
 
         if t <= 0.0 {
-            return Ok(Money::new(0.0, fx_barrier.domestic_currency));
+            let per_unit = expired_barrier_value_per_unit(fx_barrier, fx_spot);
+            return Ok(Money::new(
+                per_unit * fx_barrier.notional.amount(),
+                fx_barrier.domestic_currency,
+            ));
         }
 
         let analytical_barrier_type = map_barrier_type(fx_barrier.barrier_type);
@@ -520,5 +638,69 @@ impl FxBarrierOptionVannaVolgaPricer {
             vv_price * fx_barrier.notional.amount(),
             fx_barrier.domestic_currency,
         ))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::exotics::barrier_option::types::BarrierType;
+    use crate::instruments::OptionType;
+    use finstack_core::currency::Currency;
+    use finstack_core::money::Money;
+
+    #[test]
+    fn expired_up_and_in_call_returns_intrinsic_when_hit() {
+        let mut inst = FxBarrierOption::example();
+        inst.option_type = OptionType::Call;
+        inst.barrier_type = BarrierType::UpAndIn;
+        inst.strike = Money::new(1.10, Currency::USD);
+        inst.barrier = Money::new(1.20, Currency::USD);
+        inst.rebate = None;
+
+        let per_unit = expired_barrier_value_per_unit(&inst, 1.25);
+        assert!((per_unit - 0.15).abs() < 1e-12);
+    }
+
+    #[test]
+    fn expired_down_and_out_put_returns_intrinsic_when_not_hit() {
+        let mut inst = FxBarrierOption::example();
+        inst.option_type = OptionType::Put;
+        inst.barrier_type = BarrierType::DownAndOut;
+        inst.strike = Money::new(1.10, Currency::USD);
+        inst.barrier = Money::new(0.90, Currency::USD);
+        inst.rebate = None;
+
+        // Barrier not hit at expiry => down-and-out stays active => intrinsic applies.
+        let per_unit = expired_barrier_value_per_unit(&inst, 1.00);
+        assert!((per_unit - 0.10).abs() < 1e-12);
+    }
+
+    #[test]
+    fn expired_up_and_out_with_hit_pays_rebate_only() {
+        let mut inst = FxBarrierOption::example();
+        inst.option_type = OptionType::Call;
+        inst.barrier_type = BarrierType::UpAndOut;
+        inst.strike = Money::new(1.10, Currency::USD);
+        inst.barrier = Money::new(1.20, Currency::USD);
+        inst.rebate = Some(Money::new(0.02, Currency::USD));
+
+        // Barrier hit at expiry => knocked out. With rebate, no intrinsic and rebate paid.
+        let per_unit = expired_barrier_value_per_unit(&inst, 1.25);
+        assert!((per_unit - 0.02).abs() < 1e-12);
+    }
+
+    #[test]
+    fn validation_rejects_barrier_equal_to_strike() {
+        let mut inst = FxBarrierOption::example();
+        inst.strike = Money::new(1.10, Currency::USD);
+        inst.barrier = Money::new(1.10, Currency::USD);
+
+        let err = validate_fx_barrier_currencies(&inst).expect_err("should reject equal levels");
+        assert!(
+            format!("{err}").contains("barrier must differ from strike"),
+            "unexpected error: {err}"
+        );
     }
 }

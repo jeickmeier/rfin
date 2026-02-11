@@ -19,8 +19,9 @@ impl MetricCalculator for ForwardPv01Calculator {
         // Get the original forward curve
         let original_fwd = context.curves.get_forward(&option.forward_id)?;
 
-        // Create bumped curve with +1bp, keeping the SAME ID as original
-        let bump_amount = 0.0001; // 1bp as fraction
+        // Use shared sensitivity config to keep forward PV01 bump aligned with DV01 settings.
+        let bump_bp = crate::metrics::resolve_sensitivities_config(context.config())?.rate_bump_bp;
+        let bump_amount = bump_bp * 0.0001;
 
         let bumped_rates: Vec<(f64, f64)> = original_fwd
             .knots()
@@ -44,7 +45,8 @@ impl MetricCalculator for ForwardPv01Calculator {
         // Reprice with bumped forward curve
         let bumped = option.value(&bumped_ctx, context.as_of)?;
 
-        Ok(bumped.amount() - base)
+        // Normalize to per-1bp semantics even when configured bump differs.
+        Ok((bumped.amount() - base) / bump_bp)
     }
 
     fn dependencies(&self) -> &[MetricId] {

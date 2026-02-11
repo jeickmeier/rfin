@@ -275,3 +275,115 @@ fn test_quote_engine_roundtrip_i_spread_fixed_bond() {
         ispr_metric,
     );
 }
+
+#[test]
+fn test_quote_engine_asw_market_rejects_matured_schedule() {
+    let issue = date!(2020 - 01 - 01);
+    let maturity = date!(2025 - 01 - 01);
+    let as_of = maturity;
+    let bond = Bond::fixed(
+        "QE-ASW-MATURED",
+        Money::new(100.0, Currency::USD),
+        0.05,
+        issue,
+        maturity,
+        "USD-OIS",
+    )
+    .unwrap();
+
+    let disc = build_simple_discount_curve(issue);
+    let market = MarketContext::new().insert_discount(disc);
+
+    let err = compute_quotes(&bond, &market, as_of, BondQuoteInput::AswMarket(0.005))
+        .expect_err("ASW market inversion should fail for matured schedule");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("ASW market price inversion requires at least two fixed-leg schedule dates"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn test_quote_engine_spread_and_yield_paths_reprice_to_same_clean_price() {
+    let as_of = date!(2025 - 01 - 01);
+    let bond = Bond::fixed(
+        "QE-SPREAD-INVARIANTS",
+        Money::new(100.0, Currency::USD),
+        0.05,
+        as_of,
+        date!(2030 - 01 - 01),
+        "USD-OIS",
+    )
+    .unwrap();
+
+    let disc = build_simple_discount_curve(as_of);
+    let market = MarketContext::new().insert_discount(disc);
+
+    // Start from a market clean-price quote and infer all spread/yield views.
+    let base_clean_pct = 99.25;
+    let base = compute_quotes(
+        &bond,
+        &market,
+        as_of,
+        BondQuoteInput::CleanPricePct(base_clean_pct),
+    )
+    .expect("base quote set");
+
+    let ytm = base.ytm.expect("ytm should be available");
+    let z = base.z_spread.expect("z-spread should be available");
+    let i = base.i_spread.expect("i-spread should be available");
+
+    let from_ytm =
+        compute_quotes(&bond, &market, as_of, BondQuoteInput::Ytm(ytm)).expect("ytm repricing");
+    let from_z =
+        compute_quotes(&bond, &market, as_of, BondQuoteInput::ZSpread(z)).expect("z repricing");
+    let from_i =
+        compute_quotes(&bond, &market, as_of, BondQuoteInput::ISpread(i)).expect("i repricing");
+
+    // Tight for YTM and Z-spread, looser for I-spread due to proxy par-swap approximation.
+    assert!(
+        (from_ytm.clean_price_pct - base_clean_pct).abs() < 1e-6,
+        "YTM repricing mismatch: base={}, from_ytm={}",
+        base_clean_pct,
+        from_ytm.clean_price_pct
+    );
+    assert!(
+        (from_z.clean_price_pct - base_clean_pct).abs() < 1e-4,
+        "Z-spread repricing mismatch: base={}, from_z={}",
+        base_clean_pct,
+        from_z.clean_price_pct
+    );
+    assert!(
+        (from_i.clean_price_pct - base_clean_pct).abs() < 2e-2,
+        "I-spread repricing mismatch: base={}, from_i={}",
+        base_clean_pct,
+        from_i.clean_price_pct
+    );
+}
+
+#[test]
+fn test_quote_engine_i_spread_rejects_matured_schedule() {
+    let issue = date!(2020 - 01 - 01);
+    let maturity = date!(2025 - 01 - 01);
+    let as_of = maturity;
+    let bond = Bond::fixed(
+        "QE-ISPR-MATURED",
+        Money::new(100.0, Currency::USD),
+        0.05,
+        issue,
+        maturity,
+        "USD-OIS",
+    )
+    .unwrap();
+
+    let disc = build_simple_discount_curve(issue);
+    let market = MarketContext::new().insert_discount(disc);
+
+    let err = compute_quotes(&bond, &market, as_of, BondQuoteInput::ISpread(0.005))
+        .expect_err("I-spread quote inversion should fail for matured schedule");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("I-spread proxy par-swap calculation requires at least two schedule dates"),
+        "unexpected error: {msg}"
+    );
+}

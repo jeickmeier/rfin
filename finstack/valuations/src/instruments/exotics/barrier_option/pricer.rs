@@ -78,12 +78,6 @@ impl BarrierOptionMcPricer {
         // Get discount curve
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
 
-        // Time to maturity for discounting (using discount curve's basis)
-        let t_disc =
-            disc_curve
-                .day_count()
-                .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
-
         // Time to maturity for vol surface (using instrument's day count, which should
         // match how the vol surface was calibrated)
         let t_vol = inst
@@ -107,9 +101,13 @@ impl BarrierOptionMcPricer {
             ));
         }
 
-        // Risk-free rate using discount curve's time basis
-        let r = disc_curve.zero(t_disc);
         let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
+        // Keep drift consistent with date-based discounting for MC simulation.
+        let r = if t_vol > 0.0 && discount_factor > 0.0 {
+            -discount_factor.ln() / t_vol
+        } else {
+            0.0
+        };
 
         // Get spot
         let spot_scalar = curves.price(&inst.spot_id)?;
@@ -230,15 +228,13 @@ impl BarrierOptionMcPricer {
             ));
         }
 
-        // Time to maturity for discounting (using discount curve's basis)
-        let t_disc =
-            disc_curve
-                .day_count()
-                .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
-
-        // Risk-free rate using discount curve's time basis
-        let r = disc_curve.zero(t_disc);
         let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
+        // Keep drift consistent with date-based discounting for MC simulation.
+        let r = if t_vol > 0.0 && discount_factor > 0.0 {
+            -discount_factor.ln() / t_vol
+        } else {
+            0.0
+        };
 
         // Spot and dividend yield
         let spot_scalar = curves.price(&inst.spot_id)?;

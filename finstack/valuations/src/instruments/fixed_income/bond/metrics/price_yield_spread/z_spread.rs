@@ -224,6 +224,8 @@ impl MetricCalculator for ZSpreadCalculator {
         let flows = bond.build_dated_flows(&context.curves, context.as_of)?;
         let disc = context.curves.get_discount(&bond.discount_curve_id)?;
         let quote_date = quote_ctx.quote_date;
+        // Keep z-spread time axis on the discount-curve basis for consistency with
+        // existing solver calibration and parity tests.
         let dc = disc.day_count();
 
         // Cache (time_from_quote_date, df_from_quote_date, amount) for each future cashflow

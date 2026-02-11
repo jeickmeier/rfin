@@ -260,6 +260,81 @@ fn test_asw_market_tightens_when_price_rises() {
 }
 
 #[test]
+fn test_asw_par_metric_rejects_matured_schedule() {
+    let issue = date!(2020 - 01 - 01);
+    let maturity = date!(2025 - 01 - 01);
+    let as_of = maturity;
+
+    let bond = Bond::fixed(
+        "ASW-PAR-METRIC-MATURED",
+        Money::new(100.0, Currency::USD),
+        0.05,
+        issue,
+        maturity,
+        "USD-OIS",
+    )
+    .expect("bond");
+
+    let disc = simple_discount_curve("USD-OIS", issue);
+    let market = MarketContext::new().insert_discount(disc);
+    let registry = standard_registry();
+
+    let mut ctx = MetricContext::new(
+        Arc::new(bond),
+        Arc::new(market),
+        as_of,
+        Money::new(0.0, Currency::USD),
+        MetricContext::default_config(),
+    );
+    let err = registry
+        .compute(&[MetricId::ASWPar], &mut ctx)
+        .expect_err("matured schedule should fail");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("ASW par calculation requires at least two fixed-leg schedule dates"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn test_asw_market_metric_rejects_matured_schedule() {
+    let issue = date!(2020 - 01 - 01);
+    let maturity = date!(2025 - 01 - 01);
+    let as_of = maturity;
+
+    let mut bond = Bond::fixed(
+        "ASW-MKT-METRIC-MATURED",
+        Money::new(100.0, Currency::USD),
+        0.05,
+        issue,
+        maturity,
+        "USD-OIS",
+    )
+    .expect("bond");
+    bond.pricing_overrides = PricingOverrides::default().with_clean_price(100.0);
+
+    let disc = simple_discount_curve("USD-OIS", issue);
+    let market = MarketContext::new().insert_discount(disc);
+    let registry = standard_registry();
+
+    let mut ctx = MetricContext::new(
+        Arc::new(bond),
+        Arc::new(market),
+        as_of,
+        Money::new(0.0, Currency::USD),
+        MetricContext::default_config(),
+    );
+    let err = registry
+        .compute(&[MetricId::ASWMarket], &mut ctx)
+        .expect_err("matured schedule should fail");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("ASW market calculation requires at least two fixed-leg schedule dates"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
 fn test_asw_par_with_forward_day_count_override_changes_result() {
     let as_of = date!(2025 - 01 - 01);
     let bond = simple_fixed_bond(as_of);
@@ -402,4 +477,81 @@ fn test_asw_par_forward_returns_zero_for_zero_notional() {
     .expect("asw par");
 
     assert_eq!(asw, 0.0, "Zero notional should return zero ASW");
+}
+
+#[test]
+fn test_asw_par_forward_rejects_matured_schedule() {
+    let issue = date!(2020 - 01 - 01);
+    let maturity = date!(2025 - 01 - 01);
+    let as_of = maturity;
+
+    let bond = Bond::fixed(
+        "ASW-PAR-MATURED",
+        Money::new(100.0, Currency::USD),
+        0.05,
+        issue,
+        maturity,
+        "USD-OIS",
+    )
+    .expect("bond");
+
+    let disc = simple_discount_curve("USD-OIS", issue);
+    let fwd = simple_forward_curve("USD-SOFR-3M", issue);
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
+
+    let err = finstack_valuations::instruments::fixed_income::bond::asw_par_with_forward(
+        &bond,
+        &market,
+        as_of,
+        "USD-SOFR-3M",
+        0.0,
+    )
+    .expect_err("matured schedule should fail");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("ASW forward par calculation requires at least two fixed-leg schedule dates"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn test_asw_market_forward_rejects_matured_schedule() {
+    let issue = date!(2020 - 01 - 01);
+    let maturity = date!(2025 - 01 - 01);
+    let as_of = maturity;
+
+    let bond = Bond::fixed(
+        "ASW-MKT-MATURED",
+        Money::new(100.0, Currency::USD),
+        0.05,
+        issue,
+        maturity,
+        "USD-OIS",
+    )
+    .expect("bond");
+
+    let disc = simple_discount_curve("USD-OIS", issue);
+    let fwd = simple_forward_curve("USD-SOFR-3M", issue);
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
+
+    let err = finstack_valuations::instruments::fixed_income::bond::asw_market_with_forward(
+        &bond,
+        &market,
+        as_of,
+        "USD-SOFR-3M",
+        0.0,
+        Some(bond.notional.amount()),
+    )
+    .expect_err("matured schedule should fail");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains(
+            "ASW forward market calculation requires at least two fixed-leg schedule dates"
+        ),
+        "unexpected error: {msg}"
+    );
 }

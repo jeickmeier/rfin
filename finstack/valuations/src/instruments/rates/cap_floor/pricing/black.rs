@@ -200,7 +200,8 @@ pub fn gamma(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
         return 0.0;
     }
     let d1 = d1_black76(forward, strike, sigma, t_fix);
-    norm_pdf(d1) / (forward * sigma * t_fix.sqrt())
+    let denom = (forward * sigma * t_fix.sqrt()).max(1e-12);
+    norm_pdf(d1) / denom
 }
 
 /// Black vega per 1% vol.

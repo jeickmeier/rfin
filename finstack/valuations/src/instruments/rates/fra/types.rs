@@ -545,7 +545,7 @@ mod tests {
     #[cfg(feature = "slow")]
     use finstack_core::currency::Currency;
     #[cfg(feature = "slow")]
-    use finstack_core::dates::Date;
+    use finstack_core::dates::{Date, DateExt};
     #[cfg(feature = "slow")]
     use finstack_core::market_data::term_structures::DiscountCurve;
     #[cfg(feature = "slow")]
@@ -581,7 +581,7 @@ mod tests {
         // FRA 3M x 6M
         let start = base + time::Duration::days(90);
         let end = base + time::Duration::days(180);
-        let fixing = start - time::Duration::days(2); // 2 days before start for reset_lag
+        let fixing = start.add_weekdays(-2); // 2 business days before start for reset_lag
         let fra = ForwardRateAgreement::builder()
             .id("FRA-3x6".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -634,7 +634,7 @@ mod tests {
 
         let start = base + time::Duration::days(90);
         let end = base + time::Duration::days(180);
-        let fixing = start - time::Duration::days(2);
+        let fixing = start.add_weekdays(-2);
 
         let fra = ForwardRateAgreement::builder()
             .id("FRA-TEST".into())

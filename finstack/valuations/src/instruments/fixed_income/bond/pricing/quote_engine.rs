@@ -1051,37 +1051,34 @@ pub fn compute_quotes(
 /// (`ISpread = YTM - par_swap_rate`) using the same convention as the
 /// `ISpreadCalculator` (annual Act/Act proxy fixed leg by default).
 fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date) -> Result<f64> {
-    use finstack_core::dates::{DayCount, DayCountCtx, ScheduleBuilder, StubKind, Tenor};
+    use finstack_core::dates::{ScheduleBuilder, StubKind};
 
     let disc = curves.get_discount(&bond.discount_curve_id)?;
+    let ispread_cfg =
+        crate::instruments::fixed_income::bond::metrics::price_yield_spread::i_spread::ISpreadConfig::default();
 
-    // Mirror the schedule used in ISpreadCalculator (annual Act/Act, ShortFront stub).
+    // Mirror the schedule and fixed-leg conventions used in ISpreadCalculator defaults.
     let dates: Vec<Date> = ScheduleBuilder::new(as_of, bond.maturity)?
-        .frequency(Tenor::annual())
+        .frequency(ispread_cfg.fixed_leg_frequency)
         .stub_rule(StubKind::ShortFront)
         .build()?
         .into_iter()
         .collect();
 
     if dates.len() < 2 {
-        return Ok(0.0);
+        return Err(finstack_core::Error::Validation(
+            "I-spread proxy par-swap calculation requires at least two schedule dates".to_string(),
+        ));
     }
 
-    let p0 = disc.df_on_date_curve(dates[0])?;
-    // Safe: we checked dates.len() >= 2 above
-    let pn = disc.df_on_date_curve(dates[dates.len() - 1])?;
-    let num = p0 - pn;
-    let mut den = 0.0;
-    for w in dates.windows(2) {
-        let (a, b) = (w[0], w[1]);
-        let alpha = DayCount::ActAct.year_fraction(a, b, DayCountCtx::default())?;
-        let p = disc.df_on_date_curve(b)?;
-        den += alpha * p;
+    let (par_rate, annuity) =
+        par_rate_and_annuity_from_discount(disc.as_ref(), ispread_cfg.fixed_leg_day_count, &dates)?;
+    if annuity.abs() < 1e-12 {
+        return Err(finstack_core::Error::Validation(
+            "I-spread proxy par-swap calculation is undefined for near-zero annuity".to_string(),
+        ));
     }
-    if den == 0.0 {
-        return Ok(0.0);
-    }
-    Ok(num / den)
+    Ok(par_rate)
 }
 
 /// Price from market asset swap spread (decimal) using the same
@@ -1134,14 +1131,23 @@ fn price_from_asw_market(
 
     let sched: Vec<Date> = builder.build()?.into_iter().collect();
     if sched.len() < 2 {
-        return Ok(0.0);
+        return Err(finstack_core::Error::Validation(
+            "ASW market price inversion requires at least two fixed-leg schedule dates".to_string(),
+        ));
     }
 
     let dc = bond.cashflow_spec.day_count();
     let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc, &sched)?;
-    // Use epsilon check to avoid division by near-zero values
-    if ann.abs() < 1e-12 || bond.notional.amount().abs() < 1e-12 {
-        return Ok(0.0);
+    if bond.notional.amount().abs() < 1e-12 {
+        return Err(finstack_core::Error::Validation(
+            "ASW market price inversion is undefined for near-zero notional".to_string(),
+        ));
+    }
+    // Use epsilon check to avoid unstable inversion when annuity is degenerate.
+    if ann.abs() < 1e-12 {
+        return Err(finstack_core::Error::Validation(
+            "ASW market price inversion is undefined for near-zero fixed-leg annuity".to_string(),
+        ));
     }
 
     let par_asw = coupon - par_rate;

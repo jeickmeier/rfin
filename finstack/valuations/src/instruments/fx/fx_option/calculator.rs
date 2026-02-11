@@ -51,6 +51,13 @@ impl FxOptionCalculator {
         self.validate_exercise_style(inst)?;
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
+        if spot <= 0.0 || inst.strike <= 0.0 || inst.notional.amount() <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "FxOption requires spot > 0, strike > 0, and notional > 0; got spot={spot}, strike={}, notional={}",
+                inst.strike,
+                inst.notional.amount()
+            )));
+        }
 
         if t <= 0.0 {
             // Expired: intrinsic value only
@@ -219,8 +226,17 @@ impl FxOptionCalculator {
     ) -> Result<f64> {
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, t) = self.collect_inputs_no_vol(inst, curves, as_of)?;
-        if t <= 0.0 || spot <= 0.0 || inst.notional.amount() <= 0.0 {
-            return Ok(0.0);
+        if t <= 0.0 {
+            return Err(finstack_core::Error::Validation(
+                "Implied vol is undefined for expired FX options".to_string(),
+            ));
+        }
+        if spot <= 0.0 || inst.strike <= 0.0 || inst.notional.amount() <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Implied vol requires spot > 0, strike > 0, and notional > 0; got spot={spot}, strike={}, notional={}",
+                inst.strike,
+                inst.notional.amount()
+            )));
         }
 
         // Solve per-unit then scale back: PV = unit_price * notional_base.
