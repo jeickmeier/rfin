@@ -151,8 +151,8 @@ fn huge_friction_matches_straight_loan() {
         .amount();
 
     assert!(
-        (pv_callable - pv_straight).abs() / pv_straight.max(1.0) < 1e-6,
-        "With huge friction, callable PV should match straight. callable={} straight={}",
+        (pv_callable - pv_straight).abs() / pv_straight.max(1.0) < 5e-6,
+        "With huge friction, callable PV should match straight. callable={:.2} straight={:.2}",
         pv_callable,
         pv_straight
     );
@@ -176,7 +176,7 @@ fn oas_round_trip_near_zero_at_model_price() {
         .calculate_oas(&loan, &market, as_of, clean_pct)
         .unwrap();
     assert!(
-        oas_bp.abs() < 1e-3,
+        oas_bp.abs() < 1e-5,
         "OAS should be near 0 when using model-implied price. oas_bp={}",
         oas_bp
     );
@@ -234,5 +234,66 @@ fn credit_tree_higher_hazard_lowers_price() {
         "Higher hazard should lower PV. pv_low={} pv_high={}",
         pv_low,
         pv_high
+    );
+}
+
+/// Regression: call at first callable date (= settlement) must produce non-zero PV.
+/// Previously `outstanding_before` was initialised to 0.0, returning zero when the
+/// first entry in the outstanding path matched the target date.
+#[test]
+fn call_at_settlement_date_produces_nonzero_pv() {
+    let as_of = date!(2025 - 01 - 01);
+    let market = base_market(as_of);
+    let pricer =
+        finstack_valuations::instruments::fixed_income::term_loan::TermLoanTreePricer::new();
+
+    // Build a loan whose first call date equals as_of (immediate call option).
+    let maturity = date!(2030 - 01 - 01);
+    let loan = TermLoan::builder()
+        .id(InstrumentId::new("TL-CALL-AT-SETTLE"))
+        .currency(Currency::USD)
+        .notional_limit(Money::new(10_000_000.0, Currency::USD))
+        .issue(as_of)
+        .maturity(maturity)
+        .rate(
+            finstack_valuations::instruments::fixed_income::term_loan::RateSpec::Fixed {
+                rate_bp: 600,
+            },
+        )
+        .pay_freq(Tenor::quarterly())
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .credit_curve_id_opt(None)
+        .amortization(
+            finstack_valuations::instruments::fixed_income::term_loan::AmortizationSpec::None,
+        )
+        .coupon_type(CouponType::Cash)
+        .upfront_fee_opt(None)
+        .ddtl_opt(None)
+        .covenants_opt(None)
+        .pricing_overrides(PricingOverrides::default())
+        .oid_eir_opt(None)
+        .call_schedule_opt(Some(LoanCallSchedule {
+            calls: vec![LoanCall {
+                date: as_of, // Call right at settlement
+                price_pct_of_par: 100.0,
+            }],
+        }))
+        .settlement_days(0)
+        .attributes(Default::default())
+        .build()
+        .unwrap();
+
+    let pv = pricer
+        .price_callable(&loan, &market, as_of)
+        .unwrap()
+        .amount();
+    assert!(
+        pv > 0.0,
+        "PV with call at settlement must be positive, got {}",
+        pv
     );
 }

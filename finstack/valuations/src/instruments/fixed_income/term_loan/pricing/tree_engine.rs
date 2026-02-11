@@ -9,7 +9,6 @@
 //!   credit-spread tree path
 //! - Apply `PricingOverrides::call_friction_cents` as an exercise threshold uplift
 
-use crate::instruments::common_impl::models::trees::tree_framework::state_keys as tf_keys;
 use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
     RatesCreditConfig, RatesCreditTree,
 };
@@ -97,8 +96,10 @@ impl TermLoanValuator {
         let out_path = schedule.outstanding_by_date()?;
 
         // Helper: outstanding BEFORE a target date (pre-exercise).
+        // Initialise with the loan's initial notional so that calls at or before the
+        // first outstanding entry still see the correct starting balance.
         let outstanding_before = |target: Date| -> f64 {
-            let mut last = 0.0;
+            let mut last = loan.notional_limit.amount();
             for (d, amt) in &out_path {
                 if *d < target {
                     last = amt.amount();
@@ -135,13 +136,7 @@ impl TermLoanValuator {
             let raw = (t / time_to_maturity) * tree_steps as f64;
             let raw_clamped = raw.clamp(0.0, tree_steps as f64);
 
-            // Map to step index.
-            let step = if exercise_dates.contains(&cf.date) {
-                raw_clamped.ceil() as usize
-            } else {
-                raw_clamped.round() as usize
-            }
-            .clamp(0, num_steps - 1);
+            let is_exercise = exercise_dates.contains(&cf.date);
 
             match cf.kind {
                 CFKind::Fixed
@@ -151,18 +146,59 @@ impl TermLoanValuator {
                 | CFKind::CommitmentFee
                 | CFKind::UsageFee
                 | CFKind::FacilityFee => {
-                    coupon_fee_vec[step] += cf.amount.amount();
+                    let amount = cf.amount.amount();
+                    if is_exercise {
+                        // Exercise cashflows snap exactly to their step.
+                        let step = (raw_clamped.ceil() as usize).clamp(0, num_steps - 1);
+                        coupon_fee_vec[step] += amount;
+                    } else {
+                        // Distribute between floor/ceil steps (matches bond convention).
+                        let lo = raw_clamped.floor() as usize;
+                        let weight = raw_clamped - lo as f64;
+                        if lo < num_steps {
+                            coupon_fee_vec[lo] += amount * (1.0 - weight);
+                        }
+                        if lo + 1 < num_steps {
+                            coupon_fee_vec[lo + 1] += amount * weight;
+                        }
+                    }
                 }
                 CFKind::Amortization => {
                     // Principal repayment (positive to holder)
                     if cf.amount.amount() > 0.0 {
-                        principal_vec[step] += cf.amount.amount();
+                        let amount = cf.amount.amount();
+                        if is_exercise {
+                            let step = (raw_clamped.ceil() as usize).clamp(0, num_steps - 1);
+                            principal_vec[step] += amount;
+                        } else {
+                            let lo = raw_clamped.floor() as usize;
+                            let weight = raw_clamped - lo as f64;
+                            if lo < num_steps {
+                                principal_vec[lo] += amount * (1.0 - weight);
+                            }
+                            if lo + 1 < num_steps {
+                                principal_vec[lo + 1] += amount * weight;
+                            }
+                        }
                     }
                 }
                 CFKind::Notional => {
                     // Only include positive notional (redemptions), exclude funding legs
                     if cf.amount.amount() > 0.0 {
-                        principal_vec[step] += cf.amount.amount();
+                        let amount = cf.amount.amount();
+                        if is_exercise {
+                            let step = (raw_clamped.ceil() as usize).clamp(0, num_steps - 1);
+                            principal_vec[step] += amount;
+                        } else {
+                            let lo = raw_clamped.floor() as usize;
+                            let weight = raw_clamped - lo as f64;
+                            if lo < num_steps {
+                                principal_vec[lo] += amount * (1.0 - weight);
+                            }
+                            if lo + 1 < num_steps {
+                                principal_vec[lo + 1] += amount * weight;
+                            }
+                        }
                     }
                 }
                 _ => {}
@@ -433,25 +469,17 @@ impl TermLoanTreePricer {
             TermLoanValuator::new(loan.clone(), market, as_of, origin, time_to_maturity, steps)?;
 
         let price_amount = if let Some(hc) = hazard_curve.as_ref() {
-            // Credit-spread tree path: align hazard from curve; keep rate volatility at 0 to approximate
-            // deterministic forward rates as requested.
+            // Credit-spread tree path: calibrated to discount + hazard curves.
+            // Rate vol 0 → deterministic forward rates; stochastic hazard.
             let mut tree = RatesCreditTree::new(RatesCreditConfig {
                 steps,
                 rate_vol: 0.0,
                 hazard_vol: vol,
-                base_rate: disc.zero(0.0),
                 ..Default::default()
             });
-            let _recovery = tree.align_hazard_from_curve(hc.as_ref());
+            tree.calibrate(disc.as_ref(), hc.as_ref(), time_to_maturity)?;
 
-            let mut vars = StateVariables::default();
-            vars.insert(tf_keys::INTEREST_RATE, disc.zero(0.0));
-            // Seed hazard at first knot (fallback to 1%)
-            if let Some((_, lambda0)) = hc.knot_points().next() {
-                vars.insert(tf_keys::HAZARD_RATE, lambda0.max(0.0));
-            } else {
-                vars.insert(tf_keys::HAZARD_RATE, 0.01);
-            }
+            let vars = StateVariables::default();
             tree.price(vars, time_to_maturity, market, &valuator)?
         } else {
             // Short-rate tree calibrated to the discount curve.
@@ -474,7 +502,15 @@ impl TermLoanTreePricer {
 
     /// Calculate OAS (in bp) for a callable term loan given a market clean price (% of par).
     ///
-    /// Mirrors bond OAS: solves for constant spread that matches market dirty price.
+    /// Mirrors bond OAS: solves for the constant spread that matches market dirty price.
+    ///
+    /// # OAS Convention
+    ///
+    /// OAS is a **parallel shift to the calibrated risk-free short rate lattice**.
+    /// When the rates+credit two-factor tree is used (hazard curve present), the
+    /// hazard tree captures credit spread independently, so OAS represents the
+    /// option-adjusted spread **over the risk-free curve** — consistent with
+    /// Bloomberg OAS convention.
     pub fn calculate_oas(
         &self,
         loan: &TermLoan,
@@ -536,30 +572,31 @@ impl TermLoanTreePricer {
         let valuator =
             TermLoanValuator::new(loan.clone(), market, as_of, origin, time_to_maturity, steps)?;
 
+        // Pre-calibrate the credit tree once (it stays fixed; OAS is passed via vars).
+        let rc_tree = if let Some(hc) = hazard_curve.as_ref() {
+            let mut tree = RatesCreditTree::new(RatesCreditConfig {
+                steps,
+                rate_vol: 0.0,
+                hazard_vol: vol,
+                ..Default::default()
+            });
+            if tree
+                .calibrate(disc.as_ref(), hc.as_ref(), time_to_maturity)
+                .is_err()
+            {
+                None
+            } else {
+                Some(tree)
+            }
+        } else {
+            None
+        };
+
         let objective_fn = |oas_bp: f64| -> f64 {
-            if hazard_curve.is_some() {
-                // Credit tree: approximate OAS by shifting the base rate seed.
-                let mut tree = RatesCreditTree::new(RatesCreditConfig {
-                    steps,
-                    rate_vol: 0.0,
-                    hazard_vol: vol,
-                    base_rate: disc.zero(0.0),
-                    ..Default::default()
-                });
-                if let Some(hc) = hazard_curve.as_ref() {
-                    let _ = tree.align_hazard_from_curve(hc.as_ref());
-                }
+            if let Some(tree) = rc_tree.as_ref() {
+                // Calibrated credit tree: OAS as a parallel shift to calibrated rates.
                 let mut vars = StateVariables::default();
-                vars.insert(tf_keys::INTEREST_RATE, disc.zero(0.0) + oas_bp / 10_000.0);
-                if let Some(hc) = hazard_curve.as_ref() {
-                    if let Some((_, lambda0)) = hc.knot_points().next() {
-                        vars.insert(tf_keys::HAZARD_RATE, lambda0.max(0.0));
-                    } else {
-                        vars.insert(tf_keys::HAZARD_RATE, 0.01);
-                    }
-                } else {
-                    vars.insert(tf_keys::HAZARD_RATE, 0.01);
-                }
+                vars.insert("oas", oas_bp);
                 match tree.price(vars, time_to_maturity, market, &valuator) {
                     Ok(model_price) => model_price - dirty_target,
                     Err(_) => 1.0e6,

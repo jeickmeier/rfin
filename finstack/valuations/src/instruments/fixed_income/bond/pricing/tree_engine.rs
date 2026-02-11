@@ -44,7 +44,6 @@ use super::super::types::Bond;
 #[cfg(test)]
 use super::super::types::CallPut;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common_impl::models::trees::tree_framework::state_keys as tf_keys;
 use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
     RatesCreditConfig, RatesCreditTree,
 };
@@ -962,6 +961,14 @@ impl TreePricer {
     /// Uses Brent's method for root finding, automatically selecting between short-rate
     /// and rates+credit tree models based on available market data.
     ///
+    /// # OAS Convention
+    ///
+    /// Under either model the OAS is a **parallel shift to the calibrated risk-free
+    /// short rate lattice** (in basis points). When the rates+credit two-factor tree
+    /// is used, the hazard tree captures the credit spread independently, so the OAS
+    /// represents the option-adjusted spread **over the risk-free curve** — consistent
+    /// with the Bloomberg OAS convention for risky bonds.
+    ///
     /// # Arguments
     ///
     /// * `bond` - The bond to calculate OAS for (must have call/put options)
@@ -1042,10 +1049,11 @@ impl TreePricer {
         if let Some(hc) = hazard_curve.as_ref() {
             let cfg = RatesCreditConfig {
                 steps: self.config.tree_steps,
+                rate_vol: self.config.volatility,
                 ..Default::default()
             };
             let mut tree = RatesCreditTree::new(cfg);
-            let _recovery = tree.align_hazard_from_curve(hc);
+            tree.calibrate(discount_curve.as_ref(), hc.as_ref(), time_to_maturity)?;
             rc_tree = Some(tree);
             use_rates_credit = true;
         }
@@ -1070,35 +1078,21 @@ impl TreePricer {
             self.config.tree_steps,
         )?;
 
-        // Get initial short rate for state variables (needed by tree framework)
+        // Get initial short rate for state variables (needed by short-rate tree)
         let initial_rate = if let Some(tree) = sr_tree.as_ref() {
             tree.rate_at_node(0, 0).unwrap_or(0.03)
         } else {
-            discount_curve.zero(0.0)
+            0.0 // Not used for rates+credit tree
         };
 
         let objective_fn = |oas: f64| -> f64 {
-            // `oas` is treated in basis points (bp) to match `short_rate_keys::OAS`
-            // semantics in the short-rate tree. When using the rates+credit tree,
-            // we convert bp → decimal and add it to the short rate passed via
-            // `INTEREST_RATE`.
+            // OAS is in basis points (bp). Both tree models read it from
+            // `initial_vars["oas"]` and apply it as a parallel shift to
+            // calibrated short rates.
             let mut vars = StateVariables::default();
             if use_rates_credit {
-                let base_rate = discount_curve.zero(0.0);
-                let oas_bp = oas;
-                let rate_with_oas = base_rate + oas_bp / 10_000.0;
-                vars.insert(tf_keys::INTEREST_RATE, rate_with_oas);
-                if let Some(hc) = hazard_curve.as_ref() {
-                    // Use first knot hazard as base
-                    if let Some((_, lambda0)) = hc.knot_points().next() {
-                        vars.insert(tf_keys::HAZARD_RATE, lambda0.max(0.0));
-                    } else {
-                        vars.insert(tf_keys::HAZARD_RATE, 0.01);
-                    }
-                } else {
-                    vars.insert(tf_keys::HAZARD_RATE, 0.01);
-                }
-                // Let valuator handle call/put; OAS is not used here (credit spread embedded via hazard)
+                // Calibrated rates+credit tree: OAS via the standard "oas" key
+                vars.insert("oas", oas);
                 if let Some(tree) = rc_tree.as_ref() {
                     match tree.price(vars, time_to_maturity, market_context, &valuator) {
                         Ok(model_price) => model_price - dirty_target,
@@ -1108,7 +1102,7 @@ impl TreePricer {
                     1.0e6
                 }
             } else {
-                // Set both the initial rate and OAS for the tree framework
+                // Calibrated short-rate tree: OAS via the standard "oas" key
                 vars.insert(short_rate_keys::SHORT_RATE, initial_rate);
                 vars.insert(short_rate_keys::OAS, oas);
                 if let Some(tree) = sr_tree.as_ref() {
@@ -1305,7 +1299,6 @@ mod tests {
     #[test]
     #[cfg(feature = "slow")]
     fn test_rates_credit_default_lowers_price() {
-        use crate::instruments::common_impl::models::trees::tree_framework::state_keys as tf_keys;
         use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
             RatesCreditConfig, RatesCreditTree,
         };
@@ -1379,39 +1372,43 @@ mod tests {
             BondValuator::new(bond.clone(), &ctx_high, as_of, time_to_maturity, steps)
                 .expect("valuator");
 
-        // Two-factor rates+credit trees aligned to each hazard curve
+        // Two-factor rates+credit trees calibrated to each hazard curve
+        let disc_low = ctx_low
+            .get_discount("USD-OIS")
+            .expect("Discount curve should exist");
+        let low_hc_ref = ctx_low
+            .get_hazard("HAZ-LOW")
+            .expect("Hazard curve should exist in test context");
         let mut tree_low = RatesCreditTree::new(RatesCreditConfig {
             steps,
             ..Default::default()
         });
-        // Align to the hazard curve stored in the context
-        let low_hc_ref = ctx_low
-            .get_hazard("HAZ-LOW")
+        tree_low
+            .calibrate(disc_low.as_ref(), low_hc_ref.as_ref(), time_to_maturity)
+            .expect("calibration low");
+
+        let disc_high = ctx_high
+            .get_discount("USD-OIS")
+            .expect("Discount curve should exist");
+        let high_hc_ref = ctx_high
+            .get_hazard("HAZ-HIGH")
             .expect("Hazard curve should exist in test context");
-        tree_low.align_hazard_from_curve(low_hc_ref.as_ref());
         let mut tree_high = RatesCreditTree::new(RatesCreditConfig {
             steps,
             ..Default::default()
         });
-        let high_hc_ref = ctx_high
-            .get_hazard("HAZ-HIGH")
-            .expect("Hazard curve should exist in test context");
-        tree_high.align_hazard_from_curve(high_hc_ref.as_ref());
+        tree_high
+            .calibrate(disc_high.as_ref(), high_hc_ref.as_ref(), time_to_maturity)
+            .expect("calibration high");
 
-        // Initial state
-        let mut vars = StateVariables::default();
-        vars.insert(tf_keys::INTEREST_RATE, 0.03);
-        vars.insert(tf_keys::HAZARD_RATE, 0.01);
+        let vars = StateVariables::default();
 
         let pv_low = tree_low
             .price(vars.clone(), time_to_maturity, &ctx_low, &valuator_low)
             .expect("price low");
 
-        // Use higher base hazard for the high scenario
-        let mut vars_high = vars.clone();
-        vars_high.insert(tf_keys::HAZARD_RATE, 0.05);
         let pv_high = tree_high
-            .price(vars_high, time_to_maturity, &ctx_high, &valuator_high)
+            .price(vars, time_to_maturity, &ctx_high, &valuator_high)
             .expect("price high");
 
         // With higher hazard, price should be lower (all else equal)

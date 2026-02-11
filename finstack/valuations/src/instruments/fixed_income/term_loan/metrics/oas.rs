@@ -6,6 +6,14 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 /// Uses tree-based callable pricing and solves for the constant spread (returned in **decimal**
 /// units, e.g. `0.01 = 100bp`) that makes the model price equal to the market price.
 ///
+/// # OAS Convention
+///
+/// OAS is a **parallel shift to the calibrated risk-free short rate lattice** (in basis points).
+/// When the rates+credit two-factor tree is used (i.e. a hazard curve is present in
+/// the market context), the hazard tree captures the credit spread independently, so
+/// the OAS represents the spread **over the risk-free curve** — consistent with the
+/// Bloomberg OAS convention for risky instruments.
+///
 /// # Dependencies
 ///
 /// Requires `quoted_clean_price` to be set in `loan.pricing_overrides` (as percent of par).
