@@ -370,8 +370,12 @@ impl TreeValuator for TermLoanValuator {
         let alive_value = coupon_fee + principal_value;
 
         // Default handling when hazard rate is provided by the tree state.
+        //
+        // Recovery convention: recovery is received at the *current* node upon
+        // default (standard Hull/Brigo-Mercurio convention). No additional one-
+        // period discounting is applied to recovery — `alive_value` and `recovery`
+        // are both in PV-at-this-node terms.
         if let Some(hazard) = state.hazard_rate {
-            let df = state.df.unwrap_or(1.0);
             let p_surv = (-hazard.max(0.0) * dt).exp();
             let default_prob = (1.0 - p_surv).clamp(0.0, 1.0);
             let outstanding = self.outstanding_at(step);
@@ -379,7 +383,7 @@ impl TreeValuator for TermLoanValuator {
                 .recovery_rate
                 .map(|rr| rr.clamp(0.0, 1.0) * outstanding)
                 .unwrap_or(0.0);
-            Ok(p_surv * alive_value + default_prob * df * recovery)
+            Ok(p_surv * alive_value + default_prob * recovery)
         } else {
             Ok(alive_value)
         }

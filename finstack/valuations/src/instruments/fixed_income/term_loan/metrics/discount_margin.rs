@@ -105,9 +105,11 @@ impl MetricCalculator for DiscountMarginCalculator {
             }
         };
 
-        // Solve for DM in basis points
+        // Solve for DM in basis points.
+        // Tolerance of 1e-8 provides sub-basis-point accuracy (1e-8 bp = 1e-12 decimal)
+        // without exceeding f64 precision limits.
         let solver = BrentSolver::new()
-            .tolerance(1e-12)
+            .tolerance(1e-8)
             .initial_bracket_size(Some(50.0)); // Start with +/- 50bp bracket
 
         let dm_bp = solver.solve(objective, 0.0)?;

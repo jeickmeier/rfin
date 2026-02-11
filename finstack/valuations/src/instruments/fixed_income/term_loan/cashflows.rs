@@ -22,6 +22,14 @@ use rust_decimal::Decimal;
 use std::collections::BTreeMap;
 
 /// Compute total margin (base spread + covenant step-ups + pricing overrides) at a given date.
+///
+/// Uses strict `<` comparison for step-up dates to match the convention in
+/// `float_margin_stepup`: a step-up at date D takes effect for accrual periods
+/// STARTING on or after D. The coupon period ending on D still uses the pre-step-up margin.
+///
+/// Currently unused after the all-in rate refactor, but retained as a utility
+/// for future metrics or diagnostics that need point-in-time margin queries.
+#[allow(dead_code)]
 pub(super) fn margin_bp_at(loan: &TermLoan, d: Date) -> f64 {
     let base_margin = match &loan.rate {
         super::types::RateSpec::Fixed { .. } => 0.0,
@@ -33,7 +41,7 @@ pub(super) fn margin_bp_at(loan: &TermLoan, d: Date) -> f64 {
         .map(|c| {
             c.margin_stepups
                 .iter()
-                .filter(|m| m.date <= d)
+                .filter(|m| m.date < d)
                 .map(|m| f64::from(m.delta_bp))
                 .sum::<f64>()
         })
@@ -45,7 +53,7 @@ pub(super) fn margin_bp_at(loan: &TermLoan, d: Date) -> f64 {
         .map(|ov| {
             ov.margin_add_bp_by_date
                 .iter()
-                .filter(|(dt, _)| *dt <= d)
+                .filter(|(dt, _)| *dt < d)
                 .map(|(_, bp)| f64::from(*bp))
                 .sum::<f64>()
         })
@@ -208,31 +216,21 @@ pub fn generate_cashflows(
             }
         }
         super::spec::AmortizationSpec::Linear { start, end } => {
+            // Amortization payments occur at period END dates strictly after the
+            // start date and up to (and including) the end date.  Using `> *start`
+            // prevents generating a spurious amortization event at the origination
+            // date when `start == issue`.
             let steps: Vec<Date> = coupon_dates
                 .iter()
                 .copied()
-                .filter(|d| *d >= *start && *d <= *end)
+                .filter(|d| *d > *start && *d <= *end)
                 .collect();
             if !steps.is_empty() {
-                // Compute number of periods in the amortization window from
-                // the schedule builder, not the count of coupon dates that
-                // happen to fall in the window. This avoids under/over-dividing
-                // when stub periods or date adjustments shift coupon dates.
-                let num_periods = {
-                    let mut amort_sb = finstack_core::dates::ScheduleBuilder::new(*start, *end)?
-                        .frequency(loan.pay_freq)
-                        .stub_rule(loan.stub);
-                    if let Some(ref cal) = loan.calendar_id {
-                        amort_sb = amort_sb.adjust_with_id(loan.bdc, cal);
-                    }
-                    let mut amort_dates: Vec<Date> = amort_sb.build()?.into_iter().collect();
-                    if amort_dates.first().copied() != Some(*start) {
-                        amort_dates.insert(0, *start);
-                    }
-                    // Number of periods = number of dates - 1 (start is not a period)
-                    amort_dates.len().saturating_sub(1).max(1)
-                };
-                let per_step = loan.notional_limit.amount() / (num_periods as f64);
+                // Divide notional evenly across the amortization steps.
+                // Using `steps.len()` directly ensures the total amortization
+                // equals the notional exactly, regardless of how many coupon
+                // dates fall in the amortization window.
+                let per_step = loan.notional_limit.amount() / (steps.len() as f64);
                 for d in steps {
                     let pay = Money::new(per_step, loan.currency);
                     principal_events.push(PrincipalEvent {
@@ -545,7 +543,7 @@ fn build_commitment_fee_flows(
                     date: d,
                     reset_date: None,
                     amount: Money::new(fee_amt, loan.currency),
-                    kind: CFKind::Fee,
+                    kind: CFKind::CommitmentFee,
                     accrual_factor: 0.0,
                     rate: Some(fee_rate),
                 });
@@ -647,7 +645,9 @@ pub fn build_oid_eir_schedule(
                     .or_default()
                     .add_interest(cf.amount.amount());
             }
-            CFKind::Fee if spec.include_fees => {
+            CFKind::Fee | CFKind::CommitmentFee | CFKind::UsageFee | CFKind::FacilityFee
+                if spec.include_fees =>
+            {
                 buckets
                     .entry(cf.date)
                     .or_default()

@@ -115,6 +115,12 @@ pub enum RateSpec {
     ///
     /// Uses the standard floating rate specification with full support
     /// for floors, caps, gearing, and reset conventions.
+    ///
+    /// **Note on calendars**: The `FloatingRateSpec.calendar_id` field is ignored
+    /// for term loans. The loan-level `TermLoan::calendar_id` drives the payment
+    /// schedule and business-day adjustments. Only `index_id`, `spread_bp`,
+    /// `gearing`, `floor_bp`, `cap_bp`, and `reset_lag_days` are used from this
+    /// specification.
     Floating(FloatingRateSpec),
 }
 
@@ -401,15 +407,54 @@ impl TryFrom<TermLoanSpec> for TermLoan {
             for draw in &ddtl_spec.draws {
                 validate_currency(currency, draw.amount)?;
             }
+            // Validate cumulative draws do not exceed commitment limit (accounting
+            // for step-downs).  Only valid draws within the availability window
+            // are considered, mirroring the cashflow generator's filtering logic.
+            {
+                let mut sorted_draws: Vec<_> = ddtl_spec
+                    .draws
+                    .iter()
+                    .filter(|d| {
+                        d.date >= ddtl_spec.availability_start
+                            && d.date <= ddtl_spec.availability_end
+                    })
+                    .collect();
+                sorted_draws.sort_by_key(|d| d.date);
+
+                let mut cumulative = 0.0_f64;
+                for draw in &sorted_draws {
+                    // Determine effective limit at draw date (after step-downs)
+                    let mut limit = ddtl_spec.commitment_limit.amount();
+                    for sd in &ddtl_spec.commitment_step_downs {
+                        if sd.date <= draw.date {
+                            limit = sd.new_limit.amount();
+                        }
+                    }
+                    cumulative += draw.amount.amount();
+                    if cumulative > limit + 1e-6 {
+                        return Err(InputError::Invalid.into());
+                    }
+                }
+            }
             for step in &ddtl_spec.commitment_step_downs {
                 validate_currency(currency, step.new_limit)?;
             }
-            if let Some(
-                super::spec::OidPolicy::WithheldAmount(m)
-                | super::spec::OidPolicy::SeparateAmount(m),
-            ) = &ddtl_spec.oid_policy
-            {
-                validate_currency(currency, *m)?;
+            match &ddtl_spec.oid_policy {
+                Some(
+                    super::spec::OidPolicy::WithheldAmount(m)
+                    | super::spec::OidPolicy::SeparateAmount(m),
+                ) => {
+                    validate_currency(currency, *m)?;
+                }
+                Some(
+                    super::spec::OidPolicy::WithheldPct(bp)
+                    | super::spec::OidPolicy::SeparatePct(bp),
+                ) => {
+                    if *bp < 0 {
+                        return Err(InputError::Invalid.into());
+                    }
+                }
+                None => {}
             }
         }
 

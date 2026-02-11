@@ -373,9 +373,21 @@ pub enum AmortizationSpec {
         /// Amortization end date (full repayment)
         end: Date,
     },
-    /// Fixed percentage of original principal per period
+    /// Percentage of current outstanding principal per period (geometric decay).
+    ///
+    /// Each period, the amortization amount equals `bp / 10000 × current_outstanding`.
+    /// Because the percentage is applied to the declining balance, the dollar amount
+    /// decreases geometrically each period.
+    ///
+    /// **Note**: This is NOT the same as a flat percentage of original notional
+    /// (which would produce equal dollar payments each period).  For example,
+    /// 250 bp (2.5%) per quarter applied to $10M produces:
+    /// - Q1: $250,000 (2.5% × $10M)
+    /// - Q2: $243,750 (2.5% × $9.75M)
+    /// - Q3: $237,656 (2.5% × $9.506M)
+    /// - etc.
     PercentPerPeriod {
-        /// Percentage in basis points per payment period
+        /// Percentage in basis points per payment period (applied to current outstanding)
         bp: i32,
     },
     /// Custom amortization schedule with explicit principal payments

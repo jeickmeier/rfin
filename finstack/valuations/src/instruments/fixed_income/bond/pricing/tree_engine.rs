@@ -859,10 +859,14 @@ impl TreeValuator for BondValuator {
         // Coupon is added after exercise decision (coupon is paid regardless)
         let alive_value = coupon + principal_value;
 
-        // Default handling: if hazard rate is present, compute survival/default weighting
-        // Use cached fields instead of hash lookups for performance
+        // Default handling: if hazard rate is present, compute survival/default weighting.
+        // Use cached fields instead of hash lookups for performance.
+        //
+        // Recovery convention: recovery is received at the *current* node upon
+        // default (standard Hull/Brigo-Mercurio convention). No additional one-
+        // period discounting is applied — `alive_value` and `recovery` are both
+        // in PV-at-this-node terms.
         if let Some(hazard) = state.hazard_rate {
-            let df = state.df.unwrap_or(1.0);
             let p_surv = (-hazard.max(0.0) * dt).exp();
             let default_prob = (1.0 - p_surv).clamp(0.0, 1.0);
             // Use outstanding principal at this step for recovery (FRP convention)
@@ -871,7 +875,7 @@ impl TreeValuator for BondValuator {
                 .recovery_rate
                 .map(|rr| rr.clamp(0.0, 1.0) * outstanding)
                 .unwrap_or(0.0);
-            let node_value = p_surv * alive_value + default_prob * df * recovery;
+            let node_value = p_surv * alive_value + default_prob * recovery;
             Ok(node_value)
         } else {
             // No hazard info at this node; return alive path value

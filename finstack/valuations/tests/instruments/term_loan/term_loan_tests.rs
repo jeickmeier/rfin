@@ -137,7 +137,7 @@ fn term_loan_commitment_fee_step_downs() {
     let fees: Vec<_> = sched
         .flows
         .iter()
-        .filter(|cf| cf.kind == CFKind::Fee)
+        .filter(|cf| cf.kind == CFKind::CommitmentFee)
         .collect();
     assert!(!fees.is_empty());
 
@@ -201,7 +201,7 @@ fn term_loan_commitment_fee_windowed_to_availability() {
     let fee_dates: Vec<_> = sched
         .flows
         .iter()
-        .filter(|cf| cf.kind == CFKind::Fee)
+        .filter(|cf| cf.kind == CFKind::CommitmentFee)
         .map(|cf| cf.date)
         .collect();
     assert!(!fee_dates.is_empty());
