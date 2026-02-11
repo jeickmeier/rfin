@@ -201,18 +201,21 @@ impl HazardBondEngine {
         }
 
         // Survival probabilities from hazard curve at the grid dates.
-        // Use unconditional survival from the hazard curve's base date; no
-        // renormalization is applied since PV is anchored at as_of.
-        let surv = hazard.survival_at_dates(&dates)?;
-        if surv.is_empty() {
+        // Renormalize to conditional survival Q(as_of, T) = S(T) / S(as_of)
+        // so that the PV is correct even when the hazard curve's base date
+        // differs from the valuation date (e.g., yesterday's curve reused today).
+        let surv_raw = hazard.survival_at_dates(&dates)?;
+        if surv_raw.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
         // Check if already defaulted by as_of
-        let s0 = surv[0].clamp(0.0, 1.0);
+        let s0 = surv_raw[0].clamp(0.0, 1.0);
         if s0 <= 0.0 {
             // Already defaulted by as_of; no future value.
             return Ok(Money::new(0.0, bond.notional.currency()));
         }
+        // Conditional survival: Q(as_of, T_i) = S(T_i) / S(as_of)
+        let surv: Vec<f64> = surv_raw.iter().map(|s| (s / s0).clamp(0.0, 1.0)).collect();
 
         // Alive leg: survival-weighted PV of holder-view coupons and principal.
         // Use Kahan summation from finstack-core for numerical stability.

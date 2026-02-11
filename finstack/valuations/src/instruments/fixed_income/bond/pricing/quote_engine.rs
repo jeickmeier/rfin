@@ -789,7 +789,9 @@ pub fn price_from_oas(
     use crate::instruments::common_impl::models::{
         short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     };
-    use crate::instruments::fixed_income::bond::pricing::tree_engine::BondValuator;
+    use crate::instruments::fixed_income::bond::pricing::tree_engine::{
+        bond_tree_config, BondValuator,
+    };
     // Time to maturity is measured from the valuation date (as_of) using the
     // discount curve's day-count to ensure consistency with tree calibration.
     let discount_curve = curves.get_discount(&bond.discount_curve_id)?;
@@ -798,10 +800,15 @@ pub fn price_from_oas(
     if time_to_maturity <= 0.0 {
         return Ok(0.0);
     }
-    // Use consistent step count between tree and valuator for accurate pricing.
-    // Default TreePricerConfig uses 100 steps; match that for round-trip consistency.
-    let tree_steps = ShortRateTreeConfig::default().steps;
-    let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
+    // Use bond_tree_config to source tree parameters from pricing_overrides,
+    // ensuring round-trip consistency with calculate_oas() and value_with_tree().
+    let config = bond_tree_config(bond);
+    let tree_steps = config.tree_steps;
+    let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig {
+        steps: config.tree_steps,
+        volatility: config.volatility,
+        ..Default::default()
+    });
     short_rate_tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
     let valuator = BondValuator::new(bond.clone(), curves, as_of, time_to_maturity, tree_steps)?;
 

@@ -475,14 +475,35 @@ impl<'a> DateProcessor<'a> {
     }
 
     /// Process all stages for a single date.
+    ///
+    /// # Processing Order
+    ///
+    /// The ordering of stages is critical for correctness, particularly the
+    /// interaction between PIK capitalization and amortization:
+    ///
+    /// 1. **Coupons** — Emit cash and PIK coupon flows based on the *current*
+    ///    outstanding balance. PIK amounts are returned but **not yet added**
+    ///    to the outstanding balance.
+    /// 2. **Amortization** — Evaluate principal repayments against the current
+    ///    outstanding balance (before PIK capitalization). For `StepRemaining`
+    ///    schedules this means the target remaining balance is compared to the
+    ///    pre-PIK outstanding, which is the standard market convention.
+    /// 3. **PIK capitalization** — Only *after* amortization is processed, the
+    ///    PIK coupon amount is added to the outstanding balance. This ensures
+    ///    that amortization targets are evaluated on the "clean" outstanding
+    ///    balance, and PIK capitalization increases the base for subsequent
+    ///    periods.
+    /// 4. **Fees** — Facility and usage fees emitted on updated outstanding.
+    /// 5. **Principal events** — Discretionary draws, repayments, etc.
+    /// 6. **Maturity handling** — Final redemption of remaining outstanding.
     fn process(&self, d: Date, mut state: BuildState) -> finstack_core::Result<BuildState> {
-        // 1. Coupons
+        // 1. Coupons (cash + PIK split; PIK amount returned but not yet capitalized)
         let pik_to_add = self.emit_coupons(d, &mut state)?;
 
-        // 2. Amortization
+        // 2. Amortization (evaluated against pre-PIK outstanding)
         self.emit_amortization(d, &mut state)?;
 
-        // 3. PIK capitalization
+        // 3. PIK capitalization (increases outstanding for future periods)
         if pik_to_add > 0.0 {
             state.outstanding += pik_to_add;
         }

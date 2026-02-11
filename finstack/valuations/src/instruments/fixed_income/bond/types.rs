@@ -586,13 +586,16 @@ impl Bond {
                 let d0 = window[0];
                 let d1 = window[1];
                 let days = (d1 - d0).whole_days().abs();
-                // Bucket into standard frequency ranges for robust mode detection
+                // Bucket into standard frequency ranges for robust mode detection.
+                // Ranges are widened to account for business-day convention shifts
+                // (±3-5 days) that can occur with Modified Following, month-end
+                // rolls, and holiday-heavy calendars.
                 let bucket = match days {
-                    360..=370 => 365, // Annual
-                    178..=187 => 182, // Semi-annual
-                    88..=95 => 91,    // Quarterly
-                    27..=35 => 30,    // Monthly
-                    6..=8 => 7,       // Weekly
+                    355..=375 => 365, // Annual
+                    175..=192 => 182, // Semi-annual
+                    85..=98 => 91,    // Quarterly
+                    25..=37 => 30,    // Monthly
+                    5..=9 => 7,       // Weekly
                     _ => days,        // Non-standard interval
                 };
                 *interval_counts.entry(bucket).or_insert(0) += 1;
@@ -890,17 +893,8 @@ impl Bond {
             format!("Bond notional must be positive, got {}", amount)
         })?;
 
-        // Validate coupon rate for fixed-rate bonds
-        if let CashflowSpec::Fixed(spec) = &self.cashflow_spec {
-            // Convert Decimal to f64 for comparison
-            let rate = spec.rate.to_f64().unwrap_or(0.0);
-            if rate < 0.0 {
-                return Err(finstack_core::Error::Validation(format!(
-                    "Bond fixed coupon rate must be non-negative, got {}",
-                    rate
-                )));
-            }
-        }
+        // Validate coupon rate for fixed-rate bonds (including amortizing with fixed base)
+        Self::validate_coupon_rate(&self.cashflow_spec)?;
 
         // Validate call/put prices
         if let Some(ref call_put) = self.call_put {
@@ -922,6 +916,31 @@ impl Bond {
             }
         }
 
+        Ok(())
+    }
+
+    /// Recursively validate that fixed coupon rates are non-negative.
+    ///
+    /// Handles `Fixed`, `Floating` (no coupon rate to validate), and
+    /// `Amortizing` (recurses into the base spec).
+    fn validate_coupon_rate(spec: &CashflowSpec) -> Result<()> {
+        match spec {
+            CashflowSpec::Fixed(s) => {
+                let rate = s.rate.to_f64().unwrap_or(0.0);
+                if rate < 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Bond fixed coupon rate must be non-negative, got {}",
+                        rate
+                    )));
+                }
+            }
+            CashflowSpec::Amortizing { base, .. } => {
+                Self::validate_coupon_rate(base)?;
+            }
+            CashflowSpec::Floating(_) => {
+                // No fixed coupon rate to validate
+            }
+        }
         Ok(())
     }
 }

@@ -476,9 +476,11 @@ impl TreePricerConfig {
 /// ```
 pub struct BondValuator {
     bond: Bond,
-    /// Coupon amounts indexed by time step (dense vector for O(1) access).
-    /// Index `i` corresponds to time step `i`. Default value is 0.0.
-    coupon_vec: Vec<f64>,
+    /// Holder-view cashflow amounts indexed by time step (dense vector for O(1) access).
+    /// Includes coupons, amortization, and final redemption — all positive receipts
+    /// from the holder's perspective. Index `i` corresponds to time step `i`.
+    /// Default value is 0.0.
+    cashflow_vec: Vec<f64>,
     /// Call prices indexed by time step (sparse via Option for memory efficiency).
     /// `Some(price)` indicates a call option is exercisable at that step.
     /// Price is computed as `outstanding_principal × (price_pct / 100)`.
@@ -630,7 +632,7 @@ impl BondValuator {
         }
 
         // Pre-allocate vectors for O(1) access during backward induction
-        let mut coupon_vec = vec![0.0; num_steps];
+        let mut cashflow_vec = vec![0.0; num_steps];
         for (date, amount) in &flows {
             if *date > as_of {
                 let time_frac = dc_curve.year_fraction(
@@ -654,7 +656,7 @@ impl BondValuator {
                     if step >= num_steps {
                         step = num_steps - 1;
                     }
-                    coupon_vec[step] += amount.amount();
+                    cashflow_vec[step] += amount.amount();
                 } else {
                     // Distributed mapping: spread cashflow between two nearest time steps
                     // to reduce discretization error and improve convergence.
@@ -667,12 +669,12 @@ impl BondValuator {
 
                     // Distribute to step_idx (weight: 1.0 - weight)
                     if step_idx > 0 && step_idx < num_steps {
-                        coupon_vec[step_idx] += amount.amount() * (1.0 - weight);
+                        cashflow_vec[step_idx] += amount.amount() * (1.0 - weight);
                     }
 
                     // Distribute to step_idx + 1 (weight: weight)
                     if step_idx + 1 < num_steps {
-                        coupon_vec[step_idx + 1] += amount.amount() * weight;
+                        cashflow_vec[step_idx + 1] += amount.amount() * weight;
                     }
                 }
             }
@@ -738,7 +740,7 @@ impl BondValuator {
 
         Ok(Self {
             bond,
-            coupon_vec,
+            cashflow_vec,
             call_vec,
             put_vec,
             outstanding_principal_vec,
@@ -748,10 +750,13 @@ impl BondValuator {
         })
     }
 
-    /// Check if there are any coupons at this time step.
+    /// Get the total holder-view cashflow amount at this time step.
+    ///
+    /// This includes coupons, amortization, and final redemption — all positive
+    /// receipts from the holder's perspective.
     #[inline]
-    fn coupon_at(&self, step: usize) -> f64 {
-        self.coupon_vec.get(step).copied().unwrap_or(0.0)
+    fn cashflow_at(&self, step: usize) -> f64 {
+        self.cashflow_vec.get(step).copied().unwrap_or(0.0)
     }
 
     /// Check if there's a call option at this time step.
@@ -813,13 +818,13 @@ impl BondValuator {
 impl TreeValuator for BondValuator {
     fn value_at_maturity(&self, _state: &NodeState) -> Result<f64> {
         let final_step = self.time_steps.len() - 1;
-        let cashflow = self.coupon_at(final_step);
+        let cashflow = self.cashflow_at(final_step);
         Ok(cashflow)
     }
 
     fn value_at_node(&self, state: &NodeState, continuation_value: f64, dt: f64) -> Result<f64> {
         let step = state.step;
-        let coupon = self.coupon_at(step);
+        let coupon = self.cashflow_at(step);
 
         // Call/put exercise logic:
         // - Coupon is ALWAYS paid on coupon dates regardless of exercise decision
@@ -1259,7 +1264,7 @@ mod tests {
         assert!(valuator.is_ok());
         let valuator = valuator.expect("BondValuator creation should succeed in test");
         // Verify coupons were distributed across the vector
-        assert!(valuator.coupon_vec.iter().any(|&c| c > 0.0));
+        assert!(valuator.cashflow_vec.iter().any(|&c| c > 0.0));
         assert!(market_context.get_discount("USD-OIS").is_ok());
     }
     #[test]
