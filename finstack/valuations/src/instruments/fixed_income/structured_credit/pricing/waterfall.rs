@@ -72,6 +72,9 @@ pub struct WaterfallContext<'a> {
     /// This ensures the waterfall uses up-to-date balances after principal payments
     /// and PIK accretion rather than stale original balances.
     pub tranche_balances: Option<&'a HashMap<String, Money>>,
+    /// Current reserve account balance (passed dynamically each period).
+    /// Used by `PaymentCalculation::ReserveReplenishment` to compute shortfall.
+    pub reserve_balance: Money,
 }
 
 /// Execute waterfall to distribute available cash.
@@ -118,6 +121,7 @@ fn execute_waterfall_core(
         payment_date: context.payment_date,
         market: context.market,
         tranche_balances: context.tranche_balances,
+        reserve_balance: context.reserve_balance,
     };
 
     // Evaluate coverage tests (M4: pass current balances)
@@ -134,8 +138,28 @@ fn execute_waterfall_core(
         context.tranche_balances,
     )?;
 
-    // Check if diversions are active
-    let diversion_active = coverage_test_results.iter().any(|(_, _, passed)| !passed);
+    // Check if diversions are active and compute cure amount.
+    //
+    // INTEX/Bloomberg convention: for each tranche, the cure amount is the
+    // MAXIMUM of OC cure and IC cure (not the sum), because curing the larger
+    // shortfall implicitly cures the smaller one. Then sum across tranches.
+    let diversion_active = coverage_test_results.iter().any(|r| !r.is_passing);
+    let total_cure_amount: Money = {
+        // Group cure amounts by tranche (extract tranche_id from test_id "OC_XXX" / "IC_XXX")
+        let mut per_tranche_max: HashMap<&str, f64> = HashMap::default();
+        for r in &coverage_test_results {
+            if let Some(cure) = r.cure_amount {
+                if cure.amount() > 0.0 {
+                    // Extract tranche id: test_id format is "OC_<tranche_id>" or "IC_<tranche_id>"
+                    let tranche_id = r.test_id.split_once('_').map_or("", |(_prefix, id)| id);
+                    let entry = per_tranche_max.entry(tranche_id).or_insert(0.0);
+                    *entry = entry.max(cure.amount());
+                }
+            }
+        }
+        let sum: f64 = per_tranche_max.values().sum();
+        Money::new(sum, waterfall.base_currency)
+    };
     if diversion_active {
         had_diversions = true;
         diversion_reason = Some("OC or IC test failed".to_string());
@@ -148,8 +172,11 @@ fn execute_waterfall_core(
         ws.payment_records.clear();
         ws.tier_allocations.clear();
         ws.coverage_tests.clear();
-        ws.coverage_tests
-            .extend(coverage_test_results.iter().cloned());
+        ws.coverage_tests.extend(
+            coverage_test_results
+                .iter()
+                .map(|r| (r.test_id.clone(), r.current_ratio, r.is_passing)),
+        );
 
         AllocationOutput {
             distributions: std::mem::take(&mut ws.distributions),
@@ -173,6 +200,9 @@ fn execute_waterfall_core(
     // Storage for tier allocations (will be moved to workspace or returned directly)
     let mut tier_allocations = Vec::with_capacity(waterfall.tiers.len());
 
+    // Track how much cure cash has already been diverted (for partial diversion).
+    let mut cure_remaining = total_cure_amount;
+
     // Process tiers in priority order
     for tier in &waterfall.tiers {
         let (target_recipients, tier_diverted): (&[Recipient], bool) = if tier.divertible
@@ -191,12 +221,22 @@ fn execute_waterfall_core(
             (&tier.recipients[..], false)
         };
 
+        // When diverting with a cure amount, cap the diversion at the cure amount.
+        // This implements partial diversion (INTEX-standard): only redirect enough
+        // cash to cure the OC/IC breach, not the entire tier's allocation.
+        let effective_remaining = if tier_diverted && cure_remaining.amount() > 0.0 {
+            let capped = remaining.amount().min(cure_remaining.amount());
+            Money::new(capped, waterfall.base_currency)
+        } else {
+            remaining
+        };
+
         let tier_cash = match tier.allocation_mode {
             AllocationMode::Sequential => allocate_sequential(
                 &allocation_ctx,
                 tier,
                 target_recipients,
-                remaining,
+                effective_remaining,
                 context.period_start,
                 tier_diverted,
                 &mut allocation_output,
@@ -206,7 +246,7 @@ fn execute_waterfall_core(
                 &allocation_ctx,
                 tier,
                 target_recipients,
-                remaining,
+                effective_remaining,
                 context.period_start,
                 tier_diverted,
                 &mut allocation_output,
@@ -216,11 +256,20 @@ fn execute_waterfall_core(
 
         if tier_diverted {
             total_diverted = total_diverted.checked_add(tier_cash)?;
+            cure_remaining = cure_remaining
+                .checked_sub(tier_cash)
+                .unwrap_or(Money::new(0.0, waterfall.base_currency));
         }
 
         tier_allocations.push((tier.id.clone(), tier_cash));
         remaining = remaining.checked_sub(tier_cash)?;
     }
+
+    // Convert internal results to public tuple format
+    let coverage_tests_public: Vec<(String, f64, bool)> = coverage_test_results
+        .iter()
+        .map(|r| (r.test_id.clone(), r.current_ratio, r.is_passing))
+        .collect();
 
     // Build the final distribution result
     let distribution = WaterfallDistribution {
@@ -229,7 +278,7 @@ fn execute_waterfall_core(
         tier_allocations: tier_allocations.clone(),
         distributions: allocation_output.distributions.clone(),
         payment_records: allocation_output.payment_records.clone(),
-        coverage_tests: coverage_test_results.clone(),
+        coverage_tests: coverage_tests_public.clone(),
         diverted_cash: total_diverted,
         remaining_cash: remaining,
         had_diversions,
@@ -242,7 +291,7 @@ fn execute_waterfall_core(
         ws.distributions = allocation_output.distributions;
         ws.payment_records = allocation_output.payment_records;
         ws.tier_allocations = tier_allocations;
-        ws.coverage_tests = coverage_test_results;
+        ws.coverage_tests = coverage_tests_public;
     }
 
     Ok(distribution)
@@ -294,6 +343,8 @@ pub struct AllocationContext<'a> {
     pub market: &'a MarketContext,
     /// Current tranche balances (overrides tranche.current_balance when present)
     pub tranche_balances: Option<&'a HashMap<String, Money>>,
+    /// Current reserve account balance (passed dynamically each period)
+    pub reserve_balance: Money,
 }
 
 impl<'a> AllocationContext<'a> {
@@ -309,6 +360,7 @@ impl<'a> AllocationContext<'a> {
         payment_date: Date,
         market: &'a MarketContext,
         tranche_balances: Option<&'a HashMap<String, Money>>,
+        reserve_balance: Money,
     ) -> Self {
         let mut tranche_index = HashMap::default();
         tranche_index.reserve(tranches.tranches.len());
@@ -324,6 +376,7 @@ impl<'a> AllocationContext<'a> {
             payment_date,
             market,
             tranche_balances,
+            reserve_balance,
         }
     }
 }
@@ -392,6 +445,7 @@ fn allocate_sequential(
             period_start,
             ctx.payment_date,
             ctx.market,
+            ctx.reserve_balance,
         )?;
 
         let paid = if requested.amount() <= available.amount() {
@@ -494,6 +548,7 @@ fn allocate_pro_rata(
             period_start,
             ctx.payment_date,
             ctx.market,
+            ctx.reserve_balance,
         )?;
         total_requested = total_requested.checked_add(requested)?;
         recipient_requests.push((recipient, requested));
@@ -650,7 +705,7 @@ fn evaluate_coverage_tests(
     current_pool_balance: Money,
     market: &MarketContext,
     tranche_balances: Option<&HashMap<String, Money>>,
-) -> Result<Vec<(String, f64, bool)>> {
+) -> Result<Vec<CoverageTestResult>> {
     let mut results = Vec::with_capacity(waterfall.coverage_triggers.len() * 2);
 
     let (haircuts, par_value_threshold) = match waterfall.coverage_rules.as_ref() {
@@ -684,11 +739,12 @@ fn evaluate_coverage_tests(
 
             let oc_test = CoverageTest::new_oc(oc_trigger_level);
             let result = oc_test.calculate(&ctx)?;
-            results.push((
-                format!("OC_{}", trigger.tranche_id),
-                result.current_ratio,
-                result.is_passing,
-            ));
+            results.push(CoverageTestResult {
+                test_id: format!("OC_{}", trigger.tranche_id),
+                current_ratio: result.current_ratio,
+                is_passing: result.is_passing,
+                cure_amount: result.cure_amount,
+            });
         }
 
         if let Some(ic_trigger_level) = trigger.ic_trigger {
@@ -709,15 +765,26 @@ fn evaluate_coverage_tests(
 
             let ic_test = CoverageTest::new_ic(ic_trigger_level);
             let result = ic_test.calculate(&ctx)?;
-            results.push((
-                format!("IC_{}", trigger.tranche_id),
-                result.current_ratio,
-                result.is_passing,
-            ));
+            results.push(CoverageTestResult {
+                test_id: format!("IC_{}", trigger.tranche_id),
+                current_ratio: result.current_ratio,
+                is_passing: result.is_passing,
+                cure_amount: result.cure_amount,
+            });
         }
     }
 
     Ok(results)
+}
+
+/// Internal coverage test result with cure amount.
+#[derive(Debug, Clone)]
+struct CoverageTestResult {
+    test_id: String,
+    current_ratio: f64,
+    is_passing: bool,
+    /// Amount needed to cure the breach (divert to senior principal).
+    cure_amount: Option<Money>,
 }
 
 /// Calculate payment amount for a recipient.
@@ -733,6 +800,7 @@ fn calculate_payment_amount(
     period_start: Date,
     payment_date: Date,
     market: &MarketContext,
+    reserve_balance: Money,
 ) -> Result<Money> {
     let (raw_amount, rounding) = match calculation {
         PaymentCalculation::FixedAmount { amount, rounding } => (amount.amount(), *rounding),
@@ -805,6 +873,15 @@ fn calculate_payment_amount(
         }
 
         PaymentCalculation::ResidualCash => (available.amount(), None),
+
+        PaymentCalculation::ReserveReplenishment { target_balance } => {
+            // Shortfall = max(0, target - current). Current balance is passed
+            // dynamically from SimulationState, not stored in the waterfall definition.
+            let shortfall = target_balance
+                .checked_sub(reserve_balance)
+                .unwrap_or(Money::new(0.0, base_currency));
+            (shortfall.amount().max(0.0).min(available.amount()), None)
+        }
     };
 
     if let Some(convention) = rounding {

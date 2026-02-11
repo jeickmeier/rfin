@@ -193,6 +193,7 @@ impl StructuredCredit {
             correlation_structure: None,
             // Hedge swaps default to empty
             hedge_swaps: Vec::new(),
+            cleanup_call_pct: None,
         }
     }
 

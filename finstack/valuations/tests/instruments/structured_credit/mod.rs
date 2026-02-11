@@ -59,3 +59,9 @@ pub mod test_bucketed_dv01;
 
 // Cashflow sensitivity sweep tests (CDR/CPR/Recovery/Lag)
 pub mod cashflow_sweep_tests;
+
+// End-to-end simulation tests with hand-calculated expectations
+pub mod simulation_e2e_tests;
+
+// Feature tests: loss allocation, cleanup call, reserve account, OC/IC cure
+pub mod feature_tests;

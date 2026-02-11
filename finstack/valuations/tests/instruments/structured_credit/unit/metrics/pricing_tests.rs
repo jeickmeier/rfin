@@ -49,6 +49,8 @@ fn test_wal_calculation_equal_payments() {
         total_interest: Money::new(0.0, Currency::USD),
         total_principal: Money::new(100_000.0, Currency::USD),
         total_pik: Money::new(0.0, Currency::USD),
+        writedown_flows: vec![],
+        total_writedown: Money::new(0.0, Currency::USD),
     };
 
     // Act
@@ -90,6 +92,8 @@ fn test_wal_calculation_front_loaded_payments() {
         total_interest: Money::new(0.0, Currency::USD),
         total_principal: Money::new(100_000.0, Currency::USD),
         total_pik: Money::new(0.0, Currency::USD),
+        writedown_flows: vec![],
+        total_writedown: Money::new(0.0, Currency::USD),
     };
 
     // Act
@@ -131,6 +135,8 @@ fn test_wal_calculation_back_loaded_payments() {
         total_interest: Money::new(0.0, Currency::USD),
         total_principal: Money::new(100_000.0, Currency::USD),
         total_pik: Money::new(0.0, Currency::USD),
+        writedown_flows: vec![],
+        total_writedown: Money::new(0.0, Currency::USD),
     };
 
     // Act
@@ -162,6 +168,8 @@ fn test_wal_calculation_single_payment() {
         total_interest: Money::new(0.0, Currency::USD),
         total_principal: Money::new(100_000.0, Currency::USD),
         total_pik: Money::new(0.0, Currency::USD),
+        writedown_flows: vec![],
+        total_writedown: Money::new(0.0, Currency::USD),
     };
 
     // Act
@@ -190,6 +198,8 @@ fn test_wal_calculation_empty_cashflows() {
         total_interest: Money::new(0.0, Currency::USD),
         total_principal: Money::new(0.0, Currency::USD),
         total_pik: Money::new(0.0, Currency::USD),
+        writedown_flows: vec![],
+        total_writedown: Money::new(0.0, Currency::USD),
     };
 
     // Act
@@ -227,6 +237,8 @@ fn test_wal_ignores_past_cashflows() {
         total_interest: Money::new(0.0, Currency::USD),
         total_principal: Money::new(100_000.0, Currency::USD),
         total_pik: Money::new(0.0, Currency::USD),
+        writedown_flows: vec![],
+        total_writedown: Money::new(0.0, Currency::USD),
     };
 
     // Act
@@ -272,6 +284,8 @@ fn test_wal_rmbs_with_psa() {
         total_interest: Money::new(0.0, Currency::USD),
         total_principal: Money::new(100_000.0, Currency::USD),
         total_pik: Money::new(0.0, Currency::USD),
+        writedown_flows: vec![],
+        total_writedown: Money::new(0.0, Currency::USD),
     };
 
     // Act
@@ -309,6 +323,8 @@ fn test_wal_clo_short_duration() {
         total_interest: Money::new(0.0, Currency::USD),
         total_principal: Money::new(100_000.0, Currency::USD),
         total_pik: Money::new(0.0, Currency::USD),
+        writedown_flows: vec![],
+        total_writedown: Money::new(0.0, Currency::USD),
     };
 
     // Act

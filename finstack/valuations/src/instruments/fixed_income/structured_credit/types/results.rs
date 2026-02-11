@@ -29,6 +29,8 @@ pub struct TrancheCashflows {
     pub principal_flows: DatedFlows,
     /// PIK capitalization flows.
     pub pik_flows: DatedFlows,
+    /// Write-down flows (loss allocation reducing tranche balance).
+    pub writedown_flows: DatedFlows,
     /// Final tranche balance after all payments.
     pub final_balance: Money,
     /// Total interest received.
@@ -37,6 +39,8 @@ pub struct TrancheCashflows {
     pub total_principal: Money,
     /// Total PIK capitalized.
     pub total_pik: Money,
+    /// Total write-down (loss allocation).
+    pub total_writedown: Money,
 }
 
 /// Tranche-specific valuation result.
@@ -118,10 +122,12 @@ mod tests {
                 ),
             ],
             pik_flows: vec![],
+            writedown_flows: vec![],
             final_balance: Money::new(0.0, Currency::USD),
             total_interest: Money::new(10_000.0, Currency::USD),
             total_principal: Money::new(200_000.0, Currency::USD),
             total_pik: Money::new(0.0, Currency::USD),
+            total_writedown: Money::new(0.0, Currency::USD),
         };
 
         assert_eq!(cashflows.tranche_id, "AAA");

@@ -33,6 +33,8 @@ pub enum RecipientType {
     Tranche(String),
     /// Equity/residual distribution
     Equity,
+    /// Reserve account (credit enhancement replenishment)
+    ReserveAccount(String),
 }
 
 /// Type of management fee
@@ -100,6 +102,14 @@ pub enum PaymentCalculation {
     },
     /// All remaining cash
     ResidualCash,
+    /// Reserve account replenishment (up to target balance).
+    ///
+    /// The current reserve balance is passed dynamically via `WaterfallContext`
+    /// at execution time, not stored here, because the balance changes each period.
+    ReserveReplenishment {
+        /// Target reserve balance the account should be replenished to.
+        target_balance: Money,
+    },
 }
 
 /// Allocation mode within a tier

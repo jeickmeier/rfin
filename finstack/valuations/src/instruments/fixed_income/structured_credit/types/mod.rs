@@ -297,6 +297,17 @@ pub struct StructuredCredit {
     /// Interest rate swaps used to hedge basis or interest rate risk.
     #[serde(default)]
     pub hedge_swaps: Vec<InterestRateSwap>,
+
+    /// Clean-up call pool factor threshold (percentage of original balance).
+    ///
+    /// When the pool factor (current balance / original balance) drops below
+    /// this threshold, the deal is optionally redeemed and all outstanding
+    /// tranche balances are returned. Industry standard: typically 10%.
+    ///
+    /// Set to `None` to disable clean-up call (default).
+    #[builder(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cleanup_call_pct: Option<f64>,
 }
 
 impl StructuredCredit {
@@ -329,6 +340,26 @@ impl StructuredCredit {
     #[must_use]
     pub fn with_payment_bdc(mut self, convention: BusinessDayConvention) -> Self {
         self.payment_bdc = Some(convention);
+        self
+    }
+
+    /// Set the clean-up call pool factor threshold.
+    ///
+    /// When the pool factor (current balance / original balance) drops below
+    /// this threshold, the deal may be optionally redeemed. Tranches are paid
+    /// in seniority order (senior first), bounded by remaining pool value.
+    ///
+    /// Industry standard: typically 0.10 (10%).
+    ///
+    /// # Panics
+    /// Panics if `threshold` is not in `(0.0, 1.0)`.
+    #[must_use]
+    pub fn with_cleanup_call(mut self, threshold: f64) -> Self {
+        assert!(
+            threshold > 0.0 && threshold < 1.0,
+            "cleanup_call_pct must be in (0, 1), got {threshold}"
+        );
+        self.cleanup_call_pct = Some(threshold);
         self
     }
 

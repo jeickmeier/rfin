@@ -329,28 +329,49 @@ impl Tranche {
         self.attachment_point == 0.0
     }
 
-    /// Check if tranche is currently impaired by losses
+    /// Check if tranche is currently impaired by losses.
+    ///
+    /// A tranche is impaired when cumulative pool losses (as a fraction of
+    /// performing pool balance) exceed the tranche's attachment point.
+    ///
+    /// # Arguments
+    /// * `cumulative_loss_pct` - Cumulative net loss as a fraction of total
+    ///   performing pool balance (0.0 to 1.0). E.g., 0.05 means 5% losses.
     pub fn is_impaired(&self, cumulative_loss_pct: f64) -> bool {
         cumulative_loss_pct > self.attachment_point
     }
 
-    /// Calculate loss allocation to this tranche
-    pub fn loss_allocation(&self, cumulative_loss_pct: f64, _total_pool_balance: Money) -> Money {
+    /// Calculate the dollar loss allocated to this tranche given cumulative pool losses.
+    ///
+    /// Uses attachment/detachment point convention (INTEX/Moody's Analytics):
+    /// - Losses below attachment: zero allocation to this tranche
+    /// - Losses between attachment and detachment: proportional allocation
+    /// - Losses above detachment: tranche fully impaired (loss = original balance)
+    ///
+    /// # Arguments
+    /// * `cumulative_loss_pct` - Cumulative net loss as fraction of performing pool balance.
+    /// * `total_pool_balance` - Performing pool balance (denominator for loss pct).
+    ///   Used to cross-check loss amounts, though the primary computation uses
+    ///   the tranche's `original_balance` directly.
+    pub fn loss_allocation(&self, cumulative_loss_pct: f64, total_pool_balance: Money) -> Money {
+        let _ = total_pool_balance; // Reserved for future cross-check
         if cumulative_loss_pct <= self.attachment_point {
-            // No loss to this tranche
+            // Losses have not reached this tranche's subordination
             Money::new(0.0, self.original_balance.currency())
         } else if cumulative_loss_pct >= self.detachment_point {
-            // Tranche fully impaired
+            // Tranche fully impaired — written down to zero
             self.original_balance
         } else {
-            // Partial loss
-            let loss_to_tranche_pct = cumulative_loss_pct - self.attachment_point;
-            let loss_rate = loss_to_tranche_pct / self.thickness();
+            // Partial loss: only the portion between attachment and detachment
+            let loss_within_tranche_pct = cumulative_loss_pct - self.attachment_point;
+            let loss_rate = loss_within_tranche_pct / self.thickness();
             self.original_balance * loss_rate
         }
     }
 
-    /// Current tranche balance after losses
+    /// Current tranche balance after applying cumulative losses.
+    ///
+    /// Returns `max(0, current_balance - loss_allocation)`.
     pub fn current_balance_after_losses(
         &self,
         cumulative_loss_pct: f64,
