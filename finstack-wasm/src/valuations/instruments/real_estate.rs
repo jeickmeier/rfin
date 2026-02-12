@@ -11,11 +11,64 @@ use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::equity::real_estate::{
-    RealEstateAsset, RealEstateValuationMethod,
+    RealEstateAsset, RealEstatePropertyType, RealEstateValuationMethod,
 };
 use finstack_valuations::prelude::Instrument;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
+
+fn parse_property_type(s: &str) -> Result<RealEstatePropertyType, JsValue> {
+    let lower = s.to_lowercase();
+    match lower.as_str() {
+        "office" => Ok(RealEstatePropertyType::Office),
+        "multifamily" | "multi_family" | "multi-family" | "residential" => {
+            Ok(RealEstatePropertyType::Multifamily)
+        }
+        "retail" => Ok(RealEstatePropertyType::Retail),
+        "industrial" => Ok(RealEstatePropertyType::Industrial),
+        "hospitality" | "hotel" => Ok(RealEstatePropertyType::Hospitality),
+        "mixeduse" | "mixed_use" | "mixed-use" => Ok(RealEstatePropertyType::MixedUse),
+        "other" => Ok(RealEstatePropertyType::Other),
+        other => Err(js_error(format!("Unsupported propertyType '{other}'"))),
+    }
+}
+
+fn parse_date_amount_schedule(
+    label: &str,
+    entries: Vec<JsValue>,
+) -> Result<Vec<(finstack_core::dates::Date, f64)>, JsValue> {
+    let mut schedule = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let arr: js_sys::Array = entry.into();
+        if arr.length() != 4 {
+            return Err(js_error(format!(
+                "{label} entries must be [year, month, day, amount]"
+            )));
+        }
+        let year = arr
+            .get(0)
+            .as_f64()
+            .ok_or_else(|| js_error("Invalid year"))? as i32;
+        let month = arr
+            .get(1)
+            .as_f64()
+            .ok_or_else(|| js_error("Invalid month"))? as u8;
+        let day = arr.get(2).as_f64().ok_or_else(|| js_error("Invalid day"))? as u8;
+        let amount = arr
+            .get(3)
+            .as_f64()
+            .ok_or_else(|| js_error("Invalid amount"))?;
+
+        let date = finstack_core::dates::Date::from_calendar_date(
+            year,
+            time::Month::try_from(month).map_err(|e| js_error(e.to_string()))?,
+            day,
+        )
+        .map_err(|e| js_error(e.to_string()))?;
+        schedule.push((date, amount));
+    }
+    Ok(schedule)
+}
 
 /// Valuation method for a real estate asset.
 #[wasm_bindgen(js_name = RealEstateValuationMethod)]
@@ -81,13 +134,23 @@ pub struct JsRealEstateAssetBuilder {
     currency: Option<finstack_core::currency::Currency>,
     valuation_date: Option<finstack_core::dates::Date>,
     valuation_method: Option<RealEstateValuationMethod>,
+    property_type: Option<String>,
     noi_schedule: Option<Vec<JsValue>>,
+    capex_schedule: Option<Vec<JsValue>>,
     discount_curve_id: Option<String>,
     day_count: Option<String>,
     discount_rate: Option<f64>,
     cap_rate: Option<f64>,
     stabilized_noi: Option<f64>,
     terminal_cap_rate: Option<f64>,
+    terminal_growth_rate: Option<f64>,
+    sale_date: Option<finstack_core::dates::Date>,
+    sale_price: Option<finstack_core::money::Money>,
+    acquisition_cost: Option<f64>,
+    acquisition_costs: Option<Vec<JsValue>>,
+    disposition_cost_pct: Option<f64>,
+    disposition_costs: Option<Vec<JsValue>>,
+    purchase_price: Option<finstack_core::money::Money>,
 }
 
 #[wasm_bindgen(js_class = RealEstateAssetBuilder)]
@@ -121,9 +184,21 @@ impl JsRealEstateAssetBuilder {
         self
     }
 
+    #[wasm_bindgen(js_name = propertyType)]
+    pub fn property_type(mut self, property_type: &str) -> JsRealEstateAssetBuilder {
+        self.property_type = Some(property_type.to_string());
+        self
+    }
+
     #[wasm_bindgen(js_name = noiSchedule)]
     pub fn noi_schedule(mut self, noi_schedule: Vec<JsValue>) -> JsRealEstateAssetBuilder {
         self.noi_schedule = Some(noi_schedule);
+        self
+    }
+
+    #[wasm_bindgen(js_name = capexSchedule)]
+    pub fn capex_schedule(mut self, capex_schedule: Vec<JsValue>) -> JsRealEstateAssetBuilder {
+        self.capex_schedule = Some(capex_schedule);
         self
     }
 
@@ -163,6 +238,60 @@ impl JsRealEstateAssetBuilder {
         self
     }
 
+    #[wasm_bindgen(js_name = terminalGrowthRate)]
+    pub fn terminal_growth_rate(mut self, terminal_growth_rate: f64) -> JsRealEstateAssetBuilder {
+        self.terminal_growth_rate = Some(terminal_growth_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = saleDate)]
+    pub fn sale_date(mut self, sale_date: &JsDate) -> JsRealEstateAssetBuilder {
+        self.sale_date = Some(sale_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = salePrice)]
+    pub fn sale_price(mut self, sale_price: &JsMoney) -> JsRealEstateAssetBuilder {
+        self.sale_price = Some(sale_price.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = acquisitionCost)]
+    pub fn acquisition_cost(mut self, acquisition_cost: f64) -> JsRealEstateAssetBuilder {
+        self.acquisition_cost = Some(acquisition_cost);
+        self
+    }
+
+    #[wasm_bindgen(js_name = acquisitionCosts)]
+    pub fn acquisition_costs(
+        mut self,
+        acquisition_costs: Vec<JsValue>,
+    ) -> JsRealEstateAssetBuilder {
+        self.acquisition_costs = Some(acquisition_costs);
+        self
+    }
+
+    #[wasm_bindgen(js_name = dispositionCostPct)]
+    pub fn disposition_cost_pct(mut self, disposition_cost_pct: f64) -> JsRealEstateAssetBuilder {
+        self.disposition_cost_pct = Some(disposition_cost_pct);
+        self
+    }
+
+    #[wasm_bindgen(js_name = dispositionCosts)]
+    pub fn disposition_costs(
+        mut self,
+        disposition_costs: Vec<JsValue>,
+    ) -> JsRealEstateAssetBuilder {
+        self.disposition_costs = Some(disposition_costs);
+        self
+    }
+
+    #[wasm_bindgen(js_name = purchasePrice)]
+    pub fn purchase_price(mut self, purchase_price: &JsMoney) -> JsRealEstateAssetBuilder {
+        self.purchase_price = Some(purchase_price.inner());
+        self
+    }
+
     #[wasm_bindgen(js_name = build)]
     pub fn build(self) -> Result<JsRealEstateAsset, JsValue> {
         let currency = self
@@ -183,43 +312,24 @@ impl JsRealEstateAssetBuilder {
 
         let dc = parse_optional_with_default(self.day_count, DayCount::Act365F)?;
 
-        let mut schedule = Vec::with_capacity(noi_schedule.len());
-        for entry in noi_schedule {
-            let arr: js_sys::Array = entry.into();
-            if arr.length() != 4 {
-                return Err(js_error(
-                    "NOI schedule entries must be [year, month, day, amount]".to_string(),
-                ));
-            }
-            let year = arr
-                .get(0)
-                .as_f64()
-                .ok_or_else(|| js_error("Invalid year"))? as i32;
-            let month = arr
-                .get(1)
-                .as_f64()
-                .ok_or_else(|| js_error("Invalid month"))? as u8;
-            let day = arr.get(2).as_f64().ok_or_else(|| js_error("Invalid day"))? as u8;
-            let amount = arr
-                .get(3)
-                .as_f64()
-                .ok_or_else(|| js_error("Invalid amount"))?;
-
-            let date = finstack_core::dates::Date::from_calendar_date(
-                year,
-                time::Month::try_from(month).map_err(|e| js_error(e.to_string()))?,
-                day,
-            )
-            .map_err(|e| js_error(e.to_string()))?;
-            schedule.push((date, amount));
-        }
+        let schedule = parse_date_amount_schedule("noiSchedule", noi_schedule)?;
+        let capex_schedule = if let Some(entries) = self.capex_schedule {
+            Some(parse_date_amount_schedule("capexSchedule", entries)?)
+        } else {
+            None
+        };
 
         let mut builder = RealEstateAsset::builder()
             .id(instrument_id_from_str(&self.instrument_id))
             .currency(currency)
             .valuation_date(valuation_date)
             .valuation_method(valuation_method)
+            .property_type_opt(match self.property_type {
+                Some(s) => Some(parse_property_type(&s)?),
+                None => None,
+            })
             .noi_schedule(schedule)
+            .capex_schedule_opt(capex_schedule)
             .discount_curve_id(curve_id_from_str(discount_curve_id))
             .day_count(dc)
             .attributes(Default::default());
@@ -235,6 +345,38 @@ impl JsRealEstateAssetBuilder {
         }
         if let Some(rate) = self.terminal_cap_rate {
             builder = builder.terminal_cap_rate(rate);
+        }
+        if let Some(g) = self.terminal_growth_rate {
+            builder = builder.terminal_growth_rate(g);
+        }
+        if let Some(d) = self.sale_date {
+            builder = builder.sale_date(d);
+        }
+        if let Some(px) = self.sale_price {
+            builder = builder.sale_price(px);
+        }
+        if let Some(cost) = self.acquisition_cost {
+            builder = builder.acquisition_cost(cost);
+        }
+        if let Some(costs) = self.acquisition_costs {
+            let costs = costs
+                .into_iter()
+                .map(from_js_value::<finstack_core::money::Money>)
+                .collect::<Result<Vec<_>, _>>()?;
+            builder = builder.acquisition_costs(costs);
+        }
+        if let Some(pct) = self.disposition_cost_pct {
+            builder = builder.disposition_cost_pct(pct);
+        }
+        if let Some(costs) = self.disposition_costs {
+            let costs = costs
+                .into_iter()
+                .map(from_js_value::<finstack_core::money::Money>)
+                .collect::<Result<Vec<_>, _>>()?;
+            builder = builder.disposition_costs(costs);
+        }
+        if let Some(px) = self.purchase_price {
+            builder = builder.purchase_price(px);
         }
 
         builder
@@ -280,36 +422,7 @@ impl JsRealEstateAsset {
         let dc = parse_optional_with_default(day_count, DayCount::Act365F)?;
 
         // Parse NOI schedule from JS arrays [year, month, day, amount]
-        let mut schedule = Vec::with_capacity(noi_schedule.len());
-        for entry in noi_schedule {
-            let arr: js_sys::Array = entry.into();
-            if arr.length() != 4 {
-                return Err(js_error(
-                    "NOI schedule entries must be [year, month, day, amount]".to_string(),
-                ));
-            }
-            let year = arr
-                .get(0)
-                .as_f64()
-                .ok_or_else(|| js_error("Invalid year"))? as i32;
-            let month = arr
-                .get(1)
-                .as_f64()
-                .ok_or_else(|| js_error("Invalid month"))? as u8;
-            let day = arr.get(2).as_f64().ok_or_else(|| js_error("Invalid day"))? as u8;
-            let amount = arr
-                .get(3)
-                .as_f64()
-                .ok_or_else(|| js_error("Invalid amount"))?;
-
-            let date = finstack_core::dates::Date::from_calendar_date(
-                year,
-                time::Month::try_from(month).map_err(|e| js_error(e.to_string()))?,
-                day,
-            )
-            .map_err(|e| js_error(e.to_string()))?;
-            schedule.push((date, amount));
-        }
+        let schedule = parse_date_amount_schedule("noiSchedule", noi_schedule)?;
 
         let mut builder = RealEstateAsset::builder()
             .id(instrument_id_from_str(instrument_id))

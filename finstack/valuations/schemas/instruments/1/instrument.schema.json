@@ -50,6 +50,7 @@
             "interest_rate_future",
             "interest_rate_option",
             "interest_rate_swap",
+            "levered_real_estate_equity",
             "lookback_option",
             "ndf",
             "private_markets_fund",

@@ -265,14 +265,11 @@ fn build_market_data(as_of: Date) -> MarketContext {
         .base_date(as_of)
         .knots(vec![
             (0.0, 1.0),
-            (1.0 / 365.0, 0.999863),  // 1 day: ~5% rate
-            (7.0 / 365.0, 0.999042),  // 1 week
-            (30.0 / 365.0, 0.995890), // 1 month
-            (0.25, 0.9875),           // 3 months: ~5% rate
-            (0.5, 0.975),             // 6 months
-            (1.0, 0.95),              // 1 year: ~5.13% rate
-            (2.0, 0.90),              // 2 years
-            (5.0, 0.80),              // 5 years
+            (0.25, 0.9875), // 3 months: ~5% rate
+            (0.5, 0.975),   // 6 months
+            (1.0, 0.95),    // 1 year: ~5.13% rate
+            (2.0, 0.90),    // 2 years
+            (5.0, 0.80),    // 5 years
         ])
         .interp(InterpStyle::Linear)
         .build()
@@ -283,14 +280,11 @@ fn build_market_data(as_of: Date) -> MarketContext {
         .base_date(as_of)
         .knots(vec![
             (0.0, 1.0),
-            (1.0 / 365.0, 0.999918),  // 1 day: ~3% rate
-            (7.0 / 365.0, 0.999426),  // 1 week
-            (30.0 / 365.0, 0.997534), // 1 month
-            (0.25, 0.9925),           // 3 months: ~3% rate
-            (0.5, 0.985),             // 6 months
-            (1.0, 0.97),              // 1 year: ~3.05% rate
-            (2.0, 0.94),              // 2 years
-            (5.0, 0.86),              // 5 years
+            (0.25, 0.9925), // 3 months: ~3% rate
+            (0.5, 0.985),   // 6 months
+            (1.0, 0.97),    // 1 year: ~3.05% rate
+            (2.0, 0.94),    // 2 years
+            (5.0, 0.86),    // 5 years
         ])
         .interp(InterpStyle::Linear)
         .build()
@@ -654,7 +648,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             stub: StubKind::None,
             start: as_of,
             end: date!(2029 - 01 - 01),
-            reset_lag_days: 2,
+            // Keep the example curve-only (avoid requiring historical fixings before as_of).
+            reset_lag_days: 0,
             compounding: Default::default(),
             payment_delay_days: 0,
             end_of_month: false,
@@ -1197,7 +1192,9 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         date!(2024 - 01 - 15), // Closing date
         date!(2031 - 01 - 15), // Legal maturity
         "USD",
-    );
+    )
+    // Structured credit needs a payment calendar for schedule adjustments.
+    .with_payment_calendar("nyse");
 
     let clo_position = Position::new(
         "POS_CLO_MEZZ_001",

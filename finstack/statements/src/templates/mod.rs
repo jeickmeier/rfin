@@ -35,7 +35,8 @@
 //! ```
 
 pub mod builder;
+pub mod real_estate;
 pub mod roll_forward;
 pub mod vintage;
 
-pub use builder::{TemplatesExtension, VintageExtension};
+pub use builder::{RealEstateExtension, TemplatesExtension, VintageExtension};

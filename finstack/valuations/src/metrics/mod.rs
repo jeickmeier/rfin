@@ -524,6 +524,9 @@ pub fn standard_registry() -> &'static MetricRegistry {
             &mut registry,
         );
         crate::instruments::equity::real_estate::metrics::register_real_estate_metrics(&mut registry);
+        crate::instruments::equity::real_estate::metrics::register_levered_real_estate_metrics(
+            &mut registry,
+        );
         registry
     })
 }

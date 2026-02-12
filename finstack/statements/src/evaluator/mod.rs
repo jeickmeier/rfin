@@ -7,6 +7,7 @@
 //! - Evaluating formulas for each period
 //! - Handling where clause masking
 
+mod cashflow_export;
 mod context;
 mod dag;
 mod engine;
@@ -17,6 +18,7 @@ pub(crate) mod formula;
 mod precedence;
 mod results;
 
+pub use cashflow_export::{node_to_dated_schedule, PeriodDateConvention};
 pub use context::EvaluationContext;
 pub use dag::{evaluate_order, DependencyGraph};
 pub use engine::{Evaluator, EvaluatorWithContext};

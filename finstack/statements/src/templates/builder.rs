@@ -1,5 +1,6 @@
 //! Extension trait for ModelBuilder to support templates.
 
+use super::real_estate;
 use super::roll_forward;
 use super::vintage;
 use crate::builder::{ModelBuilder, Ready};
@@ -46,5 +47,116 @@ impl VintageExtension for ModelBuilder<Ready> {
         decay_curve: &[f64],
     ) -> Result<ModelBuilder<Ready>> {
         vintage::add_vintage_buildup(self, name, new_volume_node, decay_curve)
+    }
+}
+
+/// Extension methods for real estate operating statement templates.
+pub trait RealEstateExtension {
+    /// Add a standard NOI buildup: total revenue/expenses and NOI.
+    fn add_noi_buildup(
+        self,
+        total_revenue_node: &str,
+        revenue_nodes: &[&str],
+        total_expenses_node: &str,
+        expense_nodes: &[&str],
+        noi_node: &str,
+    ) -> Result<ModelBuilder<Ready>>;
+
+    /// Add a standard NCF buildup: NOI minus CapEx items.
+    fn add_ncf_buildup(
+        self,
+        noi_node: &str,
+        capex_nodes: &[&str],
+        ncf_node: &str,
+    ) -> Result<ModelBuilder<Ready>>;
+
+    /// Add a minimal rent roll rental revenue series from lease specs.
+    fn add_rent_roll_rental_revenue(
+        self,
+        leases: &[real_estate::LeaseSpec],
+        total_rent_node: &str,
+    ) -> Result<ModelBuilder<Ready>>;
+
+    /// Add a richer rent roll that outputs standard PGI/EGI nodes and per-lease detail nodes.
+    fn add_rent_roll_rental_revenue_v2(
+        self,
+        leases: &[real_estate::LeaseSpecV2],
+        nodes: &real_estate::RentRollOutputNodes,
+    ) -> Result<ModelBuilder<Ready>>;
+
+    /// Add a full property operating statement template (rent roll -> EGI -> NOI -> NCF).
+    fn add_property_operating_statement(
+        self,
+        leases: &[real_estate::LeaseSpecV2],
+        other_income_nodes: &[&str],
+        opex_nodes: &[&str],
+        capex_nodes: &[&str],
+        management_fee: Option<real_estate::ManagementFeeSpec>,
+        nodes: &real_estate::PropertyTemplateNodes,
+    ) -> Result<ModelBuilder<Ready>>;
+}
+
+impl RealEstateExtension for ModelBuilder<Ready> {
+    fn add_noi_buildup(
+        self,
+        total_revenue_node: &str,
+        revenue_nodes: &[&str],
+        total_expenses_node: &str,
+        expense_nodes: &[&str],
+        noi_node: &str,
+    ) -> Result<ModelBuilder<Ready>> {
+        real_estate::add_noi_buildup(
+            self,
+            total_revenue_node,
+            revenue_nodes,
+            total_expenses_node,
+            expense_nodes,
+            noi_node,
+        )
+    }
+
+    fn add_ncf_buildup(
+        self,
+        noi_node: &str,
+        capex_nodes: &[&str],
+        ncf_node: &str,
+    ) -> Result<ModelBuilder<Ready>> {
+        real_estate::add_ncf_buildup(self, noi_node, capex_nodes, ncf_node)
+    }
+
+    fn add_rent_roll_rental_revenue(
+        self,
+        leases: &[real_estate::LeaseSpec],
+        total_rent_node: &str,
+    ) -> Result<ModelBuilder<Ready>> {
+        real_estate::add_rent_roll_rental_revenue(self, leases, total_rent_node)
+    }
+
+    fn add_rent_roll_rental_revenue_v2(
+        self,
+        leases: &[real_estate::LeaseSpecV2],
+        nodes: &real_estate::RentRollOutputNodes,
+    ) -> Result<ModelBuilder<Ready>> {
+        real_estate::add_rent_roll_rental_revenue_v2(self, leases, nodes)
+    }
+
+    fn add_property_operating_statement(
+        self,
+        leases: &[real_estate::LeaseSpecV2],
+        other_income_nodes: &[&str],
+        opex_nodes: &[&str],
+        capex_nodes: &[&str],
+        management_fee: Option<real_estate::ManagementFeeSpec>,
+        nodes: &real_estate::PropertyTemplateNodes,
+    ) -> Result<ModelBuilder<Ready>> {
+        real_estate::add_property_operating_statement(
+            self,
+            leases,
+            other_income_nodes,
+            opex_nodes,
+            capex_nodes,
+            management_fee,
+            nodes,
+        )
     }
 }

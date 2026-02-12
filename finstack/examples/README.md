@@ -81,6 +81,14 @@ cargo run --example <example_name> --features all
   - Calibration report generation and one-liner API
   - Features: `valuations`
 
+- **[real_estate_statements_to_valuation_example.rs](./valuations/real_estate_statements_to_valuation_example.rs)**
+  - Statements model → NOI/CapEx export → `RealEstateAsset` DCF valuation + deal-style metrics
+  - Features: `valuations`, `statements`
+
+- **[levered_real_estate_equity_financing_stack_example.rs](./valuations/levered_real_estate_equity_financing_stack_example.rs)**
+  - `LeveredRealEstateEquity` with a multi-instrument financing stack, plus return/coverage metrics
+  - Features: `valuations`
+
 - **[multi_curve_framework_example.rs](./valuations/multi_curve_framework_example.rs)**
   - Post-2008 multi-curve framework with basis swaps
   - Features: `valuations`

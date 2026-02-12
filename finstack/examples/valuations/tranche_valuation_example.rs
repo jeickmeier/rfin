@@ -9,7 +9,8 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_core::types::CurveId;
@@ -246,7 +247,9 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
         date!(2024 - 01 - 01),
         date!(2034 - 01 - 01),
         "USD_DISC",
-    );
+    )
+    // Structured credit requires a payment calendar for business-day adjustments.
+    .with_payment_calendar("nyse");
 
     // Set conservative prepayment/default assumptions for better pricing
     clo.prepayment_spec = PrepaymentModelSpec::constant_cpr(0.10); // 10% CPR (lower)
@@ -272,23 +275,23 @@ fn create_market_context(as_of: Date) -> Result<MarketContext, Box<dyn Error>> {
         ])
         .build()?;
 
-    // Build SOFR-3M curve for floating rate index
+    // Build SOFR-3M forward curve for floating-rate index
     let sofr_rate = 0.045_f64; // 4.5%
-    let sofr_curve = DiscountCurve::builder("SOFR-3M")
+    let sofr_curve = ForwardCurve::builder("SOFR-3M", 0.25)
         .base_date(as_of)
-        .day_count(DayCount::Act365F)
-        .knots([
-            (0.0, 1.0),                        // Today: df = 1
-            (1.0, (-sofr_rate).exp()),         // 1 year
-            (5.0, (-sofr_rate * 5.0).exp()),   // 5 years
-            (10.0, (-sofr_rate * 10.0).exp()), // 10 years
+        .knots(vec![
+            (0.0, sofr_rate),
+            (1.0, sofr_rate),
+            (5.0, sofr_rate),
+            (10.0, sofr_rate),
         ])
+        .interp(InterpStyle::Linear)
         .build()?;
 
     // Create market context and add curves
     let context = MarketContext::new()
         .insert_discount(disc_curve)
-        .insert_discount(sofr_curve);
+        .insert_forward(sofr_curve);
 
     Ok(context)
 }

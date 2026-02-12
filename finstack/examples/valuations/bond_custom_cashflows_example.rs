@@ -183,7 +183,8 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
             freq: Tenor::semi_annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: "eur".to_string(),
+            // Use a real calendar ID from the registry (EUR is a currency, not a calendar).
+            calendar_id: "defr".to_string(),
             stub: StubKind::ShortFront,
             end_of_month: false,
             payment_lag_days: 0,

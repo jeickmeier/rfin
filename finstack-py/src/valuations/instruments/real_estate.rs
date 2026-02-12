@@ -9,7 +9,7 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::real_estate::{
-    RealEstateAsset, RealEstateValuationMethod,
+    RealEstateAsset, RealEstatePropertyType, RealEstateValuationMethod,
 };
 use finstack_valuations::instruments::Attributes;
 use pyo3::prelude::*;
@@ -65,13 +65,72 @@ impl PyRealEstateAsset {
             inner: Arc::new(inner),
         }
     }
+
+    fn parse_schedule(list: &Bound<'_, PyList>, label: &str) -> PyResult<Vec<(time::Date, f64)>> {
+        use crate::errors::PyContext;
+        let mut schedule: Vec<(time::Date, f64)> = Vec::new();
+        for item in list.iter() {
+            let tuple = item
+                .extract::<(Bound<'_, PyAny>, f64)>()
+                .context(&format!("{label} item should be (date, amount) tuple"))?;
+            let date = py_to_date(&tuple.0).context(&format!("{label} date"))?;
+            schedule.push((date, tuple.1));
+        }
+        Ok(schedule)
+    }
+
+    fn parse_property_type(
+        value: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<Option<RealEstatePropertyType>> {
+        if let Some(v) = value {
+            if v.is_none() {
+                return Ok(None);
+            }
+            let s = v.extract::<&str>()?.to_lowercase();
+            let ty = match s.as_str() {
+                "office" => RealEstatePropertyType::Office,
+                "multifamily" | "multi_family" | "multi-family" | "residential" => {
+                    RealEstatePropertyType::Multifamily
+                }
+                "retail" => RealEstatePropertyType::Retail,
+                "industrial" => RealEstatePropertyType::Industrial,
+                "hospitality" | "hotel" => RealEstatePropertyType::Hospitality,
+                "mixeduse" | "mixed_use" | "mixed-use" => RealEstatePropertyType::MixedUse,
+                "other" => RealEstatePropertyType::Other,
+                other => {
+                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                        "Unsupported property_type '{other}'"
+                    )))
+                }
+            };
+            Ok(Some(ty))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn parse_money_list(
+        list: Option<Bound<'_, PyList>>,
+        label: &str,
+    ) -> PyResult<Vec<finstack_core::money::Money>> {
+        use crate::errors::PyContext;
+        let Some(list) = list else {
+            return Ok(Vec::new());
+        };
+        let mut out = Vec::with_capacity(list.len());
+        for item in list.iter() {
+            let m = extract_money(&item).context(label)?;
+            out.push(m);
+        }
+        Ok(out)
+    }
 }
 
 #[pymethods]
 impl PyRealEstateAsset {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, *, currency, valuation_date, noi_schedule, discount_rate, discount_curve_id, terminal_cap_rate=None, day_count=None, appraisal_value=None)"
+        text_signature = "(cls, instrument_id, *, currency, valuation_date, noi_schedule, discount_rate, discount_curve_id, terminal_cap_rate=None, terminal_growth_rate=None, capex_schedule=None, sale_date=None, sale_price=None, acquisition_cost=None, acquisition_costs=None, disposition_cost_pct=None, disposition_costs=None, purchase_price=None, property_type=None, day_count=None, appraisal_value=None)"
     )]
     #[pyo3(
         signature = (
@@ -83,6 +142,16 @@ impl PyRealEstateAsset {
             discount_rate,
             discount_curve_id,
             terminal_cap_rate = None,
+            terminal_growth_rate = None,
+            capex_schedule = None,
+            sale_date = None,
+            sale_price = None,
+            acquisition_cost = None,
+            acquisition_costs = None,
+            disposition_cost_pct = None,
+            disposition_costs = None,
+            purchase_price = None,
+            property_type = None,
             day_count = None,
             appraisal_value = None
         )
@@ -112,6 +181,16 @@ impl PyRealEstateAsset {
         discount_rate: f64,
         discount_curve_id: &str,
         terminal_cap_rate: Option<f64>,
+        terminal_growth_rate: Option<f64>,
+        capex_schedule: Option<Bound<'_, PyList>>,
+        sale_date: Option<Bound<'_, PyAny>>,
+        sale_price: Option<Bound<'_, PyAny>>,
+        acquisition_cost: Option<f64>,
+        acquisition_costs: Option<Bound<'_, PyList>>,
+        disposition_cost_pct: Option<f64>,
+        disposition_costs: Option<Bound<'_, PyList>>,
+        purchase_price: Option<Bound<'_, PyAny>>,
+        property_type: Option<Bound<'_, PyAny>>,
         day_count: Option<Bound<'_, PyAny>>,
         appraisal_value: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
@@ -122,20 +201,25 @@ impl PyRealEstateAsset {
         let val_date = py_to_date(&valuation_date).context("valuation_date")?;
 
         // Parse NOI schedule
-        let mut schedule: Vec<(time::Date, f64)> = Vec::new();
-        for item in noi_schedule.iter() {
-            let tuple = item
-                .extract::<(Bound<'_, PyAny>, f64)>()
-                .context("noi_schedule item should be (date, amount) tuple")?;
-            let date = py_to_date(&tuple.0).context("noi_schedule date")?;
-            schedule.push((date, tuple.1));
-        }
+        let schedule = Self::parse_schedule(&noi_schedule, "noi_schedule")?;
 
         if schedule.is_empty() {
             return Err(pyo3::exceptions::PyValueError::new_err(
                 "noi_schedule must contain at least one entry",
             ));
         }
+
+        // Parse optional CapEx schedule
+        let capex = if let Some(list) = capex_schedule {
+            let sched = Self::parse_schedule(&list, "capex_schedule")?;
+            if sched.is_empty() {
+                None
+            } else {
+                Some(sched)
+            }
+        } else {
+            None
+        };
 
         // Parse day count
         let dc = Self::parse_day_count(day_count)?;
@@ -146,6 +230,31 @@ impl PyRealEstateAsset {
         } else {
             None
         };
+
+        // Parse optional purchase price
+        let purchase_price = if let Some(px_arg) = purchase_price {
+            Some(extract_money(&px_arg).context("purchase_price")?)
+        } else {
+            None
+        };
+
+        let property_type = Self::parse_property_type(property_type)?;
+
+        let sale_date = match sale_date {
+            Some(d) if !d.is_none() => Some(py_to_date(&d).context("sale_date")?),
+            _ => None,
+        };
+        let sale_price = if let Some(px) = sale_price {
+            if px.is_none() {
+                None
+            } else {
+                Some(extract_money(&px).context("sale_price")?)
+            }
+        } else {
+            None
+        };
+        let acquisition_costs = Self::parse_money_list(acquisition_costs, "acquisition_costs")?;
+        let disposition_costs = Self::parse_money_list(disposition_costs, "disposition_costs")?;
 
         let mut builder = RealEstateAsset::builder()
             .id(id)
@@ -161,6 +270,36 @@ impl PyRealEstateAsset {
         if let Some(term_cap) = terminal_cap_rate {
             builder = builder.terminal_cap_rate_opt(Some(term_cap));
         }
+        if let Some(g) = terminal_growth_rate {
+            builder = builder.terminal_growth_rate_opt(Some(g));
+        }
+        if let Some(capex) = capex {
+            builder = builder.capex_schedule_opt(Some(capex));
+        }
+        if let Some(cost) = acquisition_cost {
+            builder = builder.acquisition_cost_opt(Some(cost));
+        }
+        if let Some(d) = sale_date {
+            builder = builder.sale_date_opt(Some(d));
+        }
+        if let Some(px) = sale_price {
+            builder = builder.sale_price_opt(Some(px));
+        }
+        if !acquisition_costs.is_empty() {
+            builder = builder.acquisition_costs(acquisition_costs);
+        }
+        if let Some(pct) = disposition_cost_pct {
+            builder = builder.disposition_cost_pct_opt(Some(pct));
+        }
+        if !disposition_costs.is_empty() {
+            builder = builder.disposition_costs(disposition_costs);
+        }
+        if let Some(px) = purchase_price {
+            builder = builder.purchase_price_opt(Some(px));
+        }
+        if let Some(pt) = property_type {
+            builder = builder.property_type_opt(Some(pt));
+        }
         if let Some(appraisal) = appraisal {
             builder = builder.appraisal_value_opt(Some(appraisal));
         }
@@ -174,7 +313,7 @@ impl PyRealEstateAsset {
 
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, *, currency, valuation_date, stabilized_noi, cap_rate, discount_curve_id, noi_schedule=None, day_count=None, appraisal_value=None)"
+        text_signature = "(cls, instrument_id, *, currency, valuation_date, stabilized_noi, cap_rate, discount_curve_id, noi_schedule=None, capex_schedule=None, acquisition_cost=None, disposition_cost_pct=None, purchase_price=None, property_type=None, day_count=None, appraisal_value=None)"
     )]
     #[pyo3(
         signature = (
@@ -186,6 +325,11 @@ impl PyRealEstateAsset {
             cap_rate,
             discount_curve_id,
             noi_schedule = None,
+            capex_schedule = None,
+            acquisition_cost = None,
+            disposition_cost_pct = None,
+            purchase_price = None,
+            property_type = None,
             day_count = None,
             appraisal_value = None
         )
@@ -215,6 +359,11 @@ impl PyRealEstateAsset {
         cap_rate: f64,
         discount_curve_id: &str,
         noi_schedule: Option<Bound<'_, PyList>>,
+        capex_schedule: Option<Bound<'_, PyList>>,
+        acquisition_cost: Option<f64>,
+        disposition_cost_pct: Option<f64>,
+        purchase_price: Option<Bound<'_, PyAny>>,
+        property_type: Option<Bound<'_, PyAny>>,
         day_count: Option<Bound<'_, PyAny>>,
         appraisal_value: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
@@ -226,18 +375,22 @@ impl PyRealEstateAsset {
 
         // Parse optional NOI schedule
         let schedule = if let Some(noi_list) = noi_schedule {
-            let mut sched: Vec<(time::Date, f64)> = Vec::new();
-            for item in noi_list.iter() {
-                let tuple = item
-                    .extract::<(Bound<'_, PyAny>, f64)>()
-                    .context("noi_schedule item should be (date, amount) tuple")?;
-                let date = py_to_date(&tuple.0).context("noi_schedule date")?;
-                sched.push((date, tuple.1));
-            }
-            sched
+            Self::parse_schedule(&noi_list, "noi_schedule")?
         } else {
             // Create a single-entry schedule with the stabilized NOI at valuation date
             vec![(val_date, stabilized_noi)]
+        };
+
+        // Parse optional CapEx schedule
+        let capex = if let Some(list) = capex_schedule {
+            let sched = Self::parse_schedule(&list, "capex_schedule")?;
+            if sched.is_empty() {
+                None
+            } else {
+                Some(sched)
+            }
+        } else {
+            None
         };
 
         // Parse day count
@@ -249,6 +402,15 @@ impl PyRealEstateAsset {
         } else {
             None
         };
+
+        // Parse optional purchase price
+        let purchase_price = if let Some(px_arg) = purchase_price {
+            Some(extract_money(&px_arg).context("purchase_price")?)
+        } else {
+            None
+        };
+
+        let property_type = Self::parse_property_type(property_type)?;
 
         let mut builder = RealEstateAsset::builder()
             .id(id)
@@ -262,6 +424,21 @@ impl PyRealEstateAsset {
             .discount_curve_id(CurveId::new(discount_curve_id))
             .attributes(Attributes::new());
 
+        if let Some(capex) = capex {
+            builder = builder.capex_schedule_opt(Some(capex));
+        }
+        if let Some(cost) = acquisition_cost {
+            builder = builder.acquisition_cost_opt(Some(cost));
+        }
+        if let Some(pct) = disposition_cost_pct {
+            builder = builder.disposition_cost_pct_opt(Some(pct));
+        }
+        if let Some(px) = purchase_price {
+            builder = builder.purchase_price_opt(Some(px));
+        }
+        if let Some(pt) = property_type {
+            builder = builder.property_type_opt(Some(pt));
+        }
         if let Some(appraisal) = appraisal {
             builder = builder.appraisal_value_opt(Some(appraisal));
         }
@@ -338,6 +515,44 @@ impl PyRealEstateAsset {
     #[getter]
     fn terminal_cap_rate(&self) -> Option<f64> {
         self.inner.terminal_cap_rate
+    }
+
+    /// Optional terminal growth rate (for DCF exit valuation).
+    #[getter]
+    fn terminal_growth_rate(&self) -> Option<f64> {
+        self.inner.terminal_growth_rate
+    }
+
+    /// Optional acquisition cost (transaction cost).
+    #[getter]
+    fn acquisition_cost(&self) -> Option<f64> {
+        self.inner.acquisition_cost
+    }
+
+    /// Optional disposition cost percentage.
+    #[getter]
+    fn disposition_cost_pct(&self) -> Option<f64> {
+        self.inner.disposition_cost_pct
+    }
+
+    /// Optional purchase price.
+    #[getter]
+    fn purchase_price(&self) -> Option<PyMoney> {
+        self.inner.purchase_price.map(PyMoney::new)
+    }
+
+    /// Optional property type classification.
+    #[getter]
+    fn property_type(&self) -> Option<&'static str> {
+        self.inner.property_type.map(|pt| match pt {
+            RealEstatePropertyType::Office => "office",
+            RealEstatePropertyType::Multifamily => "multifamily",
+            RealEstatePropertyType::Retail => "retail",
+            RealEstatePropertyType::Industrial => "industrial",
+            RealEstatePropertyType::Hospitality => "hospitality",
+            RealEstatePropertyType::MixedUse => "mixed_use",
+            RealEstatePropertyType::Other => "other",
+        })
     }
 
     /// Optional appraisal value override.

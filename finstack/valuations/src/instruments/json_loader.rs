@@ -184,6 +184,8 @@ pub enum InstrumentJson {
     PrivateMarketsFund(PrivateMarketsFund),
     /// Real estate asset
     RealEstateAsset(RealEstateAsset),
+    /// Levered real estate equity
+    LeveredRealEstateEquity(Box<crate::instruments::equity::real_estate::LeveredRealEstateEquity>),
 }
 
 impl InstrumentJson {
@@ -274,6 +276,7 @@ impl InstrumentJson {
             InstrumentJson::Repo(i) => Ok(Box::new(i)),
             InstrumentJson::PrivateMarketsFund(i) => Ok(Box::new(i)),
             InstrumentJson::RealEstateAsset(i) => Ok(Box::new(i)),
+            InstrumentJson::LeveredRealEstateEquity(i) => Ok(Box::new(*i)),
             InstrumentJson::RevolvingCredit(i) => Ok(Box::new(i)),
         }
     }
@@ -493,6 +496,9 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             "real_estate_asset" => serde_json::from_str(&spec_str)
                 .map(Self::RealEstateAsset)
                 .map_err(D::Error::custom),
+            "levered_real_estate_equity" => serde_json::from_str(&spec_str)
+                .map(|i| Self::LeveredRealEstateEquity(Box::new(i)))
+                .map_err(D::Error::custom),
             "revolving_credit" => serde_json::from_str(&spec_str)
                 .map(Self::RevolvingCredit)
                 .map_err(D::Error::custom),
@@ -567,6 +573,7 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                     "repo",
                     "private_markets_fund",
                     "real_estate_asset",
+                    "levered_real_estate_equity",
                     "revolving_credit",
                 ],
             )),
@@ -1080,6 +1087,7 @@ mod tests {
         "quanto_option",
         "range_accrual",
         "real_estate_asset",
+        "levered_real_estate_equity",
         "repo",
         "revolving_credit",
         "structured_credit",

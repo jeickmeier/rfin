@@ -33,6 +33,7 @@ mod inflation_linked_bond;
 mod inflation_swap;
 mod ir_future;
 mod irs;
+mod levered_real_estate_equity;
 mod lookback_option;
 mod ndf;
 mod private_markets_fund;
@@ -178,6 +179,10 @@ pub use ir_future::JsInterestRateFutureBuilder as InterestRateFutureBuilder;
 pub use irs::JsInterestRateSwap as InterestRateSwap;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use irs::JsInterestRateSwapBuilder as InterestRateSwapBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use levered_real_estate_equity::JsLeveredRealEstateEquity as LeveredRealEstateEquity;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use levered_real_estate_equity::JsLeveredRealEstateEquityBuilder as LeveredRealEstateEquityBuilder;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use lookback_option::JsLookbackOptionBuilder as LookbackOptionBuilder;
 pub use lookback_option::{JsLookbackOption as LookbackOption, JsLookbackType as LookbackType};
@@ -379,6 +384,10 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
         "InflationCapFloor"
     );
     try_extract!(real_estate::JsRealEstateAsset, "RealEstateAsset");
+    try_extract!(
+        levered_real_estate_equity::JsLeveredRealEstateEquity,
+        "LeveredRealEstateEquity"
+    );
 
     Err(JsValue::from_str(
         "Unsupported instrument type; construct instruments from finstack-wasm valuations module",

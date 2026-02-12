@@ -108,6 +108,8 @@ pub enum InstrumentType {
     DCF = 42,
     /// Real estate asset valuation (DCF or direct cap).
     RealEstateAsset = 69,
+    /// Levered real estate equity (asset minus financing).
+    LeveredRealEstateEquity = 73,
     /// Equity Total Return Swap.
     EquityTotalReturnSwap = 50,
     /// Fixed Income Index Total Return Swap.
@@ -197,6 +199,7 @@ impl InstrumentType {
             InstrumentType::TermLoan => "TermLoan",
             InstrumentType::DCF => "DCF",
             InstrumentType::RealEstateAsset => "RealEstateAsset",
+            InstrumentType::LeveredRealEstateEquity => "LeveredRealEstateEquity",
             InstrumentType::EquityTotalReturnSwap => "EquityTotalReturnSwap",
             InstrumentType::FIIndexTotalReturnSwap => "FIIndexTotalReturnSwap",
             InstrumentType::BondFuture => "BondFuture",
@@ -266,6 +269,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::TermLoan => "term_loan",
             InstrumentType::DCF => "dcf",
             InstrumentType::RealEstateAsset => "real_estate_asset",
+            InstrumentType::LeveredRealEstateEquity => "levered_real_estate_equity",
             InstrumentType::EquityTotalReturnSwap => "equity_total_return_swap",
             InstrumentType::FIIndexTotalReturnSwap => "fi_index_total_return_swap",
             InstrumentType::BondFuture => "bond_future",
@@ -351,6 +355,10 @@ impl std::str::FromStr for InstrumentType {
             "real_estate_asset" | "real_estate" | "realestate" | "realestate_asset" => {
                 Ok(InstrumentType::RealEstateAsset)
             }
+            "levered_real_estate_equity"
+            | "levered_real_estate"
+            | "levered_re_equity"
+            | "real_estate_equity_levered" => Ok(InstrumentType::LeveredRealEstateEquity),
             "equity_total_return_swap" | "equity_trs" | "equitytrs" => {
                 Ok(InstrumentType::EquityTotalReturnSwap)
             }
@@ -1669,6 +1677,16 @@ pub fn register_equity_pricers(registry: &mut PricerRegistry) {
         crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::RealEstateAsset,
         >::discounting(InstrumentType::RealEstateAsset)
+    );
+
+    // Levered Real Estate Equity - uses GenericInstrumentPricer
+    register_pricer!(
+        registry,
+        LeveredRealEstateEquity,
+        Discounting,
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::LeveredRealEstateEquity,
+        >::discounting(InstrumentType::LeveredRealEstateEquity)
     );
 
     // Private Markets Fund

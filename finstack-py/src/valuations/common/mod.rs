@@ -106,6 +106,10 @@ impl PyInstrumentType {
     #[classattr]
     const RANGE_ACCRUAL: Self = Self::new(InstrumentType::RangeAccrual);
     #[classattr]
+    const REAL_ESTATE_ASSET: Self = Self::new(InstrumentType::RealEstateAsset);
+    #[classattr]
+    const LEVERED_REAL_ESTATE_EQUITY: Self = Self::new(InstrumentType::LeveredRealEstateEquity);
+    #[classattr]
     const REVOLVING_CREDIT: Self = Self::new(InstrumentType::RevolvingCredit);
 
     #[classmethod]

@@ -40,6 +40,7 @@ mod inflation_linked_bond;
 mod inflation_swap;
 mod ir_future;
 mod irs;
+mod levered_real_estate_equity;
 mod lookback_option;
 mod ndf;
 mod private_markets_fund;
@@ -90,6 +91,7 @@ use inflation_linked_bond::PyInflationLinkedBond;
 use inflation_swap::PyInflationSwap;
 use ir_future::PyInterestRateFuture;
 use irs::PyInterestRateSwap;
+use levered_real_estate_equity::PyLeveredRealEstateEquity;
 use lookback_option::PyLookbackOption;
 use ndf::PyNdf;
 use private_markets_fund::PyPrivateMarketsFund;
@@ -215,6 +217,11 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
         InstrumentType::PrivateMarketsFund
     );
     try_extract_arc!(value, PyRealEstateAsset, InstrumentType::RealEstateAsset);
+    try_extract_arc!(
+        value,
+        PyLeveredRealEstateEquity,
+        InstrumentType::LeveredRealEstateEquity
+    );
     try_extract_arc!(value, PyBasket, InstrumentType::Basket);
     try_extract_arc!(value, PyAsianOption, InstrumentType::AsianOption);
     try_extract_arc!(value, PyAutocallable, InstrumentType::Autocallable);
@@ -380,6 +387,9 @@ pub(crate) fn register<'py>(
 
     real_estate::register_module(&module)?;
     exports.push("RealEstateAsset");
+
+    levered_real_estate_equity::register_module(&module)?;
+    exports.push("LeveredRealEstateEquity");
 
     let fx_barrier_option_exports = fx_barrier_option::register(py, &module)?;
     exports.extend(fx_barrier_option_exports.iter().copied());

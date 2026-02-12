@@ -163,7 +163,8 @@ impl BondConvention {
     pub fn calendar_id(&self) -> Option<&'static str> {
         match self {
             BondConvention::USTreasury | BondConvention::USAgency | BondConvention::Corporate => {
-                Some("us")
+                // Use the canonical US holiday calendar ID used by the core registry.
+                Some("usny")
             }
             BondConvention::GermanBund | BondConvention::FrenchOAT => Some("target2"),
             BondConvention::UKGilt => Some("gblo"),
@@ -871,9 +872,9 @@ mod tests {
 
     #[test]
     fn bond_convention_calendar_ids() {
-        assert_eq!(BondConvention::USTreasury.calendar_id(), Some("us"));
-        assert_eq!(BondConvention::USAgency.calendar_id(), Some("us"));
-        assert_eq!(BondConvention::Corporate.calendar_id(), Some("us"));
+        assert_eq!(BondConvention::USTreasury.calendar_id(), Some("usny"));
+        assert_eq!(BondConvention::USAgency.calendar_id(), Some("usny"));
+        assert_eq!(BondConvention::Corporate.calendar_id(), Some("usny"));
         assert_eq!(BondConvention::GermanBund.calendar_id(), Some("target2"));
         assert_eq!(BondConvention::FrenchOAT.calendar_id(), Some("target2"));
         assert_eq!(BondConvention::UKGilt.calendar_id(), Some("gblo"));

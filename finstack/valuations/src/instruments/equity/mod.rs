@@ -107,7 +107,7 @@ pub use equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
 pub use equity_option::EquityOption;
 pub use equity_trs::EquityTotalReturnSwap;
 pub use pe_fund::PrivateMarketsFund;
-pub use real_estate::{RealEstateAsset, RealEstateValuationMethod};
+pub use real_estate::{LeveredRealEstateEquity, RealEstateAsset, RealEstateValuationMethod};
 pub use spot::Equity;
 pub use variance_swap::VarianceSwap;
 pub use vol_index_future::{VolIndexContractSpecs, VolatilityIndexFuture};

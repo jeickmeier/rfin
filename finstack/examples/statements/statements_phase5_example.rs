@@ -203,6 +203,8 @@ fn main() -> Result<()> {
                 ),
             ],
         )
+        // Built-in registry metrics use `tax_expense` naming; alias our `taxes` node.
+        .compute("tax_expense", "taxes")?
         // Add specific metrics from registry (only those with satisfied dependencies)
         .add_metric_from_registry("fin.gross_profit", &registry)?
         .add_metric_from_registry("fin.gross_margin", &registry)?

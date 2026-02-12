@@ -132,6 +132,16 @@ path = "examples/valuations/calibration_report_builder_example.rs"
 required-features = ["valuations"]
 
 [[example]]
+name = "real_estate_statements_to_valuation_example"
+path = "examples/valuations/real_estate_statements_to_valuation_example.rs"
+required-features = ["valuations", "statements"]
+
+[[example]]
+name = "levered_real_estate_equity_financing_stack_example"
+path = "examples/valuations/levered_real_estate_equity_financing_stack_example.rs"
+required-features = ["valuations"]
+
+[[example]]
 name = "tranche_valuation_example"
 path = "examples/valuations/tranche_valuation_example.rs"
 required-features = ["valuations"]

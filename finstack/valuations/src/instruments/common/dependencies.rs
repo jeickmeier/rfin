@@ -257,6 +257,7 @@ impl MarketDependencies {
             InstrumentJson::Basket(i) => Self::from_curve_dependencies(i),
             InstrumentJson::PrivateMarketsFund(i) => i.market_dependencies(),
             InstrumentJson::RealEstateAsset(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::LeveredRealEstateEquity(i) => Self::from_curve_dependencies(i.as_ref()),
         }
     }
 }
