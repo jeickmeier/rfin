@@ -301,6 +301,8 @@ mod tests {
         call_put.calls.push(CallPut {
             date: call_date,
             price_pct_of_par: 100.0,
+            end_date: None,
+            make_whole: None,
         });
 
         Bond::builder()
@@ -335,6 +337,8 @@ mod tests {
         call_put.puts.push(CallPut {
             date: put_date,
             price_pct_of_par: 100.0,
+            end_date: None,
+            make_whole: None,
         });
 
         Bond::builder()

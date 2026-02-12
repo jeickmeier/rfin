@@ -116,6 +116,8 @@ fn test_day_count_propagation_for_call_put() {
     call_put.calls.push(CallPut {
         date: call_date,
         price_pct_of_par: 101.0,
+        end_date: None,
+        make_whole: None,
     });
     bond.call_put = Some(call_put);
 
@@ -279,10 +281,14 @@ fn test_call_put_on_same_date() {
     call_put.calls.push(CallPut {
         date: option_date,
         price_pct_of_par: 102.0,
+        end_date: None,
+        make_whole: None,
     });
     call_put.puts.push(CallPut {
         date: option_date,
         price_pct_of_par: 98.0,
+        end_date: None,
+        make_whole: None,
     });
     bond.call_put = Some(call_put);
 
@@ -308,6 +314,8 @@ fn test_call_put_at_maturity() {
     call_put.calls.push(CallPut {
         date: bond.maturity,
         price_pct_of_par: 100.0,
+        end_date: None,
+        make_whole: None,
     });
     bond.call_put = Some(call_put);
 
@@ -336,6 +344,8 @@ fn test_call_put_before_issue() {
     call_put.calls.push(CallPut {
         date: Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         price_pct_of_par: 102.0,
+        end_date: None,
+        make_whole: None,
     });
     bond.call_put = Some(call_put);
 
@@ -367,6 +377,8 @@ fn test_call_put_after_maturity() {
     call_put.calls.push(CallPut {
         date: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
         price_pct_of_par: 102.0,
+        end_date: None,
+        make_whole: None,
     });
     bond.call_put = Some(call_put);
 

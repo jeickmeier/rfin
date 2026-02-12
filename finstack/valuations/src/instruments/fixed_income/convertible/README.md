@@ -3,14 +3,21 @@
 ## Features
 
 - Hybrid fixed-income/equity instrument with conversion terms (`ConversionSpec`), call/put schedules, and optional fixed or floating coupons.
-- Separate discount and credit curves for Tsiveriotis–Zhang style split between debt and equity components.
+- Separate discount and credit curves for Tsiveriotis-Zhang style split between debt and equity components.
 - Supports voluntary/mandatory/windowed conversion, anti-dilution policies, dividend adjustments, and underlying equity linkage.
+- Mandatory variable delivery (PERCS/DECS/ACES) with upper/lower conversion price bounds.
+- Call/put exercise periods (not just discrete dates) with optional make-whole call specifications.
+- Soft-call triggers with observation window adjustment for multi-day barrier approximation.
+- Event-triggered conversion via `PriceTrigger` (barrier approximation in tree).
+- Accrued interest / clean price decomposition for market quote reconciliation.
 
 ## Methodology & References
 
-- Tree-based Tsiveriotis–Zhang (1995) convertible framework with binomial or trinomial lattices (`ConvertibleTreeType`).
+- Tree-based Tsiveriotis-Zhang (1995) convertible framework with binomial or trinomial lattices (`ConvertibleTreeType`).
+- **Full term structure discounting**: Per-step discount factors extracted from the risk-free and credit curves, capturing yield curve shape instead of using a single flat rate.
 - Cashflow generation reused from the bond cashflow builder; conversion, call, and put events mapped onto tree steps.
-- Deterministic equity process (single-factor equity tree); no stochastic credit/equity correlation beyond curve inputs.
+- **Central finite differences** for all Greeks (delta, gamma, vega, rho) ensuring O(h^2) accuracy.
+- Soft-call trigger uses a volatility-adjusted barrier to approximate the standard 20-of-30 day observation window (adapted from Broadie-Glasserman-Kou 1997 discrete monitoring correction).
 
 ## Usage Example
 
@@ -24,26 +31,46 @@ let cb = ConvertibleBond::example();
 let pv = cb.value(&market_context, as_of)?;
 ```
 
-## Limitations / Known Issues
+## Supported Conversion Policies
 
-- Tree model only; no Monte Carlo or PDE implementation.
-- Assumes single equity underlying with deterministic volatility; no stochastic credit/equity correlation or jump processes.
-- Complex features like contingent conversion triggers beyond the provided `ConversionPolicy` variants are out of scope.
+| Policy | Description |
+|--------|-------------|
+| `Voluntary` | Holder may convert at any time (American-style) |
+| `MandatoryOn(date)` | Bond mandatorily converts on a specific date |
+| `Window { start, end }` | Holder may convert within a date window (Bermudan-style) |
+| `UponEvent(PriceTrigger { .. })` | Conversion when stock exceeds threshold (barrier approx.) |
+| `UponEvent(QualifiedIpo)` | Conversion upon IPO (requires scenario analysis) |
+| `UponEvent(ChangeOfControl)` | Conversion upon M&A (requires scenario analysis) |
+| `MandatoryVariable { .. }` | PERCS/DECS/ACES with variable delivery ratio |
 
 ## Pricing Methodology
 
-- Cashflow schedule generated via bond builder (fixed/floating coupons, calls/puts) then priced on Tsiveriotis–Zhang binomial/trinomial tree.
-- Splits value into cash (credit-discounted) and equity (risk-free) components; conversion, call, and put events mapped to tree nodes.
-- Deterministic equity process; discount/credit curves drive debt leg; conversion ratio and policies drive optionality.
+- Cashflow schedule generated via bond builder (fixed/floating coupons, calls/puts) then priced on Tsiveriotis-Zhang binomial/trinomial tree.
+- Splits value into cash (credit-discounted) and equity (risk-free) components using per-step forward discount factors from the full term structure.
+- Conversion, call, and put events mapped to tree nodes; exercise periods span ranges of tree steps.
+- Variable delivery ratio (PERCS/DECS) computed per-node based on stock price vs upper/lower conversion prices.
 
 ## Metrics
 
-- PV plus tree-based Greeks (delta/gamma/vega/theta) from binomial/trinomial lattice; parity and conversion premium analytics.
-- Credit DV01/CS01 via credit-curve bumps; callable/puttable option values for attribution.
-- Sensitivity to conversion terms (ratio, triggers) via scenario bump hooks.
+- PV plus tree-based Greeks (delta/gamma/vega/theta/rho) from full repricing with central differences.
+- Parity, conversion premium, and conversion value analytics.
+- Accrued interest and clean price for market quote reconciliation.
+- Credit DV01/CS01 via credit-curve bumps; Dividend01; Conversion01.
+- Bucketed DV01 via key-rate shifts.
+
+## Limitations / Known Issues
+
+- Tree model only; no Monte Carlo or PDE implementation.
+- Single equity underlying with deterministic volatility; no stochastic credit/equity correlation or jump processes.
+- **Drift-discount mismatch**: The CRR/trinomial tree uses a single flat risk-free rate for evolution (up/down factors and probabilities) to maintain the recombining property, while backward-induction uses per-step forward discount factors from the full term structure. This introduces a small bias when the yield curve is steep (~0.1-0.5% of notional for a 200bp slope over 5Y). A fully consistent implementation would require per-step evolution parameters and a non-recombining tree.
+- `QualifiedIpo` and `ChangeOfControl` events cannot be modeled deterministically in a tree; require external scenario analysis.
+- Make-whole call price computation is represented in the data model but not yet implemented in the tree pricer (uses `price_pct_of_par` fallback).
+- No CoCo/AT1, exchangeable, reset, or cross-currency convertible support.
 
 ## Future Enhancements
 
 - Add finite-difference/PDE and Monte Carlo hybrid methods for complex conversion triggers.
 - Support stochastic credit/equity correlation and jump processes.
+- Implement make-whole call pricing in the tree engine (Treasury + spread PV calculation).
+- Add CoCo/AT1 contingent convertible support with capital trigger mechanisms.
 - Improve calibration helpers for implied volatility/credit from market CB quotes.

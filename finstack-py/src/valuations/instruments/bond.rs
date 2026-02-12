@@ -338,6 +338,8 @@ impl PyBondBuilder {
             calls.push(CallPut {
                 date: py_to_date(&date)?,
                 price_pct_of_par: price,
+                end_date: None,
+                make_whole: None,
             });
         }
         slf.call_put_mut().calls = calls;
@@ -354,6 +356,8 @@ impl PyBondBuilder {
             puts.push(CallPut {
                 date: py_to_date(&date)?,
                 price_pct_of_par: price,
+                end_date: None,
+                make_whole: None,
             });
         }
         slf.call_put_mut().puts = puts;

@@ -37,6 +37,8 @@ fn callable_bond(as_of: Date) -> Bond {
     schedule.calls.push(CallPut {
         date: date!(2027 - 01 - 01),
         price_pct_of_par: 102.0,
+        end_date: None,
+        make_whole: None,
     });
     bond.call_put = Some(schedule);
     bond

@@ -55,6 +55,32 @@ impl JsConversionPolicy {
             }),
         }
     }
+
+    /// Mandatory variable delivery conversion (PERCS/DECS/ACES).
+    ///
+    /// At `conversion_date`, the delivery ratio varies with the stock price:
+    /// - Below `lower_conversion_price`: max shares (loss participation)
+    /// - Between lower and upper: variable ratio delivering face value
+    /// - Above `upper_conversion_price`: min shares (capped upside)
+    ///
+    /// @param conversion_date - Date of mandatory conversion
+    /// @param upper_conversion_price - Price above which upside is capped
+    /// @param lower_conversion_price - Price below which holder participates in loss
+    /// @returns ConversionPolicy
+    #[wasm_bindgen(js_name = mandatoryVariable)]
+    pub fn mandatory_variable(
+        conversion_date: &JsDate,
+        upper_conversion_price: f64,
+        lower_conversion_price: f64,
+    ) -> JsConversionPolicy {
+        JsConversionPolicy {
+            inner: ConversionPolicy::MandatoryVariable {
+                conversion_date: conversion_date.inner(),
+                upper_conversion_price,
+                lower_conversion_price,
+            },
+        }
+    }
 }
 
 #[wasm_bindgen(js_name = ConversionSpec)]

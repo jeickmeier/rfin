@@ -72,6 +72,8 @@ fn parse_call_put_entries(
                 out.push(CallPut {
                     date: parse_iso_date(&date_str)?,
                     price_pct_of_par: price_pct,
+                    end_date: None,
+                    make_whole: None,
                 });
             } else if item.is_object() {
                 let date_value = Reflect::get(&item, &JsValue::from_str("date")).map_err(|_| {
@@ -98,6 +100,8 @@ fn parse_call_put_entries(
                 out.push(CallPut {
                     date: parse_iso_date(&date_str)?,
                     price_pct_of_par: price_pct,
+                    end_date: None,
+                    make_whole: None,
                 });
             } else {
                 return Err(js_error(format!(

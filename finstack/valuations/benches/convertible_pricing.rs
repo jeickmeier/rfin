@@ -123,6 +123,8 @@ fn create_callable_convertible() -> ConvertibleBond {
     call_put.calls.push(CallPut {
         date: maturity_3y(),
         price_pct_of_par: 105.0,
+        end_date: None,
+        make_whole: None,
     });
 
     bond.call_put = Some(call_put);

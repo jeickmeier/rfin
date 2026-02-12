@@ -130,6 +130,7 @@ pub use types::AmortizationSpec;
 pub use types::Bond;
 pub use types::CallPut;
 pub use types::CallPutSchedule;
+pub use types::MakeWholeSpec;
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]

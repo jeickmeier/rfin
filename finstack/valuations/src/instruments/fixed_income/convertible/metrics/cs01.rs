@@ -26,7 +26,6 @@ impl MetricCalculator for Cs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond: &ConvertibleBond = context.instrument_as()?;
         let as_of = context.as_of;
-        let base_pv = context.base_value.amount();
 
         // Check if expired
         if as_of >= bond.maturity {
@@ -42,14 +41,16 @@ impl MetricCalculator for Cs01Calculator {
             .as_ref()
             .unwrap_or(&bond.discount_curve_id);
 
-        let curves_bumped = bump_discount_curve_parallel(&context.curves, curve_to_bump, bump_bp)?;
+        // Central finite difference: bump both up and down for O(h^2) accuracy,
+        // consistent with the rho and dividend01 calculators.
+        let curves_up = bump_discount_curve_parallel(&context.curves, curve_to_bump, bump_bp)?;
+        let curves_down = bump_discount_curve_parallel(&context.curves, curve_to_bump, -bump_bp)?;
 
-        // Reprice with bumped curve
-        let pv_bumped = bond.value(&curves_bumped, as_of)?.amount();
+        let pv_up = bond.value(&curves_up, as_of)?.amount();
+        let pv_down = bond.value(&curves_down, as_of)?.amount();
 
-        // CS01 = PV_change per 1bp credit spread move
-        // Standard convention: CS01 = PV_bumped - PV_base (positive when spread widens increases value for protection buyer)
-        let cs01 = pv_bumped - base_pv;
+        // CS01 = (PV_up - PV_down) / 2 per 1bp credit spread move
+        let cs01 = (pv_up - pv_down) / 2.0;
 
         Ok(cs01)
     }

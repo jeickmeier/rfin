@@ -22,7 +22,6 @@ impl MetricCalculator for DividendRiskCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let convertible: &ConvertibleBond = context.instrument_as()?;
         let as_of = context.as_of;
-        let _base_pv = context.base_value.amount();
 
         // Resolve dividend yield ID using same logic as pricer
         let underlying_id = convertible.underlying_equity_id.as_ref().ok_or_else(|| {
@@ -54,15 +53,24 @@ impl MetricCalculator for DividendRiskCalculator {
         // Get current dividend yield
         let current_scalar = context.curves.price(&div_yield_id)?;
 
+        // Extract numeric baseline for robust bump-width handling (clamped at 0 on the downside).
+        let q0 = match current_scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+        };
+        let q_up_val = q0 + DIVIDEND_BUMP_BP;
+        let q_down_val = (q0 - DIVIDEND_BUMP_BP).max(0.0);
+        let actual_width = q_up_val - q_down_val;
+
         // Bump up
         let mut curves_up = context.curves.as_ref().clone();
         let new_value_up = match current_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v + DIVIDEND_BUMP_BP)
+            finstack_core::market_data::scalars::MarketScalar::Unitless(_) => {
+                finstack_core::market_data::scalars::MarketScalar::Unitless(q_up_val)
             }
             finstack_core::market_data::scalars::MarketScalar::Price(m) => {
                 finstack_core::market_data::scalars::MarketScalar::Price(
-                    finstack_core::money::Money::new(m.amount() + DIVIDEND_BUMP_BP, m.currency()),
+                    finstack_core::money::Money::new(q_up_val, m.currency()),
                 )
             }
         };
@@ -71,29 +79,29 @@ impl MetricCalculator for DividendRiskCalculator {
 
         // Bump down
         let mut curves_down = context.curves.as_ref().clone();
-        let div_down_value = match current_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
-                (v - DIVIDEND_BUMP_BP).max(0.0)
-            }
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => {
-                (m.amount() - DIVIDEND_BUMP_BP).max(0.0)
-            }
-        };
         let new_value_down = match current_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(_) => {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(div_down_value)
+                finstack_core::market_data::scalars::MarketScalar::Unitless(q_down_val)
             }
             finstack_core::market_data::scalars::MarketScalar::Price(m) => {
                 finstack_core::market_data::scalars::MarketScalar::Price(
-                    finstack_core::money::Money::new(div_down_value, m.currency()),
+                    finstack_core::money::Money::new(q_down_val, m.currency()),
                 )
             }
         };
         curves_down = curves_down.insert_price(div_yield_id.as_str(), new_value_down);
         let pv_down = convertible.value(&curves_down, as_of)?.amount();
 
-        // Dividend01 = (PV_up - PV_down) / (2 * bump_size)
-        let dividend01 = (pv_up - pv_down) / (2.0 * DIVIDEND_BUMP_BP);
+        // MetricId contract: Dividend01 is $/bp (dPV for a 1bp absolute q move).
+        // Use the *actual* bump width since the downside bump is clamped at 0.
+        //
+        // - derivative per unit q: (PV_up - PV_down) / actual_width
+        // - per 1bp: multiply by 1bp (DIVIDEND_BUMP_BP)
+        let dividend01 = if actual_width > 0.0 {
+            (pv_up - pv_down) / actual_width * DIVIDEND_BUMP_BP
+        } else {
+            0.0
+        };
 
         Ok(dividend01)
     }

@@ -296,6 +296,8 @@ pub fn create_callable_convertible(call_date: Date, call_price_pct: f64) -> Conv
     call_put.calls.push(CallPut {
         date: call_date,
         price_pct_of_par: call_price_pct,
+        end_date: None,
+        make_whole: None,
     });
 
     bond.call_put = Some(call_put);
@@ -310,6 +312,8 @@ pub fn create_puttable_convertible(put_date: Date, put_price_pct: f64) -> Conver
     call_put.puts.push(CallPut {
         date: put_date,
         price_pct_of_par: put_price_pct,
+        end_date: None,
+        make_whole: None,
     });
 
     bond.call_put = Some(call_put);
@@ -329,10 +333,14 @@ pub fn create_callable_puttable_convertible(
     call_put.calls.push(CallPut {
         date: call_date,
         price_pct_of_par: call_price_pct,
+        end_date: None,
+        make_whole: None,
     });
     call_put.puts.push(CallPut {
         date: put_date,
         price_pct_of_par: put_price_pct,
+        end_date: None,
+        make_whole: None,
     });
 
     bond.call_put = Some(call_put);

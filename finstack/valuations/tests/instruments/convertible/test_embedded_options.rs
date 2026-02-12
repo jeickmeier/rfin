@@ -220,14 +220,20 @@ fn test_multiple_call_dates() {
     call_put.calls.push(CallPut {
         date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
         price_pct_of_par: 105.0,
+        end_date: None,
+        make_whole: None,
     });
     call_put.calls.push(CallPut {
         date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
         price_pct_of_par: 103.0,
+        end_date: None,
+        make_whole: None,
     });
     call_put.calls.push(CallPut {
         date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
         price_pct_of_par: 101.0,
+        end_date: None,
+        make_whole: None,
     });
 
     bond.call_put = Some(call_put);
@@ -250,6 +256,77 @@ fn test_multiple_call_dates() {
 }
 
 #[test]
+fn test_overlapping_call_windows_order_invariant() {
+    // Regression test: overlapping call windows (step-down calls) must be mapped
+    // as the issuer's optimal call at each step (min call price), independent
+    // of input ordering.
+    let mut bond_a = create_standard_convertible();
+    let mut bond_b = create_standard_convertible();
+
+    let mut schedule_a = CallPutSchedule::default();
+    // Higher call price window (starts earlier, overlaps later window)
+    schedule_a.calls.push(CallPut {
+        date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+        price_pct_of_par: 105.0,
+        end_date: Some(Date::from_calendar_date(2029, Month::January, 1).unwrap()),
+        make_whole: None,
+    });
+    // Step-down to cheaper call later, overlapping 2028-2029
+    schedule_a.calls.push(CallPut {
+        date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+        price_pct_of_par: 101.0,
+        end_date: Some(Date::from_calendar_date(2029, Month::January, 1).unwrap()),
+        make_whole: None,
+    });
+    bond_a.call_put = Some(schedule_a);
+
+    let mut schedule_b = CallPutSchedule::default();
+    // Same two windows but reversed insertion order
+    schedule_b.calls.push(CallPut {
+        date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+        price_pct_of_par: 101.0,
+        end_date: Some(Date::from_calendar_date(2029, Month::January, 1).unwrap()),
+        make_whole: None,
+    });
+    schedule_b.calls.push(CallPut {
+        date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+        price_pct_of_par: 105.0,
+        end_date: Some(Date::from_calendar_date(2029, Month::January, 1).unwrap()),
+        make_whole: None,
+    });
+    bond_b.call_put = Some(schedule_b);
+
+    // Use low spot so conversion is out-of-the-money and call price level matters.
+    let market = create_market_context_with_params(
+        market_params::SPOT_LOW,
+        market_params::VOL_STANDARD,
+        market_params::DIV_YIELD,
+    );
+
+    let price_a = price_convertible_bond(
+        &bond_a,
+        &market,
+        ConvertibleTreeType::Binomial(80),
+        dates::base_date(),
+    )
+    .unwrap();
+    let price_b = price_convertible_bond(
+        &bond_b,
+        &market,
+        ConvertibleTreeType::Binomial(80),
+        dates::base_date(),
+    )
+    .unwrap();
+
+    assert!(
+        (price_a.amount() - price_b.amount()).abs() < 1e-9,
+        "Overlapping call windows must be order invariant: {} vs {}",
+        price_a.amount(),
+        price_b.amount()
+    );
+}
+
+#[test]
 fn test_multiple_put_dates() {
     let mut bond = create_standard_convertible();
 
@@ -257,14 +334,20 @@ fn test_multiple_put_dates() {
     call_put.puts.push(CallPut {
         date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
         price_pct_of_par: 98.0,
+        end_date: None,
+        make_whole: None,
     });
     call_put.puts.push(CallPut {
         date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
         price_pct_of_par: 99.0,
+        end_date: None,
+        make_whole: None,
     });
     call_put.puts.push(CallPut {
         date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
         price_pct_of_par: 100.0,
+        end_date: None,
+        make_whole: None,
     });
 
     bond.call_put = Some(call_put);
@@ -366,6 +449,8 @@ fn test_call_before_conversion_window() {
     call_put.calls.push(CallPut {
         date: call_date,
         price_pct_of_par: 102.0,
+        end_date: None,
+        make_whole: None,
     });
     bond.call_put = Some(call_put);
 
@@ -403,6 +488,8 @@ fn test_call_during_conversion_window() {
     call_put.calls.push(CallPut {
         date: call_date,
         price_pct_of_par: 102.0,
+        end_date: None,
+        make_whole: None,
     });
     bond.call_put = Some(call_put);
 

@@ -130,6 +130,8 @@ fn test_callable_bond_tree_pricing_reasonable() {
         .push(crate::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
+            end_date: None,
+            make_whole: None,
         });
     callable_bond.call_put = Some(call_schedule);
 
@@ -195,6 +197,8 @@ fn test_tree_convergence_with_steps() {
         .push(crate::instruments::fixed_income::bond::CallPut {
             date: date!(2023 - 01 - 01),
             price_pct_of_par: 102.0,
+            end_date: None,
+            make_whole: None,
         });
     callable_bond.call_put = Some(call_schedule);
 
@@ -251,6 +255,8 @@ fn test_putable_bond_tree_pricing_reasonable() {
         .push(crate::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 98.0,
+            end_date: None,
+            make_whole: None,
         });
     putable_bond.call_put = Some(put_schedule);
 

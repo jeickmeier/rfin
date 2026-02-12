@@ -94,18 +94,59 @@ pub struct Bond {
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///
-/// // Call option: issuer can redeem at 102% of par on Jan 1, 2027
+/// // Discrete call option: issuer can redeem at 102% of par on Jan 1, 2027
 /// let call = CallPut {
 ///     date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
 ///     price_pct_of_par: 102.0,
+///     end_date: None,
+///     make_whole: None,
 /// };
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CallPut {
-    /// Exercise date of the option.
+    /// Exercise date of the option (or start of exercise period).
     pub date: Date,
     /// Redemption price as percentage of par amount.
     pub price_pct_of_par: f64,
+    /// Optional end date for exercise periods. When present, the option is
+    /// exercisable from `date` to `end_date` (inclusive). When absent, the option
+    /// is exercisable only on `date` (European-style discrete exercise).
+    ///
+    /// # Industry Practice
+    ///
+    /// Many callable bonds have continuous exercise windows (e.g., "callable any
+    /// time after year 3 at 102% of par"). Set `date` to the first exercise date
+    /// and `end_date` to the last exercise date for such provisions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_date: Option<Date>,
+    /// Optional make-whole call specification.
+    ///
+    /// When set, the call price is computed as:
+    ///   `max(price_pct_of_par, PV of remaining cashflows at reference_rate + spread)`
+    ///
+    /// This ensures the holder is compensated at treasury + spread for early redemption.
+    /// Common in investment-grade corporate and convertible bonds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub make_whole: Option<MakeWholeSpec>,
+}
+
+/// Make-whole call specification.
+///
+/// Defines the reference curve and spread used to compute the make-whole redemption
+/// price. The issuer pays the holder the greater of par and the present value of
+/// remaining cashflows discounted at the reference rate plus a spread.
+///
+/// # Industry Practice
+///
+/// - Investment-grade corporates: typically Treasury + 25-50 bps
+/// - High-yield: typically Treasury + 50-100 bps
+/// - Convertibles: typically Treasury + 50 bps
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MakeWholeSpec {
+    /// Reference curve identifier (e.g., "USD-TREASURY").
+    pub reference_curve_id: CurveId,
+    /// Spread over the reference curve in basis points (e.g., 50.0 = T+50bps).
+    pub spread_bps: f64,
 }
 
 /// Schedule of call and put options for a bond.
@@ -124,6 +165,8 @@ pub struct CallPut {
 /// schedule.calls.push(CallPut {
 ///     date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
 ///     price_pct_of_par: 102.0,
+///     end_date: None,
+///     make_whole: None,
 /// });
 /// ```
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]

@@ -524,6 +524,8 @@ fn quantlib_parity_callable_convertible() {
     schedule.calls.push(CallPut {
         date: call_date,
         price_pct_of_par: 102.0, // Callable at 102% of par
+        end_date: None,
+        make_whole: None,
     });
     callable_bond.call_put = Some(schedule);
 
@@ -576,6 +578,8 @@ fn quantlib_parity_puttable_convertible() {
     schedule.puts.push(CallPut {
         date: put_date,
         price_pct_of_par: 98.0, // Puttable at 98% of par
+        end_date: None,
+        make_whole: None,
     });
     puttable_bond.call_put = Some(schedule);
 

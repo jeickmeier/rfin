@@ -88,6 +88,8 @@ fn test_callable_exercise_coupon_always_paid() {
     call_schedule.calls.push(CallPut {
         date: call_date,
         price_pct_of_par: 100.0,
+        end_date: None,
+        make_whole: None,
     });
 
     let callable = Bond::builder()
@@ -157,6 +159,8 @@ fn test_putable_bond_worth_more() {
     put_schedule.puts.push(CallPut {
         date: put_date,
         price_pct_of_par: 100.0,
+        end_date: None,
+        make_whole: None,
     });
 
     let putable = Bond::builder()

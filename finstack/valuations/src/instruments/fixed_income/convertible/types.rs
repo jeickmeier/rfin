@@ -57,9 +57,12 @@ impl Default for SoftCallTrigger {
 impl SoftCallTrigger {
     /// Check if the soft-call condition is met based on the current spot price.
     ///
-    /// For tree-based pricing this is a simplification: we check if the current
-    /// spot exceeds the threshold. In practice, the full lookback observation
-    /// window would be evaluated against historical prices.
+    /// This is a **simple instantaneous barrier check** without volatility adjustment.
+    /// The tree pricer uses `ConvertibleBondValuator::soft_call_triggered()` which
+    /// includes a volatility-adjusted barrier for the multi-day observation window.
+    ///
+    /// Prefer the pricer's `soft_call_triggered()` for pricing. This method is useful
+    /// for quick screening or non-pricing contexts where volatility is unavailable.
     ///
     /// # Arguments
     ///
@@ -68,7 +71,12 @@ impl SoftCallTrigger {
     ///
     /// # Returns
     ///
-    /// `true` if the soft-call condition is satisfied (spot above threshold).
+    /// `true` if the soft-call condition is satisfied (spot above nominal threshold).
+    #[deprecated(
+        since = "0.5.0",
+        note = "Use the pricer's soft_call_triggered() which includes volatility-adjusted barrier. \
+                This method ignores the observation window and will be removed in a future release."
+    )]
     pub fn is_triggered(&self, current_spot: f64, conversion_price: f64) -> bool {
         let trigger_level = conversion_price * (self.threshold_pct / 100.0);
         current_spot >= trigger_level
@@ -134,7 +142,7 @@ pub struct ConvertibleBond {
 /// - **Vega**: Per 1% absolute volatility move
 /// - **Theta**: Per day
 /// - **Rho**: Per 1 basis point move
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ConvertibleGreeks {
     /// Instrument price
     pub price: f64,
@@ -148,6 +156,19 @@ pub struct ConvertibleGreeks {
     pub theta: f64,
     /// Rho (interest rate sensitivity per 1bp rate move)
     pub rho: f64,
+}
+
+impl From<crate::instruments::common_impl::models::TreeGreeks> for ConvertibleGreeks {
+    fn from(g: crate::instruments::common_impl::models::TreeGreeks) -> Self {
+        Self {
+            price: g.price,
+            delta: g.delta,
+            gamma: g.gamma,
+            vega: g.vega,
+            theta: g.theta,
+            rho: g.rho,
+        }
+    }
 }
 
 /// Defines how and when conversion can occur.
@@ -166,6 +187,26 @@ pub enum ConversionPolicy {
     },
     /// Conversion tied to an external event or condition.
     UponEvent(ConversionEvent),
+    /// Mandatory conversion with variable delivery ratio (PERCS / DECS / ACES).
+    ///
+    /// At `conversion_date`, the delivery ratio depends on the stock price:
+    /// - If `spot <= lower_conversion_price`: ratio = face / lower_price (max shares, loss)
+    /// - If `lower < spot <= upper`: ratio = face / spot (variable, delivers face value)
+    /// - If `spot > upper_conversion_price`: ratio = face / upper_price (min shares, capped)
+    ///
+    /// # Industry Practice
+    ///
+    /// PERCS (Preference Equity Redemption Cumulative Stock) cap the upside.
+    /// DECS (Dividend Enhanced Convertible Stock) have a dead zone between prices.
+    /// ACES (Automatically Convertible Equity Securities) are similar to DECS.
+    MandatoryVariable {
+        /// Date of mandatory conversion.
+        conversion_date: Date,
+        /// Upper conversion price (above this, holder receives min shares).
+        upper_conversion_price: f64,
+        /// Lower conversion price (below this, holder receives max shares).
+        lower_conversion_price: f64,
+    },
 }
 
 /// Events that may trigger conversion.
@@ -452,14 +493,7 @@ impl ConvertibleBond {
             bump_size,
             as_of,
         )?;
-        Ok(ConvertibleGreeks {
-            price: greeks.price,
-            delta: greeks.delta,
-            gamma: greeks.gamma,
-            vega: greeks.vega,
-            theta: greeks.theta,
-            rho: greeks.rho,
-        })
+        Ok(greeks.into())
     }
 
     /// Calculate delta of this convertible bond

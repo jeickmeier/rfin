@@ -175,6 +175,8 @@ fn create_callable_bond(maturity_years: i32) -> Bond {
             schedule.calls.push(CallPut {
                 date: first_call,
                 price_pct_of_par: 101.0,
+                end_date: None,
+                make_whole: None,
             });
         }
 
@@ -184,6 +186,8 @@ fn create_callable_bond(maturity_years: i32) -> Bond {
             schedule.calls.push(CallPut {
                 date: second_call,
                 price_pct_of_par: 100.5,
+                end_date: None,
+                make_whole: None,
             });
         }
 

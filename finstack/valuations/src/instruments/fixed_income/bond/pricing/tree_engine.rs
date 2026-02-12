@@ -1240,6 +1240,8 @@ mod tests {
         call_put.calls.push(CallPut {
             date: call_date,
             price_pct_of_par: 102.0,
+            end_date: None,
+            make_whole: None,
         });
         bond.call_put = Some(call_put);
         bond

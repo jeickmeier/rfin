@@ -7,10 +7,15 @@
 //! Exposed metrics:
 //! - Parity
 //! - Conversion premium
+//! - Conversion value (absolute)
+//! - Accrued interest
+//! - Clean price
 //! - Greeks: Delta, Gamma, Vega, Rho, Theta
 
+mod accrued_interest;
 mod conversion01;
 mod conversion_premium;
+mod conversion_value;
 mod cs01;
 mod dividend_risk;
 mod greeks;
@@ -34,6 +39,21 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::custom("conversion_premium"),
         Arc::new(conversion_premium::ConversionPremiumCalculator),
+        &[InstrumentType::Convertible],
+    );
+    registry.register_metric(
+        MetricId::custom("conversion_value"),
+        Arc::new(conversion_value::ConversionValueCalculator),
+        &[InstrumentType::Convertible],
+    );
+    registry.register_metric(
+        MetricId::custom("accrued_interest"),
+        Arc::new(accrued_interest::AccruedInterestCalculator),
+        &[InstrumentType::Convertible],
+    );
+    registry.register_metric(
+        MetricId::custom("clean_price"),
+        Arc::new(accrued_interest::CleanPriceCalculator),
         &[InstrumentType::Convertible],
     );
     registry.register_metric(

@@ -33,6 +33,8 @@ fn parse_call_put_list(
         out.push(CallPut {
             date,
             price_pct_of_par: pct,
+            end_date: None,
+            make_whole: None,
         });
     }
     Ok(out)
@@ -44,6 +46,13 @@ fn describe_policy(policy: &ConversionPolicy) -> String {
         ConversionPolicy::MandatoryOn(date) => format!("mandatory_on({date})"),
         ConversionPolicy::Window { start, end } => format!("window({start}..{end})"),
         ConversionPolicy::UponEvent(event) => format!("upon_event({event:?})"),
+        ConversionPolicy::MandatoryVariable {
+            conversion_date,
+            upper_conversion_price,
+            lower_conversion_price,
+        } => format!(
+            "mandatory_variable(date={conversion_date}, upper={upper_conversion_price}, lower={lower_conversion_price})"
+        ),
     }
 }
 
@@ -157,6 +166,36 @@ impl PyConversionPolicy {
     #[pyo3(text_signature = "(cls, event)")]
     fn upon_event(_cls: &Bound<'_, PyType>, event: PyConversionEvent) -> Self {
         Self::new(ConversionPolicy::UponEvent(event.inner))
+    }
+
+    /// Create a mandatory variable delivery conversion policy (PERCS/DECS/ACES).
+    ///
+    /// At `conversion_date`, the delivery ratio varies with the stock price:
+    /// - Below `lower_conversion_price`: max shares (loss participation)
+    /// - Between lower and upper: variable ratio delivering face value
+    /// - Above `upper_conversion_price`: min shares (capped upside)
+    #[classmethod]
+    #[pyo3(
+        text_signature = "(cls, conversion_date, upper_conversion_price, lower_conversion_price)"
+    )]
+    fn mandatory_variable(
+        _cls: &Bound<'_, PyType>,
+        conversion_date: Bound<'_, PyAny>,
+        upper_conversion_price: f64,
+        lower_conversion_price: f64,
+    ) -> PyResult<Self> {
+        use crate::errors::PyContext;
+        let date = py_to_date(&conversion_date).context("conversion_date")?;
+        if upper_conversion_price <= lower_conversion_price {
+            return Err(PyValueError::new_err(
+                "upper_conversion_price must be greater than lower_conversion_price",
+            ));
+        }
+        Ok(Self::new(ConversionPolicy::MandatoryVariable {
+            conversion_date: date,
+            upper_conversion_price,
+            lower_conversion_price,
+        }))
     }
 
     fn __repr__(&self) -> String {
