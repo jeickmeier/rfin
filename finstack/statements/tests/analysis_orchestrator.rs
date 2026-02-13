@@ -1,0 +1,138 @@
+//! Integration tests for the corporate analysis orchestrator.
+#![allow(clippy::expect_used)]
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::PeriodId;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
+use finstack_statements::analysis::orchestrator::CorporateAnalysisBuilder;
+use finstack_statements::builder::ModelBuilder;
+use finstack_statements::types::AmountOrScalar;
+use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
+
+#[test]
+fn test_full_lbo_analysis() {
+    // Build a simple LBO model:
+    // Revenue -> EBITDA -> UFCF with a bond in capital structure
+    let model = ModelBuilder::new("lbo-test")
+        .periods("2025Q1..Q4", None)
+        .expect("valid periods")
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(10_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(10_500_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(11_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(11_500_000.0),
+                ),
+            ],
+        )
+        .compute("ebitda", "revenue * 0.25")
+        .expect("ebitda formula")
+        .compute("ufcf", "ebitda * 0.6")
+        .expect("ufcf formula")
+        .add_bond(
+            "SENIOR-BOND",
+            Money::new(20_000_000.0, Currency::USD),
+            0.06,
+            time::macros::date!(2025 - 01 - 01),
+            time::macros::date!(2030 - 01 - 01),
+            "USD-OIS",
+        )
+        .expect("valid bond")
+        .build()
+        .expect("valid model");
+
+    let market = MarketContext::new();
+
+    let analysis = CorporateAnalysisBuilder::new(model)
+        .market(market)
+        .as_of(time::macros::date!(2025 - 01 - 01))
+        .dcf(0.10, TerminalValueSpec::GordonGrowth { growth_rate: 0.02 })
+        .net_debt_override(20_000_000.0)
+        .coverage_node("ebitda")
+        .analyze()
+        .expect("analysis should succeed");
+
+    // Statement results populated
+    let ebitda_q1 = analysis
+        .statement
+        .get("ebitda", &PeriodId::quarter(2025, 1));
+    assert!(ebitda_q1.is_some());
+    assert!(
+        (ebitda_q1.unwrap() - 2_500_000.0).abs() < 1.0,
+        "EBITDA Q1 should be ~2.5M (25% of 10M), got {}",
+        ebitda_q1.unwrap()
+    );
+
+    // Equity populated
+    assert!(analysis.equity.is_some());
+    let equity = analysis.equity.as_ref().expect("equity result");
+    assert!(
+        equity.equity_value.amount() != 0.0,
+        "equity value should be non-zero"
+    );
+    assert_eq!(equity.equity_value.currency(), Currency::USD);
+
+    // Credit populated (bond should have coverage metrics)
+    if !analysis.credit.is_empty() {
+        let bond_analysis = analysis.credit.get("SENIOR-BOND");
+        assert!(
+            bond_analysis.is_some(),
+            "SENIOR-BOND should be in credit results"
+        );
+        let bond = bond_analysis.expect("bond analysis");
+        // DSCR should be positive (EBITDA > debt service)
+        if !bond.coverage.dscr.is_empty() {
+            assert!(
+                bond.coverage.dscr[0].1 > 0.0,
+                "DSCR should be positive, got {}",
+                bond.coverage.dscr[0].1
+            );
+        }
+    }
+}
+
+#[test]
+fn test_statement_only_no_equity_no_credit() {
+    let model = ModelBuilder::new("simple")
+        .periods("2025Q1..Q2", None)
+        .expect("valid periods")
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(105_000.0),
+                ),
+            ],
+        )
+        .build()
+        .expect("valid model");
+
+    let analysis = CorporateAnalysisBuilder::new(model)
+        .analyze()
+        .expect("should succeed");
+
+    assert!(analysis.equity.is_none());
+    assert!(analysis.credit.is_empty());
+    assert!(analysis
+        .statement
+        .get("revenue", &PeriodId::quarter(2025, 1))
+        .is_some());
+}
