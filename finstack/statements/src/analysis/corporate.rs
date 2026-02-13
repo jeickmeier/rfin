@@ -102,6 +102,7 @@ pub fn evaluate_dcf(
         ufcf_node,
         net_debt_override,
         &DcfOptions::default(),
+        None,
     )?;
     Ok(result)
 }
@@ -125,6 +126,7 @@ pub fn evaluate_dcf_with_options(
         ufcf_node,
         net_debt_override,
         options,
+        None,
     )?;
     Ok(result)
 }
@@ -148,7 +150,33 @@ pub fn evaluate_dcf_with_trace(
         ufcf_node,
         net_debt_override,
         &DcfOptions::default(),
+        None,
     )
+}
+
+/// Evaluate a financial model using DCF methodology with optional market context.
+///
+/// This extends [`evaluate_dcf_with_options`] by accepting a [`MarketContext`]
+/// for curve-based discounting when instruments reference discount curves.
+pub fn evaluate_dcf_with_market(
+    model: &FinancialModelSpec,
+    wacc: f64,
+    terminal_value: TerminalValueSpec,
+    ufcf_node: &str,
+    net_debt_override: Option<f64>,
+    options: &DcfOptions,
+    market: Option<&MarketContext>,
+) -> Result<CorporateValuationResult> {
+    let (result, _trace) = evaluate_dcf_impl(
+        model,
+        wacc,
+        terminal_value,
+        ufcf_node,
+        net_debt_override,
+        options,
+        market,
+    )?;
+    Ok(result)
 }
 
 /// Core implementation shared by all `evaluate_dcf*` entry points.
@@ -159,6 +187,7 @@ fn evaluate_dcf_impl(
     ufcf_node: &str,
     net_debt_override: Option<f64>,
     options: &DcfOptions,
+    market: Option<&MarketContext>,
 ) -> Result<(CorporateValuationResult, ExplanationTrace)> {
     // Create evaluator and evaluate the model
     let mut evaluator = Evaluator::new();
@@ -280,9 +309,10 @@ fn evaluate_dcf_impl(
         .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
 
     // Calculate valuation
-    let market = MarketContext::new(); // DCF doesn't need market curves
+    let default_market = MarketContext::default();
+    let market_ref = market.unwrap_or(&default_market);
     let equity_value = dcf
-        .value(&market, valuation_date)
+        .value(market_ref, valuation_date)
         .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
 
     // Calculate components for result

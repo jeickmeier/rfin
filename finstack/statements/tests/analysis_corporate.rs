@@ -131,3 +131,69 @@ fn test_cs_cashflows_populated_on_statement_result() {
         total_balance_q1
     );
 }
+
+#[test]
+fn test_dcf_with_market_context() {
+    let model = ModelBuilder::new("mkt-test")
+        .periods("2025Q1..Q4", None)
+        .expect("valid periods")
+        .value(
+            "ufcf",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+            ],
+        )
+        .build()
+        .expect("valid model");
+
+    // Test with None market context (backward compat)
+    let result_no_market = finstack_statements::analysis::corporate::evaluate_dcf_with_market(
+        &model,
+        0.10,
+        TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
+        "ufcf",
+        Some(0.0),
+        &finstack_statements::analysis::corporate::DcfOptions::default(),
+        None,
+    )
+    .expect("should succeed without market context");
+
+    assert!(result_no_market.equity_value.amount() > 0.0);
+    assert_eq!(result_no_market.equity_value.currency(), Currency::USD);
+
+    // Test with explicit market context
+    let market = MarketContext::new();
+    let result_with_market = finstack_statements::analysis::corporate::evaluate_dcf_with_market(
+        &model,
+        0.10,
+        TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
+        "ufcf",
+        Some(0.0),
+        &finstack_statements::analysis::corporate::DcfOptions::default(),
+        Some(&market),
+    )
+    .expect("should succeed with market context");
+
+    assert!(result_with_market.equity_value.amount() > 0.0);
+    // With empty market, results should be the same
+    assert!(
+        (result_no_market.equity_value.amount() - result_with_market.equity_value.amount()).abs()
+            < 0.01,
+        "Results should match for empty vs None market context"
+    );
+}

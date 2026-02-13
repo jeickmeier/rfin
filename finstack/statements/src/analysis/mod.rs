@@ -27,7 +27,8 @@ pub mod visualization;
 
 pub use backtesting::{backtest_forecast, ForecastMetrics};
 pub use corporate::{
-    evaluate_dcf, evaluate_dcf_with_options, CorporateValuationResult, DcfOptions,
+    evaluate_dcf, evaluate_dcf_with_market, evaluate_dcf_with_options, CorporateValuationResult,
+    DcfOptions,
 };
 pub use covenants::forecast_breaches;
 pub use dependency_trace::{DependencyTracer, DependencyTree};
