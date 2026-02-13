@@ -14,6 +14,7 @@
 pub mod backtesting;
 pub mod corporate;
 pub mod covenants;
+pub mod credit_context;
 pub mod dependency_trace;
 pub mod formula_explain;
 pub mod goal_seek;
@@ -31,6 +32,7 @@ pub use corporate::{
     DcfOptions,
 };
 pub use covenants::forecast_breaches;
+pub use credit_context::{compute_credit_context, CreditContextMetrics};
 pub use dependency_trace::{DependencyTracer, DependencyTree};
 pub use formula_explain::{Explanation, ExplanationStep, FormulaExplainer};
 pub use goal_seek::goal_seek;
