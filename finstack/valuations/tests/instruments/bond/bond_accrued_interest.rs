@@ -237,7 +237,7 @@ fn test_accrued_interest_amortizing_schedule_driven() {
     let bond = Bond::builder()
         .id("AMORT_AI".into())
         .notional(notional)
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .cashflow_spec(cashflow_spec)
         .discount_curve_id("USD-OIS".into())

@@ -10,7 +10,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::{ExerciseStyle, PricingOverrides, SettlementType};
+use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use time::macros::date;
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
@@ -64,10 +64,10 @@ fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOptio
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     }
 }
@@ -88,10 +88,10 @@ fn create_standard_floor(as_of: Date, end: Date, strike: f64) -> InterestRateOpt
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     }
 }
@@ -285,10 +285,10 @@ fn test_caplet_single_period_pricing() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -308,26 +308,37 @@ fn test_caplet_single_period_pricing() {
 }
 
 #[test]
-fn test_pricing_with_implied_vol_override() {
+fn test_pricing_with_different_vol_surfaces() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let mut cap = create_standard_cap(as_of, end, 0.05);
-    cap.pricing_overrides.implied_volatility = Some(0.25);
+    let cap = create_standard_cap(as_of, end, 0.05);
 
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
-    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
-    let market = MarketContext::new()
+    // Price with 25% vol surface
+    let vol_surface_25 = build_flat_vol_surface(0.25, as_of, "USD_CAP_VOL");
+    let market_25 = MarketContext::new()
+        .insert_discount(disc_curve.clone())
+        .insert_forward(fwd_curve.clone())
+        .insert_surface(vol_surface_25);
+    let pv_25 = cap.value(&market_25, as_of).unwrap();
+
+    // Price with 30% vol surface
+    let vol_surface_30 = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+    let market_30 = MarketContext::new()
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve)
-        .insert_surface(vol_surface);
+        .insert_surface(vol_surface_30);
+    let pv_30 = cap.value(&market_30, as_of).unwrap();
 
-    let pv = cap.value(&market, as_of).unwrap();
-
-    // Should use override vol (0.25) instead of surface vol (0.30)
-    assert!(pv.amount() > 0.0, "Cap with vol override should price");
+    // Both should price positively, and higher vol should give higher cap price
+    assert!(pv_25.amount() > 0.0, "Cap with 25% vol should price");
+    assert!(
+        pv_30.amount() > pv_25.amount(),
+        "Higher vol should give higher cap price"
+    );
 }
 
 #[test]
@@ -414,10 +425,10 @@ fn test_fixing_vs_payment_date_timing() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -490,10 +501,10 @@ fn test_caplet_after_payment_date_is_zero() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 

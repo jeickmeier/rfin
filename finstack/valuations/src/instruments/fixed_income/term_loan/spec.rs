@@ -43,7 +43,7 @@
 //!     issue: create_date(2025, Month::January, 1)?,
 //!     maturity: create_date(2030, Month::January, 1)?,
 //!     rate: RateSpec::Fixed { rate_bp: 600 },
-//!     pay_freq: Tenor::quarterly(),
+//!     frequency: Tenor::quarterly(),
 //!     day_count: DayCount::Act360,
 //!     bdc: BusinessDayConvention::ModifiedFollowing,
 //!     calendar_id: None,
@@ -454,7 +454,7 @@ impl AmortizationSpec {
 ///     issue: create_date(2025, Month::January, 15)?,
 ///     maturity: create_date(2030, Month::January, 15)?,
 ///     rate: RateSpec::Floating(floating_spec),
-///     pay_freq: Tenor::quarterly(),
+///     frequency: Tenor::quarterly(),
 ///     day_count: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
 ///     calendar_id: None,
@@ -498,7 +498,8 @@ pub struct TermLoanSpec {
     /// Interest rate specification (fixed or floating)
     pub rate: RateSpec,
     /// Payment frequency for interest and principal
-    pub pay_freq: Tenor,
+    #[serde(alias = "pay_freq")]
+    pub frequency: Tenor,
     /// Day count convention for interest accrual
     pub day_count: DayCount,
     /// Business day convention for schedule adjustment

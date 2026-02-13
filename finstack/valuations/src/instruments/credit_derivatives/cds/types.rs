@@ -133,7 +133,7 @@ impl CDSConvention {
     #[must_use]
     pub fn business_day_convention(&self) -> BusinessDayConvention {
         self.try_registry()
-            .map(|r| r.business_day_convention)
+            .map(|r| r.bdc)
             .unwrap_or(BusinessDayConvention::ModifiedFollowing)
     }
 
@@ -288,7 +288,7 @@ pub(crate) struct CdsConventionResolved {
     pub doc_clause: CDSConvention,
     pub day_count: DayCount,
     pub frequency: Tenor,
-    pub business_day_convention: BusinessDayConvention,
+    pub bdc: BusinessDayConvention,
     pub stub_convention: StubKind,
     pub settlement_delay_days: u16,
     pub default_calendar_id: String,
@@ -300,7 +300,8 @@ struct CdsConventionRecord {
     doc_clause: CDSConvention,
     day_count: DayCount,
     payment_frequency: String,
-    business_day_convention: BusinessDayConvention,
+    #[serde(alias = "business_day_convention")]
+    bdc: BusinessDayConvention,
     stub_convention: StubKind,
     settlement_days: u16,
     calendar_id: String,
@@ -318,7 +319,7 @@ impl CdsConventionRecord {
             doc_clause: self.doc_clause,
             day_count: self.day_count,
             frequency,
-            business_day_convention: self.business_day_convention,
+            bdc: self.bdc,
             stub_convention: self.stub_convention,
             settlement_delay_days: self.settlement_days,
             default_calendar_id: self.calendar_id,

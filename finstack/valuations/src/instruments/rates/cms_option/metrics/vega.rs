@@ -31,22 +31,10 @@ impl MetricCalculator for VegaCalculator {
             return Ok(0.0);
         }
 
-        // Get volatility surface (if provided)
-        let vol_surface_id = match option.vol_surface_id.as_ref() {
-            Some(id) => id,
-            None => {
-                return Err(finstack_core::Error::from(
-                    finstack_core::InputError::NotFound {
-                        id: "vol_surface_id not provided for CMS option".to_string(),
-                    },
-                ));
-            }
-        };
-
         // Bump volatility surface by an absolute vol amount (vol points).
         let curves_bumped = bump_surface_vol_absolute(
             &context.curves,
-            vol_surface_id.as_str(),
+            option.vol_surface_id.as_str(),
             bump_sizes::VOLATILITY,
         )?;
 

@@ -335,7 +335,7 @@ impl JsInterestRateOption {
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]
     pub fn forward_curve(&self) -> String {
-        self.0.forward_id.as_str().to_string()
+        self.0.forward_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = fromJson)]

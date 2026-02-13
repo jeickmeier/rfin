@@ -242,7 +242,7 @@ fn main() -> Result<()> {
                             id,
                             bond.notional.amount() / 1_000_000.0,
                             coupon_rate * 100.0,
-                            bond.issue,
+                            bond.issue_date,
                             bond.maturity
                         );
                     }

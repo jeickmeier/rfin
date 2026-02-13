@@ -251,7 +251,7 @@ impl PyFxSpot {
     ///     Currency: Base currency wrapper.
     #[getter]
     fn base_currency(&self) -> PyCurrency {
-        PyCurrency::new(self.inner.base)
+        PyCurrency::new(self.inner.base_currency)
     }
 
     /// Quote currency (FX denominator).
@@ -260,7 +260,7 @@ impl PyFxSpot {
     ///     Currency: Quote currency wrapper.
     #[getter]
     fn quote_currency(&self) -> PyCurrency {
-        PyCurrency::new(self.inner.quote)
+        PyCurrency::new(self.inner.quote_currency)
     }
 
     /// Optional notional in base currency (defaults to 1 unit when absent).

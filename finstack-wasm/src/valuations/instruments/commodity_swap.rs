@@ -7,6 +7,7 @@ use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, Tenor, TenorUnit};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
+use finstack_valuations::instruments::legs::PayReceive;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
@@ -193,15 +194,19 @@ impl JsCommoditySwapBuilder {
             .notional_quantity(notional_quantity)
             .fixed_price(fixed_price)
             .floating_index_id(CurveId::new(floating_index_id))
-            .pay_fixed(pay_fixed)
+            .side(if pay_fixed {
+                PayReceive::PayFixed
+            } else {
+                PayReceive::ReceiveFixed
+            })
             .start_date(start_date)
             .end_date(end_date)
-            .payment_frequency(freq)
+            .frequency(freq)
             .discount_curve_id(CurveId::new(discount_curve_id))
             .attributes(Attributes::new());
 
         if let Some(b) = bdc_enum {
-            builder = builder.bdc_opt(Some(b));
+            builder = builder.bdc(b);
         }
 
         let swap = builder
@@ -301,15 +306,19 @@ impl JsCommoditySwap {
             .notional_quantity(notional_quantity)
             .fixed_price(fixed_price)
             .floating_index_id(CurveId::new(floating_index_id))
-            .pay_fixed(pay_fixed)
+            .side(if pay_fixed {
+                PayReceive::PayFixed
+            } else {
+                PayReceive::ReceiveFixed
+            })
             .start_date(start_date.inner())
             .end_date(end_date.inner())
-            .payment_frequency(freq)
+            .frequency(freq)
             .discount_curve_id(CurveId::new(discount_curve_id))
             .attributes(Attributes::new());
 
         if let Some(b) = bdc_enum {
-            builder = builder.bdc_opt(Some(b));
+            builder = builder.bdc(b);
         }
 
         let swap = builder
@@ -356,7 +365,7 @@ impl JsCommoditySwap {
 
     #[wasm_bindgen(getter, js_name = payFixed)]
     pub fn pay_fixed(&self) -> bool {
-        self.inner.pay_fixed
+        self.inner.side.is_payer()
     }
 
     #[wasm_bindgen(getter, js_name = startDate)]
@@ -401,7 +410,7 @@ impl JsCommoditySwap {
             self.inner.id.as_str(),
             self.inner.ticker,
             self.inner.fixed_price,
-            self.inner.pay_fixed
+            self.inner.side.is_payer()
         )
     }
 

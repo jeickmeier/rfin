@@ -99,7 +99,7 @@
 //!     .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
 //!     .spot_id("EQUITY-SPOT".to_string())
 //!     .vol_surface_id(finstack_core::types::CurveId::new("EQUITY-VOL"))
-//!     .div_yield_id_opt(Some("EQUITY-DIVYIELD".to_string()))
+//!     .div_yield_id_opt(Some(finstack_core::types::CurveId::new("EQUITY-DIVYIELD")))
 //!     .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
 //!     .attributes(finstack_valuations::instruments::Attributes::new())
 //!     .build()?;
@@ -143,7 +143,7 @@
 //!     .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
 //!     .spot_id("EQUITY-SPOT".to_string())
 //!     .vol_surface_id(finstack_core::types::CurveId::new("EQUITY-VOL"))
-//!     .div_yield_id_opt(Some("EQUITY-DIVYIELD".to_string()))
+//!     .div_yield_id_opt(Some(finstack_core::types::CurveId::new("EQUITY-DIVYIELD")))
 //!     .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
 //!     .attributes(finstack_valuations::instruments::Attributes::new())
 //!     .build()?;

@@ -61,7 +61,7 @@ proptest! {
         let bond = Bond::builder()
             .id("PROP_DV01_TEST".into())
             .notional(Money::new(notional, Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 coupon_rate,
@@ -137,7 +137,7 @@ proptest! {
         let bond = Bond::builder()
             .id("PROP_SIGN_TEST".into())
             .notional(Money::new(10_000_000.0, Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 coupon_rate,
@@ -721,7 +721,7 @@ mod additional_invariants {
             let bond = Bond::builder()
                 .id(format!("MATURITY_{}Y", years).into())
                 .notional(Money::new(10_000_000.0, Currency::USD))
-                .issue(as_of)
+                .issue_date(as_of)
                 .maturity(maturity)
                 .cashflow_spec(CashflowSpec::fixed(
                     0.04,

@@ -43,7 +43,7 @@ fn test_yf_thirty360() {
     // Setup
     let base = date(2025, 1, 1);
     let dep = DepositBuilder::new(base)
-        .start(date(2025, 1, 1))
+        .start_date(date(2025, 1, 1))
         .end(date(2025, 7, 1))
         .day_count(DayCount::Thirty360)
         .build();
@@ -106,7 +106,7 @@ fn test_yf_zero_period() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep = DepositBuilder::new(base).start(base).end(base).build();
+    let dep = DepositBuilder::new(base).start_date(base).end(base).build();
 
     // Execute - should fail validation (end must be after start)
     let result = dep.value(&ctx, base);

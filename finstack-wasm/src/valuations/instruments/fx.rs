@@ -167,12 +167,12 @@ impl JsFxSpot {
 
     #[wasm_bindgen(getter, js_name = baseCurrency)]
     pub fn base_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.inner.base)
+        JsCurrency::from_inner(self.inner.base_currency)
     }
 
     #[wasm_bindgen(getter, js_name = quoteCurrency)]
     pub fn quote_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.inner.quote)
+        JsCurrency::from_inner(self.inner.quote_currency)
     }
 
     #[wasm_bindgen(getter, js_name = pairName)]

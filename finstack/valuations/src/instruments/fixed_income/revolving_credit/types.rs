@@ -49,7 +49,8 @@ pub struct RevolvingCredit {
     pub day_count: DayCount,
 
     /// Payment frequency for interest and fees.
-    pub payment_frequency: Tenor,
+    #[serde(alias = "payment_frequency")]
+    pub frequency: Tenor,
 
     /// Fee structure for the facility.
     pub fees: RevolvingCreditFees,
@@ -171,7 +172,7 @@ impl RevolvingCredit {
             .maturity_date(end)
             .base_rate_spec(base_rate)
             .day_count(DayCount::Act360)
-            .payment_frequency(Tenor::quarterly())
+            .frequency(Tenor::quarterly())
             .fees(fees)
             .draw_repay_spec(draw_repay)
             .discount_curve_id(CurveId::new("USD-OIS"))

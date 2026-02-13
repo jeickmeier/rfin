@@ -76,7 +76,8 @@ pub struct InterestRateFuture {
     /// Discount curve identifier
     pub discount_curve_id: CurveId,
     /// Forward curve identifier
-    pub forward_id: CurveId,
+    #[serde(alias = "forward_id")]
+    pub forward_curve_id: CurveId,
     /// Optional volatility surface identifier for convexity adjustment
     pub volatility_id: Option<CurveId>,
     /// Attributes
@@ -183,7 +184,7 @@ impl InterestRateFuture {
                 ..FutureContractSpecs::default()
             })
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .forward_id(CurveId::new("USD-SOFR-3M"))
+            .forward_curve_id(CurveId::new("USD-SOFR-3M"))
             .attributes(Attributes::new())
             .build()
             .unwrap_or_else(|_| {
@@ -234,7 +235,7 @@ impl InterestRateFuture {
         // Validate discount curve exists (required for curve dependencies, even though
         // futures don't discount due to daily margining)
         let _disc = context.get_discount(&self.discount_curve_id)?;
-        let fwd = context.get_forward(&self.forward_id)?;
+        let fwd = context.get_forward(&self.forward_curve_id)?;
 
         // Time to fixing and rate period for forward rate calculation use the forward
         // curve's day-count basis for consistency with curve construction.
@@ -426,7 +427,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for InterestRate
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
-            .forward(self.forward_id.clone())
+            .forward(self.forward_curve_id.clone())
             .build()
     }
 }

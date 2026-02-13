@@ -30,7 +30,7 @@ use finstack_core::{Error, InputError, Result};
 ///
 /// // Customize payment frequency and day count
 /// let mut overrides = CDSTrancheBuildOverrides::new(42);
-/// overrides.payment_frequency = Some("3M".parse().unwrap());
+/// overrides.frequency = Some("3M".parse().unwrap());
 /// overrides.day_count = Some(finstack_core::dates::DayCount::Act360);
 /// ```
 #[derive(Debug, Clone)]
@@ -43,7 +43,7 @@ pub struct CDSTrancheBuildOverrides {
     /// Optional payment frequency override.
     ///
     /// If `None`, uses the payment frequency from the CDS convention.
-    pub payment_frequency: Option<Tenor>,
+    pub frequency: Option<Tenor>,
     /// Optional day count override.
     ///
     /// If `None`, uses the day count from the CDS convention.
@@ -51,7 +51,7 @@ pub struct CDSTrancheBuildOverrides {
     /// Optional business day convention override.
     ///
     /// If `None`, uses the business day convention from the CDS convention.
-    pub business_day_convention: Option<BusinessDayConvention>,
+    pub bdc: Option<BusinessDayConvention>,
     /// Optional calendar identifier override.
     ///
     /// If `None`, uses the calendar ID from the CDS convention.
@@ -83,14 +83,14 @@ impl CDSTrancheBuildOverrides {
     ///
     /// let overrides = CDSTrancheBuildOverrides::new(42);
     /// assert_eq!(overrides.series, 42);
-    /// assert_eq!(overrides.payment_frequency, None);
+    /// assert_eq!(overrides.frequency, None);
     /// ```
     pub fn new(series: u16) -> Self {
         Self {
             series,
-            payment_frequency: None,
+            frequency: None,
             day_count: None,
-            business_day_convention: None,
+            bdc: None,
             calendar_id: None,
             use_imm_dates: true,
         }
@@ -225,7 +225,7 @@ pub fn build_cds_tranche_instrument(
         ctx.as_of(),
         &conv.calendar_id,
         conv.settlement_days,
-        conv.business_day_convention,
+        conv.bdc,
     )?;
 
     // Resolve calendar for tenor addition
@@ -278,7 +278,7 @@ pub fn build_cds_tranche_instrument(
         let maturity_imm = next_cds_date(maturity - time::Duration::days(1));
         (effective_date, maturity_imm, true)
     } else {
-        let maturity_adj = adjust(maturity, conv.business_day_convention, cal)?;
+        let maturity_adj = adjust(maturity, conv.bdc, cal)?;
         (spot, maturity_adj, false)
     };
 
@@ -295,13 +295,9 @@ pub fn build_cds_tranche_instrument(
     };
 
     let schedule_params = ScheduleParams {
-        freq: overrides
-            .payment_frequency
-            .unwrap_or(conv.payment_frequency),
+        freq: overrides.frequency.unwrap_or(conv.frequency),
         dc: overrides.day_count.unwrap_or(conv.day_count),
-        bdc: overrides
-            .business_day_convention
-            .unwrap_or(conv.business_day_convention),
+        bdc: overrides.bdc.unwrap_or(conv.bdc),
         calendar_id: overrides
             .calendar_id
             .clone()
@@ -385,16 +381,10 @@ mod tests {
             .expect("registry")
             .require_cds(&convention_key)
             .expect("convention should exist");
-        let spot = resolve_spot_date(
-            as_of,
-            &conv.calendar_id,
-            conv.settlement_days,
-            conv.business_day_convention,
-        )
-        .expect("spot date");
+        let spot = resolve_spot_date(as_of, &conv.calendar_id, conv.settlement_days, conv.bdc)
+            .expect("spot date");
         let cal = resolve_calendar(&conv.calendar_id).expect("calendar");
-        let maturity_adj =
-            adjust(maturity, conv.business_day_convention, cal).expect("maturity adjustment");
+        let maturity_adj = adjust(maturity, conv.bdc, cal).expect("maturity adjustment");
 
         assert_eq!(tranche.effective_date, Some(spot));
         assert_eq!(tranche.maturity, maturity_adj);

@@ -314,7 +314,7 @@ mod tests {
         Bond::builder()
             .id("TEST_BOND_HAZARD".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,

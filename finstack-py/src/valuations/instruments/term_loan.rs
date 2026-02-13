@@ -124,7 +124,7 @@ impl PyTermLoan {
     ///     datetime.date: Issue date converted to Python.
     #[getter]
     fn issue(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.issue)
+        date_to_py(py, self.inner.issue_date)
     }
 
     /// Maturity date.
@@ -157,7 +157,7 @@ impl PyTermLoan {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "TermLoan(id='{}', issue='{}', maturity='{}')",
-            self.inner.id, self.inner.issue, self.inner.maturity
+            self.inner.id, self.inner.issue_date, self.inner.maturity
         ))
     }
 }
@@ -167,7 +167,7 @@ impl fmt::Display for PyTermLoan {
         write!(
             f,
             "TermLoan({}, {} -> {})",
-            self.inner.id, self.inner.issue, self.inner.maturity
+            self.inner.id, self.inner.issue_date, self.inner.maturity
         )
     }
 }

@@ -94,7 +94,7 @@ fn test_zero_coupon_bond_ytm() {
             Tenor::annual(),
             DayCount::Thirty360,
         ))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .discount_curve_id("USD-OIS".into())
         .build();
@@ -156,7 +156,7 @@ fn test_odd_first_coupon_ytm() {
             end_of_month: false,
             payment_lag_days: 0,
         }))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .discount_curve_id("USD-OIS".into())
         .build();
@@ -206,7 +206,7 @@ fn test_eom_february_maturity_ytm() {
             Tenor::annual(),
             DayCount::Thirty360,
         ))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .discount_curve_id("USD-OIS".into())
         .build();
@@ -266,7 +266,7 @@ fn test_long_first_coupon_ytm() {
             end_of_month: false,
             payment_lag_days: 0,
         }))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .discount_curve_id("USD-OIS".into())
         .build();

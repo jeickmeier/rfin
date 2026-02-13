@@ -470,7 +470,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let mut deposit1 = Deposit::builder()
         .id("DEP_ACME_3M".into())
         .notional(Money::new(10_000_000.0, Currency::USD))
-        .start(as_of)
+        .start_date(as_of)
         .end(date!(2024 - 04 - 01))
         .day_count(DayCount::Act360)
         .discount_curve_id("USD".into())
@@ -495,7 +495,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let mut deposit2 = Deposit::builder()
         .id("DEP_FUND_6M".into())
         .notional(Money::new(10_000_000.0, Currency::USD)) // $10M
-        .start(as_of)
+        .start_date(as_of)
         .end(date!(2024 - 07 - 01))
         .day_count(DayCount::Act360)
         .discount_curve_id("USD".into())
@@ -520,7 +520,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let mut deposit_eur = Deposit::builder()
         .id("DEP_EUR_3M".into())
         .notional(Money::new(10_000_000.0, Currency::EUR)) // €10M
-        .start(as_of)
+        .start_date(as_of)
         .end(date!(2024 - 04 - 01))
         .day_count(DayCount::Act360)
         .discount_curve_id("EUR".into())
@@ -925,7 +925,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .currency(Currency::USD)
         .shares(66_666.67) // Shares to make ~$10M at $150/share
         .price_id("AAPL-SPOT".to_string())
-        .div_yield_id("AAPL-DIV-YIELD".to_string())
+        .div_yield_id("AAPL-DIV-YIELD".into())
         .discount_curve_id("USD".into())
         .build()
         .unwrap();
@@ -994,8 +994,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .notional(tips_params.notional)
         .real_coupon(tips_params.real_coupon)
         .freq(tips_params.frequency)
-        .dc(tips_params.day_count)
-        .issue(tips_params.issue)
+        .day_count(tips_params.day_count)
+        .issue_date(tips_params.issue)
         .maturity(tips_params.maturity)
         .base_index(tips_params.base_index)
         .base_date(tips_params.issue)
@@ -1026,12 +1026,12 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let inflation_swap = InflationSwap::builder()
         .id("INF_SWAP_5Y".into())
         .notional(Money::new(10_000_000.0, Currency::USD)) // $10M
-        .start(as_of)
+        .start_date(as_of)
         .maturity(date!(2029 - 01 - 01)) // 5Y maturity
         .fixed_rate(0.025) // 2.5% fixed rate
         .inflation_index_id("US-CPI".into())
         .discount_curve_id("USD".into())
-        .dc(finstack_core::dates::DayCount::Act365F)
+        .day_count(finstack_core::dates::DayCount::Act365F)
         .side(PayReceiveInflation::ReceiveFixed) // Receive fixed, pay inflation
         .lag_override(finstack_core::market_data::scalars::InflationLag::Months(3))
         .build()
@@ -1053,8 +1053,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     // 18. FX Spot (EUR/USD) - standalone
     let eur_usd_spot = FxSpot::builder()
         .id("EUR_USD_SPOT".into())
-        .base(Currency::EUR)
-        .quote(Currency::USD)
+        .base_currency(Currency::EUR)
+        .quote_currency(Currency::USD)
         .settlement_lag_days(2)
         .spot_rate(1.10) // EUR/USD = 1.10
         .notional(Money::new(10_000_000.0, Currency::EUR)) // €10M

@@ -115,19 +115,17 @@ impl PyFxBarrierOption {
         };
 
         let notional_money = extract_money(&notional)?;
-        let strike_money = finstack_core::money::Money::new(strike, for_currency);
-        let barrier_money = finstack_core::money::Money::new(barrier, for_currency);
 
         let mut builder = FxBarrierOption::builder();
         builder = builder.id(id);
-        builder = builder.strike(strike_money);
-        builder = builder.barrier(barrier_money);
+        builder = builder.strike(strike);
+        builder = builder.barrier(barrier);
         builder = builder.option_type(opt_type);
         builder = builder.barrier_type(barrier_type_enum);
         builder = builder.expiry(expiry_date);
         builder = builder.notional(notional_money);
-        builder = builder.domestic_currency(dom_currency);
-        builder = builder.foreign_currency(for_currency);
+        builder = builder.base_currency(dom_currency);
+        builder = builder.quote_currency(for_currency);
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
         builder = builder.domestic_discount_curve_id(domestic_discount_curve_id);
@@ -148,16 +146,16 @@ impl PyFxBarrierOption {
         self.inner.id.as_str()
     }
 
-    /// Strike price as money.
+    /// Strike price (f64 rate).
     #[getter]
-    fn strike(&self) -> PyMoney {
-        PyMoney::new(self.inner.strike)
+    fn strike(&self) -> f64 {
+        self.inner.strike
     }
 
-    /// Barrier level as money.
+    /// Barrier level (f64 rate).
     #[getter]
-    fn barrier(&self) -> PyMoney {
-        PyMoney::new(self.inner.barrier)
+    fn barrier(&self) -> f64 {
+        self.inner.barrier
     }
 
     /// Option type label.
@@ -199,8 +197,8 @@ impl PyFxBarrierOption {
         format!(
             "FxBarrierOption(id='{}', strike={}, barrier={}, barrier_type='{}')",
             self.inner.id.as_str(),
-            self.inner.strike.amount(),
-            self.inner.barrier.amount(),
+            self.inner.strike,
+            self.inner.barrier,
             match self.inner.barrier_type {
                 BarrierType::UpAndOut => "up_and_out",
                 BarrierType::UpAndIn => "up_and_in",

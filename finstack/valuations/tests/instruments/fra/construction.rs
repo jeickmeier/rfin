@@ -18,7 +18,10 @@ fn test_standard_fra_construction() {
     assert_eq!(fra.notional.currency(), Currency::USD);
     assert_eq!(fra.fixed_rate, 0.05);
     assert_eq!(fra.day_count, DayCount::Act360);
-    assert!(fra.receive_fixed); // true = receive fixed rate
+    assert_eq!(
+        fra.side,
+        finstack_valuations::instruments::rates::irs::PayReceive::ReceiveFixed
+    ); // receive fixed rate
 }
 
 #[test]
@@ -54,13 +57,14 @@ fn test_builder_6x12_fra() {
 
 #[test]
 fn test_builder_receive_vs_pay_fixed() {
+    use finstack_valuations::instruments::rates::irs::PayReceive;
     // receive_fixed = true means receive fixed rate, pay floating
     // receive_fixed = false means pay fixed rate, receive floating
     let receive_fixed = TestFraBuilder::new().receive_fixed(true).build();
     let pay_fixed = TestFraBuilder::new().receive_fixed(false).build();
 
-    assert!(receive_fixed.receive_fixed); // true = receive fixed rate
-    assert!(!pay_fixed.receive_fixed); // false = pay fixed rate
+    assert_eq!(receive_fixed.side, PayReceive::ReceiveFixed); // receive fixed rate
+    assert_eq!(pay_fixed.side, PayReceive::PayFixed); // pay fixed rate
 }
 
 #[test]
@@ -186,7 +190,7 @@ fn test_multiple_curve_ids() {
         .build();
 
     assert_eq!(fra.discount_curve_id.as_str(), "USD_OIS");
-    assert_eq!(fra.forward_id.as_str(), "USD_SOFR_3M");
+    assert_eq!(fra.forward_curve_id.as_str(), "USD_SOFR_3M");
 }
 
 #[test]

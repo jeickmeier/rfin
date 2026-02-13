@@ -99,7 +99,8 @@ pub struct ConvertibleBond {
     /// Principal amount.
     pub notional: Money,
     /// Issue date.
-    pub issue: Date,
+    #[serde(alias = "issue")]
+    pub issue_date: Date,
     /// Maturity date.
     pub maturity: Date,
     /// Discount curve identifier for the debt component (risk-free or funding).
@@ -398,7 +399,7 @@ impl ConvertibleBond {
         ConvertibleBond::builder()
             .id(InstrumentId::new("CB-TECH-5Y"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .issue(date!(2024 - 01 - 15))
+            .issue_date(date!(2024 - 01 - 15))
             .maturity(date!(2029 - 01 - 15))
             .discount_curve_id(CurveId::new("USD-IG"))
             .credit_curve_id_opt(Some(CurveId::new("USD-CREDIT-BBB")))
@@ -560,7 +561,7 @@ impl crate::instruments::common_impl::traits::Instrument for ConvertibleBond {
     }
 
     fn effective_start_date(&self) -> Option<Date> {
-        Some(self.issue)
+        Some(self.issue_date)
     }
 }
 

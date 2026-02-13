@@ -20,7 +20,7 @@ fn test_real_yield_at_par() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.real_coupon = 0.02; // 2% coupon
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -42,7 +42,7 @@ fn test_real_yield_premium_bond() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.real_coupon = 0.02;
-    ilb.issue = d(2020, 1, 2); // Issue in the past
+    ilb.issue_date = d(2020, 1, 2); // Issue in the past
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -70,7 +70,7 @@ fn test_real_yield_discount_bond() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.real_coupon = 0.02;
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -89,7 +89,7 @@ fn test_real_yield_price_relationship() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.real_coupon = 0.02;
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -118,7 +118,7 @@ fn test_real_yield_uses_quoted_price_when_available() {
     let mut ilb = sample_tips();
     ilb.quoted_clean = Some(105.0);
     ilb.real_coupon = 0.02;
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -196,7 +196,7 @@ fn test_real_yield_extreme_prices_produce_valid_results() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.real_coupon = 0.02;
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -226,7 +226,7 @@ fn test_breakeven_inflation_basic() {
     let mut ilb = sample_tips();
     ilb.quoted_clean = Some(100.0);
     ilb.real_coupon = 0.01; // 1% real yield at par
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -248,7 +248,7 @@ fn test_breakeven_inflation_fisher_equation() {
     let mut ilb = sample_tips();
     ilb.quoted_clean = Some(100.0);
     ilb.real_coupon = 0.015;
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -277,7 +277,7 @@ fn test_breakeven_inflation_varies_with_nominal_yield() {
     let mut ilb = sample_tips();
     ilb.quoted_clean = Some(100.0);
     ilb.real_coupon = 0.01;
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -328,7 +328,7 @@ fn test_breakeven_can_be_negative() {
     let mut ilb = sample_tips();
     ilb.quoted_clean = Some(100.0);
     ilb.real_coupon = 0.05; // High real coupon
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -350,13 +350,13 @@ fn test_real_yield_varies_with_time_to_maturity() {
 
     // Long-dated bond
     let mut ilb_long = sample_tips();
-    ilb_long.issue = d(2025, 1, 2);
+    ilb_long.issue_date = d(2025, 1, 2);
     ilb_long.maturity = d(2035, 1, 2); // 10 years
     ilb_long.real_coupon = 0.02;
 
     // Short-dated bond
     let mut ilb_short = sample_tips();
-    ilb_short.issue = d(2025, 1, 2);
+    ilb_short.issue_date = d(2025, 1, 2);
     ilb_short.maturity = d(2027, 1, 2); // 2 years
     ilb_short.real_coupon = 0.02;
 
@@ -381,15 +381,15 @@ fn test_real_yield_different_day_counts() {
 
     // Same bond with different day count conventions
     let mut ilb_actact = sample_tips();
-    ilb_actact.dc = finstack_core::dates::DayCount::ActAct;
+    ilb_actact.day_count = finstack_core::dates::DayCount::ActAct;
     ilb_actact.real_coupon = 0.02;
-    ilb_actact.issue = d(2025, 1, 2);
+    ilb_actact.issue_date = d(2025, 1, 2);
     ilb_actact.maturity = d(2030, 1, 2);
 
     let mut ilb_30360 = sample_tips();
-    ilb_30360.dc = finstack_core::dates::DayCount::Thirty360;
+    ilb_30360.day_count = finstack_core::dates::DayCount::Thirty360;
     ilb_30360.real_coupon = 0.02;
-    ilb_30360.issue = d(2025, 1, 2);
+    ilb_30360.issue_date = d(2025, 1, 2);
     ilb_30360.maturity = d(2030, 1, 2);
 
     // Act

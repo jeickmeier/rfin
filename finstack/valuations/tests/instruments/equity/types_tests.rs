@@ -6,6 +6,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_valuations::instruments::equity::Equity;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::Instrument;
@@ -79,7 +80,7 @@ fn test_equity_with_price_id() {
 fn test_equity_with_dividend_yield_id() {
     let equity = Equity::new("AAPL", "AAPL", Currency::USD).with_dividend_yield_id("CUSTOM_DIV");
 
-    assert_eq!(equity.div_yield_id, Some("CUSTOM_DIV".to_string()));
+    assert_eq!(equity.div_yield_id, Some(CurveId::new("CUSTOM_DIV")));
 }
 
 #[test]
@@ -93,7 +94,7 @@ fn test_equity_builder_chaining() {
     assert_eq!(equity.shares, Some(100.0));
     assert_eq!(equity.price_quote, Some(150.0));
     assert_eq!(equity.price_id, Some("CUSTOM_PRICE".to_string()));
-    assert_eq!(equity.div_yield_id, Some("CUSTOM_DIV".to_string()));
+    assert_eq!(equity.div_yield_id, Some(CurveId::new("CUSTOM_DIV")));
 }
 
 #[test]

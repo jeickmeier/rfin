@@ -5,7 +5,7 @@ use crate::instruments::rates::cms_option::types::CmsOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{DateExt, DayCountCtx};
 use finstack_core::math::norm_pdf;
-use finstack_core::{InputError, Result};
+use finstack_core::Result;
 
 /// Vanna calculator for CMS options.
 ///
@@ -31,15 +31,7 @@ impl MetricCalculator for VannaCalculator {
         let mut total_vanna = 0.0;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
 
-        // Volatility surface is required for CMS option Greeks
-        let vol_surface = match &inst.vol_surface_id {
-            Some(vol_id) => curves.surface(vol_id.as_str())?,
-            None => {
-                return Err(finstack_core::Error::from(InputError::NotFound {
-                    id: "vol_surface_id is required for CMS option vanna calculation".to_string(),
-                }));
-            }
-        };
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
 
         for (i, &fixing_date) in inst.fixing_dates.iter().enumerate() {
             let payment_date = inst.payment_dates.get(i).copied().unwrap_or(fixing_date);

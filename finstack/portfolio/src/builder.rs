@@ -343,7 +343,7 @@ mod tests {
         let deposit = Deposit::builder()
             .id("DEP_1".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .start(date!(2024 - 01 - 01))
+            .start_date(date!(2024 - 01 - 01))
             .end(date!(2024 - 02 - 01))
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())

@@ -58,7 +58,7 @@ fn test_clo_default_payment_frequency() {
     );
 
     // Assert: CLO should default to quarterly payments
-    assert_eq!(clo.payment_frequency, Tenor::quarterly());
+    assert_eq!(clo.frequency, Tenor::quarterly());
 }
 
 #[test]
@@ -116,7 +116,7 @@ fn test_abs_default_payment_frequency() {
     );
 
     // Assert: ABS should default to monthly payments
-    assert_eq!(abs.payment_frequency, Tenor::monthly());
+    assert_eq!(abs.frequency, Tenor::monthly());
 }
 
 #[test]
@@ -154,7 +154,7 @@ fn test_rmbs_default_payment_frequency() {
     );
 
     // Assert: RMBS should default to monthly payments
-    assert_eq!(rmbs.payment_frequency, Tenor::monthly());
+    assert_eq!(rmbs.frequency, Tenor::monthly());
 }
 
 #[test]
@@ -231,7 +231,7 @@ fn test_cmbs_default_payment_frequency() {
     );
 
     // Assert: CMBS should default to monthly payments
-    assert_eq!(cmbs.payment_frequency, Tenor::monthly());
+    assert_eq!(cmbs.frequency, Tenor::monthly());
 }
 
 #[test]

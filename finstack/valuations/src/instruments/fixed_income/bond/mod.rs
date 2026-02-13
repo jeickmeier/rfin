@@ -152,7 +152,7 @@ mod tests {
         let bond = Bond::builder()
             .id("BOND_MIN".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(date!(2025 - 01 - 01))
+            .issue_date(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
@@ -278,7 +278,7 @@ mod tests {
         let bond = Bond::builder()
             .id("BOND_OVERRIDE".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(date!(2025 - 01 - 01))
+            .issue_date(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.06,
@@ -300,7 +300,7 @@ mod tests {
         let bond = Bond::builder()
             .id("BOND_SETTLE".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(date!(2025 - 01 - 01))
+            .issue_date(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
@@ -330,7 +330,7 @@ mod tests {
         let bond = Bond::builder()
             .id("BOND_ATTRS".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(date!(2025 - 01 - 01))
+            .issue_date(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
@@ -355,7 +355,7 @@ mod tests {
         let bond = Bond::builder()
             .id("ZERO_COUPON".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(date!(2025 - 01 - 01))
+            .issue_date(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(0.0, Tenor::annual(), DayCount::Act365F))
             .discount_curve_id("USD-OIS".into())
@@ -377,7 +377,7 @@ mod tests {
         let bond = Bond::builder()
             .id("MONTHLY".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(date!(2025 - 01 - 01))
+            .issue_date(date!(2025 - 01 - 01))
             .maturity(date!(2027 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.06,
@@ -412,7 +412,7 @@ mod tests {
         let bond = Bond::builder()
             .id("BOND_CAL".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(date!(2025 - 01 - 01))
+            .issue_date(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::Fixed(spec.clone()))
             .discount_curve_id("USD-OIS".into())
@@ -449,7 +449,7 @@ mod tests {
         let bond_short_front = Bond::builder()
             .id("STUB_SHORT_FRONT".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(date!(2025 - 01 - 15))
+            .issue_date(date!(2025 - 01 - 15))
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::Fixed(spec_short.clone()))
             .discount_curve_id("USD-OIS".into())
@@ -478,7 +478,7 @@ mod tests {
         let bond_long_back = Bond::builder()
             .id("STUB_LONG_BACK".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(date!(2025 - 01 - 01))
+            .issue_date(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 02 - 15))
             .cashflow_spec(CashflowSpec::Fixed(spec_long.clone()))
             .discount_curve_id("USD-OIS".into())
@@ -506,7 +506,7 @@ mod tests {
             let bond = Bond::builder()
                 .id(format!("BOND_{}", code).into())
                 .notional(Money::new(1000.0, ccy))
-                .issue(date!(2025 - 01 - 01))
+                .issue_date(date!(2025 - 01 - 01))
                 .maturity(date!(2030 - 01 - 01))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.04,
@@ -575,8 +575,8 @@ mod tests {
         )
         .expect("Bond::fixed should succeed with valid parameters");
 
-        assert!(bond.maturity > bond.issue);
-        let days_to_maturity = (bond.maturity - bond.issue).whole_days();
+        assert!(bond.maturity > bond.issue_date);
+        let days_to_maturity = (bond.maturity - bond.issue_date).whole_days();
         assert!(days_to_maturity < 365);
     }
 
@@ -595,7 +595,7 @@ mod tests {
         )
         .expect("Bond::fixed should succeed with valid parameters");
 
-        let years_to_maturity = (bond.maturity - bond.issue).whole_days() / 365;
+        let years_to_maturity = (bond.maturity - bond.issue_date).whole_days() / 365;
         assert!(years_to_maturity >= 30);
     }
 
@@ -605,7 +605,7 @@ mod tests {
         let premium = Bond::builder()
             .id("PREMIUM".into())
             .notional(Money::new(100.0, Currency::USD))
-            .issue(date!(2025 - 01 - 01))
+            .issue_date(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.08,
@@ -624,7 +624,7 @@ mod tests {
         let discount = Bond::builder()
             .id("DISCOUNT".into())
             .notional(Money::new(100.0, Currency::USD))
-            .issue(date!(2025 - 01 - 01))
+            .issue_date(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.03,
@@ -643,7 +643,7 @@ mod tests {
         let par = Bond::builder()
             .id("PAR".into())
             .notional(Money::new(100.0, Currency::USD))
-            .issue(date!(2025 - 01 - 01))
+            .issue_date(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,

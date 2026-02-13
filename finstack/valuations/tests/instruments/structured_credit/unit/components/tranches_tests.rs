@@ -180,7 +180,7 @@ fn test_tranche_builder_complete() {
         .coupon(TrancheCoupon::Fixed { rate: 0.08 })
         .legal_maturity(maturity_date())
         .rating(CreditRating::BBB)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .build()
         .unwrap();
 

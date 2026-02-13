@@ -17,7 +17,7 @@ impl MetricCalculator for ForwardPv01Calculator {
         let base = context.base_value.amount();
 
         // Get the original forward curve
-        let original_fwd = context.curves.get_forward(&option.forward_id)?;
+        let original_fwd = context.curves.get_forward(&option.forward_curve_id)?;
 
         // Use shared sensitivity config to keep forward PV01 bump aligned with DV01 settings.
         let bump_bp = crate::metrics::resolve_sensitivities_config(context.config())?.rate_bump_bp;
@@ -32,12 +32,13 @@ impl MetricCalculator for ForwardPv01Calculator {
             .collect();
 
         // Build bumped curve with ORIGINAL ID so instrument can find it
-        let bumped_fwd = ForwardCurve::builder(option.forward_id.clone(), original_fwd.tenor())
-            .base_date(original_fwd.base_date())
-            .reset_lag(original_fwd.reset_lag())
-            .day_count(original_fwd.day_count())
-            .knots(bumped_rates)
-            .build()?;
+        let bumped_fwd =
+            ForwardCurve::builder(option.forward_curve_id.clone(), original_fwd.tenor())
+                .base_date(original_fwd.base_date())
+                .reset_lag(original_fwd.reset_lag())
+                .day_count(original_fwd.day_count())
+                .knots(bumped_rates)
+                .build()?;
 
         // Create new context with bumped curve (replaces original with same ID)
         let bumped_ctx = context.curves.as_ref().clone().insert_forward(bumped_fwd);

@@ -46,7 +46,7 @@
 //!     issue: create_date(2025, Month::January, 15)?,
 //!     maturity: create_date(2030, Month::January, 15)?,
 //!     rate: RateSpec::Fixed { rate_bp: 600 },  // 6% fixed
-//!     pay_freq: Tenor::quarterly(),
+//!     frequency: Tenor::quarterly(),
 //!     day_count: DayCount::Act360,
 //!     bdc: BusinessDayConvention::ModifiedFollowing,
 //!     calendar_id: None,

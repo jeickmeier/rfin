@@ -29,25 +29,14 @@ impl MetricCalculator for VolgaCalculator {
             return Ok(0.0);
         }
 
-        let vol_surface_id = match option.vol_surface_id.as_ref() {
-            Some(id) => id,
-            None => {
-                return Err(finstack_core::Error::from(
-                    finstack_core::InputError::NotFound {
-                        id: "vol_surface_id not provided for CMS option".to_string(),
-                    },
-                ));
-            }
-        };
-
         let vol_bump = bump_sizes::VOLATILITY;
 
         let curves_vol_up =
-            bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), vol_bump)?;
+            bump_surface_vol_absolute(&context.curves, option.vol_surface_id.as_str(), vol_bump)?;
         let pv_vol_up = option.value(&curves_vol_up, as_of)?.amount();
 
         let curves_vol_down =
-            bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), -vol_bump)?;
+            bump_surface_vol_absolute(&context.curves, option.vol_surface_id.as_str(), -vol_bump)?;
         let pv_vol_down = option.value(&curves_vol_down, as_of)?.amount();
 
         let volga = (pv_vol_up - 2.0 * base_pv + pv_vol_down) / (vol_bump * vol_bump);

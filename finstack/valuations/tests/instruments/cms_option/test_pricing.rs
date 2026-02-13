@@ -147,8 +147,8 @@ fn create_long_tenor_cms_option(_as_of: Date) -> CmsOption {
         swap_day_count: DayCount::Thirty360,
         swap_float_day_count: Some(DayCount::Act360),
         discount_curve_id: CurveId::new("USD-OIS"),
-        forward_curve_id: Some(CurveId::new("USD-LIBOR-3M")),
-        vol_surface_id: Some(CurveId::new("USD-CMS10Y-VOL")),
+        forward_curve_id: CurveId::new("USD-LIBOR-3M"),
+        vol_surface_id: CurveId::new("USD-CMS10Y-VOL"),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     }
@@ -442,11 +442,11 @@ fn test_cms_option_requires_vol_surface() {
 }
 
 #[test]
-fn test_cms_option_requires_vol_surface_id() {
+fn test_cms_option_requires_vol_surface_in_market() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let market = standard_market(as_of);
 
-    // Create instrument WITHOUT vol_surface_id
+    // Create instrument with a vol_surface_id that doesn't exist in the market
     let fixing_dates = vec![
         Date::from_calendar_date(2025, Month::March, 20).unwrap(),
         Date::from_calendar_date(2025, Month::June, 20).unwrap(),
@@ -472,23 +472,16 @@ fn test_cms_option_requires_vol_surface_id() {
         swap_day_count: DayCount::Thirty360,
         swap_float_day_count: Some(DayCount::Act360),
         discount_curve_id: CurveId::new("USD-OIS"),
-        forward_curve_id: Some(CurveId::new("USD-LIBOR-3M")),
-        vol_surface_id: None, // No vol surface ID
+        forward_curve_id: CurveId::new("USD-LIBOR-3M"),
+        vol_surface_id: CurveId::new("NONEXISTENT-VOL"), // Vol surface not in market
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
 
-    // Pricing should fail because vol_surface_id is required
+    // Pricing should fail because vol surface is not in market
     let result = inst.value(&market, as_of);
     assert!(
         result.is_err(),
-        "Should fail when vol_surface_id is not provided"
-    );
-
-    let err_msg = result.unwrap_err().to_string();
-    assert!(
-        err_msg.contains("vol_surface_id"),
-        "Error should mention vol_surface_id: {}",
-        err_msg
+        "Should fail when vol surface is not in market"
     );
 }

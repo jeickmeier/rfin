@@ -115,7 +115,7 @@ fn test_par_rate_zero_for_zero_period() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep = DepositBuilder::new(base).start(base).end(base).build();
+    let dep = DepositBuilder::new(base).start_date(base).end(base).build();
 
     // Execute - should fail validation (end must be after start)
     let result = dep.value(&ctx, base);

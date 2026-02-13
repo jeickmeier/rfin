@@ -317,7 +317,7 @@ impl JsCdsConventions {
     /// Business day convention code.
     #[wasm_bindgen(getter, js_name = businessDayConvention)]
     pub fn business_day_convention(&self) -> String {
-        format!("{:?}", self.inner.business_day_convention)
+        format!("{:?}", self.inner.bdc)
     }
 
     /// Settlement days.
@@ -329,7 +329,7 @@ impl JsCdsConventions {
     /// Payment frequency code.
     #[wasm_bindgen(getter, js_name = paymentFrequency)]
     pub fn payment_frequency(&self) -> String {
-        self.inner.payment_frequency.to_string()
+        self.inner.frequency.to_string()
     }
 }
 

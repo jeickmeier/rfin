@@ -8,6 +8,7 @@
 //! Uses `df_between_dates(as_of, payment_date)` for base-date-safe discounting.
 
 use crate::instruments::commodity::commodity_swap::CommoditySwap;
+use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -24,7 +25,10 @@ impl MetricCalculator for DeltaCalculator {
             .curves
             .get_discount(swap.discount_curve_id.as_str())?;
         let schedule = swap.payment_schedule(context.as_of)?;
-        let sign = if swap.pay_fixed { 1.0 } else { -1.0 };
+        let sign = match swap.side {
+            PayReceive::PayFixed => 1.0,
+            PayReceive::ReceiveFixed => -1.0,
+        };
 
         let mut delta = 0.0;
         for payment_date in schedule {

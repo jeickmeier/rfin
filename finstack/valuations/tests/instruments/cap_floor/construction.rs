@@ -7,7 +7,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Teno
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::cap_floor::InterestRateOptionParams;
 use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
-use finstack_valuations::instruments::{ExerciseStyle, PricingOverrides, SettlementType};
+use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use time::Month;
 
 #[test]
@@ -133,10 +133,10 @@ fn test_caplet_creation() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -165,41 +165,14 @@ fn test_floorlet_creation() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "EUR_OIS".into(),
-        forward_id: "EUR_EURIBOR_6M".into(),
+        forward_curve_id: "EUR_EURIBOR_6M".into(),
         vol_surface_id: "EUR_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
     assert_eq!(floorlet.rate_option_type, RateOptionType::Floorlet);
-}
-
-#[test]
-fn test_pricing_overrides() {
-    let notional = Money::new(1_000_000.0, Currency::USD);
-    let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-
-    let pricing_overrides = PricingOverrides {
-        implied_volatility: Some(0.25),
-        ..Default::default()
-    };
-
-    let params =
-        InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), DayCount::Act360);
-    let mut cap = InterestRateOption::new(
-        "CAP_WITH_OVERRIDES",
-        &params,
-        start,
-        end,
-        "USD-OIS",
-        "USD-LIBOR-3M",
-        "USD-CAP-VOL",
-    );
-    cap.pricing_overrides = pricing_overrides;
-
-    assert_eq!(cap.pricing_overrides.implied_volatility, Some(0.25));
 }
 
 #[test]

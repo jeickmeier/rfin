@@ -146,7 +146,7 @@ fn test_payer_receiver_parity_diagnostics() {
     let annuity = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
 
     let annuity_check = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
-    let fwd = market.get_forward(payer.forward_id.as_ref()).unwrap();
+    let fwd = market.get_forward(payer.forward_curve_id.as_ref()).unwrap();
     let sched = finstack_valuations::cashflow::builder::build_dates(
         payer.swap_start,
         payer.swap_end,

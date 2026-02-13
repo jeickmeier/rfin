@@ -44,7 +44,7 @@ fn create_bond_with_daycount(
     Bond::builder()
         .id(format!("BOND_{:?}", day_count).into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,

@@ -188,7 +188,7 @@ fn test_npv_at_maturity() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.maturity = d(2025, 1, 2);
-    ilb.issue = d(2024, 1, 2);
+    ilb.issue_date = d(2024, 1, 2);
 
     let (ctx, _) = market_context_with_index();
     let as_of = ilb.maturity;
@@ -205,7 +205,7 @@ fn test_npv_after_maturity() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.maturity = d(2025, 1, 2);
-    ilb.issue = d(2024, 1, 2);
+    ilb.issue_date = d(2024, 1, 2);
 
     let (ctx, _) = market_context_with_index();
     let as_of = d(2025, 6, 1); // After maturity

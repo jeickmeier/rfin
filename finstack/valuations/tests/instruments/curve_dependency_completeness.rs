@@ -74,7 +74,7 @@ fn test_bond_curve_dependencies_complete() {
     let bond = Bond::builder()
         .id("BOND-DEPS-TEST".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.04,
@@ -192,7 +192,7 @@ fn test_dependency_count_reasonable() {
     let bond = Bond::builder()
         .id("BOND-COUNT-TEST".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.04,

@@ -234,7 +234,8 @@ pub struct StructuredCredit {
     pub legal_maturity: Date,
 
     /// Payment frequency for the structure.
-    pub payment_frequency: Tenor,
+    #[serde(alias = "payment_frequency")]
+    pub frequency: Tenor,
 
     /// Optional payment calendar identifier for schedule adjustments.
     #[builder(default)]
@@ -965,7 +966,7 @@ impl core::fmt::Debug for StructuredCredit {
             .field("closing_date", &self.closing_date)
             .field("first_payment_date", &self.first_payment_date)
             .field("legal_maturity", &self.legal_maturity)
-            .field("payment_frequency", &self.payment_frequency)
+            .field("frequency", &self.frequency)
             .field("discount_curve_id", &self.discount_curve_id)
             .finish()
     }

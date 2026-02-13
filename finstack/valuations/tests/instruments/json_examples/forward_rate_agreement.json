@@ -15,8 +15,8 @@
       "day_count": "Act360",
       "reset_lag": 2,
       "discount_curve_id": "USD-OIS",
-      "forward_id": "USD-SOFR-3M",
-      "receive_fixed": true,
+      "forward_curve_id": "USD-SOFR-3M",
+      "side": "receive_fixed",
       "attributes": {
         "tags": [],
         "meta": {}

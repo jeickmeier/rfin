@@ -23,10 +23,10 @@ fn test_zero_coupon_loan() {
         .id("TL-ZERO".into())
         .currency(Currency::USD)
         .notional_limit(Money::new(10_000_000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(date!(2030 - 01 - 01))
         .rate(RateSpec::Fixed { rate_bp: 0 }) // Zero coupon
-        .pay_freq(Tenor::semi_annual())
+        .frequency(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -63,10 +63,10 @@ fn test_very_short_maturity() {
         .id("TL-SHORT".into())
         .currency(Currency::USD)
         .notional_limit(Money::new(10_000_000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(date!(2025 - 04 - 01)) // 3 months
         .rate(RateSpec::Fixed { rate_bp: 500 })
-        .pay_freq(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -100,10 +100,10 @@ fn test_very_long_maturity() {
         .id("TL-LONG".into())
         .currency(Currency::USD)
         .notional_limit(Money::new(10_000_000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(date!(2055 - 01 - 01)) // 30 years
         .rate(RateSpec::Fixed { rate_bp: 600 })
-        .pay_freq(Tenor::semi_annual())
+        .frequency(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -137,10 +137,10 @@ fn test_negative_rate_environment() {
         .id("TL-NEGRATE".into())
         .currency(Currency::USD)
         .notional_limit(Money::new(10_000_000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(date!(2030 - 01 - 01))
         .rate(RateSpec::Fixed { rate_bp: 500 })
-        .pay_freq(Tenor::semi_annual())
+        .frequency(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -184,7 +184,7 @@ fn ddtl_spec_template() -> TermLoanSpec {
         issue: date!(2025 - 01 - 01),
         maturity: date!(2030 - 01 - 01),
         rate: RateSpec::Fixed { rate_bp: 500 },
-        pay_freq: Tenor::semi_annual(),
+        frequency: Tenor::semi_annual(),
         day_count: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,

@@ -283,7 +283,7 @@ fn test_bond_settlement_date_impact() {
     let bond_t0 = Bond::builder()
         .id("SETTLE_T0".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.05,
@@ -300,7 +300,7 @@ fn test_bond_settlement_date_impact() {
     let bond_t2 = Bond::builder()
         .id("SETTLE_T2".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.05,
@@ -504,7 +504,7 @@ fn test_bond_different_day_counts() {
         let bond = Bond::builder()
             .id(format!("DC_{:?}", dc).into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(as_of)
+            .issue_date(as_of)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,

@@ -203,7 +203,8 @@ pub struct TermLoan {
     pub notional_limit: Money,
 
     /// Issue (effective) date
-    pub issue: Date,
+    #[serde(alias = "issue")]
+    pub issue_date: Date,
 
     /// Maturity date
     pub maturity: Date,
@@ -212,7 +213,8 @@ pub struct TermLoan {
     pub rate: RateSpec,
 
     /// Payment frequency for coupons/fees
-    pub pay_freq: Tenor,
+    #[serde(alias = "pay_freq")]
+    pub frequency: Tenor,
 
     /// Day count convention
     pub day_count: DayCount,
@@ -295,10 +297,10 @@ impl TermLoan {
             .id(InstrumentId::new("TERM-LOAN-USD-5Y"))
             .currency(Currency::USD)
             .notional_limit(Money::new(10_000_000.0, Currency::USD))
-            .issue(date!(2024 - 01 - 01))
+            .issue_date(date!(2024 - 01 - 01))
             .maturity(date!(2029 - 01 - 01))
             .rate(RateSpec::Fixed { rate_bp: 600 }) // 6%
-            .pay_freq(Tenor::quarterly())
+            .frequency(Tenor::quarterly())
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::ModifiedFollowing)
             .calendar_id_opt(None)
@@ -359,7 +361,7 @@ impl TryFrom<TermLoanSpec> for TermLoan {
             issue,
             maturity,
             rate,
-            pay_freq,
+            frequency,
             day_count,
             bdc,
             calendar_id,
@@ -466,10 +468,10 @@ impl TryFrom<TermLoanSpec> for TermLoan {
             .id(id)
             .currency(currency)
             .notional_limit(resolved_notional)
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .rate(rate)
-            .pay_freq(pay_freq)
+            .frequency(frequency)
             .day_count(day_count)
             .bdc(bdc)
             .calendar_id_opt(calendar_id)
@@ -522,7 +524,7 @@ impl crate::instruments::common_impl::traits::Instrument for TermLoan {
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
-        Some(self.issue)
+        Some(self.issue_date)
     }
 }
 
@@ -633,7 +635,7 @@ mod tests {
             issue,
             maturity,
             rate: RateSpec::Fixed { rate_bp: 550 },
-            pay_freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -681,7 +683,7 @@ mod tests {
             issue,
             maturity,
             rate: RateSpec::Fixed { rate_bp: 450 },
-            pay_freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -715,7 +717,7 @@ mod tests {
             issue,
             maturity,
             rate: RateSpec::Fixed { rate_bp: 500 },
-            pay_freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

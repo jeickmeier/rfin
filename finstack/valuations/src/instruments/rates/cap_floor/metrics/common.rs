@@ -25,7 +25,9 @@ where
     let disc_curve = context
         .curves
         .get_discount(option.discount_curve_id.as_ref())?;
-    let fwd_curve = context.curves.get_forward(option.forward_id.as_ref())?;
+    let fwd_curve = context
+        .curves
+        .get_forward(option.forward_curve_id.as_ref())?;
 
     // Helper to compute contribution for a single period
     let mut accumulate = |start: finstack_core::dates::Date,
@@ -53,14 +55,10 @@ where
             context.as_of,
             payment_date,
         )?;
-        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
-            impl_vol
-        } else {
-            context
-                .curves
-                .surface(option.vol_surface_id.as_str())?
-                .value_clamped(t_fix, option.strike_rate)
-        };
+        let sigma = context
+            .curves
+            .surface(option.vol_surface_id.as_str())?
+            .value_clamped(t_fix, option.strike_rate);
 
         let per_unit = f(forward, sigma, t_fix);
         Ok(per_unit * option.notional.amount() * tau * df)
@@ -90,7 +88,7 @@ where
     // Cap/floor: iterate schedule
     let (payment_lag_days, reset_lag_days) = match ConventionRegistry::try_global() {
         Ok(registry) => {
-            let idx = IndexId::new(option.forward_id.as_str());
+            let idx = IndexId::new(option.forward_curve_id.as_str());
             match registry.require_rate_index(&idx) {
                 Ok(conv) => (
                     conv.default_payment_delay_days,

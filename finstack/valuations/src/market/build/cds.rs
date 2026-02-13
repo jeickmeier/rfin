@@ -169,7 +169,7 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
         ctx.as_of(),
         &conv.calendar_id,
         conv.settlement_days,
-        conv.business_day_convention,
+        conv.bdc,
     )?;
 
     // Resolve calendar for tenor addition
@@ -230,9 +230,9 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
         premium: PremiumLegSpec {
             start,
             end: maturity,
-            freq: conv.payment_frequency,
+            freq: conv.frequency,
             stub: StubKind::None, // Default to None or derive?
-            bdc: conv.business_day_convention,
+            bdc: conv.bdc,
             calendar_id: Some(conv.calendar_id.clone()),
             dc: conv.day_count,
             spread_bp: Decimal::try_from(spread_bp).map_err(|e| {

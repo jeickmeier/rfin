@@ -23,7 +23,7 @@ use crate::instruments::common_impl::traits::Attributes;
 /// Deal-specific configuration for constructor
 pub(super) struct DealConfig {
     pub first_payment_date: Date,
-    pub payment_frequency: Tenor,
+    pub frequency: Tenor,
     pub prepayment_spec: PrepaymentModelSpec,
     pub default_spec: DefaultModelSpec,
     pub recovery_spec: RecoveryModelSpec,
@@ -174,7 +174,7 @@ impl StructuredCredit {
             first_payment_date: config.first_payment_date,
             reinvestment_end_date: None,
             legal_maturity: params.legal_maturity,
-            payment_frequency: config.payment_frequency,
+            frequency: config.frequency,
             payment_calendar_id: None,
             payment_bdc: None,
             discount_curve_id: CurveId::new(params.discount_curve_id.to_string()),
@@ -221,7 +221,7 @@ impl StructuredCredit {
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
                     .expect("Valid example date"),
-                payment_frequency: Tenor::monthly(),
+                frequency: Tenor::monthly(),
                 prepayment_spec: PrepaymentModelSpec::constant_cpr(ABS_AUTO_STANDARD_SPEED * 12.0), // Annualized from monthly speed
                 default_spec: DefaultModelSpec::constant_cdr(ABS_AUTO_STANDARD_CDR),
                 recovery_spec: RecoveryModelSpec::with_lag(ABS_AUTO_STANDARD_RECOVERY, 12),
@@ -259,7 +259,7 @@ impl StructuredCredit {
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1)
                     .expect("Valid example date"),
-                payment_frequency: Tenor::quarterly(),
+                frequency: Tenor::quarterly(),
                 prepayment_spec: PrepaymentModelSpec::constant_cpr(CLO_STANDARD_CPR),
                 default_spec: DefaultModelSpec::constant_cdr(CLO_STANDARD_CDR),
                 recovery_spec: RecoveryModelSpec::with_lag(CLO_STANDARD_RECOVERY, 18),
@@ -297,7 +297,7 @@ impl StructuredCredit {
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
                     .expect("Valid example date"),
-                payment_frequency: Tenor::monthly(),
+                frequency: Tenor::monthly(),
                 prepayment_spec: PrepaymentModelSpec::cmbs_with_lockout(60, CMBS_STANDARD_CPR), // 5yr lockout
                 default_spec: DefaultModelSpec::constant_cdr(CMBS_STANDARD_CDR),
                 recovery_spec: RecoveryModelSpec::with_lag(CMBS_STANDARD_RECOVERY, 24),
@@ -335,7 +335,7 @@ impl StructuredCredit {
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
                     .expect("Valid example date"),
-                payment_frequency: Tenor::monthly(),
+                frequency: Tenor::monthly(),
                 prepayment_spec: PrepaymentModelSpec::psa(1.0), // 100% PSA
                 default_spec: DefaultModelSpec::constant_cdr(RMBS_STANDARD_CDR),
                 recovery_spec: RecoveryModelSpec::with_lag(RMBS_STANDARD_RECOVERY, 18),

@@ -35,7 +35,7 @@ fn test_valuation_at_maturity() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.maturity = d(2025, 1, 2);
-    ilb.issue = d(2024, 1, 2);
+    ilb.issue_date = d(2024, 1, 2);
 
     let (ctx, _) = market_context_with_index();
     let as_of = ilb.maturity;
@@ -51,7 +51,7 @@ fn test_valuation_at_maturity() {
 fn test_valuation_before_issue() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -70,7 +70,7 @@ fn test_zero_coupon_ilb() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.real_coupon = 0.0; // Zero coupon
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -88,7 +88,7 @@ fn test_very_high_coupon() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.real_coupon = 0.50; // 50% coupon (extreme)
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2027, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -260,7 +260,7 @@ fn test_extreme_inflation() {
 fn test_same_issue_and_maturity_date() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2025, 1, 2); // Same day
 
     let (ctx, _) = market_context_with_index();
@@ -277,7 +277,7 @@ fn test_same_issue_and_maturity_date() {
 fn test_very_short_maturity() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2025, 1, 10); // 8 days
 
     let (ctx, _) = market_context_with_index();
@@ -294,7 +294,7 @@ fn test_very_short_maturity() {
 fn test_very_long_maturity() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2075, 1, 2); // 50 years
 
     let (ctx, _) = market_context_with_index();
@@ -396,7 +396,7 @@ fn test_negative_inflation_lag_days() {
 fn test_real_yield_with_empty_schedule() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2025, 1, 2); // Degenerate
 
     let (ctx, _) = market_context_with_index();
@@ -458,7 +458,7 @@ fn test_stub_convention_variants() {
     ] {
         let mut ilb = sample_tips();
         ilb.stub = stub;
-        ilb.issue = d(2025, 1, 5); // Slightly off standard date
+        ilb.issue_date = d(2025, 1, 5); // Slightly off standard date
         ilb.maturity = d(2027, 7, 10);
 
         // Act

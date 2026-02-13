@@ -63,7 +63,7 @@ fn create_test_convertible() -> ConvertibleBond {
     ConvertibleBond {
         id: "CONV-TEST".to_string().into(),
         notional: Money::new(1000.0, Currency::USD),
-        issue,
+        issue_date: issue,
         maturity,
         discount_curve_id: "USD-OIS".into(),
         credit_curve_id: None,

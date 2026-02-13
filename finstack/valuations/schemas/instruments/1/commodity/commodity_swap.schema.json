@@ -24,7 +24,7 @@
           "id": "NG-SWAP-2025",
           "index_lag_days": null,
           "notional_quantity": 10000.0,
-          "pay_fixed": true,
+          "side": "pay_fixed",
           "payment_frequency": {
             "count": 1,
             "unit": "months"
@@ -55,7 +55,7 @@
           "floating_index_id": "NG-SPOT-AVG",
           "id": "NG-SWAP-2025",
           "notional_quantity": 10000.0,
-          "pay_fixed": true,
+          "side": "pay_fixed",
           "payment_frequency": {
             "count": 1,
             "unit": "months"

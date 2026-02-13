@@ -50,8 +50,8 @@ fn test_fx_barrier_rebate_added_to_closed_form_price() {
         .barrier_type(BarrierType::UpAndOut)
         .expiry(expiry)
         .notional(Money::new(1_000_000.0, Currency::EUR)) // Notional in foreign currency
-        .domestic_currency(Currency::USD)
-        .foreign_currency(Currency::EUR)
+        .base_currency(Currency::EUR)
+        .quote_currency(Currency::USD)
         .day_count(DayCount::Act365F)
         .use_gobet_miri(false)
         .domestic_discount_curve_id(CurveId::new("USD-OIS"))

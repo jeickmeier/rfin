@@ -65,11 +65,13 @@ pub struct CDSTranche {
     /// Running coupon in basis points (e.g., 100 = 1.00%)
     pub running_coupon_bp: f64,
     /// Payment frequency (typically quarterly)
-    pub payment_frequency: Tenor,
+    #[serde(alias = "payment_frequency")]
+    pub frequency: Tenor,
     /// Day count (typically Act/360)
     pub day_count: DayCount,
     /// Business day convention
-    pub business_day_convention: BusinessDayConvention,
+    #[serde(alias = "business_day_convention")]
+    pub bdc: BusinessDayConvention,
     /// Optional holiday calendar id
     pub calendar_id: Option<String>,
     /// Discount curve identifier (by quote currency)
@@ -177,9 +179,9 @@ impl CDSTranche {
             notional: tranche_params.notional,
             maturity: tranche_params.maturity,
             running_coupon_bp: tranche_params.running_coupon_bp,
-            payment_frequency: schedule_params.freq,
+            frequency: schedule_params.freq,
             day_count: schedule_params.dc,
-            business_day_convention: schedule_params.bdc,
+            bdc: schedule_params.bdc,
             calendar_id: Some(schedule_params.calendar_id.clone()),
             discount_curve_id: discount_curve_id.into(),
             credit_index_id: credit_index_id.into(),

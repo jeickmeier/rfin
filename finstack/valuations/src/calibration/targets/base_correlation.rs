@@ -233,9 +233,9 @@ impl BaseCorrelationBootstrapper {
     fn build_overrides(&self) -> CDSTrancheBuildOverrides {
         CDSTrancheBuildOverrides {
             series: self.params.series,
-            payment_frequency: self.params.payment_frequency,
+            frequency: self.params.frequency,
             day_count: self.params.day_count,
-            business_day_convention: self.params.business_day_convention,
+            bdc: self.params.bdc,
             calendar_id: self.params.calendar_id.clone(),
             use_imm_dates: self.params.use_imm_dates,
         }

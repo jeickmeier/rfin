@@ -466,7 +466,7 @@ mod tests {
         assert_eq!(config.default_assumptions.base_cpr_annual, 0.06); // 6% CPR at 100% PSA
 
         // Monthly payment frequency for RMBS
-        assert_eq!(config.dates.payment_frequency.months(), Some(1));
+        assert_eq!(config.dates.frequency.months(), Some(1));
 
         // Lower servicing fees than CLO
         assert_eq!(config.fees.servicing_fee_bps, 25.0); // 25bps vs 50bps for ABS

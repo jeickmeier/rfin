@@ -87,7 +87,7 @@ pub fn create_standard_payer_swaption(
         cash_settlement_method: Default::default(),
         vol_model: VolatilityModel::Black,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_SWAPTION_VOL".into(),
         // Tests intentionally exercise OTM/ITM strikes; opt in to flat extrapolation
         // to avoid making results depend on the surface strike grid.

@@ -1022,8 +1022,8 @@ mod tests {
         match deserialized {
             InstrumentJson::FxSpot(i) => {
                 assert_eq!(i.id, fx_spot.id);
-                assert_eq!(i.base, fx_spot.base);
-                assert_eq!(i.quote, fx_spot.quote);
+                assert_eq!(i.base_currency, fx_spot.base_currency);
+                assert_eq!(i.quote_currency, fx_spot.quote_currency);
                 assert_eq!(i.base_calendar_id.as_deref(), Some("TARGET"));
                 assert_eq!(i.quote_calendar_id.as_deref(), Some("USNY"));
             }

@@ -81,7 +81,7 @@ mod tests {
             .maturity_date(end)
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
-            .payment_frequency(Tenor::quarterly())
+            .frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::default())
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
@@ -137,7 +137,7 @@ mod tests {
             .maturity_date(end)
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
-            .payment_frequency(Tenor::quarterly())
+            .frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::default())
             .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
                 super::super::types::StochasticUtilizationSpec {

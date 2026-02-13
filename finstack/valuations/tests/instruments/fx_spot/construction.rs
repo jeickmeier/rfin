@@ -11,8 +11,8 @@ fn test_basic_construction() {
     let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD);
 
     assert_eq!(fx.id.as_str(), "EURUSD");
-    assert_eq!(fx.base, Currency::EUR);
-    assert_eq!(fx.quote, Currency::USD);
+    assert_eq!(fx.base_currency, Currency::EUR);
+    assert_eq!(fx.quote_currency, Currency::USD);
     assert!(fx.settlement.is_none());
     assert!(fx.spot_rate.is_none());
     assert!(fx.notional.is_none());
@@ -86,8 +86,8 @@ fn test_construction_full_builder() {
         .with_quote_calendar_id("USNY");
 
     assert_eq!(fx.id.as_str(), "GBPUSD");
-    assert_eq!(fx.base, Currency::GBP);
-    assert_eq!(fx.quote, Currency::USD);
+    assert_eq!(fx.base_currency, Currency::GBP);
+    assert_eq!(fx.quote_currency, Currency::USD);
     assert_eq!(fx.notional.unwrap().amount(), 5_000_000.0);
     assert_eq!(fx.spot_rate, Some(1.32));
     assert_eq!(fx.settlement, Some(d(2025, 1, 17)));
@@ -140,8 +140,8 @@ fn test_construction_with_various_currencies() {
 
     for (base, quote, expected_name) in pairs {
         let fx = FxSpot::new(InstrumentId::new(expected_name), base, quote);
-        assert_eq!(fx.base, base);
-        assert_eq!(fx.quote, quote);
+        assert_eq!(fx.base_currency, base);
+        assert_eq!(fx.quote_currency, quote);
         assert_eq!(fx.pair_name(), expected_name);
     }
 }
@@ -181,8 +181,8 @@ fn test_clone_preserves_all_fields() {
     let cloned = fx.clone();
 
     assert_eq!(cloned.id.as_str(), fx.id.as_str());
-    assert_eq!(cloned.base, fx.base);
-    assert_eq!(cloned.quote, fx.quote);
+    assert_eq!(cloned.base_currency, fx.base_currency);
+    assert_eq!(cloned.quote_currency, fx.quote_currency);
     assert_eq!(cloned.notional, fx.notional);
     assert_eq!(cloned.spot_rate, fx.spot_rate);
     assert_eq!(cloned.settlement, fx.settlement);

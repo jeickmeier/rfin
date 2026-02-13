@@ -54,7 +54,7 @@ pub(super) fn build_payment_dates(
     include_sentinel: bool,
 ) -> Result<Vec<Date>> {
     let mut builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)?
-        .frequency(facility.payment_frequency)
+        .frequency(facility.frequency)
         .stub_rule(facility.stub_rule);
 
     if let Some(cal) = resolve_facility_calendar(&facility.attributes) {
@@ -265,7 +265,7 @@ mod tests {
             maturity_date: end,
             base_rate_spec,
             day_count: DayCount::Act360,
-            payment_frequency: payment_freq,
+            frequency: payment_freq,
             fees: super::super::types::RevolvingCreditFees::default(),
             draw_repay_spec: super::super::types::DrawRepaySpec::Deterministic(vec![]),
             discount_curve_id: "USD-OIS".into(),

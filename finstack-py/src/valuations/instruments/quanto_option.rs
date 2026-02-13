@@ -117,8 +117,8 @@ impl PyQuantoOption {
         builder = builder.option_type(opt_type);
         builder = builder.expiry(expiry_date);
         builder = builder.notional(notional_money);
-        builder = builder.domestic_currency(dom_currency);
-        builder = builder.foreign_currency(for_currency);
+        builder = builder.base_currency(dom_currency);
+        builder = builder.quote_currency(for_currency);
         builder = builder.correlation(correlation);
         builder = builder.day_count(DayCount::Act365F);
         builder = builder
@@ -128,7 +128,7 @@ impl PyQuantoOption {
         builder = builder.spot_id(spot_id.to_string());
         builder = builder.vol_surface_id(vol_surface_id);
         if let Some(div) = div_yield_id {
-            builder = builder.div_yield_id(div.to_string());
+            builder = builder.div_yield_id(CurveId::new(div.to_string()));
         }
         if let Some(fx_rate) = fx_rate_id {
             builder = builder.fx_rate_id(fx_rate.to_string());

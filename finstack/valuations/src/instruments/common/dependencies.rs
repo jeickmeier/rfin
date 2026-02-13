@@ -189,7 +189,7 @@ impl MarketDependencies {
             // FX
             InstrumentJson::FxSpot(i) => {
                 let mut deps = Self::from_curve_dependencies(i)?;
-                deps.add_fx_pair(i.base, i.quote);
+                deps.add_fx_pair(i.base_currency, i.quote_currency);
                 Ok(deps)
             }
             InstrumentJson::FxSwap(i) => {
@@ -217,7 +217,7 @@ impl MarketDependencies {
                 let mut deps = Self::from_curve_dependencies(i)?;
                 deps.add_spot_id(i.fx_spot_id.as_str());
                 deps.add_vol_surface_id(i.fx_vol_id.as_str());
-                deps.add_fx_pair(i.foreign_currency, i.domestic_currency);
+                deps.add_fx_pair(i.base_currency, i.quote_currency);
                 Ok(deps)
             }
             InstrumentJson::FxVarianceSwap(i) => {

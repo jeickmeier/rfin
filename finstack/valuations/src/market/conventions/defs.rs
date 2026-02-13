@@ -107,11 +107,13 @@ pub struct CdsConventions {
     /// The day count convention for the premium leg.
     pub day_count: DayCount,
     /// The business day convention.
-    pub business_day_convention: BusinessDayConvention,
+    #[serde(alias = "business_day_convention")]
+    pub bdc: BusinessDayConvention,
     /// The number of business days for settlement.
     pub settlement_days: i32,
     /// The payment frequency of the premium leg.
-    pub payment_frequency: Tenor,
+    #[serde(alias = "payment_frequency")]
+    pub frequency: Tenor,
 }
 
 /// Conventions for Options (Equity/Commodity/FX).

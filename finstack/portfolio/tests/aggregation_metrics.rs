@@ -19,7 +19,7 @@ fn summable_vs_non_summable_metrics() {
     let dep = Deposit::builder()
         .id("DEP_1M".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .start(as_of)
+        .start_date(as_of)
         .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())

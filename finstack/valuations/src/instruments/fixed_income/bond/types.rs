@@ -41,7 +41,8 @@ pub struct Bond {
     /// Principal amount of the bond.
     pub notional: Money,
     /// Issue date of the bond.
-    pub issue: Date,
+    #[serde(alias = "issue")]
+    pub issue_date: Date,
     /// Maturity date of the bond.
     pub maturity: Date,
     /// Cashflow specification (fixed, floating, or amortizing).
@@ -318,7 +319,7 @@ impl Bond {
         let bond = Self::builder()
             .id(id.into())
             .notional(notional)
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed_rate(
                 coupon_rate,
@@ -414,7 +415,7 @@ impl Bond {
         let bond = Self::builder()
             .id(id.into())
             .notional(notional)
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(cashflow_spec)
             .discount_curve_id(discount_curve_id.into())
@@ -500,7 +501,7 @@ impl Bond {
         let bond = Self::builder()
             .id(id.into())
             .notional(notional)
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::floating_bps(
                 index_id.into(),
@@ -679,7 +680,7 @@ impl Bond {
         Self::builder()
             .id(id.into())
             .notional(notional)
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(cashflow_spec)
             .discount_curve_id(discount_curve_id.into())
@@ -804,7 +805,7 @@ impl Bond {
 
         // Build the schedule using the cashflow builder and cashflow_spec
         let mut b = CashFlowSchedule::builder();
-        let _ = b.principal(self.notional, self.issue, self.maturity);
+        let _ = b.principal(self.notional, self.issue_date, self.maturity);
 
         // Match on the cashflow spec variant
         match &self.cashflow_spec {
@@ -925,12 +926,16 @@ impl Bond {
     /// ```
     pub fn validate(&self) -> Result<()> {
         // Validate date ordering
-        validation::validate_date_range_strict_with(self.issue, self.maturity, |start, end| {
-            format!(
-                "Bond issue date ({}) must be before maturity date ({})",
-                start, end
-            )
-        })?;
+        validation::validate_date_range_strict_with(
+            self.issue_date,
+            self.maturity,
+            |start, end| {
+                format!(
+                    "Bond issue date ({}) must be before maturity date ({})",
+                    start, end
+                )
+            },
+        )?;
 
         // Validate notional is positive
         validation::validate_money_gt_with(self.notional, 0.0, |amount| {
@@ -1045,7 +1050,7 @@ impl crate::instruments::common_impl::traits::Instrument for Bond {
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
-        Some(self.issue)
+        Some(self.issue_date)
     }
 }
 
@@ -1139,7 +1144,7 @@ mod tests {
         assert_eq!(bond.id.as_str(), "CUSTOM_STEPUP_BOND");
         assert_eq!(bond.discount_curve_id.as_str(), "USD-OIS");
         assert_eq!(bond.pricing_overrides.quoted_clean_price, Some(98.5));
-        assert_eq!(bond.issue, issue);
+        assert_eq!(bond.issue_date, issue);
         assert_eq!(bond.maturity, maturity);
         assert!(bond.custom_cashflows.is_some());
 
@@ -1203,7 +1208,7 @@ mod tests {
         let bond = Bond::builder()
             .id("PIK_TOGGLE_BOND".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::default())
             .custom_cashflows_opt(Some(custom_schedule))
@@ -1229,7 +1234,7 @@ mod tests {
         let mut bond = Bond::builder()
             .id(InstrumentId::new("REGULAR_BOND"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.04,
@@ -1281,7 +1286,7 @@ mod tests {
         let regular_bond = Bond::builder()
             .id(InstrumentId::new("TEST"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.03,
@@ -1505,7 +1510,7 @@ mod tests {
         let mut bond = Bond::builder()
             .id("AMORT-EX-COUPON".into())
             .notional(notional)
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(cashflow_spec)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -1665,7 +1670,7 @@ mod tests {
         let bond = Bond::builder()
             .id("AMORT-TEST".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(cashflow_spec)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -1771,7 +1776,7 @@ mod tests {
         let bullet_bond = Bond::builder()
             .id("BULLET-TEST".into())
             .notional(notional)
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(bullet_cashflow_spec)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -1802,7 +1807,7 @@ mod tests {
         let amort_bond = Bond::builder()
             .id("AMORT-TEST-PV".into())
             .notional(notional)
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(amort_spec)
             .discount_curve_id(CurveId::new("USD-OIS"))

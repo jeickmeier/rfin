@@ -17,7 +17,7 @@ fn test_zero_period_deposit() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .start(base)
+        .start_date(base)
         .end(base)
         .quote_rate(0.05)
         .build();
@@ -116,7 +116,7 @@ fn test_very_short_maturity_one_day() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .start(base)
+        .start_date(base)
         .end(date(2025, 1, 2))
         .quote_rate(0.03)
         .build();
@@ -177,7 +177,7 @@ fn test_pricing_on_start_date() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .start(start)
+        .start_date(start)
         .end(date(2025, 8, 1))
         .quote_rate(0.03)
         .build();
@@ -196,7 +196,7 @@ fn test_pricing_after_maturity() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(date(2024, 1, 1))
-        .start(date(2024, 1, 1))
+        .start_date(date(2024, 1, 1))
         .end(date(2024, 7, 1))
         .quote_rate(0.03)
         .build();
@@ -217,7 +217,7 @@ fn test_thirty360_with_end_of_month() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .start(date(2025, 1, 31))
+        .start_date(date(2025, 1, 31))
         .end(date(2025, 7, 31))
         .day_count(DayCount::Thirty360)
         .quote_rate(0.03)
@@ -239,7 +239,7 @@ fn test_leap_year_handling() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .start(base)
+        .start_date(base)
         .end(date(2024, 8, 29))
         .day_count(DayCount::Act365F)
         .quote_rate(0.03)
@@ -261,7 +261,7 @@ fn test_missing_quote_rate_defaults_to_zero() {
     let dep = Deposit::builder()
         .id(InstrumentId::new("DEP-NO-QUOTE"))
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .start(base)
+        .start_date(base)
         .end(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -392,7 +392,7 @@ fn test_bdc_adjustment_causes_effective_date_crossover() {
     let dep = Deposit::builder()
         .id(InstrumentId::new("DEP-CROSSOVER"))
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .start(date(2025, 1, 3)) // Friday - trade date
+        .start_date(date(2025, 1, 3)) // Friday - trade date
         .end(date(2025, 1, 6)) // Monday - just 1 business day after Friday
         .day_count(DayCount::Act360)
         .quote_rate_opt(Some(0.03))

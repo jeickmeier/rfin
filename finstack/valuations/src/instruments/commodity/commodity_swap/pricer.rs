@@ -64,6 +64,7 @@ impl Pricer for CommoditySwapDiscountingPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common_impl::parameters::legs::PayReceive;
     use crate::pricer::Pricer;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Tenor, TenorUnit};
@@ -81,10 +82,10 @@ mod tests {
             .notional_quantity(10000.0)
             .fixed_price(3.50)
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
-            .pay_fixed(true)
+            .side(PayReceive::PayFixed)
             .start_date(Date::from_calendar_date(2025, Month::January, 1).expect("valid date"))
             .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
-            .payment_frequency(Tenor::new(1, TenorUnit::Months))
+            .frequency(Tenor::new(1, TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(crate::instruments::common_impl::traits::Attributes::new())
             .build()

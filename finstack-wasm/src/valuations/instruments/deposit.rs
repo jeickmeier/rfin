@@ -90,7 +90,7 @@ impl JsDepositBuilder {
         Deposit::builder()
             .id(instrument_id_from_str(&self.instrument_id))
             .notional(notional)
-            .start(start)
+            .start_date(start)
             .end(end)
             .day_count(day_count)
             .discount_curve_id(curve_id_from_str(discount_curve))
@@ -166,7 +166,7 @@ impl JsDeposit {
         Deposit::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
-            .start(start.inner())
+            .start_date(start.inner())
             .end(end.inner())
             .day_count(day_count.inner())
             .discount_curve_id(curve_id_from_str(discount_curve))
@@ -239,7 +239,7 @@ impl JsDeposit {
 
     #[wasm_bindgen(getter)]
     pub fn start(&self) -> JsDate {
-        JsDate::from_core(self.inner.start)
+        JsDate::from_core(self.inner.start_date)
     }
 
     #[wasm_bindgen(getter)]
@@ -271,7 +271,7 @@ impl JsDeposit {
     pub fn to_string_js(&self) -> String {
         format!(
             "Deposit(id='{}', start='{}', end='{}', quote_rate={:?})",
-            self.inner.id, self.inner.start, self.inner.end, self.inner.quote_rate
+            self.inner.id, self.inner.start_date, self.inner.end, self.inner.quote_rate
         )
     }
 

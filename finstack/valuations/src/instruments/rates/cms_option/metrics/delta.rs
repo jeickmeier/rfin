@@ -20,11 +20,7 @@ impl MetricCalculator for DeltaCalculator {
         let base_pv = context.base_value.amount();
 
         // Determine which curve drives the forward rate
-        // If forward_curve_id is set, use it; otherwise use discount_curve_id
-        let curve_to_bump = option
-            .forward_curve_id
-            .as_ref()
-            .unwrap_or(&option.discount_curve_id);
+        let curve_to_bump = &option.forward_curve_id;
 
         // Bump the relevant curve by 1bp (parallel shift)
         let bump_bp = 1.0;

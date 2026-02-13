@@ -5,6 +5,7 @@
 //! the other pays a floating price based on an index.
 
 use crate::impl_instrument_base;
+use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, CalendarRegistry, Date, ScheduleBuilder, Tenor};
@@ -30,6 +31,7 @@ use finstack_core::Result;
 ///
 /// ```rust
 /// use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
+/// use finstack_valuations::instruments::legs::PayReceive;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::{Date, BusinessDayConvention, Tenor, TenorUnit};
 /// use finstack_core::types::{CurveId, InstrumentId};
@@ -44,18 +46,15 @@ use finstack_core::Result;
 ///     .notional_quantity(10000.0)
 ///     .fixed_price(3.50)
 ///     .floating_index_id(CurveId::new("NG-SPOT-AVG"))
-///     .pay_fixed(true)
+///     .side(PayReceive::PayFixed)
 ///     .start_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
 ///     .end_date(Date::from_calendar_date(2025, Month::December, 31).unwrap())
-///     .payment_frequency(Tenor::new(1, TenorUnit::Months))
+///     .frequency(Tenor::new(1, TenorUnit::Months))
 ///     .discount_curve_id(CurveId::new("USD-OIS"))
 ///     .build()
 ///     .expect("Valid swap");
 /// ```
-#[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
-)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize)]
 pub struct CommoditySwap {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -73,14 +72,16 @@ pub struct CommoditySwap {
     pub fixed_price: f64,
     /// Floating index ID for price lookups.
     pub floating_index_id: CurveId,
-    /// True if paying fixed (receiving floating), false if receiving fixed.
-    pub pay_fixed: bool,
+    /// Direction of the swap: PayFixed means paying the fixed price leg,
+    /// ReceiveFixed means receiving the fixed price leg.
+    pub side: PayReceive,
     /// Start date of the swap.
     pub start_date: Date,
     /// End date of the swap.
     pub end_date: Date,
     /// Payment frequency as a Tenor.
-    pub payment_frequency: Tenor,
+    #[serde(alias = "payment_frequency")]
+    pub frequency: Tenor,
     /// Optional calendar ID for date adjustments.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -100,6 +101,81 @@ pub struct CommoditySwap {
     pub attributes: Attributes,
 }
 
+/// Custom deserializer for CommoditySwap that accepts either `side`
+/// (PayReceive enum) or the legacy `pay_fixed` (bool) field.
+impl<'de> serde::Deserialize<'de> for CommoditySwap {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Helper {
+            id: InstrumentId,
+            commodity_type: String,
+            ticker: String,
+            unit: String,
+            currency: Currency,
+            notional_quantity: f64,
+            fixed_price: f64,
+            floating_index_id: CurveId,
+            /// New-style direction field (preferred).
+            #[serde(default)]
+            side: Option<PayReceive>,
+            /// Legacy boolean direction field (backward compat).
+            /// `true` = pay fixed (PayFixed), `false` = receive fixed (ReceiveFixed).
+            #[serde(default)]
+            pay_fixed: Option<bool>,
+            start_date: Date,
+            end_date: Date,
+            #[serde(alias = "payment_frequency")]
+            frequency: Tenor,
+            #[serde(default)]
+            calendar_id: Option<String>,
+            #[serde(default)]
+            bdc: Option<BusinessDayConvention>,
+            discount_curve_id: CurveId,
+            #[serde(default)]
+            index_lag_days: Option<i32>,
+            #[serde(default)]
+            attributes: Attributes,
+        }
+
+        let helper = Helper::deserialize(deserializer)?;
+
+        let side = match (helper.side, helper.pay_fixed) {
+            (Some(s), _) => s,
+            (None, Some(true)) => PayReceive::PayFixed,
+            (None, Some(false)) => PayReceive::ReceiveFixed,
+            (None, None) => {
+                return Err(serde::de::Error::custom(
+                    "CommoditySwap requires either `side` or `pay_fixed` field",
+                ));
+            }
+        };
+
+        Ok(CommoditySwap {
+            id: helper.id,
+            commodity_type: helper.commodity_type,
+            ticker: helper.ticker,
+            unit: helper.unit,
+            currency: helper.currency,
+            notional_quantity: helper.notional_quantity,
+            fixed_price: helper.fixed_price,
+            floating_index_id: helper.floating_index_id,
+            side,
+            start_date: helper.start_date,
+            end_date: helper.end_date,
+            frequency: helper.frequency,
+            calendar_id: helper.calendar_id,
+            bdc: helper.bdc,
+            discount_curve_id: helper.discount_curve_id,
+            index_lag_days: helper.index_lag_days,
+            attributes: helper.attributes,
+        })
+    }
+}
+
 impl CommoditySwap {
     /// Create a canonical example commodity swap for testing and documentation.
     ///
@@ -115,7 +191,7 @@ impl CommoditySwap {
             .notional_quantity(10000.0)
             .fixed_price(3.50)
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
-            .pay_fixed(true)
+            .side(PayReceive::PayFixed)
             .start_date(
                 Date::from_calendar_date(2025, time::Month::January, 1)
                     .expect("Valid example date"),
@@ -124,7 +200,7 @@ impl CommoditySwap {
                 Date::from_calendar_date(2025, time::Month::December, 31)
                     .expect("Valid example date"),
             )
-            .payment_frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
+            .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
             .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(
@@ -289,7 +365,7 @@ impl CommoditySwap {
         let bdc = self.bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing);
 
         let mut builder =
-            ScheduleBuilder::new(self.start_date, self.end_date)?.frequency(self.payment_frequency);
+            ScheduleBuilder::new(self.start_date, self.end_date)?.frequency(self.frequency);
 
         // Apply calendar adjustment if calendar_id is specified
         if let Some(ref cal_id) = self.calendar_id {
@@ -332,10 +408,11 @@ impl CommoditySwap {
             let forward_price =
                 self.expected_period_price(&price_curve, as_of, period_start, period_end)?;
 
-            let net_cashflow = if self.pay_fixed {
-                self.notional_quantity * (forward_price - self.fixed_price)
-            } else {
-                self.notional_quantity * (self.fixed_price - forward_price)
+            let net_cashflow = match self.side {
+                PayReceive::PayFixed => self.notional_quantity * (forward_price - self.fixed_price),
+                PayReceive::ReceiveFixed => {
+                    self.notional_quantity * (self.fixed_price - forward_price)
+                }
             };
 
             flows.push((payment_date, Money::new(net_cashflow, self.currency)));
@@ -368,12 +445,15 @@ impl crate::instruments::common_impl::traits::Instrument for CommoditySwap {
         let fixed_leg_pv = self.fixed_leg_pv(market, as_of)?;
         let floating_leg_pv = self.floating_leg_pv(market, as_of)?;
 
-        let npv = if self.pay_fixed {
-            // Pay fixed, receive floating
-            floating_leg_pv - fixed_leg_pv
-        } else {
-            // Receive fixed, pay floating
-            fixed_leg_pv - floating_leg_pv
+        let npv = match self.side {
+            PayReceive::PayFixed => {
+                // Pay fixed, receive floating
+                floating_leg_pv - fixed_leg_pv
+            }
+            PayReceive::ReceiveFixed => {
+                // Receive fixed, pay floating
+                fixed_leg_pv - floating_leg_pv
+            }
         };
 
         Ok(finstack_core::money::Money::new(npv, self.currency))
@@ -430,10 +510,10 @@ mod tests {
             .notional_quantity(1000.0)
             .fixed_price(70.0)
             .floating_index_id(CurveId::new("CL-AVG"))
-            .pay_fixed(true)
+            .side(PayReceive::PayFixed)
             .start_date(Date::from_calendar_date(2025, Month::January, 1).expect("valid date"))
             .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
-            .payment_frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
+            .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(Attributes::new())
             .build()
@@ -443,7 +523,7 @@ mod tests {
         assert_eq!(swap.ticker, "CL");
         assert_eq!(swap.notional_quantity, 1000.0);
         assert_eq!(swap.fixed_price, 70.0);
-        assert!(swap.pay_fixed);
+        assert_eq!(swap.side, PayReceive::PayFixed);
     }
 
     #[test]
@@ -470,10 +550,10 @@ mod tests {
             .notional_quantity(10000.0)
             .fixed_price(3.50) // Same as spot
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
-            .pay_fixed(true)
+            .side(PayReceive::PayFixed)
             .start_date(as_of)
             .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
-            .payment_frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
+            .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
             .expect("should build");
@@ -503,10 +583,10 @@ mod tests {
             .notional_quantity(10000.0)
             .fixed_price(3.55)
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
-            .pay_fixed(true)
+            .side(PayReceive::PayFixed)
             .start_date(as_of)
             .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
-            .payment_frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
+            .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
             .expect("should build");
@@ -520,10 +600,10 @@ mod tests {
             .notional_quantity(10000.0)
             .fixed_price(3.55)
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
-            .pay_fixed(false) // Receiving fixed
+            .side(PayReceive::ReceiveFixed) // Receiving fixed
             .start_date(as_of)
             .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
-            .payment_frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
+            .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
             .expect("should build");
@@ -554,10 +634,10 @@ mod tests {
             .notional_quantity(10000.0)
             .fixed_price(3.50)
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
-            .pay_fixed(true)
+            .side(PayReceive::PayFixed)
             .start_date(as_of)
             .end_date(Date::from_calendar_date(2025, Month::March, 31).expect("valid date"))
-            .payment_frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
+            .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
             .expect("should build");

@@ -23,7 +23,7 @@ fn test_interest_on_drawn_amounts() {
         .maturity_date(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 0.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -56,7 +56,7 @@ fn test_commitment_fee_on_undrawn() {
         .maturity_date(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(50.0, 10.0, 0.0)) // High commitment fee
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -89,7 +89,7 @@ fn test_utilization_fee_at_threshold() {
         .maturity_date(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 15.0)) // Utilization fee above threshold
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())

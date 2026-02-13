@@ -18,12 +18,12 @@ fn test_matured_swap_has_zero_pv() {
     let swap = InflationSwap::builder()
         .id("ZCINF-MATURED".into())
         .notional(standard_notional())
-        .start(Date::from_calendar_date(2015, Month::January, 1).unwrap())
+        .start_date(Date::from_calendar_date(2015, Month::January, 1).unwrap())
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -47,12 +47,12 @@ fn test_very_short_maturity() {
     let swap = InflationSwap::builder()
         .id("ZCINF-SHORT".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -75,12 +75,12 @@ fn test_very_long_maturity() {
     let swap = InflationSwap::builder()
         .id("ZCINF-LONG".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -102,12 +102,12 @@ fn test_very_high_fixed_rate() {
     let swap = InflationSwap::builder()
         .id("ZCINF-HIGHRATE".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.50) // 50% real rate (extreme)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::ReceiveFixed)
         .attributes(Attributes::new())
         .build()
@@ -131,12 +131,12 @@ fn test_very_low_negative_fixed_rate() {
     let swap = InflationSwap::builder()
         .id("ZCINF-NEGRATE".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(-0.10) // -10% real rate (extreme but valid)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -158,12 +158,12 @@ fn test_very_small_notional() {
     let swap = InflationSwap::builder()
         .id("ZCINF-SMALL".into())
         .notional(Money::new(1.0, Currency::USD)) // $1 notional
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -189,12 +189,12 @@ fn test_very_large_notional() {
     let swap = InflationSwap::builder()
         .id("ZCINF-LARGE".into())
         .notional(Money::new(1_000_000_000_000.0, Currency::USD)) // $1 trillion
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -213,30 +213,36 @@ fn test_start_equals_maturity() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let swap = InflationSwap::builder()
+    // Zero tenor swaps (start == maturity) may be rejected at build time
+    // or at pricing time depending on implementation. Both are acceptable.
+    let build_result = InflationSwap::builder()
         .id("ZCINF-SAME".into())
         .notional(standard_notional())
-        .start(same_date)
+        .start_date(same_date)
         .maturity(same_date)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
-        .build()
-        .unwrap();
+        .build();
 
-    // Zero tenor swaps may produce non-zero PV or error depending on implementation
-    // This is an edge case - just verify it doesn't panic
-    let result = swap.value(&ctx, as_of);
-
-    match result {
-        Ok(pv) => {
-            assert!(pv.amount().is_finite(), "Zero tenor PV should be finite");
-        }
+    match build_result {
         Err(_) => {
-            // Also acceptable to error on zero tenor
+            // Acceptable to reject zero-tenor swap at build time
+        }
+        Ok(swap) => {
+            // If build succeeds, pricing may still produce an error or a finite PV
+            let result = swap.value(&ctx, as_of);
+            match result {
+                Ok(pv) => {
+                    assert!(pv.amount().is_finite(), "Zero tenor PV should be finite");
+                }
+                Err(_) => {
+                    // Also acceptable to error on zero tenor at pricing time
+                }
+            }
         }
     }
 }
@@ -251,12 +257,12 @@ fn test_pricing_on_maturity_date() {
     let swap = InflationSwap::builder()
         .id("ZCINF-ONMAT".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -280,12 +286,12 @@ fn test_pricing_after_start_before_maturity() {
     let swap = InflationSwap::builder()
         .id("ZCINF-MID".into())
         .notional(standard_notional())
-        .start(start)
+        .start_date(start)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -308,12 +314,12 @@ fn test_zero_inflation_rate() {
     let swap = InflationSwap::builder()
         .id("ZCINF-ZEROINFL".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -337,12 +343,12 @@ fn test_very_high_inflation_rate() {
     let swap = InflationSwap::builder()
         .id("ZCINF-HIGHINFL".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -367,12 +373,12 @@ fn test_deflation_scenario() {
     let swap = InflationSwap::builder()
         .id("ZCINF-DEFL".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -395,12 +401,12 @@ fn test_flat_discount_curve_zero_rate() {
     let swap = InflationSwap::builder()
         .id("ZCINF-ZERODISC".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -423,12 +429,12 @@ fn test_swap_with_multiple_currencies() {
     let swap_eur = InflationSwap::builder()
         .id("ZCINF-EUR".into())
         .notional(Money::new(1_000_000.0, Currency::EUR))
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()

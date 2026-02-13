@@ -20,7 +20,7 @@
       "settlement": "Cash",
       "vol_model": "Black",
       "discount_curve_id": "USD-OIS",
-      "forward_id": "USD-SOFR-3M",
+      "forward_curve_id": "USD-SOFR-3M",
       "vol_surface_id": "USD-SWPNVOL",
       "pricing_overrides": {
         "quoted_clean_price": null,

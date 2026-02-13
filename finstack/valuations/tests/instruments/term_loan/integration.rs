@@ -28,10 +28,10 @@ fn build_simple_term_loan(as_of: Date, maturity: Date) -> TermLoan {
         .id("TL-METRICS".into())
         .currency(Currency::USD)
         .notional_limit(Money::new(10_000_000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .rate(term_loan::RateSpec::Fixed { rate_bp: 600 }) // 6%
-        .pay_freq(Tenor::semi_annual())
+        .frequency(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -149,7 +149,7 @@ fn test_floating_rate_term_loan_yield_and_dm() {
         .id("TL-FLOAT-DM".into())
         .currency(Currency::USD)
         .notional_limit(Money::new(10_000_000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .rate(RateSpec::Floating(FloatingRateSpec {
             index_id: CurveId::from("USD-SOFR"),
@@ -170,7 +170,7 @@ fn test_floating_rate_term_loan_yield_and_dm() {
             overnight_compounding: None,
             payment_lag_days: 0,
         }))
-        .pay_freq(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)

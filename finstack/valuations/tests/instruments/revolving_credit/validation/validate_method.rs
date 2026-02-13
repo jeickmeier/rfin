@@ -27,7 +27,7 @@ fn valid_facility() -> RevolvingCredit {
         .maturity_date(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())

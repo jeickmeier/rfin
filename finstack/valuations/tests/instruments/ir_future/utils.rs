@@ -63,7 +63,7 @@ pub fn create_standard_future(start: Date, end: Date) -> InterestRateFuture {
             ..FutureContractSpecs::default()
         },
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         volatility_id: None,
         attributes: Default::default(),
     }
@@ -94,7 +94,7 @@ pub fn create_custom_future(
             ..FutureContractSpecs::default()
         },
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         volatility_id: None,
         attributes: Default::default(),
     }

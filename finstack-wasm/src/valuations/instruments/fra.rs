@@ -5,6 +5,7 @@ use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
+use finstack_valuations::instruments::legs::PayReceive;
 use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
@@ -136,7 +137,7 @@ impl JsForwardRateAgreementBuilder {
             .start_date(start_date)
             .end_date(end_date)
             .discount_curve_id(curve_id_from_str(discount_curve))
-            .forward_id(curve_id_from_str(forward_curve));
+            .forward_curve_id(curve_id_from_str(forward_curve));
 
         if let Some(dc) = self.day_count {
             builder = builder.day_count(dc);
@@ -145,7 +146,11 @@ impl JsForwardRateAgreementBuilder {
             builder = builder.reset_lag(lag);
         }
         if let Some(receive) = self.receive_fixed {
-            builder = builder.receive_fixed(receive);
+            builder = builder.side(if receive {
+                PayReceive::ReceiveFixed
+            } else {
+                PayReceive::PayFixed
+            });
         }
 
         builder
@@ -238,7 +243,7 @@ impl JsForwardRateAgreement {
             .start_date(start_date.inner())
             .end_date(end_date.inner())
             .discount_curve_id(curve_id_from_str(discount_curve))
-            .forward_id(curve_id_from_str(forward_curve));
+            .forward_curve_id(curve_id_from_str(forward_curve));
 
         if let Some(dc) = day_count {
             builder = builder.day_count(dc.inner());
@@ -247,7 +252,11 @@ impl JsForwardRateAgreement {
             builder = builder.reset_lag(lag);
         }
         if let Some(receive) = receive_fixed {
-            builder = builder.receive_fixed(receive);
+            builder = builder.side(if receive {
+                PayReceive::ReceiveFixed
+            } else {
+                PayReceive::PayFixed
+            });
         }
 
         builder
@@ -344,7 +353,7 @@ impl JsForwardRateAgreement {
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]
     pub fn forward_curve(&self) -> String {
-        self.inner.forward_id.as_str().to_string()
+        self.inner.forward_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

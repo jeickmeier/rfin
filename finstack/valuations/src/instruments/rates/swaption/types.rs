@@ -480,7 +480,8 @@ pub struct Swaption {
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
     /// Forward curve ID for floating rate projections
-    pub forward_id: CurveId,
+    #[serde(alias = "forward_id")]
+    pub forward_curve_id: CurveId,
     /// Volatility surface ID for option pricing
     pub vol_surface_id: CurveId,
     /// Holiday calendar ID for schedule generation.
@@ -531,7 +532,7 @@ impl Swaption {
             cash_settlement_method: CashSettlementMethod::default(),
             vol_model: VolatilityModel::Black,
             discount_curve_id: CurveId::new("USD-OIS"),
-            forward_id: CurveId::new("USD-SOFR-3M"),
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
             vol_surface_id: CurveId::new("USD-SWPNVOL"),
             calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
@@ -545,7 +546,7 @@ impl Swaption {
         id: impl Into<InstrumentId>,
         params: &SwaptionParams,
         discount_curve_id: impl Into<CurveId>,
-        forward_id: impl Into<CurveId>,
+        forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         let mut s = Self {
@@ -563,7 +564,7 @@ impl Swaption {
             settlement: SwaptionSettlement::Physical,
             cash_settlement_method: CashSettlementMethod::default(),
             discount_curve_id: discount_curve_id.into(),
-            forward_id: forward_id.into(),
+            forward_curve_id: forward_curve_id.into(),
             vol_surface_id: vol_surface_id.into(),
             calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
@@ -591,7 +592,7 @@ impl Swaption {
         id: impl Into<InstrumentId>,
         params: &SwaptionParams,
         discount_curve_id: impl Into<CurveId>,
-        forward_id: impl Into<CurveId>,
+        forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         let mut s = Self {
@@ -609,7 +610,7 @@ impl Swaption {
             settlement: SwaptionSettlement::Physical,
             cash_settlement_method: CashSettlementMethod::default(),
             discount_curve_id: discount_curve_id.into(),
-            forward_id: forward_id.into(),
+            forward_curve_id: forward_curve_id.into(),
             vol_surface_id: vol_surface_id.into(),
             calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
@@ -993,13 +994,13 @@ impl Swaption {
         }
 
         // Single-curve optimization
-        if self.forward_id == self.discount_curve_id {
+        if self.forward_curve_id == self.discount_curve_id {
             let df_start = relative_df_discounting(disc.as_ref(), as_of, self.swap_start)?;
             let df_end = relative_df_discounting(disc.as_ref(), as_of, self.swap_end)?;
             return Ok((df_start - df_end) / annuity);
         }
 
-        let fwd = curves.get_forward(self.forward_id.as_ref())?;
+        let fwd = curves.get_forward(self.forward_curve_id.as_ref())?;
         let fwd_dc = fwd.day_count();
         let sched = crate::cashflow::builder::build_dates(
             self.swap_start,
@@ -1176,7 +1177,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for Swaption {
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
-            .forward(self.forward_id.clone())
+            .forward(self.forward_curve_id.clone())
             .build()
     }
 }
@@ -1237,7 +1238,8 @@ pub struct BermudanSwaption {
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
     /// Forward curve ID for floating rate projections
-    pub forward_id: CurveId,
+    #[serde(alias = "forward_id")]
+    pub forward_curve_id: CurveId,
     /// Volatility surface ID for calibration
     pub vol_surface_id: CurveId,
     /// Bermudan exercise schedule
@@ -1284,7 +1286,7 @@ impl BermudanSwaption {
             day_count: DayCount::Thirty360,
             settlement: SwaptionSettlement::Physical,
             discount_curve_id: CurveId::new("USD-OIS"),
-            forward_id: CurveId::new("USD-SOFR-3M"),
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
             vol_surface_id: CurveId::new("USD-SWPNVOL"),
             bermudan_schedule: BermudanSchedule::co_terminal(
                 first_exercise,
@@ -1309,7 +1311,7 @@ impl BermudanSwaption {
         swap_end: Date,
         bermudan_schedule: BermudanSchedule,
         discount_curve_id: impl Into<CurveId>,
-        forward_id: impl Into<CurveId>,
+        forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         Self {
@@ -1324,7 +1326,7 @@ impl BermudanSwaption {
             day_count: DayCount::Thirty360,
             settlement: SwaptionSettlement::Physical,
             discount_curve_id: discount_curve_id.into(),
-            forward_id: forward_id.into(),
+            forward_curve_id: forward_curve_id.into(),
             vol_surface_id: vol_surface_id.into(),
             bermudan_schedule,
             bermudan_type: BermudanType::CoTerminal,
@@ -1344,7 +1346,7 @@ impl BermudanSwaption {
         swap_end: Date,
         bermudan_schedule: BermudanSchedule,
         discount_curve_id: impl Into<CurveId>,
-        forward_id: impl Into<CurveId>,
+        forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         Self {
@@ -1359,7 +1361,7 @@ impl BermudanSwaption {
             day_count: DayCount::Thirty360,
             settlement: SwaptionSettlement::Physical,
             discount_curve_id: discount_curve_id.into(),
-            forward_id: forward_id.into(),
+            forward_curve_id: forward_curve_id.into(),
             vol_surface_id: vol_surface_id.into(),
             bermudan_schedule,
             bermudan_type: BermudanType::CoTerminal,
@@ -1525,13 +1527,13 @@ impl BermudanSwaption {
         }
 
         // Single-curve optimization
-        if self.forward_id == self.discount_curve_id {
+        if self.forward_curve_id == self.discount_curve_id {
             let df_start = relative_df_discounting(disc.as_ref(), as_of, exercise_date)?;
             let df_end = relative_df_discounting(disc.as_ref(), as_of, self.swap_end)?;
             return Ok((df_start - df_end) / annuity);
         }
 
-        let fwd = curves.get_forward(self.forward_id.as_ref())?;
+        let fwd = curves.get_forward(self.forward_curve_id.as_ref())?;
         let fwd_dc = fwd.day_count();
         let periods = crate::cashflow::builder::periods::build_periods(
             crate::cashflow::builder::periods::BuildPeriodsParams {
@@ -1612,7 +1614,7 @@ impl BermudanSwaption {
             cash_settlement_method: CashSettlementMethod::default(),
             vol_model: VolatilityModel::Black,
             discount_curve_id: self.discount_curve_id.clone(),
-            forward_id: self.forward_id.clone(),
+            forward_curve_id: self.forward_curve_id.clone(),
             vol_surface_id: self.vol_surface_id.clone(),
             calendar_id: self.calendar_id.clone(),
             pricing_overrides: self.pricing_overrides.clone(),
@@ -1658,7 +1660,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for BermudanSwap
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
-            .forward(self.forward_id.clone())
+            .forward(self.forward_curve_id.clone())
             .build()
     }
 }

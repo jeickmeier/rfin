@@ -47,10 +47,10 @@ pub struct CmsOption {
 
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
-    /// Optional forward/projection curve ID (defaults to discount curve if not provided)
-    pub forward_curve_id: Option<CurveId>,
-    /// Optional volatility surface ID for CMS rates
-    pub vol_surface_id: Option<CurveId>, // Optional volatility surface for CMS rates
+    /// Forward/projection curve ID for CMS rate projection
+    pub forward_curve_id: CurveId,
+    /// Volatility surface ID for CMS rates
+    pub vol_surface_id: CurveId,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
@@ -95,7 +95,7 @@ impl CmsOption {
             .swap_float_day_count_opt(Some(DayCount::Act360))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .forward_curve_id(CurveId::new("USD-LIBOR-3M"))
-            .vol_surface_id_opt(Some(CurveId::new("USD-CMS10Y-VOL")))
+            .vol_surface_id(CurveId::new("USD-CMS10Y-VOL"))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -134,9 +134,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for CmsOption {
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder();
         builder = builder.discount(self.discount_curve_id.clone());
-        if let Some(fwd) = &self.forward_curve_id {
-            builder = builder.forward(fwd.clone());
-        }
+        builder = builder.forward(self.forward_curve_id.clone());
         builder.build()
     }
 }

@@ -99,7 +99,7 @@ fn test_accrued_frn_uses_forward_rate() {
     let bond = Bond::builder()
         .id("FRN1".into())
         .notional(Money::new(100.0, Currency::USD))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(date!(2026 - 01 - 01))
         .cashflow_spec(CashflowSpec::floating(
             CurveId::new("USD-SOFR-3M"),

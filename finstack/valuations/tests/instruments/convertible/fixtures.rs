@@ -175,7 +175,7 @@ pub fn create_convertible_with_policy(policy: ConversionPolicy) -> ConvertibleBo
     ConvertibleBond {
         id: "TEST_CONVERTIBLE".to_string().into(),
         notional: Money::new(bond_params::NOTIONAL, Currency::USD),
-        issue,
+        issue_date: issue,
         maturity,
         discount_curve_id: "USD-OIS".into(),
         credit_curve_id: None,
@@ -218,7 +218,7 @@ pub fn create_convertible_with_conversion_price() -> ConvertibleBond {
     ConvertibleBond {
         id: "TEST_CONVERTIBLE_PRICE".to_string().into(),
         notional: Money::new(bond_params::NOTIONAL, Currency::USD),
-        issue,
+        issue_date: issue,
         maturity,
         discount_curve_id: "USD-OIS".into(),
         credit_curve_id: None,
@@ -274,7 +274,7 @@ pub fn create_floating_convertible() -> ConvertibleBond {
     ConvertibleBond {
         id: "TEST_FLOATING_CONVERTIBLE".to_string().into(),
         notional: Money::new(bond_params::NOTIONAL, Currency::USD),
-        issue,
+        issue_date: issue,
         maturity,
         discount_curve_id: "USD-OIS".into(),
         credit_curve_id: None,
@@ -364,7 +364,7 @@ pub fn create_zero_coupon_convertible() -> ConvertibleBond {
     ConvertibleBond {
         id: "TEST_ZERO_COUPON".to_string().into(),
         notional: Money::new(bond_params::NOTIONAL, Currency::USD),
-        issue,
+        issue_date: issue,
         maturity,
         discount_curve_id: "USD-OIS".into(),
         credit_curve_id: None,

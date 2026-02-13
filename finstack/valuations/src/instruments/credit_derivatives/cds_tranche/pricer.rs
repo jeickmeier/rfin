@@ -1950,9 +1950,9 @@ impl CDSTranchePricer {
             build_dates(
                 start_date,
                 tranche.maturity,
-                tranche.payment_frequency,
+                tranche.frequency,
                 self.params.schedule_stub,
-                tranche.business_day_convention,
+                tranche.bdc,
                 false,
                 0,
                 tranche

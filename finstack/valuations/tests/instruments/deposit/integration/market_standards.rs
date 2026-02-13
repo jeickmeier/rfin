@@ -18,7 +18,7 @@ fn test_standard_usd_3m_deposit() {
 
     let dep = DepositBuilder::new(base)
         .notional(Money::new(10_000_000.0, Currency::USD))
-        .start(base)
+        .start_date(base)
         .end(date(2025, 4, 1))
         .day_count(DayCount::Act360)
         .quote_rate(0.02)
@@ -50,7 +50,7 @@ fn test_standard_eur_6m_deposit() {
 
     let dep = DepositBuilder::new(base)
         .notional(Money::new(10_000_000.0, Currency::EUR))
-        .start(base)
+        .start_date(base)
         .end(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .quote_rate(0.015)
@@ -73,7 +73,7 @@ fn test_overnight_deposit_libor_style() {
 
     let dep = DepositBuilder::new(base)
         .notional(Money::new(50_000_000.0, Currency::USD))
-        .start(base)
+        .start_date(base)
         .end(date(2025, 1, 2))
         .day_count(DayCount::Act360)
         .quote_rate(0.05)
@@ -95,7 +95,7 @@ fn test_deposit_rate_convention_act360() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .start(base)
+        .start_date(base)
         .end(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .quote_rate(0.03)
@@ -168,7 +168,7 @@ fn test_simple_interest_calculation() {
 
     let dep = DepositBuilder::new(base)
         .notional(Money::new(notional, Currency::USD))
-        .start(base)
+        .start_date(base)
         .end(date(2025, 7, 1))
         .quote_rate(rate)
         .build();
@@ -281,7 +281,7 @@ fn test_usd_deposit_friday_trade_with_nyse_calendar() {
     let dep = Deposit::builder()
         .id(InstrumentId::new("DEP-USD-1M-FRIDAY"))
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .start(trade_date) // Will be adjusted by spot lag
+        .start_date(trade_date) // Will be adjusted by spot lag
         .end(date(2025, 2, 7)) // 1 month maturity from spot
         .day_count(DayCount::Act360)
         .quote_rate_opt(Some(0.02))
@@ -355,7 +355,7 @@ fn test_deposit_without_spot_lag_uses_raw_dates() {
     let dep = Deposit::builder()
         .id(InstrumentId::new("DEP-USD-RAW"))
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .start(trade_date)
+        .start_date(trade_date)
         .end(date(2025, 2, 3))
         .day_count(DayCount::Act360)
         .quote_rate_opt(Some(0.02))
@@ -389,7 +389,7 @@ fn test_gbp_deposit_t0_settlement() {
     let dep = Deposit::builder()
         .id(InstrumentId::new("DEP-GBP-1M"))
         .notional(Money::new(1_000_000.0, Currency::GBP))
-        .start(trade_date)
+        .start_date(trade_date)
         .end(date(2025, 2, 3))
         .day_count(DayCount::Act365F) // GBP uses Act/365
         .quote_rate_opt(Some(0.02))
@@ -441,7 +441,7 @@ fn test_modified_following_eom_adjustment() {
     let dep = Deposit::builder()
         .id(InstrumentId::new("DEP-USD-EOM"))
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .start(trade_date)
+        .start_date(trade_date)
         .end(date(2026, 1, 31)) // Saturday - should roll back to Friday Jan 30
         .day_count(DayCount::Act360)
         .quote_rate_opt(Some(0.02))

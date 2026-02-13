@@ -11,7 +11,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::{ExerciseStyle, PricingOverrides, SettlementType};
+use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use time::macros::date;
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
@@ -65,10 +65,10 @@ fn create_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     }
 }
@@ -89,10 +89,10 @@ fn create_floor(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     }
 }
@@ -253,10 +253,10 @@ fn test_caplet_floorlet_parity() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -275,10 +275,10 @@ fn test_caplet_floorlet_parity() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 

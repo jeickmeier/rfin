@@ -10,7 +10,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::{ExerciseStyle, PricingOverrides, SettlementType};
+use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -65,10 +65,10 @@ fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOptio
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     }
 }
@@ -119,10 +119,10 @@ fn test_floor_vega_positive() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 

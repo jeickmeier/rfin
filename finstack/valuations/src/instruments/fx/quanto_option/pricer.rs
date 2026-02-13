@@ -117,7 +117,7 @@ impl Pricer for QuantoOptionAnalyticalPricer {
             return Ok(ValuationResult::stamped(
                 quanto.id(),
                 as_of,
-                Money::new(0.0, quanto.domestic_currency),
+                Money::new(0.0, quanto.quote_currency),
             ));
         }
 
@@ -146,7 +146,7 @@ impl Pricer for QuantoOptionAnalyticalPricer {
             ),
         };
 
-        let pv = Money::new(price * quanto.notional.amount(), quanto.domestic_currency);
+        let pv = Money::new(price * quanto.notional.amount(), quanto.quote_currency);
         Ok(ValuationResult::stamped(quanto.id(), as_of, pv))
     }
 }

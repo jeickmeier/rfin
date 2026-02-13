@@ -10,6 +10,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
+use finstack_valuations::instruments::rates::irs::PayReceive;
 use time::macros::date;
 
 /// Standard test base date
@@ -110,8 +111,8 @@ pub fn create_standard_fra() -> ForwardRateAgreement {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true, // true = receive fixed rate, pay floating
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed, // receive fixed rate, pay floating
         attributes: Default::default(),
     }
 }
@@ -128,8 +129,8 @@ pub struct TestFraBuilder {
     day_count: DayCount,
     reset_lag: i32,
     discount_curve_id: String,
-    forward_id: String,
-    receive_fixed: bool,
+    forward_curve_id: String,
+    side: PayReceive,
 }
 
 impl Default for TestFraBuilder {
@@ -145,8 +146,8 @@ impl Default for TestFraBuilder {
             day_count: DayCount::Act360,
             reset_lag: 2,
             discount_curve_id: "USD_OIS".to_string(),
-            forward_id: "USD_LIBOR_3M".to_string(),
-            receive_fixed: true, // true = receive fixed rate
+            forward_curve_id: "USD_LIBOR_3M".to_string(),
+            side: PayReceive::ReceiveFixed, // receive fixed rate
         }
     }
 }
@@ -185,13 +186,17 @@ impl TestFraBuilder {
 
     pub fn curves(mut self, disc: &str, fwd: &str) -> Self {
         self.discount_curve_id = disc.to_string();
-        self.forward_id = fwd.to_string();
+        self.forward_curve_id = fwd.to_string();
         self
     }
 
     /// Set the FRA direction: true = receive fixed rate, false = pay fixed rate.
     pub fn receive_fixed(mut self, receive: bool) -> Self {
-        self.receive_fixed = receive;
+        self.side = if receive {
+            PayReceive::ReceiveFixed
+        } else {
+            PayReceive::PayFixed
+        };
         self
     }
 
@@ -209,8 +214,8 @@ impl TestFraBuilder {
             fixing_bdc: None,
             observed_fixing: None,
             discount_curve_id: self.discount_curve_id.into(),
-            forward_id: self.forward_id.into(),
-            receive_fixed: self.receive_fixed,
+            forward_curve_id: self.forward_curve_id.into(),
+            side: self.side,
             attributes: Default::default(),
         }
     }

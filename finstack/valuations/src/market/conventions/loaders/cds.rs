@@ -16,7 +16,8 @@ struct CdsConventionsRecord {
     doc_clause: CdsDocClause,
     day_count: DayCount,
     payment_frequency: String,
-    business_day_convention: BusinessDayConvention,
+    #[serde(alias = "business_day_convention")]
+    bdc: BusinessDayConvention,
     #[allow(dead_code)]
     stub_convention: String,
     settlement_days: i32,
@@ -35,9 +36,9 @@ impl CdsConventionsRecord {
         Ok(CdsConventions {
             calendar_id: self.calendar_id,
             day_count: self.day_count,
-            business_day_convention: self.business_day_convention,
+            bdc: self.bdc,
             settlement_days: self.settlement_days,
-            payment_frequency,
+            frequency: payment_frequency,
         })
     }
 }

@@ -564,7 +564,7 @@ impl PyConvertibleBondBuilder {
         let bond = ConvertibleBond {
             id: slf.instrument_id.clone(),
             notional: slf.notional.unwrap(),
-            issue: slf.issue.unwrap(),
+            issue_date: slf.issue.unwrap(),
             maturity: slf.maturity.unwrap(),
             discount_curve_id: slf.discount_curve_id.clone().unwrap(),
             credit_curve_id: None,
@@ -636,7 +636,7 @@ impl PyConvertibleBond {
 
     #[getter]
     fn issue(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.issue)
+        date_to_py(py, self.inner.issue_date)
     }
 
     #[getter]

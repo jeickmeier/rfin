@@ -26,7 +26,7 @@ fn test_instrument_type_price_shock_matching() {
             Bond::builder()
                 .id("BOND1".into())
                 .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .issue(base_date)
+                .issue_date(base_date)
                 .maturity(base_date + time::Duration::days(365))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.05,
@@ -44,7 +44,7 @@ fn test_instrument_type_price_shock_matching() {
             Bond::builder()
                 .id("BOND2".into())
                 .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .issue(base_date)
+                .issue_date(base_date)
                 .maturity(base_date + time::Duration::days(730))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.04,
@@ -118,7 +118,7 @@ fn test_instrument_type_spread_shock_matching() {
         Bond::builder()
             .id("BOND1".into())
             .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-            .issue(base_date)
+            .issue_date(base_date)
             .maturity(base_date + time::Duration::days(365))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
@@ -190,7 +190,7 @@ fn test_instrument_attr_price_shock_matching() {
             Bond::builder()
                 .id("ENERGY_BBB".into())
                 .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .issue(base_date)
+                .issue_date(base_date)
                 .maturity(base_date + time::Duration::days(365))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.05,
@@ -212,7 +212,7 @@ fn test_instrument_attr_price_shock_matching() {
             Bond::builder()
                 .id("TECH_AA".into())
                 .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .issue(base_date)
+                .issue_date(base_date)
                 .maturity(base_date + time::Duration::days(365))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.05,
@@ -279,7 +279,7 @@ fn test_instrument_attr_price_shock_no_matches() {
         Bond::builder()
             .id("ENERGY_BBB".into())
             .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-            .issue(base_date)
+            .issue_date(base_date)
             .maturity(base_date + time::Duration::days(365))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
@@ -365,7 +365,7 @@ fn test_instrument_shock_no_matching_types() {
         Bond::builder()
             .id("BOND1".into())
             .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-            .issue(base_date)
+            .issue_date(base_date)
             .maturity(base_date + time::Duration::days(365))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
@@ -450,7 +450,7 @@ fn test_instrument_shock_multiple_types() {
             Bond::builder()
                 .id("BOND1".into())
                 .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .issue(base_date)
+                .issue_date(base_date)
                 .maturity(base_date + time::Duration::days(365))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.05,
@@ -468,7 +468,7 @@ fn test_instrument_shock_multiple_types() {
             Bond::builder()
                 .id("BOND2".into())
                 .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .issue(base_date)
+                .issue_date(base_date)
                 .maturity(base_date + time::Duration::days(730))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.04,

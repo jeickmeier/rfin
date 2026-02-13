@@ -386,7 +386,7 @@ impl JsBondBuilder {
         let mut builder = Bond::builder()
             .id(instrument_id_from_str(&self.instrument_id))
             .notional(notional)
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(cashflow_spec)
             .discount_curve_id(curve_id_from_str(discount_curve));
@@ -508,7 +508,7 @@ impl JsBond {
     pub fn new(
         instrument_id: &str,
         notional: &JsMoney,
-        issue: &JsDate,
+        issue_date: &JsDate,
         maturity: &JsDate,
         discount_curve: &str,
         coupon_rate: Option<f64>,
@@ -608,7 +608,7 @@ impl JsBond {
         let mut builder = Bond::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
-            .issue(issue.inner())
+            .issue_date(issue_date.inner())
             .maturity(maturity.inner())
             .cashflow_spec(cashflow_spec)
             .discount_curve_id(curve_id_from_str(discount_curve));
@@ -716,7 +716,7 @@ impl JsBond {
 
     #[wasm_bindgen(getter)]
     pub fn issue(&self) -> JsDate {
-        JsDate::from_core(self.inner.issue)
+        JsDate::from_core(self.inner.issue_date)
     }
 
     #[wasm_bindgen(getter)]

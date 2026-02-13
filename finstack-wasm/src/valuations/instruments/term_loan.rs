@@ -163,7 +163,7 @@ impl JsTermLoan {
     /// Get the issue date.
     #[wasm_bindgen(getter)]
     pub fn issue(&self) -> JsDate {
-        JsDate::from_core(self.inner.issue)
+        JsDate::from_core(self.inner.issue_date)
     }
 
     /// Get the maturity date.
@@ -189,7 +189,7 @@ impl JsTermLoan {
     pub fn to_string_js(&self) -> String {
         format!(
             "TermLoan(id='{}', issue='{}', maturity='{}')",
-            self.inner.id, self.inner.issue, self.inner.maturity
+            self.inner.id, self.inner.issue_date, self.inner.maturity
         )
     }
 

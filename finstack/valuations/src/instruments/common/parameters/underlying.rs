@@ -81,7 +81,7 @@ pub struct EquityUnderlyingParams {
     /// Spot price identifier in market data
     pub spot_id: String,
     /// Optional dividend yield identifier
-    pub div_yield_id: Option<String>,
+    pub div_yield_id: Option<CurveId>,
     /// Contract size (shares per contract)
     pub contract_size: f64,
     /// Base currency for pricing
@@ -101,7 +101,7 @@ impl EquityUnderlyingParams {
     }
 
     /// Set dividend yield identifier
-    pub fn with_dividend_yield(mut self, div_yield_id: impl Into<String>) -> Self {
+    pub fn with_dividend_yield(mut self, div_yield_id: impl Into<CurveId>) -> Self {
         self.div_yield_id = Some(div_yield_id.into());
         self
     }

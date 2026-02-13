@@ -29,7 +29,7 @@ fn test_builder_creates_valid_option() {
         .discount_curve_id(CurveId::new(DISC_ID))
         .spot_id(SPOT_ID.to_string())
         .vol_surface_id(CurveId::new(VOL_ID))
-        .div_yield_id_opt(Some(DIV_ID.to_string()))
+        .div_yield_id_opt(Some(CurveId::new(DIV_ID)))
         .pricing_overrides(PricingOverrides::default())
         .attributes(Attributes::new())
         .build()

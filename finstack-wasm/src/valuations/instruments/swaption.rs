@@ -444,7 +444,7 @@ impl JsSwaption {
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]
     pub fn forward_curve(&self) -> String {
-        self.inner.forward_id.as_str().to_string()
+        self.inner.forward_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

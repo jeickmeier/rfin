@@ -347,7 +347,7 @@ impl PyEquityOptionBuilder {
             .discount_curve_id(discount)
             .spot_id(spot_id)
             .vol_surface_id(vol_surface)
-            .div_yield_id_opt(slf.div_yield_id.clone())
+            .div_yield_id_opt(slf.div_yield_id.clone().map(CurveId::new))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()

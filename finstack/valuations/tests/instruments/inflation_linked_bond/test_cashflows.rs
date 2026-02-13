@@ -44,7 +44,7 @@ fn test_build_dated_flows_annual() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.freq = Tenor::annual();
-    ilb.issue = d(2020, 1, 15);
+    ilb.issue_date = d(2020, 1, 15);
     ilb.maturity = d(2025, 1, 15);
 
     let (ctx, _) = market_context_with_index();
@@ -79,7 +79,7 @@ fn test_build_dated_flows_quarterly() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.freq = Tenor::quarterly();
-    ilb.issue = d(2024, 1, 15);
+    ilb.issue_date = d(2024, 1, 15);
     ilb.maturity = d(2025, 1, 15);
 
     let (ctx, _) = market_context_with_index();
@@ -108,7 +108,7 @@ fn test_coupon_amounts_reflect_inflation_adjustment() {
         finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD);
     ilb.real_coupon = 0.01; // 1% real coupon
     ilb.freq = Tenor::annual();
-    ilb.issue = d(2024, 1, 1);
+    ilb.issue_date = d(2024, 1, 1);
     ilb.maturity = d(2026, 1, 1);
 
     let (mut ctx, _curve) = market_context_with_curve();
@@ -152,7 +152,7 @@ fn test_principal_repayment_inflation_adjusted() {
     ilb.base_index = 300.0;
     ilb.notional =
         finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD);
-    ilb.issue = d(2024, 1, 1);
+    ilb.issue_date = d(2024, 1, 1);
     ilb.maturity = d(2025, 1, 1);
 
     let (ctx, _) = market_context_with_curve();
@@ -174,8 +174,8 @@ fn test_principal_repayment_inflation_adjusted() {
 fn test_schedule_respects_day_count_convention() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.dc = finstack_core::dates::DayCount::ActAct;
-    ilb.issue = d(2024, 1, 1);
+    ilb.day_count = finstack_core::dates::DayCount::ActAct;
+    ilb.issue_date = d(2024, 1, 1);
     ilb.maturity = d(2024, 7, 2); // Slightly past 6 months
     ilb.freq = Tenor::semi_annual();
 
@@ -199,7 +199,7 @@ fn test_schedule_with_deflation_protection() {
     ilb.deflation_protection =
         finstack_valuations::instruments::fixed_income::inflation_linked_bond::DeflationProtection::AllPayments;
     ilb.base_index = 300.0;
-    ilb.issue = d(2024, 1, 1);
+    ilb.issue_date = d(2024, 1, 1);
     ilb.maturity = d(2025, 1, 1);
 
     let (mut ctx, _) = market_context_with_index();
@@ -231,7 +231,7 @@ fn test_empty_schedule_when_no_dates() {
     // Arrange
     let mut ilb = sample_tips();
     // Create a bond with same issue and maturity (degenerate case)
-    ilb.issue = d(2025, 1, 1);
+    ilb.issue_date = d(2025, 1, 1);
     ilb.maturity = d(2025, 1, 1);
 
     let (ctx, _) = market_context_with_index();
@@ -288,7 +288,7 @@ fn test_schedule_all_dates_after_issue() {
 
     // Assert - all payment dates should be after issue date
     for (date, _) in &flows {
-        assert!(*date >= ilb.issue);
+        assert!(*date >= ilb.issue_date);
     }
 }
 
@@ -333,7 +333,7 @@ fn test_cashflow_provider_trait() {
 fn test_schedule_generation_performance() {
     // Arrange - long dated bond
     let mut ilb = sample_tips();
-    ilb.issue = d(2020, 1, 1);
+    ilb.issue_date = d(2020, 1, 1);
     ilb.maturity = d(2050, 1, 1); // 30-year bond
     ilb.freq = Tenor::semi_annual();
 

@@ -107,7 +107,7 @@ fn test_dv01_duration_price_relationship() {
             Tenor::annual(),
             DayCount::Act365F,
         ))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .discount_curve_id("USD_DISC".into())
         .pricing_overrides(pricing_overrides)

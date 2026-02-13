@@ -45,7 +45,7 @@ pub struct Equity {
     /// Explicit market data identifier to resolve the spot price
     pub price_id: Option<String>,
     /// Explicit market data identifier to resolve the dividend yield
-    pub div_yield_id: Option<String>,
+    pub div_yield_id: Option<CurveId>,
     /// Discount curve ID for pricing
     pub discount_curve_id: CurveId,
     /// Attributes for scenario selection and tagging
@@ -104,7 +104,7 @@ impl Equity {
     }
 
     /// Override the market data identifier used to resolve the dividend yield
-    pub fn with_dividend_yield_id(mut self, div_id: impl Into<String>) -> Self {
+    pub fn with_dividend_yield_id(mut self, div_id: impl Into<CurveId>) -> Self {
         self.div_yield_id = Some(div_id.into());
         self
     }

@@ -224,7 +224,7 @@ impl JsConvertibleBondBuilder {
         let bond = ConvertibleBond {
             id: instrument_id_from_str(&self.instrument_id),
             notional,
-            issue,
+            issue_date: issue,
             maturity,
             discount_curve_id: curve_id_from_str(discount_curve),
             credit_curve_id: None,
@@ -279,7 +279,7 @@ impl JsConvertibleBond {
     pub fn new(
         instrument_id: &str,
         notional: &JsMoney,
-        issue: &JsDate,
+        issue_date: &JsDate,
         maturity: &JsDate,
         discount_curve: &str,
         conversion: &JsConversionSpec,
@@ -291,7 +291,7 @@ impl JsConvertibleBond {
         let bond = ConvertibleBond {
             id: instrument_id_from_str(instrument_id),
             notional: notional.inner(),
-            issue: issue.inner(),
+            issue_date: issue_date.inner(),
             maturity: maturity.inner(),
             discount_curve_id: curve_id_from_str(discount_curve),
             credit_curve_id: None,

@@ -66,6 +66,7 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     // Heuristics for post-build validations
     let mut has_start_date: bool = false;
     let mut has_issue: bool = false;
+    let mut issue_field_ident: Option<syn::Ident> = None;
     let mut has_maturity: bool = false;
     let mut has_strike_variance: bool = false;
 
@@ -125,8 +126,9 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
             if ident == format_ident!("start_date") {
                 has_start_date = true;
             }
-            if ident == format_ident!("issue") {
+            if ident == format_ident!("issue") || ident == format_ident!("issue_date") {
                 has_issue = true;
+                issue_field_ident = Some(ident.clone());
             }
             if ident == format_ident!("maturity") || ident == format_ident!("maturity_date") {
                 has_maturity = true;
@@ -280,18 +282,20 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     }
     // Also validate issue < maturity for instruments with issue date
     if has_issue && has_maturity {
-        let maturity_field = if required_fields.iter().any(|(id, _)| id == "maturity")
-            || optional_fields.iter().any(|(id, _)| id == "maturity")
-        {
-            quote! { __built.maturity }
-        } else {
-            quote! { __built.maturity_date }
-        };
-        post_build_checks.extend(quote! {
-            if __built.issue >= #maturity_field {
-                return ::core::result::Result::Err(finstack_core::InputError::InvalidDateRange.into());
-            }
-        });
+        if let Some(issue_field) = issue_field_ident.as_ref() {
+            let maturity_field = if required_fields.iter().any(|(id, _)| id == "maturity")
+                || optional_fields.iter().any(|(id, _)| id == "maturity")
+            {
+                quote! { __built.maturity }
+            } else {
+                quote! { __built.maturity_date }
+            };
+            post_build_checks.extend(quote! {
+                if __built.#issue_field >= #maturity_field {
+                    return ::core::result::Result::Err(finstack_core::InputError::InvalidDateRange.into());
+                }
+            });
+        }
     }
     if has_strike_variance {
         post_build_checks.extend(quote! {

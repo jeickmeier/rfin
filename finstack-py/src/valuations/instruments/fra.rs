@@ -7,6 +7,7 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::legs::PayReceive;
 use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -305,8 +306,12 @@ impl PyForwardRateAgreementBuilder {
             .day_count(slf.day_count)
             .reset_lag(slf.reset_lag)
             .discount_curve_id(discount)
-            .forward_id(forward)
-            .receive_fixed(slf.receive_fixed)
+            .forward_curve_id(forward)
+            .side(if slf.receive_fixed {
+                PayReceive::ReceiveFixed
+            } else {
+                PayReceive::PayFixed
+            })
             .build()
             .map(PyForwardRateAgreement::new)
             .map_err(core_to_py)
@@ -373,13 +378,13 @@ impl PyForwardRateAgreement {
     ///     bool: ``True`` when the FRA position receives fixed rate.
     #[getter]
     fn receive_fixed(&self) -> bool {
-        self.inner.receive_fixed
+        self.inner.side.is_receiver()
     }
 
     /// Deprecated alias for receive_fixed. Use receive_fixed instead.
     #[getter]
     fn pay_fixed(&self) -> bool {
-        self.inner.receive_fixed
+        self.inner.side.is_receiver()
     }
 
     /// Discount curve identifier.
@@ -397,7 +402,7 @@ impl PyForwardRateAgreement {
     ///     str: Forward curve used for projecting floating rates.
     #[getter]
     fn forward_curve(&self) -> String {
-        self.inner.forward_id.as_str().to_string()
+        self.inner.forward_curve_id.as_str().to_string()
     }
 
     /// Fixing date for the reference rate.

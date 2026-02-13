@@ -109,7 +109,7 @@ fn test_day_count_propagation_for_call_put() {
     let call_date = Date::from_calendar_date(2025, Month::July, 1).unwrap();
 
     let mut bond = create_standard_convertible();
-    bond.issue = issue;
+    bond.issue_date = issue;
     bond.maturity = maturity;
 
     let mut call_put = CallPutSchedule::default();
@@ -211,7 +211,7 @@ fn test_time_mapping_with_quarterly_coupons() {
     let bond = finstack_valuations::instruments::fixed_income::convertible::ConvertibleBond {
         id: "TEST_QUARTERLY".to_string().into(),
         notional: Money::new(bond_params::NOTIONAL, Currency::USD),
-        issue,
+        issue_date: issue,
         maturity,
         discount_curve_id: "USD-OIS".into(),
         credit_curve_id: None,

@@ -6,6 +6,7 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
+use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use crate::market::conventions::ids::IndexId;
@@ -42,15 +43,16 @@ const MAX_REASONABLE_RATE: f64 = 0.50;
 ///
 /// # Direction Convention
 ///
-/// - `receive_fixed = true`: Receive fixed rate, pay floating rate.
+/// - `side = PayReceive::ReceiveFixed`: Receive fixed rate, pay floating rate.
 ///   When forward rate > fixed rate, PV is negative (you're paying more than receiving).
-/// - `receive_fixed = false`: Pay fixed rate, receive floating rate.
+/// - `side = PayReceive::PayFixed`: Pay fixed rate, receive floating rate.
 ///   When forward rate > fixed rate, PV is positive (you're receiving more than paying).
 ///
-/// # Receive vs pay fixed
+/// # Side field
 ///
-/// Use `receive_fixed` to indicate the fixed leg direction. This field is required
-/// in JSON inputs.
+/// Use `side` to indicate the fixed leg direction. This field is required
+/// in JSON inputs. For backward compatibility, `receive_fixed` (bool) is also
+/// accepted during deserialization.
 #[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ForwardRateAgreement {
@@ -87,20 +89,24 @@ pub struct ForwardRateAgreement {
     /// Discount curve identifier
     pub discount_curve_id: CurveId,
     /// Forward curve identifier
-    pub forward_id: CurveId,
-    /// Direction: true = receive fixed rate, pay floating rate.
-    pub receive_fixed: bool,
+    #[serde(alias = "forward_id")]
+    pub forward_curve_id: CurveId,
+    /// Direction of the FRA: PayFixed means paying the fixed rate (receiving floating),
+    /// ReceiveFixed means receiving the fixed rate (paying floating).
+    pub side: PayReceive,
     /// Attributes for scenario selection
     pub attributes: Attributes,
 }
 
-/// Custom deserializer for ForwardRateAgreement that requires `receive_fixed`.
+/// Custom deserializer for ForwardRateAgreement that accepts either `side`
+/// (PayReceive enum) or the legacy `receive_fixed` (bool) field.
 impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        /// Helper struct that matches the JSON structure, accepting either field name.
+        /// Helper struct that matches the JSON structure, accepting either
+        /// the new `side` field or the legacy `receive_fixed` boolean.
         #[derive(serde::Deserialize)]
         #[serde(deny_unknown_fields)]
         struct FraHelper {
@@ -120,15 +126,31 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             #[serde(default)]
             observed_fixing: Option<f64>,
             discount_curve_id: CurveId,
-            forward_id: CurveId,
-            /// Indicates whether the FRA receives fixed (pays floating).
-            receive_fixed: bool,
+            #[serde(alias = "forward_id")]
+            forward_curve_id: CurveId,
+            /// New-style direction field (preferred).
+            #[serde(default)]
+            side: Option<PayReceive>,
+            /// Legacy boolean direction field (backward compat).
+            /// `true` = receive fixed (ReceiveFixed), `false` = pay fixed (PayFixed).
+            #[serde(default)]
+            receive_fixed: Option<bool>,
             attributes: Attributes,
         }
 
         let helper = FraHelper::deserialize(deserializer)?;
 
-        let receive_fixed = helper.receive_fixed;
+        // Resolve side: prefer `side` if present, else convert `receive_fixed`.
+        let side = match (helper.side, helper.receive_fixed) {
+            (Some(s), _) => s,
+            (None, Some(true)) => PayReceive::ReceiveFixed,
+            (None, Some(false)) => PayReceive::PayFixed,
+            (None, None) => {
+                return Err(serde::de::Error::custom(
+                    "FRA requires either `side` or `receive_fixed` field",
+                ));
+            }
+        };
 
         Ok(ForwardRateAgreement {
             id: helper.id,
@@ -143,8 +165,8 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             fixing_bdc: helper.fixing_bdc,
             observed_fixing: helper.observed_fixing,
             discount_curve_id: helper.discount_curve_id,
-            forward_id: helper.forward_id,
-            receive_fixed,
+            forward_curve_id: helper.forward_curve_id,
+            side,
             attributes: helper.attributes,
         })
     }
@@ -193,7 +215,7 @@ impl ForwardRateAgreement {
         let Ok(registry) = ConventionRegistry::try_global() else {
             return None;
         };
-        let index_id = IndexId::new(self.forward_id.as_str());
+        let index_id = IndexId::new(self.forward_curve_id.as_str());
         registry
             .require_rate_index(&index_id)
             .ok()
@@ -215,8 +237,8 @@ impl ForwardRateAgreement {
             .day_count(DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .forward_id(CurveId::new("USD-SOFR-3M"))
-            .receive_fixed(true)
+            .forward_curve_id(CurveId::new("USD-SOFR-3M"))
+            .side(PayReceive::ReceiveFixed)
             .attributes(Attributes::new())
             .build()
             .unwrap_or_else(|_| unreachable!("Example FRA with valid constants should never fail"))
@@ -287,7 +309,7 @@ impl ForwardRateAgreement {
             }
         };
 
-        let fwd = context.get_forward(&self.forward_id)?;
+        let fwd = context.get_forward(&self.forward_curve_id)?;
 
         // Time fractions for mapping into the forward curve domain must use the
         // forward curve's own day-count/time basis, not the instrument accrual basis.
@@ -366,13 +388,12 @@ impl ForwardRateAgreement {
 
         let settlement = self.notional.amount() * rate_diff * tau / denom;
 
-        // Apply direction: receive_fixed means we receive K and pay F
+        // Apply direction: ReceiveFixed means we receive K and pay F
         // When F > K: rate_diff > 0, settlement > 0 (we owe money)
-        // So negate when receive_fixed = true
-        Ok(if self.receive_fixed {
-            -settlement
-        } else {
-            settlement
+        // So negate when ReceiveFixed
+        Ok(match self.side {
+            PayReceive::ReceiveFixed => -settlement,
+            PayReceive::PayFixed => settlement,
         })
     }
 
@@ -462,7 +483,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for ForwardRateA
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
-            .forward(self.forward_id.clone())
+            .forward(self.forward_curve_id.clone())
             .build()
     }
 }
@@ -553,8 +574,8 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id("DISC".into())
-            .forward_id("FWD-3M".into())
-            .receive_fixed(false) // Pay fixed, receive floating
+            .forward_curve_id("FWD-3M".into())
+            .side(PayReceive::PayFixed) // Pay fixed, receive floating
             .build()
             .expect("FRA builder should succeed in test");
 
@@ -607,8 +628,8 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id("DISC".into())
-            .forward_id("FWD-3M".into())
-            .receive_fixed(true)
+            .forward_curve_id("FWD-3M".into())
+            .side(PayReceive::ReceiveFixed)
             .build()
             .expect("Builder failed");
 

@@ -88,7 +88,7 @@ fn create_option(expiry: Date, option_type: OptionType) -> EquityOption {
         discount_curve_id: "USD-OIS".into(),
         spot_id: "SPOT".to_string(),
         vol_surface_id: "SPOT_VOL".into(),
-        div_yield_id: Some("SPOT_DIV".to_string()),
+        div_yield_id: Some("SPOT_DIV".into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Attributes::new(),

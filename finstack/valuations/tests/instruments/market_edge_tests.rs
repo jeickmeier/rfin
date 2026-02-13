@@ -312,7 +312,7 @@ mod bond_market_edge {
         let bond_t0 = Bond::builder()
             .id("T0_SETTLE".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.06,
@@ -328,7 +328,7 @@ mod bond_market_edge {
         let bond_t2 = Bond::builder()
             .id("T2_SETTLE".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.06,
@@ -480,7 +480,7 @@ mod bond_market_edge {
         let bond_30_360 = Bond::builder()
             .id("DC_30_360".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.06,
@@ -495,7 +495,7 @@ mod bond_market_edge {
         let bond_act_365 = Bond::builder()
             .id("DC_ACT365".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.06,

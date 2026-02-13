@@ -45,7 +45,7 @@ fn test_df_end_less_than_df_start() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
     let dep = DepositBuilder::new(base)
-        .start(date(2025, 1, 1))
+        .start_date(date(2025, 1, 1))
         .end(date(2025, 7, 1))
         .build();
 
@@ -61,7 +61,7 @@ fn test_df_at_base_date_is_one() {
     // Setup
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
-    let dep = DepositBuilder::new(base).start(base).build();
+    let dep = DepositBuilder::new(base).start_date(base).build();
 
     // Execute
     let df_start = compute_metric(&dep, &ctx, base, MetricId::DfStart);

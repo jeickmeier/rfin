@@ -42,7 +42,7 @@ fn test_pv_anchored_at_as_of() {
     let bond = Bond::builder()
         .id("TEST_PV_ANCHOR".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.05,
@@ -95,7 +95,7 @@ fn test_callable_exercise_coupon_always_paid() {
     let callable = Bond::builder()
         .id("TEST_CALLABLE".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.06,
@@ -113,7 +113,7 @@ fn test_callable_exercise_coupon_always_paid() {
     let straight = Bond::builder()
         .id("TEST_STRAIGHT".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.06,
@@ -166,7 +166,7 @@ fn test_putable_bond_worth_more() {
     let putable = Bond::builder()
         .id("TEST_PUTABLE".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.03,
@@ -184,7 +184,7 @@ fn test_putable_bond_worth_more() {
     let straight = Bond::builder()
         .id("TEST_STRAIGHT".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.03,
@@ -227,7 +227,7 @@ fn test_bond_pricing_basic() {
     let bond = Bond::builder()
         .id("TEST_PRICING".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.05,

@@ -28,7 +28,7 @@ fn test_linear_amortization() {
     let bond = Bond::builder()
         .id("AMORT_LINEAR".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(date!(2030 - 01 - 01))
         .cashflow_spec(CashflowSpec::amortizing(
             CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Act365F),
@@ -60,7 +60,7 @@ fn test_full_amortization() {
     let bond = Bond::builder()
         .id("AMORT_FULL".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(date!(2030 - 01 - 01))
         .cashflow_spec(CashflowSpec::amortizing(
             CashflowSpec::fixed(0.06, Tenor::semi_annual(), DayCount::Act365F),

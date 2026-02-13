@@ -226,7 +226,7 @@ fn test_ytw_amortizing_bond_matches_ytm_from_price() {
     let mut bond = Bond::builder()
         .id("YTW-AMORT".into())
         .notional(notional)
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .cashflow_spec(cashflow_spec)
         .discount_curve_id(CurveId::new("USD-OIS"))

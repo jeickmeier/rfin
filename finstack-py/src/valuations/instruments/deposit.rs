@@ -215,7 +215,7 @@ impl PyDepositBuilder {
         Deposit::builder()
             .id(slf.instrument_id.clone())
             .notional(notional)
-            .start(start)
+            .start_date(start)
             .end(end)
             .day_count(slf.day_count)
             .discount_curve_id(discount)
@@ -268,7 +268,7 @@ impl PyDeposit {
     ///     datetime.date: Start date for interest accrual.
     #[getter]
     fn start(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.start)
+        date_to_py(py, self.inner.start_date)
     }
 
     /// End date of the deposit period.
@@ -319,7 +319,7 @@ impl PyDeposit {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "Deposit(id='{}', start='{}', end='{}', quote_rate={:?})",
-            self.inner.id, self.inner.start, self.inner.end, self.inner.quote_rate
+            self.inner.id, self.inner.start_date, self.inner.end, self.inner.quote_rate
         ))
     }
 }
@@ -329,7 +329,7 @@ impl fmt::Display for PyDeposit {
         write!(
             f,
             "Deposit({}, {} -> {})",
-            self.inner.id, self.inner.start, self.inner.end
+            self.inner.id, self.inner.start_date, self.inner.end
         )
     }
 }

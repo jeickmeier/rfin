@@ -22,7 +22,7 @@
             "amount": "10000000",
             "currency": "USD"
           },
-          "receive_fixed": true,
+          "side": "receive_fixed",
           "reset_lag": 2,
           "start_date": "2024-04-03"
         },
@@ -51,7 +51,7 @@
             "amount": "10000000",
             "currency": "USD"
           },
-          "receive_fixed": true,
+          "side": "receive_fixed",
           "reset_lag": 2,
           "start_date": "2024-04-03"
         },

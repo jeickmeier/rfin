@@ -30,10 +30,10 @@ use finstack_core::money::Money;
 pub struct FxBarrierCall {
     /// Underlying barrier call (reuses existing infrastructure)
     inner: BarrierOptionPayoff,
-    /// Domestic currency (settlement currency)
-    pub domestic_currency: Currency,
-    /// Foreign currency (underlying currency)
-    pub foreign_currency: Currency,
+    /// Base currency (underlying currency, formerly foreign_currency)
+    pub base_currency: Currency,
+    /// Quote currency (settlement currency, formerly domestic_currency)
+    pub quote_currency: Currency,
     /// Quanto adjustment factor (pre-computed)
     pub quanto_adjustment: f64,
 }
@@ -65,8 +65,8 @@ impl FxBarrierCall {
         sigma: f64,
         dt: f64,
         use_gobet_miri: bool,
-        domestic_currency: Currency,
-        foreign_currency: Currency,
+        base_currency: Currency,
+        quote_currency: Currency,
         quanto_adjustment: f64,
         rebate: Option<f64>,
     ) -> Self {
@@ -85,8 +85,8 @@ impl FxBarrierCall {
 
         Self {
             inner,
-            domestic_currency,
-            foreign_currency,
+            base_currency,
+            quote_currency,
             quanto_adjustment,
         }
     }
@@ -101,8 +101,8 @@ impl FxBarrierCall {
         maturity_step: usize,
         sigma: f64,
         dt: f64,
-        domestic_currency: Currency,
-        foreign_currency: Currency,
+        base_currency: Currency,
+        quote_currency: Currency,
     ) -> Self {
         Self::new(
             strike,
@@ -113,8 +113,8 @@ impl FxBarrierCall {
             sigma,
             dt,
             true, // Use Gobet-Miri by default
-            domestic_currency,
-            foreign_currency,
+            base_currency,
+            quote_currency,
             0.0, // No quanto adjustment
             None,
         )
@@ -134,8 +134,8 @@ impl FxBarrierCall {
         maturity_step: usize,
         sigma: f64,
         dt: f64,
-        domestic_currency: Currency,
-        foreign_currency: Currency,
+        base_currency: Currency,
+        quote_currency: Currency,
         quanto_adjustment: f64,
     ) -> Self {
         Self::new(
@@ -147,8 +147,8 @@ impl FxBarrierCall {
             sigma,
             dt,
             true,
-            domestic_currency,
-            foreign_currency,
+            base_currency,
+            quote_currency,
             quanto_adjustment,
             None,
         )
@@ -191,12 +191,12 @@ mod tests {
             100,
             0.12,
             0.01,
-            Currency::USD,
             Currency::EUR,
+            Currency::USD,
         );
 
-        assert_eq!(fx_barrier.domestic_currency, Currency::USD);
-        assert_eq!(fx_barrier.foreign_currency, Currency::EUR);
+        assert_eq!(fx_barrier.base_currency, Currency::EUR);
+        assert_eq!(fx_barrier.quote_currency, Currency::USD);
         assert_eq!(fx_barrier.quanto_adjustment, 0.0);
     }
 
@@ -211,8 +211,8 @@ mod tests {
             100,
             0.12,
             0.01,
-            Currency::USD,
             Currency::EUR,
+            Currency::USD,
             quanto_adj,
         );
 

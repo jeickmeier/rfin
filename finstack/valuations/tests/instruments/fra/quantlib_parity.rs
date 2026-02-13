@@ -37,6 +37,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
+use finstack_valuations::instruments::rates::irs::PayReceive;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -114,8 +115,8 @@ fn quantlib_parity_fra_at_market_valuation() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true, // receive fixed rate
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed, // receive fixed rate
         attributes: Default::default(),
     };
 
@@ -158,8 +159,8 @@ fn quantlib_parity_fra_off_market_valuation() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true, // receive fixed rate
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed, // receive fixed rate
         attributes: Default::default(),
     };
 
@@ -218,8 +219,8 @@ fn quantlib_parity_fra_implied_rate() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true,
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed,
         attributes: Default::default(),
     };
 
@@ -274,8 +275,8 @@ fn quantlib_parity_fra_settlement_adjustment() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true,
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed,
         attributes: Default::default(),
     };
 
@@ -346,8 +347,8 @@ fn quantlib_parity_fra_buy_sell_symmetry() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true, // receive fixed rate
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed, // receive fixed rate
         attributes: Default::default(),
     };
 
@@ -365,8 +366,8 @@ fn quantlib_parity_fra_buy_sell_symmetry() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: false, // pay fixed rate
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::PayFixed, // pay fixed rate
         attributes: Default::default(),
     };
 
@@ -412,8 +413,8 @@ fn quantlib_parity_fra_standard_tenor_3x6() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true,
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed,
         attributes: Default::default(),
     };
 
@@ -446,8 +447,8 @@ fn quantlib_parity_fra_standard_tenor_6x9() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true,
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed,
         attributes: Default::default(),
     };
 
@@ -479,8 +480,8 @@ fn quantlib_parity_fra_standard_tenor_6x12() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true,
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed,
         attributes: Default::default(),
     };
 
@@ -519,8 +520,8 @@ fn quantlib_parity_fra_dv01_sign_convention() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true, // receive fixed rate
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed, // receive fixed rate
         attributes: Default::default(),
     };
 
@@ -537,8 +538,8 @@ fn quantlib_parity_fra_dv01_sign_convention() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: false, // pay fixed rate
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::PayFixed, // pay fixed rate
         attributes: Default::default(),
     };
 
@@ -596,8 +597,8 @@ fn quantlib_parity_fra_day_count_act360_vs_act365() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true,
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed,
         attributes: Default::default(),
     };
 
@@ -614,8 +615,8 @@ fn quantlib_parity_fra_day_count_act360_vs_act365() {
         fixing_bdc: None,
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
-        receive_fixed: true,
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        side: PayReceive::ReceiveFixed,
         attributes: Default::default(),
     };
 

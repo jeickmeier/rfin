@@ -23,7 +23,7 @@ impl MetricCalculator for FraParRateCalculator {
         let fra: &ForwardRateAgreement = context.instrument_as()?;
 
         // Forward rate over [t_start, t_end]
-        let fwd = context.curves.get_forward(fra.forward_id.as_str())?;
+        let fwd = context.curves.get_forward(fra.forward_curve_id.as_str())?;
 
         // Times must be calculated using the forward curve's basis
         let fwd_base = fwd.base_date();

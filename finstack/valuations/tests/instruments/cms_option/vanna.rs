@@ -39,8 +39,8 @@ mod cms_vanna_test {
             swap_day_count: DayCount::Thirty360,
             day_count: DayCount::Thirty360,
             discount_curve_id: CurveId::new("USD-OIS"),
-            forward_curve_id: Some(CurveId::new("USD-LIBOR-3M")),
-            vol_surface_id: Some(CurveId::new("USD-SWPN-VOL")),
+            forward_curve_id: CurveId::new("USD-LIBOR-3M"),
+            vol_surface_id: CurveId::new("USD-SWPN-VOL"),
             pricing_overrides: Default::default(),
             attributes: Default::default(),
         };
@@ -126,8 +126,8 @@ fn test_cms_option_vanna() -> finstack_core::Result<()> {
         swap_float_day_count: Some(DayCount::Act360),
         day_count: DayCount::Thirty360,
         discount_curve_id: CurveId::new("USD-OIS"),
-        forward_curve_id: Some(CurveId::new("USD-LIBOR-3M")),
-        vol_surface_id: Some(CurveId::new("USD-SWPN-VOL")),
+        forward_curve_id: CurveId::new("USD-LIBOR-3M"),
+        vol_surface_id: CurveId::new("USD-SWPN-VOL"),
         pricing_overrides: Default::default(),
         attributes: Default::default(),
     };

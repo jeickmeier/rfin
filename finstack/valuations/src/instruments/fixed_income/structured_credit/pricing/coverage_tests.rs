@@ -245,9 +245,9 @@ impl CoverageTest {
                     context.as_of,
                     finstack_core::dates::DayCountCtx::default(),
                 )
-                .unwrap_or_else(|_| 1.0 / frequency_periods_per_year(tranche.payment_frequency))
+                .unwrap_or_else(|_| 1.0 / frequency_periods_per_year(tranche.frequency))
         } else {
-            1.0 / frequency_periods_per_year(tranche.payment_frequency)
+            1.0 / frequency_periods_per_year(tranche.frequency)
         };
 
         let interest_due = Money::new(
@@ -278,9 +278,9 @@ impl CoverageTest {
                             context.as_of,
                             finstack_core::dates::DayCountCtx::default(),
                         )
-                        .unwrap_or_else(|_| 1.0 / frequency_periods_per_year(t.payment_frequency))
+                        .unwrap_or_else(|_| 1.0 / frequency_periods_per_year(t.frequency))
                 } else {
-                    1.0 / frequency_periods_per_year(t.payment_frequency)
+                    1.0 / frequency_periods_per_year(t.frequency)
                 };
                 let interest = Money::new(t_bal.amount() * rate * t_accrual, t_bal.currency());
                 acc.checked_add(interest)

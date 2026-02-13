@@ -30,10 +30,12 @@ pub struct QuantoOption {
     pub expiry: Date,
     /// Notional amount (in domestic currency)
     pub notional: Money,
-    /// Domestic currency (payment currency)
-    pub domestic_currency: Currency,
-    /// Foreign currency (equity denomination)
-    pub foreign_currency: Currency,
+    /// Base currency (equity denomination, formerly foreign_currency)
+    #[serde(alias = "foreign_currency")]
+    pub base_currency: Currency,
+    /// Quote currency (payment/settlement currency, formerly domestic_currency)
+    #[serde(alias = "domestic_currency")]
+    pub quote_currency: Currency,
     /// Correlation between equity price and FX rate
     pub correlation: f64, // Correlation between equity and FX
     /// Day count convention
@@ -47,7 +49,7 @@ pub struct QuantoOption {
     /// Equity volatility surface ID
     pub vol_surface_id: CurveId,
     /// Optional dividend yield curve ID
-    pub div_yield_id: Option<String>,
+    pub div_yield_id: Option<CurveId>,
     /// Optional FX rate identifier
     pub fx_rate_id: Option<String>,
     /// Optional FX volatility surface ID
@@ -85,15 +87,15 @@ impl QuantoOption {
                 Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"),
             )
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .domestic_currency(Currency::USD)
-            .foreign_currency(Currency::JPY)
+            .base_currency(Currency::JPY)
+            .quote_currency(Currency::USD)
             .correlation(-0.2)
             .day_count(DayCount::Act365F)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("JPY-OIS"))
             .spot_id("NKY-SPOT".to_string())
             .vol_surface_id(CurveId::new("NKY-VOL"))
-            .div_yield_id_opt(Some("NKY-DIV".to_string()))
+            .div_yield_id_opt(Some(CurveId::new("NKY-DIV")))
             .fx_rate_id_opt(Some("USDJPY-SPOT".to_string()))
             .fx_vol_id_opt(Some(CurveId::new("USDJPY-VOL")))
             .pricing_overrides(PricingOverrides::default())
@@ -457,8 +459,8 @@ mod tests {
     fn test_quanto_option_example_creation() {
         let option = QuantoOption::example();
         assert_eq!(option.id.as_str(), "QUANTO-NKY-USD-CALL");
-        assert_eq!(option.domestic_currency, Currency::USD);
-        assert_eq!(option.foreign_currency, Currency::JPY);
+        assert_eq!(option.quote_currency, Currency::USD);
+        assert_eq!(option.base_currency, Currency::JPY);
         assert!(option.correlation < 0.0); // Negative correlation in example
     }
 

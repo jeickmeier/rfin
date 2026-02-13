@@ -10,6 +10,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
+use finstack_valuations::instruments::rates::irs::PayReceive;
 use finstack_valuations::instruments::{CurveDependencies, Instrument};
 use time::macros::date;
 
@@ -66,8 +67,8 @@ fn test_fra_forward_dependencies_complete() {
         .day_count(DayCount::Act360)
         .reset_lag(2)
         .discount_curve_id(CurveId::new("USD-OIS"))
-        .forward_id(CurveId::new("USD-SOFR-3M"))
-        .receive_fixed(true)
+        .forward_curve_id(CurveId::new("USD-SOFR-3M"))
+        .side(PayReceive::ReceiveFixed)
         .build()
         .expect("FRA construction should succeed");
 
@@ -100,8 +101,8 @@ fn test_missing_forward_curve_fails() {
         .day_count(DayCount::Act360)
         .reset_lag(2)
         .discount_curve_id(CurveId::new("USD-OIS"))
-        .forward_id(CurveId::new("USD-SOFR-3M"))
-        .receive_fixed(true)
+        .forward_curve_id(CurveId::new("USD-SOFR-3M"))
+        .side(PayReceive::ReceiveFixed)
         .build()
         .expect("FRA construction should succeed");
 

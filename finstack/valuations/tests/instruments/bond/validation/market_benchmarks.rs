@@ -60,7 +60,7 @@ fn test_bond_ytm_benchmark_1() {
             Tenor::semi_annual(),
             DayCount::Thirty360,
         ))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .discount_curve_id("USD_DISC".into())
         .pricing_overrides(pricing_overrides)
@@ -138,7 +138,7 @@ fn test_bond_ytm_benchmark_2_par_bond() {
             Tenor::annual(),
             DayCount::Act365F,
         ))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .discount_curve_id("USD_DISC".into())
         .pricing_overrides(pricing_overrides)
@@ -187,7 +187,7 @@ fn test_bond_macaulay_duration_benchmark() {
             Tenor::annual(),
             DayCount::Act365F,
         ))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .discount_curve_id("USD_DISC".into())
         .pricing_overrides(pricing_overrides)
@@ -236,7 +236,7 @@ fn test_bond_modified_duration_benchmark() {
             Tenor::annual(),
             DayCount::Act365F,
         ))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .discount_curve_id("USD_DISC".into())
         .pricing_overrides(pricing_overrides)
@@ -289,7 +289,7 @@ fn test_bond_dv01_market_standard() {
             Tenor::annual(),
             DayCount::Act365F,
         ))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .discount_curve_id("USD_DISC".into())
         .pricing_overrides(pricing_overrides)
@@ -351,7 +351,7 @@ fn test_bond_price_yield_relationship() {
                 Tenor::semi_annual(),
                 DayCount::Act365F,
             ))
-            .issue(as_of)
+            .issue_date(as_of)
             .maturity(maturity)
             .discount_curve_id("USD_DISC".into())
             .pricing_overrides(PricingOverrides::default())
@@ -401,7 +401,7 @@ fn test_bond_zero_coupon_duration() {
         .id("ZERO_COUPON_TEST".into())
         .notional(Money::new(100.0, Currency::USD))
         .cashflow_spec(CashflowSpec::fixed(0.0, Tenor::annual(), DayCount::Act365F))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .discount_curve_id("USD_DISC".into())
         .pricing_overrides(pricing_overrides)
@@ -445,7 +445,7 @@ fn test_bond_convexity_positive() {
             Tenor::annual(),
             DayCount::Act365F,
         ))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .discount_curve_id("USD_DISC".into())
         .pricing_overrides(pricing_overrides)

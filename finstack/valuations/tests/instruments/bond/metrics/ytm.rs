@@ -158,7 +158,7 @@ fn test_ytm_amortizing_bond_is_finite_from_price() {
     let mut bond = Bond::builder()
         .id("YTM-AMORT".into())
         .notional(notional)
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .cashflow_spec(cashflow_spec)
         .discount_curve_id(CurveId::new("USD-OIS"))

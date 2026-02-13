@@ -402,7 +402,7 @@ impl PyInterestRateOption {
     ///     str: Forward curve used for rate projections.
     #[getter]
     fn forward_curve(&self) -> String {
-        self.inner.forward_id.as_str().to_string()
+        self.inner.forward_curve_id.as_str().to_string()
     }
 
     /// Volatility surface identifier.

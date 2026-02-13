@@ -41,7 +41,7 @@ fn test_revolving_credit_basic_pricing() {
         .maturity_date(maturity_date)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees({
             let mut fees = RevolvingCreditFees::flat(25.0, 10.0, 5.0);
             fees.upfront_fee = Some(Money::new(50_000.0, Currency::USD));
@@ -89,7 +89,7 @@ fn test_revolving_credit_with_draws_and_repayments() {
         .maturity_date(maturity_date)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.04 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(20.0, 0.0, 0.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![
             DrawRepayEvent {
@@ -136,7 +136,7 @@ fn test_revolving_credit_utilization_metrics() {
         .maturity_date(maturity_date)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -192,7 +192,7 @@ fn test_revolving_credit_standard_metrics() {
         .maturity_date(maturity_date)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.06 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(30.0, 15.0, 10.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -295,7 +295,7 @@ fn test_revolving_credit_bucketed_dv01() {
         .maturity_date(maturity_date)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -332,7 +332,7 @@ fn test_revolving_credit_helpers() {
         .maturity_date(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::default())
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -404,7 +404,7 @@ fn test_term_forward_with_floor() {
             },
         ))
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::default())
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -440,7 +440,7 @@ fn test_term_forward_with_floor() {
             },
         ))
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::default())
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -476,7 +476,7 @@ fn test_overdraw_validation() {
         .maturity_date(maturity_date)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::default())
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![DrawRepayEvent {
             date: date!(2025 - 03 - 01),
@@ -518,7 +518,7 @@ fn test_deterministic_with_credit_risk() {
         .maturity_date(maturity_date)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act365F)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0)) // 50bp commitment fee
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -536,7 +536,7 @@ fn test_deterministic_with_credit_risk() {
         .maturity_date(maturity_date)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act365F)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -618,7 +618,7 @@ fn test_deterministic_stochastic_convergence_with_credit_risk() {
         .maturity_date(maturity_date)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 }) // 5.5% fixed
         .day_count(DayCount::Act365F)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -663,7 +663,7 @@ fn test_deterministic_stochastic_convergence_with_credit_risk() {
         .maturity_date(maturity_date)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 })
         .day_count(DayCount::Act365F)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0))
         .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(stoch_spec)))
         .discount_curve_id("USD-OIS".into())

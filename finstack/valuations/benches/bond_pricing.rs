@@ -161,7 +161,7 @@ fn bench_bond_dv01(c: &mut Criterion) {
 
 fn create_callable_bond(maturity_years: i32) -> Bond {
     let mut bond = create_test_bond(maturity_years);
-    let issue_year = bond.issue.year();
+    let issue_year = bond.issue_date.year();
     let maturity_year = bond.maturity.year();
     let total_years = (maturity_year - issue_year).max(0);
 

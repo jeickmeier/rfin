@@ -206,9 +206,11 @@ pub struct InflationLinkedBond {
     /// Coupon frequency
     pub freq: Tenor,
     /// Day count convention
-    pub dc: DayCount,
+    #[serde(alias = "dc")]
+    pub day_count: DayCount,
     /// Issue date
-    pub issue: Date,
+    #[serde(alias = "issue")]
+    pub issue_date: Date,
     /// Maturity date
     pub maturity: Date,
     /// Base CPI/index value at issue
@@ -256,8 +258,8 @@ impl InflationLinkedBond {
             notional: Money::new(1_000_000.0, Currency::USD),
             real_coupon: 0.025,
             freq: Tenor::semi_annual(),
-            dc: DayCount::ActActIsma, // US Treasury convention
-            issue: date!(2024 - 01 - 15),
+            day_count: DayCount::ActActIsma, // US Treasury convention
+            issue_date: date!(2024 - 01 - 15),
             maturity: date!(2034 - 01 - 15),
             base_index: 100.0,
             base_date: date!(2024 - 01 - 15),
@@ -286,8 +288,8 @@ impl InflationLinkedBond {
             notional: bond_params.notional,
             real_coupon: bond_params.real_coupon,
             freq: bond_params.frequency,
-            dc: bond_params.day_count,
-            issue: bond_params.issue,
+            day_count: bond_params.day_count,
+            issue_date: bond_params.issue,
             maturity: bond_params.maturity,
             base_index: bond_params.base_index,
             base_date: bond_params.issue,
@@ -367,8 +369,8 @@ impl InflationLinkedBond {
             notional: bond_params.notional,
             real_coupon: bond_params.real_coupon,
             freq: bond_params.frequency,
-            dc: bond_params.day_count,
-            issue: bond_params.issue,
+            day_count: bond_params.day_count,
+            issue_date: bond_params.issue,
             maturity: bond_params.maturity,
             base_index: bond_params.base_index,
             base_date,
@@ -457,8 +459,8 @@ impl InflationLinkedBond {
             notional: bond_params.notional,
             real_coupon: bond_params.real_coupon,
             freq: bond_params.frequency,
-            dc: bond_params.day_count,
-            issue: bond_params.issue,
+            day_count: bond_params.day_count,
+            issue_date: bond_params.issue,
             maturity: bond_params.maturity,
             base_index: bond_params.base_index,
             base_date: bond_params.issue, // Modern gilts use issue date as base
@@ -527,8 +529,8 @@ impl InflationLinkedBond {
             notional: bond_params.notional,
             real_coupon: bond_params.real_coupon,
             freq: bond_params.frequency,
-            dc: DayCount::Act365F, // JGB standard day count
-            issue: bond_params.issue,
+            day_count: DayCount::Act365F, // JGB standard day count
+            issue_date: bond_params.issue,
             maturity: bond_params.maturity,
             base_index: bond_params.base_index,
             base_date: bond_params.issue,
@@ -697,7 +699,7 @@ impl InflationLinkedBond {
 
         // Base coupon dates via shared builder
         let sched = crate::cashflow::builder::build_dates(
-            self.issue,
+            self.issue_date,
             self.maturity,
             self.freq,
             self.stub,
@@ -716,7 +718,7 @@ impl InflationLinkedBond {
         let mut flows = Vec::with_capacity(periods.len() + 1);
         for period in periods {
             let year_frac = self
-                .dc
+                .day_count
                 .year_fraction(
                     period.accrual_start,
                     period.accrual_end,
@@ -739,7 +741,7 @@ impl InflationLinkedBond {
     fn accrued_real_interest(&self, as_of: Date) -> Result<f64> {
         // Reconstruct the date schedule
         let sched = crate::cashflow::builder::build_dates(
-            self.issue,
+            self.issue_date,
             self.maturity,
             self.freq,
             self.stub,
@@ -761,10 +763,12 @@ impl InflationLinkedBond {
             let end = period.accrual_end;
             if start <= as_of && as_of < end {
                 // Found the active period
-                let total_yf = self.dc.year_fraction(start, end, DayCountCtx::default())?;
-                let elapsed_yf = self
-                    .dc
-                    .year_fraction(start, as_of, DayCountCtx::default())?;
+                let total_yf = self
+                    .day_count
+                    .year_fraction(start, end, DayCountCtx::default())?;
+                let elapsed_yf =
+                    self.day_count
+                        .year_fraction(start, as_of, DayCountCtx::default())?;
 
                 if total_yf <= 0.0 {
                     return Ok(0.0);
@@ -790,7 +794,7 @@ impl InflationLinkedBond {
     pub fn build_real_schedule(&self, _as_of: Date) -> Result<DatedFlows> {
         // Base coupon dates via shared builder
         let sched = crate::cashflow::builder::build_dates(
-            self.issue,
+            self.issue_date,
             self.maturity,
             self.freq,
             self.stub,
@@ -809,7 +813,7 @@ impl InflationLinkedBond {
         let mut flows = Vec::with_capacity(periods.len() + 1);
         for period in periods {
             let year_frac = self
-                .dc
+                .day_count
                 .year_fraction(
                     period.accrual_start,
                     period.accrual_end,
@@ -876,7 +880,7 @@ impl InflationLinkedBond {
         let target_price = Money::new(target_dirty_price_val, self.notional.currency());
 
         let spec = YtmPricingSpec {
-            day_count: self.dc,
+            day_count: self.day_count,
             notional: self.notional,
             coupon_rate: self.real_coupon,
             compounding: YieldCompounding::Street,
@@ -947,7 +951,7 @@ impl InflationLinkedBond {
         // Helper to compute price from yield, propagating errors
         let price_from_yield = |y: f64| -> Result<f64> {
             let price = price_from_ytm_compounded_params(
-                self.dc,
+                self.day_count,
                 self.freq,
                 &flows,
                 as_of,
@@ -998,7 +1002,7 @@ impl crate::instruments::common_impl::traits::Instrument for InflationLinkedBond
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
-        Some(self.issue)
+        Some(self.issue_date)
     }
 }
 
@@ -1016,7 +1020,7 @@ impl CashflowProvider for InflationLinkedBond {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             flows,
             self.notional(),
-            self.dc,
+            self.day_count,
         ))
     }
 }

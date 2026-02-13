@@ -1,7 +1,6 @@
 //! Interest rate option instrument types and Black model greeks.
 
 use crate::instruments::common_impl::traits::Attributes;
-use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, SettlementType};
 use crate::market::conventions::ids::IndexId;
 use crate::market::conventions::ConventionRegistry;
@@ -136,7 +135,8 @@ pub struct InterestRateOption {
     /// Discount curve identifier
     pub discount_curve_id: CurveId,
     /// Forward curve identifier
-    pub forward_id: CurveId,
+    #[serde(alias = "forward_id")]
+    pub forward_curve_id: CurveId,
     /// Volatility surface identifier
     pub vol_surface_id: CurveId,
     /// Volatility type convention (lognormal/Black or normal/Bachelier).
@@ -149,8 +149,6 @@ pub struct InterestRateOption {
     /// - `Normal`: Bachelier model, handles negative rates
     #[serde(default)]
     pub vol_type: CapFloorVolType,
-    /// Pricing overrides (including implied volatility)
-    pub pricing_overrides: PricingOverrides,
     /// Additional attributes
     pub attributes: Attributes,
 }
@@ -163,7 +161,7 @@ impl InterestRateOption {
         start_date: Date,
         end_date: Date,
         discount_curve_id: impl Into<CurveId>,
-        forward_id: impl Into<CurveId>,
+        forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         Self {
@@ -181,10 +179,9 @@ impl InterestRateOption {
             exercise_style: ExerciseStyle::European,
             settlement: SettlementType::Cash,
             discount_curve_id: discount_curve_id.into(),
-            forward_id: forward_id.into(),
+            forward_curve_id: forward_curve_id.into(),
             vol_surface_id: vol_surface_id.into(),
             vol_type: CapFloorVolType::default(),
-            pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
     }
@@ -200,7 +197,7 @@ impl InterestRateOption {
         frequency: Tenor,
         day_count: DayCount,
         discount_curve_id: impl Into<CurveId>,
-        forward_id: impl Into<CurveId>,
+        forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         let option_params =
@@ -211,7 +208,7 @@ impl InterestRateOption {
             start_date,
             end_date,
             discount_curve_id.into(),
-            forward_id.into(),
+            forward_curve_id.into(),
             vol_surface_id,
         )
     }
@@ -227,7 +224,7 @@ impl InterestRateOption {
         frequency: Tenor,
         day_count: DayCount,
         discount_curve_id: impl Into<CurveId>,
-        forward_id: impl Into<CurveId>,
+        forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         let option_params =
@@ -238,7 +235,7 @@ impl InterestRateOption {
             start_date,
             end_date,
             discount_curve_id.into(),
-            forward_id.into(),
+            forward_curve_id.into(),
             vol_surface_id,
         )
     }
@@ -291,7 +288,7 @@ impl InterestRateOption {
         let Ok(registry) = ConventionRegistry::try_global() else {
             return 0;
         };
-        let idx = IndexId::new(self.forward_id.as_str());
+        let idx = IndexId::new(self.forward_curve_id.as_str());
         registry
             .require_rate_index(&idx)
             .map(|conv| conv.default_payment_delay_days)
@@ -302,7 +299,7 @@ impl InterestRateOption {
         let Ok(registry) = ConventionRegistry::try_global() else {
             return None;
         };
-        let idx = IndexId::new(self.forward_id.as_str());
+        let idx = IndexId::new(self.forward_curve_id.as_str());
         registry
             .require_rate_index(&idx)
             .map(|conv| conv.default_reset_lag_days)
@@ -334,12 +331,8 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
 
         // Get market curves
         let disc_curve = curves.get_discount(self.discount_curve_id.as_ref())?;
-        let fwd_curve = curves.get_forward(self.forward_id.as_ref())?;
-        let vol_surface = if self.pricing_overrides.implied_volatility.is_none() {
-            Some(curves.surface(self.vol_surface_id.as_str())?)
-        } else {
-            None
-        };
+        let fwd_curve = curves.get_forward(self.forward_curve_id.as_ref())?;
+        let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
 
         let mut total_pv = finstack_core::money::Money::new(0.0, self.notional.currency());
         let dc_ctx = finstack_core::dates::DayCountCtx::default();
@@ -368,17 +361,8 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             let forward = rate_period_on_dates(fwd_curve.as_ref(), self.start_date, self.end_date)?;
             let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, self.end_date)?;
 
-            let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
-                impl_vol
-            } else if let Some(vol_surf) = &vol_surface {
-                // Use MIN_VOL_LOOKUP_TIME floor for seasoned caplets (t_fix <= 0)
-                vol_surf.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), self.strike_rate)
-            } else {
-                return Err(finstack_core::InputError::NotFound {
-                    id: "cap_floor_vol_surface".to_string(),
-                }
-                .into());
-            };
+            // Use MIN_VOL_LOOKUP_TIME floor for seasoned caplets (t_fix <= 0)
+            let sigma = vol_surface.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), self.strike_rate);
 
             let is_cap = matches!(
                 self.rate_option_type,
@@ -466,17 +450,8 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                 rate_period_on_dates(fwd_curve.as_ref(), period.accrual_start, period.accrual_end)?;
             let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, pay)?;
 
-            let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
-                impl_vol
-            } else if let Some(vol_surf) = &vol_surface {
-                // Use MIN_VOL_LOOKUP_TIME floor for seasoned caplets (t_fix <= 0)
-                vol_surf.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), self.strike_rate)
-            } else {
-                return Err(finstack_core::InputError::NotFound {
-                    id: "cap_floor_vol_surface".to_string(),
-                }
-                .into());
-            };
+            // Use MIN_VOL_LOOKUP_TIME floor for seasoned caplets (t_fix <= 0)
+            let sigma = vol_surface.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), self.strike_rate);
 
             // Include ALL periods where payment_date > as_of, including
             // seasoned periods where fixing_date <= as_of < payment_date.
@@ -544,7 +519,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for InterestRate
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
-            .forward(self.forward_id.clone())
+            .forward(self.forward_curve_id.clone())
             .build()
     }
 }
@@ -795,8 +770,21 @@ mod tests {
             .expect("negative forward curve should build");
         ctx = ctx.insert_forward(neg_fwd);
 
-        // Build a floorlet with explicit negative forward via pricing override.
-        let mut normal_floorlet = InterestRateOption::new_floor(
+        // Build a flat vol surface at 50bp normal vol for the normal model test
+        let normal_vol = 0.005;
+        let normal_vol_surface = VolSurface::builder(CurveId::new("TEST-VOL-NORMAL"))
+            .expiries(&[0.25, 0.5, 1.0, 2.0])
+            .strikes(&[-0.02, -0.01, 0.0, 0.01, 0.02])
+            .row(&[normal_vol, normal_vol, normal_vol, normal_vol, normal_vol])
+            .row(&[normal_vol, normal_vol, normal_vol, normal_vol, normal_vol])
+            .row(&[normal_vol, normal_vol, normal_vol, normal_vol, normal_vol])
+            .row(&[normal_vol, normal_vol, normal_vol, normal_vol, normal_vol])
+            .build()
+            .expect("normal vol surface should build");
+        ctx = ctx.insert_surface(normal_vol_surface);
+
+        // Build a floorlet with negative forward using normal vol surface.
+        let normal_floorlet = InterestRateOption::new_floor(
             "NORM-FLOORLET",
             notional,
             0.0,
@@ -806,14 +794,23 @@ mod tests {
             DayCount::Act360,
             "TEST-DISC",
             "TEST-FWD-NEG",
-            "TEST-VOL",
+            "TEST-VOL-NORMAL",
         )
         .with_vol_type(CapFloorVolType::Normal);
-        normal_floorlet.pricing_overrides.implied_volatility = Some(0.005); // 50bp normal vol
 
-        let black_floorlet = normal_floorlet
-            .clone()
-            .with_vol_type(CapFloorVolType::Lognormal);
+        let black_floorlet = InterestRateOption::new_floor(
+            "BLACK-FLOORLET",
+            notional,
+            0.0,
+            start_date,
+            end_date,
+            Tenor::quarterly(),
+            DayCount::Act360,
+            "TEST-DISC",
+            "TEST-FWD-NEG",
+            "TEST-VOL-NORMAL",
+        )
+        .with_vol_type(CapFloorVolType::Lognormal);
 
         // This should succeed under normal model.
         let normal_pv = normal_floorlet

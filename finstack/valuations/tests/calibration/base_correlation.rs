@@ -93,9 +93,9 @@ fn tranche_upfront_pct(
         .notional(Money::new(notional, Currency::USD))
         .maturity(maturity)
         .running_coupon_bp(running_coupon_bp)
-        .payment_frequency(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .day_count(DayCount::Act360)
-        .business_day_convention(BusinessDayConvention::Following)
+        .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(None)
         .discount_curve_id(CurveId::from("USD-OIS"))
         .credit_index_id(CurveId::from("CDX"))
@@ -252,9 +252,9 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
                 discount_curve_id: CurveId::from("USD-OIS"),
                 currency: Currency::USD,
                 notional,
-                payment_frequency: Some(Tenor::quarterly()),
+                frequency: Some(Tenor::quarterly()),
                 day_count: Some(DayCount::Act360),
-                business_day_convention: Some(BusinessDayConvention::Following),
+                bdc: Some(BusinessDayConvention::Following),
                 calendar_id: None,
                 detachment_points: vec![0.03, 0.07],
                 use_imm_dates: true,

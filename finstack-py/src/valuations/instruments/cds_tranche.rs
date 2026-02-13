@@ -285,12 +285,12 @@ impl PyCDSTrancheBuilder {
         builder = builder.notional(slf.notional.unwrap());
         builder = builder.maturity(slf.maturity.unwrap());
         builder = builder.running_coupon_bp(slf.running_coupon_bp.unwrap());
-        builder = builder.payment_frequency(
+        builder = builder.frequency(
             frequency_from_payments_per_year(Some(slf.payments_per_year))
                 .map_err(|e| PyValueError::new_err(format!("Invalid payments_per_year: {e}")))?,
         );
         builder = builder.day_count(slf.day_count);
-        builder = builder.business_day_convention(slf.business_day_convention);
+        builder = builder.bdc(slf.business_day_convention);
         builder = builder.calendar_id_opt(to_optional_string(slf.calendar.as_deref()));
         builder = builder.discount_curve_id(slf.discount_curve_id.clone().unwrap());
         builder = builder.credit_index_id(slf.credit_index_id.clone().unwrap());

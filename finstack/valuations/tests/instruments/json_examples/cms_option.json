@@ -25,6 +25,7 @@
       },
       "day_count": "Act365F",
       "discount_curve_id": "USD-OIS",
+      "forward_curve_id": "USD-LIBOR-3M",
       "vol_surface_id": "USD-CMS10Y-VOL",
       "pricing_overrides": {
         "quoted_clean_price": null,

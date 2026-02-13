@@ -60,10 +60,10 @@ fn main() -> finstack_core::Result<()> {
         .id("TL-RE-001".into())
         .currency(Currency::USD)
         .notional_limit(Money::new(9_000_000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(noi2)
         .rate(RateSpec::Fixed { rate_bp: 600 }) // 6%
-        .pay_freq(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)

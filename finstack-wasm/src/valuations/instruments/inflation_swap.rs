@@ -127,11 +127,11 @@ impl JsInflationSwapBuilder {
             .id(instrument_id_from_str(&self.instrument_id))
             .notional(notional)
             .fixed_rate(fixed_rate)
-            .start(start_date)
+            .start_date(start_date)
             .maturity(maturity)
             .discount_curve_id(curve_id_from_str(discount_curve))
             .inflation_index_id(inflation_curve.into())
-            .dc(dc)
+            .day_count(dc)
             .side(side_value)
             .attributes(Default::default())
             .build()
@@ -200,11 +200,11 @@ impl JsInflationSwap {
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
             .fixed_rate(fixed_rate)
-            .start(start_date.inner())
+            .start_date(start_date.inner())
             .maturity(maturity.inner())
             .discount_curve_id(curve_id_from_str(discount_curve))
             .inflation_index_id(inflation_curve.into())
-            .dc(dc)
+            .day_count(dc)
             .side(side_value)
             .attributes(Default::default());
 
@@ -252,7 +252,7 @@ impl JsInflationSwap {
             .inner()
             .inflation_index(self.inner.inflation_index_id.as_str())
         {
-            let start_v = index.value_on(self.inner.start).unwrap_or(1.0);
+            let start_v = index.value_on(self.inner.start_date).unwrap_or(1.0);
             let end_v = index.value_on(self.inner.maturity).unwrap_or(start_v);
             if start_v > 0.0 {
                 index_ratio = end_v / start_v;
@@ -261,9 +261,9 @@ impl JsInflationSwap {
 
         let tau = self
             .inner
-            .dc
+            .day_count
             .year_fraction(
-                self.inner.start,
+                self.inner.start_date,
                 self.inner.maturity,
                 DayCountCtx::default(),
             )

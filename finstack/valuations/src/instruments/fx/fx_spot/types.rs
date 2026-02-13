@@ -95,9 +95,11 @@ pub struct FxSpot {
     /// Unique identifier for the FX pair
     pub id: InstrumentId,
     /// Base currency (the currency being priced)
-    pub base: Currency,
+    #[serde(alias = "base")]
+    pub base_currency: Currency,
     /// Quote currency (the currency used for pricing)
-    pub quote: Currency,
+    #[serde(alias = "quote")]
+    pub quote_currency: Currency,
     /// Optional settlement date (T+2 typically for spot)
     #[builder(optional)]
     pub settlement: Option<Date>,
@@ -135,11 +137,11 @@ impl FxSpot {
     /// Create a new FX spot instrument.
     ///
     /// Default business day convention is `ModifiedFollowing` per ISDA standard.
-    pub fn new(id: InstrumentId, base: Currency, quote: Currency) -> Self {
+    pub fn new(id: InstrumentId, base_currency: Currency, quote_currency: Currency) -> Self {
         Self {
             id,
-            base,
-            quote,
+            base_currency,
+            quote_currency,
             settlement: None,
             settlement_lag_days: None,
             spot_rate: None,
@@ -267,9 +269,9 @@ impl FxSpot {
     ///
     /// Returns an error if the notional currency doesn't match the base currency.
     pub fn with_notional(mut self, notional: Money) -> finstack_core::Result<Self> {
-        if notional.currency() != self.base {
+        if notional.currency() != self.base_currency {
             return Err(finstack_core::Error::CurrencyMismatch {
-                expected: self.base,
+                expected: self.base_currency,
                 actual: notional.currency(),
             });
         }
@@ -322,12 +324,13 @@ impl FxSpot {
 
     /// Get the effective notional (defaults to 1 unit of base currency)
     pub fn effective_notional(&self) -> Money {
-        self.notional.unwrap_or_else(|| Money::new(1.0, self.base))
+        self.notional
+            .unwrap_or_else(|| Money::new(1.0, self.base_currency))
     }
 
     /// Standard FX pair name (e.g., "EURUSD")
     pub fn pair_name(&self) -> String {
-        format!("{}{}", self.base, self.quote)
+        format!("{}{}", self.base_currency, self.quote_currency)
     }
 
     /// Create an FX spot with T+1 settlement (used for USD/CAD and other same-day pairs).
@@ -348,8 +351,8 @@ impl FxSpot {
     ///     Currency::CAD,
     /// );
     /// ```
-    pub fn new_t1(id: InstrumentId, base: Currency, quote: Currency) -> Self {
-        Self::new(id, base, quote).with_settlement_lag_days(1)
+    pub fn new_t1(id: InstrumentId, base_currency: Currency, quote_currency: Currency) -> Self {
+        Self::new(id, base_currency, quote_currency).with_settlement_lag_days(1)
     }
 
     /// Check if this is a same-region pair that typically settles T+1.
@@ -367,7 +370,7 @@ impl FxSpot {
     /// Use `new_t1` or `with_settlement_lag_days(1)` to set T+1 settlement.
     pub fn is_t1_pair(&self) -> bool {
         // USD/CAD and USD/TRY are the most common T+1 pairs
-        let pair = (self.base, self.quote);
+        let pair = (self.base_currency, self.quote_currency);
         matches!(
             pair,
             (Currency::USD, Currency::CAD)
@@ -389,7 +392,7 @@ impl crate::instruments::common_impl::traits::Instrument for FxSpot {
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             )?;
-        deps.add_fx_pair(self.base, self.quote);
+        deps.add_fx_pair(self.base_currency, self.quote_currency);
         Ok(deps)
     }
 
@@ -403,12 +406,15 @@ impl crate::instruments::common_impl::traits::Instrument for FxSpot {
 
         // If settlement is on or before as_of, trade has settled (end-of-day convention)
         if settle_date <= as_of {
-            return Ok(finstack_core::money::Money::new(0.0, self.quote));
+            return Ok(finstack_core::money::Money::new(0.0, self.quote_currency));
         }
 
         if let Some(rate) = self.spot_rate {
             let quote_amount = self.effective_notional().amount() * rate;
-            return Ok(finstack_core::money::Money::new(quote_amount, self.quote));
+            return Ok(finstack_core::money::Money::new(
+                quote_amount,
+                self.quote_currency,
+            ));
         }
 
         let matrix = market.fx().ok_or_else(|| {
@@ -440,7 +446,7 @@ impl crate::instruments::common_impl::traits::Instrument for FxSpot {
         let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
         // Use settlement date for the FX conversion when using CashflowDate policy
         self.effective_notional()
-            .convert(self.quote, settle_date, &provider, policy)
+            .convert(self.quote_currency, settle_date, &provider, policy)
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
@@ -485,10 +491,17 @@ impl CashflowProvider for FxSpot {
                         id: "fx_matrix".to_string(),
                     })
                 })?;
-                let q = finstack_core::money::fx::FxQuery::new(self.base, self.quote, settle_date);
+                let q = finstack_core::money::fx::FxQuery::new(
+                    self.base_currency,
+                    self.quote_currency,
+                    settle_date,
+                );
                 matrix.as_ref().rate(q)?.rate
             };
-            let value = Money::new(self.effective_notional().amount() * rate, self.quote);
+            let value = Money::new(
+                self.effective_notional().amount() * rate,
+                self.quote_currency,
+            );
             vec![(settle_date, value)]
         } else {
             // Already settled
@@ -517,8 +530,8 @@ mod tests {
     #[test]
     fn test_fx_spot_creation() {
         let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD);
-        assert_eq!(spot.base, Currency::EUR);
-        assert_eq!(spot.quote, Currency::USD);
+        assert_eq!(spot.base_currency, Currency::EUR);
+        assert_eq!(spot.quote_currency, Currency::USD);
         assert_eq!(spot.pair_name(), "EURUSD");
     }
 

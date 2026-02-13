@@ -23,7 +23,7 @@
         "convexity_adjustment": null
       },
       "discount_curve_id": "USD-OIS",
-      "forward_id": "USD-SOFR-3M",
+      "forward_curve_id": "USD-SOFR-3M",
       "volatility_id": null,
       "attributes": {
         "tags": [],

@@ -183,9 +183,9 @@ impl JsCDSTrancheBuilder {
             .notional(notional)
             .maturity(maturity)
             .running_coupon_bp(running_coupon_bp)
-            .payment_frequency(freq)
+            .frequency(freq)
             .day_count(dc)
-            .business_day_convention(BusinessDayConvention::Following)
+            .bdc(BusinessDayConvention::Following)
             .discount_curve_id(curve_id_from_str(discount_curve))
             .credit_index_id(curve_id_from_str(credit_index_curve))
             .side(side_value)
@@ -265,9 +265,9 @@ impl JsCDSTranche {
             .notional(notional.inner())
             .maturity(maturity.inner())
             .running_coupon_bp(running_coupon_bp)
-            .payment_frequency(freq)
+            .frequency(freq)
             .day_count(dc)
-            .business_day_convention(BusinessDayConvention::Following)
+            .bdc(BusinessDayConvention::Following)
             .discount_curve_id(curve_id_from_str(discount_curve))
             .credit_index_id(curve_id_from_str(credit_index_curve))
             .side(side_value)
@@ -313,9 +313,9 @@ impl JsCDSTranche {
         let sched = build_dates(
             start,
             self.inner.maturity,
-            self.inner.payment_frequency,
+            self.inner.frequency,
             StubKind::None,
-            self.inner.business_day_convention,
+            self.inner.bdc,
             false,
             0,
             self.inner

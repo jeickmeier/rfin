@@ -85,7 +85,7 @@ impl FxBarrierOptionMcPricer {
             let per_unit = expired_barrier_value_per_unit(inst, fx_spot);
             return Ok(finstack_core::money::Money::new(
                 per_unit * inst.notional.amount(),
-                inst.domestic_currency,
+                inst.quote_currency,
             ));
         }
 
@@ -108,7 +108,7 @@ impl FxBarrierOptionMcPricer {
         };
 
         let vol_surface = curves.surface(inst.fx_vol_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t, inst.strike.amount());
+        let sigma = vol_surface.value_clamped(t, inst.strike);
 
         // For FX, drift is r_dom - r_for.
         // In GBM process param 'q' is subtracted from r to get drift (r-q).
@@ -128,18 +128,18 @@ impl FxBarrierOptionMcPricer {
 
         let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
         let payoff = FxBarrierCall::new(
-            inst.strike.amount(),
-            inst.barrier.amount(),
+            inst.strike,
+            inst.barrier,
             mc_barrier_type,
             inst.notional.amount(),
             maturity_step,
             sigma,
             dt,
             inst.use_gobet_miri,
-            inst.domestic_currency,
-            inst.foreign_currency,
+            inst.base_currency,
+            inst.quote_currency,
             quanto_adjustment,
-            inst.rebate.map(|m| m.amount()),
+            inst.rebate,
         );
 
         // Derive deterministic seed from instrument ID and scenario
@@ -171,7 +171,7 @@ impl FxBarrierOptionMcPricer {
             t,
             num_steps,
             &payoff,
-            inst.domestic_currency,
+            inst.quote_currency,
             discount_factor,
         )?;
 
@@ -261,8 +261,8 @@ fn spot_implies_barrier_hit(
 }
 
 fn expired_barrier_value_per_unit(inst: &FxBarrierOption, spot: f64) -> f64 {
-    let strike = inst.strike.amount();
-    let barrier = inst.barrier.amount();
+    let strike = inst.strike;
+    let barrier = inst.barrier;
     let barrier_hit = spot_implies_barrier_hit(inst.barrier_type, spot, barrier);
     let activated = if barrier_is_knock_in(inst.barrier_type) {
         barrier_hit
@@ -280,7 +280,7 @@ fn expired_barrier_value_per_unit(inst: &FxBarrierOption, spot: f64) -> f64 {
     };
 
     let rebate = if barrier_hit {
-        inst.rebate.map(|m| m.amount()).unwrap_or(0.0)
+        inst.rebate.unwrap_or(0.0)
     } else {
         0.0
     };
@@ -288,57 +288,31 @@ fn expired_barrier_value_per_unit(inst: &FxBarrierOption, spot: f64) -> f64 {
     intrinsic + rebate
 }
 
-/// Validate currency semantics for FX barrier option.
+/// Validate currency semantics and numeric bounds for FX barrier option.
 ///
 /// # Currency Conventions
 ///
 /// For an FX barrier option on `foreign_currency/domestic_currency` (e.g., EUR/USD):
-/// - Strike and barrier are expressed in domestic currency (quote currency)
+/// - Strike and barrier are dimensionless exchange rates (f64)
 /// - Notional is in foreign currency (base currency) - the amount of foreign currency
 ///   being bought/sold
 fn validate_fx_barrier_currencies(inst: &FxBarrierOption) -> finstack_core::Result<()> {
-    // Strike should be in domestic currency
-    if inst.strike.currency() != inst.domestic_currency {
-        return Err(finstack_core::Error::CurrencyMismatch {
-            expected: inst.domestic_currency,
-            actual: inst.strike.currency(),
-        });
-    }
-
-    // Barrier should be in domestic currency
-    if inst.barrier.currency() != inst.domestic_currency {
-        return Err(finstack_core::Error::CurrencyMismatch {
-            expected: inst.domestic_currency,
-            actual: inst.barrier.currency(),
-        });
-    }
-
     // Notional should be in foreign currency
-    if inst.notional.currency() != inst.foreign_currency {
+    if inst.notional.currency() != inst.base_currency {
         return Err(finstack_core::Error::CurrencyMismatch {
-            expected: inst.foreign_currency,
+            expected: inst.base_currency,
             actual: inst.notional.currency(),
         });
     }
 
-    // Rebate, if present, should be in domestic currency
-    if let Some(ref rebate) = inst.rebate {
-        if rebate.currency() != inst.domestic_currency {
-            return Err(finstack_core::Error::CurrencyMismatch {
-                expected: inst.domestic_currency,
-                actual: rebate.currency(),
-            });
-        }
-    }
-
-    let strike = inst.strike.amount();
+    let strike = inst.strike;
     if !strike.is_finite() || strike <= 0.0 {
         return Err(finstack_core::Error::Validation(format!(
             "FxBarrierOption strike must be finite and > 0, got {}",
             strike
         )));
     }
-    let barrier = inst.barrier.amount();
+    let barrier = inst.barrier;
     if !barrier.is_finite() || barrier <= 0.0 {
         return Err(finstack_core::Error::Validation(format!(
             "FxBarrierOption barrier must be finite and > 0, got {}",
@@ -408,7 +382,7 @@ fn collect_fx_barrier_inputs(
     }
 
     let vol_surface = curves.surface(inst.fx_vol_id.as_str())?;
-    let sigma = vol_surface.value_clamped(t, inst.strike.amount());
+    let sigma = vol_surface.value_clamped(t, inst.strike);
     if !sigma.is_finite() || sigma < 0.0 {
         return Err(finstack_core::Error::Validation(format!(
             "FxBarrierOption volatility must be finite and non-negative, got {}",
@@ -461,8 +435,8 @@ fn bs_barrier_price_per_unit(
     let price = match fx_barrier.option_type {
         crate::instruments::OptionType::Call => barrier_call_continuous(
             fx_spot,
-            fx_barrier.strike.amount(),
-            fx_barrier.barrier.amount(),
+            fx_barrier.strike,
+            fx_barrier.barrier,
             t,
             r_dom,
             r_for,
@@ -471,8 +445,8 @@ fn bs_barrier_price_per_unit(
         ),
         crate::instruments::OptionType::Put => barrier_put_continuous(
             fx_spot,
-            fx_barrier.strike.amount(),
-            fx_barrier.barrier.amount(),
+            fx_barrier.strike,
+            fx_barrier.barrier,
             t,
             r_dom,
             r_for,
@@ -484,8 +458,8 @@ fn bs_barrier_price_per_unit(
     let rebate_val = if let Some(rebate) = fx_barrier.rebate {
         barrier_rebate_continuous(
             fx_spot,
-            fx_barrier.barrier.amount(),
-            rebate.amount(),
+            fx_barrier.barrier,
+            rebate,
             t,
             r_dom,
             r_for,
@@ -535,7 +509,7 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
                 as_of,
                 Money::new(
                     per_unit * fx_barrier.notional.amount(),
-                    fx_barrier.domestic_currency,
+                    fx_barrier.quote_currency,
                 ),
             ));
         }
@@ -554,7 +528,7 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
 
         let pv = Money::new(
             price_per_unit * fx_barrier.notional.amount(),
-            fx_barrier.domestic_currency,
+            fx_barrier.quote_currency,
         );
         Ok(ValuationResult::stamped(fx_barrier.id(), as_of, pv))
     }
@@ -602,7 +576,7 @@ impl FxBarrierOptionVannaVolgaPricer {
             let per_unit = expired_barrier_value_per_unit(fx_barrier, fx_spot);
             return Ok(Money::new(
                 per_unit * fx_barrier.notional.amount(),
-                fx_barrier.domestic_currency,
+                fx_barrier.quote_currency,
             ));
         }
 
@@ -624,8 +598,8 @@ impl FxBarrierOptionVannaVolgaPricer {
         let vv_price = vanna_volga_barrier_adjustment(
             bs_price,
             fx_spot,
-            fx_barrier.barrier.amount(),
-            fx_barrier.strike.amount(),
+            fx_barrier.barrier,
+            fx_barrier.strike,
             r_dom,
             r_for,
             t,
@@ -636,7 +610,7 @@ impl FxBarrierOptionVannaVolgaPricer {
 
         Ok(Money::new(
             vv_price * fx_barrier.notional.amount(),
-            fx_barrier.domestic_currency,
+            fx_barrier.quote_currency,
         ))
     }
 }
@@ -647,16 +621,14 @@ mod tests {
     use super::*;
     use crate::instruments::exotics::barrier_option::types::BarrierType;
     use crate::instruments::OptionType;
-    use finstack_core::currency::Currency;
-    use finstack_core::money::Money;
 
     #[test]
     fn expired_up_and_in_call_returns_intrinsic_when_hit() {
         let mut inst = FxBarrierOption::example();
         inst.option_type = OptionType::Call;
         inst.barrier_type = BarrierType::UpAndIn;
-        inst.strike = Money::new(1.10, Currency::USD);
-        inst.barrier = Money::new(1.20, Currency::USD);
+        inst.strike = 1.10;
+        inst.barrier = 1.20;
         inst.rebate = None;
 
         let per_unit = expired_barrier_value_per_unit(&inst, 1.25);
@@ -668,8 +640,8 @@ mod tests {
         let mut inst = FxBarrierOption::example();
         inst.option_type = OptionType::Put;
         inst.barrier_type = BarrierType::DownAndOut;
-        inst.strike = Money::new(1.10, Currency::USD);
-        inst.barrier = Money::new(0.90, Currency::USD);
+        inst.strike = 1.10;
+        inst.barrier = 0.90;
         inst.rebate = None;
 
         // Barrier not hit at expiry => down-and-out stays active => intrinsic applies.
@@ -682,9 +654,9 @@ mod tests {
         let mut inst = FxBarrierOption::example();
         inst.option_type = OptionType::Call;
         inst.barrier_type = BarrierType::UpAndOut;
-        inst.strike = Money::new(1.10, Currency::USD);
-        inst.barrier = Money::new(1.20, Currency::USD);
-        inst.rebate = Some(Money::new(0.02, Currency::USD));
+        inst.strike = 1.10;
+        inst.barrier = 1.20;
+        inst.rebate = Some(0.02);
 
         // Barrier hit at expiry => knocked out. With rebate, no intrinsic and rebate paid.
         let per_unit = expired_barrier_value_per_unit(&inst, 1.25);
@@ -694,8 +666,8 @@ mod tests {
     #[test]
     fn validation_rejects_barrier_equal_to_strike() {
         let mut inst = FxBarrierOption::example();
-        inst.strike = Money::new(1.10, Currency::USD);
-        inst.barrier = Money::new(1.10, Currency::USD);
+        inst.strike = 1.10;
+        inst.barrier = 1.10;
 
         let err = validate_fx_barrier_currencies(&inst).expect_err("should reject equal levels");
         assert!(

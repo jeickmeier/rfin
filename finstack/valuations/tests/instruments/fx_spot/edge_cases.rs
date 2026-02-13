@@ -336,6 +336,6 @@ fn test_as_any_downcast() {
     assert!(downcast.is_some());
 
     let fx_ref = downcast.unwrap();
-    assert_eq!(fx_ref.base, Currency::EUR);
-    assert_eq!(fx_ref.quote, Currency::USD);
+    assert_eq!(fx_ref.base_currency, Currency::EUR);
+    assert_eq!(fx_ref.quote_currency, Currency::USD);
 }

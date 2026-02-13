@@ -346,7 +346,7 @@ impl PyInterestRateFutureBuilder {
             .period_start(period_start)
             .period_end(period_end)
             .discount_curve_id(discount_curve_id)
-            .forward_id(forward_curve_id)
+            .forward_curve_id(forward_curve_id)
             .day_count(slf.day_count)
             .position(slf.position)
             .contract_specs(specs)

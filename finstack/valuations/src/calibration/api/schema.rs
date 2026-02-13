@@ -440,14 +440,14 @@ pub struct BaseCorrelationParams {
     #[serde(default = "default_unit_notional")]
     pub notional: f64,
     /// Payment frequency for synthetic tranches (e.g., quarterly).
-    #[serde(default)]
-    pub payment_frequency: Option<Tenor>,
+    #[serde(default, alias = "payment_frequency")]
+    pub frequency: Option<Tenor>,
     /// Day count convention for synthetic tranche premium accrual.
     #[serde(default)]
     pub day_count: Option<DayCount>,
     /// Business day convention for synthetic tranche schedule adjustments.
-    #[serde(default)]
-    pub business_day_convention: Option<BusinessDayConvention>,
+    #[serde(default, alias = "business_day_convention")]
+    pub bdc: Option<BusinessDayConvention>,
     /// Optional calendar identifier for schedule generation and date adjustments.
     #[serde(default)]
     pub calendar_id: Option<String>,

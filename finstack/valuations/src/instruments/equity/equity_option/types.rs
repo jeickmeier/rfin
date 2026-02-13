@@ -110,7 +110,7 @@ pub struct EquityOption {
     /// **Important**: If this field is set, the lookup must succeed. A failed lookup
     /// will return an error rather than silently defaulting to zero, preventing
     /// market data configuration errors from affecting P&L.
-    pub div_yield_id: Option<String>,
+    pub div_yield_id: Option<CurveId>,
     /// Optional discrete dividend schedule for more accurate pricing.
     ///
     /// Each entry is (ex-date, dividend_amount). When provided, the escrowed
@@ -326,7 +326,7 @@ impl EquityOption {
             discount_curve_id,
             spot_id: underlying_params.spot_id.to_owned(),
             vol_surface_id,
-            div_yield_id: underlying_params.div_yield_id.to_owned(),
+            div_yield_id: underlying_params.div_yield_id.clone(),
             discrete_dividends: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
@@ -696,7 +696,7 @@ mod tests {
             .discount_curve_id(CurveId::new(DISC_ID))
             .spot_id(SPOT_ID.to_string())
             .vol_surface_id(CurveId::new(VOL_ID))
-            .div_yield_id_opt(Some(DIV_ID.to_string()))
+            .div_yield_id_opt(Some(CurveId::new(DIV_ID)))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -973,7 +973,7 @@ mod tests {
 
         // Create option with div_yield_id that won't exist in market context
         let mut option = base_option(expiry);
-        option.div_yield_id = Some("MISSING-DIV-YIELD".to_string());
+        option.div_yield_id = Some(CurveId::new("MISSING-DIV-YIELD"));
 
         // Build market context WITHOUT the dividend yield
         let expiries = [0.25, 0.5, 1.0, 2.0];

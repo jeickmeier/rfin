@@ -339,7 +339,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let deposit = Deposit::builder()
             .id(deposit_id.clone().into())
             .notional(Money::new(1_000_000.0 * (i + 1) as f64, ccy))
-            .start(base)
+            .start_date(base)
             .end(maturity_2y())
             .day_count(DayCount::Act360)
             .discount_curve_id(discount_curve_id.into())
@@ -846,12 +846,12 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let infl_swap = InflationSwap::builder()
             .id(infl_swap_id.clone().into())
             .notional(Money::new(10_000_000.0, Currency::USD))
-            .start(base)
+            .start_date(base)
             .maturity(maturity_5y())
             .fixed_rate(0.02) // 2% fixed real rate
             .inflation_index_id("USD-CPI".into())
             .discount_curve_id("USD-OIS".into())
-            .dc(DayCount::Act365F)
+            .day_count(DayCount::Act365F)
             .side(PayReceiveInflation::PayFixed)
             .attributes(Attributes::default())
             .build()
@@ -952,7 +952,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let convertible = ConvertibleBond {
             id: conv_id.clone().into(),
             notional: Money::new(1_000_000.0, Currency::USD),
-            issue: base,
+            issue_date: base,
             maturity: maturity_5y(),
             discount_curve_id: "USD-OIS".into(),
             credit_curve_id: None,
@@ -987,7 +987,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let deposit = Deposit::builder()
             .id(deposit_id.clone().into())
             .notional(Money::new(100_000.0, Currency::USD))
-            .start(base)
+            .start_date(base)
             .end(maturity_2y())
             .day_count(DayCount::Act360)
             .discount_curve_id("USD-OIS".into())

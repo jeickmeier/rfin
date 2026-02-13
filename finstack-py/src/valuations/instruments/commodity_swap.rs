@@ -8,6 +8,7 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::{BusinessDayConvention, Tenor, TenorUnit};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
+use finstack_valuations::instruments::legs::PayReceive;
 use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -360,10 +361,14 @@ impl PyCommoditySwapBuilder {
             .notional_quantity(notional_quantity)
             .fixed_price(fixed_price)
             .floating_index_id(floating_index_id)
-            .pay_fixed(pay_fixed)
+            .side(if pay_fixed {
+                PayReceive::PayFixed
+            } else {
+                PayReceive::ReceiveFixed
+            })
             .start_date(start_date)
             .end_date(end_date)
-            .payment_frequency(payment_frequency)
+            .frequency(payment_frequency)
             .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new());
 
@@ -371,7 +376,7 @@ impl PyCommoditySwapBuilder {
             builder = builder.calendar_id_opt(Some(cal));
         }
         if let Some(b) = slf.bdc {
-            builder = builder.bdc_opt(Some(b));
+            builder = builder.bdc(b);
         }
         if let Some(lag) = slf.index_lag_days {
             builder = builder.index_lag_days_opt(Some(lag));
@@ -448,7 +453,7 @@ impl PyCommoditySwap {
     /// Whether paying fixed (receiving floating).
     #[getter]
     fn pay_fixed(&self) -> bool {
-        self.inner.pay_fixed
+        self.inner.side.is_payer()
     }
 
     /// Start date.
@@ -488,7 +493,7 @@ impl PyCommoditySwap {
             self.inner.id.as_str(),
             self.inner.ticker,
             self.inner.fixed_price,
-            self.inner.pay_fixed
+            self.inner.side.is_payer()
         )
     }
 }

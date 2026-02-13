@@ -314,7 +314,7 @@ fn test_standard_quarterly_frequency() {
 
     let tranche = mezzanine_tranche();
     assert_eq!(
-        format!("{:?}", tranche.payment_frequency),
+        format!("{:?}", tranche.frequency),
         "Tenor { count: 3, unit: Months }",
         "Standard CDS payment frequency should be quarterly (3 months)"
     );

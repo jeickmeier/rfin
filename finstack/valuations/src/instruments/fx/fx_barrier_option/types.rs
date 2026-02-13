@@ -1,12 +1,8 @@
 //! FX barrier option instrument definition.
 //!
-//! # Note on Strike/Barrier Representation
-//!
-//! This module uses `Money` for strike and barrier fields, which carries both
-//! a numeric value and a currency tag. Other FX option modules (`fx_option`,
-//! `fx_digital_option`, `fx_touch_option`) use plain `f64`. A future
-//! refactoring should converge on a single representation across all FX
-//! option types for API consistency.
+//! Strike and barrier are plain `f64` exchange rates (quote-per-base), consistent
+//! with all other FX option modules (`fx_option`, `fx_digital_option`,
+//! `fx_touch_option`).
 
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
@@ -26,12 +22,12 @@ use finstack_core::types::{CurveId, InstrumentId};
 pub struct FxBarrierOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
-    /// Strike exchange rate
-    pub strike: Money,
-    /// Barrier level (exchange rate that triggers knock-in/out)
-    pub barrier: Money,
-    /// Optional rebate amount (paid at expiry if barrier condition met)
-    pub rebate: Option<Money>,
+    /// Strike exchange rate (quote per base, dimensionless)
+    pub strike: f64,
+    /// Barrier level (exchange rate that triggers knock-in/out, dimensionless)
+    pub barrier: f64,
+    /// Optional rebate amount (paid at expiry if barrier condition met, dimensionless)
+    pub rebate: Option<f64>,
     /// Option type (call or put on foreign currency)
     pub option_type: OptionType,
     /// Barrier type (up/down, in/out)
@@ -40,10 +36,12 @@ pub struct FxBarrierOption {
     pub expiry: Date,
     /// Notional amount in foreign currency
     pub notional: Money,
-    /// Domestic currency (quote currency)
-    pub domestic_currency: Currency,
-    /// Foreign currency (base currency)
-    pub foreign_currency: Currency,
+    /// Base currency (the currency being priced, formerly foreign_currency)
+    #[serde(alias = "foreign_currency")]
+    pub base_currency: Currency,
+    /// Quote currency (the pricing/settlement currency, formerly domestic_currency)
+    #[serde(alias = "domestic_currency")]
+    pub quote_currency: Currency,
     /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
     /// Whether to use Gobet-Miri continuous barrier adjustment
@@ -81,7 +79,7 @@ impl FxBarrierOption {
     /// # Currency Conventions
     ///
     /// For EUR/USD (foreign=EUR, domestic=USD):
-    /// - Strike and barrier are in USD (the domestic/quote currency)
+    /// - Strike and barrier are dimensionless exchange rates (USD per EUR)
     /// - Notional is in EUR (the foreign/base currency being bought)
     #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
@@ -89,16 +87,16 @@ impl FxBarrierOption {
         use time::Month;
         FxBarrierOption::builder()
             .id(InstrumentId::new("FXBAR-EURUSD-UO-CALL"))
-            .strike(Money::new(1.10, Currency::USD)) // Strike rate in USD
-            .barrier(Money::new(1.20, Currency::USD)) // Barrier rate in USD
+            .strike(1.10) // Strike rate (USD per EUR)
+            .barrier(1.20) // Barrier rate (USD per EUR)
             .option_type(crate::instruments::OptionType::Call)
             .barrier_type(BarrierType::UpAndOut)
             .expiry(
                 Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"),
             )
             .notional(Money::new(1_000_000.0, Currency::EUR)) // Notional in foreign currency (EUR)
-            .domestic_currency(Currency::USD)
-            .foreign_currency(Currency::EUR)
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
             .day_count(DayCount::Act365F)
             .use_gobet_miri(false)
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
@@ -382,7 +380,7 @@ impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
             )?;
         deps.add_spot_id(self.fx_spot_id.as_str());
         deps.add_vol_surface_id(self.fx_vol_id.as_str());
-        deps.add_fx_pair(self.foreign_currency, self.domestic_currency);
+        deps.add_fx_pair(self.base_currency, self.quote_currency);
         Ok(deps)
     }
 
@@ -458,45 +456,42 @@ mod tests {
     }
 
     #[test]
-    fn test_fx_barrier_option_example_has_correct_currency_semantics() {
+    fn test_fx_barrier_option_example_has_correct_values() {
         let option = FxBarrierOption::example();
 
-        // Strike and barrier should be in domestic currency (USD)
-        assert_eq!(
-            option.strike.currency(),
-            option.domestic_currency,
-            "Strike should be in domestic currency"
+        // Strike and barrier are f64 exchange rates
+        assert!(
+            (option.strike - 1.10).abs() < 1e-12,
+            "Strike should be 1.10"
         );
-        assert_eq!(
-            option.barrier.currency(),
-            option.domestic_currency,
-            "Barrier should be in domestic currency"
+        assert!(
+            (option.barrier - 1.20).abs() < 1e-12,
+            "Barrier should be 1.20"
         );
 
-        // Notional should be in foreign currency (EUR)
+        // Notional should be in base currency (EUR)
         assert_eq!(
             option.notional.currency(),
-            option.foreign_currency,
-            "Notional should be in foreign currency"
+            option.base_currency,
+            "Notional should be in base currency"
         );
     }
 
     #[test]
-    fn test_fx_barrier_option_creation_with_correct_currencies() {
+    fn test_fx_barrier_option_creation_with_f64_strike_barrier() {
         use finstack_core::dates::DayCount;
         use time::Month;
 
-        // Valid: strike/barrier in USD, notional in EUR
         let option = FxBarrierOption::builder()
             .id(InstrumentId::new("TEST-FXBAR"))
-            .strike(Money::new(1.10, Currency::USD))
-            .barrier(Money::new(1.20, Currency::USD))
+            .strike(1.10)
+            .barrier(1.20)
             .option_type(OptionType::Call)
             .barrier_type(BarrierType::UpAndOut)
             .expiry(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .notional(Money::new(1_000_000.0, Currency::EUR))
-            .domestic_currency(Currency::USD)
-            .foreign_currency(Currency::EUR)
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
             .day_count(DayCount::Act365F)
             .use_gobet_miri(false)
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
@@ -508,8 +503,8 @@ mod tests {
             .build()
             .expect("should build");
 
-        assert_eq!(option.strike.currency(), Currency::USD);
-        assert_eq!(option.barrier.currency(), Currency::USD);
+        assert!((option.strike - 1.10).abs() < 1e-12);
+        assert!((option.barrier - 1.20).abs() < 1e-12);
         assert_eq!(option.notional.currency(), Currency::EUR);
     }
 

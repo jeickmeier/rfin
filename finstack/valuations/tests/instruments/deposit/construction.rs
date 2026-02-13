@@ -19,7 +19,7 @@ fn test_basic_construction() {
     let dep = Deposit::builder()
         .id(InstrumentId::new("DEP-001"))
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .start(base)
+        .start_date(base)
         .end(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -30,7 +30,7 @@ fn test_basic_construction() {
     assert_eq!(dep.id.as_str(), "DEP-001");
     assert_eq!(dep.notional.amount(), 1_000_000.0);
     assert_eq!(dep.notional.currency(), Currency::USD);
-    assert_eq!(dep.start, base);
+    assert_eq!(dep.start_date, base);
     assert_eq!(dep.end, date(2025, 7, 1));
     assert!(matches!(dep.day_count, DayCount::Act360));
     assert_eq!(dep.discount_curve_id.as_str(), "USD-OIS");
@@ -46,7 +46,7 @@ fn test_construction_with_quote_rate() {
     let mut dep = Deposit::builder()
         .id(InstrumentId::new("DEP-002"))
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .start(base)
+        .start_date(base)
         .end(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -74,7 +74,7 @@ fn test_construction_with_different_day_counts() {
         let dep = Deposit::builder()
             .id(InstrumentId::new("DEP-DC"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .start(base)
+            .start_date(base)
             .end(date(2025, 7, 1))
             .day_count(dc)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -96,7 +96,7 @@ fn test_construction_with_different_currencies() {
         let dep = Deposit::builder()
             .id(InstrumentId::new("DEP-CCY"))
             .notional(Money::new(1_000_000.0, ccy))
-            .start(base)
+            .start_date(base)
             .end(date(2025, 7, 1))
             .day_count(DayCount::Act360)
             .discount_curve_id(CurveId::new(format!("{}-OIS", ccy)))
@@ -114,23 +114,23 @@ fn test_construction_with_various_maturities() {
 
     // 1 week
     let dep_1w = DepositBuilder::new(base).end(date(2025, 1, 8)).build();
-    assert!(dep_1w.end > dep_1w.start);
+    assert!(dep_1w.end > dep_1w.start_date);
 
     // 1 month
     let dep_1m = DepositBuilder::new(base).end(date(2025, 2, 1)).build();
-    assert!(dep_1m.end > dep_1m.start);
+    assert!(dep_1m.end > dep_1m.start_date);
 
     // 3 months
     let dep_3m = DepositBuilder::new(base).end(date(2025, 4, 1)).build();
-    assert!(dep_3m.end > dep_3m.start);
+    assert!(dep_3m.end > dep_3m.start_date);
 
     // 6 months
     let dep_6m = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
-    assert!(dep_6m.end > dep_6m.start);
+    assert!(dep_6m.end > dep_6m.start_date);
 
     // 1 year
     let dep_1y = DepositBuilder::new(base).end(date(2026, 1, 1)).build();
-    assert!(dep_1y.end > dep_1y.start);
+    assert!(dep_1y.end > dep_1y.start_date);
 }
 
 #[test]
@@ -169,7 +169,7 @@ fn test_builder_pattern_ergonomics() {
     let dep = DepositBuilder::new(base)
         .id("DEP-FLUENT")
         .notional(Money::new(5_000_000.0, Currency::EUR))
-        .start(date(2025, 2, 1))
+        .start_date(date(2025, 2, 1))
         .end(date(2025, 8, 1))
         .day_count(DayCount::Act365F)
         .quote_rate(0.03)
@@ -194,7 +194,7 @@ fn test_clone_deposit() {
     // Validate
     assert_eq!(dep.id, dep_clone.id);
     assert_eq!(dep.notional, dep_clone.notional);
-    assert_eq!(dep.start, dep_clone.start);
+    assert_eq!(dep.start_date, dep_clone.start_date);
     assert_eq!(dep.end, dep_clone.end);
 }
 

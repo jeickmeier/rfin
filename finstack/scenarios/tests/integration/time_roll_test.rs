@@ -146,7 +146,7 @@ fn test_time_roll_with_bond_carry() {
         Bond::builder()
             .id("BOND1".into())
             .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-            .issue(base_date)
+            .issue_date(base_date)
             .maturity(base_date + time::Duration::days(730))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,

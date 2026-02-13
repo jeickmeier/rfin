@@ -1215,7 +1215,7 @@ mod tests {
         Bond::builder()
             .id("TEST_BOND".into())
             .notional(Money::new(1000.0, finstack_core::currency::Currency::USD))
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,

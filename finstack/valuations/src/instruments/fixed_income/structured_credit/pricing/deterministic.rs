@@ -42,7 +42,7 @@ pub fn run_simulation(
     }
 
     // Validate and extract months per period
-    let months_per_period = match instrument.payment_frequency.months() {
+    let months_per_period = match instrument.frequency.months() {
         Some(m) => m as f64,
         None => {
             return Err(finstack_core::Error::Validation(
@@ -97,7 +97,7 @@ pub fn run_simulation(
         instrument.first_payment_date.max(as_of),
         instrument.legal_maturity,
     )?
-    .frequency(instrument.payment_frequency)
+    .frequency(instrument.frequency)
     .build()?;
 
     let mut adjusted_schedule = schedule;

@@ -354,7 +354,7 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
 
     deal.first_payment_date = first_payment;
     deal.reinvestment_end_date = Some(reinvestment_end);
-    deal.payment_frequency = Tenor::monthly();
+    deal.frequency = Tenor::monthly();
     deal.attributes = Attributes::new()
         .with_tag("full")
         .with_meta("book", "structured_credit");
@@ -446,7 +446,7 @@ fn test_structured_credit_full_feature_json_roundtrip() {
     // Core identifiers and schedule
     assert_eq!(original.id, parsed.id);
     assert_eq!(original.deal_type, parsed.deal_type);
-    assert_eq!(original.payment_frequency, parsed.payment_frequency);
+    assert_eq!(original.frequency, parsed.frequency);
     assert_eq!(original.first_payment_date, parsed.first_payment_date);
     assert_eq!(original.reinvestment_end_date, parsed.reinvestment_end_date);
 

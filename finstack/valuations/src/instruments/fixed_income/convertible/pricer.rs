@@ -1043,7 +1043,7 @@ pub fn calculate_convertible_greeks(
 /// Build the convertible bond cashflow schedule using common builder flow.
 fn build_convertible_schedule(bond: &ConvertibleBond) -> Result<CashFlowSchedule> {
     let mut builder = CashFlowSchedule::builder();
-    let _ = builder.principal(bond.notional, bond.issue, bond.maturity);
+    let _ = builder.principal(bond.notional, bond.issue_date, bond.maturity);
     if let Some(fixed_spec) = &bond.fixed_coupon {
         let _ = builder.fixed_cf(fixed_spec.clone());
     }
@@ -1098,7 +1098,7 @@ pub fn calculate_accrued_interest(bond: &ConvertibleBond, as_of: Date) -> Result
     // Find the accrual period containing as_of.
     // Coupon dates are payment dates; accrual periods run between consecutive dates.
     // The first period starts at issue.
-    let mut period_start = bond.issue;
+    let mut period_start = bond.issue_date;
     for cf in &coupons {
         let period_end = cf.date;
         if as_of >= period_start && as_of < period_end {
@@ -1239,7 +1239,7 @@ mod tests {
         ConvertibleBond {
             id: "TEST_CONVERTIBLE".to_string().into(),
             notional: Money::new(1000.0, Currency::USD),
-            issue,
+            issue_date: issue,
             maturity,
             discount_curve_id: "USD-OIS".into(),
             credit_curve_id: None,

@@ -189,12 +189,12 @@ impl JsYoYInflationSwapBuilder {
             .id(instrument_id_from_str(&self.instrument_id))
             .notional(notional)
             .fixed_rate(fixed_rate)
-            .start(start_date)
+            .start_date(start_date)
             .maturity(maturity)
             .frequency(freq)
             .discount_curve_id(curve_id_from_str(discount_curve))
             .inflation_index_id(curve_id_from_str(inflation_index_id))
-            .dc(dc)
+            .day_count(dc)
             .side(side_value)
             .attributes(Default::default())
             .build()
@@ -231,12 +231,12 @@ impl JsYoYInflationSwap {
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
             .fixed_rate(fixed_rate)
-            .start(start_date.inner())
+            .start_date(start_date.inner())
             .maturity(maturity.inner())
             .frequency(freq)
             .discount_curve_id(curve_id_from_str(discount_curve))
             .inflation_index_id(curve_id_from_str(inflation_index_id))
-            .dc(dc)
+            .day_count(dc)
             .side(side_value)
             .attributes(Default::default());
 
@@ -267,7 +267,7 @@ impl JsYoYInflationSwap {
     /// Get the start date.
     #[wasm_bindgen(getter, js_name = startDate)]
     pub fn start_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.start)
+        JsDate::from_core(self.inner.start_date)
     }
 
     /// Get the maturity date.
@@ -318,7 +318,7 @@ impl JsYoYInflationSwap {
         let as_of = disc.base_date();
 
         let sched = build_dates(
-            self.inner.start,
+            self.inner.start_date,
             self.inner.maturity,
             self.inner.frequency,
             StubKind::None,
@@ -344,7 +344,7 @@ impl JsYoYInflationSwap {
 
             let accrual = self
                 .inner
-                .dc
+                .day_count
                 .year_fraction(prev, d, DayCountCtx::default())
                 .map_err(|e| js_error(e.to_string()))?;
 

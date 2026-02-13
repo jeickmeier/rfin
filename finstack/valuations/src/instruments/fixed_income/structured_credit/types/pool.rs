@@ -84,7 +84,7 @@ impl PoolAsset {
                 .pricing_overrides
                 .quoted_clean_price
                 .map(|p| Money::new(p * bond.notional.amount(), bond.notional.currency())),
-            acquisition_date: Some(bond.issue),
+            acquisition_date: Some(bond.issue_date),
             day_count: match &bond.cashflow_spec {
                 crate::instruments::fixed_income::bond::CashflowSpec::Fixed(spec) => spec.dc,
                 crate::instruments::fixed_income::bond::CashflowSpec::Floating(spec) => {

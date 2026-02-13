@@ -46,7 +46,7 @@
 //!     .discount_curve_id(CurveId::new("USD-OIS"))
 //!     .spot_id("EQUITY-SPOT".to_string())
 //!     .vol_surface_id(CurveId::new("EQUITY-VOL"))
-//!     .div_yield_id_opt(Some("EQUITY-DIVYIELD".to_string()))
+//!     .div_yield_id_opt(Some(CurveId::new("EQUITY-DIVYIELD")))
 //!     .pricing_overrides(PricingOverrides::default())
 //!     .attributes(Attributes::new())
 //!     .build()

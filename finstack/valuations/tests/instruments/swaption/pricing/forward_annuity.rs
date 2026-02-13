@@ -12,7 +12,9 @@ fn expected_forward_rate(
     let disc = market
         .get_discount(swaption.discount_curve_id.as_ref())
         .unwrap();
-    let fwd = market.get_forward(swaption.forward_id.as_ref()).unwrap();
+    let fwd = market
+        .get_forward(swaption.forward_curve_id.as_ref())
+        .unwrap();
     let annuity = swaption.swap_annuity(disc.as_ref(), as_of).unwrap();
 
     let sched = finstack_valuations::cashflow::builder::build_dates(

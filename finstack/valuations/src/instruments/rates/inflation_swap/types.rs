@@ -72,7 +72,8 @@ pub struct InflationSwap {
     /// Notional in quote currency
     pub notional: Money,
     /// Start date of indexation
-    pub start: Date,
+    #[serde(alias = "start")]
+    pub start_date: Date,
     /// Maturity date
     pub maturity: Date,
     /// Fixed real rate (as decimal)
@@ -82,7 +83,8 @@ pub struct InflationSwap {
     /// Discount curve identifier (quote currency)
     pub discount_curve_id: CurveId,
     /// Day count for accrual calculation (fixed leg compounding)
-    pub dc: DayCount,
+    #[serde(alias = "dc")]
+    pub day_count: DayCount,
     /// Trade side
     pub side: PayReceiveInflation,
     /// Optional contract-level lag override (if set, overrides index lag)
@@ -115,14 +117,16 @@ impl InflationSwap {
         InflationSwap::builder()
             .id(InstrumentId::new("INFLSWAP-USD-5Y"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .start(Date::from_calendar_date(2024, Month::January, 15).expect("Valid example date"))
+            .start_date(
+                Date::from_calendar_date(2024, Month::January, 15).expect("Valid example date"),
+            )
             .maturity(
                 Date::from_calendar_date(2029, Month::January, 15).expect("Valid example date"),
             )
             .fixed_rate(0.02)
             .inflation_index_id(CurveId::new("US-CPI"))
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .dc(DayCount::Act365F)
+            .day_count(DayCount::Act365F)
             .side(PayReceiveInflation::PayFixed)
             .lag_override(InflationLag::Months(3))
             .bdc(BusinessDayConvention::Following)
@@ -141,7 +145,7 @@ impl InflationSwap {
     /// - `base_cpi` is provided but non-positive
     pub fn validate(&self) -> finstack_core::Result<()> {
         validation::require_or(
-            self.start < self.maturity,
+            self.start_date < self.maturity,
             finstack_core::InputError::InvalidDateRange,
         )?;
         validation::require_or(
@@ -233,11 +237,11 @@ impl InflationSwap {
             base
         } else if let Some(index) = inflation_index {
             // InflationIndex.value_on() applies its own lag internally
-            index.value_on(self.start)?
+            index.value_on(self.start_date)?
         } else {
             // Fall back to curve-based lookup - we must apply lag ourselves
             let default_lag = self.effective_lag(curves);
-            let lagged_start = self.apply_lag(self.start, default_lag);
+            let lagged_start = self.apply_lag(self.start_date, default_lag);
             // Compute signed year fraction (can be negative if lagged_start < discount_base)
             let t_start = Self::signed_year_fraction(discount_base, lagged_start);
             // cpi(t) returns base_cpi for t <= 0, which is correct for historical dates
@@ -267,7 +271,7 @@ impl InflationSwap {
     ///
     /// # Day Count Convention
     ///
-    /// Uses `Act365F` (Actual/365 Fixed) regardless of the instrument's `dc` field because:
+    /// Uses `Act365F` (Actual/365 Fixed) regardless of the instrument's `day_count` field because:
     ///
     /// 1. **Inflation curves use time in years**: Inflation curve knots are expressed in
     ///    year fractions from the base date. Using a consistent day count ensures proper
@@ -276,10 +280,10 @@ impl InflationSwap {
     /// 2. **Market convention**: Inflation curves are typically constructed with Act365F
     ///    or Act/Act, making Act365F a reasonable default for curve time calculations.
     ///
-    /// 3. **Separation of concerns**: The instrument's `dc` field controls fixed leg
+    /// 3. **Separation of concerns**: The instrument's `day_count` field controls fixed leg
     ///    accrual calculation, while inflation curve lookups use curve-native conventions.
     ///
-    /// Note: The instrument's `dc` field is used for fixed leg compounding
+    /// Note: The instrument's `day_count` field is used for fixed leg compounding
     /// (see `pv_fixed_leg`), while this function is used only for inflation curve lookups.
     fn signed_year_fraction(start: Date, end: Date) -> f64 {
         if end >= start {
@@ -327,8 +331,8 @@ impl InflationSwap {
         let disc = curves.get_discount(self.discount_curve_id.as_str())?;
 
         // Use instrument day count for accrual period
-        let tau_accrual = self.dc.year_fraction(
-            self.start,
+        let tau_accrual = self.day_count.year_fraction(
+            self.start_date,
             self.maturity,
             finstack_core::dates::DayCountCtx::default(),
         )?;
@@ -405,8 +409,8 @@ impl InflationSwap {
             return Err(finstack_core::InputError::NonPositiveValue.into());
         }
 
-        let tau = self.dc.year_fraction(
-            self.start,
+        let tau = self.day_count.year_fraction(
+            self.start_date,
             self.maturity,
             finstack_core::dates::DayCountCtx::default(),
         )?;
@@ -455,7 +459,7 @@ impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
-        Some(self.start)
+        Some(self.start_date)
     }
 }
 
@@ -484,7 +488,8 @@ pub struct YoYInflationSwap {
     /// Notional in quote currency
     pub notional: Money,
     /// Start date of the first accrual period
-    pub start: Date,
+    #[serde(alias = "start")]
+    pub start_date: Date,
     /// Maturity date
     pub maturity: Date,
     /// Fixed rate (decimal)
@@ -496,7 +501,8 @@ pub struct YoYInflationSwap {
     /// Discount curve identifier (quote currency)
     pub discount_curve_id: CurveId,
     /// Day count for fixed leg accrual calculation
-    pub dc: DayCount,
+    #[serde(alias = "dc")]
+    pub day_count: DayCount,
     /// Trade side
     pub side: PayReceiveInflation,
     /// Optional contract-level lag override (if set, overrides index lag)
@@ -516,7 +522,7 @@ impl YoYInflationSwap {
     /// Validate structural invariants of the YoY inflation swap.
     pub fn validate(&self) -> finstack_core::Result<()> {
         validation::require_or(
-            self.start < self.maturity,
+            self.start_date < self.maturity,
             finstack_core::InputError::InvalidDateRange,
         )?;
         validation::require_or(
@@ -567,7 +573,7 @@ impl YoYInflationSwap {
     /// Compute signed year fraction for inflation curve lookups.
     ///
     /// Uses Act365F for inflation curve time calculations (see `InflationSwap::signed_year_fraction`
-    /// for detailed rationale). The instrument's `dc` field is used for fixed leg accrual only.
+    /// for detailed rationale). The instrument's `day_count` field is used for fixed leg accrual only.
     fn signed_year_fraction(start: Date, end: Date) -> f64 {
         if end >= start {
             DayCount::Act365F
@@ -603,7 +609,7 @@ impl YoYInflationSwap {
         let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
         let periods = crate::cashflow::builder::periods::build_periods(
             crate::cashflow::builder::periods::BuildPeriodsParams {
-                start: self.start,
+                start: self.start_date,
                 end: self.maturity,
                 frequency: self.frequency,
                 stub: StubKind::None,
@@ -613,7 +619,7 @@ impl YoYInflationSwap {
                     .as_deref()
                     .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
                 end_of_month: false,
-                day_count: self.dc,
+                day_count: self.day_count,
                 payment_lag_days: 0,
                 reset_lag_days: None,
             },
@@ -643,7 +649,9 @@ impl YoYInflationSwap {
         let mut pv = 0.0_f64;
 
         for (start, end, pay) in self.schedule()? {
-            let accrual = self.dc.year_fraction(start, end, DayCountCtx::default())?;
+            let accrual = self
+                .day_count
+                .year_fraction(start, end, DayCountCtx::default())?;
 
             let cpi_start = self.cpi_value(curves, as_of, start)?;
             if cpi_start <= 0.0 {
@@ -692,7 +700,9 @@ impl YoYInflationSwap {
         let mut sum_annuity = 0.0_f64;
 
         for (start, end, pay) in self.schedule()? {
-            let accrual = self.dc.year_fraction(start, end, DayCountCtx::default())?;
+            let accrual = self
+                .day_count
+                .year_fraction(start, end, DayCountCtx::default())?;
 
             let cpi_start = self.cpi_value(curves, as_of, start)?;
             if cpi_start <= 0.0 {
@@ -753,7 +763,7 @@ impl crate::instruments::common_impl::traits::Instrument for YoYInflationSwap {
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
-        Some(self.start)
+        Some(self.start_date)
     }
 }
 

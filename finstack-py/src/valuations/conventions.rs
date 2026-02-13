@@ -339,7 +339,7 @@ impl PyCdsConventions {
 
     #[getter]
     fn business_day_convention(&self) -> PyBusinessDayConvention {
-        PyBusinessDayConvention::new(self.inner.business_day_convention)
+        PyBusinessDayConvention::new(self.inner.bdc)
     }
 
     #[getter]
@@ -349,13 +349,13 @@ impl PyCdsConventions {
 
     #[getter]
     fn payment_frequency(&self) -> PyTenor {
-        PyTenor::new(self.inner.payment_frequency)
+        PyTenor::new(self.inner.frequency)
     }
 
     fn __repr__(&self) -> String {
         format!(
             "CdsConventions(calendar='{}', payment_frequency={})",
-            self.inner.calendar_id, self.inner.payment_frequency
+            self.inner.calendar_id, self.inner.frequency
         )
     }
 }

@@ -515,9 +515,9 @@ impl PyCDSTrancheBuildOverrides {
         inner.use_imm_dates = use_imm_dates;
         if let Some(freq) = payment_frequency {
             if let Ok(t) = freq.extract::<PyRef<'_, PyTenor>>() {
-                inner.payment_frequency = Some(t.inner);
+                inner.frequency = Some(t.inner);
             } else if let Ok(text) = freq.extract::<&str>() {
-                inner.payment_frequency = Some(
+                inner.frequency = Some(
                     Tenor::parse(text)
                         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
                 );
@@ -531,7 +531,7 @@ impl PyCDSTrancheBuildOverrides {
             inner.day_count = Some(dc.inner);
         }
         if let Some(bdc) = business_day_convention {
-            inner.business_day_convention = Some(bdc.inner);
+            inner.bdc = Some(bdc.inner);
         }
         inner.calendar_id = calendar_id;
         Ok(Self::new(inner))

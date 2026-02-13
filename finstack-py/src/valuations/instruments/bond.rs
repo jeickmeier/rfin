@@ -490,7 +490,7 @@ impl PyBondBuilder {
         let mut builder = Bond::builder()
             .id(slf.instrument_id.clone())
             .notional(money)
-            .issue(issue)
+            .issue_date(issue)
             .maturity(maturity)
             .discount_curve_id(discount)
             .cashflow_spec(slf.make_cashflow_spec())
@@ -577,7 +577,7 @@ impl PyBond {
     ///     datetime.date: Issue date converted to Python.
     #[getter]
     fn issue(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.issue)
+        date_to_py(py, self.inner.issue_date)
     }
 
     /// Maturity date.

@@ -55,7 +55,8 @@ pub struct Deposit {
     /// Principal amount of the deposit.
     pub notional: Money,
     /// Start date of the deposit period.
-    pub start: Date,
+    #[serde(alias = "start")]
+    pub start_date: Date,
     /// End date of the deposit period.
     pub end: Date,
     /// Day count convention for interest accrual.
@@ -106,7 +107,7 @@ impl Deposit {
         Self::builder()
             .id(InstrumentId::new("DEP-USD-6M"))
             .notional(Money::new(100_000.0, Currency::USD))
-            .start(date!(2024 - 01 - 01))
+            .start_date(date!(2024 - 01 - 01))
             .end(date!(2024 - 07 - 01))
             .day_count(DayCount::Act360)
             .quote_rate_opt(Some(0.045))
@@ -220,7 +221,7 @@ impl Deposit {
     /// This is called automatically during cashflow generation and pricing.
     pub fn validate(&self) -> finstack_core::Result<()> {
         // Validate raw date ordering first (fast check)
-        validation::validate_date_range_strict_with(self.start, self.end, |start, end| {
+        validation::validate_date_range_strict_with(self.start_date, self.end, |start, end| {
             format!(
                 "Deposit end date ({}) must be after start date ({})",
                 end, start
@@ -298,13 +299,13 @@ impl Deposit {
         let base_start = if let Some(lag_days) = self.spot_lag_days {
             // Compute spot date: start + spot_lag business days
             if let Some(cal) = calendar {
-                self.start.add_business_days(lag_days, cal)?
+                self.start_date.add_business_days(lag_days, cal)?
             } else {
-                self.start.add_weekdays(lag_days)
+                self.start_date.add_weekdays(lag_days)
             }
         } else {
             // Use raw start date
-            self.start
+            self.start_date
         };
 
         // Apply business day adjustment if calendar is available

@@ -35,15 +35,22 @@ impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &InterestRateOption = context.instrument_as()?;
 
-        // Need market price to solve for implied volatility
-        let market_price = option.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::InputError::NotFound {
-                id: "Market price required for implied vol".to_string(),
-            })
-        })?;
+        // Need market price to solve for implied volatility.
+        // The quoted_clean_price is passed via the MetricContext pricing overrides,
+        // not stored on the instrument itself.
+        let market_price = context
+            .pricing_overrides
+            .as_ref()
+            .and_then(|po| po.quoted_clean_price)
+            .ok_or_else(|| {
+                finstack_core::Error::Input(finstack_core::InputError::NotFound {
+                    id: "Market price required for implied vol (set via pricing overrides)"
+                        .to_string(),
+                })
+            })?;
 
         // Get curves from market context
-        let forward_curve = context.curves.get_forward(&option.forward_id)?;
+        let forward_curve = context.curves.get_forward(&option.forward_curve_id)?;
         let discount_curve = context.curves.get_discount(&option.discount_curve_id)?;
         let dc_ctx = finstack_core::dates::DayCountCtx::default();
 

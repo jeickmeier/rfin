@@ -31,19 +31,19 @@ fn test_real_duration_increases_with_maturity() {
 
     // Short-dated bond
     let mut ilb_short = sample_tips();
-    ilb_short.issue = d(2025, 1, 2);
+    ilb_short.issue_date = d(2025, 1, 2);
     ilb_short.maturity = d(2027, 1, 2); // 2 years
     ilb_short.real_coupon = 0.02;
 
     // Medium-dated bond
     let mut ilb_mid = sample_tips();
-    ilb_mid.issue = d(2025, 1, 2);
+    ilb_mid.issue_date = d(2025, 1, 2);
     ilb_mid.maturity = d(2030, 1, 2); // 5 years
     ilb_mid.real_coupon = 0.02;
 
     // Long-dated bond
     let mut ilb_long = sample_tips();
-    ilb_long.issue = d(2025, 1, 2);
+    ilb_long.issue_date = d(2025, 1, 2);
     ilb_long.maturity = d(2035, 1, 2); // 10 years
     ilb_long.real_coupon = 0.02;
 
@@ -65,13 +65,13 @@ fn test_real_duration_decreases_with_higher_coupon() {
 
     // Low coupon bond
     let mut ilb_low = sample_tips();
-    ilb_low.issue = d(2025, 1, 2);
+    ilb_low.issue_date = d(2025, 1, 2);
     ilb_low.maturity = d(2030, 1, 2);
     ilb_low.real_coupon = 0.01; // 1%
 
     // High coupon bond
     let mut ilb_high = sample_tips();
-    ilb_high.issue = d(2025, 1, 2);
+    ilb_high.issue_date = d(2025, 1, 2);
     ilb_high.maturity = d(2030, 1, 2);
     ilb_high.real_coupon = 0.05; // 5%
 
@@ -87,7 +87,7 @@ fn test_real_duration_decreases_with_higher_coupon() {
 fn test_real_duration_reasonable_range() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2); // 5 years
     ilb.real_coupon = 0.02;
 
@@ -106,7 +106,7 @@ fn test_real_duration_reasonable_range() {
 fn test_real_duration_decreases_over_time() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.issue = d(2020, 1, 2);
+    ilb.issue_date = d(2020, 1, 2);
     ilb.maturity = d(2030, 1, 2);
     ilb.real_coupon = 0.02;
 
@@ -126,7 +126,7 @@ fn test_real_duration_decreases_over_time() {
 fn test_real_duration_at_maturity() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.issue = d(2024, 1, 2);
+    ilb.issue_date = d(2024, 1, 2);
     ilb.maturity = d(2025, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -153,14 +153,14 @@ fn test_real_duration_with_different_frequencies() {
     // Annual payments
     let mut ilb_annual = sample_tips();
     ilb_annual.freq = finstack_core::dates::Tenor::annual();
-    ilb_annual.issue = d(2025, 1, 2);
+    ilb_annual.issue_date = d(2025, 1, 2);
     ilb_annual.maturity = d(2030, 1, 2);
     ilb_annual.real_coupon = 0.02;
 
     // Semi-annual payments
     let mut ilb_semi = sample_tips();
     ilb_semi.freq = finstack_core::dates::Tenor::semi_annual();
-    ilb_semi.issue = d(2025, 1, 2);
+    ilb_semi.issue_date = d(2025, 1, 2);
     ilb_semi.maturity = d(2030, 1, 2);
     ilb_semi.real_coupon = 0.02;
 
@@ -206,7 +206,7 @@ fn test_dv01_positive_before_maturity() {
     // Manually calculate DV01 using the formula from the implementation
     // DV01 = Notional × Time to Maturity × 1bp
     let time_to_maturity = ilb
-        .dc
+        .day_count
         .year_fraction(
             as_of,
             ilb.maturity,
@@ -230,7 +230,7 @@ fn test_dv01_zero_at_maturity() {
 
     // Act - calculate time to maturity
     let time_to_maturity = ilb
-        .dc
+        .day_count
         .year_fraction(
             as_of,
             ilb.maturity,
@@ -251,7 +251,7 @@ fn test_dv01_zero_after_maturity() {
     let as_of = d(2025, 6, 1); // After maturity
 
     // Act - year_fraction with as_of > maturity returns error (invalid date range)
-    let time_result = ilb.dc.year_fraction(
+    let time_result = ilb.day_count.year_fraction(
         as_of,
         ilb.maturity,
         finstack_core::dates::DayCountCtx::default(),
@@ -277,7 +277,7 @@ fn test_dv01_scales_with_notional() {
 
     // Act
     let time_to_maturity = ilb_1m
-        .dc
+        .day_count
         .year_fraction(
             as_of,
             ilb_1m.maturity,
@@ -298,16 +298,16 @@ fn test_dv01_scales_with_time_to_maturity() {
     let as_of = d(2025, 1, 2);
 
     let mut ilb_2y = sample_tips();
-    ilb_2y.issue = d(2025, 1, 2);
+    ilb_2y.issue_date = d(2025, 1, 2);
     ilb_2y.maturity = d(2027, 1, 2); // 2 years
 
     let mut ilb_10y = sample_tips();
-    ilb_10y.issue = d(2025, 1, 2);
+    ilb_10y.issue_date = d(2025, 1, 2);
     ilb_10y.maturity = d(2035, 1, 2); // 10 years
 
     // Act
     let ttm_2y = ilb_2y
-        .dc
+        .day_count
         .year_fraction(
             as_of,
             ilb_2y.maturity,
@@ -316,7 +316,7 @@ fn test_dv01_scales_with_time_to_maturity() {
         .unwrap();
 
     let ttm_10y = ilb_10y
-        .dc
+        .day_count
         .year_fraction(
             as_of,
             ilb_10y.maturity,
@@ -343,14 +343,14 @@ fn test_dv01_reasonable_magnitude() {
     let mut ilb = sample_tips();
     ilb.notional =
         finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD);
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2); // 5 years
 
     let as_of = d(2025, 1, 2);
 
     // Act
     let ttm = ilb
-        .dc
+        .day_count
         .year_fraction(
             as_of,
             ilb.maturity,
@@ -375,7 +375,7 @@ fn test_duration_and_dv01_relationship() {
     let duration = ilb.real_duration(&ctx, as_of).unwrap();
 
     let ttm = ilb
-        .dc
+        .day_count
         .year_fraction(
             as_of,
             ilb.maturity,

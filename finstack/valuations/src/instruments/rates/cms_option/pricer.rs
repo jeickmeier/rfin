@@ -33,7 +33,7 @@ use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCountCtx, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::{InputError, Result};
+use finstack_core::Result;
 
 /// Convexity-adjusted Black pricer for CMS options.
 pub struct CmsOptionPricer;
@@ -69,15 +69,7 @@ impl CmsOptionPricer {
         let mut total_pv = 0.0;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
 
-        // Volatility surface is required for CMS option pricing
-        let vol_surface = match &inst.vol_surface_id {
-            Some(vol_id) => curves.surface(vol_id.as_str())?,
-            None => {
-                return Err(finstack_core::Error::from(InputError::NotFound {
-                    id: "vol_surface_id is required for CMS option pricing".to_string(),
-                }));
-            }
-        };
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
 
         for (i, &fixing_date) in inst.fixing_dates.iter().enumerate() {
             let payment_date = inst.payment_dates.get(i).copied().unwrap_or(fixing_date);
@@ -225,12 +217,7 @@ impl CmsOptionPricer {
         }
 
         // Check if single curve or dual curve
-        let forward_curve_id = inst
-            .forward_curve_id
-            .as_ref()
-            .unwrap_or(&inst.discount_curve_id);
-
-        if forward_curve_id == &inst.discount_curve_id {
+        if inst.forward_curve_id == inst.discount_curve_id {
             // Single Curve Optimization: S = (DF_start - DF_end) / Annuity
             let df_start = relative_df_discount_curve(disc.as_ref(), as_of, start)?;
             let df_end = relative_df_discount_curve(disc.as_ref(), as_of, end)?;
@@ -238,7 +225,7 @@ impl CmsOptionPricer {
             Ok((rate, annuity))
         } else {
             // Dual Curve: Calculate Float Leg PV
-            let fwd_curve = market.get_forward(forward_curve_id.as_ref())?;
+            let fwd_curve = market.get_forward(inst.forward_curve_id.as_ref())?;
             let float_day_count = inst.swap_float_day_count.unwrap_or(inst.swap_day_count);
             let sched_float = crate::cashflow::builder::build_dates(
                 start,

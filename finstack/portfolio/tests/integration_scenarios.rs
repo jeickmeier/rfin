@@ -31,7 +31,7 @@ fn apply_and_revalue_succeeds() {
     let dep = Deposit::builder()
         .id("D".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .start(as_of)
+        .start_date(as_of)
         .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())

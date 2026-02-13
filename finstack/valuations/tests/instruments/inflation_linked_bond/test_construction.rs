@@ -39,7 +39,7 @@ fn test_tips_creation_via_helper() {
     assert_eq!(tips.notional.amount(), 1_000_000.0);
     assert_eq!(tips.notional.currency(), Currency::USD);
     assert_eq!(tips.freq, Tenor::semi_annual());
-    assert_eq!(tips.dc, DayCount::ActAct);
+    assert_eq!(tips.day_count, DayCount::ActAct);
     assert_eq!(tips.deflation_protection, DeflationProtection::MaturityOnly);
 }
 
@@ -84,7 +84,7 @@ fn test_builder_pattern_full_customization() {
     assert_eq!(bond.id.as_str(), "TIPS-TEST");
     assert_eq!(bond.notional.amount(), 1_000_000.0);
     assert_eq!(bond.real_coupon, 0.0125);
-    assert_eq!(bond.issue, d(2020, 1, 15));
+    assert_eq!(bond.issue_date, d(2020, 1, 15));
     assert_eq!(bond.maturity, d(2030, 1, 15));
     assert_eq!(bond.base_index, 250.0);
     assert_eq!(bond.indexation_method, IndexationMethod::TIPS);
@@ -339,7 +339,7 @@ fn test_various_day_count_conventions() {
 
         let bond = InflationLinkedBond::new_tips("ILB-TEST", &params, "USD-REAL", "US-CPI-U");
 
-        assert_eq!(bond.dc, dc);
+        assert_eq!(bond.day_count, dc);
     }
 }
 

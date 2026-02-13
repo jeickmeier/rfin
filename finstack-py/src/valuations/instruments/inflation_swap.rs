@@ -229,11 +229,11 @@ impl PyInflationSwapBuilder {
         builder = builder.id(slf.instrument_id.clone());
         builder = builder.notional(slf.notional.unwrap());
         builder = builder.fixed_rate(slf.fixed_rate.unwrap());
-        builder = builder.start(slf.start_date.unwrap());
+        builder = builder.start_date(slf.start_date.unwrap());
         builder = builder.maturity(slf.maturity.unwrap());
         builder = builder.discount_curve_id(slf.discount_curve.clone().unwrap());
         builder = builder.inflation_index_id(slf.inflation_index_id.clone().unwrap().into());
-        builder = builder.dc(slf.day_count);
+        builder = builder.day_count(slf.day_count);
         builder = builder.side(slf.side);
         builder = builder.lag_override_opt(slf.lag_override);
         builder = builder.attributes(Default::default());

@@ -45,7 +45,7 @@ fn test_pricing_recovery_consistency() {
         .maturity_date(maturity)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.07 }) // 7% Coupon
         .day_count(DayCount::Act365F)
-        .payment_frequency(Tenor::annual()) // Single payment at end
+        .frequency(Tenor::annual()) // Single payment at end
         .fees(RevolvingCreditFees::default()) // No extra fees
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![])) // No changes
         .discount_curve_id("USD-OIS".into())

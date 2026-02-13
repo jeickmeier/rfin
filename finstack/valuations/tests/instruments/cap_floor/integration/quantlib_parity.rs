@@ -14,7 +14,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::{ExerciseStyle, PricingOverrides, SettlementType};
+use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -75,10 +75,10 @@ fn test_quantlib_parity_atm_cap() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -125,10 +125,10 @@ fn test_quantlib_parity_cap_floor_parity() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -147,10 +147,10 @@ fn test_quantlib_parity_cap_floor_parity() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -202,10 +202,10 @@ fn test_quantlib_parity_vol_sensitivity() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -269,10 +269,10 @@ fn test_quantlib_parity_caplet_pricing() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -318,10 +318,10 @@ fn test_quantlib_parity_moneyness() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -340,10 +340,10 @@ fn test_quantlib_parity_moneyness() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -362,10 +362,10 @@ fn test_quantlib_parity_moneyness() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -419,10 +419,10 @@ fn test_quantlib_parity_delta_sign() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -441,10 +441,10 @@ fn test_quantlib_parity_delta_sign() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -504,10 +504,10 @@ fn test_quantlib_parity_gamma_positive() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -526,10 +526,10 @@ fn test_quantlib_parity_gamma_positive() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -586,10 +586,10 @@ fn test_quantlib_parity_time_to_maturity() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -608,10 +608,10 @@ fn test_quantlib_parity_time_to_maturity() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -658,10 +658,10 @@ fn test_quantlib_parity_zero_vol_itm() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -708,10 +708,10 @@ fn test_quantlib_parity_frequency_impact() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 
@@ -730,10 +730,10 @@ fn test_quantlib_parity_frequency_impact() {
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD_OIS".into(),
-        forward_id: "USD_LIBOR_3M".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
-        pricing_overrides: PricingOverrides::default(),
+
         attributes: Default::default(),
     };
 

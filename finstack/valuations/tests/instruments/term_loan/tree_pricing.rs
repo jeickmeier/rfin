@@ -18,14 +18,14 @@ fn build_callable_loan(as_of: Date) -> TermLoan {
         .id(InstrumentId::new("TL-CALLABLE"))
         .currency(Currency::USD)
         .notional_limit(Money::new(10_000_000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .rate(
             finstack_valuations::instruments::fixed_income::term_loan::RateSpec::Fixed {
                 rate_bp: 600,
             },
         )
-        .pay_freq(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -254,14 +254,14 @@ fn call_at_settlement_date_produces_nonzero_pv() {
         .id(InstrumentId::new("TL-CALL-AT-SETTLE"))
         .currency(Currency::USD)
         .notional_limit(Money::new(10_000_000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .rate(
             finstack_valuations::instruments::fixed_income::term_loan::RateSpec::Fixed {
                 rate_bp: 600,
             },
         )
-        .pay_freq(Tenor::quarterly())
+        .frequency(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)

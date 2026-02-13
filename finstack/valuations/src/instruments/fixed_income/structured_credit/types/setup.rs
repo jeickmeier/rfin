@@ -45,7 +45,8 @@ pub struct DealDates {
     /// Legal final maturity date
     pub legal_maturity: Date,
     /// Payment frequency
-    pub payment_frequency: Tenor,
+    #[serde(alias = "payment_frequency")]
+    pub frequency: Tenor,
 }
 
 impl DealDates {
@@ -54,14 +55,14 @@ impl DealDates {
         closing_date: Date,
         first_payment_date: Date,
         legal_maturity: Date,
-        payment_frequency: Tenor,
+        frequency: Tenor,
     ) -> Self {
         Self {
             closing_date,
             first_payment_date,
             reinvestment_end_date: None,
             legal_maturity,
-            payment_frequency,
+            frequency,
         }
     }
 

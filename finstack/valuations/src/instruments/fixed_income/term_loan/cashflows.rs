@@ -127,7 +127,7 @@ pub fn generate_cashflows(
         }
     } else if loan.notional_limit.amount() != 0.0 {
         principal_events.push(PrincipalEvent {
-            date: loan.issue,
+            date: loan.issue_date,
             delta: loan.notional_limit,
             cash: loan.notional_limit,
             kind: CFKind::Notional,
@@ -138,7 +138,7 @@ pub fn generate_cashflows(
     if let Some(fee) = loan.upfront_fee {
         if fee.amount() > 0.0 {
             fees.push(FeeSpec::Fixed {
-                date: loan.issue,
+                date: loan.issue_date,
                 amount: fee,
             });
         }
@@ -172,15 +172,15 @@ pub fn generate_cashflows(
 
     // Coupon dates for amortization conversion
     let coupon_dates: Vec<Date> = {
-        let mut sb = finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)?
-            .frequency(loan.pay_freq)
+        let mut sb = finstack_core::dates::ScheduleBuilder::new(loan.issue_date, loan.maturity)?
+            .frequency(loan.frequency)
             .stub_rule(loan.stub);
         if let Some(ref cal) = loan.calendar_id {
             sb = sb.adjust_with_id(loan.bdc, cal);
         }
         let mut ds: Vec<Date> = sb.build()?.into_iter().collect();
-        if ds.first().copied() != Some(loan.issue) {
-            ds.insert(0, loan.issue);
+        if ds.first().copied() != Some(loan.issue_date) {
+            ds.insert(0, loan.issue_date);
         }
         ds
     };
@@ -275,7 +275,11 @@ pub fn generate_cashflows(
     // Build coupon program via unified builder
     let mut builder = CashFlowBuilder::default();
     let _ = builder
-        .principal(Money::new(0.0, loan.currency), loan.issue, loan.maturity)
+        .principal(
+            Money::new(0.0, loan.currency),
+            loan.issue_date,
+            loan.maturity,
+        )
         .amortization(crate::cashflow::builder::AmortizationSpec::None)
         .principal_events(&principal_events);
 
@@ -287,7 +291,7 @@ pub fn generate_cashflows(
             let spec = FixedCouponSpec {
                 coupon_type: loan.coupon_type,
                 rate: rate_decimal,
-                freq: loan.pay_freq,
+                freq: loan.frequency,
                 dc: loan.day_count,
                 bdc: loan.bdc,
                 calendar_id: loan.calendar_id.clone().unwrap_or_else(|| {
@@ -351,7 +355,7 @@ pub fn generate_cashflows(
                 reset_lag_days: spec.reset_lag_days,
             };
             let sched_params = ScheduleParams {
-                freq: loan.pay_freq,
+                freq: loan.frequency,
                 dc: loan.day_count,
                 bdc: loan.bdc,
                 calendar_id: loan.calendar_id.clone().unwrap_or_else(|| {
@@ -402,7 +406,7 @@ pub fn generate_cashflows(
             let _ = builder.fee(FeeSpec::PeriodicBps {
                 base: FeeBase::Drawn,
                 bps: Decimal::from(ddtl.usage_fee_bp),
-                freq: loan.pay_freq,
+                freq: loan.frequency,
                 dc: loan.day_count,
                 bdc: loan.bdc,
                 calendar_id: loan.calendar_id.clone().unwrap_or_else(|| {
@@ -481,7 +485,7 @@ fn build_commitment_fee_flows(
     }
 
     let mut schedule_builder = finstack_core::dates::ScheduleBuilder::new(fee_start, fee_end)?
-        .frequency(loan.pay_freq)
+        .frequency(loan.frequency)
         .stub_rule(loan.stub);
     if let Some(ref cal_id) = loan.calendar_id {
         schedule_builder = schedule_builder.adjust_with_id(loan.bdc, cal_id);

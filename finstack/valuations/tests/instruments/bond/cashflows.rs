@@ -114,7 +114,7 @@ fn test_quarterly_coupon_frequency() {
     let bond = Bond::builder()
         .id("QUARTERLY".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.04,
@@ -141,7 +141,7 @@ fn test_floating_rate_cashflows() {
     let bond = Bond::builder()
         .id("FRN".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::floating(
             CurveId::new("USD-SOFR-3M"),
@@ -174,7 +174,7 @@ fn test_amortizing_bond_linear() {
     let bond = Bond::builder()
         .id("AMORT_LINEAR".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::amortizing(
             CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Act365F),
@@ -312,7 +312,7 @@ fn test_cashflows_with_short_front_stub() {
     let bond = Bond::builder()
         .id("STUB_SHORT".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
@@ -434,7 +434,7 @@ fn test_get_full_schedule_floating() {
     let bond = Bond::builder()
         .id("FULL_FRN".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::floating(
             CurveId::new("USD-SOFR-3M"),
@@ -469,7 +469,7 @@ fn test_cashflows_day_count_conventions() {
         let bond = Bond::builder()
             .id(format!("DC_{:?}", dc).into())
             .notional(Money::new(1000.0, Currency::USD))
-            .issue(as_of)
+            .issue_date(as_of)
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(0.05, Tenor::semi_annual(), dc))
             .discount_curve_id("USD-OIS".into())
@@ -493,7 +493,7 @@ fn test_amortizing_full_redemption() {
     let bond = Bond::builder()
         .id("AMORT_FULL".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .issue(as_of)
+        .issue_date(as_of)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::amortizing(
             CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Act365F),
@@ -525,7 +525,7 @@ fn test_actact_isma_daycount_context() {
     let bond = Bond::builder()
         .id("ACTACT_ISMA".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
@@ -608,7 +608,7 @@ fn test_bus252_daycount_with_calendar() {
     let bond = Bond::builder()
         .id("BUS252".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .issue(issue)
+        .issue_date(issue)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,

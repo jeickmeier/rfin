@@ -19,12 +19,12 @@ fn test_builder_creates_valid_swap() {
     let swap = InflationSwapBuilder::new()
         .id("ZCINF-001".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -32,7 +32,7 @@ fn test_builder_creates_valid_swap() {
 
     assert_eq!(swap.id.as_str(), "ZCINF-001");
     assert_eq!(swap.notional.amount(), 1_000_000.0);
-    assert_eq!(swap.start, as_of);
+    assert_eq!(swap.start_date, as_of);
     assert_eq!(swap.maturity, maturity);
     assert_eq!(swap.fixed_rate, 0.02);
     assert_eq!(swap.side, PayReceiveInflation::PayFixed);
@@ -46,12 +46,12 @@ fn test_builder_with_lag_override() {
     let swap = InflationSwapBuilder::new()
         .id("ZCINF-002".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.025)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::ReceiveFixed)
         .lag_override(InflationLag::Months(2))
         .attributes(Attributes::new())
@@ -111,18 +111,18 @@ fn test_swap_with_different_day_counts() {
         let swap = InflationSwapBuilder::new()
             .id("ZCINF-DC".into())
             .notional(standard_notional())
-            .start(as_of)
+            .start_date(as_of)
             .maturity(maturity)
             .fixed_rate(0.02)
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
-            .dc(*dc)
+            .day_count(*dc)
             .side(PayReceiveInflation::PayFixed)
             .attributes(Attributes::new())
             .build()
             .unwrap();
 
-        assert_eq!(swap.dc, *dc);
+        assert_eq!(swap.day_count, *dc);
     }
 }
 
@@ -135,12 +135,12 @@ fn test_swap_with_different_notionals() {
         let swap = InflationSwapBuilder::new()
             .id("ZCINF-NOT".into())
             .notional(Money::new(*notional_amt, Currency::USD))
-            .start(as_of)
+            .start_date(as_of)
             .maturity(maturity)
             .fixed_rate(0.02)
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
-            .dc(DayCount::Act365F)
+            .day_count(DayCount::Act365F)
             .side(PayReceiveInflation::PayFixed)
             .attributes(Attributes::new())
             .build()
@@ -159,12 +159,12 @@ fn test_swap_with_various_maturities() {
         let swap = InflationSwapBuilder::new()
             .id("ZCINF-MAT".into())
             .notional(standard_notional())
-            .start(as_of)
+            .start_date(as_of)
             .maturity(maturity)
             .fixed_rate(0.02)
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
-            .dc(DayCount::Act365F)
+            .day_count(DayCount::Act365F)
             .side(PayReceiveInflation::PayFixed)
             .attributes(Attributes::new())
             .build()
@@ -183,12 +183,12 @@ fn test_swap_with_negative_fixed_rate() {
     let swap = InflationSwapBuilder::new()
         .id("ZCINF-NEG".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(-0.01) // -1% real rate
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -209,12 +209,12 @@ fn test_swap_with_attributes() {
     let swap = InflationSwapBuilder::new()
         .id("ZCINF-ATTR".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(attrs)
         .build()
@@ -234,12 +234,12 @@ fn test_instrument_trait_implementations() {
     let swap = InflationSwapBuilder::new()
         .id("ZCINF-TRAIT".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -261,12 +261,12 @@ fn test_clone_and_equality() {
     let swap1 = InflationSwapBuilder::new()
         .id("ZCINF-CLONE".into())
         .notional(standard_notional())
-        .start(as_of)
+        .start_date(as_of)
         .maturity(maturity)
         .fixed_rate(0.02)
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
-        .dc(DayCount::Act365F)
+        .day_count(DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .attributes(Attributes::new())
         .build()
@@ -276,7 +276,7 @@ fn test_clone_and_equality() {
 
     assert_eq!(swap1.id, swap2.id);
     assert_eq!(swap1.notional.amount(), swap2.notional.amount());
-    assert_eq!(swap1.start, swap2.start);
+    assert_eq!(swap1.start_date, swap2.start_date);
     assert_eq!(swap1.maturity, swap2.maturity);
     assert_eq!(swap1.fixed_rate, swap2.fixed_rate);
     assert_eq!(swap1.side, swap2.side);
