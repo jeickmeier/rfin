@@ -2,11 +2,16 @@
 #![allow(clippy::expect_used)]
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::PeriodId;
+use finstack_core::dates::{Date, PeriodId};
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::money::Money;
 use finstack_statements::analysis::corporate::evaluate_dcf;
 use finstack_statements::builder::ModelBuilder;
+use finstack_statements::evaluator::Evaluator;
 use finstack_statements::types::AmountOrScalar;
 use finstack_valuations::instruments::TerminalValueSpec;
+use time::Month;
 
 #[test]
 fn test_dcf_evaluation_gordon_growth() {
@@ -48,4 +53,81 @@ fn test_dcf_evaluation_gordon_growth() {
 
     assert!(result.equity_value.amount() > 0.0);
     assert_eq!(result.equity_value.currency(), Currency::USD);
+}
+
+#[test]
+fn test_cs_cashflows_populated_on_statement_result() {
+    let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+    let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("valid date");
+
+    let model = ModelBuilder::new("cs-test")
+        .periods("2025Q1..Q2", None)
+        .expect("valid periods")
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(1_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(1_100_000.0),
+                ),
+            ],
+        )
+        .add_bond(
+            "BOND-001",
+            Money::new(10_000_000.0, Currency::USD),
+            0.05,
+            issue,
+            maturity,
+            "USD-OIS",
+        )
+        .expect("valid bond")
+        .build()
+        .expect("model should build");
+
+    // Market context with a simple discount curve
+    let disc_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(issue)
+        .knots([(0.0, 1.0), (5.0, 0.9)])
+        .build()
+        .expect("curve should build");
+    let market_ctx = MarketContext::new().insert_discount(disc_curve);
+
+    let mut evaluator = Evaluator::new();
+    let result = evaluator
+        .evaluate_with_market_context(&model, Some(&market_ctx), Some(issue))
+        .expect("evaluation should succeed");
+
+    // cs_cashflows should be populated when model has a capital structure
+    assert!(
+        result.cs_cashflows.is_some(),
+        "cs_cashflows should be Some when model has capital_structure"
+    );
+
+    let cs = result.cs_cashflows.as_ref().expect("cs_cashflows present");
+
+    // Should have per-instrument data for BOND-001
+    assert!(
+        cs.by_instrument.contains_key("BOND-001"),
+        "by_instrument should contain BOND-001"
+    );
+
+    // Should have totals for both periods
+    let q1 = PeriodId::quarter(2025, 1);
+    let q2 = PeriodId::quarter(2025, 2);
+    assert!(cs.totals.contains_key(&q1), "totals should contain Q1 2025");
+    assert!(cs.totals.contains_key(&q2), "totals should contain Q2 2025");
+
+    // Debt balance should be positive
+    let total_balance_q1 = cs
+        .get_total_debt_balance(&q1)
+        .expect("total debt balance Q1");
+    assert!(
+        total_balance_q1 > 0.0,
+        "debt balance should be positive, got {}",
+        total_balance_q1
+    );
 }

@@ -241,13 +241,17 @@ impl Evaluator {
         let mut all_warnings = Vec::new();
         let mut results = StatementResult::new();
 
+        // Accumulator for capital structure cashflows across all periods
+        let mut cs_cashflows_accum = crate::capital_structure::CapitalStructureCashflows::new();
+        let mut has_cs = false;
+
         // Sequential evaluation for all models
         for period in &model.periods {
             let (period_results, period_warnings) =
                 if let (Some(market_ctx), Some(as_of), Some(ref mut state), Some(insts)) =
                     (market_ctx, as_of, cs_state.as_mut(), instruments.as_ref())
                 {
-                    self.evaluate_period_dynamic(
+                    let (vals, warns, period_cs) = self.evaluate_period_dynamic(
                         model,
                         period,
                         period.is_actual,
@@ -259,7 +263,25 @@ impl Evaluator {
                         insts,
                         state,
                         &cs_affected_nodes,
-                    )?
+                    )?;
+
+                    // Merge this period's cs cashflows into the accumulator
+                    for (inst_id, period_map) in period_cs.by_instrument {
+                        let accum_map =
+                            cs_cashflows_accum.by_instrument.entry(inst_id).or_default();
+                        for (pid, breakdown) in period_map {
+                            accum_map.insert(pid, breakdown);
+                        }
+                    }
+                    for (pid, breakdown) in period_cs.totals {
+                        cs_cashflows_accum.totals.insert(pid, breakdown);
+                    }
+                    if cs_cashflows_accum.reporting_currency.is_none() {
+                        cs_cashflows_accum.reporting_currency = period_cs.reporting_currency;
+                    }
+                    has_cs = true;
+
+                    (vals, warns)
                 } else {
                     self.evaluate_period(
                         model,
@@ -290,6 +312,11 @@ impl Evaluator {
             if let Some(ref mut state) = cs_state {
                 state.advance_period();
             }
+        }
+
+        // Expose accumulated capital structure cashflows on the result
+        if has_cs {
+            results.cs_cashflows = Some(cs_cashflows_accum);
         }
 
         // Infer and populate node value types from model
@@ -564,7 +591,11 @@ impl Evaluator {
         >,
         cs_state: &mut crate::capital_structure::CapitalStructureState,
         cs_affected_nodes: &HashSet<String>,
-    ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
+    ) -> Result<(
+        IndexMap<String, f64>,
+        Vec<EvalWarning>,
+        crate::capital_structure::CapitalStructureCashflows,
+    )> {
         use crate::capital_structure::integration;
         use indexmap::IndexMap;
 
@@ -762,8 +793,12 @@ impl Evaluator {
             }
         }
 
+        let period_cs_cashflows = context
+            .capital_structure_cashflows
+            .take()
+            .unwrap_or_default();
         let (values, warnings) = context.into_results();
-        Ok((values, warnings))
+        Ok((values, warnings, period_cs_cashflows))
     }
 
     /// Evaluate a single period.

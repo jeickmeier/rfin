@@ -55,6 +55,10 @@ pub struct StatementResult {
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub node_value_types: IndexMap<String, NodeValueType>,
 
+    /// Capital structure cashflows (populated when model has a capital_structure)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cs_cashflows: Option<crate::capital_structure::CapitalStructureCashflows>,
+
     /// Metadata about the evaluation
     pub meta: ResultsMeta,
 }

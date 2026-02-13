@@ -236,6 +236,7 @@ mod tests {
             nodes,
             monetary_nodes: IndexMap::new(),
             node_value_types: IndexMap::new(),
+            cs_cashflows: None,
             meta: ResultsMeta::default(),
         };
 

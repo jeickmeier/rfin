@@ -313,6 +313,7 @@ fn test_empty_results_export() {
         nodes: indexmap::IndexMap::new(),
         monetary_nodes: indexmap::IndexMap::new(),
         node_value_types: indexmap::IndexMap::new(),
+        cs_cashflows: None,
         meta: Default::default(),
     };
 
