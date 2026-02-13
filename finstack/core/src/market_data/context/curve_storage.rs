@@ -265,33 +265,50 @@ impl CurveStorage {
         original_id: &CurveId,
         spec: BumpSpec,
     ) -> Result<Self> {
+        fn bump_curve_preserving_id<C>(
+            original: &C,
+            original_id: &CurveId,
+            spec: BumpSpec,
+            id_of: fn(&C) -> &CurveId,
+        ) -> Result<C>
+        where
+            C: Bumpable + RebuildableWithId,
+        {
+            let bumped = original.apply_bump(spec)?;
+            if id_of(&bumped) != original_id {
+                bumped.rebuild_with_id(original_id.clone())
+            } else {
+                Ok(bumped)
+            }
+        }
+
         match self {
             Self::Discount(original) => {
-                let bumped = original.apply_bump(spec)?;
-                let final_curve = if bumped.id() != original_id {
-                    bumped.rebuild_with_id(original_id.clone())?
-                } else {
-                    bumped
-                };
-                Ok(Self::Discount(Arc::new(final_curve)))
+                let curve = bump_curve_preserving_id(
+                    original.as_ref(),
+                    original_id,
+                    spec,
+                    DiscountCurve::id,
+                )?;
+                Ok(Self::Discount(Arc::new(curve)))
             }
             Self::Forward(original) => {
-                let bumped = original.apply_bump(spec)?;
-                let final_curve = if bumped.id() != original_id {
-                    bumped.rebuild_with_id(original_id.clone())?
-                } else {
-                    bumped
-                };
-                Ok(Self::Forward(Arc::new(final_curve)))
+                let curve = bump_curve_preserving_id(
+                    original.as_ref(),
+                    original_id,
+                    spec,
+                    ForwardCurve::id,
+                )?;
+                Ok(Self::Forward(Arc::new(curve)))
             }
             Self::Hazard(original) => {
-                let bumped = original.apply_bump(spec)?;
-                let final_curve = if bumped.id() != original_id {
-                    bumped.rebuild_with_id(original_id.clone())?
-                } else {
-                    bumped
-                };
-                Ok(Self::Hazard(Arc::new(final_curve)))
+                let curve = bump_curve_preserving_id(
+                    original.as_ref(),
+                    original_id,
+                    spec,
+                    HazardCurve::id,
+                )?;
+                Ok(Self::Hazard(Arc::new(curve)))
             }
             Self::Inflation(original) => {
                 // Special handling for TriangularKeyRate bumps on InflationCurve
@@ -334,40 +351,36 @@ impl CurveStorage {
                     return Ok(Self::Inflation(Arc::new(rebuilt)));
                 }
 
-                let bumped = original.apply_bump(spec)?;
-                let final_curve = if bumped.id() != original_id {
-                    bumped.rebuild_with_id(original_id.clone())?
-                } else {
-                    bumped
-                };
-                Ok(Self::Inflation(Arc::new(final_curve)))
+                let curve = bump_curve_preserving_id(
+                    original.as_ref(),
+                    original_id,
+                    spec,
+                    InflationCurve::id,
+                )?;
+                Ok(Self::Inflation(Arc::new(curve)))
             }
             Self::BaseCorrelation(original) => {
-                let bumped = original.apply_bump(spec)?;
-                let final_curve = if bumped.id() != original_id {
-                    bumped.rebuild_with_id(original_id.clone())?
-                } else {
-                    bumped
-                };
-                Ok(Self::BaseCorrelation(Arc::new(final_curve)))
+                let curve = bump_curve_preserving_id(
+                    original.as_ref(),
+                    original_id,
+                    spec,
+                    BaseCorrelationCurve::id,
+                )?;
+                Ok(Self::BaseCorrelation(Arc::new(curve)))
             }
             Self::VolIndex(original) => {
-                let bumped = original.apply_bump(spec)?;
-                let final_curve = if bumped.id() != original_id {
-                    bumped.rebuild_with_id(original_id.clone())?
-                } else {
-                    bumped
-                };
-                Ok(Self::VolIndex(Arc::new(final_curve)))
+                let curve = bump_curve_preserving_id(
+                    original.as_ref(),
+                    original_id,
+                    spec,
+                    VolatilityIndexCurve::id,
+                )?;
+                Ok(Self::VolIndex(Arc::new(curve)))
             }
             Self::Price(original) => {
-                let bumped = original.apply_bump(spec)?;
-                let final_curve = if bumped.id() != original_id {
-                    bumped.rebuild_with_id(original_id.clone())?
-                } else {
-                    bumped
-                };
-                Ok(Self::Price(Arc::new(final_curve)))
+                let curve =
+                    bump_curve_preserving_id(original.as_ref(), original_id, spec, PriceCurve::id)?;
+                Ok(Self::Price(Arc::new(curve)))
             }
         }
     }

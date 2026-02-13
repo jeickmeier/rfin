@@ -90,6 +90,7 @@ pub struct RealEstateAsset {
     ///
     /// Market convention for exit-cap terminal value is \(TV = NOI_{N+1} / cap\_rate\_exit\).
     /// When not provided, defaults to 0 (uses last NOI as-is).
+    /// Validation range is \([-100\%, 20\%]\) to guard against configuration errors.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal_growth_rate: Option<f64>,
@@ -380,6 +381,11 @@ impl RealEstateAsset {
                     CoreError::Validation("No NOI on/before exit_date for terminal value".into())
                 })?;
             let g = self.terminal_growth_rate.unwrap_or(0.0);
+            if !(-1.0..=0.20).contains(&g) {
+                return Err(CoreError::Validation(format!(
+                    "terminal_growth_rate must be in [-100%, 20%], got {g}"
+                )));
+            }
             let terminal_noi_n1 = terminal_noi_n * (1.0 + g);
             terminal_noi_n1 / cap_rate
         } else {

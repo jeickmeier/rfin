@@ -38,33 +38,28 @@ impl MarketContext {
     }
 
     /// Insert a discount curve.
-    pub fn insert_discount(mut self, curve: DiscountCurve) -> Self {
-        self.curves.insert(curve.id().to_owned(), curve.into());
-        self
+    pub fn insert_discount(self, curve: DiscountCurve) -> Self {
+        self.insert(curve)
     }
 
     /// Insert a forward curve.
-    pub fn insert_forward(mut self, curve: ForwardCurve) -> Self {
-        self.curves.insert(curve.id().to_owned(), curve.into());
-        self
+    pub fn insert_forward(self, curve: ForwardCurve) -> Self {
+        self.insert(curve)
     }
 
     /// Insert a hazard curve.
-    pub fn insert_hazard(mut self, curve: HazardCurve) -> Self {
-        self.curves.insert(curve.id().to_owned(), curve.into());
-        self
+    pub fn insert_hazard(self, curve: HazardCurve) -> Self {
+        self.insert(curve)
     }
 
     /// Insert an inflation curve.
-    pub fn insert_inflation(mut self, curve: InflationCurve) -> Self {
-        self.curves.insert(curve.id().to_owned(), curve.into());
-        self
+    pub fn insert_inflation(self, curve: InflationCurve) -> Self {
+        self.insert(curve)
     }
 
     /// Insert a base correlation curve.
-    pub fn insert_base_correlation(mut self, curve: BaseCorrelationCurve) -> Self {
-        self.curves.insert(curve.id().to_owned(), curve.into());
-        self
+    pub fn insert_base_correlation(self, curve: BaseCorrelationCurve) -> Self {
+        self.insert(curve)
     }
 
     /// Insert a volatility index curve.
@@ -88,9 +83,8 @@ impl MarketContext {
     /// let ctx = MarketContext::new().insert_vol_index(curve);
     /// assert!(ctx.get_vol_index("VIX").is_ok());
     /// ```
-    pub fn insert_vol_index(mut self, curve: VolatilityIndexCurve) -> Self {
-        self.curves.insert(curve.id().to_owned(), curve.into());
-        self
+    pub fn insert_vol_index(self, curve: VolatilityIndexCurve) -> Self {
+        self.insert(curve)
     }
 
     /// Insert a price curve (forward prices for commodities/indices).
@@ -114,9 +108,8 @@ impl MarketContext {
     /// let ctx = MarketContext::new().insert_price_curve(curve);
     /// assert!(ctx.get_price_curve("WTI-FORWARD").is_ok());
     /// ```
-    pub fn insert_price_curve(mut self, curve: PriceCurve) -> Self {
-        self.curves.insert(curve.id().to_owned(), curve.into());
-        self
+    pub fn insert_price_curve(self, curve: PriceCurve) -> Self {
+        self.insert(curve)
     }
 
     /// Insert a volatility surface.

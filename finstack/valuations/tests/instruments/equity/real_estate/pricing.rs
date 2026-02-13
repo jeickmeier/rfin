@@ -301,6 +301,57 @@ fn test_real_estate_custom_metrics_compute() {
 }
 
 #[test]
+fn test_real_estate_unlevered_metrics_include_acquisition_cost_line_items() {
+    use finstack_valuations::metrics::MetricId;
+
+    let as_of = date(2025, 1, 1);
+    let noi1 = date(2026, 1, 1);
+
+    let asset = RealEstateAsset::builder()
+        .id(InstrumentId::new("RE-METRICS-ACQ-COSTS"))
+        .currency(Currency::USD)
+        .valuation_date(as_of)
+        .valuation_method(RealEstateValuationMethod::Dcf)
+        .noi_schedule(vec![(noi1, 100.0)])
+        .purchase_price_opt(Some(Money::new(1_000.0, Currency::USD)))
+        .acquisition_costs(vec![Money::new(100.0, Currency::USD)])
+        .discount_rate_opt(Some(0.0))
+        .terminal_cap_rate_opt(Some(0.10))
+        .day_count(DayCount::Act365F)
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    let market = MarketContext::new();
+    let metrics = [
+        MetricId::custom("real_estate::unlevered_multiple"),
+        MetricId::custom("real_estate::unlevered_cash_on_cash_first"),
+    ];
+    let result = asset
+        .price_with_metrics(&market, as_of, &metrics)
+        .expect("price_with_metrics");
+
+    let multiple = *result
+        .measures
+        .get(&MetricId::custom("real_estate::unlevered_multiple"))
+        .expect("unlevered multiple present");
+    let coc = *result
+        .measures
+        .get(&MetricId::custom(
+            "real_estate::unlevered_cash_on_cash_first",
+        ))
+        .expect("cash-on-cash present");
+
+    // Inflows: NOI_1 (100) + terminal sale (100/0.10 = 1000) = 1100
+    // Outflow: purchase (1000) + acquisition line items (100) = 1100
+    assert!((multiple - 1.0).abs() < 1e-10, "multiple={multiple}");
+
+    // First-period cash-on-cash uses denominator purchase + acquisition total.
+    assert!((coc - (100.0 / 1_100.0)).abs() < 1e-12, "coc={coc}");
+}
+
+#[test]
 fn test_real_estate_terminal_only_sale_price_is_allowed() {
     let as_of = date(2025, 1, 1);
     let noi1 = date(2026, 1, 1);
@@ -538,7 +589,9 @@ fn test_levered_real_estate_equity_custom_metrics_compute() {
         MetricId::custom("real_estate::levered_irr"),
         MetricId::custom("real_estate::equity_multiple"),
         MetricId::custom("real_estate::ltv"),
+        MetricId::custom("real_estate::ltv_at_origination"),
         MetricId::custom("real_estate::dscr_min"),
+        MetricId::custom("real_estate::dscr_min_interest_only"),
         MetricId::custom("real_estate::debt_payoff_at_exit"),
     ];
 

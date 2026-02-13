@@ -2,28 +2,31 @@
 //!
 //! DCF is the standard methodology for valuing companies based on projected
 //! free cash flows. This module provides a first-class instrument for DCF
-//! analysis, supporting both Gordon Growth and Exit Multiple approaches for
-//! terminal value calculation.
+//! analysis, supporting Gordon Growth, Exit Multiple, and H-Model approaches
+//! for terminal value calculation.
 //!
 //! # DCF Structure
 //!
 //! - **Explicit Period**: Projected free cash flows (typically 3-10 years)
-//! - **Terminal Value**: Perpetuity value using Gordon Growth or Exit Multiple
+//! - **Terminal Value**: Perpetuity value using Gordon Growth, Exit Multiple, or H-Model
 //! - **Enterprise Value**: PV(explicit flows) + PV(terminal value)
-//! - **Equity Value**: Enterprise Value - Net Debt
+//! - **Equity Value**: EV - Equity Bridge (or Net Debt) - Valuation Discounts
+//!
+//! # Key Features
+//!
+//! - **Mid-year convention**: Discount at `(t - 0.5)` for IB/PE practice
+//! - **Structured equity bridge**: Total debt, cash, preferred, minority, non-op assets
+//! - **Per-share value**: Diluted shares via treasury stock method
+//! - **Valuation discounts**: DLOM, DLOC for private company valuations
+//! - **H-Model**: Two-stage growth fade (Damodaran)
 //!
 //! # Valuation Formula
 //!
 //! ```text
 //! EV = Σ FCF_t / (1 + WACC)^t + TV / (1 + WACC)^n
-//! Equity Value = EV - Net Debt
+//! Equity = EV - Bridge Adjustments
+//! FMV = Equity × (1 - DLOC) × (1 - DLOM)
 //! ```
-//!
-//! Where:
-//! - FCF_t = Free Cash Flow in year t
-//! - WACC = Weighted Average Cost of Capital
-//! - TV = Terminal Value (Gordon Growth or Exit Multiple)
-//! - n = Number of explicit forecast years
 //!
 //! # Terminal Value Methods
 //!
@@ -38,13 +41,18 @@
 //! (e.g., EBITDA × 10x)
 //! ```
 //!
+//! ## H-Model (Damodaran)
+//! ```text
+//! TV = FCF_T × (1+g_s)/(WACC-g_s) + FCF_T × H × (g_h-g_s)/(WACC-g_s)
+//! ```
+//!
 //! # Use Cases
 //!
 //! - M&A valuation and deal pricing
 //! - LBO analysis and sponsor returns
-//! - Fairness opinions
+//! - Fairness opinions and 409A valuations
 //! - Corporate strategy and capital allocation
-//! - Public market comps (implied multiples)
+//! - Public market intrinsic value (implied multiples)
 //!
 //! # Example
 //!
@@ -83,4 +91,6 @@ pub(crate) mod metrics;
 pub(crate) mod pricer;
 mod types;
 
-pub use types::{DiscountedCashFlow, TerminalValueSpec};
+pub use types::{
+    DilutionSecurity, DiscountedCashFlow, EquityBridge, TerminalValueSpec, ValuationDiscounts,
+};

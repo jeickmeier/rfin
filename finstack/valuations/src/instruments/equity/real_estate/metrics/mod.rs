@@ -105,8 +105,18 @@ pub fn register_levered_real_estate_metrics(registry: &mut MetricRegistry) {
         &[InstrumentType::LeveredRealEstateEquity],
     );
     registry.register_metric(
+        crate::metrics::MetricId::custom("real_estate::ltv_at_origination"),
+        Arc::new(levered::LoanToValueAtOrigination),
+        &[InstrumentType::LeveredRealEstateEquity],
+    );
+    registry.register_metric(
         crate::metrics::MetricId::custom("real_estate::dscr_min"),
         Arc::new(levered::DscrMin),
+        &[InstrumentType::LeveredRealEstateEquity],
+    );
+    registry.register_metric(
+        crate::metrics::MetricId::custom("real_estate::dscr_min_interest_only"),
+        Arc::new(levered::DscrMinInterestOnly),
         &[InstrumentType::LeveredRealEstateEquity],
     );
     registry.register_metric(

@@ -27,7 +27,7 @@ fn build_unlevered_cashflow_map(
     let mut flows: BTreeMap<finstack_core::dates::Date, f64> = BTreeMap::new();
 
     // Initial acquisition outflow at as_of.
-    let acq_cost = asset.acquisition_cost.unwrap_or(0.0);
+    let acq_cost = asset.acquisition_cost_total()?;
     *flows.entry(as_of).or_insert(0.0) += -(purchase_price + acq_cost);
 
     // Interim unlevered flows (NOI - CapEx).
@@ -122,7 +122,7 @@ impl MetricCalculator for UnleveredCashOnCashFirst {
             })?;
 
         let purchase_price = require_purchase_price(asset)?;
-        let acq_cost = asset.acquisition_cost.unwrap_or(0.0);
+        let acq_cost = asset.acquisition_cost_total()?;
         let denom = purchase_price + acq_cost;
         if denom <= 0.0 {
             return Err(CoreError::Validation(

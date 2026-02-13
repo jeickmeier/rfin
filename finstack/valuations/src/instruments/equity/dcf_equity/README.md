@@ -2,17 +2,25 @@
 
 ## Features
 
-- Corporate valuation instrument with explicit projected free-cash-flow schedule and terminal value specification (Gordon Growth or Exit Multiple).
-- Net debt adjustment to derive equity value, using explicit valuation date and discount curve.
+- Corporate valuation instrument with explicit projected free-cash-flow schedule and terminal value specification (Gordon Growth, Exit Multiple, or H-Model).
+- Structured equity bridge (total debt, cash, preferred equity, minority interest, non-operating assets, named adjustments) or flat net-debt scalar.
+- Mid-year discounting convention (standard IB/PE practice).
+- Per-share equity value with diluted share count via treasury stock method.
+- Private company valuation discounts (DLOM, DLOC).
 - Builder pattern via `DiscountedCashFlowBuilder` with serde-stable fields for storage/pipeline use.
 
 ## Methodology & References
 
-- Standard DCF formula: present value of projected FCFs plus discounted terminal value minus net debt.
-- Terminal value options implement Gordon Growth and Exit Multiple methods common in equity research/IB practice.
+- Standard DCF formula: present value of projected FCFs plus discounted terminal value minus equity bridge adjustments.
+- Terminal value options: Gordon Growth, Exit Multiple, and H-Model (Damodaran linear growth fade).
+- Mid-year convention: discounts flows at `(t - 0.5)` instead of `t`, reflecting mid-period cash arrival.
 - Year fractions use an ACT/365.25 basis; discounting uses deterministic WACC or supplied curve.
+- Valuation discounts applied multiplicatively: `FMV = Equity × (1 - DLOC) × (1 - DLOM)`.
+- Dilution via treasury stock method: in-the-money securities increase diluted share count.
 
 ## Usage Example
+
+### Basic DCF (public company intrinsic value)
 
 ```rust
 use finstack_valuations::instruments::equity::dcf_equity::{DiscountedCashFlow, TerminalValueSpec};
@@ -33,32 +41,120 @@ let dcf = DiscountedCashFlow::builder()
     .net_debt(50.0)
     .valuation_date(Date::from_calendar_date(2024, Month::December, 31)?)
     .discount_curve_id(CurveId::new("USD-OIS"))
-    .attributes(Default::default())
     .build()?;
 
 let equity_value = dcf.value(&market_context, dcf.valuation_date)?;
 ```
 
-## Limitations / Known Issues
+### Private company valuation (with mid-year, bridge, discounts)
 
-- Simplified corporate-finance DCF; no scenario trees, tax shields, or capital structure optimization.
-- Uses deterministic discounting (WACC/curve); no pathwise uncertainty or simulation.
-- Terminal value guards only check WACC > growth; no explicit handling of negative cashflows beyond provided inputs.
+```rust
+use finstack_valuations::instruments::equity::dcf_equity::*;
+
+let dcf = DiscountedCashFlow::builder()
+    .id(InstrumentId::new("DCF-PRIVATE"))
+    .currency(Currency::USD)
+    .flows(projected_fcf_schedule)
+    .wacc(0.12)
+    .terminal_value(TerminalValueSpec::ExitMultiple {
+        terminal_metric: ebitda_year_5,
+        multiple: 8.0,
+    })
+    .net_debt(0.0) // ignored when equity_bridge is set
+    .valuation_date(valuation_date)
+    .discount_curve_id(CurveId::new("USD-DISCOUNT"))
+    .mid_year_convention(true)
+    .equity_bridge(EquityBridge {
+        total_debt: 25_000_000.0,
+        cash: 5_000_000.0,
+        preferred_equity: 10_000_000.0,
+        minority_interest: 0.0,
+        non_operating_assets: 2_000_000.0,
+        other_adjustments: vec![("unfunded_pension".into(), -1_500_000.0)],
+    })
+    .shares_outstanding(1_000_000.0)
+    .valuation_discounts(ValuationDiscounts {
+        dlom: Some(0.25),
+        dloc: Some(0.15),
+        other_discount: None,
+    })
+    .build()?;
+
+let fmv = dcf.value(&market_context, valuation_date)?;
+let per_share = dcf.equity_value_per_share(fmv.amount());
+```
+
+### H-Model (two-stage growth fade for public company)
+
+```rust
+let dcf = DiscountedCashFlow::builder()
+    // ... standard fields ...
+    .terminal_value(TerminalValueSpec::HModel {
+        high_growth_rate: 0.15,
+        stable_growth_rate: 0.03,
+        half_life_years: 5.0,
+    })
+    .build()?;
+```
+
+## Terminal Value Methods
+
+### Gordon Growth Model
+
+```text
+TV = FCF_terminal × (1 + g) / (WACC - g)
+```
+
+### Exit Multiple
+
+```text
+TV = Terminal_Metric × Multiple
+(e.g., EBITDA × 10x)
+```
+
+### H-Model (Damodaran)
+
+```text
+TV = FCF_T × (1+g_s)/(WACC-g_s) + FCF_T × H × (g_h-g_s)/(WACC-g_s)
+```
+
+Where `H` is the half-life of the linear growth fade from `g_h` to `g_s`.
+
+## Equity Bridge
+
+When `equity_bridge` is set, it takes precedence over the flat `net_debt` field:
+
+```text
+Equity = EV - Total Debt + Cash - Preferred Equity
+         - Minority Interest + Non-Operating Assets + Σ(adjustments)
+```
+
+## Metrics
+
+- Enterprise value, equity value, terminal value PV.
+- Equity price per share (diluted), diluted share count.
+- DV01 (parallel and bucketed) for rate sensitivity.
+- Theta (time decay via date roll).
+- Duration-like sensitivity to WACC and growth via finite-difference bump scripts.
 
 ## Pricing Methodology
 
 - Discounts explicit free cashflows and terminal value using WACC/discount curve on ACT/365.25 basis.
-- Terminal value via Gordon Growth `(FCF_T × (1+g)/(WACC-g))` or Exit Multiple (`metric × multiple`), discounted to valuation date.
-- Equity value = Enterprise Value − Net Debt; deterministic single-scenario valuation.
+- Mid-year convention (optional): discounts at `(t - 0.5)` years.
+- Terminal value via Gordon Growth, Exit Multiple, or H-Model, discounted to valuation date.
+- Equity value = Enterprise Value − Bridge Amount; then DLOC/DLOM discounts applied.
+- Deterministic single-scenario valuation (compose multiple instances for scenario weighting).
 
-## Metrics
+## Backward Compatibility
 
-- Enterprise value, equity value, implied perpetual growth rate (if solved), and sensitivity tables via simple bump scripts.
-- Duration-like sensitivity to WACC and growth (finite-difference) for scenario analysis.
-- Cashflow/terminal value contribution breakdown.
+All new fields are optional with serde defaults:
+- `mid_year_convention` defaults to `false`.
+- `equity_bridge`, `shares_outstanding`, `valuation_discounts` default to `None`.
+- `dilution_securities` defaults to empty.
+- Old serialized JSON (without new fields) deserializes correctly.
 
 ## Future Enhancements
 
-- Add probabilistic/scenario-weighted DCF paths and tax/CapEx/depreciation schedules.
-- Support multi-stage growth/discount curves and mid-year discounting options.
-- Provide built-in sensitivity tables (WACC/g matrices) and Monte Carlo on key drivers.
+- Add probabilistic/scenario-weighted DCF paths and WACC/growth sensitivity matrices.
+- Support OPM (Option Pricing Method) for 409A equity allocation across share classes.
+- Provide Monte Carlo on key drivers (revenue growth, margins, multiples).

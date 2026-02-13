@@ -88,16 +88,21 @@ impl MetricCalculator for CapRateSensitivity {
             .as_any()
             .downcast_ref::<RealEstateAsset>()
         {
-            // If this configuration does not use a cap rate (no terminal proceeds), sensitivity is 0.
+            // If this configuration does not use a cap rate (no terminal proceeds), return not-applicable.
             match asset.valuation_method {
                 crate::instruments::equity::real_estate::RealEstateValuationMethod::DirectCap => {
                     if asset.cap_rate.is_none() {
-                        return Ok(0.0);
+                        return Err(CoreError::Validation(
+                            "CapRateSensitivity: not applicable for DirectCap without cap_rate"
+                                .into(),
+                        ));
                     }
                 }
                 crate::instruments::equity::real_estate::RealEstateValuationMethod::Dcf => {
                     if asset.sale_price.is_some() || asset.terminal_cap_rate.is_none() {
-                        return Ok(0.0);
+                        return Err(CoreError::Validation(
+                            "CapRateSensitivity: not applicable for DCF with explicit sale_price or missing terminal_cap_rate".into(),
+                        ));
                     }
                 }
             }
@@ -117,12 +122,17 @@ impl MetricCalculator for CapRateSensitivity {
             match asset.valuation_method {
                 crate::instruments::equity::real_estate::RealEstateValuationMethod::DirectCap => {
                     if asset.cap_rate.is_none() {
-                        return Ok(0.0);
+                        return Err(CoreError::Validation(
+                            "CapRateSensitivity: not applicable for DirectCap without cap_rate"
+                                .into(),
+                        ));
                     }
                 }
                 crate::instruments::equity::real_estate::RealEstateValuationMethod::Dcf => {
                     if asset.sale_price.is_some() || asset.terminal_cap_rate.is_none() {
-                        return Ok(0.0);
+                        return Err(CoreError::Validation(
+                            "CapRateSensitivity: not applicable for DCF with explicit sale_price or missing terminal_cap_rate".into(),
+                        ));
                     }
                 }
             }
@@ -223,7 +233,9 @@ impl MetricCalculator for DiscountRateSensitivity {
             if asset.valuation_method
                 != crate::instruments::equity::real_estate::RealEstateValuationMethod::Dcf
             {
-                return Ok(0.0);
+                return Err(CoreError::Validation(
+                    "DiscountRateSensitivity: not applicable for non-DCF valuation".into(),
+                ));
             }
             Self::ensure_curve_free_dcf(context, asset)?;
             let v_up = Self::eval_asset(context, asset, self.bump_abs)?;
@@ -239,7 +251,9 @@ impl MetricCalculator for DiscountRateSensitivity {
             if levered.asset.valuation_method
                 != crate::instruments::equity::real_estate::RealEstateValuationMethod::Dcf
             {
-                return Ok(0.0);
+                return Err(CoreError::Validation(
+                    "DiscountRateSensitivity: not applicable for non-DCF valuation".into(),
+                ));
             }
             Self::ensure_curve_free_dcf(context, &levered.asset)?;
 
@@ -248,7 +262,13 @@ impl MetricCalculator for DiscountRateSensitivity {
                 .asset
                 .discount_rate
                 .ok_or_else(|| CoreError::Validation("missing discount_rate".into()))?;
-            up.asset.discount_rate = Some(r + self.bump_abs);
+            let up_bumped = r + self.bump_abs;
+            if up_bumped <= -1.0 {
+                return Err(CoreError::Validation(
+                    "DiscountRateSensitivity: bumped discount_rate must be > -100%".into(),
+                ));
+            }
+            up.asset.discount_rate = Some(up_bumped);
             let v_up = up.value(context.curves.as_ref(), context.as_of)?.amount();
 
             let mut dn = levered.clone();
@@ -256,7 +276,13 @@ impl MetricCalculator for DiscountRateSensitivity {
                 .asset
                 .discount_rate
                 .ok_or_else(|| CoreError::Validation("missing discount_rate".into()))?;
-            dn.asset.discount_rate = Some(r - self.bump_abs);
+            let dn_bumped = r - self.bump_abs;
+            if dn_bumped <= -1.0 {
+                return Err(CoreError::Validation(
+                    "DiscountRateSensitivity: bumped discount_rate must be > -100%".into(),
+                ));
+            }
+            dn.asset.discount_rate = Some(dn_bumped);
             let v_dn = dn.value(context.curves.as_ref(), context.as_of)?.amount();
 
             return Ok((v_up - v_dn) / (2.0 * self.bump_abs));

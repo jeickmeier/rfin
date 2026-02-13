@@ -12,23 +12,45 @@ use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::equity::dcf_equity::{DiscountedCashFlow, TerminalValueSpec};
+use finstack_valuations::instruments::equity::dcf_equity::{
+    DiscountedCashFlow, EquityBridge, TerminalValueSpec, ValuationDiscounts,
+};
 use finstack_valuations::instruments::{Attributes, Instrument};
 use serde_json::json;
 
 /// Corporate valuation result containing DCF outputs.
 #[derive(Debug, Clone)]
 pub struct CorporateValuationResult {
-    /// Equity value (EV - Net Debt)
+    /// Equity value (EV - Net Debt, after discounts)
     pub equity_value: Money,
     /// Enterprise value (PV of all cash flows + terminal value)
     pub enterprise_value: Money,
-    /// Net debt used in calculation
+    /// Net debt (or effective bridge amount) used in calculation
     pub net_debt: Money,
     /// Terminal value (present value)
     pub terminal_value_pv: Money,
+    /// Equity value per diluted share (if shares_outstanding was provided)
+    pub equity_value_per_share: Option<f64>,
+    /// Diluted share count (if shares_outstanding was provided)
+    pub diluted_shares: Option<f64>,
     /// The underlying DCF instrument (for further analysis)
     pub dcf_instrument: Option<DiscountedCashFlow>,
+}
+
+/// Optional configuration for DCF valuation beyond the core WACC/terminal parameters.
+///
+/// All fields default to `None`/`false`, preserving backward compatibility with
+/// the original `evaluate_dcf()` signature.
+#[derive(Debug, Clone, Default)]
+pub struct DcfOptions {
+    /// Enable mid-year discounting convention (default: false).
+    pub mid_year_convention: bool,
+    /// Structured equity bridge (replaces flat net_debt when `Some`).
+    pub equity_bridge: Option<EquityBridge>,
+    /// Basic shares outstanding for per-share value.
+    pub shares_outstanding: Option<f64>,
+    /// Private company valuation discounts (DLOM, DLOC).
+    pub valuation_discounts: Option<ValuationDiscounts>,
 }
 
 /// Evaluate a financial model using DCF methodology.
@@ -73,8 +95,37 @@ pub fn evaluate_dcf(
     ufcf_node: &str,
     net_debt_override: Option<f64>,
 ) -> Result<CorporateValuationResult> {
-    let (result, _trace) =
-        evaluate_dcf_with_trace(model, wacc, terminal_value, ufcf_node, net_debt_override)?;
+    let (result, _trace) = evaluate_dcf_impl(
+        model,
+        wacc,
+        terminal_value,
+        ufcf_node,
+        net_debt_override,
+        &DcfOptions::default(),
+    )?;
+    Ok(result)
+}
+
+/// Evaluate a financial model using DCF methodology with additional options.
+///
+/// Extends [`evaluate_dcf`] with support for mid-year convention, equity bridge,
+/// shares outstanding, and valuation discounts.
+pub fn evaluate_dcf_with_options(
+    model: &FinancialModelSpec,
+    wacc: f64,
+    terminal_value: TerminalValueSpec,
+    ufcf_node: &str,
+    net_debt_override: Option<f64>,
+    options: &DcfOptions,
+) -> Result<CorporateValuationResult> {
+    let (result, _trace) = evaluate_dcf_impl(
+        model,
+        wacc,
+        terminal_value,
+        ufcf_node,
+        net_debt_override,
+        options,
+    )?;
     Ok(result)
 }
 
@@ -89,6 +140,25 @@ pub fn evaluate_dcf_with_trace(
     terminal_value: TerminalValueSpec,
     ufcf_node: &str,
     net_debt_override: Option<f64>,
+) -> Result<(CorporateValuationResult, ExplanationTrace)> {
+    evaluate_dcf_impl(
+        model,
+        wacc,
+        terminal_value,
+        ufcf_node,
+        net_debt_override,
+        &DcfOptions::default(),
+    )
+}
+
+/// Core implementation shared by all `evaluate_dcf*` entry points.
+fn evaluate_dcf_impl(
+    model: &FinancialModelSpec,
+    wacc: f64,
+    terminal_value: TerminalValueSpec,
+    ufcf_node: &str,
+    net_debt_override: Option<f64>,
+    options: &DcfOptions,
 ) -> Result<(CorporateValuationResult, ExplanationTrace)> {
     // Create evaluator and evaluate the model
     let mut evaluator = Evaluator::new();
@@ -130,17 +200,40 @@ pub fn evaluate_dcf_with_trace(
         )));
     }
 
-    // Validate Gordon Growth constraint: terminal growth rate must be < WACC.
-    // If g >= WACC, the terminal value formula FCF*(1+g)/(WACC-g) produces
-    // a negative or infinite result, invalidating the entire DCF.
-    if let TerminalValueSpec::GordonGrowth { growth_rate } = &terminal_value {
-        if *growth_rate >= wacc {
+    // Validate terminal value constraints.
+    match &terminal_value {
+        TerminalValueSpec::GordonGrowth { growth_rate } if *growth_rate >= wacc => {
             return Err(crate::error::Error::Eval(format!(
                 "Gordon Growth terminal value requires growth_rate ({:.4}) < WACC ({:.4}). \
                  A growth rate >= WACC produces an infinite terminal value.",
                 growth_rate, wacc
             )));
         }
+        TerminalValueSpec::HModel {
+            high_growth_rate,
+            stable_growth_rate,
+            half_life_years,
+        } => {
+            if *stable_growth_rate >= wacc {
+                return Err(crate::error::Error::Eval(format!(
+                    "H-Model terminal value requires stable_growth_rate ({:.4}) < WACC ({:.4}).",
+                    stable_growth_rate, wacc
+                )));
+            }
+            if *high_growth_rate < *stable_growth_rate {
+                return Err(crate::error::Error::Eval(format!(
+                    "H-Model requires high_growth_rate ({:.4}) >= stable_growth_rate ({:.4}).",
+                    high_growth_rate, stable_growth_rate
+                )));
+            }
+            if *half_life_years <= 0.0 {
+                return Err(crate::error::Error::Eval(format!(
+                    "H-Model requires half_life_years > 0, got {:.4}.",
+                    half_life_years
+                )));
+            }
+        }
+        _ => {}
     }
 
     // Determine net debt
@@ -160,7 +253,7 @@ pub fn evaluate_dcf_with_trace(
     // Create DCF instrument
     // Use a default discount curve ID - DCF uses WACC internally, but still needs a curve ID
     let discount_curve_id = CurveId::new(format!("{}-DISCOUNT", currency));
-    let dcf = DiscountedCashFlow::builder()
+    let mut builder = DiscountedCashFlow::builder()
         .id(InstrumentId::new(format!("{}-DCF", model.id)))
         .currency(currency)
         .flows(flows)
@@ -169,7 +262,20 @@ pub fn evaluate_dcf_with_trace(
         .net_debt(net_debt)
         .valuation_date(valuation_date)
         .discount_curve_id(discount_curve_id)
-        .attributes(Attributes::new())
+        .mid_year_convention(options.mid_year_convention)
+        .attributes(Attributes::new());
+
+    if let Some(ref bridge) = options.equity_bridge {
+        builder = builder.equity_bridge(bridge.clone());
+    }
+    if let Some(shares) = options.shares_outstanding {
+        builder = builder.shares_outstanding(shares);
+    }
+    if let Some(ref discounts) = options.valuation_discounts {
+        builder = builder.valuation_discounts(discounts.clone());
+    }
+
+    let dcf = builder
         .build()
         .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
 
@@ -181,8 +287,12 @@ pub fn evaluate_dcf_with_trace(
 
     // Calculate components for result
     let pv_explicit = dcf.calculate_pv_explicit_flows();
-    let tv = dcf.calculate_terminal_value();
-    let pv_terminal = dcf.discount_terminal_value(tv);
+    let tv = dcf
+        .calculate_terminal_value()
+        .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+    let pv_terminal = dcf
+        .discount_terminal_value(tv)
+        .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
     let enterprise_value = pv_explicit + pv_terminal;
 
     // Record base valuation in the explanation trace
@@ -203,23 +313,33 @@ pub fn evaluate_dcf_with_trace(
         None,
     );
 
-    // Sensitivity of EV to WACC (+/- 100 bps)
+    // Sensitivity of EV to WACC (+/- 100 bps).
+    // Compute EV directly from PV components (not from equity + bridge) so that
+    // the result is independent of valuation discounts (DLOM/DLOC).
     let ev_wacc_up = {
         let mut dcf_up = dcf.clone();
         dcf_up.wacc = wacc + 0.01;
-        let eq_up = dcf_up
-            .value(&market, valuation_date)
+        let pv_exp = dcf_up.calculate_pv_explicit_flows();
+        let tv_up = dcf_up
+            .calculate_terminal_value()
             .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
-        eq_up.amount() + net_debt
+        let pv_tv = dcf_up
+            .discount_terminal_value(tv_up)
+            .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+        pv_exp + pv_tv
     };
 
     let ev_wacc_down = {
         let mut dcf_down = dcf.clone();
         dcf_down.wacc = (wacc - 0.01).max(0.0);
-        let eq_down = dcf_down
-            .value(&market, valuation_date)
+        let pv_exp = dcf_down.calculate_pv_explicit_flows();
+        let tv_down = dcf_down
+            .calculate_terminal_value()
             .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
-        eq_down.amount() + net_debt
+        let pv_tv = dcf_down
+            .discount_terminal_value(tv_down)
+            .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+        pv_exp + pv_tv
     };
 
     trace.push(
@@ -251,8 +371,12 @@ pub fn evaluate_dcf_with_trace(
         };
         let ev_up = {
             let pv_explicit_up = dcf_up.calculate_pv_explicit_flows();
-            let tv_up = dcf_up.calculate_terminal_value();
-            let pv_tv_up = dcf_up.discount_terminal_value(tv_up);
+            let tv_up = dcf_up
+                .calculate_terminal_value()
+                .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+            let pv_tv_up = dcf_up
+                .discount_terminal_value(tv_up)
+                .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
             pv_explicit_up + pv_tv_up
         };
 
@@ -263,8 +387,12 @@ pub fn evaluate_dcf_with_trace(
         };
         let ev_down = {
             let pv_explicit_down = dcf_down.calculate_pv_explicit_flows();
-            let tv_down = dcf_down.calculate_terminal_value();
-            let pv_tv_down = dcf_down.discount_terminal_value(tv_down);
+            let tv_down = dcf_down
+                .calculate_terminal_value()
+                .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+            let pv_tv_down = dcf_down
+                .discount_terminal_value(tv_down)
+                .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
             pv_explicit_down + pv_tv_down
         };
 
@@ -287,12 +415,19 @@ pub fn evaluate_dcf_with_trace(
         );
     }
 
+    // Compute per-share metrics if shares outstanding is set
+    let equity_val = equity_value.amount();
+    let equity_value_per_share = dcf.equity_value_per_share(equity_val);
+    let diluted_shares = dcf.diluted_shares(equity_val);
+
     Ok((
         CorporateValuationResult {
             equity_value,
             enterprise_value: Money::new(enterprise_value, currency),
-            net_debt: Money::new(net_debt, currency),
+            net_debt: Money::new(dcf.effective_net_debt(), currency),
             terminal_value_pv: Money::new(pv_terminal, currency),
+            equity_value_per_share,
+            diluted_shares,
             dcf_instrument: Some(dcf),
         },
         trace,

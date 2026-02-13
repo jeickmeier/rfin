@@ -23,6 +23,11 @@ impl MarketContext {
     // Internal helpers
     // -----------------------------------------------------------------------------
 
+    #[inline]
+    fn not_found_error(id: &str) -> crate::Error {
+        crate::error::InputError::NotFound { id: id.to_string() }.into()
+    }
+
     fn missing_curve_error(&self, id: &str) -> crate::Error {
         let available: Vec<String> = self.curves.keys().map(|k| k.to_string()).collect();
         crate::error::Error::missing_curve_with_suggestions(id, &available)
@@ -40,11 +45,12 @@ impl MarketContext {
     {
         match self.curves.get(id) {
             Some(storage) => extractor(storage).ok_or_else(|| {
-                crate::error::Error::from(crate::error::InputError::WrongCurveType {
+                crate::error::InputError::WrongCurveType {
                     id: id.to_string(),
                     expected: expected_type.to_string(),
                     actual: storage.curve_type().to_string(),
-                })
+                }
+                .into()
             }),
             None => Err(self.missing_curve_error(id)),
         }
@@ -143,12 +149,10 @@ impl MarketContext {
     /// ```
     pub fn surface(&self, id: impl AsRef<str>) -> Result<Arc<VolSurface>> {
         let id_str = id.as_ref();
-        self.surfaces.get(id_str).cloned().ok_or(
-            crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }
-            .into(),
-        )
+        self.surfaces
+            .get(id_str)
+            .cloned()
+            .ok_or_else(|| Self::not_found_error(id_str))
     }
 
     /// Borrow a market price/scalar by identifier.
@@ -168,12 +172,9 @@ impl MarketContext {
     /// ```
     pub fn price(&self, id: impl AsRef<str>) -> Result<&MarketScalar> {
         let id_str = id.as_ref();
-        self.prices.get(id_str).ok_or(
-            crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }
-            .into(),
-        )
+        self.prices
+            .get(id_str)
+            .ok_or_else(|| Self::not_found_error(id_str))
     }
 
     /// Borrow a scalar time series by identifier.
@@ -198,12 +199,9 @@ impl MarketContext {
     /// ```
     pub fn series(&self, id: impl AsRef<str>) -> Result<&ScalarTimeSeries> {
         let id_str = id.as_ref();
-        self.series.get(id_str).ok_or(
-            crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }
-            .into(),
-        )
+        self.series
+            .get(id_str)
+            .ok_or_else(|| Self::not_found_error(id_str))
     }
 
     /// Clone an inflation index by identifier.
@@ -266,12 +264,10 @@ impl MarketContext {
     /// ```
     pub fn credit_index(&self, id: impl AsRef<str>) -> Result<Arc<CreditIndexData>> {
         let id_str = id.as_ref();
-        self.credit_indices.get(id_str).cloned().ok_or(
-            crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }
-            .into(),
-        )
+        self.credit_indices
+            .get(id_str)
+            .cloned()
+            .ok_or_else(|| Self::not_found_error(id_str))
     }
 
     /// Resolve a collateral discount curve for a CSA code.
@@ -328,16 +324,8 @@ impl MarketContext {
             return false;
         };
 
-        // Create a new index with the updated correlation curve
-        let updated_index = CreditIndexData {
-            num_constituents: existing_index.num_constituents,
-            recovery_rate: existing_index.recovery_rate,
-            index_credit_curve: Arc::clone(&existing_index.index_credit_curve),
-            base_correlation_curve: new_curve,
-            issuer_credit_curves: existing_index.issuer_credit_curves.clone(),
-            issuer_recovery_rates: existing_index.issuer_recovery_rates.clone(),
-            issuer_weights: existing_index.issuer_weights.clone(),
-        };
+        let mut updated_index = (**existing_index).clone();
+        updated_index.base_correlation_curve = new_curve;
 
         // Update the context
         self.credit_indices.insert(cid, Arc::new(updated_index));

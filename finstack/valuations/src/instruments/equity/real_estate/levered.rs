@@ -159,8 +159,10 @@ impl LeveredRealEstateEquity {
             }
         }
 
+        let financing_schedules = self.financing_schedules_supported(market, as_of)?;
+
         // Financing borrower flows derived from lender schedules.
-        for sched in self.financing_schedules_supported(market, as_of)? {
+        for sched in &financing_schedules {
             for cf in &sched.flows {
                 if cf.date < as_of || cf.date > exit {
                     continue;
@@ -189,7 +191,7 @@ impl LeveredRealEstateEquity {
         *flows.entry(exit).or_insert(0.0) += sale;
 
         let mut payoff_amt = 0.0;
-        for sched in self.financing_schedules_supported(market, as_of)? {
+        for sched in &financing_schedules {
             let out_path = sched.outstanding_by_date()?;
             let payoff = Self::outstanding_before(&out_path, exit, self.currency);
             payoff_amt += payoff.amount().abs();

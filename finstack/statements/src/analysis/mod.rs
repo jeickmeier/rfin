@@ -26,7 +26,9 @@ pub mod variance;
 pub mod visualization;
 
 pub use backtesting::{backtest_forecast, ForecastMetrics};
-pub use corporate::{evaluate_dcf, CorporateValuationResult};
+pub use corporate::{
+    evaluate_dcf, evaluate_dcf_with_options, CorporateValuationResult, DcfOptions,
+};
 pub use covenants::forecast_breaches;
 pub use dependency_trace::{DependencyTracer, DependencyTree};
 pub use formula_explain::{Explanation, ExplanationStep, FormulaExplainer};

@@ -1,7 +1,7 @@
 //! Discounted Cash Flow instrument types and implementations.
 //!
 //! Core DCF types used for corporate valuation:
-//! - [`TerminalValueSpec`] for Gordon Growth and Exit Multiple terminals
+//! - [`TerminalValueSpec`] for Gordon Growth, Exit Multiple, and H-Model terminals
 //! - [`DiscountedCashFlow`] instrument implementing the standard DCF formula
 
 use crate::instruments::common_impl::dependencies::MarketDependencies;
@@ -33,12 +33,164 @@ pub enum TerminalValueSpec {
         /// Multiple to apply (e.g., 10.0 for 10x EBITDA)
         multiple: f64,
     },
+    /// H-Model: linear fade from high growth to stable growth (Damodaran).
+    ///
+    /// ```text
+    /// TV = FCF_T × (1+g_s)/(WACC-g_s) + FCF_T × H × (g_h-g_s)/(WACC-g_s)
+    /// ```
+    ///
+    /// where `H` is the half-life in years of the high-growth fade period.
+    /// The first term is the standard Gordon Growth stable-state value;
+    /// the second term captures the present value of excess growth that
+    /// linearly decays from `high_growth_rate` to `stable_growth_rate`
+    /// over `2 × half_life_years`.
+    HModel {
+        /// Initial high growth rate (e.g., 0.15 for 15%).
+        high_growth_rate: f64,
+        /// Long-run stable growth rate (e.g., 0.03 for 3%). Must be < WACC.
+        stable_growth_rate: f64,
+        /// Half-life of the growth fade in years (e.g., 5.0).
+        half_life_years: f64,
+    },
+}
+
+/// Structured equity bridge for converting Enterprise Value to Equity Value.
+///
+/// Standard professional bridge:
+/// ```text
+/// Equity = EV - Total Debt + Cash - Preferred Equity - Minority Interest
+///          + Non-Operating Assets + Σ(other adjustments)
+/// ```
+///
+/// When attached to a [`DiscountedCashFlow`], this takes precedence over the
+/// flat `net_debt` scalar.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct EquityBridge {
+    /// Total interest-bearing debt.
+    #[serde(default)]
+    pub total_debt: f64,
+    /// Cash and cash equivalents.
+    #[serde(default)]
+    pub cash: f64,
+    /// Preferred stock at liquidation preference.
+    #[serde(default)]
+    pub preferred_equity: f64,
+    /// Non-controlling (minority) interests.
+    #[serde(default)]
+    pub minority_interest: f64,
+    /// Non-operating assets (excess cash, investments, real estate, etc.).
+    #[serde(default)]
+    pub non_operating_assets: f64,
+    /// Named adjustments (e.g., unfunded pension, contingent liabilities).
+    /// Positive values increase equity; negative values decrease it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub other_adjustments: Vec<(String, f64)>,
+}
+
+impl EquityBridge {
+    /// Net adjustment amount to subtract from Enterprise Value.
+    ///
+    /// `net_adjustment = total_debt - cash + preferred_equity + minority_interest
+    ///                   - non_operating_assets - Σ(other_adjustments)`
+    pub fn net_adjustment(&self) -> f64 {
+        let other_sum: f64 = self.other_adjustments.iter().map(|(_, v)| v).sum();
+        self.total_debt - self.cash + self.preferred_equity + self.minority_interest
+            - self.non_operating_assets
+            - other_sum
+    }
+}
+
+/// Valuation discounts for private company equity.
+///
+/// Applied multiplicatively after the equity bridge:
+/// ```text
+/// FMV = Equity Value × (1 - DLOC) × (1 - DLOM) × (1 - other_discount)
+/// ```
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct ValuationDiscounts {
+    /// Discount for Lack of Marketability (0.0–1.0, e.g., 0.25 for 25%).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dlom: Option<f64>,
+    /// Discount for Lack of Control (0.0–1.0, e.g., 0.20 for 20%).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dloc: Option<f64>,
+    /// Additional discount (0.0–1.0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub other_discount: Option<f64>,
+}
+
+impl ValuationDiscounts {
+    /// Validate that all discount rates are in `[0.0, 1.0]`.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        fn check(name: &str, val: Option<f64>) -> finstack_core::Result<()> {
+            if let Some(v) = val {
+                if !(0.0..=1.0).contains(&v) {
+                    return Err(CoreError::Validation(format!(
+                        "{name} must be in [0.0, 1.0], got {v:.6}"
+                    )));
+                }
+            }
+            Ok(())
+        }
+        check("dlom", self.dlom)?;
+        check("dloc", self.dloc)?;
+        check("other_discount", self.other_discount)?;
+        Ok(())
+    }
+
+    /// Apply all discounts multiplicatively to an equity value.
+    ///
+    /// Returns `Err` if any discount is outside `[0.0, 1.0]`.
+    pub fn apply(&self, equity_value: f64) -> finstack_core::Result<f64> {
+        self.validate()?;
+        let mut val = equity_value;
+        if let Some(dloc) = self.dloc {
+            val *= 1.0 - dloc;
+        }
+        if let Some(dlom) = self.dlom {
+            val *= 1.0 - dlom;
+        }
+        if let Some(other) = self.other_discount {
+            val *= 1.0 - other;
+        }
+        Ok(val)
+    }
+}
+
+/// A dilutive security for the treasury stock method.
+///
+/// Used to compute diluted shares outstanding from options, warrants,
+/// RSUs, or convertible instruments.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct DilutionSecurity {
+    /// Descriptive name (e.g., "Employee Stock Options").
+    pub name: String,
+    /// Number of shares issuable upon exercise/conversion.
+    pub quantity: f64,
+    /// Exercise or strike price per share (0.0 for RSUs/convertibles with no cost).
+    pub exercise_price: f64,
 }
 
 /// Discounted Cash Flow instrument for corporate valuation.
 ///
 /// DCF values a company by discounting projected free cash flows and terminal value.
-/// The equity value is calculated as: Enterprise Value - Net Debt.
+/// The equity value is calculated as: Enterprise Value - Net Debt (or structured bridge).
+///
+/// # Equity Bridge
+///
+/// When [`equity_bridge`](Self::equity_bridge) is `Some`, it takes precedence over
+/// the flat [`net_debt`](Self::net_debt) field for the EV-to-equity conversion.
+///
+/// # Mid-Year Convention
+///
+/// When [`mid_year_convention`](Self::mid_year_convention) is `true`, cash flows are
+/// discounted at `(t - 0.5)` years instead of `t` years, reflecting the assumption
+/// that cash flows arrive mid-period (standard IB/PE practice).
+///
+/// # Valuation Discounts
+///
+/// Private company valuations can apply DLOM, DLOC, and other discounts via
+/// [`valuation_discounts`](Self::valuation_discounts).
 #[derive(
     Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
 )]
@@ -55,59 +207,208 @@ pub struct DiscountedCashFlow {
     /// Terminal value specification.
     pub terminal_value: TerminalValueSpec,
     /// Net debt (debt - cash) to subtract from enterprise value.
+    ///
+    /// Ignored when [`equity_bridge`](Self::equity_bridge) is `Some`.
     pub net_debt: f64,
     /// Valuation date (as-of date for the DCF).
     pub valuation_date: Date,
     /// Discount curve identifier for pricing.
     pub discount_curve_id: CurveId,
+    /// Mid-year discounting convention (default: `false` = end-of-year).
+    ///
+    /// When `true`, each flow is discounted at `(t - 0.5)` instead of `t`,
+    /// reflecting the assumption that cash flows arrive mid-period.
+    /// This is the standard convention in IB/PE practice (Koller et al.).
+    #[builder(default)]
+    #[serde(default)]
+    pub mid_year_convention: bool,
+    /// Structured equity bridge for EV-to-equity conversion.
+    ///
+    /// When present, takes precedence over the flat `net_debt` field.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub equity_bridge: Option<EquityBridge>,
+    /// Basic shares outstanding for per-share value calculation.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shares_outstanding: Option<f64>,
+    /// Dilutive securities (options, warrants, RSUs, convertibles) for treasury stock method.
+    #[builder(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dilution_securities: Vec<DilutionSecurity>,
+    /// Private company valuation discounts (DLOM, DLOC).
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub valuation_discounts: Option<ValuationDiscounts>,
     /// Attributes for tagging and scenarios.
     pub attributes: Attributes,
 }
 
 impl DiscountedCashFlow {
-    /// Calculate present value of explicit period cash flows.
+    /// Calculate present value of explicit period cash flows using WACC.
+    ///
+    /// Respects [`mid_year_convention`](Self::mid_year_convention): when `true`,
+    /// each flow is discounted at `(t - 0.5)` years.
     pub fn calculate_pv_explicit_flows(&self) -> f64 {
         self.flows
             .iter()
             .map(|(date, amount)| {
-                let years = self.year_fraction(self.valuation_date, *date);
+                let years = self.discount_years(self.valuation_date, *date);
                 amount / (1.0 + self.wacc).powf(years)
             })
             .sum()
     }
 
     /// Calculate terminal value (undiscounted).
-    pub fn calculate_terminal_value(&self) -> f64 {
+    ///
+    /// # Errors
+    ///
+    /// - `GordonGrowth` / `HModel`: returns `Err` if flows are empty (last FCF is needed).
+    /// - `GordonGrowth`: WACC must be > growth_rate.
+    /// - `HModel`: WACC must be > stable_growth_rate; high_growth_rate must be
+    ///   >= stable_growth_rate; half_life_years must be > 0.
+    /// - `ExitMultiple`: never fails (does not depend on flows).
+    pub fn calculate_terminal_value(&self) -> finstack_core::Result<f64> {
         match &self.terminal_value {
             TerminalValueSpec::GordonGrowth { growth_rate } => {
-                // Get the last explicit flow
-                if let Some((_, last_fcf)) = self.flows.last() {
-                    let g = *growth_rate;
-                    if self.wacc > g {
-                        last_fcf * (1.0 + g) / (self.wacc - g)
-                    } else {
-                        // Invalid case: WACC <= growth rate (guarded by npv)
-                        0.0
-                    }
-                } else {
-                    0.0
+                let (_, last_fcf) = self.flows.last().ok_or_else(|| {
+                    CoreError::Validation(
+                        "DCF has no explicit flows; cannot compute terminal value".into(),
+                    )
+                })?;
+                let g = *growth_rate;
+                if self.wacc <= g {
+                    return Err(CoreError::Validation(format!(
+                        "Gordon Growth requires WACC ({:.6}) > growth_rate ({:.6})",
+                        self.wacc, g
+                    )));
                 }
+                Ok(last_fcf * (1.0 + g) / (self.wacc - g))
             }
             TerminalValueSpec::ExitMultiple {
                 terminal_metric,
                 multiple,
-            } => terminal_metric * multiple,
+            } => Ok(terminal_metric * multiple),
+            TerminalValueSpec::HModel {
+                high_growth_rate,
+                stable_growth_rate,
+                half_life_years,
+            } => {
+                let (_, last_fcf) = self.flows.last().ok_or_else(|| {
+                    CoreError::Validation(
+                        "DCF has no explicit flows; cannot compute terminal value".into(),
+                    )
+                })?;
+                let g_s = *stable_growth_rate;
+                let g_h = *high_growth_rate;
+                let h = *half_life_years;
+                if self.wacc <= g_s {
+                    return Err(CoreError::Validation(format!(
+                        "H-Model requires WACC ({:.6}) > stable_growth_rate ({:.6})",
+                        self.wacc, g_s
+                    )));
+                }
+                if g_h < g_s {
+                    return Err(CoreError::Validation(format!(
+                        "H-Model requires high_growth_rate ({:.6}) >= stable_growth_rate ({:.6})",
+                        g_h, g_s
+                    )));
+                }
+                if h <= 0.0 {
+                    return Err(CoreError::Validation(format!(
+                        "H-Model requires half_life_years > 0, got {:.6}",
+                        h
+                    )));
+                }
+                // Standard Gordon Growth stable-state value
+                let stable_tv = last_fcf * (1.0 + g_s) / (self.wacc - g_s);
+                // Growth premium from the H-model (Damodaran)
+                let growth_premium = last_fcf * h * (g_h - g_s) / (self.wacc - g_s);
+                Ok(stable_tv + growth_premium)
+            }
         }
     }
 
-    /// Discount terminal value to present value.
-    pub fn discount_terminal_value(&self, terminal_value: f64) -> f64 {
-        if let Some((terminal_date, _)) = self.flows.last() {
-            let years = self.year_fraction(self.valuation_date, *terminal_date);
-            terminal_value / (1.0 + self.wacc).powf(years)
+    /// Discount terminal value to present value using WACC.
+    ///
+    /// Returns `Err` if flows are empty.
+    pub fn discount_terminal_value(&self, terminal_value: f64) -> finstack_core::Result<f64> {
+        let (terminal_date, _) = self.flows.last().ok_or_else(|| {
+            CoreError::Validation(
+                "DCF has no explicit flows; cannot discount terminal value".into(),
+            )
+        })?;
+        let years = self.discount_years(self.valuation_date, *terminal_date);
+        Ok(terminal_value / (1.0 + self.wacc).powf(years))
+    }
+
+    /// Effective net debt amount for the EV-to-equity bridge.
+    ///
+    /// Uses [`equity_bridge`](Self::equity_bridge) when present, otherwise
+    /// falls back to [`net_debt`](Self::net_debt).
+    pub fn effective_net_debt(&self) -> f64 {
+        if let Some(ref bridge) = self.equity_bridge {
+            bridge.net_adjustment()
         } else {
-            0.0
+            self.net_debt
         }
+    }
+
+    /// Apply valuation discounts (DLOM, DLOC, other) to an equity value.
+    ///
+    /// Returns `Err` if any discount is outside `[0.0, 1.0]`.
+    fn apply_valuation_discounts(&self, equity_value: f64) -> finstack_core::Result<f64> {
+        if let Some(ref discounts) = self.valuation_discounts {
+            discounts.apply(equity_value)
+        } else {
+            Ok(equity_value)
+        }
+    }
+
+    /// Compute diluted share count using the treasury stock method.
+    ///
+    /// For each in-the-money dilutive security (exercise price < implied
+    /// price per share), the incremental diluted shares are:
+    /// ```text
+    /// incremental = quantity - (quantity × exercise_price) / price_per_share
+    /// ```
+    ///
+    /// **Convention**: The implied price per share is derived from the *post-discount*
+    /// equity value (i.e., after DLOM/DLOC are applied). This means dilution is
+    /// calculated on the fair market value that shareholders actually receive,
+    /// which is the standard private-company valuation convention.
+    ///
+    /// Returns `None` if `shares_outstanding` is not set.
+    pub fn diluted_shares(&self, equity_value: f64) -> Option<f64> {
+        let basic = self.shares_outstanding?;
+        if basic <= 0.0 {
+            return Some(basic);
+        }
+        let price_per_share = equity_value / basic;
+        if price_per_share <= 0.0 {
+            return Some(basic);
+        }
+        let mut diluted = basic;
+        for sec in &self.dilution_securities {
+            if sec.exercise_price < price_per_share && sec.quantity > 0.0 {
+                // Treasury stock method: proceeds buy back shares at current price
+                let proceeds = sec.quantity * sec.exercise_price;
+                let shares_repurchased = proceeds / price_per_share;
+                diluted += sec.quantity - shares_repurchased;
+            }
+        }
+        Some(diluted)
+    }
+
+    /// Equity value per diluted share.
+    ///
+    /// Returns `None` if `shares_outstanding` is not set or diluted shares is zero.
+    pub fn equity_value_per_share(&self, equity_value: f64) -> Option<f64> {
+        let diluted = self.diluted_shares(equity_value)?;
+        if diluted <= 0.0 {
+            return None;
+        }
+        Some(equity_value / diluted)
     }
 
     /// Calculate year fraction between two dates using ACT/365.25.
@@ -123,9 +424,22 @@ impl DiscountedCashFlow {
     ///
     /// This differs from capital-markets instruments that use `DayCount`
     /// enums (e.g., ACT/360 for money-market, ACT/365F for equity vol).
-    fn year_fraction(&self, start: Date, end: Date) -> f64 {
+    pub(crate) fn year_fraction(&self, start: Date, end: Date) -> f64 {
         let days = (end - start).whole_days() as f64;
         days / 365.25
+    }
+
+    /// Year fraction adjusted for mid-year convention.
+    ///
+    /// When `mid_year_convention` is `true`, subtracts 0.5 from the raw
+    /// year fraction to reflect cash flows arriving mid-period.
+    pub(crate) fn discount_years(&self, start: Date, end: Date) -> f64 {
+        let raw = self.year_fraction(start, end);
+        if self.mid_year_convention {
+            (raw - 0.5).max(0.0)
+        } else {
+            raw
+        }
     }
 }
 
@@ -159,59 +473,49 @@ impl Instrument for DiscountedCashFlow {
     }
 
     fn value(&self, market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
-        // Validate terminal value configuration (Gordon Growth requires WACC > g)
-        if let TerminalValueSpec::GordonGrowth { growth_rate } = &self.terminal_value {
-            if self.wacc <= *growth_rate {
-                return Err(CoreError::Validation(format!(
-                    "DCF terminal growth rate ({:.6}) must be strictly less than WACC ({:.6})",
-                    growth_rate, self.wacc
-                )));
-            }
-        }
+        // DCF is anchored to `self.valuation_date`; the trait-level `as_of` is
+        // intentionally ignored to keep discount timing deterministic for a
+        // configured valuation scenario.
+        // Validate terminal value constraints upfront via calculate_terminal_value().
+        // This catches WACC <= growth for Gordon Growth and H-Model.
+        let terminal_value = self.calculate_terminal_value()?;
+        let bridge_amount = self.effective_net_debt();
 
         // Try to use the market discount curve for discounting if available.
         // This allows proper term-structure discounting instead of a flat WACC.
         // Falls back to WACC-based discounting when the curve is not in the market context.
-        if let Ok(discount_curve) = market.get_discount(&self.discount_curve_id) {
-            let pv_explicit: f64 = self
-                .flows
-                .iter()
-                .map(|(date, amount)| {
-                    let years = self.year_fraction(self.valuation_date, *date);
-                    let df = discount_curve.df(years);
-                    amount * df
-                })
-                .sum();
+        let enterprise_value =
+            if let Ok(discount_curve) = market.get_discount(&self.discount_curve_id) {
+                let pv_explicit: f64 = self
+                    .flows
+                    .iter()
+                    .map(|(date, amount)| {
+                        let years = self.discount_years(self.valuation_date, *date);
+                        let df = discount_curve.df(years);
+                        amount * df
+                    })
+                    .sum();
 
-            let terminal_value = self.calculate_terminal_value();
-            let pv_terminal = if let Some((terminal_date, _)) = self.flows.last() {
-                let years = self.year_fraction(self.valuation_date, *terminal_date);
-                let df = discount_curve.df(years);
-                terminal_value * df
+                let pv_terminal = if let Some((terminal_date, _)) = self.flows.last() {
+                    let years = self.discount_years(self.valuation_date, *terminal_date);
+                    let df = discount_curve.df(years);
+                    terminal_value * df
+                } else {
+                    0.0
+                };
+
+                pv_explicit + pv_terminal
             } else {
-                0.0
+                // Fallback to WACC-based discounting (flat rate)
+                let pv_explicit = self.calculate_pv_explicit_flows();
+                let pv_terminal = self.discount_terminal_value(terminal_value)?;
+                pv_explicit + pv_terminal
             };
 
-            let enterprise_value = pv_explicit + pv_terminal;
-            let equity_value = enterprise_value - self.net_debt;
+        let equity_value = enterprise_value - bridge_amount;
+        let equity_value = self.apply_valuation_discounts(equity_value)?;
 
-            Ok(finstack_core::money::Money::new(
-                equity_value,
-                self.currency,
-            ))
-        } else {
-            // Fallback to WACC-based discounting (flat rate)
-            let pv_explicit = self.calculate_pv_explicit_flows();
-            let terminal_value = self.calculate_terminal_value();
-            let pv_terminal = self.discount_terminal_value(terminal_value);
-            let enterprise_value = pv_explicit + pv_terminal;
-            let equity_value = enterprise_value - self.net_debt;
-
-            Ok(finstack_core::money::Money::new(
-                equity_value,
-                self.currency,
-            ))
-        }
+        Ok(Money::new(equity_value, self.currency))
     }
 
     fn price_with_metrics(
@@ -272,6 +576,11 @@ mod tests {
             net_debt: 0.0,
             valuation_date,
             discount_curve_id,
+            mid_year_convention: false,
+            equity_bridge: None,
+            shares_outstanding: None,
+            dilution_securities: Vec::new(),
+            valuation_discounts: None,
             attributes: Attributes::default(),
         }
     }
@@ -280,7 +589,9 @@ mod tests {
     fn gordon_growth_terminal_value_matches_formula() {
         let dcf = build_simple_dcf_gordon();
 
-        let tv = dcf.calculate_terminal_value();
+        let tv = dcf
+            .calculate_terminal_value()
+            .expect("terminal value should succeed");
 
         // TV = FCF_terminal × (1 + g) / (WACC - g)
         let expected_tv = 100.0 * (1.0 + 0.02) / (0.10 - 0.02);
@@ -313,10 +624,17 @@ mod tests {
             net_debt: 0.0,
             valuation_date,
             discount_curve_id: CurveId::new("USD-OIS"),
+            mid_year_convention: false,
+            equity_bridge: None,
+            shares_outstanding: None,
+            dilution_securities: Vec::new(),
+            valuation_discounts: None,
             attributes: Attributes::default(),
         };
 
-        let tv = dcf.calculate_terminal_value();
+        let tv = dcf
+            .calculate_terminal_value()
+            .expect("terminal value should succeed");
         let expected_tv = 150.0 * 8.0;
         assert!(
             (tv - expected_tv).abs() < 1e-9,
@@ -372,6 +690,11 @@ mod tests {
             net_debt: 0.0,
             valuation_date,
             discount_curve_id: CurveId::new("USD-OIS"),
+            mid_year_convention: false,
+            equity_bridge: None,
+            shares_outstanding: None,
+            dilution_securities: Vec::new(),
+            valuation_discounts: None,
             attributes: Attributes::default(),
         };
 
@@ -508,5 +831,585 @@ mod tests {
             results.contains_key(&MetricId::BucketedDv01),
             "BucketedDv01 metric should be present for DCF"
         );
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Mid-year convention tests
+    // ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn mid_year_convention_increases_pv() {
+        let dcf_end = build_simple_dcf_gordon();
+        let mut dcf_mid = build_simple_dcf_gordon();
+        dcf_mid.mid_year_convention = true;
+
+        let market = MarketContext::new();
+        let val_end = dcf_end
+            .value(&market, dcf_end.valuation_date)
+            .expect("end-of-year value");
+        let val_mid = dcf_mid
+            .value(&market, dcf_mid.valuation_date)
+            .expect("mid-year value");
+
+        // Mid-year discounts at (t-0.5), so PV should be higher
+        assert!(
+            val_mid.amount() > val_end.amount(),
+            "mid-year PV ({}) should exceed end-of-year PV ({})",
+            val_mid.amount(),
+            val_end.amount()
+        );
+
+        // The difference should be approximately (1+WACC)^0.5 - 1 ≈ 4.88%
+        let ratio = val_mid.amount() / val_end.amount();
+        let expected_ratio = (1.10_f64).powf(0.5);
+        let diff = (ratio - expected_ratio).abs();
+        assert!(
+            diff < 0.01,
+            "mid-year / end-of-year ratio ({:.4}) should be ~{:.4} (diff {})",
+            ratio,
+            expected_ratio,
+            diff
+        );
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Equity bridge tests
+    // ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn equity_bridge_matches_flat_net_debt_when_simple() {
+        // EquityBridge with only total_debt and cash should match a flat net_debt
+        let mut dcf_flat = build_simple_dcf_gordon();
+        dcf_flat.net_debt = 50.0;
+
+        let mut dcf_bridge = build_simple_dcf_gordon();
+        dcf_bridge.net_debt = 999.0; // Should be ignored
+        dcf_bridge.equity_bridge = Some(EquityBridge {
+            total_debt: 80.0,
+            cash: 30.0,
+            ..Default::default()
+        });
+
+        let market = MarketContext::new();
+        let val_flat = dcf_flat
+            .value(&market, dcf_flat.valuation_date)
+            .expect("flat");
+        let val_bridge = dcf_bridge
+            .value(&market, dcf_bridge.valuation_date)
+            .expect("bridge");
+
+        assert!(
+            (val_flat.amount() - val_bridge.amount()).abs() < 0.1,
+            "bridge (debt=80, cash=30, net=50) should match flat net_debt=50: flat={}, bridge={}",
+            val_flat.amount(),
+            val_bridge.amount()
+        );
+    }
+
+    #[test]
+    fn equity_bridge_with_preferred_and_minority() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.equity_bridge = Some(EquityBridge {
+            total_debt: 100.0,
+            cash: 20.0,
+            preferred_equity: 30.0,
+            minority_interest: 10.0,
+            non_operating_assets: 5.0,
+            other_adjustments: vec![("pension".into(), -15.0)], // negative = reduces equity
+        });
+
+        let bridge = dcf
+            .equity_bridge
+            .as_ref()
+            .expect("equity_bridge should be set in this test");
+        // net_adjustment = 100 - 20 + 30 + 10 - 5 - (-15) = 130
+        let expected = 100.0 - 20.0 + 30.0 + 10.0 - 5.0 + 15.0;
+        assert!(
+            (bridge.net_adjustment() - expected).abs() < 1e-9,
+            "bridge net_adjustment ({}) should be {}",
+            bridge.net_adjustment(),
+            expected
+        );
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  H-Model terminal value tests
+    // ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn h_model_terminal_value_matches_damodaran_formula() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.terminal_value = TerminalValueSpec::HModel {
+            high_growth_rate: 0.15,
+            stable_growth_rate: 0.03,
+            half_life_years: 5.0,
+        };
+
+        let tv = dcf
+            .calculate_terminal_value()
+            .expect("h-model terminal value");
+
+        // Expected: stable_tv + growth_premium
+        // stable_tv = 100 * (1.03) / (0.10 - 0.03) = 1471.43
+        // growth_premium = 100 * 5.0 * (0.15 - 0.03) / (0.10 - 0.03) = 857.14
+        // total = 2328.57
+        let last_fcf = 100.0;
+        let expected_stable = last_fcf * (1.0 + 0.03) / (0.10 - 0.03);
+        let expected_premium = last_fcf * 5.0 * (0.15 - 0.03) / (0.10 - 0.03);
+        let expected_tv = expected_stable + expected_premium;
+
+        let diff = (tv - expected_tv).abs();
+        assert!(
+            diff < 1e-6,
+            "H-model TV mismatch: got {}, expected {}, diff {}",
+            tv,
+            expected_tv,
+            diff
+        );
+    }
+
+    #[test]
+    fn h_model_errors_when_wacc_not_greater_than_stable_growth() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.wacc = 0.02;
+        dcf.terminal_value = TerminalValueSpec::HModel {
+            high_growth_rate: 0.15,
+            stable_growth_rate: 0.03,
+            half_life_years: 5.0,
+        };
+
+        assert!(
+            dcf.calculate_terminal_value().is_err(),
+            "H-model should error when WACC <= stable_growth_rate"
+        );
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Valuation discounts (DLOM / DLOC) tests
+    // ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn valuation_discounts_reduce_equity_value() {
+        let dcf_base = build_simple_dcf_gordon();
+        let mut dcf_disc = build_simple_dcf_gordon();
+        dcf_disc.valuation_discounts = Some(ValuationDiscounts {
+            dlom: Some(0.25),
+            dloc: Some(0.15),
+            other_discount: None,
+        });
+
+        let market = MarketContext::new();
+        let val_base = dcf_base
+            .value(&market, dcf_base.valuation_date)
+            .expect("base value");
+        let val_disc = dcf_disc
+            .value(&market, dcf_disc.valuation_date)
+            .expect("discounted value");
+
+        // Expected: val_disc = val_base * (1 - 0.15) * (1 - 0.25)
+        let expected = val_base.amount() * (1.0 - 0.15) * (1.0 - 0.25);
+        let diff = (val_disc.amount() - expected).abs();
+        assert!(
+            diff < 0.1,
+            "DLOM/DLOC mismatch: got {}, expected {}, diff {}",
+            val_disc.amount(),
+            expected,
+            diff
+        );
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Dilution / per-share tests
+    // ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn diluted_shares_treasury_stock_method() {
+        // Build a DCF with equity value ~1,250 on a small share base
+        // so that per-share price is high enough for ITM options.
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.shares_outstanding = Some(100.0); // 100 shares => ~$12.50/share
+
+        let market = MarketContext::new();
+        let equity = dcf
+            .value(&market, dcf.valuation_date)
+            .expect("value")
+            .amount();
+        let pps = equity / 100.0;
+        assert!(pps > 10.0, "sanity: price per share should be > $10");
+
+        dcf.dilution_securities = vec![
+            DilutionSecurity {
+                name: "ITM Options".into(),
+                quantity: 20.0,
+                exercise_price: 5.0, // well in-the-money
+            },
+            DilutionSecurity {
+                name: "OTM Warrants".into(),
+                quantity: 10.0,
+                exercise_price: 999.0, // far out-of-money
+            },
+        ];
+
+        let diluted = dcf.diluted_shares(equity).expect("diluted shares");
+
+        // Only the in-the-money options should dilute
+        // incremental = 20 - (20 * 5.0) / pps
+        let expected_incremental = 20.0 - (20.0 * 5.0) / pps;
+        let expected_diluted = 100.0 + expected_incremental;
+
+        let diff = (diluted - expected_diluted).abs();
+        assert!(
+            diff < 0.01,
+            "diluted shares mismatch: got {:.4}, expected {:.4}, diff {:.4}",
+            diluted,
+            expected_diluted,
+            diff
+        );
+
+        // Per-share value should be less than undiluted price
+        let eps = dcf.equity_value_per_share(equity).expect("eps");
+        assert!(
+            eps < pps,
+            "diluted EPS ({:.4}) should be less than basic PPS ({:.4})",
+            eps,
+            pps
+        );
+    }
+
+    #[test]
+    fn diluted_shares_none_when_no_shares() {
+        let dcf = build_simple_dcf_gordon();
+        assert!(dcf.diluted_shares(1000.0).is_none());
+        assert!(dcf.equity_value_per_share(1000.0).is_none());
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Serde round-trip tests
+    // ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn serde_roundtrip_basic_dcf() {
+        let dcf = build_simple_dcf_gordon();
+        let json = serde_json::to_string(&dcf).expect("serialize");
+        let dcf2: DiscountedCashFlow = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(dcf.id, dcf2.id);
+        assert!(!dcf2.mid_year_convention);
+        assert!(dcf2.equity_bridge.is_none());
+        assert!(dcf2.shares_outstanding.is_none());
+        assert!(dcf2.dilution_securities.is_empty());
+        assert!(dcf2.valuation_discounts.is_none());
+    }
+
+    #[test]
+    fn serde_roundtrip_full_dcf() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.mid_year_convention = true;
+        dcf.equity_bridge = Some(EquityBridge {
+            total_debt: 100.0,
+            cash: 20.0,
+            preferred_equity: 30.0,
+            minority_interest: 5.0,
+            non_operating_assets: 10.0,
+            other_adjustments: vec![("pension".into(), -8.0)],
+        });
+        dcf.shares_outstanding = Some(1_000_000.0);
+        dcf.dilution_securities = vec![DilutionSecurity {
+            name: "Options".into(),
+            quantity: 50_000.0,
+            exercise_price: 10.0,
+        }];
+        dcf.valuation_discounts = Some(ValuationDiscounts {
+            dlom: Some(0.25),
+            dloc: Some(0.15),
+            other_discount: None,
+        });
+
+        let json = serde_json::to_string_pretty(&dcf).expect("serialize");
+        let dcf2: DiscountedCashFlow = serde_json::from_str(&json).expect("deserialize");
+        assert!(dcf2.mid_year_convention);
+        assert!(dcf2.equity_bridge.is_some());
+        assert_eq!(dcf2.shares_outstanding, Some(1_000_000.0));
+        assert_eq!(dcf2.dilution_securities.len(), 1);
+        assert!(dcf2.valuation_discounts.is_some());
+        let disc = dcf2
+            .valuation_discounts
+            .expect("valuation_discounts should be present after roundtrip");
+        assert_eq!(disc.dlom, Some(0.25));
+        assert_eq!(disc.dloc, Some(0.15));
+    }
+
+    #[test]
+    fn serde_old_json_without_new_fields_deserializes() {
+        // Simulate an old-format JSON (no new fields)
+        let json = r#"{
+            "id": "TEST-OLD",
+            "currency": "USD",
+            "flows": [["2026-01-01", 100.0]],
+            "wacc": 0.10,
+            "terminal_value": {"type": "gordon_growth", "growth_rate": 0.02},
+            "net_debt": 50.0,
+            "valuation_date": "2025-01-01",
+            "discount_curve_id": "USD-OIS",
+            "attributes": {"tags": [], "meta": {}}
+        }"#;
+
+        let dcf: DiscountedCashFlow = serde_json::from_str(json).expect("old JSON should parse");
+        assert_eq!(dcf.id.as_str(), "TEST-OLD");
+        assert!(!dcf.mid_year_convention);
+        assert!(dcf.equity_bridge.is_none());
+        assert!(dcf.shares_outstanding.is_none());
+        assert!(dcf.dilution_securities.is_empty());
+        assert!(dcf.valuation_discounts.is_none());
+    }
+
+    #[test]
+    fn serde_h_model_terminal_value_roundtrip() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.terminal_value = TerminalValueSpec::HModel {
+            high_growth_rate: 0.15,
+            stable_growth_rate: 0.03,
+            half_life_years: 5.0,
+        };
+
+        let json = serde_json::to_string(&dcf).expect("serialize");
+        let dcf2: DiscountedCashFlow = serde_json::from_str(&json).expect("deserialize");
+
+        match dcf2.terminal_value {
+            TerminalValueSpec::HModel {
+                high_growth_rate,
+                stable_growth_rate,
+                half_life_years,
+            } => {
+                assert!((high_growth_rate - 0.15).abs() < 1e-10);
+                assert!((stable_growth_rate - 0.03).abs() < 1e-10);
+                assert!((half_life_years - 5.0).abs() < 1e-10);
+            }
+            _ => panic!("Expected HModel terminal value after roundtrip"),
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Metric consistency: EV metric matches value() with curve
+    // ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn ev_metric_consistent_with_value_when_curve_present() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("valid test date for EV metric");
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.valuation_date = as_of;
+
+        let market = build_market_with_flat_curve(as_of, &dcf.discount_curve_id, 0.05);
+
+        // Get equity from value()
+        let equity = dcf.value(&market, as_of).expect("value").amount();
+        let bridge = dcf.effective_net_debt();
+        let expected_ev = equity + bridge;
+
+        // Get EV from metric
+        let mut mctx = build_metric_context(dcf, market, as_of);
+        let mut registry = crate::metrics::standard_registry().clone();
+        crate::instruments::equity::dcf_equity::metrics::register_dcf_metrics(&mut registry);
+
+        let results = registry
+            .compute(&[MetricId::EnterpriseValue], &mut mctx)
+            .expect("EV metric should compute");
+
+        let ev_metric = *results
+            .get(&MetricId::EnterpriseValue)
+            .expect("EV metric should be present");
+
+        // Allow for small rounding differences
+        let diff = (ev_metric - expected_ev).abs();
+        assert!(
+            diff < 1.0,
+            "EV metric ({}) should be close to value()+bridge ({}), diff {}",
+            ev_metric,
+            expected_ev,
+            diff
+        );
+    }
+
+    #[test]
+    fn terminal_value_pv_metric_uses_curve_when_present() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("valid test date for terminal value pv metric");
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.valuation_date = as_of;
+
+        let market = build_market_with_flat_curve(as_of, &dcf.discount_curve_id, 0.05);
+        let terminal_value = dcf.calculate_terminal_value().expect("terminal value");
+        let (terminal_date, _) = dcf.flows.last().expect("at least one flow");
+        let years = dcf.discount_years(dcf.valuation_date, *terminal_date);
+        let curve_df = market
+            .get_discount(&dcf.discount_curve_id)
+            .expect("discount curve available")
+            .df(years);
+        let expected_pv_terminal = terminal_value * curve_df;
+
+        let mut mctx = build_metric_context(dcf, market, as_of);
+        let mut registry = crate::metrics::standard_registry().clone();
+        crate::instruments::equity::dcf_equity::metrics::register_dcf_metrics(&mut registry);
+
+        let results = registry
+            .compute(&[MetricId::TerminalValuePV], &mut mctx)
+            .expect("TerminalValuePV metric should compute");
+
+        let pv_metric = *results
+            .get(&MetricId::TerminalValuePV)
+            .expect("TerminalValuePV metric should be present");
+        let diff = (pv_metric - expected_pv_terminal).abs();
+        assert!(
+            diff < 1e-9,
+            "TerminalValuePV metric ({}) should match curve-based PV ({}), diff {}",
+            pv_metric,
+            expected_pv_terminal,
+            diff
+        );
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Builder pattern tests
+    // ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn builder_with_all_new_fields() {
+        let valuation_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let cf_date = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
+
+        let dcf = DiscountedCashFlow::builder()
+            .id(InstrumentId::new("BUILDER-TEST"))
+            .currency(Currency::USD)
+            .flows(vec![(cf_date, 100.0)])
+            .wacc(0.10)
+            .terminal_value(TerminalValueSpec::GordonGrowth { growth_rate: 0.02 })
+            .net_debt(50.0)
+            .valuation_date(valuation_date)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .mid_year_convention(true)
+            .equity_bridge(EquityBridge {
+                total_debt: 80.0,
+                cash: 30.0,
+                ..Default::default()
+            })
+            .shares_outstanding(1_000_000.0)
+            .valuation_discounts(ValuationDiscounts {
+                dlom: Some(0.20),
+                ..Default::default()
+            })
+            .build()
+            .expect("builder should succeed");
+
+        assert!(dcf.mid_year_convention);
+        assert!(dcf.equity_bridge.is_some());
+        assert_eq!(dcf.shares_outstanding, Some(1_000_000.0));
+        assert!(dcf.valuation_discounts.is_some());
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  calculate_terminal_value error cases
+    // ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn calculate_terminal_value_errors_on_empty_flows() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.flows.clear();
+        assert!(
+            dcf.calculate_terminal_value().is_err(),
+            "should error on empty flows"
+        );
+    }
+
+    #[test]
+    fn discount_terminal_value_errors_on_empty_flows() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.flows.clear();
+        assert!(
+            dcf.discount_terminal_value(100.0).is_err(),
+            "should error on empty flows"
+        );
+    }
+
+    #[test]
+    fn exit_multiple_terminal_value_succeeds_with_empty_flows() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.flows.clear();
+        dcf.terminal_value = TerminalValueSpec::ExitMultiple {
+            terminal_metric: 500.0,
+            multiple: 8.0,
+        };
+        let tv = dcf
+            .calculate_terminal_value()
+            .expect("ExitMultiple does not need flows");
+        assert!((tv - 4000.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn h_model_errors_when_high_growth_less_than_stable() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.terminal_value = TerminalValueSpec::HModel {
+            high_growth_rate: 0.02,
+            stable_growth_rate: 0.05, // high < stable
+            half_life_years: 5.0,
+        };
+        let result = dcf.calculate_terminal_value();
+        assert!(
+            result.is_err(),
+            "H-model should error when high_growth_rate < stable_growth_rate"
+        );
+        let msg = result
+            .expect_err("expected validation error when high_growth_rate < stable_growth_rate")
+            .to_string();
+        assert!(
+            msg.contains("high_growth_rate"),
+            "Error should mention high_growth_rate: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn h_model_errors_when_half_life_zero_or_negative() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.terminal_value = TerminalValueSpec::HModel {
+            high_growth_rate: 0.15,
+            stable_growth_rate: 0.03,
+            half_life_years: 0.0, // invalid
+        };
+        assert!(
+            dcf.calculate_terminal_value().is_err(),
+            "H-model should error when half_life_years = 0"
+        );
+
+        dcf.terminal_value = TerminalValueSpec::HModel {
+            high_growth_rate: 0.15,
+            stable_growth_rate: 0.03,
+            half_life_years: -1.0, // invalid
+        };
+        assert!(
+            dcf.calculate_terminal_value().is_err(),
+            "H-model should error when half_life_years < 0"
+        );
+    }
+
+    #[test]
+    fn valuation_discounts_rejects_out_of_range() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.valuation_discounts = Some(ValuationDiscounts {
+            dlom: Some(1.5), // out of range
+            dloc: None,
+            other_discount: None,
+        });
+
+        let market = MarketContext::new();
+        let result = dcf.value(&market, dcf.valuation_date);
+        assert!(result.is_err(), "should reject DLOM > 1.0");
+
+        dcf.valuation_discounts = Some(ValuationDiscounts {
+            dlom: None,
+            dloc: Some(-0.1), // out of range
+            other_discount: None,
+        });
+        let result = dcf.value(&market, dcf.valuation_date);
+        assert!(result.is_err(), "should reject negative DLOC");
     }
 }

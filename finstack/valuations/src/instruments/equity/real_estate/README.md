@@ -57,7 +57,9 @@ For `LeveredRealEstateEquity`:
 - `real_estate::levered_irr`
 - `real_estate::equity_multiple`
 - `real_estate::ltv`
+- `real_estate::ltv_at_origination`
 - `real_estate::dscr_min`
+- `real_estate::dscr_min_interest_only`
 - `real_estate::debt_payoff_at_exit`
 - `real_estate::cap_rate_sensitivity`
 - `real_estate::discount_rate_sensitivity`
