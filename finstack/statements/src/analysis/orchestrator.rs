@@ -1,0 +1,327 @@
+//! Corporate analysis orchestrator.
+//!
+//! Provides [`CorporateAnalysisBuilder`] --- a fluent API that coordinates
+//! statement evaluation, credit instrument pricing, and equity valuation
+//! in a single pipeline.
+
+use crate::analysis::corporate::{CorporateValuationResult, DcfOptions};
+use crate::analysis::credit_context::{compute_credit_context, CreditContextMetrics};
+use crate::error::Result;
+use crate::evaluator::StatementResult;
+use crate::types::FinancialModelSpec;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
+use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
+
+/// Unified analysis result combining statement, equity, and credit perspectives.
+#[derive(Debug, Clone)]
+pub struct CorporateAnalysis {
+    /// Full statement evaluation (all nodes, all periods)
+    pub statement: StatementResult,
+    /// Equity valuation result (if DCF was configured)
+    pub equity: Option<CorporateValuationResult>,
+    /// Per-instrument credit analysis
+    pub credit: IndexMap<String, CreditInstrumentAnalysis>,
+}
+
+/// Credit analysis for a single instrument.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreditInstrumentAnalysis {
+    /// Coverage and leverage metrics from statement context
+    pub coverage: CreditContextMetrics,
+}
+
+/// Equity valuation mode.
+enum EquityMode {
+    Dcf {
+        wacc: f64,
+        terminal_value: TerminalValueSpec,
+        ufcf_node: String,
+        net_debt_override: Option<f64>,
+        dcf_options: DcfOptions,
+    },
+}
+
+/// Builder for corporate analysis.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use finstack_statements::analysis::orchestrator::CorporateAnalysisBuilder;
+/// use finstack_statements::builder::ModelBuilder;
+/// use finstack_core::dates::PeriodId;
+/// use finstack_statements::types::AmountOrScalar;
+/// use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
+///
+/// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+/// let model = ModelBuilder::new("demo")
+///     .periods("2025Q1..Q4", None)?
+///     .value("ufcf", &[
+///         (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
+///     ])
+///     .build()?;
+///
+/// let _result = CorporateAnalysisBuilder::new(model)
+///     .dcf(0.10, TerminalValueSpec::GordonGrowth { growth_rate: 0.02 })
+///     .analyze()?;
+/// # Ok(())
+/// # }
+/// ```
+pub struct CorporateAnalysisBuilder {
+    model: FinancialModelSpec,
+    market: Option<MarketContext>,
+    as_of: Option<Date>,
+    equity_mode: Option<EquityMode>,
+    coverage_node: String,
+}
+
+impl CorporateAnalysisBuilder {
+    /// Create a new builder for the given financial model.
+    pub fn new(model: FinancialModelSpec) -> Self {
+        Self {
+            model,
+            market: None,
+            as_of: None,
+            equity_mode: None,
+            coverage_node: "ebitda".to_string(),
+        }
+    }
+
+    /// Set the market context for curve-based discounting.
+    pub fn market(mut self, ctx: MarketContext) -> Self {
+        self.market = Some(ctx);
+        self
+    }
+
+    /// Set the as-of date for valuation.
+    pub fn as_of(mut self, date: Date) -> Self {
+        self.as_of = Some(date);
+        self
+    }
+
+    /// Configure DCF equity valuation with default options.
+    pub fn dcf(mut self, wacc: f64, terminal_value: TerminalValueSpec) -> Self {
+        self.equity_mode = Some(EquityMode::Dcf {
+            wacc,
+            terminal_value,
+            ufcf_node: "ufcf".to_string(),
+            net_debt_override: None,
+            dcf_options: DcfOptions::default(),
+        });
+        self
+    }
+
+    /// Configure DCF equity valuation with custom options.
+    pub fn dcf_with_options(
+        mut self,
+        wacc: f64,
+        terminal_value: TerminalValueSpec,
+        options: DcfOptions,
+    ) -> Self {
+        self.equity_mode = Some(EquityMode::Dcf {
+            wacc,
+            terminal_value,
+            ufcf_node: "ufcf".to_string(),
+            net_debt_override: None,
+            dcf_options: options,
+        });
+        self
+    }
+
+    /// Override the UFCF node name (default: "ufcf").
+    ///
+    /// Must be called after [`dcf`] or [`dcf_with_options`]; has no effect otherwise.
+    pub fn dcf_node(mut self, node: &str) -> Self {
+        if let Some(EquityMode::Dcf {
+            ref mut ufcf_node, ..
+        }) = self.equity_mode
+        {
+            *ufcf_node = node.to_string();
+        }
+        self
+    }
+
+    /// Override net debt for equity bridge calculation.
+    ///
+    /// Must be called after [`dcf`] or [`dcf_with_options`]; has no effect otherwise.
+    pub fn net_debt_override(mut self, net_debt: f64) -> Self {
+        if let Some(EquityMode::Dcf {
+            net_debt_override: ref mut nd,
+            ..
+        }) = self.equity_mode
+        {
+            *nd = Some(net_debt);
+        }
+        self
+    }
+
+    /// Set the coverage node for credit metrics (default: "ebitda").
+    pub fn coverage_node(mut self, node: &str) -> Self {
+        self.coverage_node = node.to_string();
+        self
+    }
+
+    /// Execute the analysis pipeline.
+    ///
+    /// Steps:
+    /// 1. Evaluate the financial statement model
+    /// 2. Run equity valuation (if configured)
+    /// 3. Compute credit context metrics for each capital structure instrument,
+    ///    using enterprise value from step 2 as the LTV reference when available
+    ///
+    /// **Note:** The DCF equity valuation (step 2) internally re-evaluates the
+    /// statement model. A future optimization could pass the pre-evaluated results
+    /// through to avoid this redundant computation.
+    pub fn analyze(self) -> Result<CorporateAnalysis> {
+        // Step 1: Evaluate statement
+        let mut evaluator = crate::evaluator::Evaluator::new();
+        let statement = evaluator.evaluate_with_market_context(
+            &self.model,
+            self.market.as_ref(),
+            self.as_of,
+        )?;
+
+        // Step 2: Equity valuation (if configured)
+        let equity = match self.equity_mode {
+            Some(EquityMode::Dcf {
+                wacc,
+                terminal_value,
+                ufcf_node,
+                net_debt_override,
+                dcf_options,
+            }) => {
+                let result = crate::analysis::corporate::evaluate_dcf_with_market(
+                    &self.model,
+                    wacc,
+                    terminal_value,
+                    &ufcf_node,
+                    net_debt_override,
+                    &dcf_options,
+                    self.market.as_ref(),
+                )
+                .map_err(|e| {
+                    crate::error::Error::Eval(format!(
+                        "DCF equity valuation failed in corporate analysis pipeline: {e}"
+                    ))
+                })?;
+                Some(result)
+            }
+            None => None,
+        };
+
+        // Step 3: Compute credit context for each instrument (single pass)
+        // Use enterprise value as LTV reference when available from equity step.
+        let ev_for_ltv = equity
+            .as_ref()
+            .map(|eq| eq.enterprise_value.amount())
+            .filter(|ev| *ev > 0.0);
+
+        let mut credit = IndexMap::new();
+        if let Some(ref cs) = statement.cs_cashflows {
+            for instrument_id in cs.by_instrument.keys() {
+                let coverage = compute_credit_context(
+                    &statement,
+                    cs,
+                    instrument_id,
+                    &self.coverage_node,
+                    &self.model.periods,
+                    ev_for_ltv,
+                );
+                credit.insert(instrument_id.clone(), CreditInstrumentAnalysis { coverage });
+            }
+        }
+
+        Ok(CorporateAnalysis {
+            statement,
+            equity,
+            credit,
+        })
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+    use crate::builder::ModelBuilder;
+    use crate::types::AmountOrScalar;
+    use finstack_core::dates::PeriodId;
+
+    #[test]
+    fn test_statement_only_analysis() {
+        let model = ModelBuilder::new("test")
+            .periods("2025Q1..Q2", None)
+            .expect("periods")
+            .value(
+                "revenue",
+                &[
+                    (
+                        PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(1_000_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 2),
+                        AmountOrScalar::scalar(1_100_000.0),
+                    ),
+                ],
+            )
+            .compute("ebitda", "revenue * 0.3")
+            .expect("formula")
+            .build()
+            .expect("model");
+
+        let result = CorporateAnalysisBuilder::new(model)
+            .analyze()
+            .expect("should succeed");
+
+        assert!(result.equity.is_none());
+        assert!(result.credit.is_empty());
+        assert!(result
+            .statement
+            .get("ebitda", &PeriodId::quarter(2025, 1))
+            .is_some());
+    }
+
+    #[test]
+    fn test_dcf_analysis() {
+        let model = ModelBuilder::new("dcf-test")
+            .periods("2025Q1..Q4", None)
+            .expect("periods")
+            .value(
+                "ufcf",
+                &[
+                    (
+                        PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(100_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 2),
+                        AmountOrScalar::scalar(110_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 3),
+                        AmountOrScalar::scalar(120_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 4),
+                        AmountOrScalar::scalar(130_000.0),
+                    ),
+                ],
+            )
+            .build()
+            .expect("model");
+
+        let result = CorporateAnalysisBuilder::new(model)
+            .dcf(0.10, TerminalValueSpec::GordonGrowth { growth_rate: 0.02 })
+            .net_debt_override(50_000.0)
+            .analyze()
+            .expect("should succeed");
+
+        assert!(result.equity.is_some());
+        let equity = result.equity.as_ref().expect("equity should be present");
+        assert!(equity.equity_value.amount() > 0.0);
+        assert!(equity.enterprise_value.amount() > equity.equity_value.amount());
+    }
+}
