@@ -24,6 +24,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::{Error, Result};
 
 use super::parameters::SwaptionParams;
+use crate::impl_instrument_base;
 
 /// Volatility model for pricing
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
@@ -1123,29 +1124,7 @@ pub struct GreekInputs {
 }
 
 impl crate::instruments::common_impl::traits::Instrument for Swaption {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::Swaption
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::Swaption);
 
     fn value(
         &self,
@@ -1187,24 +1166,6 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.swap_start)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 }
 
@@ -1662,29 +1623,7 @@ impl BermudanSwaption {
 }
 
 impl crate::instruments::common_impl::traits::Instrument for BermudanSwaption {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::BermudanSwaption
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::BermudanSwaption);
 
     fn value(
         &self,

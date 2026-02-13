@@ -10,6 +10,7 @@ use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
 use rust_decimal::Decimal;
 
 use crate::cashflow::builder::{evaluate_fee_tiers, FeeTier, FloatingRateSpec};
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use rust_decimal::prelude::ToPrimitive;
@@ -727,29 +728,7 @@ impl RevolvingCredit {
 
 // Implement the Instrument trait
 impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::RevolvingCredit
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::RevolvingCredit);
 
     fn value(
         &self,
@@ -798,24 +777,6 @@ impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
                 &fallback, curves, as_of,
             )
         }
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<Date> {

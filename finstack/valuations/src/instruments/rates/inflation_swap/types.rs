@@ -1,5 +1,6 @@
 //! Zero-coupon Inflation Swap types and pricing implementation.
 
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use finstack_core::dates::{
@@ -426,29 +427,7 @@ impl InflationSwapBuilder {
 }
 
 impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::InflationSwap
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::InflationSwap);
 
     fn value(
         &self,
@@ -469,24 +448,6 @@ impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
             PayReceiveInflation::ReceiveFixed => pv_fixed.checked_sub(pv_inflation),
             PayReceiveInflation::PayFixed => pv_inflation.checked_sub(pv_fixed),
         }
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
@@ -769,29 +730,7 @@ impl YoYInflationSwapBuilder {
 }
 
 impl crate::instruments::common_impl::traits::Instrument for YoYInflationSwap {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::YoYInflationSwap
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::YoYInflationSwap);
 
     fn value(
         &self,
@@ -811,24 +750,6 @@ impl crate::instruments::common_impl::traits::Instrument for YoYInflationSwap {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         self.npv_raw(curves, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {

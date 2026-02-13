@@ -7,8 +7,9 @@
 //! ```
 
 pub use crate::analysis::{
-    BridgeChart, BridgeStep, MonteCarloConfig, MonteCarloResults, ScenarioDefinition, ScenarioDiff,
-    ScenarioResults, ScenarioSet, VarianceAnalyzer, VarianceConfig, VarianceReport, VarianceRow,
+    BridgeChart, BridgeStep, CorporateAnalysis, CorporateAnalysisBuilder, CreditInstrumentAnalysis,
+    MonteCarloConfig, MonteCarloResults, ScenarioDefinition, ScenarioDiff, ScenarioResults,
+    ScenarioSet, VarianceAnalyzer, VarianceConfig, VarianceReport, VarianceRow,
 };
 pub use crate::builder::{MixedNodeBuilder, ModelBuilder, NeedPeriods, Ready};
 pub use crate::error::{Error, Result};

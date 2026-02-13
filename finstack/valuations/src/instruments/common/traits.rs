@@ -518,6 +518,66 @@ impl Attributes {
 /// # Ok(())
 /// # }
 /// ```
+/// Implements the standard boilerplate methods for the [`Instrument`] trait.
+///
+/// Most instruments store their ID as `self.id` (an `InstrumentId`), attributes as
+/// `self.attributes`, and have a fixed [`InstrumentType`] key. This macro provides
+/// default implementations for the mechanical methods, leaving only the
+/// instrument-specific methods (`value`, `market_dependencies`, etc.) to be
+/// implemented manually.
+///
+/// # Requirements
+///
+/// The implementing type must:
+/// - Have a field `id: InstrumentId` (with `.as_str()` method)
+/// - Have a field `attributes: Attributes`
+/// - Implement `Clone`
+///
+/// # Example
+///
+/// ```rust,ignore
+/// impl Instrument for MyInstrument {
+///     impl_instrument_base!(InstrumentType::MyInstrument);
+///
+///     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
+///         // instrument-specific pricing logic
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! impl_instrument_base {
+    ($key:expr) => {
+        fn id(&self) -> &str {
+            self.id.as_str()
+        }
+
+        fn key(&self) -> $crate::pricer::InstrumentType {
+            $key
+        }
+
+        fn as_any(&self) -> &dyn ::std::any::Any {
+            self
+        }
+
+        fn attributes(&self) -> &$crate::instruments::common_impl::traits::Attributes {
+            &self.attributes
+        }
+
+        fn attributes_mut(&mut self) -> &mut $crate::instruments::common_impl::traits::Attributes {
+            &mut self.attributes
+        }
+
+        fn clone_box(&self) -> Box<dyn $crate::instruments::common_impl::traits::Instrument> {
+            Box::new(self.clone())
+        }
+    };
+}
+
+/// Common interface implemented by all valuation instruments.
+///
+/// This trait defines the minimal identity, typing, metadata, and clone
+/// behavior required for instrument dispatch, pricing, and serialization-safe
+/// handling across the library.
 pub trait Instrument: Send + Sync {
     /// Get the instrument's unique identifier.
     ///
@@ -948,7 +1008,9 @@ pub trait Instrument: Send + Sync {
         market: &MarketContext,
         as_of: Date,
         metrics: &[MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult>;
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        self.price_with_options(market, as_of, metrics, PricingOptions::default())
+    }
 
     /// Compute present value with specified risk metrics and optional pricing options.
     ///

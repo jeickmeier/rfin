@@ -14,6 +14,7 @@ use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::fixed_income::bond::CallPutSchedule;
 
 use super::pricer;
+use crate::impl_instrument_base;
 
 /// Soft-call trigger condition for convertible bonds.
 ///
@@ -548,29 +549,7 @@ impl ConvertibleBond {
 }
 
 impl crate::instruments::common_impl::traits::Instrument for ConvertibleBond {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::Convertible
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::Convertible);
 
     fn value(
         &self,
@@ -578,24 +557,6 @@ impl crate::instruments::common_impl::traits::Instrument for ConvertibleBond {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         pricer::price_convertible_bond(self, curves, pricer::ConvertibleTreeType::default(), as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<Date> {

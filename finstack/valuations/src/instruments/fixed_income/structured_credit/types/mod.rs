@@ -105,8 +105,8 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Error as CoreError;
 
 use finstack_core::HashMap;
-use std::any::Any;
 
+use crate::impl_instrument_base;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -740,29 +740,7 @@ impl CashflowProvider for StructuredCredit {
 }
 
 impl Instrument for StructuredCredit {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::StructuredCredit
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::StructuredCredit);
 
     fn value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let disc = context.get_discount(self.discount_curve_id.as_str())?;

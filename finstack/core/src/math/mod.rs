@@ -88,6 +88,13 @@
 //! assert_eq!(variance(&data), 1.25);
 //! ```
 
+/// Tolerance for checking if a value is effectively zero.
+///
+/// Used across the workspace for near-zero guards, safe division, and approximate
+/// equality comparisons. Value: 1e-10 (well above f64 machine epsilon ~2.2e-16
+/// but small enough to catch actual zeros vs meaningful small values).
+pub const ZERO_TOLERANCE: f64 = 1e-10;
+
 pub mod compounding;
 pub mod distributions;
 pub mod integration;

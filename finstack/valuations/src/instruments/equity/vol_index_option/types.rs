@@ -41,6 +41,7 @@
 //!   *Annual Review of Financial Economics*, 1, 319-339.
 
 use crate::cashflow::traits::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::models::volatility::black::{d1_black76, d2_black76};
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::{ExerciseStyle, OptionType};
@@ -544,29 +545,7 @@ impl crate::instruments::common_impl::traits::OptionVegaProvider for VolatilityI
 // =============================================================================
 
 impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexOption {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::VolatilityIndexOption
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::VolatilityIndexOption);
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let pv = self.npv_raw(curves, as_of)?;
@@ -578,24 +557,6 @@ impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexOpti
 
     fn value_raw(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         self.npv_raw(curves, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<Date> {

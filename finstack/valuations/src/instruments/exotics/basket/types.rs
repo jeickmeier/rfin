@@ -15,6 +15,7 @@ use finstack_core::Result;
 
 use crate::instruments::json_loader::InstrumentJson;
 
+use crate::impl_instrument_base;
 use serde::{Deserialize, Serialize};
 
 /// Type of asset in the basket
@@ -321,24 +322,7 @@ impl Basket {
 
 // Implement traits manually to handle InstrumentId properly
 impl Instrument for Basket {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::Basket
-    }
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::Basket);
 
     // === Pricing Methods ===
 
@@ -346,24 +330,6 @@ impl Instrument for Basket {
         // For the Instrument trait, we use the calculator with default shares of 1.0
         // This represents the NAV per unit of the basket
         self.calculator().nav(self, curves, as_of, 1.0)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<Date> {

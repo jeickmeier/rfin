@@ -1,5 +1,6 @@
 //! Commodity option instrument definition and pricing logic.
 
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::models::trees::binomial_tree::BinomialTree;
 use crate::instruments::common_impl::parameters::{CommodityConvention, OptionMarketParams};
 use crate::instruments::common_impl::traits::{
@@ -320,29 +321,7 @@ impl CurveDependencies for CommodityOption {
 }
 
 impl Instrument for CommodityOption {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::CommodityOption
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::CommodityOption);
 
     fn market_dependencies(
         &self,
@@ -417,24 +396,6 @@ impl Instrument for CommodityOption {
             unit_price * self.quantity * self.multiplier,
             self.currency,
         ))
-    }
-
-    fn price_with_metrics(
-        &self,
-        market: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> Result<crate::results::ValuationResult> {
-        let base_value = self.value(market, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(market.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<Date> {

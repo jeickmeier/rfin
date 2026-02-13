@@ -54,6 +54,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use time::macros::date;
 
+use crate::impl_instrument_base;
 use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
 use std::sync::OnceLock;
 
@@ -739,13 +740,7 @@ impl CreditDefaultSwap {
 }
 
 impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::CDS
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::CDS);
 
     fn market_dependencies(
         &self,
@@ -755,27 +750,9 @@ impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
             self,
         )
     }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
     fn as_marginable(&self) -> Option<&dyn crate::margin::traits::Marginable> {
         Some(self)
     }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
-
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -794,24 +771,6 @@ impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         self.npv_raw_internal(market, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        market: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(market, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(market.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn expiry(&self) -> Option<finstack_core::dates::Date> {

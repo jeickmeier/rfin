@@ -8,6 +8,7 @@
 //! refactoring should converge on a single representation across all FX
 //! option types for API consistency.
 
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::exotics::barrier_option::types::BarrierType;
 use crate::instruments::OptionType;
@@ -369,29 +370,7 @@ impl crate::instruments::common_impl::traits::OptionVolgaProvider for FxBarrierO
 }
 
 impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::FxBarrierOption
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::FxBarrierOption);
 
     fn market_dependencies(
         &self,
@@ -444,24 +423,6 @@ impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
             .price_dyn(self, market, as_of)
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
         Ok(result.value)
-    }
-
-    fn price_with_metrics(
-        &self,
-        market: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(market, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(market.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {

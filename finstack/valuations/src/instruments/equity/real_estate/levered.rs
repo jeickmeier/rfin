@@ -7,6 +7,7 @@
 
 use super::types::RealEstateAsset;
 use crate::cashflow::traits::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::{
     Attributes, CurveDependencies, Instrument, InstrumentCurves,
 };
@@ -18,7 +19,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Error as CoreError;
-use std::any::Any;
 use std::collections::BTreeMap;
 
 /// Levered real estate equity = unlevered asset + financing.
@@ -224,29 +224,7 @@ impl LeveredRealEstateEquity {
 }
 
 impl Instrument for LeveredRealEstateEquity {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> InstrumentType {
-        InstrumentType::LeveredRealEstateEquity
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(InstrumentType::LeveredRealEstateEquity);
 
     fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         self.validate_currency()?;
@@ -266,24 +244,6 @@ impl Instrument for LeveredRealEstateEquity {
             financing_pv += pv.amount();
         }
         Ok(Money::new(asset_pv.amount() - financing_pv, self.currency))
-    }
-
-    fn price_with_metrics(
-        &self,
-        market: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(market, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(market.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<Date> {

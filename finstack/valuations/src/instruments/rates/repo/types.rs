@@ -3,15 +3,13 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use crate::instruments::rates::repo::margin::RepoMarginSpec;
-use crate::metrics::MetricId;
-use crate::results::ValuationResult;
 use finstack_core::dates::{adjust, BusinessDayConvention, Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
 use finstack_core::{Error, Result};
 
-use std::any::Any;
+use crate::impl_instrument_base;
 
 /// Type of repurchase agreement.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -597,50 +595,13 @@ impl Repo {
 }
 
 impl Instrument for Repo {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::Repo
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::Repo);
 
     // === Pricing Methods ===
 
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         // Use the instrument's own pricing method
         self.pv(context, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> Result<ValuationResult> {
-        let base_value = self.value(context, as_of)?;
-
-        // Use existing utility function to build metrics
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(context.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {

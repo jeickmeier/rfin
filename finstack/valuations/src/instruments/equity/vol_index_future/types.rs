@@ -32,6 +32,7 @@
 //! - Whaley, R. E. (2009). "Understanding the VIX." *Journal of Portfolio Management*.
 
 use crate::cashflow::traits::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::rates::ir_future::Position;
 use finstack_core::currency::Currency;
@@ -267,29 +268,7 @@ impl VolatilityIndexFuture {
 // =============================================================================
 
 impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexFuture {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::VolatilityIndexFuture
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::VolatilityIndexFuture);
 
     fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         let pv = self.npv_raw(curves)?;
@@ -301,24 +280,6 @@ impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexFutu
 
     fn value_raw(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<f64> {
         self.npv_raw(curves)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<Date> {

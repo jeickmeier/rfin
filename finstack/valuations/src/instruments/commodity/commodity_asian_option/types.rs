@@ -17,6 +17,7 @@
 //! - Turnbull, S. M., & Wakeman, L. M. (1991). "A Quick Algorithm for Pricing
 //!   European Average Options."
 
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::exotics::asian_option::AveragingMethod;
 use crate::instruments::OptionType;
@@ -207,29 +208,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for CommodityAsi
 }
 
 impl crate::instruments::common_impl::traits::Instrument for CommodityAsianOption {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::CommodityAsianOption
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::CommodityAsianOption);
 
     fn market_dependencies(
         &self,
@@ -246,24 +225,6 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityAsianOptio
     fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         use crate::instruments::commodity::commodity_asian_option::pricer;
         pricer::compute_pv(self, market, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        market: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(market, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(market.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<Date> {

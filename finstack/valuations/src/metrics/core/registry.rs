@@ -297,13 +297,13 @@ impl MetricRegistry {
                         StrictMode::Strict => {
                             return Err(finstack_core::Error::metric_not_applicable(
                                 metric_id.as_str(),
-                                instrument_type.as_str(),
+                                instrument_type.to_string(),
                             ));
                         }
                         StrictMode::BestEffort => {
                             tracing::warn!(
                                 metric_id = %metric_id.as_str(),
-                                instrument_type = %instrument_type.as_str(),
+                                %instrument_type,
                                 "Metric not applicable to instrument type, inserting 0.0 as fallback"
                             );
                             context.computed.insert(metric_id, 0.0);
@@ -676,8 +676,8 @@ mod tests {
         } = err
         {
             assert_eq!(metric_id, "dv01");
-            // InstrumentType::Bond displays as "Bond"
-            assert!(instrument_type.contains("Bond") || instrument_type == "Bond");
+            // InstrumentType::Bond displays as "bond" (snake_case)
+            assert_eq!(instrument_type, "bond");
         }
     }
 

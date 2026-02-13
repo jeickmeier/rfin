@@ -1,6 +1,7 @@
 //! FX variance swap type definitions and pricing logic.
 
 use crate::cashflow::traits::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::models::bs_price;
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Attributes;
@@ -428,29 +429,7 @@ impl FxVarianceSwap {
 }
 
 impl InstrumentTrait for FxVarianceSwap {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::FxVarianceSwap
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn InstrumentTrait> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::FxVarianceSwap);
 
     fn market_dependencies(
         &self,
@@ -506,24 +485,6 @@ impl InstrumentTrait for FxVarianceSwap {
             .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
         let df = dom.df(t.max(0.0));
         Ok(undiscounted * df)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {

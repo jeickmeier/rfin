@@ -27,6 +27,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{InstrumentId, Percentage};
 
 use super::parameters::CDSOptionParams;
+use crate::impl_instrument_base;
 
 /// Minimum valid recovery rate (exclusive lower bound).
 pub const MIN_RECOVERY_RATE: f64 = 0.0;
@@ -445,29 +446,7 @@ pub struct CDSOptionPricingInputs {
 }
 
 impl crate::instruments::common_impl::traits::Instrument for CDSOption {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::CDSOption
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::CDSOption);
 
     fn value(
         &self,
@@ -477,24 +456,6 @@ impl crate::instruments::common_impl::traits::Instrument for CDSOption {
         let pricer =
             crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer::default();
         pricer.npv(self, curves, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn expiry(&self) -> Option<finstack_core::dates::Date> {

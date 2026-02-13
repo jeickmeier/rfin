@@ -99,14 +99,10 @@ pub const NUMERICAL_TOLERANCE: f64 = numerical::ZERO_TOLERANCE;
 /// These constants replace magic numbers scattered throughout the codebase,
 /// providing consistent tolerances and step sizes with documented rationale.
 pub mod numerical {
-    /// Tolerance for checking if a value is effectively zero.
+    /// Tolerance for checking if a value is effectively zero (1e-10).
     ///
-    /// Used for comparisons like `if lambda.abs() > ZERO_TOLERANCE` to avoid
-    /// division by zero or special-case handling for near-zero values.
-    ///
-    /// Value: 1e-10 (chosen to be well above f64 machine epsilon ~2.2e-16
-    /// but small enough to catch actual zeros vs meaningful small values).
-    pub const ZERO_TOLERANCE: f64 = 1e-10;
+    /// Re-exported from [`finstack_core::math::ZERO_TOLERANCE`].
+    pub use finstack_core::math::ZERO_TOLERANCE;
 
     /// Step size factor for numerical differentiation and integration.
     ///

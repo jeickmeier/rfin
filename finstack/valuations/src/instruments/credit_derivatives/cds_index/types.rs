@@ -25,6 +25,7 @@ use crate::instruments::credit_derivatives::cds::{
 
 use super::parameters::CDSIndexConstituentParam;
 use super::parameters::{CDSIndexConstructionParams, CDSIndexParams};
+use crate::impl_instrument_base;
 
 /// Pricing mode for CDS indices.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -452,34 +453,11 @@ impl CDSIndex {
 }
 
 impl crate::instruments::common_impl::traits::Instrument for CDSIndex {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::CDSIndex
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::CDSIndex);
 
     fn as_marginable(&self) -> Option<&dyn crate::margin::traits::Marginable> {
         Some(self)
     }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
-
     fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
         MarketDependencies::from_curve_dependencies(self)
     }
@@ -492,24 +470,6 @@ impl crate::instruments::common_impl::traits::Instrument for CDSIndex {
         let pricer =
             crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.npv(self, curves, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn expiry(&self) -> Option<finstack_core::dates::Date> {

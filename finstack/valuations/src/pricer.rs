@@ -148,80 +148,6 @@ pub enum InstrumentType {
     FxTouchOption = 71,
 }
 
-impl InstrumentType {
-    /// Returns the canonical string representation for metrics registry lookups.
-    ///
-    /// This format matches the instrument type tags used in the metrics registry
-    /// and is TitleCase (e.g., "Bond", "InterestRateSwap").
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            InstrumentType::Bond => "Bond",
-            InstrumentType::Loan => "Loan",
-            InstrumentType::CDS => "CDS",
-            InstrumentType::CDSIndex => "CDSIndex",
-            InstrumentType::CDSTranche => "CDSTranche",
-            InstrumentType::CDSOption => "CDSOption",
-            InstrumentType::IRS => "InterestRateSwap",
-            InstrumentType::CapFloor => "CapFloor",
-            InstrumentType::Swaption => "Swaption",
-            InstrumentType::BermudanSwaption => "BermudanSwaption",
-            InstrumentType::BasisSwap => "BasisSwap",
-            InstrumentType::Basket => "Basket",
-            InstrumentType::Convertible => "ConvertibleBond",
-            InstrumentType::Deposit => "Deposit",
-            InstrumentType::EquityOption => "EquityOption",
-            InstrumentType::FxOption => "FxOption",
-            InstrumentType::FxSpot => "FxSpot",
-            InstrumentType::FxSwap => "FxSwap",
-            InstrumentType::XccySwap => "XccySwap",
-            InstrumentType::InflationLinkedBond => "InflationLinkedBond",
-            InstrumentType::InflationSwap => "InflationSwap",
-            InstrumentType::YoYInflationSwap => "YoYInflationSwap",
-            InstrumentType::InflationCapFloor => "InflationCapFloor",
-            InstrumentType::InterestRateFuture => "InterestRateFuture",
-            InstrumentType::VarianceSwap => "VarianceSwap",
-            InstrumentType::FxVarianceSwap => "FxVarianceSwap",
-            InstrumentType::Equity => "Equity",
-            InstrumentType::Repo => "Repo",
-            InstrumentType::FRA => "FRA",
-            InstrumentType::StructuredCredit => "StructuredCredit",
-            InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
-            InstrumentType::RevolvingCredit => "RevolvingCredit",
-            InstrumentType::AsianOption => "AsianOption",
-            InstrumentType::BarrierOption => "BarrierOption",
-            InstrumentType::LookbackOption => "LookbackOption",
-            InstrumentType::QuantoOption => "QuantoOption",
-            InstrumentType::Autocallable => "Autocallable",
-            InstrumentType::CmsOption => "CmsOption",
-            InstrumentType::CliquetOption => "CliquetOption",
-            InstrumentType::RangeAccrual => "RangeAccrual",
-            InstrumentType::FxBarrierOption => "FxBarrierOption",
-            InstrumentType::TermLoan => "TermLoan",
-            InstrumentType::DCF => "DCF",
-            InstrumentType::RealEstateAsset => "RealEstateAsset",
-            InstrumentType::LeveredRealEstateEquity => "LeveredRealEstateEquity",
-            InstrumentType::EquityTotalReturnSwap => "EquityTotalReturnSwap",
-            InstrumentType::FIIndexTotalReturnSwap => "FIIndexTotalReturnSwap",
-            InstrumentType::BondFuture => "BondFuture",
-            InstrumentType::CommodityForward => "CommodityForward",
-            InstrumentType::CommoditySwap => "CommoditySwap",
-            InstrumentType::CommodityOption => "CommodityOption",
-            InstrumentType::CommodityAsianOption => "CommodityAsianOption",
-            InstrumentType::VolatilityIndexFuture => "VolatilityIndexFuture",
-            InstrumentType::VolatilityIndexOption => "VolatilityIndexOption",
-            InstrumentType::EquityIndexFuture => "EquityIndexFuture",
-            InstrumentType::FxForward => "FxForward",
-            InstrumentType::Ndf => "Ndf",
-            InstrumentType::AgencyMbsPassthrough => "AgencyMbsPassthrough",
-            InstrumentType::AgencyTba => "AgencyTba",
-            InstrumentType::DollarRoll => "DollarRoll",
-            InstrumentType::AgencyCmo => "AgencyCmo",
-            InstrumentType::FxDigitalOption => "FxDigitalOption",
-            InstrumentType::FxTouchOption => "FxTouchOption",
-        }
-    }
-}
-
 impl std::fmt::Display for InstrumentType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let label = match self {
@@ -860,7 +786,7 @@ impl From<PricingError> for finstack_core::Error {
     fn from(err: PricingError) -> Self {
         match err {
             PricingError::UnknownPricer(key) => {
-                let pricer_id = format!("pricer:{}:{:?}", key.instrument.as_str(), key.model);
+                let pricer_id = format!("pricer:{}:{:?}", key.instrument, key.model);
                 finstack_core::InputError::NotFound { id: pricer_id }.into()
             }
             PricingError::TypeMismatch { .. } => finstack_core::InputError::Invalid.into(),
@@ -2183,7 +2109,7 @@ mod tests {
                 .into();
         match unknown_pricer {
             finstack_core::Error::Input(finstack_core::InputError::NotFound { id }) => {
-                assert_eq!(id, "pricer:Bond:Tree")
+                assert_eq!(id, "pricer:bond:Tree")
             }
             other => panic!("unexpected mapping for unknown pricer: {other:?}"),
         }
@@ -2680,7 +2606,6 @@ mod tests {
     #[test]
     fn test_instrument_type_bond_future() {
         let inst_type = InstrumentType::BondFuture;
-        assert_eq!(inst_type.as_str(), "BondFuture");
         assert_eq!(format!("{}", inst_type), "bond_future");
         assert_eq!(inst_type as u16, 54);
     }

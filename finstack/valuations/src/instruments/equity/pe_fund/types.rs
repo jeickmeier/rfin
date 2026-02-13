@@ -1,6 +1,7 @@
 //! Private markets fund investment instrument type and implementations.
 
 use crate::cashflow::traits::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use crate::instruments::equity::pe_fund::waterfall::{
     AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
@@ -124,24 +125,7 @@ impl PrivateMarketsFund {
 // Attributable is provided via blanket impl for all Instrument types
 
 impl Instrument for PrivateMarketsFund {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::PrivateMarketsFund
-    }
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::PrivateMarketsFund);
 
     // === Pricing Methods ===
 
@@ -160,24 +144,6 @@ impl Instrument for PrivateMarketsFund {
                 .unwrap_or_else(|| Money::new(0.0, self.currency));
             Ok(residual_value)
         }
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<Date> {

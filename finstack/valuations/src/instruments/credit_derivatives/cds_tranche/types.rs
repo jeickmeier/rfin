@@ -1,10 +1,7 @@
 //! CDS Tranche types, builder entrypoint, and pricing impl.
 
 use crate::cashflow::builder::ScheduleParams;
-use crate::instruments::common_impl::helpers::build_with_metrics_dyn;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
-use crate::metrics::MetricId;
-use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -12,6 +9,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 
 use super::parameters::CDSTrancheParams;
 use super::pricer;
+use crate::impl_instrument_base;
 
 /// Buyer/seller perspective for CDS tranche premium/protection
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -325,50 +323,13 @@ impl CDSTranche {
 // Attributable is provided via blanket impl for all Instrument types
 
 impl Instrument for CDSTranche {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::CDSTranche
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::CDSTranche);
 
     // === Pricing Methods ===
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.price_tranche(self, curves, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn expiry(&self) -> Option<finstack_core::dates::Date> {

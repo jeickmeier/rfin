@@ -3,6 +3,7 @@
 //! This module provides the [`FIIndexTotalReturnSwap`] instrument for synthetic
 //! fixed income index exposure.
 
+use crate::impl_instrument_base;
 use crate::{
     cashflow::builder::ScheduleParams,
     cashflow::traits::CashflowProvider,
@@ -230,29 +231,7 @@ impl FIIndexTotalReturnSwap {
 // ============================================================================
 
 impl crate::instruments::common_impl::traits::Instrument for FIIndexTotalReturnSwap {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::FIIndexTotalReturnSwap
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::FIIndexTotalReturnSwap);
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         // Calculate total return leg PV
@@ -268,24 +247,6 @@ impl crate::instruments::common_impl::traits::Instrument for FIIndexTotalReturnS
         };
 
         Ok(net_pv)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {

@@ -29,6 +29,7 @@
 //! Inflation indices typically have an observation lag (e.g., 3 months for US CPI).
 //! The lag is applied to both CPI lookups and the fixing date used for volatility.
 
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::models::volatility::normal::bachelier_price;
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Attributes;
@@ -431,50 +432,10 @@ impl InflationCapFloorBuilder {
 }
 
 impl crate::instruments::common_impl::traits::Instrument for InflationCapFloor {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::InflationCapFloor
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(crate::pricer::InstrumentType::InflationCapFloor);
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         self.npv_with_model(curves, as_of, crate::pricer::ModelKey::Black76)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<Date> {

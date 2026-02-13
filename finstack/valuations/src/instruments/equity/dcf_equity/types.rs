@@ -4,6 +4,7 @@
 //! - [`TerminalValueSpec`] for Gordon Growth, Exit Multiple, and H-Model terminals
 //! - [`DiscountedCashFlow`] instrument implementing the standard DCF formula
 
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::instruments::common_impl::traits::{
     Attributes, CurveDependencies, Instrument, InstrumentCurves,
@@ -15,7 +16,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Error as CoreError;
-use std::any::Any;
 
 /// Terminal value calculation method for DCF.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -444,29 +444,7 @@ impl DiscountedCashFlow {
 }
 
 impl Instrument for DiscountedCashFlow {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> InstrumentType {
-        InstrumentType::DCF
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
+    impl_instrument_base!(InstrumentType::DCF);
 
     fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
         MarketDependencies::from_curve_dependencies(self)
@@ -516,24 +494,6 @@ impl Instrument for DiscountedCashFlow {
         let equity_value = self.apply_valuation_discounts(equity_value)?;
 
         Ok(Money::new(equity_value, self.currency))
-    }
-
-    fn price_with_metrics(
-        &self,
-        market: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(market, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(market.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
     }
 
     fn effective_start_date(&self) -> Option<Date> {
