@@ -10,13 +10,11 @@
 //! 3. Delta: call Δ ≈ 0.636, put Δ ≈ -0.329
 //! 4. Gamma: call gamma = put gamma
 
-use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
-use finstack_core::money::Money;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{Attributes, Instrument, PricingOverrides, SettlementType};
@@ -78,7 +76,7 @@ fn create_option(expiry: Date, option_type: OptionType) -> EquityOption {
     EquityOption {
         id: "EQ-OPT-PARITY".into(),
         underlying_ticker: "TEST".to_string(),
-        strike: Money::new(STRIKE, Currency::USD),
+        strike: STRIKE,
         option_type,
         exercise_style: ExerciseStyle::European,
         expiry,

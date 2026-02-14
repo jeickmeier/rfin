@@ -51,9 +51,7 @@ impl LookbackOptionMcPricer {
         if t <= 0.0 {
             return Ok(finstack_core::money::Money::new(
                 0.0,
-                inst.strike
-                    .map(|s| s.currency())
-                    .unwrap_or(finstack_core::currency::Currency::USD),
+                inst.notional.currency(),
             ));
         }
 
@@ -85,7 +83,7 @@ impl LookbackOptionMcPricer {
         };
 
         let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
-        let strike_val = inst.strike.as_ref().map(|s| s.amount()).unwrap_or(spot);
+        let strike_val = inst.strike.unwrap_or(spot);
         let sigma = vol_surface.value_clamped(t, strike_val);
 
         let gbm_params = GbmParams::new(r, q, sigma);
@@ -95,11 +93,7 @@ impl LookbackOptionMcPricer {
         let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
         let maturity_step = num_steps - 1;
 
-        let currency = inst
-            .strike
-            .as_ref()
-            .map(|s| s.currency())
-            .unwrap_or(finstack_core::currency::Currency::USD);
+        let currency = inst.notional.currency();
 
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
@@ -186,7 +180,7 @@ impl LookbackOptionMcPricer {
                 })?;
                 let payoff = Lookback::with_initial_extremum(
                     LookbackDirection::Call,
-                    strike.amount(),
+                    *strike,
                     inst.notional.amount(),
                     maturity_step,
                     initial_max,
@@ -216,7 +210,7 @@ impl LookbackOptionMcPricer {
                 })?;
                 let payoff = Lookback::with_initial_extremum(
                     LookbackDirection::Put,
-                    strike.amount(),
+                    *strike,
                     inst.notional.amount(),
                     maturity_step,
                     initial_min,
@@ -327,7 +321,7 @@ fn collect_lookback_inputs(
     };
 
     let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
-    let strike_val = inst.strike.as_ref().map(|s| s.amount()).unwrap_or(spot);
+    let strike_val = inst.strike.unwrap_or(spot);
     let sigma = vol_surface.value_clamped(t, strike_val);
 
     Ok((spot, r, q, sigma, t))
@@ -382,14 +376,7 @@ impl Pricer for LookbackOptionAnalyticalPricer {
             return Ok(ValuationResult::stamped(
                 lookback.id(),
                 as_of,
-                Money::new(
-                    0.0,
-                    lookback
-                        .strike
-                        .as_ref()
-                        .map(|s| s.currency())
-                        .unwrap_or(finstack_core::currency::Currency::USD),
-                ),
+                Money::new(0.0, lookback.notional.currency()),
             ));
         }
 
@@ -450,24 +437,12 @@ impl Pricer for LookbackOptionAnalyticalPricer {
                     )
                 })?;
                 match lookback.option_type {
-                    crate::instruments::OptionType::Call => fixed_strike_lookback_call(
-                        spot,
-                        strike.amount(),
-                        t,
-                        r,
-                        q,
-                        sigma,
-                        spot_extremum,
-                    ),
-                    crate::instruments::OptionType::Put => fixed_strike_lookback_put(
-                        spot,
-                        strike.amount(),
-                        t,
-                        r,
-                        q,
-                        sigma,
-                        spot_extremum,
-                    ),
+                    crate::instruments::OptionType::Call => {
+                        fixed_strike_lookback_call(spot, *strike, t, r, q, sigma, spot_extremum)
+                    }
+                    crate::instruments::OptionType::Put => {
+                        fixed_strike_lookback_put(spot, *strike, t, r, q, sigma, spot_extremum)
+                    }
                 }
             }
             LookbackType::FloatingStrike => match lookback.option_type {
@@ -480,11 +455,7 @@ impl Pricer for LookbackOptionAnalyticalPricer {
             },
         };
 
-        let currency = lookback
-            .strike
-            .as_ref()
-            .map(|s| s.currency())
-            .unwrap_or(finstack_core::currency::Currency::USD);
+        let currency = lookback.notional.currency();
         let pv = Money::new(price * lookback.notional.amount(), currency);
         Ok(ValuationResult::stamped(lookback.id(), as_of, pv))
     }

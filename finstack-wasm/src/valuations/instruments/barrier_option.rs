@@ -168,13 +168,12 @@ impl JsBarrierOptionBuilder {
             other => return Err(js_error(format!("Unknown barrier type: {other}"))),
         };
 
-        let strike_money = finstack_core::money::Money::new(strike, notional.currency());
         let barrier_money = finstack_core::money::Money::new(barrier, notional.currency());
 
         let mut builder = BarrierOption::builder();
         builder = builder.id(instrument_id_from_str(&self.instrument_id));
         builder = builder.underlying_ticker(ticker.to_string());
-        builder = builder.strike(strike_money);
+        builder = builder.strike(strike);
         builder = builder.barrier(barrier_money);
         builder = builder.option_type(opt_type);
         builder = builder.barrier_type(barrier_type_enum);
@@ -300,13 +299,12 @@ impl JsBarrierOption {
             }
         };
 
-        let strike_money = finstack_core::money::Money::new(strike, notional.inner().currency());
         let barrier_money = finstack_core::money::Money::new(barrier, notional.inner().currency());
 
         let mut builder = BarrierOption::builder();
         builder = builder.id(instrument_id_from_str(instrument_id));
         builder = builder.underlying_ticker(ticker.to_string());
-        builder = builder.strike(strike_money);
+        builder = builder.strike(strike);
         builder = builder.barrier(barrier_money);
         builder = builder.option_type(opt_type);
         builder = builder.barrier_type(barrier_type_enum);
@@ -351,8 +349,8 @@ impl JsBarrierOption {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn strike(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.strike)
+    pub fn strike(&self) -> f64 {
+        self.inner.strike
     }
 
     #[wasm_bindgen(getter)]
@@ -423,7 +421,7 @@ impl JsBarrierOption {
             "BarrierOption(id='{}', ticker='{}', strike={}, barrier={}, barrier_type='{:?}')",
             self.inner.id.as_str(),
             self.inner.underlying_ticker,
-            self.inner.strike.amount(),
+            self.inner.strike,
             self.inner.barrier.amount(),
             self.inner.barrier_type
         )

@@ -212,7 +212,7 @@ fn test_zero_volatility_option_limits() {
     let itm_option = EquityOption {
         id: "ZERO_VOL_ITM".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(50.0, Currency::USD), // Deep ITM
+        strike: 50.0, // Deep ITM
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -251,7 +251,7 @@ fn test_zero_volatility_option_limits() {
     let otm_option = EquityOption {
         id: "ZERO_VOL_OTM".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(150.0, Currency::USD), // Deep OTM
+        strike: 150.0, // Deep OTM
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -304,7 +304,7 @@ fn test_zero_notional_handling() {
     let option = EquityOption {
         id: "ZERO_NOTIONAL".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -368,7 +368,7 @@ fn test_deep_otm_option_greeks() {
     let option = EquityOption {
         id: "DEEP_OTM_CALL".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(strike, Currency::USD),
+        strike,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -419,7 +419,7 @@ fn test_deep_itm_put_greeks() {
     let option = EquityOption {
         id: "DEEP_ITM_PUT".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(strike, Currency::USD),
+        strike,
         option_type: OptionType::Put,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -469,7 +469,7 @@ fn test_deep_otm_put_greeks() {
     let option = EquityOption {
         id: "DEEP_OTM_PUT".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(strike, Currency::USD),
+        strike,
         option_type: OptionType::Put,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -534,7 +534,7 @@ fn test_atm_option_gamma_peak() {
         let option = EquityOption {
             id: format!("ATM_GAMMA_TEST_{}", strike).into(),
             underlying_ticker: "AAPL".to_string(),
-            strike: Money::new(strike, Currency::USD),
+            strike,
             option_type: OptionType::Call,
             exercise_style: ExerciseStyle::European,
             expiry,
@@ -594,7 +594,7 @@ fn test_extreme_volatility_handling() {
     let option = EquityOption {
         id: "HIGH_VOL_TEST".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -648,7 +648,7 @@ fn test_very_short_dated_option() {
     let option = EquityOption {
         id: "SHORT_EXPIRY".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -724,7 +724,7 @@ fn test_very_low_interest_rate_greeks() {
     let call_option = EquityOption {
         id: "LOW_RATE_CALL".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -805,7 +805,7 @@ fn test_vol_smile_greeks() {
     let option = EquityOption {
         id: "SMILE_TEST".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,

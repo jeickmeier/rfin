@@ -75,7 +75,7 @@ pub struct AsianOption {
     /// Underlying asset ticker symbol
     pub underlying_ticker: String,
     /// Strike price
-    pub strike: Money,
+    pub strike: f64,
     /// Option type (call or put)
     pub option_type: OptionType,
     /// Averaging method (arithmetic or geometric)
@@ -130,7 +130,7 @@ impl AsianOption {
         AsianOption::builder()
             .id(InstrumentId::new("ASIAN-SPX-ARITH-6M"))
             .underlying_ticker("SPX".to_string())
-            .strike(Money::new(4500.0, Currency::USD))
+            .strike(4500.0)
             .option_type(crate::instruments::OptionType::Call)
             .averaging_method(AveragingMethod::Arithmetic)
             .expiry(date!(2024 - 06 - 30))

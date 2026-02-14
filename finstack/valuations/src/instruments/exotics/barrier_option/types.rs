@@ -57,7 +57,7 @@ pub struct BarrierOption {
     /// Underlying asset ticker symbol
     pub underlying_ticker: String,
     /// Strike price
-    pub strike: Money,
+    pub strike: f64,
     /// Barrier level (price that triggers knock-in/out)
     pub barrier: Money,
     /// Optional rebate amount (paid at expiry if barrier condition met)
@@ -116,7 +116,7 @@ impl BarrierOption {
         BarrierOption::builder()
             .id(InstrumentId::new("BAR-SPX-UO-CALL"))
             .underlying_ticker("SPX".to_string())
-            .strike(Money::new(4500.0, Currency::USD))
+            .strike(4500.0)
             .barrier(Money::new(5000.0, Currency::USD))
             .rebate(Money::new(50.0, Currency::USD))
             .option_type(crate::instruments::OptionType::Call)

@@ -84,7 +84,7 @@ pub fn create_call(_as_of: Date, expiry: Date, strike: f64) -> EquityOption {
     EquityOption {
         id: "EQ_CALL_TEST".into(),
         underlying_ticker: SPOT_ID.into(),
-        strike: Money::new(strike, Currency::USD),
+        strike,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -106,7 +106,7 @@ pub fn create_put(_as_of: Date, expiry: Date, strike: f64) -> EquityOption {
     EquityOption {
         id: "EQ_PUT_TEST".into(),
         underlying_ticker: SPOT_ID.into(),
-        strike: Money::new(strike, Currency::USD),
+        strike,
         option_type: OptionType::Put,
         exercise_style: ExerciseStyle::European,
         expiry,

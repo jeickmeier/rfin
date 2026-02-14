@@ -71,7 +71,6 @@ def main() -> None:
 
     call = (
         EquityOption.builder("ACME-CALL-150")
-        .money(Money(150.0, USD))
         .ticker("ACME")
         .strike(150.0)
         .expiry(date(2024, 12, 31))
@@ -93,7 +92,6 @@ def main() -> None:
 
     put = (
         EquityOption.builder("ACME-PUT-140")
-        .money(Money(140.0, USD))
         .ticker("ACME")
         .strike(140.0)
         .expiry(date(2024, 9, 30))

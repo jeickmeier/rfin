@@ -38,7 +38,6 @@ fn create_call_option(expiry_months: i64) -> EquityOption {
         "AAPL",
         100.0, // ATM strike
         expiry,
-        Money::new(100.0, Currency::USD),
         100.0, // 100 shares
     )
     .expect("equity option should build in benchmarks")

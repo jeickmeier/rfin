@@ -161,8 +161,7 @@ impl PyLookbackOption {
             .underlying_ticker(ticker.to_string());
 
         if let Some(s) = strike {
-            let strike_money = finstack_core::money::Money::new(s, notional_money.currency());
-            builder = builder.strike(strike_money);
+            builder = builder.strike(s);
         }
         builder = builder.option_type(opt_type);
         builder = builder.lookback_type(lookback_type_enum);
@@ -197,10 +196,10 @@ impl PyLookbackOption {
         &self.inner.underlying_ticker
     }
 
-    /// Strike price as money (None for floating strike).
+    /// Strike price as scalar (None for floating strike).
     #[getter]
-    fn strike(&self) -> Option<PyMoney> {
-        self.inner.strike.map(PyMoney::new)
+    fn strike(&self) -> Option<f64> {
+        self.inner.strike
     }
 
     /// Option type label.

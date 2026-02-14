@@ -77,15 +77,8 @@ fn equity_market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) ->
 
 fn equity_option(as_of: Date, expiry: Date, strike: f64) -> EquityOption {
     let _ = as_of;
-    equity_option_european_call(
-        "EQ-VANNA-VOLGA",
-        "SPX",
-        strike,
-        expiry,
-        Money::new(1_000_000.0, Currency::USD),
-        100.0,
-    )
-    .expect("equity option should build for vanna/volga tests")
+    equity_option_european_call("EQ-VANNA-VOLGA", "SPX", strike, expiry, 100.0)
+        .expect("equity option should build for vanna/volga tests")
 }
 
 fn equity_delta_fd(

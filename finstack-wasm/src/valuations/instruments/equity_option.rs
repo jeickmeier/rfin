@@ -1,10 +1,8 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
-use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::currency::Currency;
-use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::{
@@ -19,7 +17,6 @@ fn build_equity_option(
     strike: f64,
     option_type: OptionType,
     expiry: finstack_core::dates::Date,
-    notional: finstack_core::money::Money,
     contract_size: f64,
 ) -> Result<EquityOption, JsValue> {
     // Match the prior convenience constructor conventions.
@@ -30,7 +27,7 @@ fn build_equity_option(
     EquityOption::builder()
         .id(InstrumentId::new(instrument_id))
         .underlying_ticker(underlying.ticker)
-        .strike(Money::new(strike, notional.currency()))
+        .strike(strike)
         .option_type(option_type)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
@@ -55,7 +52,6 @@ pub struct JsEquityOptionBuilder {
     strike: Option<f64>,
     option_type: Option<String>,
     expiry: Option<finstack_core::dates::Date>,
-    notional: Option<finstack_core::money::Money>,
     contract_size: Option<f64>,
 }
 
@@ -93,12 +89,6 @@ impl JsEquityOptionBuilder {
         self
     }
 
-    #[wasm_bindgen(js_name = money)]
-    pub fn money(mut self, notional: &JsMoney) -> JsEquityOptionBuilder {
-        self.notional = Some(notional.inner());
-        self
-    }
-
     #[wasm_bindgen(js_name = contractSize)]
     pub fn contract_size(mut self, contract_size: f64) -> JsEquityOptionBuilder {
         self.contract_size = Some(contract_size);
@@ -121,9 +111,6 @@ impl JsEquityOptionBuilder {
         let expiry = self
             .expiry
             .ok_or_else(|| js_error("EquityOptionBuilder: expiry is required".to_string()))?;
-        let notional = self.notional.ok_or_else(|| {
-            js_error("EquityOptionBuilder: notional (money) is required".to_string())
-        })?;
         let cs = self.contract_size.unwrap_or(1.0);
 
         let option_type = match option_type.to_lowercase().as_str() {
@@ -136,16 +123,8 @@ impl JsEquityOptionBuilder {
             }
         };
 
-        build_equity_option(
-            &self.instrument_id,
-            ticker,
-            strike,
-            option_type,
-            expiry,
-            notional,
-            cs,
-        )
-        .map(JsEquityOption::from_inner)
+        build_equity_option(&self.instrument_id, ticker, strike, option_type, expiry, cs)
+            .map(JsEquityOption::from_inner)
     }
 }
 
@@ -171,7 +150,6 @@ impl JsEquityOption {
     ///
     /// Conventions:
     /// - `strike` is an **absolute price level** (not bps/percent).
-    /// - The strike currency is assumed to be the same currency as `notional`.
     /// - `contract_size` defaults to `1.0` if omitted.
     /// - `option_type`: `"call"` or `"put"`.
     ///
@@ -180,14 +158,13 @@ impl JsEquityOption {
     /// @param strike - Strike price (absolute)
     /// @param option_type - `"call"` or `"put"`
     /// @param expiry - Expiry date
-    /// @param notional - Option notional (currency-tagged)
     /// @param contract_size - Optional contract size multiplier (default 1.0)
     /// @returns A new `EquityOption`
     /// @throws {Error} If `option_type` is invalid
     ///
     /// @example
     /// ```javascript
-    /// import init, { EquityOption, Money, FsDate } from "finstack-wasm";
+    /// import init, { EquityOption, FsDate } from "finstack-wasm";
     ///
     /// await init();
     /// const opt = new EquityOption(
@@ -196,7 +173,6 @@ impl JsEquityOption {
     ///   200.0,
     ///   "call",
     ///   new FsDate(2025, 6, 21),
-    ///   Money.fromCode(1_000_000, "USD"),
     ///   100
     /// );
     /// ```
@@ -207,7 +183,6 @@ impl JsEquityOption {
         strike: f64,
         option_type: &str,
         expiry: &JsDate,
-        notional: &JsMoney,
         contract_size: Option<f64>,
     ) -> Result<JsEquityOption, JsValue> {
         web_sys::console::warn_1(&JsValue::from_str(
@@ -230,7 +205,6 @@ impl JsEquityOption {
             strike,
             option_type,
             expiry.inner(),
-            notional.inner(),
             cs,
         )
         .map(JsEquityOption::from_inner)
@@ -259,8 +233,8 @@ impl JsEquityOption {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn strike(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.strike)
+    pub fn strike(&self) -> f64 {
+        self.inner.strike
     }
 
     #[wasm_bindgen(getter)]

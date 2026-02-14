@@ -83,7 +83,7 @@ fn create_test_option(
     EquityOption {
         id: "TEST_OPTION".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(strike, Currency::USD),
+        strike,
         option_type,
         exercise_style: ExerciseStyle::European,
         expiry,

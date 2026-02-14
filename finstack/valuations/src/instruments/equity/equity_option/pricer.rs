@@ -15,6 +15,7 @@ use crate::instruments::common_impl::models::{bs_greeks, bs_price, BsGreeks};
 use crate::instruments::common_impl::parameters::{OptionMarketParams, OptionType};
 use crate::instruments::equity::equity_option::types::EquityOption;
 use crate::instruments::ExerciseStyle;
+use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -23,30 +24,28 @@ use finstack_core::Result;
 /// Trading days per year for equity options (market standard for theta calculations)
 const TRADING_DAYS_PER_YEAR: f64 = 252.0;
 
-/// Present value using Black–Scholes; result currency is the strike currency.
+/// Present value using Black–Scholes; result currency is the instrument currency.
 pub(crate) fn compute_pv(
     inst: &EquityOption,
     curves: &MarketContext,
     as_of: Date,
 ) -> Result<Money> {
     let (spot, r, q, sigma, t) = collect_inputs(inst, curves, as_of)?;
+    let ccy = option_currency(inst, curves);
 
     if t <= 0.0 {
         // Expired: intrinsic value scaled by contract size
         let intrinsic = match inst.option_type {
-            OptionType::Call => (spot - inst.strike.amount()).max(0.0),
-            OptionType::Put => (inst.strike.amount() - spot).max(0.0),
+            OptionType::Call => (spot - inst.strike).max(0.0),
+            OptionType::Put => (inst.strike - spot).max(0.0),
         };
-        return Ok(Money::new(
-            intrinsic * inst.contract_size,
-            inst.strike.currency(),
-        ));
+        return Ok(Money::new(intrinsic * inst.contract_size, ccy));
     }
 
     // Dispatch based on exercise style
     let unit_price = match inst.exercise_style {
         ExerciseStyle::European => {
-            price_bs_unit(spot, inst.strike.amount(), r, q, sigma, t, inst.option_type)
+            price_bs_unit(spot, inst.strike, r, q, sigma, t, inst.option_type)
         }
         ExerciseStyle::American => {
             // Use Leisen-Reimer tree for American options
@@ -54,7 +53,7 @@ pub(crate) fn compute_pv(
             let tree = BinomialTree::leisen_reimer(201);
             let params = OptionMarketParams {
                 spot,
-                strike: inst.strike.amount(),
+                strike: inst.strike,
                 rate: r,
                 dividend_yield: q,
                 volatility: sigma,
@@ -71,10 +70,14 @@ pub(crate) fn compute_pv(
         }
     };
 
-    Ok(Money::new(
-        unit_price * inst.contract_size,
-        inst.strike.currency(),
-    ))
+    Ok(Money::new(unit_price * inst.contract_size, ccy))
+}
+
+fn option_currency(inst: &EquityOption, curves: &MarketContext) -> Currency {
+    match curves.price(&inst.spot_id) {
+        Ok(finstack_core::market_data::scalars::MarketScalar::Price(m)) => m.currency(),
+        _ => Currency::USD,
+    }
 }
 
 /// Collected market inputs for equity option pricing.
@@ -210,7 +213,7 @@ pub fn collect_inputs_extended(
         impl_vol
     } else {
         let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
-        vol_surface.value_clamped(t_vol, inst.strike.amount())
+        vol_surface.value_clamped(t_vol, inst.strike)
     };
 
     Ok(EquityOptionInputs {
@@ -321,7 +324,7 @@ pub fn compute_greeks(
         // At expiry, delta is the step function of the payoff.
         // ATM (spot == strike) uses the convention 0.5 / -0.5,
         // consistent with QuantLib and Bloomberg.
-        let strike = inst.strike.amount();
+        let strike = inst.strike;
         let delta_unit = match inst.option_type {
             OptionType::Call => {
                 if spot > strike {
@@ -353,7 +356,7 @@ pub fn compute_greeks(
         ExerciseStyle::European => {
             let greeks_unit = bs_greeks(
                 spot,
-                inst.strike.amount(),
+                inst.strike,
                 r,
                 q,
                 sigma,
@@ -375,7 +378,7 @@ pub fn compute_greeks(
             let tree = BinomialTree::leisen_reimer(201);
             let params = OptionMarketParams {
                 spot,
-                strike: inst.strike.amount(),
+                strike: inst.strike,
                 rate: r,
                 dividend_yield: q,
                 volatility: sigma,
@@ -639,15 +642,15 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
 
         if t <= 0.0 {
             let intrinsic = match equity_option.option_type {
-                OptionType::Call => (spot - equity_option.strike.amount()).max(0.0),
-                OptionType::Put => (equity_option.strike.amount() - spot).max(0.0),
+                OptionType::Call => (spot - equity_option.strike).max(0.0),
+                OptionType::Put => (equity_option.strike - spot).max(0.0),
             };
             return Ok(crate::results::ValuationResult::stamped(
                 equity_option.id(),
                 as_of,
                 Money::new(
                     intrinsic * equity_option.contract_size,
-                    equity_option.strike.currency(),
+                    option_currency(equity_option, market),
                 ),
             ));
         }
@@ -702,17 +705,13 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
         let params = HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0);
 
         let price = match equity_option.option_type {
-            OptionType::Call => {
-                heston_call_price_fourier(spot, equity_option.strike.amount(), t, &params)
-            }
-            OptionType::Put => {
-                heston_put_price_fourier(spot, equity_option.strike.amount(), t, &params)
-            }
+            OptionType::Call => heston_call_price_fourier(spot, equity_option.strike, t, &params),
+            OptionType::Put => heston_put_price_fourier(spot, equity_option.strike, t, &params),
         };
 
         let pv = Money::new(
             price * equity_option.contract_size,
-            equity_option.strike.currency(),
+            option_currency(equity_option, market),
         );
         Ok(crate::results::ValuationResult::stamped(
             equity_option.id(),

@@ -197,12 +197,10 @@ impl JsAsianOptionBuilder {
             Some(other) => return Err(js_error(format!("Unknown option type: {other}"))),
         };
 
-        let strike_money = finstack_core::money::Money::new(strike, notional.currency());
-
         let mut builder = AsianOption::builder();
         builder = builder.id(instrument_id_from_str(&self.instrument_id));
         builder = builder.underlying_ticker(ticker.to_string());
-        builder = builder.strike(strike_money);
+        builder = builder.strike(strike);
         builder = builder.option_type(opt_type);
         builder = builder.averaging_method(avg_method);
         builder = builder.expiry(expiry);
@@ -315,12 +313,10 @@ impl JsAsianOption {
             }
         };
 
-        let strike_money = finstack_core::money::Money::new(strike, notional.inner().currency());
-
         let mut builder = AsianOption::builder();
         builder = builder.id(instrument_id_from_str(instrument_id));
         builder = builder.underlying_ticker(ticker.to_string());
-        builder = builder.strike(strike_money);
+        builder = builder.strike(strike);
         builder = builder.option_type(opt_type);
         builder = builder.averaging_method(avg_method);
         builder = builder.expiry(expiry.inner());
@@ -353,8 +349,8 @@ impl JsAsianOption {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn strike(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.strike)
+    pub fn strike(&self) -> f64 {
+        self.inner.strike
     }
 
     #[wasm_bindgen(getter, js_name = optionType)]
@@ -434,7 +430,7 @@ impl JsAsianOption {
             "AsianOption(id='{}', ticker='{}', strike={}, expiry={}, averaging_method='{:?}')",
             self.inner.id.as_str(),
             self.inner.underlying_ticker,
-            self.inner.strike.amount(),
+            self.inner.strike,
             self.inner.expiry,
             self.inner.averaging_method
         )

@@ -69,7 +69,7 @@ fn test_call_delta_positive() {
     let option = EquityOption {
         id: "CALL_TEST".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -113,7 +113,7 @@ fn test_put_delta_negative() {
     let option = EquityOption {
         id: "PUT_TEST".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Put,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -160,7 +160,7 @@ fn test_theta_negative_for_long_positions() {
         let option = EquityOption {
             id: "THETA_TEST".into(),
             underlying_ticker: "AAPL".to_string(),
-            strike: Money::new(100.0, Currency::USD),
+            strike: 100.0,
             option_type,
             exercise_style: ExerciseStyle::European,
             expiry,
@@ -252,7 +252,7 @@ fn test_vega_always_positive() {
         let option = EquityOption {
             id: "VEGA_TEST".into(),
             underlying_ticker: "AAPL".to_string(),
-            strike: Money::new(100.0, Currency::USD),
+            strike: 100.0,
             option_type,
             exercise_style: ExerciseStyle::European,
             expiry,
@@ -305,7 +305,7 @@ fn test_gamma_always_positive() {
         let option = EquityOption {
             id: "GAMMA_TEST".into(),
             underlying_ticker: "AAPL".to_string(),
-            strike: Money::new(100.0, Currency::USD),
+            strike: 100.0,
             option_type,
             exercise_style: ExerciseStyle::European,
             expiry,
@@ -357,7 +357,7 @@ fn test_call_rho_positive() {
     let option = EquityOption {
         id: "CALL_RHO_TEST".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -399,7 +399,7 @@ fn test_put_rho_negative() {
     let option = EquityOption {
         id: "PUT_RHO_TEST".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Put,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -711,7 +711,7 @@ fn test_put_call_parity() {
     let call = EquityOption {
         id: "PARITY_CALL".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(strike, Currency::USD),
+        strike,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -731,7 +731,7 @@ fn test_put_call_parity() {
     let put = EquityOption {
         id: "PARITY_PUT".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(strike, Currency::USD),
+        strike,
         option_type: OptionType::Put,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -799,7 +799,7 @@ fn test_put_call_parity_delta_relationship() {
     let call = EquityOption {
         id: "DELTA_PARITY_CALL".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(strike, Currency::USD),
+        strike,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -818,7 +818,7 @@ fn test_put_call_parity_delta_relationship() {
     let put = EquityOption {
         id: "DELTA_PARITY_PUT".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(strike, Currency::USD),
+        strike,
         option_type: OptionType::Put,
         exercise_style: ExerciseStyle::European,
         expiry,

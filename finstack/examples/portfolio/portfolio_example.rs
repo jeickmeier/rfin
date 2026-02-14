@@ -945,8 +945,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
 
     // 15. Equity Option (Microsoft call option) - standalone
     let option_params = EquityOptionParams::new(
-        Money::new(300.0, Currency::USD), // $300 strike
-        date!(2024 - 12 - 20),            // ~6M expiry
+        300.0,                 // $300 strike
+        date!(2024 - 12 - 20), // ~6M expiry
         OptionType::Call,
         33_333.33, // Shares to make ~$10M exposure
     );

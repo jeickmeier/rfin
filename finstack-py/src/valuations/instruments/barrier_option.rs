@@ -170,13 +170,12 @@ impl PyBarrierOption {
             }
         };
 
-        let strike_money = finstack_core::money::Money::new(strike, notional_money.currency());
         let barrier_money = finstack_core::money::Money::new(barrier, notional_money.currency());
 
         let mut builder = BarrierOption::builder();
         builder = builder.id(id);
         builder = builder.underlying_ticker(ticker.to_string());
-        builder = builder.strike(strike_money);
+        builder = builder.strike(strike);
         builder = builder.barrier(barrier_money);
         builder = builder.option_type(opt_type);
         builder = builder.barrier_type(barrier_type_enum);
@@ -210,10 +209,10 @@ impl PyBarrierOption {
         &self.inner.underlying_ticker
     }
 
-    /// Strike price as money.
+    /// Strike price as scalar.
     #[getter]
-    fn strike(&self) -> PyMoney {
-        PyMoney::new(self.inner.strike)
+    fn strike(&self) -> f64 {
+        self.inner.strike
     }
 
     /// Barrier level as money.
@@ -262,7 +261,7 @@ impl PyBarrierOption {
             "BarrierOption(id='{}', ticker='{}', strike={}, barrier={}, barrier_type='{}')",
             self.inner.id.as_str(),
             self.inner.underlying_ticker,
-            self.inner.strike.amount(),
+            self.inner.strike,
             self.inner.barrier.amount(),
             match self.inner.barrier_type {
                 BarrierType::UpAndOut => "up_and_out",

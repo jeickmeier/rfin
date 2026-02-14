@@ -170,7 +170,7 @@ fn test_equity_option_all_analytical_greeks() {
     let option = EquityOption {
         id: "ANALYTICAL_GREEKS_TEST".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -217,7 +217,7 @@ fn test_equity_option_fd_matches_analytical_greeks() {
     let option = EquityOption {
         id: "FD_GREEKS_TEST".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,
@@ -588,7 +588,7 @@ fn test_bucketed_vega_sums_to_total() {
     let option = EquityOption {
         id: "BUCKETED_VEGA_TEST".into(),
         underlying_ticker: "AAPL".to_string(),
-        strike: Money::new(100.0, Currency::USD),
+        strike: 100.0,
         option_type: OptionType::Call,
         exercise_style: ExerciseStyle::European,
         expiry,

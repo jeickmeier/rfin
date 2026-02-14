@@ -23,7 +23,7 @@ mod choice_tests {
             id: InstrumentId::from("DEMO"),
             underlying_ticker: "SPX".to_string(),
             spot_id: "SPX".to_string(),
-            strike: Money::new(100.0, Currency::USD),
+            strike: 100.0,
             option_type: OptionType::Call,
             expiry: Date::from_calendar_date(2025, time::Month::December, 31).unwrap(),
             averaging_method: AveragingMethod::Geometric,

@@ -1,12 +1,8 @@
-use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
-use crate::core::money::PyMoney;
 use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
-use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
-use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::{
@@ -22,7 +18,7 @@ use std::sync::Arc;
 /// Equity option priced via Black–Scholes style models.
 ///
 /// Examples:
-///     >>> option = EquityOption.builder("opt_aapl_jan").ticker("AAPL").strike(180.0).expiry(date(2024, 1, 19)).money(Money("USD", 100)).contract_size(1.0).option_type("call").exercise_style("european").disc_id("USD-OIS").spot_id("AAPL").vol_surface("AAPL-VOL").build()
+///     >>> option = EquityOption.builder("opt_aapl_jan").ticker("AAPL").strike(180.0).expiry(date(2024, 1, 19)).contract_size(1.0).option_type("call").exercise_style("european").disc_id("USD-OIS").spot_id("AAPL").vol_surface("AAPL-VOL").build()
 ///     >>> option.option_type
 ///     'call'
 #[pyclass(
@@ -50,7 +46,6 @@ impl PyEquityOption {
 )]
 pub struct PyEquityOptionBuilder {
     instrument_id: InstrumentId,
-    pending_currency: Option<Currency>,
     ticker: Option<String>,
     strike: Option<f64>,
     option_type: OptionType,
@@ -69,7 +64,6 @@ impl PyEquityOptionBuilder {
     fn new_with_id(id: InstrumentId) -> Self {
         Self {
             instrument_id: id,
-            pending_currency: None,
             ticker: None,
             strike: None,
             option_type: OptionType::Call,
@@ -86,11 +80,6 @@ impl PyEquityOptionBuilder {
     }
 
     fn ensure_ready(&self) -> PyResult<()> {
-        if self.pending_currency.is_none() {
-            return Err(PyValueError::new_err(
-                "Currency must be provided via currency() or money().",
-            ));
-        }
         if self.ticker.as_deref().unwrap_or("").is_empty() {
             return Err(PyValueError::new_err("ticker() is required."));
         }
@@ -110,17 +99,6 @@ impl PyEquityOptionBuilder {
             return Err(PyValueError::new_err("vol_surface() is required."));
         }
         Ok(())
-    }
-
-    fn parse_currency(value: &Bound<'_, PyAny>) -> PyResult<Currency> {
-        if let Ok(py_ccy) = value.extract::<PyRef<PyCurrency>>() {
-            Ok(py_ccy.inner)
-        } else if let Ok(code) = value.extract::<&str>() {
-            code.parse::<Currency>()
-                .map_err(|_| PyValueError::new_err("Invalid currency code"))
-        } else {
-            Err(PyTypeError::new_err("currency() expects str or Currency"))
-        }
     }
 
     fn parse_day_count(value: &Bound<'_, PyAny>) -> PyResult<DayCount> {
@@ -179,21 +157,6 @@ impl PyEquityOptionBuilder {
     #[pyo3(text_signature = "(instrument_id)")]
     fn new_py(instrument_id: &str) -> Self {
         Self::new_with_id(InstrumentId::new(instrument_id))
-    }
-
-    #[pyo3(text_signature = "($self, currency)")]
-    fn currency<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        currency: &Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.pending_currency = Some(Self::parse_currency(currency)?);
-        Ok(slf)
-    }
-
-    #[pyo3(text_signature = "($self, money)")]
-    fn money<'py>(mut slf: PyRefMut<'py, Self>, money: PyRef<'py, PyMoney>) -> PyRefMut<'py, Self> {
-        slf.pending_currency = Some(money.inner.currency());
-        slf
     }
 
     #[pyo3(text_signature = "($self, ticker)")]
@@ -296,11 +259,6 @@ impl PyEquityOptionBuilder {
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyEquityOption> {
         slf.ensure_ready()?;
 
-        let ccy = slf.pending_currency.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "EquityOptionBuilder internal error: missing currency after validation",
-            )
-        })?;
         let ticker = slf.ticker.clone().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
                 "EquityOptionBuilder internal error: missing ticker after validation",
@@ -332,12 +290,10 @@ impl PyEquityOptionBuilder {
             )
         })?;
 
-        let strike_money = Money::new(strike, ccy);
-
         EquityOption::builder()
             .id(slf.instrument_id.clone())
             .underlying_ticker(ticker)
-            .strike(strike_money)
+            .strike(strike)
             .option_type(slf.option_type)
             .exercise_style(slf.exercise_style)
             .expiry(expiry)
@@ -392,13 +348,13 @@ impl PyEquityOption {
         &self.inner.underlying_ticker
     }
 
-    /// Strike price as money.
+    /// Strike price as scalar.
     ///
     /// Returns:
-    ///     Money: Strike price wrapped as :class:`finstack.core.money.Money`.
+    ///     float: Strike price in underlying price units.
     #[getter]
-    fn strike(&self) -> PyMoney {
-        PyMoney::new(self.inner.strike)
+    fn strike(&self) -> f64 {
+        self.inner.strike
     }
 
     /// Contract size (units per contract).

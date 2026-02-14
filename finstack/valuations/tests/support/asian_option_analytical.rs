@@ -56,7 +56,7 @@ fn asian_base(
     crate::instruments::exotics::asian_option::AsianOption::builder()
         .id(InstrumentId::new("ASIAN-TEST"))
         .underlying_ticker("SPX".to_string())
-        .strike(Money::new(strike, Currency::USD))
+        .strike(strike)
         .option_type(option_type)
         .averaging_method(averaging)
         .expiry(expiry)
@@ -132,7 +132,7 @@ fn geometric_analytical_matches_closed_form_unseasoned() -> finstack_core::Resul
     let r = disc_curve.zero(t_disc);
     let sigma = mkt
         .surface(asian.vol_surface_id.as_str())?
-        .value_clamped(t_vol, asian.strike.amount());
+        .value_clamped(t_vol, asian.strike);
     let q = match mkt.price("SPX-DIV")? {
         MarketScalar::Unitless(v) => *v,
         MarketScalar::Price(_) => 0.0,
@@ -339,7 +339,7 @@ fn geometric_closed_form_put_matches_helper() -> finstack_core::Result<()> {
     let r = disc_curve.zero(t_disc);
     let sigma = mkt
         .surface(asian.vol_surface_id.as_str())?
-        .value_clamped(t_vol, asian.strike.amount());
+        .value_clamped(t_vol, asian.strike);
     let q = match mkt.price("SPX-DIV")? {
         MarketScalar::Unitless(v) => *v,
         MarketScalar::Price(_) => 0.0,

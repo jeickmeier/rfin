@@ -63,10 +63,8 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use time::macros::date;
-//
-use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use time::macros::date;
 
 use super::parameters::EquityOptionParams;
 use crate::impl_instrument_base;
@@ -82,7 +80,7 @@ pub struct EquityOption {
     /// Underlying equity ticker symbol
     pub underlying_ticker: String,
     /// Strike price
-    pub strike: Money,
+    pub strike: f64,
     /// Option type (call or put)
     pub option_type: OptionType,
     /// Exercise style (European or American)
@@ -166,7 +164,6 @@ impl EquityOption {
     ///
     /// Returns an at-the-money SPX call option with 6 months to expiry.
     pub fn example() -> Self {
-        let notional = Money::new(100_000.0, Currency::USD);
         let underlying = EquityUnderlyingParams::new("SPX", "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(100.0);
@@ -175,7 +172,7 @@ impl EquityOption {
         Self::builder()
             .id(InstrumentId::new("SPX-CALL-4500"))
             .underlying_ticker(underlying.ticker)
-            .strike(Money::new(4500.0, notional.currency()))
+            .strike(4500.0)
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
             .expiry(date!(2024 - 06 - 21))
@@ -206,7 +203,6 @@ impl EquityOption {
         ticker: impl Into<String>,
         strike: f64,
         expiry: Date,
-        notional: Money,
         contract_size: f64,
     ) -> finstack_core::Result<Self> {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
@@ -217,7 +213,7 @@ impl EquityOption {
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .underlying_ticker(underlying.ticker)
-            .strike(Money::new(strike, notional.currency()))
+            .strike(strike)
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
             .expiry(expiry)
@@ -243,7 +239,6 @@ impl EquityOption {
         ticker: impl Into<String>,
         strike: f64,
         expiry: Date,
-        notional: Money,
         contract_size: f64,
     ) -> finstack_core::Result<Self> {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
@@ -253,7 +248,7 @@ impl EquityOption {
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .underlying_ticker(underlying.ticker)
-            .strike(Money::new(strike, notional.currency()))
+            .strike(strike)
             .option_type(OptionType::Put)
             .exercise_style(ExerciseStyle::European)
             .expiry(expiry)
@@ -279,7 +274,6 @@ impl EquityOption {
         ticker: impl Into<String>,
         strike: f64,
         expiry: Date,
-        notional: Money,
         contract_size: f64,
     ) -> finstack_core::Result<Self> {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
@@ -289,7 +283,7 @@ impl EquityOption {
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .underlying_ticker(underlying.ticker)
-            .strike(Money::new(strike, notional.currency()))
+            .strike(strike)
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::American)
             .expiry(expiry)
@@ -422,7 +416,7 @@ impl EquityOption {
             let (spot, r, q, sigma, t) = pricer::collect_inputs(self, curves, as_of)?;
             (spot, r, q, sigma, t)
         };
-        let k = self.strike.amount();
+        let k = self.strike;
         let target_unit = market_price / self.contract_size;
         Ok(crate::instruments::common_impl::models::bs_implied_vol(
             spot,
@@ -686,7 +680,7 @@ mod tests {
         EquityOption::builder()
             .id(InstrumentId::new("EQ-OPT"))
             .underlying_ticker("SPX".to_string())
-            .strike(Money::new(100.0, Currency::USD))
+            .strike(100.0)
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
             .expiry(expiry)
@@ -714,11 +708,8 @@ mod tests {
     #[test]
     fn convenience_constructors_apply_standard_conventions() {
         let expiry = date(2025, 12, 31);
-        let notional = Money::new(1_000_000.0, Currency::USD);
-        let call = test_utils::equity_option_european_call(
-            "SPX-CALL", "SPX", 100.0, expiry, notional, 100.0,
-        )
-        .unwrap();
+        let call = test_utils::equity_option_european_call("SPX-CALL", "SPX", 100.0, expiry, 100.0)
+            .unwrap();
         assert_eq!(call.exercise_style, ExerciseStyle::European);
         assert_eq!(call.option_type, OptionType::Call);
         assert_eq!(call.discount_curve_id, CurveId::new(DISC_ID));
@@ -726,15 +717,13 @@ mod tests {
         assert_eq!(call.vol_surface_id, CurveId::new("EQUITY-VOL"));
 
         let put =
-            test_utils::equity_option_european_put("SPX-PUT", "SPX", 90.0, expiry, notional, 50.0)
-                .unwrap();
+            test_utils::equity_option_european_put("SPX-PUT", "SPX", 90.0, expiry, 50.0).unwrap();
         assert_eq!(put.option_type, OptionType::Put);
         assert_eq!(put.contract_size, 50.0);
 
-        let american = test_utils::equity_option_american_call(
-            "SPX-AMER", "SPX", 105.0, expiry, notional, 75.0,
-        )
-        .unwrap();
+        let american =
+            test_utils::equity_option_american_call("SPX-AMER", "SPX", 105.0, expiry, 75.0)
+                .unwrap();
         assert_eq!(american.exercise_style, ExerciseStyle::American);
         assert_eq!(american.contract_size, 75.0);
     }
@@ -751,15 +740,8 @@ mod tests {
             .expect("NPV calculation should succeed in test");
         let (spot, r, q, sigma, t) = pricer::collect_inputs(&option, &curves, as_of)
             .expect("Input collection should succeed in test");
-        let expected_unit = pricer::price_bs_unit(
-            spot,
-            option.strike.amount(),
-            r,
-            q,
-            sigma,
-            t,
-            option.option_type,
-        );
+        let expected_unit =
+            pricer::price_bs_unit(spot, option.strike, r, q, sigma, t, option.option_type);
         // Slightly wider tolerance due to MonotoneConvex interpolation (vs Linear)
         approx_eq(price.amount(), expected_unit * option.contract_size, 5e-3);
 
@@ -837,7 +819,7 @@ mod tests {
             pricer::collect_inputs(&override_option, &curves, as_of).expect("should succeed");
         let expected = pricer::price_bs_unit(
             spot,
-            override_option.strike.amount(),
+            override_option.strike,
             r,
             q,
             0.45,
@@ -948,7 +930,7 @@ mod tests {
         // Using the inputs directly in the BS formula
         let bs_price = pricer::price_bs_unit(
             inputs.spot,
-            option.strike.amount(),
+            option.strike,
             inputs.r,
             inputs.q,
             inputs.sigma,

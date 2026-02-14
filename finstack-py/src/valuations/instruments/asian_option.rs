@@ -175,12 +175,10 @@ impl PyAsianOption {
             }
         };
 
-        let strike_money = finstack_core::money::Money::new(strike, notional_money.currency());
-
         let mut builder = AsianOption::builder();
         builder = builder.id(id);
         builder = builder.underlying_ticker(ticker.to_string());
-        builder = builder.strike(strike_money);
+        builder = builder.strike(strike);
         builder = builder.option_type(opt_type);
         builder = builder.averaging_method(avg_method);
         builder = builder.expiry(expiry_date);
@@ -219,13 +217,13 @@ impl PyAsianOption {
         &self.inner.underlying_ticker
     }
 
-    /// Strike price as money.
+    /// Strike price as scalar.
     ///
     /// Returns:
-    ///     Money: Strike price wrapped as :class:`finstack.core.money.Money`.
+    ///     float: Strike price in underlying price units.
     #[getter]
-    fn strike(&self) -> PyMoney {
-        PyMoney::new(self.inner.strike)
+    fn strike(&self) -> f64 {
+        self.inner.strike
     }
 
     /// Option type label (``"call"``/``"put"``).
@@ -324,7 +322,7 @@ impl PyAsianOption {
             "AsianOption(id='{}', ticker='{}', strike={}, expiry={}, averaging_method='{}')",
             self.inner.id.as_str(),
             self.inner.underlying_ticker,
-            self.inner.strike.amount(),
+            self.inner.strike,
             self.inner.expiry,
             match self.inner.averaging_method {
                 AveragingMethod::Arithmetic => "arithmetic",

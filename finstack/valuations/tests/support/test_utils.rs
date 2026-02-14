@@ -183,7 +183,6 @@ pub fn equity_option_european_call(
     ticker: impl Into<String>,
     strike: f64,
     expiry: Date,
-    notional: Money,
     contract_size: f64,
 ) -> finstack_core::Result<EquityOption> {
     let ticker = ticker.into();
@@ -194,7 +193,7 @@ pub fn equity_option_european_call(
     EquityOption::builder()
         .id(InstrumentId::new(id.into()))
         .underlying_ticker(underlying.ticker)
-        .strike(Money::new(strike, notional.currency()))
+        .strike(strike)
         .option_type(OptionType::Call)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
@@ -216,7 +215,6 @@ pub fn equity_option_european_put(
     ticker: impl Into<String>,
     strike: f64,
     expiry: Date,
-    notional: Money,
     contract_size: f64,
 ) -> finstack_core::Result<EquityOption> {
     let ticker = ticker.into();
@@ -227,7 +225,7 @@ pub fn equity_option_european_put(
     EquityOption::builder()
         .id(InstrumentId::new(id.into()))
         .underlying_ticker(underlying.ticker)
-        .strike(Money::new(strike, notional.currency()))
+        .strike(strike)
         .option_type(OptionType::Put)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
@@ -249,7 +247,6 @@ pub fn equity_option_american_call(
     ticker: impl Into<String>,
     strike: f64,
     expiry: Date,
-    notional: Money,
     contract_size: f64,
 ) -> finstack_core::Result<EquityOption> {
     let ticker = ticker.into();
@@ -260,7 +257,7 @@ pub fn equity_option_american_call(
     EquityOption::builder()
         .id(InstrumentId::new(id.into()))
         .underlying_ticker(underlying.ticker)
-        .strike(Money::new(strike, notional.currency()))
+        .strike(strike)
         .option_type(OptionType::Call)
         .exercise_style(ExerciseStyle::American)
         .expiry(expiry)

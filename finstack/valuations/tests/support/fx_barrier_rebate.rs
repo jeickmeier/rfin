@@ -44,7 +44,7 @@ fn test_fx_barrier_rebate_added_to_closed_form_price() {
 
     let base_option = FxBarrierOption::builder()
         .id(InstrumentId::new("FXBAR-REBATE-BASE"))
-        .strike(Money::new(strike, Currency::USD))
+        .strike(strike)
         .barrier(Money::new(barrier, Currency::USD))
         .option_type(OptionType::Call)
         .barrier_type(BarrierType::UpAndOut)

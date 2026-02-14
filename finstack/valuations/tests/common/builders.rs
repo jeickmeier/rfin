@@ -261,7 +261,7 @@ impl TestOptionBuilder {
         EquityOption {
             id: self.id.into(),
             underlying_ticker: self.underlying_ticker,
-            strike: Money::new(self.strike, self.currency),
+            strike: self.strike,
             option_type: self.option_type,
             exercise_style: self.exercise_style,
             expiry: self.expiry,
@@ -420,7 +420,7 @@ mod tests {
         let expiry = date!(2025 - 01 - 01);
         let option = TestOptionBuilder::new(expiry).build();
 
-        assert_eq!(option.strike.amount(), 100.0);
+        assert_eq!(option.strike, 100.0);
         assert!(matches!(option.option_type, OptionType::Call));
         assert_eq!(option.contract_size, 100.0);
         assert_eq!(option.expiry, expiry);
@@ -431,7 +431,7 @@ mod tests {
         let expiry = date!(2025 - 01 - 01);
         let option = TestOptionBuilder::new(expiry).strike(120.0).build();
 
-        assert_eq!(option.strike.amount(), 120.0);
+        assert_eq!(option.strike, 120.0);
     }
 
     #[test]
@@ -539,7 +539,7 @@ mod tests {
         let option = simple_call_option(expiry, 110.0);
 
         assert!(matches!(option.option_type, OptionType::Call));
-        assert_eq!(option.strike.amount(), 110.0);
+        assert_eq!(option.strike, 110.0);
         assert_eq!(option.expiry, expiry);
     }
 
@@ -549,7 +549,7 @@ mod tests {
         let option = simple_put_option(expiry, 90.0);
 
         assert!(matches!(option.option_type, OptionType::Put));
-        assert_eq!(option.strike.amount(), 90.0);
+        assert_eq!(option.strike, 90.0);
         assert_eq!(option.expiry, expiry);
     }
 
@@ -558,7 +558,7 @@ mod tests {
         let expiry = date!(2025 - 01 - 01);
         let option = test_option(expiry).strike(120.0).build();
 
-        assert_eq!(option.strike.amount(), 120.0);
+        assert_eq!(option.strike, 120.0);
     }
 
     #[test]
@@ -608,7 +608,7 @@ mod tests {
         let expiry = date!(2025 - 01 - 01);
         // Very low strike (deep ITM call)
         let option = TestOptionBuilder::new(expiry).strike(10.0).build();
-        assert_eq!(option.strike.amount(), 10.0);
+        assert_eq!(option.strike, 10.0);
     }
 
     #[test]
@@ -616,6 +616,6 @@ mod tests {
         let expiry = date!(2025 - 01 - 01);
         // Very high strike (deep OTM call)
         let option = TestOptionBuilder::new(expiry).strike(500.0).build();
-        assert_eq!(option.strike.amount(), 500.0);
+        assert_eq!(option.strike, 500.0);
     }
 }

@@ -280,7 +280,7 @@ where
                 RiskFactorType::ImpliedVol {
                     surface_id: opt.vol_surface_id.clone(),
                     expiry_years: 0.0,
-                    strike: opt.strike.amount(),
+                    strike: opt.strike,
                 },
             );
         }
@@ -422,7 +422,7 @@ mod tests {
         let option = EquityOption::builder()
             .id(finstack_core::types::InstrumentId::new("EQO"))
             .underlying_ticker("AAPL".to_string())
-            .strike(Money::new(100.0, Currency::USD))
+            .strike(100.0)
             .option_type(crate::instruments::OptionType::Call)
             .exercise_style(crate::instruments::ExerciseStyle::European)
             .expiry(expiry)

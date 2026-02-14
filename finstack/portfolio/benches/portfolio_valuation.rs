@@ -457,14 +457,10 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     for i in 0..positions_per_common {
         let option_id = format!("OPTION_{}", i);
         let contract_size = 100.0;
-        let option_params = EquityOptionParams::new(
-            Money::new(150.0, Currency::USD),
-            maturity_2y(),
-            OptionType::Call,
-            contract_size,
-        )
-        .with_exercise_style(ExerciseStyle::European)
-        .with_settlement(SettlementType::Cash);
+        let option_params =
+            EquityOptionParams::new(150.0, maturity_2y(), OptionType::Call, contract_size)
+                .with_exercise_style(ExerciseStyle::European)
+                .with_settlement(SettlementType::Cash);
 
         let underlying_params = EquityUnderlyingParams::new("AAPL", "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD")

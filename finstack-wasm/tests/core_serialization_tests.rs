@@ -135,7 +135,6 @@ fn instrument_tojson_fromjson_roundtrips_smoke() {
         200.0,
         "call",
         &FsDate::new(2025, 1, 2).unwrap(),
-        &notional,
         Some(1.0),
     )
     .unwrap();

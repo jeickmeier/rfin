@@ -56,7 +56,7 @@
 //! let asian = AsianOption::builder()
 //!     .id(InstrumentId::new("ASIAN-SPX"))
 //!     .underlying_ticker("SPX".to_string())
-//!     .strike(Money::new(4500.0, Currency::USD))
+//!     .strike(4500.0)
 //!     .option_type(OptionType::Call)
 //!     .averaging_method(AveragingMethod::Arithmetic)
 //!     .expiry(date!(2025-06-30))

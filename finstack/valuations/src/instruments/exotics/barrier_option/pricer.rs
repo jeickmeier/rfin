@@ -97,7 +97,7 @@ impl BarrierOptionMcPricer {
             // determine the triggering condition.
             return Ok(finstack_core::money::Money::new(
                 0.0,
-                inst.strike.currency(),
+                inst.notional.currency(),
             ));
         }
 
@@ -131,7 +131,7 @@ impl BarrierOptionMcPricer {
 
         // Get volatility using vol surface time basis
         let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t_vol, inst.strike.amount());
+        let sigma = vol_surface.value_clamped(t_vol, inst.strike);
 
         // Create GBM process
         let gbm_params = GbmParams::new(r, q, sigma);
@@ -146,7 +146,7 @@ impl BarrierOptionMcPricer {
         // Create payoff (using vol surface time for barrier adjustment calculations)
         let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
         let payoff = BarrierOptionPayoff::new(
-            inst.strike.amount(),
+            inst.strike,
             inst.barrier.amount(),
             mc_barrier_type,
             inst.option_type,
@@ -190,7 +190,7 @@ impl BarrierOptionMcPricer {
             t_vol,
             num_steps,
             &payoff,
-            inst.strike.currency(),
+            inst.notional.currency(),
             discount_factor,
         )?;
 
@@ -223,7 +223,7 @@ impl BarrierOptionMcPricer {
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
         if t_vol <= 0.0 {
             return Ok((
-                finstack_core::money::Money::new(0.0, inst.strike.currency()),
+                finstack_core::money::Money::new(0.0, inst.notional.currency()),
                 None,
             ));
         }
@@ -256,7 +256,7 @@ impl BarrierOptionMcPricer {
 
         // Volatility and process (using vol surface time basis)
         let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t_vol, inst.strike.amount());
+        let sigma = vol_surface.value_clamped(t_vol, inst.strike);
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
 
@@ -266,7 +266,7 @@ impl BarrierOptionMcPricer {
         let maturity_step = num_steps - 1;
         let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
         let payoff = BarrierOptionPayoff::new(
-            inst.strike.amount(),
+            inst.strike,
             inst.barrier.amount(),
             mc_barrier_type,
             inst.option_type,
@@ -306,7 +306,7 @@ impl BarrierOptionMcPricer {
             t_vol,
             num_steps,
             &payoff,
-            inst.strike.currency(),
+            inst.notional.currency(),
             discount_factor,
             r,
             q,
@@ -440,7 +440,7 @@ impl Pricer for BarrierOptionAnalyticalPricer {
             &barrier_opt.discount_curve_id,
             barrier_opt.div_yield_id.as_ref(),
             &barrier_opt.vol_surface_id,
-            barrier_opt.strike.amount(),
+            barrier_opt.strike,
             barrier_opt.expiry,
             barrier_opt.day_count,
             market,
@@ -454,7 +454,7 @@ impl Pricer for BarrierOptionAnalyticalPricer {
             return Ok(ValuationResult::stamped(
                 barrier_opt.id(),
                 as_of,
-                Money::new(0.0, barrier_opt.strike.currency()),
+                Money::new(0.0, barrier_opt.notional.currency()),
             ));
         }
 
@@ -470,7 +470,7 @@ impl Pricer for BarrierOptionAnalyticalPricer {
         let price = match barrier_opt.option_type {
             crate::instruments::OptionType::Call => barrier_call_continuous(
                 spot,
-                barrier_opt.strike.amount(),
+                barrier_opt.strike,
                 barrier_opt.barrier.amount(),
                 t,
                 r,
@@ -480,7 +480,7 @@ impl Pricer for BarrierOptionAnalyticalPricer {
             ),
             crate::instruments::OptionType::Put => barrier_put_continuous(
                 spot,
-                barrier_opt.strike.amount(),
+                barrier_opt.strike,
                 barrier_opt.barrier.amount(),
                 t,
                 r,
@@ -507,7 +507,7 @@ impl Pricer for BarrierOptionAnalyticalPricer {
 
         let pv = Money::new(
             (price + rebate_val) * barrier_opt.notional.amount(),
-            barrier_opt.strike.currency(),
+            barrier_opt.notional.currency(),
         );
         Ok(ValuationResult::stamped(barrier_opt.id(), as_of, pv))
     }

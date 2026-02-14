@@ -28,7 +28,6 @@ fn create_test_call() -> EquityOption {
         "AAPL",
         100.0, // strike
         expiry,
-        Money::new(100.0, Currency::USD),
         100.0, // contract size
     )
     .expect("Test option creation should succeed")
@@ -257,15 +256,9 @@ fn test_option_all_greeks_determinism() {
 #[test]
 fn test_option_put_determinism() {
     let expiry = Date::from_calendar_date(2026, Month::January, 15).unwrap();
-    let put = test_utils::equity_option_european_put(
-        "PUT-DETERMINISM",
-        "AAPL",
-        100.0,
-        expiry,
-        Money::new(100.0, Currency::USD),
-        100.0,
-    )
-    .unwrap();
+    let put =
+        test_utils::equity_option_european_put("PUT-DETERMINISM", "AAPL", 100.0, expiry, 100.0)
+            .unwrap();
 
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
@@ -300,7 +293,6 @@ fn test_option_different_moneyness_determinism() {
             "AAPL",
             strike,
             expiry,
-            Money::new(100.0, Currency::USD),
             1.0,
         )
         .unwrap();
@@ -325,24 +317,10 @@ fn test_option_put_call_parity_determinism() {
     let expiry = Date::from_calendar_date(2026, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
 
-    let call = test_utils::equity_option_european_call(
-        "PARITY-CALL",
-        "AAPL",
-        100.0,
-        expiry,
-        Money::new(100.0, Currency::USD),
-        1.0,
-    )
-    .unwrap();
-    let put = test_utils::equity_option_european_put(
-        "PARITY-PUT",
-        "AAPL",
-        100.0,
-        expiry,
-        Money::new(100.0, Currency::USD),
-        1.0,
-    )
-    .unwrap();
+    let call =
+        test_utils::equity_option_european_call("PARITY-CALL", "AAPL", 100.0, expiry, 1.0).unwrap();
+    let put =
+        test_utils::equity_option_european_put("PARITY-PUT", "AAPL", 100.0, expiry, 1.0).unwrap();
 
     // Price multiple times for determinism
     let parities: Vec<f64> = (0..30)

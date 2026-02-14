@@ -81,7 +81,6 @@ proptest! {
             "AAPL",
             strike,
             expiry,
-            Money::new(strike, Currency::USD),
             1.0,
         )
         .unwrap();
@@ -129,7 +128,6 @@ proptest! {
             "AAPL",
             strike,
             expiry,
-            Money::new(strike, Currency::USD),
             1.0,
         )
         .unwrap();
@@ -175,7 +173,6 @@ proptest! {
             "AAPL",
             strike,
             expiry,
-            Money::new(strike, Currency::USD),
             1.0,
         )
         .unwrap();
@@ -206,7 +203,6 @@ proptest! {
             "AAPL",
             strike,
             expiry,
-            Money::new(strike, Currency::USD),
             1.0,
         )
         .unwrap();
@@ -239,7 +235,6 @@ proptest! {
             "AAPL",
             strike,
             expiry,
-            Money::new(strike, Currency::USD),
             1.0,
         )
         .unwrap();

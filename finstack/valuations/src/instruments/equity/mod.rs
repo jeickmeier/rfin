@@ -36,7 +36,7 @@
 //! let option = EquityOption::builder()
 //!     .id(InstrumentId::new("SPX-CALL-4500"))
 //!     .underlying_ticker("SPX".to_string())
-//!     .strike(Money::new(4500.0, Currency::USD))
+//!     .strike(4500.0)
 //!     .option_type(OptionType::Call)
 //!     .exercise_style(ExerciseStyle::European)
 //!     .expiry(date!(2025 - 07 - 15))

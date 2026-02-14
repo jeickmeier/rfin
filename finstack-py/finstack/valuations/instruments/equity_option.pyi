@@ -11,8 +11,6 @@ class EquityOptionBuilder:
     """Fluent builder returned by :meth:`EquityOption.builder`."""
 
     def __init__(self, instrument_id: str) -> None: ...
-    def currency(self, currency: Union[str, Currency]) -> "EquityOptionBuilder": ...
-    def money(self, money: Money) -> "EquityOptionBuilder": ...
     def ticker(self, ticker: str) -> "EquityOptionBuilder": ...
     def strike(self, strike: float) -> "EquityOptionBuilder": ...
     def option_type(self, option_type: str) -> "EquityOptionBuilder": ...
@@ -48,7 +46,6 @@ class EquityOption:
         >>> from finstack.valuations.instruments import EquityOption
         >>> option = (
         ...     EquityOption.builder("SPX-CALL-4500")
-        ...     .money(Money(100_000, Currency("USD")))
         ...     .ticker("SPX")
         ...     .strike(4500.0)
         ...     .expiry(date(2024, 12, 20))
@@ -74,7 +71,6 @@ class EquityOption:
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> option = (
         ...     EquityOption.builder("SPX-CALL-4500")
-        ...     .money(Money(100_000, Currency("USD")))
         ...     .ticker("SPX")
         ...     .strike(4500.0)
         ...     .expiry(date(2024, 12, 20))
@@ -139,7 +135,7 @@ class EquityOption:
     @property
     def ticker(self) -> str: ...
     @property
-    def strike(self) -> Money: ...
+    def strike(self) -> float: ...
     @property
     def contract_size(self) -> float: ...
     @property

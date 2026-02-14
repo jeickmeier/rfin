@@ -140,14 +140,10 @@ fn main() -> finstack_core::Result<()> {
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
 
-        let option_params = EquityOptionParams::new(
-            Money::new(150.0, Currency::USD),
-            expiry_1y,
-            OptionType::Call,
-            contract_size,
-        )
-        .with_exercise_style(ExerciseStyle::European)
-        .with_settlement(SettlementType::Cash);
+        let option_params =
+            EquityOptionParams::new(150.0, expiry_1y, OptionType::Call, contract_size)
+                .with_exercise_style(ExerciseStyle::European)
+                .with_settlement(SettlementType::Cash);
 
         EquityOption::new(
             "OPT-001",
@@ -157,7 +153,7 @@ fn main() -> finstack_core::Result<()> {
             CurveId::new("EQUITY-VOL"),
         )
     };
-    println!("✓ Equity option created: {} strike", option.strike.amount());
+    println!("✓ Equity option created: {} strike", option.strike);
 
     println!();
 
@@ -230,7 +226,7 @@ fn main() -> finstack_core::Result<()> {
     let custom_option = EquityOption::builder()
         .id("TSLA-CALL-CUSTOM".into())
         .underlying_ticker(underlying_params.ticker)
-        .strike(Money::new(200.0, Currency::USD))
+        .strike(200.0)
         .option_type(finstack_valuations::instruments::OptionType::Call)
         .exercise_style(option_type)
         .expiry(expiry_1y)

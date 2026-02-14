@@ -18,7 +18,7 @@ fn get_base_builder(as_of: Date) -> LookbackOptionBuilder {
     LookbackOption::builder()
         .id(InstrumentId::new("TEST-LOOKBACK"))
         .underlying_ticker("SPX".to_string())
-        .strike_opt(Some(Money::new(100.0, Currency::USD)))
+        .strike_opt(Some(100.0))
         .option_type(finstack_valuations::instruments::OptionType::Call)
         .lookback_type(LookbackType::FixedStrike)
         .expiry(expiry)

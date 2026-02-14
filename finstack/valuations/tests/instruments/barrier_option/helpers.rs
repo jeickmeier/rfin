@@ -81,7 +81,7 @@ pub fn create_down_and_out_call(
     BarrierOption {
         id: "BARRIER_DOC_TEST".into(),
         underlying_ticker: SPOT_ID.into(),
-        strike: Money::new(strike, Currency::USD),
+        strike,
         barrier: Money::new(barrier, Currency::USD),
         rebate: None,
         option_type: OptionType::Call,

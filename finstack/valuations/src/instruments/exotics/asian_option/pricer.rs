@@ -81,12 +81,12 @@ impl AsianOptionMcPricer {
             };
 
             let intrinsic = match inst.option_type {
-                crate::instruments::OptionType::Call => (average - inst.strike.amount()).max(0.0),
-                crate::instruments::OptionType::Put => (inst.strike.amount() - average).max(0.0),
+                crate::instruments::OptionType::Call => (average - inst.strike).max(0.0),
+                crate::instruments::OptionType::Put => (inst.strike - average).max(0.0),
             };
             return Ok(Money::new(
                 intrinsic * inst.notional.amount(),
-                inst.strike.currency(),
+                inst.notional.currency(),
             ));
         }
 
@@ -127,7 +127,7 @@ impl AsianOptionMcPricer {
 
         // Get volatility
         let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t, inst.strike.amount());
+        let sigma = vol_surface.value_clamped(t, inst.strike);
 
         // Create GBM process
         let gbm_params = GbmParams::new(r, q, sigma);
@@ -198,7 +198,7 @@ impl AsianOptionMcPricer {
 
                 // Arithmetic payoff
                 let arith_payoff = AsianCall::with_history(
-                    inst.strike.amount(),
+                    inst.strike,
                     inst.notional.amount(),
                     crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
                     fixing_steps.clone(),
@@ -212,13 +212,13 @@ impl AsianOptionMcPricer {
                     t,
                     num_steps,
                     &arith_payoff,
-                    inst.strike.currency(),
+                    inst.notional.currency(),
                     discount_factor,
                 )?;
 
                 // Geometric payoff (same RNG via same seed)
                 let geom_payoff = AsianCall::with_history(
-                    inst.strike.amount(),
+                    inst.strike,
                     inst.notional.amount(),
                     crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Geometric,
                     fixing_steps.clone(),
@@ -232,7 +232,7 @@ impl AsianOptionMcPricer {
                     t,
                     num_steps,
                     &geom_payoff,
-                    inst.strike.currency(),
+                    inst.notional.currency(),
                     discount_factor,
                 )?;
 
@@ -306,13 +306,13 @@ impl AsianOptionMcPricer {
                             min: None,
                             max: None,
                         },
-                        inst.strike.currency(),
+                        inst.notional.currency(),
                     )
                     .mean
                 } else {
                     let control_analytical = geometric_asian_call(
                         spot,
-                        inst.strike.amount(),
+                        inst.strike,
                         t,
                         r,
                         q,
@@ -329,7 +329,7 @@ impl AsianOptionMcPricer {
                         control_analytical,
                         n,
                     );
-                    MoneyEstimate::from_estimate(adj, inst.strike.currency()).mean
+                    MoneyEstimate::from_estimate(adj, inst.notional.currency()).mean
                 }
             }
             (
@@ -341,7 +341,7 @@ impl AsianOptionMcPricer {
                 let pricer_cap = PathDependentPricer::new(cfg_cap);
 
                 let arith_payoff = AsianPut::with_history(
-                    inst.strike.amount(),
+                    inst.strike,
                     inst.notional.amount(),
                     crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
                     fixing_steps.clone(),
@@ -355,12 +355,12 @@ impl AsianOptionMcPricer {
                     t,
                     num_steps,
                     &arith_payoff,
-                    inst.strike.currency(),
+                    inst.notional.currency(),
                     discount_factor,
                 )?;
 
                 let geom_payoff = AsianPut::with_history(
-                    inst.strike.amount(),
+                    inst.strike,
                     inst.notional.amount(),
                     crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Geometric,
                     fixing_steps.clone(),
@@ -374,7 +374,7 @@ impl AsianOptionMcPricer {
                     t,
                     num_steps,
                     &geom_payoff,
-                    inst.strike.currency(),
+                    inst.notional.currency(),
                     discount_factor,
                 )?;
 
@@ -435,13 +435,13 @@ impl AsianOptionMcPricer {
                             min: None,
                             max: None,
                         },
-                        inst.strike.currency(),
+                        inst.notional.currency(),
                     )
                     .mean
                 } else {
                     let control_analytical = geometric_asian_put(
                         spot,
-                        inst.strike.amount(),
+                        inst.strike,
                         t,
                         r,
                         q,
@@ -458,7 +458,7 @@ impl AsianOptionMcPricer {
                         control_analytical,
                         n,
                     );
-                    MoneyEstimate::from_estimate(adj, inst.strike.currency()).mean
+                    MoneyEstimate::from_estimate(adj, inst.notional.currency()).mean
                 }
             }
             // Geometric averaging (no CV needed) or fallback path
@@ -467,7 +467,7 @@ impl AsianOptionMcPricer {
                 match inst.option_type {
                     crate::instruments::OptionType::Call => {
                         let payoff = AsianCall::with_history(
-                            inst.strike.amount(),
+                            inst.strike,
                             inst.notional.amount(),
                             averaging,
                             fixing_steps,
@@ -482,14 +482,14 @@ impl AsianOptionMcPricer {
                                 t,
                                 num_steps,
                                 &payoff,
-                                inst.strike.currency(),
+                                inst.notional.currency(),
                                 discount_factor,
                             )?
                             .mean
                     }
                     crate::instruments::OptionType::Put => {
                         let payoff = AsianPut::with_history(
-                            inst.strike.amount(),
+                            inst.strike,
                             inst.notional.amount(),
                             averaging,
                             fixing_steps,
@@ -504,7 +504,7 @@ impl AsianOptionMcPricer {
                                 t,
                                 num_steps,
                                 &payoff,
-                                inst.strike.currency(),
+                                inst.notional.currency(),
                                 discount_factor,
                             )?
                             .mean
@@ -553,12 +553,12 @@ impl AsianOptionMcPricer {
                 }
             };
             let intrinsic = match inst.option_type {
-                crate::instruments::OptionType::Call => (average - inst.strike.amount()).max(0.0),
-                crate::instruments::OptionType::Put => (inst.strike.amount() - average).max(0.0),
+                crate::instruments::OptionType::Call => (average - inst.strike).max(0.0),
+                crate::instruments::OptionType::Put => (inst.strike - average).max(0.0),
             };
 
             return Ok((
-                Money::new(intrinsic * inst.notional.amount(), inst.strike.currency()),
+                Money::new(intrinsic * inst.notional.amount(), inst.notional.currency()),
                 None,
             ));
         }
@@ -596,7 +596,7 @@ impl AsianOptionMcPricer {
         };
 
         let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t, inst.strike.amount());
+        let sigma = vol_surface.value_clamped(t, inst.strike);
 
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
@@ -655,7 +655,7 @@ impl AsianOptionMcPricer {
             crate::instruments::OptionType::Call => {
                 let payoff =
                     crate::instruments::common_impl::models::monte_carlo::payoff::asian::AsianCall::with_history(
-                        inst.strike.amount(),
+                        inst.strike,
                         inst.notional.amount(),
                         averaging,
                         fixing_steps,
@@ -669,7 +669,7 @@ impl AsianOptionMcPricer {
                     t,
                     num_steps,
                     &payoff,
-                    inst.strike.currency(),
+                    inst.notional.currency(),
                     discount_factor,
                     r,
                     q,
@@ -679,7 +679,7 @@ impl AsianOptionMcPricer {
             crate::instruments::OptionType::Put => {
                 let payoff =
                     crate::instruments::common_impl::models::monte_carlo::payoff::asian::AsianPut::with_history(
-                        inst.strike.amount(),
+                        inst.strike,
                         inst.notional.amount(),
                         averaging,
                         fixing_steps,
@@ -693,7 +693,7 @@ impl AsianOptionMcPricer {
                     t,
                     num_steps,
                     &payoff,
-                    inst.strike.currency(),
+                    inst.notional.currency(),
                     discount_factor,
                     r,
                     q,
@@ -810,7 +810,7 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
             &asian.discount_curve_id,
             asian.div_yield_id.as_ref(),
             &asian.vol_surface_id,
-            asian.strike.amount(),
+            asian.strike,
             asian.expiry,
             asian.day_count,
             market,
@@ -840,13 +840,16 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
             };
 
             let intrinsic = match asian.option_type {
-                crate::instruments::OptionType::Call => (average - asian.strike.amount()).max(0.0),
-                crate::instruments::OptionType::Put => (asian.strike.amount() - average).max(0.0),
+                crate::instruments::OptionType::Call => (average - asian.strike).max(0.0),
+                crate::instruments::OptionType::Put => (asian.strike - average).max(0.0),
             };
             return Ok(ValuationResult::stamped(
                 asian.id(),
                 as_of,
-                Money::new(intrinsic * asian.notional.amount(), asian.strike.currency()),
+                Money::new(
+                    intrinsic * asian.notional.amount(),
+                    asian.notional.currency(),
+                ),
             ));
         }
 
@@ -867,14 +870,14 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
 
         let price = match asian.option_type {
             crate::instruments::OptionType::Call => {
-                geometric_asian_call(spot, asian.strike.amount(), t, r, q, sigma, total_fixings)
+                geometric_asian_call(spot, asian.strike, t, r, q, sigma, total_fixings)
             }
             crate::instruments::OptionType::Put => {
-                geometric_asian_put(spot, asian.strike.amount(), t, r, q, sigma, total_fixings)
+                geometric_asian_put(spot, asian.strike, t, r, q, sigma, total_fixings)
             }
         };
 
-        let pv = Money::new(price * asian.notional.amount(), asian.strike.currency());
+        let pv = Money::new(price * asian.notional.amount(), asian.notional.currency());
         Ok(ValuationResult::stamped(asian.id(), as_of, pv))
     }
 }
@@ -921,7 +924,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
             &asian.discount_curve_id,
             asian.div_yield_id.as_ref(),
             &asian.vol_surface_id,
-            asian.strike.amount(),
+            asian.strike,
             asian.expiry,
             asian.day_count,
             market,
@@ -945,13 +948,16 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
         if t <= 0.0 {
             let average = if count > 0 { sum / count as f64 } else { spot };
             let intrinsic = match asian.option_type {
-                crate::instruments::OptionType::Call => (average - asian.strike.amount()).max(0.0),
-                crate::instruments::OptionType::Put => (asian.strike.amount() - average).max(0.0),
+                crate::instruments::OptionType::Call => (average - asian.strike).max(0.0),
+                crate::instruments::OptionType::Put => (asian.strike - average).max(0.0),
             };
             return Ok(ValuationResult::stamped(
                 asian.id(),
                 as_of,
-                Money::new(intrinsic * asian.notional.amount(), asian.strike.currency()),
+                Money::new(
+                    intrinsic * asian.notional.amount(),
+                    asian.notional.currency(),
+                ),
             ));
         }
 
@@ -960,8 +966,8 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
             // Deterministic case (all fixings past, but not expired?)
             let average = sum / total_fixings as f64;
             let payoff = match asian.option_type {
-                crate::instruments::OptionType::Call => (average - asian.strike.amount()).max(0.0),
-                crate::instruments::OptionType::Put => (asian.strike.amount() - average).max(0.0),
+                crate::instruments::OptionType::Call => (average - asian.strike).max(0.0),
+                crate::instruments::OptionType::Put => (asian.strike - average).max(0.0),
             };
             // Use the date-based DF from inputs
             return Ok(ValuationResult::stamped(
@@ -969,14 +975,14 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                 as_of,
                 Money::new(
                     payoff * df_expiry * asian.notional.amount(),
-                    asian.strike.currency(),
+                    asian.notional.currency(),
                 ),
             ));
         }
 
         let n = total_fixings as f64;
         let m = future_fixings as f64;
-        let k = asian.strike.amount();
+        let k = asian.strike;
 
         let numerator = n * k - sum;
         let k_eff = numerator / m;
@@ -1079,7 +1085,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
             unscaled * scale
         };
 
-        let pv = Money::new(price * asian.notional.amount(), asian.strike.currency());
+        let pv = Money::new(price * asian.notional.amount(), asian.notional.currency());
         Ok(ValuationResult::stamped(asian.id(), as_of, pv))
     }
 }

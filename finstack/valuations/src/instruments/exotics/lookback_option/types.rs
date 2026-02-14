@@ -86,7 +86,7 @@ pub struct LookbackOption {
     /// Underlying asset ticker symbol
     pub underlying_ticker: String,
     /// Strike price (None for floating strike lookbacks)
-    pub strike: Option<Money>, // None for floating strike
+    pub strike: Option<f64>, // None for floating strike
     /// Option type (call or put)
     pub option_type: OptionType,
     /// Lookback type (fixed or floating strike)
@@ -135,7 +135,7 @@ impl LookbackOption {
         LookbackOption::builder()
             .id(InstrumentId::new("LOOKBACK-SPX-FIXED-CALL"))
             .underlying_ticker("SPX".to_string())
-            .strike_opt(Some(Money::new(4500.0, Currency::USD)))
+            .strike_opt(Some(4500.0))
             .option_type(crate::instruments::OptionType::Call)
             .lookback_type(LookbackType::FixedStrike)
             .expiry(date!(2024 - 12 - 20))
