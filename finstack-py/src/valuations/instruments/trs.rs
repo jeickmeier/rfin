@@ -449,6 +449,7 @@ impl PyEquityTotalReturnSwapBuilder {
             initial_level: slf.initial_level,
             dividend_tax_rate: slf.dividend_tax_rate,
             discrete_dividends: slf.discrete_dividends.clone(),
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
             margin_spec: None,
         };
@@ -705,6 +706,7 @@ impl PyFiIndexTotalReturnSwapBuilder {
             schedule: slf.schedule.clone().unwrap(),
             side: slf.side.unwrap(),
             initial_level: slf.initial_level,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
             margin_spec: None,
         };

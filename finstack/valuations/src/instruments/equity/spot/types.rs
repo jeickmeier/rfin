@@ -49,6 +49,10 @@ pub struct Equity {
     /// Discount curve ID for pricing
     pub discount_curve_id: CurveId,
     /// Attributes for scenario selection and tagging
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -81,6 +85,7 @@ impl Equity {
             price_id: None,
             div_yield_id: None,
             discount_curve_id,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         }
     }
@@ -333,6 +338,18 @@ impl crate::instruments::common_impl::traits::Instrument for Equity {
 
     fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
         Some(self)
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

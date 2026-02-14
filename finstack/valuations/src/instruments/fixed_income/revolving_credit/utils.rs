@@ -272,6 +272,7 @@ mod tests {
             credit_curve_id: None,
             recovery_rate: 0.0,
             stub: StubKind::ShortFront,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: attrs,
         }
     }

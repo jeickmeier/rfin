@@ -414,6 +414,7 @@ impl PyVarianceSwapBuilder {
             side: slf.side,
             discount_curve_id,
             day_count: slf.day_count,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         };
 

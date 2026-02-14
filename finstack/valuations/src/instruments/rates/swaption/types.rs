@@ -1168,6 +1168,18 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.swap_start)
     }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator
@@ -1258,6 +1270,7 @@ pub struct BermudanSwaption {
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     #[serde(default)]
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -1651,6 +1664,18 @@ impl crate::instruments::common_impl::traits::Instrument for BermudanSwaption {
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.swap_start)
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

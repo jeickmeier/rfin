@@ -98,6 +98,7 @@ fn create_swap(as_of: Date, end: Date) -> InterestRateSwap {
             end,
         },
         margin_spec: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }

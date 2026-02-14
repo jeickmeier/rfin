@@ -72,6 +72,10 @@ pub struct InflationSwap {
     #[builder(optional)]
     pub calendar_id: Option<String>,
     /// Attributes for scenario selection and tagging
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -430,6 +434,18 @@ impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.start_date)
     }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator
@@ -483,6 +499,10 @@ pub struct YoYInflationSwap {
     /// Holiday calendar identifier for payment date adjustment.
     #[builder(optional)]
     pub calendar_id: Option<String>,
+    /// Attributes for scenario selection and tagging
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
@@ -733,6 +753,18 @@ impl crate::instruments::common_impl::traits::Instrument for YoYInflationSwap {
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.start_date)
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

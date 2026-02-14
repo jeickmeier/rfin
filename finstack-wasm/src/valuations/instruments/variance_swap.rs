@@ -203,6 +203,7 @@ impl JsVarianceSwapBuilder {
             side: direction,
             discount_curve_id: curve_id_from_str(discount_curve),
             day_count: DayCount::Act365F,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         };
 
@@ -292,6 +293,7 @@ impl JsVarianceSwap {
             side: direction,
             discount_curve_id: curve_id_from_str(discount_curve),
             day_count: DayCount::Act365F,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         };
 

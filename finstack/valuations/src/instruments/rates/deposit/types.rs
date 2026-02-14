@@ -72,6 +72,10 @@ pub struct Deposit {
     /// Discount curve id used for valuation and par extraction.
     pub discount_curve_id: CurveId,
     /// Attributes for scenario selection and tagging.
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 
     /// Optional spot lag in business days from trade date to effective start.
@@ -188,6 +192,18 @@ impl crate::instruments::common_impl::traits::Instrument for Deposit {
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         self.effective_start_date().ok()
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

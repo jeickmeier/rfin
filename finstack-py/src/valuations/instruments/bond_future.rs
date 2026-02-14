@@ -469,6 +469,7 @@ impl PyBondFutureBuilder {
             ctd_bond_id,
             ctd_bond: None,
             discount_curve_id,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         };
 

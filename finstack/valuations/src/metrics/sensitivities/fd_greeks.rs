@@ -284,7 +284,10 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
-        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
+        let defaults = sens_config::from_context_or_default(
+            context.config(),
+            context.pricing_overrides.as_ref(),
+        )?;
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies()?;
@@ -365,7 +368,10 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
-        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
+        let defaults = sens_config::from_context_or_default(
+            context.config(),
+            context.pricing_overrides.as_ref(),
+        )?;
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies()?;
@@ -448,7 +454,10 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
-        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
+        let defaults = sens_config::from_context_or_default(
+            context.config(),
+            context.pricing_overrides.as_ref(),
+        )?;
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies()?;
@@ -514,7 +523,10 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
-        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
+        let defaults = sens_config::from_context_or_default(
+            context.config(),
+            context.pricing_overrides.as_ref(),
+        )?;
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies()?;
@@ -589,7 +601,10 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
-        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
+        let defaults = sens_config::from_context_or_default(
+            context.config(),
+            context.pricing_overrides.as_ref(),
+        )?;
 
         // If expired, vanna is zero (avoid bumping / repricing beyond expiry).
         let t = instrument.day_count().year_fraction(

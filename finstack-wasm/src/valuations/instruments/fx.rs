@@ -75,6 +75,11 @@ impl JsFxSpotBuilder {
         let quote = self
             .quote_currency
             .ok_or_else(|| js_error("FxSpotBuilder: quoteCurrency is required".to_string()))?;
+        if self.notional.is_none() && self.spot_rate.is_none() {
+            return Err(js_error(
+                "FxSpot requires at least one of notional or spotRate".to_string(),
+            ));
+        }
 
         let mut inst = FxSpot::new(instrument_id_from_str(&self.instrument_id), base, quote);
 
@@ -139,6 +144,11 @@ impl JsFxSpot {
         web_sys::console::warn_1(&JsValue::from_str(
             "FxSpot constructor is deprecated; use FxSpotBuilder instead.",
         ));
+        if notional.is_none() && spot_rate.is_none() {
+            return Err(js_error(
+                "FxSpot requires at least one of notional or spotRate".to_string(),
+            ));
+        }
         let mut inst = FxSpot::new(
             instrument_id_from_str(instrument_id),
             base_currency.inner(),

@@ -102,21 +102,22 @@ fn test_yf_scales_with_period_length() {
 
 #[test]
 fn test_yf_zero_period() {
-    // Setup - same start and end date (now invalid)
+    // Setup - same start and end date is invalid
     let base = date(2025, 1, 1);
-    let ctx = ctx_with_standard_disc(base, "USD-OIS");
-
-    let dep = DepositBuilder::new(base)
+    let result = finstack_valuations::instruments::Deposit::builder()
+        .id(finstack_core::types::InstrumentId::new("DEP-ZERO-YF"))
+        .notional(finstack_core::money::Money::new(
+            1_000_000.0,
+            finstack_core::currency::Currency::USD,
+        ))
         .start_date(base)
         .maturity(base)
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
         .build();
 
-    // Execute - should fail validation (maturity must be after start)
-    let result = dep.value(&ctx, base);
-
-    // Validate - zero period deposits are invalid
     assert!(
         result.is_err(),
-        "Zero period deposit should fail validation"
+        "Zero period deposit should fail construction"
     );
 }

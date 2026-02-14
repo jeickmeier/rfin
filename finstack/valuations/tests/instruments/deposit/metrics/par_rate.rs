@@ -111,22 +111,23 @@ fn test_par_rate_sensitivity_to_curve_steepness() {
 
 #[test]
 fn test_par_rate_zero_for_zero_period() {
-    // Setup - zero period deposit (start == end) is now invalid
+    // Setup - zero period deposit (start == end) is invalid
     let base = date(2025, 1, 1);
-    let ctx = ctx_with_standard_disc(base, "USD-OIS");
-
-    let dep = DepositBuilder::new(base)
+    let result = finstack_valuations::instruments::Deposit::builder()
+        .id(finstack_core::types::InstrumentId::new("DEP-ZERO-PARRATE"))
+        .notional(finstack_core::money::Money::new(
+            1_000_000.0,
+            finstack_core::currency::Currency::USD,
+        ))
         .start_date(base)
         .maturity(base)
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
         .build();
 
-    // Execute - should fail validation (maturity must be after start)
-    let result = dep.value(&ctx, base);
-
-    // Validate - zero period deposits are invalid
     assert!(
         result.is_err(),
-        "Zero period deposit should fail validation"
+        "Zero period deposit should fail construction"
     );
 }
 

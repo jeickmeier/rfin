@@ -251,6 +251,11 @@ pub struct StructuredCredit {
     pub discount_curve_id: CurveId,
 
     /// Attributes for scenario selection.
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+
+    /// Attributes for scenario selection.
     pub attributes: Attributes,
 
     /// Prepayment model specification.
@@ -797,6 +802,18 @@ impl Instrument for StructuredCredit {
 
     fn effective_start_date(&self) -> Option<Date> {
         None
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

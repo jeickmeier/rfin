@@ -69,6 +69,7 @@ fn create_standard_cap(_as_of: Date, start: Date, end: Date, strike: f64) -> Int
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
 
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }
@@ -134,6 +135,7 @@ fn test_floor_forward_pv01() {
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
 
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 

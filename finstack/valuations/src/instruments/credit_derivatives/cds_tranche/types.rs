@@ -94,6 +94,10 @@ pub struct CDSTranche {
     #[serde(default)]
     pub upfront: Option<(Date, Money)>,
     /// Attributes for tagging and selection
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -194,6 +198,7 @@ impl CDSTranche {
             accumulated_loss: tranche_params.accumulated_loss,
             standard_imm_dates: false,
             upfront: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         })
     }
@@ -344,6 +349,18 @@ impl Instrument for CDSTranche {
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         self.effective_date
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

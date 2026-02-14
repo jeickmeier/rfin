@@ -15,7 +15,7 @@ fn test_basic_construction() {
     assert_eq!(fx.quote_currency, Currency::USD);
     assert!(fx.settlement.is_none());
     assert!(fx.spot_rate.is_none());
-    assert!(fx.notional.is_none());
+    assert_eq!(fx.notional, Some(Money::new(1.0, Currency::EUR)));
     // Default BDC is ModifiedFollowing per ISDA FX settlement standard
     assert_eq!(fx.bdc, BusinessDayConvention::ModifiedFollowing);
 }

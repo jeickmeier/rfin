@@ -178,3 +178,97 @@ pub fn from_finstack_config_or_default(
 
     Ok(base)
 }
+
+/// Resolve sensitivities defaults and then layer instrument-level pricing overrides.
+pub fn from_context_or_default(
+    cfg: &FinstackConfig,
+    pricing_overrides: Option<&crate::instruments::PricingOverrides>,
+) -> finstack_core::Result<SensitivitiesConfig> {
+    let base = from_finstack_config_or_default(cfg)?;
+    apply_pricing_overrides(base, pricing_overrides)
+}
+
+/// Apply per-instrument pricing overrides to a resolved sensitivities config.
+pub fn apply_pricing_overrides(
+    mut base: SensitivitiesConfig,
+    pricing_overrides: Option<&crate::instruments::PricingOverrides>,
+) -> finstack_core::Result<SensitivitiesConfig> {
+    let Some(po) = pricing_overrides else {
+        return Ok(base);
+    };
+
+    if let Some(v) = po
+        .rate_bump_bp
+        .or_else(|| po.rho_bump_decimal.map(|x| x * 10_000.0))
+    {
+        ensure_finite_positive("pricing_overrides.rate_bump_bp", v)?;
+        base.rate_bump_bp = v;
+    }
+    if let Some(v) = po.credit_spread_bump_bp {
+        ensure_finite_positive("pricing_overrides.credit_spread_bump_bp", v)?;
+        base.credit_spread_bump_bp = v;
+    }
+    if let Some(v) = po.spot_bump_pct {
+        ensure_finite_positive("pricing_overrides.spot_bump_pct", v)?;
+        base.spot_bump_pct = v;
+    }
+    if let Some(v) = po.vol_bump_pct.or(po.vega_bump_decimal) {
+        ensure_finite_positive("pricing_overrides.vol_bump_pct", v)?;
+        base.vol_bump_pct = v;
+    }
+
+    Ok(base)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn apply_pricing_overrides_prefers_explicit_fields() {
+        let base = SensitivitiesConfig::default();
+        let po = crate::instruments::PricingOverrides {
+            rate_bump_bp: Some(2.0),
+            credit_spread_bump_bp: Some(3.0),
+            spot_bump_pct: Some(0.02),
+            vol_bump_pct: Some(0.03),
+            ..Default::default()
+        };
+
+        let resolved = apply_pricing_overrides(base, Some(&po)).expect("valid overrides");
+        assert_eq!(resolved.rate_bump_bp, 2.0);
+        assert_eq!(resolved.credit_spread_bump_bp, 3.0);
+        assert_eq!(resolved.spot_bump_pct, 0.02);
+        assert_eq!(resolved.vol_bump_pct, 0.03);
+    }
+
+    #[test]
+    fn apply_pricing_overrides_uses_fallback_units() {
+        let base = SensitivitiesConfig::default();
+        let po = crate::instruments::PricingOverrides {
+            rho_bump_decimal: Some(0.0002),
+            vega_bump_decimal: Some(0.015),
+            ..Default::default()
+        };
+
+        let resolved = apply_pricing_overrides(base, Some(&po)).expect("valid overrides");
+        assert_eq!(resolved.rate_bump_bp, 2.0);
+        assert_eq!(resolved.vol_bump_pct, 0.015);
+    }
+
+    #[test]
+    fn apply_pricing_overrides_rejects_non_positive_values() {
+        let base = SensitivitiesConfig::default();
+        let po = crate::instruments::PricingOverrides {
+            rate_bump_bp: Some(0.0),
+            ..Default::default()
+        };
+
+        let err = apply_pricing_overrides(base, Some(&po)).expect_err("must fail");
+        assert!(
+            err.to_string().contains("must be finite and > 0"),
+            "unexpected error: {err}"
+        );
+    }
+}

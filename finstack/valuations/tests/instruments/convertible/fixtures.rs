@@ -185,6 +185,7 @@ pub fn create_convertible_with_policy(policy: ConversionPolicy) -> ConvertibleBo
         soft_call_trigger: None,
         fixed_coupon: Some(fixed_coupon),
         floating_coupon: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }
@@ -228,6 +229,7 @@ pub fn create_convertible_with_conversion_price() -> ConvertibleBond {
         soft_call_trigger: None,
         fixed_coupon: Some(fixed_coupon),
         floating_coupon: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }
@@ -284,6 +286,7 @@ pub fn create_floating_convertible() -> ConvertibleBond {
         soft_call_trigger: None,
         fixed_coupon: None,
         floating_coupon: Some(floating),
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }
@@ -374,6 +377,7 @@ pub fn create_zero_coupon_convertible() -> ConvertibleBond {
         soft_call_trigger: None,
         fixed_coupon: None,
         floating_coupon: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }

@@ -148,7 +148,7 @@ impl MarketDependencies {
             InstrumentJson::InflationLinkedBond(i) => Self::from_curve_dependencies(i),
             InstrumentJson::TermLoan(i) => Self::from_curve_dependencies(i),
             InstrumentJson::RevolvingCredit(i) => Self::from_curve_dependencies(i),
-            InstrumentJson::BondFuture(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::BondFuture(i) => Self::from_curve_dependencies(i.as_ref()),
             InstrumentJson::AgencyMbsPassthrough(i) => Self::from_curve_dependencies(i),
             InstrumentJson::AgencyTba(i) => Self::from_curve_dependencies(i),
             InstrumentJson::AgencyCmo(i) => Self::from_curve_dependencies(i),

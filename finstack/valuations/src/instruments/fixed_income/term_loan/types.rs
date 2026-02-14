@@ -535,6 +535,18 @@ impl crate::instruments::common_impl::traits::Instrument for TermLoan {
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.issue_date)
     }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
+    }
 }
 
 impl crate::cashflow::traits::CashflowProvider for TermLoan {

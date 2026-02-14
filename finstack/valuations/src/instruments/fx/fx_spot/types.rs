@@ -90,7 +90,7 @@ use finstack_core::Result;
 #[derive(
     Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
 )]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, try_from = "FxSpotUnchecked")]
 pub struct FxSpot {
     /// Unique identifier for the FX pair
     pub id: InstrumentId,
@@ -112,6 +112,10 @@ pub struct FxSpot {
     /// Optional notional amount in base currency (defaults to 1)
     #[builder(optional)]
     pub notional: Option<Money>,
+    /// Per-instrument pricing/sensitivity override knobs.
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Business day convention to apply when adjusting settlement (default: ModifiedFollowing)
     ///
     /// Note: Default changed from `Following` to `ModifiedFollowing` in v0.8.0 to align
@@ -135,6 +139,50 @@ pub struct FxSpot {
     pub attributes: Attributes,
 }
 
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FxSpotUnchecked {
+    id: InstrumentId,
+    #[serde(alias = "base")]
+    base_currency: Currency,
+    #[serde(alias = "quote")]
+    quote_currency: Currency,
+    settlement: Option<Date>,
+    settlement_lag_days: Option<i32>,
+    spot_rate: Option<f64>,
+    notional: Option<Money>,
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
+    bdc: BusinessDayConvention,
+    base_calendar_id: Option<String>,
+    quote_calendar_id: Option<String>,
+    #[serde(default)]
+    pricing_overrides: crate::instruments::PricingOverrides,
+    attributes: Attributes,
+}
+
+impl TryFrom<FxSpotUnchecked> for FxSpot {
+    type Error = finstack_core::Error;
+
+    fn try_from(value: FxSpotUnchecked) -> std::result::Result<Self, Self::Error> {
+        let spot = Self {
+            id: value.id,
+            base_currency: value.base_currency,
+            quote_currency: value.quote_currency,
+            settlement: value.settlement,
+            settlement_lag_days: value.settlement_lag_days,
+            spot_rate: value.spot_rate,
+            notional: value.notional,
+            pricing_overrides: value.pricing_overrides,
+            bdc: value.bdc,
+            base_calendar_id: value.base_calendar_id,
+            quote_calendar_id: value.quote_calendar_id,
+            attributes: value.attributes,
+        };
+        spot.validate_economics()?;
+        Ok(spot)
+    }
+}
+
 impl FxSpot {
     /// Create a new FX spot instrument.
     ///
@@ -147,7 +195,8 @@ impl FxSpot {
             settlement: None,
             settlement_lag_days: None,
             spot_rate: None,
-            notional: None,
+            notional: Some(Money::new(1.0, base_currency)),
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             bdc: BusinessDayConvention::ModifiedFollowing,
             base_calendar_id: None,
             quote_calendar_id: None,
@@ -330,6 +379,15 @@ impl FxSpot {
             .unwrap_or_else(|| Money::new(1.0, self.base_currency))
     }
 
+    fn validate_economics(&self) -> finstack_core::Result<()> {
+        if self.notional.is_none() && self.spot_rate.is_none() {
+            return Err(finstack_core::Error::Validation(
+                "FxSpot requires at least one of `notional` or `spot_rate`".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Standard FX pair name (e.g., "EURUSD")
     pub fn pair_name(&self) -> String {
         format!("{}{}", self.base_currency, self.quote_currency)
@@ -403,6 +461,7 @@ impl crate::instruments::common_impl::traits::Instrument for FxSpot {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        self.validate_economics()?;
         // Compute effective settlement date
         let settle_date = self.effective_settlement_date(as_of)?;
 
@@ -458,6 +517,18 @@ impl crate::instruments::common_impl::traits::Instrument for FxSpot {
     fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
         Some(self)
     }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator
@@ -480,6 +551,7 @@ impl CashflowProvider for FxSpot {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        self.validate_economics()?;
         let settle_date = self.effective_settlement_date(as_of)?;
 
         let flows = if settle_date > as_of {

@@ -175,6 +175,9 @@ pub struct Basket {
     pub discount_curve_id: finstack_core::types::CurveId,
     /// Attributes for scenario selection and tagging
     #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
     /// Pricing configuration
     pub pricing_config: BasketPricingConfig,
@@ -335,6 +338,18 @@ impl Instrument for Basket {
     fn effective_start_date(&self) -> Option<Date> {
         None
     }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator
@@ -361,6 +376,7 @@ mod tests {
             expense_ratio: 0.001,
             currency: Currency::USD,
             discount_curve_id: "USD-OIS".into(),
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
             pricing_config: BasketPricingConfig::default(),
         };
@@ -398,6 +414,7 @@ mod tests {
             expense_ratio: 0.001,
             currency: Currency::USD,
             discount_curve_id: "USD-OIS".into(),
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
             pricing_config: BasketPricingConfig::default(),
         };

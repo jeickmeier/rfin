@@ -171,9 +171,9 @@ mod tests {
         let (vega, _) = pathwise_vega(
             &terminal_spots,
             100.0,
-            100.0,
             1.0,
             0.2,
+            1.0,
             1.0,
             &wiener_increments,
             true,

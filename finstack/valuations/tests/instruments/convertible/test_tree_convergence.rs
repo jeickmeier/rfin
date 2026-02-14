@@ -73,6 +73,7 @@ fn create_test_convertible() -> ConvertibleBond {
         soft_call_trigger: None,
         fixed_coupon: Some(fixed_coupon),
         floating_coupon: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }

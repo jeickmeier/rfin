@@ -96,6 +96,10 @@ pub struct ForwardRateAgreement {
     /// ReceiveFixed means receiving the fixed rate (paying floating).
     pub side: PayReceive,
     /// Attributes for scenario selection
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -137,6 +141,8 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             /// `true` = receive fixed (ReceiveFixed), `false` = pay fixed (PayFixed).
             #[serde(default)]
             receive_fixed: Option<bool>,
+            #[serde(default)]
+            pricing_overrides: crate::instruments::PricingOverrides,
             attributes: Attributes,
         }
 
@@ -169,6 +175,7 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             discount_curve_id: helper.discount_curve_id,
             forward_curve_id: helper.forward_curve_id,
             side,
+            pricing_overrides: helper.pricing_overrides,
             attributes: helper.attributes,
         })
     }
@@ -476,6 +483,18 @@ impl crate::instruments::common_impl::traits::Instrument for ForwardRateAgreemen
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.start_date)
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

@@ -96,6 +96,10 @@ pub struct EquityTotalReturnSwap {
     #[builder(default)]
     pub discrete_dividends: Vec<(Date, f64)>,
     /// Attributes for scenario selection and tagging.
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -311,6 +315,18 @@ impl crate::instruments::common_impl::traits::Instrument for EquityTotalReturnSw
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.schedule.start)
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

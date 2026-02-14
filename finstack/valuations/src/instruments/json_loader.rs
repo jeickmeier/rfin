@@ -62,7 +62,7 @@ pub enum InstrumentJson {
     /// Revolving credit facility
     RevolvingCredit(RevolvingCredit),
     /// Bond future
-    BondFuture(BondFuture),
+    BondFuture(Box<BondFuture>),
     /// Agency MBS passthrough
     AgencyMbsPassthrough(AgencyMbsPassthrough),
     /// Agency TBA forward
@@ -205,7 +205,7 @@ impl InstrumentJson {
             InstrumentJson::ConvertibleBond(i) => Ok(Box::new(i)),
             InstrumentJson::InflationLinkedBond(i) => Ok(Box::new(i)),
             InstrumentJson::TermLoan(i) => Ok(Box::new(i)),
-            InstrumentJson::BondFuture(i) => Ok(Box::new(i)),
+            InstrumentJson::BondFuture(i) => Ok(Box::new(*i)),
             InstrumentJson::AgencyMbsPassthrough(i) => Ok(Box::new(i)),
             InstrumentJson::AgencyTba(i) => Ok(Box::new(i)),
             InstrumentJson::AgencyCmo(i) => Ok(Box::new(i)),
@@ -321,7 +321,8 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             "term_loan" => serde_json::from_str(&spec_str)
                 .map(Self::TermLoan)
                 .map_err(D::Error::custom),
-            "bond_future" => serde_json::from_str(&spec_str)
+            "bond_future" => serde_json::from_str::<BondFuture>(&spec_str)
+                .map(Box::new)
                 .map(Self::BondFuture)
                 .map_err(D::Error::custom),
             "agency_mbs_passthrough" => serde_json::from_str(&spec_str)

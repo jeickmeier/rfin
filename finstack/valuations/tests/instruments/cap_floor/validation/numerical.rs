@@ -75,6 +75,7 @@ fn test_black_model_symmetry() {
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
 
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 
@@ -133,6 +134,7 @@ fn test_vega_gamma_relation() {
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
 
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 
@@ -189,6 +191,7 @@ fn test_delta_by_finite_difference() {
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
 
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 
@@ -273,6 +276,7 @@ fn test_vega_by_finite_difference() {
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
 
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 
@@ -359,6 +363,7 @@ fn test_numerical_stability_extreme_params() {
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
 
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 

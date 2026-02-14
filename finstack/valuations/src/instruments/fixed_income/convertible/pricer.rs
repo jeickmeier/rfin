@@ -1249,6 +1249,7 @@ mod tests {
             soft_call_trigger: None,
             fixed_coupon: Some(fixed_coupon),
             floating_coupon: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Default::default(),
         }
     }

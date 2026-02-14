@@ -94,6 +94,9 @@ pub struct FxForward {
     /// Attributes for tagging and selection.
     #[builder(default)]
     #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -545,6 +548,18 @@ impl crate::instruments::common_impl::traits::Instrument for FxForward {
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         None
     }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
+    }
 }
 
 #[cfg(test)]
@@ -647,6 +662,7 @@ mod tests {
             spot_rate_override: None,
             base_calendar_id: None,
             quote_calendar_id: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         };
 
@@ -672,6 +688,7 @@ mod tests {
             spot_rate_override: None,
             base_calendar_id: None,
             quote_calendar_id: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         };
 
@@ -697,6 +714,7 @@ mod tests {
             spot_rate_override: None,
             base_calendar_id: None,
             quote_calendar_id: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         };
 
@@ -722,6 +740,7 @@ mod tests {
             spot_rate_override: Some(-1.10), // Negative rate - invalid
             base_calendar_id: None,
             quote_calendar_id: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         };
 

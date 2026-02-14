@@ -11,12 +11,13 @@ use std::sync::Arc;
 #[test]
 fn getters_and_tag_filters() {
     let as_of = base_date();
+    let maturity = as_of + time::Duration::days(1);
 
     let dep = Deposit::builder()
         .id("D".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
-        .maturity(as_of)
+        .maturity(maturity)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .build()
@@ -42,12 +43,13 @@ fn getters_and_tag_filters() {
 #[test]
 fn validate_unknown_entity_fails() {
     let as_of = base_date();
+    let maturity = as_of + time::Duration::days(1);
 
     let dep = Deposit::builder()
         .id("D".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
-        .maturity(as_of)
+        .maturity(maturity)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .build()
@@ -69,12 +71,13 @@ fn validate_unknown_entity_fails() {
 #[test]
 fn builder_required_fields_and_dummy_auto_create() {
     let as_of = base_date();
+    let maturity = as_of + time::Duration::days(1);
 
     let dep = Deposit::builder()
         .id("D".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
-        .maturity(as_of)
+        .maturity(maturity)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .build()

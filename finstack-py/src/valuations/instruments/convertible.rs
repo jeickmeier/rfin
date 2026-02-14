@@ -574,6 +574,7 @@ impl PyConvertibleBondBuilder {
             soft_call_trigger: None,
             fixed_coupon: slf.fixed_coupon.clone(),
             floating_coupon: slf.floating_coupon.clone(),
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         };
 

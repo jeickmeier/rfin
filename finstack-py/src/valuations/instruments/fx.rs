@@ -80,6 +80,11 @@ impl PyFxSpotBuilder {
         if self.quote_currency.is_none() {
             return Err(PyValueError::new_err("quote_currency() is required."));
         }
+        if self.notional.is_none() && self.spot_rate.is_none() {
+            return Err(PyValueError::new_err(
+                "FxSpot requires at least one of notional() or spot_rate().",
+            ));
+        }
         Ok(())
     }
 }

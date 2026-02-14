@@ -220,6 +220,7 @@ pub struct AgencyMbsPassthrough {
     /// Attributes for scenario selection and tagging.
     #[builder(default)]
     #[serde(default)]
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 

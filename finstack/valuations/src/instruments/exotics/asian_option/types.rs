@@ -243,6 +243,18 @@ impl crate::instruments::common_impl::traits::Instrument for AsianOption {
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         self.fixing_dates.first().copied()
     }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
+    }
 }
 
 #[cfg(test)]

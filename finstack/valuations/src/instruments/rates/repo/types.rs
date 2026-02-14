@@ -190,6 +190,10 @@ pub struct Repo {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin_spec: Option<RepoMarginSpec>,
     /// Attributes for scenario selection and tagging
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -620,6 +624,18 @@ impl Instrument for Repo {
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.start_date)
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

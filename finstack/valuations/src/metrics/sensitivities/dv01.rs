@@ -185,8 +185,12 @@ where
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
 
-        // Resolve bump size from `FinstackConfig` (user-facing, reproducible).
-        let bump_bp = sens_config::from_finstack_config_or_default(context.config())?.rate_bump_bp;
+        // Resolve bump size from config, then layer instrument overrides.
+        let bump_bp = sens_config::from_context_or_default(
+            context.config(),
+            context.pricing_overrides.as_ref(),
+        )?
+        .rate_bump_bp;
 
         // Collect curves based on configuration
         let curves = self.collect_curves(instrument, context.curves.as_ref())?;

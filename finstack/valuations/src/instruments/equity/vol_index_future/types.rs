@@ -103,6 +103,9 @@ pub struct VolatilityIndexFuture {
     /// Attributes for tagging and selection.
     #[builder(default)]
     #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -290,6 +293,18 @@ impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexFutu
 
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
         Some(self)
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

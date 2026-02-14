@@ -31,6 +31,9 @@ pub struct PrivateMarketsFund {
     pub discount_curve_id: Option<CurveId>,
     /// Attributes.
     #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -48,6 +51,7 @@ impl PrivateMarketsFund {
             spec,
             events,
             discount_curve_id: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         }
     }
@@ -152,6 +156,18 @@ impl Instrument for PrivateMarketsFund {
 
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
         Some(self)
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

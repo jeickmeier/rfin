@@ -241,6 +241,10 @@ pub struct DiscountedCashFlow {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub valuation_discounts: Option<ValuationDiscounts>,
     /// Attributes for tagging and scenarios.
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -499,6 +503,18 @@ impl Instrument for DiscountedCashFlow {
     fn effective_start_date(&self) -> Option<Date> {
         None
     }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
+    }
 }
 impl CurveDependencies for DiscountedCashFlow {
     fn curve_dependencies(&self) -> finstack_core::Result<InstrumentCurves> {
@@ -541,6 +557,7 @@ mod tests {
             shares_outstanding: None,
             dilution_securities: Vec::new(),
             valuation_discounts: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::default(),
         }
     }
@@ -589,6 +606,7 @@ mod tests {
             shares_outstanding: None,
             dilution_securities: Vec::new(),
             valuation_discounts: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::default(),
         };
 
@@ -655,6 +673,7 @@ mod tests {
             shares_outstanding: None,
             dilution_securities: Vec::new(),
             valuation_discounts: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::default(),
         };
 

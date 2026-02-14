@@ -82,6 +82,10 @@ pub struct InterestRateFuture {
     #[serde(alias = "volatility_id")]
     pub vol_surface_id: Option<CurveId>,
     /// Attributes
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -400,6 +404,18 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateFuture 
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.period_start)
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

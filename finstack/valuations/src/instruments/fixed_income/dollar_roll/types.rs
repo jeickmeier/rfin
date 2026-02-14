@@ -95,6 +95,7 @@ pub struct DollarRoll {
     /// Attributes for tagging and selection.
     #[builder(default)]
     #[serde(default)]
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 

@@ -65,6 +65,7 @@ pub fn create_standard_future(start: Date, end: Date) -> InterestRateFuture {
         discount_curve_id: "USD_OIS".into(),
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }
@@ -96,6 +97,7 @@ pub fn create_custom_future(
         discount_curve_id: "USD_OIS".into(),
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }

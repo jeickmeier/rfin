@@ -137,6 +137,7 @@ fn test_caplet_creation() {
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
 
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 
@@ -169,6 +170,7 @@ fn test_floorlet_creation() {
         vol_surface_id: "EUR_CAP_VOL".into(),
         vol_type: Default::default(),
 
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 

@@ -98,6 +98,10 @@ pub struct FxVarianceSwap {
     /// Day count convention for time calculations
     pub day_count: DayCount,
     /// Attributes for scenario selection
+    #[serde(default)]
+    #[builder(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 

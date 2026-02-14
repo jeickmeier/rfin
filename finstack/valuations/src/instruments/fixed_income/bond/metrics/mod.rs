@@ -123,7 +123,6 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
                 crate::instruments::Bond,
             >::default()),
 
-
         ]
     };
 }

@@ -139,4 +139,16 @@ impl crate::instruments::common_impl::traits::Instrument for CliquetOption {
     fn effective_start_date(&self) -> Option<Date> {
         self.reset_dates.first().copied()
     }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
+    }
 }

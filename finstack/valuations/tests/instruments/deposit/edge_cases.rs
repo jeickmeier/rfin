@@ -14,21 +14,20 @@ use finstack_valuations::metrics::MetricId;
 fn test_zero_period_deposit() {
     // Setup - start == end (invalid - should fail validation)
     let base = date(2025, 1, 1);
-    let ctx = ctx_with_standard_disc(base, "USD-OIS");
-
-    let dep = DepositBuilder::new(base)
+    let result = Deposit::builder()
+        .id(InstrumentId::new("DEP-ZERO-PERIOD"))
+        .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(base)
         .maturity(base)
-        .quote_rate(0.05)
+        .day_count(DayCount::Act360)
+        .quote_rate_opt(Some(0.05))
+        .discount_curve_id(CurveId::new("USD-OIS"))
         .build();
 
-    // Execute - should fail validation (end must be after start)
-    let result = dep.value(&ctx, base);
-
-    // Validate - zero period deposits are invalid
+    // Validate - zero period deposits are rejected at construction
     assert!(
         result.is_err(),
-        "Zero period deposit should fail validation"
+        "Zero period deposit should fail construction"
     );
 }
 

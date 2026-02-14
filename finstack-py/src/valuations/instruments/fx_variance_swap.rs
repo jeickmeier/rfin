@@ -344,6 +344,7 @@ impl PyFxVarianceSwapBuilder {
             foreign_discount_curve_id,
             vol_surface_id,
             day_count: self.day_count,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         })
     }

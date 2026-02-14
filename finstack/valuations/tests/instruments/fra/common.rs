@@ -113,6 +113,7 @@ pub fn create_standard_fra() -> ForwardRateAgreement {
         discount_curve_id: "USD_OIS".into(),
         forward_curve_id: "USD_LIBOR_3M".into(),
         side: PayReceive::ReceiveFixed, // receive fixed rate, pay floating
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }
@@ -216,6 +217,7 @@ impl TestFraBuilder {
             discount_curve_id: self.discount_curve_id.into(),
             forward_curve_id: self.forward_curve_id.into(),
             side: self.side,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Default::default(),
         }
     }

@@ -234,6 +234,7 @@ impl JsConvertibleBondBuilder {
             soft_call_trigger: None,
             fixed_coupon: None,
             floating_coupon: None,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Default::default(),
         };
 
@@ -301,6 +302,7 @@ impl JsConvertibleBond {
             soft_call_trigger: None,
             fixed_coupon: None,
             floating_coupon: None,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Default::default(),
         };
 

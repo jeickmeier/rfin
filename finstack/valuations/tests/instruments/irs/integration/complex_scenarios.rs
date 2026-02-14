@@ -98,6 +98,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
             end,
         },
         margin_spec: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }
@@ -238,6 +239,7 @@ fn test_forward_starting_swap() {
             end,
         },
         margin_spec: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 
@@ -377,6 +379,7 @@ fn test_swap_seasoned() {
             end,
         },
         margin_spec: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 

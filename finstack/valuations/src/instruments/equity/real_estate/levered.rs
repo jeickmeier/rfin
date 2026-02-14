@@ -58,6 +58,12 @@ pub struct LeveredRealEstateEquity {
     pub discount_curve_id: CurveId,
     /// Attributes for tagging and scenarios.
     #[builder(default)]
+    #[serde(default)]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
+
+    /// Attributes for tagging and scenarios.
+    #[builder(default)]
+    /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
@@ -248,6 +254,18 @@ impl Instrument for LeveredRealEstateEquity {
 
     fn effective_start_date(&self) -> Option<Date> {
         None
+    }
+
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
     }
 }
 

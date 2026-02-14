@@ -290,6 +290,7 @@ impl JsEquityTotalReturnSwapBuilder {
             initial_level: self.initial_level,
             dividend_tax_rate: self.dividend_tax_rate.unwrap_or(0.0),
             discrete_dividends: self.discrete_dividends,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Default::default(),
             margin_spec: None,
         };
@@ -343,6 +344,7 @@ impl JsEquityTotalReturnSwap {
             initial_level,
             dividend_tax_rate: 0.0, // Default: no withholding tax
             discrete_dividends: Vec::new(),
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Default::default(),
             margin_spec: None,
         };
@@ -539,6 +541,7 @@ impl JsFiIndexTotalReturnSwapBuilder {
             schedule,
             side,
             initial_level: self.initial_level,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Default::default(),
             margin_spec: None,
         };
@@ -590,6 +593,7 @@ impl JsFiIndexTotalReturnSwap {
             schedule: schedule.inner.clone(),
             side,
             initial_level,
+            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Default::default(),
             margin_spec: None,
         };

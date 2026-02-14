@@ -337,8 +337,11 @@ where
         })?;
         let discount_id = curves.discount_curves.first().cloned();
 
-        let bump_bp =
-            sens_config::from_finstack_config_or_default(context.config())?.credit_spread_bump_bp;
+        let bump_bp = sens_config::from_context_or_default(
+            context.config(),
+            context.pricing_overrides.as_ref(),
+        )?
+        .credit_spread_bump_bp;
 
         let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
@@ -381,7 +384,10 @@ where
         })?;
         let discount_id = curves.discount_curves.first().cloned();
 
-        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
+        let defaults = sens_config::from_context_or_default(
+            context.config(),
+            context.pricing_overrides.as_ref(),
+        )?;
         let buckets = defaults.cs01_buckets_years;
         let bump_bp = defaults.credit_spread_bump_bp;
 

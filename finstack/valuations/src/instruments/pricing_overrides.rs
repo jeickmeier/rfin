@@ -52,7 +52,7 @@ pub enum VolSurfaceExtrapolation {
 
 /// Optional parameters that override model pricing with market quotes.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct PricingOverrides {
     /// Quoted clean price for bond yield calculations
     pub quoted_clean_price: Option<f64>,

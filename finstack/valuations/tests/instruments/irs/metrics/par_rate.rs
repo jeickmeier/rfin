@@ -80,6 +80,7 @@ fn create_standard_swap(
             end,
         },
         margin_spec: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }

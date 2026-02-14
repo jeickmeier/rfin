@@ -324,6 +324,7 @@ fn test_expired_swap_handling() {
             end,
         },
         margin_spec: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 
@@ -399,6 +400,7 @@ fn test_very_short_swap_1_month() {
             end,
         },
         margin_spec: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     };
 

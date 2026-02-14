@@ -178,6 +178,7 @@ impl StructuredCredit {
             payment_calendar_id: None,
             payment_bdc: None,
             discount_curve_id: CurveId::new(params.discount_curve_id.to_string()),
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
             prepayment_spec: config.prepayment_spec,
             default_spec: config.default_spec,

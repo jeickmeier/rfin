@@ -88,6 +88,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> Int
             end,
         },
         margin_spec: None,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
 }
