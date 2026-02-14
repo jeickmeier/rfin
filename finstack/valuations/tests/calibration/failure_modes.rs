@@ -155,7 +155,7 @@ fn vol_surface_preflight_rejects_unknown_model() {
         params: StepParams::VolSurface(VolSurfaceParams {
             surface_id: "USD-SWAPTION-SABR".to_string(),
             base_date,
-            underlying_id: "USD-SWAPTION".to_string(),
+            underlying_ticker: "USD-SWAPTION".to_string(),
             model: "heston".to_string(),
             discount_curve_id: Some("USD-OIS".into()),
             beta: 0.5,
@@ -505,7 +505,7 @@ fn vol_surface_requires_quotes_even_when_params_valid() {
         params: StepParams::VolSurface(VolSurfaceParams {
             surface_id: "EQ-VOL".to_string(),
             base_date,
-            underlying_id: "SPX".to_string(),
+            underlying_ticker: "SPX".to_string(),
             model: "sabr".to_string(),
             discount_curve_id: Some("USD-OIS".into()),
             beta: 0.5,

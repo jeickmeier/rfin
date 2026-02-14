@@ -4,7 +4,7 @@
     "type": "variance_swap",
     "spec": {
       "id": "VARSPX-1Y",
-      "underlying_id": "SPX",
+      "underlying_ticker": "SPX",
       "notional": {
         "amount": "1000000",
         "currency": "USD"

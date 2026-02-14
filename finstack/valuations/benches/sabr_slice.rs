@@ -50,7 +50,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
     let params = VolSurfaceParams {
         surface_id: "SPY-VOL".to_string(),
         base_date,
-        underlying_id: "SPY".to_string(),
+        underlying_ticker: "SPY".to_string(),
         model: "SABR".to_string(),
         discount_curve_id: Some("USD-OIS".into()),
         beta: 1.0,

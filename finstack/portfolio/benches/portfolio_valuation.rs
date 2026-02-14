@@ -733,7 +733,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let var_swap_id = format!("VARSWAP_{}", i);
         let var_swap = VarianceSwap::builder()
             .id(var_swap_id.clone().into())
-            .underlying_id("AAPL".to_string())
+            .underlying_ticker("AAPL".to_string())
             .notional(Money::new(100_000.0, Currency::USD))
             .strike_variance(0.0625) // 25% vol squared
             .start_date(base)

@@ -293,7 +293,8 @@ pub struct VolSurfaceParams {
     /// Base date for the surface.
     pub base_date: Date,
     /// Identifier for the underlying instrument.
-    pub underlying_id: String,
+    #[serde(alias = "underlying_id")]
+    pub underlying_ticker: String,
     /// Model type.
     ///
     /// Note: currently supports SABR-only; set to `"SABR"` (case-insensitive).

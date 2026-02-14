@@ -404,7 +404,7 @@ impl PyVarianceSwapBuilder {
 
         let swap = VarianceSwap {
             id: slf.instrument_id.clone(),
-            underlying_id,
+            underlying_ticker: underlying_id,
             notional,
             strike_variance,
             start_date,
@@ -506,7 +506,7 @@ impl PyVarianceSwap {
         Ok(format!(
             "VarianceSwap(id='{}', underlying='{}', strike_var={}, side='{}')",
             self.inner.id,
-            self.inner.underlying_id,
+            self.inner.underlying_ticker,
             self.inner.strike_variance,
             self.side()
         ))

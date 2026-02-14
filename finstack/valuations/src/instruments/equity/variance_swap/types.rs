@@ -105,7 +105,8 @@ pub struct VarianceSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Underlying identifier (equity/index)
-    pub underlying_id: String,
+    #[serde(alias = "underlying_id")]
+    pub underlying_ticker: String,
     /// Variance notional (in variance units)
     pub notional: Money,
     /// Strike variance (annualized)
@@ -197,7 +198,7 @@ impl VarianceSwap {
         // SAFETY: All inputs are compile-time validated constants
         VarianceSwap::builder()
             .id(InstrumentId::new("VARSPX-1Y"))
-            .underlying_id("SPX".to_string())
+            .underlying_ticker("SPX".to_string())
             .notional(Money::new(1_000_000.0, Currency::USD))
             .strike_variance(0.04) // 20% vol squared
             .start_date(date!(2024 - 01 - 01))
@@ -330,7 +331,7 @@ impl VarianceSwap {
         // Allow market override via unitless scalars
         // Priority: UNDERLYING_TRADING_DAYS_PER_YEAR, TRADING_DAYS_PER_YEAR
         let tdy_override = context
-            .price(format!("{}_TRADING_DAYS_PER_YEAR", self.underlying_id))
+            .price(format!("{}_TRADING_DAYS_PER_YEAR", self.underlying_ticker))
             .ok()
             .and_then(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
@@ -412,7 +413,7 @@ impl VarianceSwap {
     /// Get historical prices aligned to observation dates when available.
     pub fn get_historical_prices(&self, context: &MarketContext, as_of: Date) -> Result<Vec<f64>> {
         // Try generic time series first (preferred)
-        if let Ok(series) = context.series(&self.underlying_id) {
+        if let Ok(series) = context.series(&self.underlying_ticker) {
             let dates: Vec<Date> = self
                 .observation_dates()
                 .into_iter()
@@ -423,7 +424,7 @@ impl VarianceSwap {
             }
         }
         // Fallback to single spot scalar
-        if let Ok(scalar) = context.price(&self.underlying_id) {
+        if let Ok(scalar) = context.price(&self.underlying_ticker) {
             let spot = match scalar {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
@@ -459,14 +460,14 @@ impl VarianceSwap {
 
         // Try surfaces with common ids first
         for sid in [
-            self.underlying_id.as_str(),
-            &format!("{}_VOL", self.underlying_id),
-            &format!("{}_IMPL_VOL", self.underlying_id),
+            self.underlying_ticker.as_str(),
+            &format!("{}_VOL", self.underlying_ticker),
+            &format!("{}_IMPL_VOL", self.underlying_ticker),
         ] {
             if let Ok(surface) = context.surface(sid) {
                 // Attempt variance replication (VIX-like)
                 if let Ok(disc) = context.get_discount(&self.discount_curve_id) {
-                    if let Ok(spot_scalar) = context.price(&self.underlying_id) {
+                    if let Ok(spot_scalar) = context.price(&self.underlying_ticker) {
                         let spot = match spot_scalar {
                             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                             finstack_core::market_data::scalars::MarketScalar::Price(p) => {
@@ -475,7 +476,7 @@ impl VarianceSwap {
                         };
                         let r = disc.zero(t.max(1e-8));
                         let q = context
-                            .price(format!("{}-DIVYIELD", self.underlying_id))
+                            .price(format!("{}-DIVYIELD", self.underlying_ticker))
                             .ok()
                             .and_then(|s| match s {
                                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
@@ -558,7 +559,7 @@ impl VarianceSwap {
         }
 
         // Try to get implied vol from scalar market data
-        if let Ok(scalar) = context.price(format!("{}_IMPL_VOL", self.underlying_id)) {
+        if let Ok(scalar) = context.price(format!("{}_IMPL_VOL", self.underlying_ticker)) {
             let vol = match scalar {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),

@@ -155,7 +155,7 @@ fn step_params_v2_roundtrip_for_all_variants() {
     let vol_surface = StepParams::VolSurface(VolSurfaceParams {
         surface_id: "SPX-VOL".to_string(),
         base_date,
-        underlying_id: "SPX".to_string(),
+        underlying_ticker: "SPX".to_string(),
         model: "SABR".to_string(),
         discount_curve_id: Some("USD-OIS".into()),
         beta: 0.5,

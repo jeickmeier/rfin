@@ -133,9 +133,9 @@ impl VolSurfaceBootstrapper {
         let spot = if let Some(s) = params.spot_override {
             s
         } else {
-            let scalar = context.price(&params.underlying_id).map_err(|_| {
+            let scalar = context.price(&params.underlying_ticker).map_err(|_| {
                 finstack_core::Error::Input(finstack_core::InputError::NotFound {
-                    id: params.underlying_id.clone(),
+                    id: params.underlying_ticker.clone(),
                 })
             })?;
             match scalar {
@@ -158,7 +158,7 @@ impl VolSurfaceBootstrapper {
             d
         } else {
             // Try looking up underlying-DIVYIELD
-            let key = format!("{}-DIVYIELD", params.underlying_id);
+            let key = format!("{}-DIVYIELD", params.underlying_ticker);
             if let Ok(MarketScalar::Unitless(v)) = context.price(&key) {
                 *v
             } else {
@@ -479,7 +479,7 @@ mod tests {
         let params = VolSurfaceParams {
             surface_id: "SPX-VOL".to_string(),
             base_date,
-            underlying_id: "SPX".to_string(),
+            underlying_ticker: "SPX".to_string(),
             model: "black".to_string(),
             discount_curve_id: None,
             beta: 0.5,
@@ -514,7 +514,7 @@ mod tests {
         let params = VolSurfaceParams {
             surface_id: "SPX-VOL".to_string(),
             base_date,
-            underlying_id: "SPX".to_string(),
+            underlying_ticker: "SPX".to_string(),
             model: "SABR".to_string(),
             discount_curve_id: Some("USD-OIS".into()),
             beta: 0.5,

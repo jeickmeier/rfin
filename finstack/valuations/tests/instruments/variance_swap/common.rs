@@ -31,7 +31,7 @@ pub fn sample_swap(side: PayReceive) -> VarianceSwap {
     let (start, end) = default_dates();
     VarianceSwap::builder()
         .id(InstrumentId::new(format!("VAR-{side:?}")))
-        .underlying_id(UNDERLYING_ID.to_string())
+        .underlying_ticker(UNDERLYING_ID.to_string())
         .notional(Money::new(DEFAULT_NOTIONAL, Currency::USD))
         .strike_variance(DEFAULT_STRIKE_VAR)
         .start_date(start)

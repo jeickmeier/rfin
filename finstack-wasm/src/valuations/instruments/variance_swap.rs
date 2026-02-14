@@ -193,7 +193,7 @@ impl JsVarianceSwapBuilder {
 
         let swap = VarianceSwap {
             id: instrument_id_from_str(&self.instrument_id),
-            underlying_id: underlying_id.to_string(),
+            underlying_ticker: underlying_id.to_string(),
             notional,
             strike_variance,
             start_date,
@@ -282,7 +282,7 @@ impl JsVarianceSwap {
 
         let swap = VarianceSwap {
             id: instrument_id_from_str(instrument_id),
-            underlying_id: underlying_id.to_string(),
+            underlying_ticker: underlying_id.to_string(),
             notional: notional.inner(),
             strike_variance,
             start_date: start_date.inner(),

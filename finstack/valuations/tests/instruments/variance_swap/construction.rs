@@ -18,7 +18,7 @@ fn test_builder_creates_valid_swap_with_all_required_fields() {
     // Act
     let swap = VarianceSwap::builder()
         .id(InstrumentId::new("VAR-TEST-001"))
-        .underlying_id(UNDERLYING_ID.to_string())
+        .underlying_ticker(UNDERLYING_ID.to_string())
         .notional(Money::new(DEFAULT_NOTIONAL, Currency::USD))
         .strike_variance(DEFAULT_STRIKE_VAR)
         .start_date(start)
@@ -35,7 +35,7 @@ fn test_builder_creates_valid_swap_with_all_required_fields() {
     assert!(swap.is_ok());
     let swap = swap.unwrap();
     assert_eq!(swap.id.as_str(), "VAR-TEST-001");
-    assert_eq!(swap.underlying_id, UNDERLYING_ID);
+    assert_eq!(swap.underlying_ticker, UNDERLYING_ID);
     assert_eq!(swap.notional.amount(), DEFAULT_NOTIONAL);
     assert_eq!(swap.strike_variance, DEFAULT_STRIKE_VAR);
     assert_eq!(swap.start_date, start);
