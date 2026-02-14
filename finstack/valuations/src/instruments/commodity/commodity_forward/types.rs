@@ -146,7 +146,7 @@ pub struct CommodityForward {
     /// Optional spot price ID (for delta calculations).
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub spot_price_id: Option<String>,
+    pub spot_id: Option<String>,
     /// Discount curve ID.
     pub discount_curve_id: CurveId,
     /// Optional exchange identifier (e.g., "NYMEX", "ICE").
@@ -266,7 +266,7 @@ impl CommodityForward {
     ///
     /// 1. If `quoted_price` is set, return it directly
     /// 2. Look up `PriceCurve` by `forward_curve_id`
-    /// 3. If `spot_price_id` is set and PriceCurve not found, use cost-of-carry model
+    /// 3. If `spot_id` is set and PriceCurve not found, use cost-of-carry model
     ///
     /// # Errors
     ///
@@ -298,7 +298,7 @@ impl CommodityForward {
 
         // Fallback: if we have a spot price and discount curve, use cost-of-carry model
         // F = S × exp(r × T) where r is the implied carry rate
-        if let Some(spot_id) = &self.spot_price_id {
+        if let Some(spot_id) = &self.spot_id {
             if let Ok(spot_scalar) = market.price(spot_id) {
                 let spot = match spot_scalar {
                     finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -401,7 +401,7 @@ impl crate::instruments::common_impl::traits::EquityDependencies for CommodityFo
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::EquityInstrumentDeps> {
         Ok(
             crate::instruments::common_impl::traits::EquityInstrumentDeps {
-                spot_id: self.spot_price_id.clone(),
+                spot_id: self.spot_id.clone(),
                 vol_surface_id: None,
             },
         )
@@ -419,7 +419,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             )?;
-        if let Some(spot_id) = self.spot_price_id.as_deref() {
+        if let Some(spot_id) = self.spot_id.as_deref() {
             deps.add_spot_id(spot_id);
         }
         Ok(deps)

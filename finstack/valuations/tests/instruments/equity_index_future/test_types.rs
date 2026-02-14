@@ -72,7 +72,7 @@ fn test_equity_index_future_builder() {
         .position(Position::Long)
         .contract_specs(EquityFutureSpecs::sp500_emini())
         .discount_curve_id(CurveId::new("USD-OIS"))
-        .index_price_id("SPX-SPOT".to_string())
+        .spot_id("SPX-SPOT".to_string())
         .attributes(Attributes::new())
         .build()
         .expect("should build");
@@ -106,7 +106,7 @@ fn test_sp500_emini_convenience_constructor() {
     assert_eq!(future.underlying_ticker, "SPX");
     assert_eq!(future.currency, Currency::USD);
     assert_eq!(future.contract_specs.multiplier, 50.0);
-    assert_eq!(future.index_price_id, "SPX-SPOT");
+    assert_eq!(future.spot_id, "SPX-SPOT");
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn test_nasdaq100_emini_convenience_constructor() {
     assert_eq!(future.underlying_ticker, "NDX");
     assert_eq!(future.currency, Currency::USD);
     assert_eq!(future.contract_specs.multiplier, 20.0);
-    assert_eq!(future.index_price_id, "NDX-SPOT");
+    assert_eq!(future.spot_id, "NDX-SPOT");
     assert_eq!(future.position, Position::Short);
 }
 

@@ -25,7 +25,7 @@ use finstack_core::Result;
 /// # American Option Assumptions
 ///
 /// For American exercise, the model requires a spot price to build the binomial tree.
-/// If `spot_price_id` is provided, it uses that spot price. Otherwise, the forward
+/// If `spot_id` is provided, it uses that spot price. Otherwise, the forward
 /// price is used as a proxy for spot, which may underestimate early exercise value.
 /// The convenience yield (cost-of-carry) is implied from the forward/spot ratio:
 /// `q = r - ln(F/S)/T`
@@ -80,7 +80,7 @@ pub struct CommodityOption {
     /// Optional spot price ID (for spot-based pricing and American options).
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub spot_price_id: Option<String>,
+    pub spot_id: Option<String>,
     /// Optional quoted forward price (overrides curve lookup).
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -188,7 +188,7 @@ impl CommodityOption {
     }
 
     fn spot_price(&self, market: &MarketContext) -> Result<Option<f64>> {
-        let Some(spot_id) = &self.spot_price_id else {
+        let Some(spot_id) = &self.spot_id else {
             return Ok(None);
         };
         let scalar = market.price(spot_id)?;
@@ -202,7 +202,7 @@ impl CommodityOption {
     /// Get the forward price for this option.
     ///
     /// Uses `quoted_forward` if provided, otherwise retrieves from the `PriceCurve`
-    /// specified by `forward_curve_id`. If no `PriceCurve` is found but `spot_price_id`
+    /// specified by `forward_curve_id`. If no `PriceCurve` is found but `spot_id`
     /// is provided, falls back to cost-of-carry model: F = S × exp(r × T).
     ///
     /// # Note on PriceCurve Evaluation
@@ -331,7 +331,7 @@ impl Instrument for CommodityOption {
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             )?;
-        if let Some(spot_id) = self.spot_price_id.as_deref() {
+        if let Some(spot_id) = self.spot_id.as_deref() {
             deps.add_spot_id(spot_id);
         }
         deps.add_vol_surface_id(self.vol_surface_id.as_str());
@@ -507,11 +507,11 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for CommodityO
             .is_ok()
         {
             ForwardDriver::PriceCurve
-        } else if let Some(ref spot_id) = self.spot_price_id {
+        } else if let Some(ref spot_id) = self.spot_id {
             ForwardDriver::SpotScalar(spot_id.clone())
         } else {
             return Err(finstack_core::Error::Validation(
-                "Cannot compute gamma: no quoted_forward, PriceCurve, or spot_price_id available"
+                "Cannot compute gamma: no quoted_forward, PriceCurve, or spot_id available"
                     .to_string(),
             ));
         };
@@ -593,11 +593,11 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for CommodityO
             .is_ok()
         {
             ForwardDriver::PriceCurve
-        } else if let Some(ref spot_id) = self.spot_price_id {
+        } else if let Some(ref spot_id) = self.spot_id {
             ForwardDriver::SpotScalar(spot_id.clone())
         } else {
             return Err(finstack_core::Error::Validation(
-                "Cannot compute vanna: no quoted_forward, PriceCurve, or spot_price_id available"
+                "Cannot compute vanna: no quoted_forward, PriceCurve, or spot_id available"
                     .to_string(),
             ));
         };

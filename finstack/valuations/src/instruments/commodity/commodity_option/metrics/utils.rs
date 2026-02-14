@@ -17,7 +17,7 @@ use finstack_core::Result;
 ///
 /// 1. **`quoted_forward`**: If the instrument has a direct forward price override
 /// 2. **`PriceCurve`**: If a PriceCurve exists for `forward_curve_id` in market data
-/// 3. **`spot_price_id`**: Fallback to spot scalar (propagates via cost-of-carry)
+/// 3. **`spot_id`**: Fallback to spot scalar (propagates via cost-of-carry)
 ///
 /// # Usage
 ///
@@ -49,12 +49,12 @@ impl ForwardDriver {
     /// This matches the priority order used in `CommodityOption::forward_price()`:
     /// 1. `quoted_forward` (instrument override)
     /// 2. `PriceCurve` (market data curve)
-    /// 3. `spot_price_id` (cost-of-carry fallback)
+    /// 3. `spot_id` (cost-of-carry fallback)
     ///
     /// # Errors
     ///
     /// Returns an error if no valid driver is found (no `quoted_forward`,
-    /// no `PriceCurve`, and no `spot_price_id`).
+    /// no `PriceCurve`, and no `spot_id`).
     pub fn determine(option: &CommodityOption, context: &MetricContext) -> Result<Self> {
         // 1. If quoted_forward is set, bump that
         if let Some(fwd) = option.quoted_forward {
@@ -71,13 +71,13 @@ impl ForwardDriver {
         }
 
         // 3. Fall back to spot scalar (cost-of-carry)
-        if let Some(ref spot_id) = option.spot_price_id {
+        if let Some(ref spot_id) = option.spot_id {
             return Ok(ForwardDriver::SpotScalar(spot_id.clone()));
         }
 
         // No valid driver found
         Err(finstack_core::Error::Validation(
-            "Cannot compute forward-based Greek: no quoted_forward, PriceCurve, or spot_price_id available"
+            "Cannot compute forward-based Greek: no quoted_forward, PriceCurve, or spot_id available"
                 .to_string(),
         ))
     }

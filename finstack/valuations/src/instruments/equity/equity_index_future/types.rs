@@ -214,7 +214,7 @@ impl EquityFutureSpecs {
 ///     .position(Position::Long)
 ///     .contract_specs(EquityFutureSpecs::sp500_emini())
 ///     .discount_curve_id(CurveId::new("USD-OIS"))
-///     .index_price_id("SPX-SPOT".to_string())
+///     .spot_id("SPX-SPOT".to_string())
 ///     .build()
 ///     .expect("Valid future");
 /// ```
@@ -252,7 +252,7 @@ pub struct EquityIndexFuture {
     /// Discount curve identifier for present value calculations.
     pub discount_curve_id: CurveId,
     /// Index spot price identifier for fair value calculation.
-    pub index_price_id: String,
+    pub spot_id: String,
     /// Optional dividend yield identifier for fair value calculation.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -284,7 +284,7 @@ impl EquityIndexFuture {
             .position(Position::Long)
             .contract_specs(EquityFutureSpecs::sp500_emini())
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .index_price_id("SPX-SPOT".to_string())
+            .spot_id("SPX-SPOT".to_string())
             .attributes(Attributes::new())
             .build()
             .unwrap_or_else(|_| {
@@ -323,7 +323,7 @@ impl EquityIndexFuture {
             .position(position)
             .contract_specs(EquityFutureSpecs::sp500_emini())
             .discount_curve_id(discount_curve_id.into())
-            .index_price_id("SPX-SPOT".to_string())
+            .spot_id("SPX-SPOT".to_string())
             .attributes(Attributes::new())
             .build()
     }
@@ -359,7 +359,7 @@ impl EquityIndexFuture {
             .position(position)
             .contract_specs(EquityFutureSpecs::nasdaq100_emini())
             .discount_curve_id(discount_curve_id.into())
-            .index_price_id("NDX-SPOT".to_string())
+            .spot_id("NDX-SPOT".to_string())
             .attributes(Attributes::new())
             .build()
     }
@@ -474,7 +474,7 @@ impl EquityIndexFuture {
         use finstack_core::market_data::scalars::MarketScalar;
 
         // Get spot level
-        let spot = match context.price(&self.index_price_id)? {
+        let spot = match context.price(&self.spot_id)? {
             MarketScalar::Unitless(v) => *v,
             MarketScalar::Price(m) => m.amount(),
         };
@@ -533,7 +533,7 @@ impl crate::instruments::common_impl::traits::Instrument for EquityIndexFuture {
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             )?;
-        deps.add_spot_id(self.index_price_id.as_str());
+        deps.add_spot_id(self.spot_id.as_str());
         Ok(deps)
     }
 
@@ -591,7 +591,7 @@ impl crate::instruments::common_impl::traits::EquityDependencies for EquityIndex
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::EquityInstrumentDeps> {
         crate::instruments::common_impl::traits::EquityInstrumentDeps::builder()
-            .spot(self.index_price_id.as_str())
+            .spot(self.spot_id.as_str())
             .build()
     }
 }
@@ -636,7 +636,7 @@ mod tests {
             .position(Position::Long)
             .contract_specs(EquityFutureSpecs::sp500_emini())
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .index_price_id("SPX-SPOT".to_string())
+            .spot_id("SPX-SPOT".to_string())
             .attributes(Attributes::new())
             .build()
             .expect("should build");

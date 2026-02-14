@@ -10,7 +10,7 @@
 //!
 //! 1. **`quoted_forward`**: If the instrument has a quoted forward override, bump that
 //! 2. **`PriceCurve`**: If a PriceCurve exists for `forward_curve_id`, bump it (parallel percent)
-//! 3. **`spot_price_id`**: Only as a fallback, bump spot to propagate via cost-of-carry
+//! 3. **`spot_id`**: Only as a fallback, bump spot to propagate via cost-of-carry
 //!
 //! This ensures greeks are consistent with the Black-76 pricing model, regardless of
 //! how the forward price is specified in the market data.

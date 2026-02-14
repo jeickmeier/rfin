@@ -7573,6 +7573,14 @@
               "js_name": "initialLevel"
             },
             {
+              "name": "dividend_tax_rate",
+              "js_name": "dividendTaxRate"
+            },
+            {
+              "name": "add_discrete_dividend",
+              "js_name": "addDiscreteDividend"
+            },
+            {
               "name": "build",
               "js_name": "build"
             },
@@ -7683,6 +7691,89 @@
             {
               "name": "clone_js",
               "js_name": "clone"
+            }
+          ]
+        },
+        "valuations.instruments.levered_real_estate_equity": {
+          "path": "valuations/instruments/levered_real_estate_equity.rs",
+          "classes": [
+            {
+              "name": "LeveredRealEstateEquity",
+              "js_name": "LeveredRealEstateEquity",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "LeveredRealEstateEquityBuilder",
+              "js_name": "LeveredRealEstateEquityBuilder",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "asset",
+              "js_name": "asset"
+            },
+            {
+              "name": "financing",
+              "js_name": "financing"
+            },
+            {
+              "name": "exit_date",
+              "js_name": "exitDate"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrument_id"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "exit_date",
+              "js_name": "exitDate"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
             }
           ]
         },
@@ -8655,8 +8746,8 @@
               "js_name": "start"
             },
             {
-              "name": "end",
-              "js_name": "end"
+              "name": "maturity",
+              "js_name": "maturity"
             },
             {
               "name": "day_count",
@@ -8703,8 +8794,8 @@
               "js_name": "start"
             },
             {
-              "name": "end",
-              "js_name": "end"
+              "name": "maturity",
+              "js_name": "maturity"
             },
             {
               "name": "day_count",
@@ -9473,6 +9564,10 @@
               "js_name": "uponEvent"
             },
             {
+              "name": "mandatory_variable",
+              "js_name": "mandatoryVariable"
+            },
+            {
               "name": "new",
               "js_name": "new"
             },
@@ -10223,8 +10318,8 @@
               "js_name": "discountCurveId"
             },
             {
-              "name": "index_price_id",
-              "js_name": "indexPriceId"
+              "name": "spot_id",
+              "js_name": "spotId"
             },
             {
               "name": "build",
@@ -10344,8 +10439,16 @@
               "js_name": "valuationMethod"
             },
             {
+              "name": "property_type",
+              "js_name": "propertyType"
+            },
+            {
               "name": "noi_schedule",
               "js_name": "noiSchedule"
+            },
+            {
+              "name": "capex_schedule",
+              "js_name": "capexSchedule"
             },
             {
               "name": "discount_curve_id",
@@ -10370,6 +10473,38 @@
             {
               "name": "terminal_cap_rate",
               "js_name": "terminalCapRate"
+            },
+            {
+              "name": "terminal_growth_rate",
+              "js_name": "terminalGrowthRate"
+            },
+            {
+              "name": "sale_date",
+              "js_name": "saleDate"
+            },
+            {
+              "name": "sale_price",
+              "js_name": "salePrice"
+            },
+            {
+              "name": "acquisition_cost",
+              "js_name": "acquisitionCost"
+            },
+            {
+              "name": "acquisition_costs",
+              "js_name": "acquisitionCosts"
+            },
+            {
+              "name": "disposition_cost_pct",
+              "js_name": "dispositionCostPct"
+            },
+            {
+              "name": "disposition_costs",
+              "js_name": "dispositionCosts"
+            },
+            {
+              "name": "purchase_price",
+              "js_name": "purchasePrice"
             },
             {
               "name": "build",
@@ -12210,12 +12345,6 @@
           "path": "valuations/instruments/yoy_inflation_swap.rs",
           "classes": [
             {
-              "name": "PayReceiveInflation",
-              "js_name": "PayReceiveInflation",
-              "methods": [],
-              "properties": []
-            },
-            {
               "name": "YoYInflationSwap",
               "js_name": "YoYInflationSwap",
               "methods": [],
@@ -12229,26 +12358,6 @@
             }
           ],
           "functions": [
-            {
-              "name": "pay_fixed",
-              "js_name": "pay_fixed"
-            },
-            {
-              "name": "pay_fixed",
-              "js_name": "PayFixed"
-            },
-            {
-              "name": "receive_fixed",
-              "js_name": "ReceiveFixed"
-            },
-            {
-              "name": "is_pay_fixed",
-              "js_name": "isPayFixed"
-            },
-            {
-              "name": "to_string_js",
-              "js_name": "toString"
-            },
             {
               "name": "new",
               "js_name": "new"
@@ -13938,6 +14047,8 @@
         "EquityTotalReturnSwapBuilder",
         "FiIndexTotalReturnSwap",
         "FiIndexTotalReturnSwapBuilder",
+        "LeveredRealEstateEquity",
+        "LeveredRealEstateEquityBuilder",
         "VarianceSwap",
         "VarianceSwapBuilder",
         "RangeAccrualBuilder",
@@ -14027,7 +14138,6 @@
         "PrivateMarketsFund",
         "CreditDefaultSwapBuilder",
         "CreditDefaultSwap",
-        "PayReceiveInflation",
         "YoYInflationSwap",
         "YoYInflationSwapBuilder",
         "InflationCapFloorType",
@@ -14698,6 +14808,8 @@
         "schedule",
         "receiveTotalReturn",
         "initialLevel",
+        "dividendTaxRate",
+        "addDiscreteDividend",
         "build",
         "new",
         "instrumentId",
@@ -14726,6 +14838,22 @@
         "instrumentType",
         "toString",
         "clone",
+        "new",
+        "new",
+        "currency",
+        "asset",
+        "financing",
+        "exitDate",
+        "discountCurveId",
+        "build",
+        "instrument_id",
+        "instrumentId",
+        "currency",
+        "discountCurveId",
+        "exitDate",
+        "instrumentType",
+        "toJson",
+        "fromJson",
         "new",
         "new",
         "underlyingId",
@@ -14918,7 +15046,7 @@
         "new",
         "money",
         "start",
-        "end",
+        "maturity",
         "dayCount",
         "discountCurve",
         "quoteRate",
@@ -14930,7 +15058,7 @@
         "instrumentId",
         "notional",
         "start",
-        "end",
+        "maturity",
         "dayCount",
         "quoteRate",
         "discountCurve",
@@ -15085,6 +15213,7 @@
         "voluntary",
         "mandatoryOn",
         "uponEvent",
+        "mandatoryVariable",
         "new",
         "new",
         "new",
@@ -15240,7 +15369,7 @@
         "position",
         "specs",
         "discountCurveId",
-        "indexPriceId",
+        "spotId",
         "build",
         "new",
         "id",
@@ -15264,13 +15393,23 @@
         "currency",
         "valuationDate",
         "valuationMethod",
+        "propertyType",
         "noiSchedule",
+        "capexSchedule",
         "discountCurveId",
         "dayCount",
         "discountRate",
         "capRate",
         "stabilizedNoi",
         "terminalCapRate",
+        "terminalGrowthRate",
+        "saleDate",
+        "salePrice",
+        "acquisitionCost",
+        "acquisitionCosts",
+        "dispositionCostPct",
+        "dispositionCosts",
+        "purchasePrice",
         "build",
         "new",
         "id",
@@ -15660,11 +15799,6 @@
         "instrumentType",
         "toString",
         "clone",
-        "pay_fixed",
-        "PayFixed",
-        "ReceiveFixed",
-        "isPayFixed",
-        "toString",
         "new",
         "new",
         "money",

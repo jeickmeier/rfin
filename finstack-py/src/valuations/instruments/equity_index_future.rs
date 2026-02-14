@@ -211,7 +211,7 @@ impl PyEquityFutureSpecs {
 ///         .position("long")
 ///         .contract_specs(EquityIndexFuture.sp500_emini_specs())
 ///         .discount_curve("USD-OIS")
-///         .index_price_id("SPX-SPOT")
+///         .spot_id("SPX-SPOT")
 ///         .build()
 ///     )
 ///
@@ -254,7 +254,7 @@ pub struct PyEquityIndexFutureBuilder {
     position: Position,
     contract_specs: Option<EquityFutureSpecs>,
     discount_curve_id: Option<CurveId>,
-    index_price_id: Option<String>,
+    spot_id: Option<String>,
     dividend_yield_id: Option<String>,
 }
 
@@ -272,7 +272,7 @@ impl PyEquityIndexFutureBuilder {
             position: Position::Long,
             contract_specs: None,
             discount_curve_id: None,
-            index_price_id: None,
+            spot_id: None,
             dividend_yield_id: None,
         }
     }
@@ -305,10 +305,10 @@ impl PyEquityIndexFutureBuilder {
             .clone()
             .ok_or_else(|| PyValueError::new_err("discount_curve_id is required"))?;
 
-        let index_price_id = self
-            .index_price_id
+        let spot_id = self
+            .spot_id
             .clone()
-            .ok_or_else(|| PyValueError::new_err("index_price_id is required"))?;
+            .ok_or_else(|| PyValueError::new_err("spot_id is required"))?;
 
         let contract_specs = self.contract_specs.clone().unwrap_or_default();
 
@@ -324,7 +324,7 @@ impl PyEquityIndexFutureBuilder {
             .position(self.position)
             .contract_specs(contract_specs)
             .discount_curve_id(discount_curve_id)
-            .index_price_id(index_price_id)
+            .spot_id(spot_id)
             .dividend_yield_id_opt(self.dividend_yield_id.clone())
             .attributes(Attributes::new())
             .build()
@@ -397,8 +397,8 @@ impl PyEquityIndexFutureBuilder {
         slf
     }
 
-    fn index_price_id<'py>(mut slf: PyRefMut<'py, Self>, id: &str) -> PyRefMut<'py, Self> {
-        slf.index_price_id = Some(id.to_string());
+    fn spot_id<'py>(mut slf: PyRefMut<'py, Self>, id: &str) -> PyRefMut<'py, Self> {
+        slf.spot_id = Some(id.to_string());
         slf
     }
 

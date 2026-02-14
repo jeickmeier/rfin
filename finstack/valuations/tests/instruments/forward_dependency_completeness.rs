@@ -59,7 +59,7 @@ fn build_market_from_deps(
 fn test_forward_curve_dependencies_complete() {
     let as_of = date!(2025 - 01 - 01);
     let mut option = CommodityOption::example();
-    option.spot_price_id = Some("WTI-SPOT".to_string());
+    option.spot_id = Some("WTI-SPOT".to_string());
 
     let deps =
         MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()))
@@ -76,10 +76,10 @@ fn test_forward_curve_dependencies_complete() {
 
 #[test]
 fn test_missing_forward_curve_with_spot_succeeds() {
-    // When spot_price_id is present, commodity option can derive forward via cost-of-carry
+    // When spot_id is present, commodity option can derive forward via cost-of-carry
     let as_of = date!(2025 - 01 - 01);
     let mut option = CommodityOption::example();
-    option.spot_price_id = Some("WTI-SPOT".to_string());
+    option.spot_id = Some("WTI-SPOT".to_string());
 
     let deps =
         MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()))
@@ -120,10 +120,10 @@ fn test_missing_forward_curve_with_spot_succeeds() {
 
 #[test]
 fn test_missing_both_forward_and_spot_fails() {
-    // When neither PriceCurve nor spot_price_id is available, pricing should fail
+    // When neither PriceCurve nor spot_id is available, pricing should fail
     let as_of = date!(2025 - 01 - 01);
     let mut option = CommodityOption::example();
-    option.spot_price_id = None; // No spot fallback
+    option.spot_id = None; // No spot fallback
 
     let deps =
         MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()))

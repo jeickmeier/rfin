@@ -37,7 +37,7 @@
           "quantity": 1000.0,
           "quoted_forward": null,
           "settlement": "Cash",
-          "spot_price_id": null,
+          "spot_id": null,
           "strike": 75.0,
           "ticker": "CL",
           "unit": "BBL",

@@ -78,7 +78,7 @@ let es_future = EquityIndexFuture::builder()
     .position(Position::Long)
     .contract_specs(EquityFutureSpecs::sp500_emini())
     .discount_curve_id(CurveId::new("USD-OIS"))
-    .index_price_id("SPX-SPOT".to_string())
+    .spot_id("SPX-SPOT".to_string())
     .build()
     .expect("Valid future");
 
@@ -142,7 +142,7 @@ println!("NPV: {}", npv);
 ### For Fair Value Pricing
 
 - Discount curve (for risk-free rate and DV01)
-- Spot index level (via `index_price_id`)
+- Spot index level (via `spot_id`)
 - Optional: Dividend yield (via `dividend_yield_id`)
 
 ## Risk Metrics

@@ -186,7 +186,7 @@ fn test_spot_based_american_put_above_european() {
             .forward_curve_id(CurveId::new("CL-FWD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .vol_surface_id(CurveId::new("CL-VOL"))
-            .spot_price_id_opt(Some("CL-SPOT".to_string()))
+            .spot_id_opt(Some("CL-SPOT".to_string()))
             .day_count(DayCount::Act365F)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())

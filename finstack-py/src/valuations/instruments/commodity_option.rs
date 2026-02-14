@@ -83,7 +83,7 @@ pub struct PyCommodityOptionBuilder {
     multiplier: f64,
     settlement: SettlementType,
     day_count: DayCount,
-    spot_price_id: Option<String>,
+    spot_id: Option<String>,
     quoted_forward: Option<f64>,
     implied_volatility: Option<f64>,
     tree_steps: Option<usize>,
@@ -108,7 +108,7 @@ impl PyCommodityOptionBuilder {
             multiplier: 1.0,
             settlement: SettlementType::Cash,
             day_count: DayCount::Act365F,
-            spot_price_id: None,
+            spot_id: None,
             quoted_forward: None,
             implied_volatility: None,
             tree_steps: None,
@@ -313,12 +313,9 @@ impl PyCommodityOptionBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, spot_price_id=None)", signature = (spot_price_id=None))]
-    fn spot_price_id(
-        mut slf: PyRefMut<'_, Self>,
-        spot_price_id: Option<String>,
-    ) -> PyRefMut<'_, Self> {
-        slf.spot_price_id = spot_price_id;
+    #[pyo3(text_signature = "($self, spot_id=None)", signature = (spot_id=None))]
+    fn spot_id(mut slf: PyRefMut<'_, Self>, spot_id: Option<String>) -> PyRefMut<'_, Self> {
+        slf.spot_id = spot_id;
         slf
     }
 
@@ -431,8 +428,8 @@ impl PyCommodityOptionBuilder {
             .pricing_overrides(pricing_overrides)
             .attributes(Attributes::new());
 
-        if let Some(sp_id) = slf.spot_price_id.clone() {
-            builder = builder.spot_price_id_opt(Some(sp_id));
+        if let Some(sp_id) = slf.spot_id.clone() {
+            builder = builder.spot_id_opt(Some(sp_id));
         }
         if let Some(qf) = slf.quoted_forward {
             builder = builder.quoted_forward_opt(Some(qf));
@@ -566,8 +563,8 @@ impl PyCommodityOption {
 
     /// Optional spot price ID.
     #[getter]
-    fn spot_price_id(&self) -> Option<&str> {
-        self.inner.spot_price_id.as_deref()
+    fn spot_id(&self) -> Option<&str> {
+        self.inner.spot_id.as_deref()
     }
 
     /// Optional quoted forward price.

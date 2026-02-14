@@ -84,7 +84,7 @@ def test_commodity_option_with_overrides() -> None:
         .multiplier(100.0)
         .implied_volatility(0.15)
         .quoted_forward(1950.0)
-        .spot_price_id("GOLD-SPOT")
+        .spot_id("GOLD-SPOT")
         .build()
     )
 
@@ -92,7 +92,7 @@ def test_commodity_option_with_overrides() -> None:
     assert option.ticker == "GC"
     assert option.multiplier == 100.0
     assert option.quoted_forward == 1950.0
-    assert option.spot_price_id == "GOLD-SPOT"
+    assert option.spot_id == "GOLD-SPOT"
 
 
 def test_commodity_option_repr() -> None:

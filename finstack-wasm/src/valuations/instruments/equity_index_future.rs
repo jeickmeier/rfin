@@ -155,7 +155,7 @@ pub struct JsEquityIndexFutureBuilder {
     position: Option<finstack_valuations::instruments::fixed_income::bond_future::Position>,
     specs: Option<EquityFutureSpecs>,
     discount_curve_id: Option<String>,
-    index_price_id: Option<String>,
+    spot_id: Option<String>,
 }
 
 #[wasm_bindgen(js_class = EquityIndexFutureBuilder)]
@@ -216,9 +216,9 @@ impl JsEquityIndexFutureBuilder {
         self
     }
 
-    #[wasm_bindgen(js_name = indexPriceId)]
-    pub fn index_price_id(mut self, index_price_id: String) -> JsEquityIndexFutureBuilder {
-        self.index_price_id = Some(index_price_id);
+    #[wasm_bindgen(js_name = spotId)]
+    pub fn spot_id(mut self, spot_id: String) -> JsEquityIndexFutureBuilder {
+        self.spot_id = Some(spot_id);
         self
     }
 
@@ -249,9 +249,10 @@ impl JsEquityIndexFutureBuilder {
         let discount_curve_id = self.discount_curve_id.as_deref().ok_or_else(|| {
             JsValue::from_str("EquityIndexFutureBuilder: discountCurveId is required")
         })?;
-        let index_price_id = self.index_price_id.as_deref().ok_or_else(|| {
-            JsValue::from_str("EquityIndexFutureBuilder: indexPriceId is required")
-        })?;
+        let spot_id = self
+            .spot_id
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("EquityIndexFutureBuilder: spotId is required"))?;
 
         let ccy: Currency = currency
             .parse()
@@ -267,7 +268,7 @@ impl JsEquityIndexFutureBuilder {
             .position(position)
             .contract_specs(specs)
             .discount_curve_id(CurveId::new(discount_curve_id))
-            .index_price_id(index_price_id.to_string())
+            .spot_id(spot_id.to_string())
             .attributes(Attributes::new())
             .build()
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
@@ -289,7 +290,7 @@ impl JsEquityIndexFuture {
     /// @param {FuturePosition} position - Long or Short
     /// @param {EquityFutureSpecs} specs - Contract specifications
     /// @param {string} discountCurveId - Discount curve ID
-    /// @param {string} indexPriceId - Index spot price identifier
+    /// @param {string} spotId - Index spot price identifier
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -302,7 +303,7 @@ impl JsEquityIndexFuture {
         position: &JsFuturePosition,
         specs: &JsEquityFutureSpecs,
         discount_curve_id: &str,
-        index_price_id: &str,
+        spot_id: &str,
     ) -> Result<JsEquityIndexFuture, JsValue> {
         web_sys::console::warn_1(&JsValue::from_str(
             "EquityIndexFuture constructor is deprecated; use EquityIndexFutureBuilder instead.",
@@ -321,7 +322,7 @@ impl JsEquityIndexFuture {
             .position(position.inner())
             .contract_specs(specs.inner())
             .discount_curve_id(CurveId::new(discount_curve_id))
-            .index_price_id(index_price_id.to_string())
+            .spot_id(spot_id.to_string())
             .attributes(Attributes::new())
             .build()
             .map_err(|e| JsValue::from_str(&e.to_string()))?;

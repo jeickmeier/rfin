@@ -71,7 +71,7 @@ pub struct PyCommodityForwardBuilder {
     discount_curve_id: Option<CurveId>,
     multiplier: f64,
     quoted_price: Option<f64>,
-    spot_price_id: Option<String>,
+    spot_id: Option<String>,
     settlement: Option<SettlementType>,
     exchange: Option<String>,
     contract_month: Option<String>,
@@ -93,7 +93,7 @@ impl PyCommodityForwardBuilder {
             discount_curve_id: None,
             multiplier: 1.0,
             quoted_price: None,
-            spot_price_id: None,
+            spot_id: None,
             settlement: None,
             exchange: None,
             contract_month: None,
@@ -209,12 +209,9 @@ impl PyCommodityForwardBuilder {
         slf
     }
 
-    #[pyo3(text_signature = "($self, spot_price_id=None)", signature = (spot_price_id=None))]
-    fn spot_price_id(
-        mut slf: PyRefMut<'_, Self>,
-        spot_price_id: Option<String>,
-    ) -> PyRefMut<'_, Self> {
-        slf.spot_price_id = spot_price_id;
+    #[pyo3(text_signature = "($self, spot_id=None)", signature = (spot_id=None))]
+    fn spot_id(mut slf: PyRefMut<'_, Self>, spot_id: Option<String>) -> PyRefMut<'_, Self> {
+        slf.spot_id = spot_id;
         slf
     }
 
@@ -344,8 +341,8 @@ impl PyCommodityForwardBuilder {
         if let Some(qp) = slf.quoted_price {
             builder = builder.quoted_price_opt(Some(qp));
         }
-        if let Some(sp) = slf.spot_price_id.clone() {
-            builder = builder.spot_price_id_opt(Some(sp));
+        if let Some(sp) = slf.spot_id.clone() {
+            builder = builder.spot_id_opt(Some(sp));
         }
         if let Some(ex) = slf.exchange.clone() {
             builder = builder.exchange_opt(Some(ex));
