@@ -38,7 +38,7 @@ fn test_tips_creation_via_helper() {
     assert_eq!(tips.base_index, 250.0);
     assert_eq!(tips.notional.amount(), 1_000_000.0);
     assert_eq!(tips.notional.currency(), Currency::USD);
-    assert_eq!(tips.freq, Tenor::semi_annual());
+    assert_eq!(tips.frequency, Tenor::semi_annual());
     assert_eq!(tips.day_count, DayCount::ActAct);
     assert_eq!(tips.deflation_protection, DeflationProtection::MaturityOnly);
 }
@@ -314,7 +314,7 @@ fn test_various_frequencies() {
 
         let bond = InflationLinkedBond::new_tips("ILB-TEST", &params, "USD-REAL", "US-CPI-U");
 
-        assert_eq!(bond.freq, freq);
+        assert_eq!(bond.frequency, freq);
     }
 }
 

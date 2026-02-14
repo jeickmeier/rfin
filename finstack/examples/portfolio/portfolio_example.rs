@@ -993,7 +993,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .id("TIPS_2030".into())
         .notional(tips_params.notional)
         .real_coupon(tips_params.real_coupon)
-        .freq(tips_params.frequency)
+        .frequency(tips_params.frequency)
         .day_count(tips_params.day_count)
         .issue_date(tips_params.issue)
         .maturity(tips_params.maturity)

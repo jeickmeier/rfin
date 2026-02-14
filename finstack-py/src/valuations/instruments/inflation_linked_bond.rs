@@ -252,7 +252,7 @@ impl PyInflationLinkedBondBuilder {
         builder = builder.id(slf.instrument_id.clone());
         builder = builder.notional(params.notional);
         builder = builder.real_coupon(params.real_coupon);
-        builder = builder.freq(params.frequency);
+        builder = builder.frequency(params.frequency);
         builder = builder.day_count(params.day_count);
         builder = builder.issue_date(params.issue);
         builder = builder.maturity(params.maturity);

@@ -43,7 +43,7 @@ fn test_build_dated_flows_semi_annual() {
 fn test_build_dated_flows_annual() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.freq = Tenor::annual();
+    ilb.frequency = Tenor::annual();
     ilb.issue_date = d(2020, 1, 15);
     ilb.maturity = d(2025, 1, 15);
 
@@ -78,7 +78,7 @@ fn test_build_dated_flows_annual() {
 fn test_build_dated_flows_quarterly() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.freq = Tenor::quarterly();
+    ilb.frequency = Tenor::quarterly();
     ilb.issue_date = d(2024, 1, 15);
     ilb.maturity = d(2025, 1, 15);
 
@@ -107,7 +107,7 @@ fn test_coupon_amounts_reflect_inflation_adjustment() {
     ilb.notional =
         finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD);
     ilb.real_coupon = 0.01; // 1% real coupon
-    ilb.freq = Tenor::annual();
+    ilb.frequency = Tenor::annual();
     ilb.issue_date = d(2024, 1, 1);
     ilb.maturity = d(2026, 1, 1);
 
@@ -177,7 +177,7 @@ fn test_schedule_respects_day_count_convention() {
     ilb.day_count = finstack_core::dates::DayCount::ActAct;
     ilb.issue_date = d(2024, 1, 1);
     ilb.maturity = d(2024, 7, 2); // Slightly past 6 months
-    ilb.freq = Tenor::semi_annual();
+    ilb.frequency = Tenor::semi_annual();
 
     let (ctx, _) = market_context_with_index();
     let as_of = d(2024, 1, 1);
@@ -335,7 +335,7 @@ fn test_schedule_generation_performance() {
     let mut ilb = sample_tips();
     ilb.issue_date = d(2020, 1, 1);
     ilb.maturity = d(2050, 1, 1); // 30-year bond
-    ilb.freq = Tenor::semi_annual();
+    ilb.frequency = Tenor::semi_annual();
 
     let (ctx, _) = market_context_with_index();
     let as_of = d(2020, 1, 1);

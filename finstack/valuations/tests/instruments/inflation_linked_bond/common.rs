@@ -25,7 +25,7 @@ pub fn sample_tips() -> InflationLinkedBond {
         .id(InstrumentId::new("TIPS-TEST"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .real_coupon(0.0125) // 1.25% real coupon
-        .freq(Tenor::semi_annual())
+        .frequency(Tenor::semi_annual())
         .day_count(DayCount::ActAct)
         .issue_date(d(2020, 1, 15))
         .maturity(d(2030, 1, 15))
@@ -52,7 +52,7 @@ pub fn sample_uk_linker() -> InflationLinkedBond {
         .id(InstrumentId::new("UK-GILT-TEST"))
         .notional(Money::new(1_000_000.0, Currency::GBP))
         .real_coupon(0.00625) // 0.625% real coupon
-        .freq(Tenor::semi_annual())
+        .frequency(Tenor::semi_annual())
         .day_count(DayCount::ActAct)
         .issue_date(d(2020, 3, 22))
         .maturity(d(2040, 3, 22))

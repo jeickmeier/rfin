@@ -204,7 +204,8 @@ pub struct InflationLinkedBond {
     /// Real coupon rate (as decimal)
     pub real_coupon: f64,
     /// Coupon frequency
-    pub freq: Tenor,
+    #[serde(alias = "freq")]
+    pub frequency: Tenor,
     /// Day count convention
     #[serde(alias = "dc")]
     pub day_count: DayCount,
@@ -257,7 +258,7 @@ impl InflationLinkedBond {
             id: InstrumentId::new("TIPS-10Y"),
             notional: Money::new(1_000_000.0, Currency::USD),
             real_coupon: 0.025,
-            freq: Tenor::semi_annual(),
+            frequency: Tenor::semi_annual(),
             day_count: DayCount::ActActIsma, // US Treasury convention
             issue_date: date!(2024 - 01 - 15),
             maturity: date!(2034 - 01 - 15),
@@ -287,7 +288,7 @@ impl InflationLinkedBond {
             id: id.into(),
             notional: bond_params.notional,
             real_coupon: bond_params.real_coupon,
-            freq: bond_params.frequency,
+            frequency: bond_params.frequency,
             day_count: bond_params.day_count,
             issue_date: bond_params.issue,
             maturity: bond_params.maturity,
@@ -368,7 +369,7 @@ impl InflationLinkedBond {
             id: id.into(),
             notional: bond_params.notional,
             real_coupon: bond_params.real_coupon,
-            freq: bond_params.frequency,
+            frequency: bond_params.frequency,
             day_count: bond_params.day_count,
             issue_date: bond_params.issue,
             maturity: bond_params.maturity,
@@ -458,7 +459,7 @@ impl InflationLinkedBond {
             id: id.into(),
             notional: bond_params.notional,
             real_coupon: bond_params.real_coupon,
-            freq: bond_params.frequency,
+            frequency: bond_params.frequency,
             day_count: bond_params.day_count,
             issue_date: bond_params.issue,
             maturity: bond_params.maturity,
@@ -528,7 +529,7 @@ impl InflationLinkedBond {
             id: id.into(),
             notional: bond_params.notional,
             real_coupon: bond_params.real_coupon,
-            freq: bond_params.frequency,
+            frequency: bond_params.frequency,
             day_count: DayCount::Act365F, // JGB standard day count
             issue_date: bond_params.issue,
             maturity: bond_params.maturity,
@@ -701,7 +702,7 @@ impl InflationLinkedBond {
         let sched = crate::cashflow::builder::build_dates(
             self.issue_date,
             self.maturity,
-            self.freq,
+            self.frequency,
             self.stub,
             self.bdc,
             false,
@@ -743,7 +744,7 @@ impl InflationLinkedBond {
         let sched = crate::cashflow::builder::build_dates(
             self.issue_date,
             self.maturity,
-            self.freq,
+            self.frequency,
             self.stub,
             self.bdc,
             false,
@@ -796,7 +797,7 @@ impl InflationLinkedBond {
         let sched = crate::cashflow::builder::build_dates(
             self.issue_date,
             self.maturity,
-            self.freq,
+            self.frequency,
             self.stub,
             self.bdc,
             false,
@@ -884,7 +885,7 @@ impl InflationLinkedBond {
             notional: self.notional,
             coupon_rate: self.real_coupon,
             compounding: YieldCompounding::Street,
-            frequency: self.freq,
+            frequency: self.frequency,
         };
 
         // 4. Solve yield that matches the target real price to PV of real flows
@@ -952,7 +953,7 @@ impl InflationLinkedBond {
         let price_from_yield = |y: f64| -> Result<f64> {
             let price = price_from_ytm_compounded_params(
                 self.day_count,
-                self.freq,
+                self.frequency,
                 &flows,
                 as_of,
                 y,
