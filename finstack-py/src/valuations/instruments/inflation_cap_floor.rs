@@ -409,7 +409,7 @@ impl PyInflationCapFloorBuilder {
             notional,
             strike_rate: slf.strike_rate,
             start_date,
-            end_date,
+            maturity: end_date,
             frequency: slf.frequency,
             day_count: slf.day_count,
             stub_kind: slf.stub_kind,
@@ -479,7 +479,7 @@ impl PyInflationCapFloor {
     /// End date of the final inflation period.
     #[getter]
     fn end_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.end_date)
+        date_to_py(py, self.inner.maturity)
     }
 
     /// Inflation index identifier.

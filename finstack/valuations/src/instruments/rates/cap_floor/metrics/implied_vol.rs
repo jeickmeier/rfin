@@ -70,13 +70,13 @@ impl MetricCalculator for ImpliedVolCalculator {
         // Use curve-consistent helpers for forward rate and discount factor
         // (same as in the main pricing implementation)
         let forward_rate =
-            rate_period_on_dates(forward_curve.as_ref(), option.start_date, option.end_date)?;
+            rate_period_on_dates(forward_curve.as_ref(), option.start_date, option.maturity)?;
         let discount_factor =
-            relative_df_discount_curve(discount_curve.as_ref(), context.as_of, option.end_date)?;
+            relative_df_discount_curve(discount_curve.as_ref(), context.as_of, option.maturity)?;
 
         let accrual_fraction = option.day_count.year_fraction(
             option.start_date,
-            option.end_date,
+            option.maturity,
             finstack_core::dates::DayCountCtx::default(),
         )?;
         let is_cap = matches!(

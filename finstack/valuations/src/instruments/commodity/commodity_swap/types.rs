@@ -48,7 +48,7 @@ use finstack_core::Result;
 ///     .floating_index_id(CurveId::new("NG-SPOT-AVG"))
 ///     .side(PayReceive::PayFixed)
 ///     .start_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
-///     .end_date(Date::from_calendar_date(2025, Month::December, 31).unwrap())
+///     .maturity(Date::from_calendar_date(2025, Month::December, 31).unwrap())
 ///     .frequency(Tenor::new(1, TenorUnit::Months))
 ///     .discount_curve_id(CurveId::new("USD-OIS"))
 ///     .build()
@@ -78,7 +78,8 @@ pub struct CommoditySwap {
     /// Start date of the swap.
     pub start_date: Date,
     /// End date of the swap.
-    pub end_date: Date,
+    #[serde(alias = "end_date")]
+    pub maturity: Date,
     /// Payment frequency as a Tenor.
     #[serde(alias = "payment_frequency")]
     pub frequency: Tenor,
@@ -127,7 +128,8 @@ impl<'de> serde::Deserialize<'de> for CommoditySwap {
             #[serde(default)]
             pay_fixed: Option<bool>,
             start_date: Date,
-            end_date: Date,
+            #[serde(alias = "end_date")]
+            maturity: Date,
             #[serde(alias = "payment_frequency")]
             frequency: Tenor,
             #[serde(default)]
@@ -165,7 +167,7 @@ impl<'de> serde::Deserialize<'de> for CommoditySwap {
             floating_index_id: helper.floating_index_id,
             side,
             start_date: helper.start_date,
-            end_date: helper.end_date,
+            maturity: helper.maturity,
             frequency: helper.frequency,
             calendar_id: helper.calendar_id,
             bdc: helper.bdc,
@@ -196,7 +198,7 @@ impl CommoditySwap {
                 Date::from_calendar_date(2025, time::Month::January, 1)
                     .expect("Valid example date"),
             )
-            .end_date(
+            .maturity(
                 Date::from_calendar_date(2025, time::Month::December, 31)
                     .expect("Valid example date"),
             )
@@ -365,7 +367,7 @@ impl CommoditySwap {
         let bdc = self.bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing);
 
         let mut builder =
-            ScheduleBuilder::new(self.start_date, self.end_date)?.frequency(self.frequency);
+            ScheduleBuilder::new(self.start_date, self.maturity)?.frequency(self.frequency);
 
         // Apply calendar adjustment if calendar_id is specified
         if let Some(ref cal_id) = self.calendar_id {
@@ -379,7 +381,7 @@ impl CommoditySwap {
         // Filter to payment dates only (skip start date if it's in the schedule)
         let dates: Vec<Date> = schedule
             .into_iter()
-            .filter(|&d| d > self.start_date && d <= self.end_date)
+            .filter(|&d| d > self.start_date && d <= self.maturity)
             .collect();
 
         Ok(dates)
@@ -512,7 +514,7 @@ mod tests {
             .floating_index_id(CurveId::new("CL-AVG"))
             .side(PayReceive::PayFixed)
             .start_date(Date::from_calendar_date(2025, Month::January, 1).expect("valid date"))
-            .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
             .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(Attributes::new())
@@ -552,7 +554,7 @@ mod tests {
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
             .start_date(as_of)
-            .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
             .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
@@ -585,7 +587,7 @@ mod tests {
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
             .start_date(as_of)
-            .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
             .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
@@ -602,7 +604,7 @@ mod tests {
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::ReceiveFixed) // Receiving fixed
             .start_date(as_of)
-            .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
             .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
@@ -636,7 +638,7 @@ mod tests {
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
             .start_date(as_of)
-            .end_date(Date::from_calendar_date(2025, Month::March, 31).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::March, 31).expect("valid date"))
             .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()

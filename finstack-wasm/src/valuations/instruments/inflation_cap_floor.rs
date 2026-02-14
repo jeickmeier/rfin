@@ -247,7 +247,7 @@ impl JsInflationCapFloorBuilder {
             .notional(notional)
             .strike_rate(strike_rate)
             .start_date(start_date)
-            .end_date(end_date)
+            .maturity(end_date)
             .frequency(freq)
             .day_count(dc)
             .stub_kind(stub)
@@ -302,7 +302,7 @@ impl JsInflationCapFloor {
             .notional(notional.inner())
             .strike_rate(strike_rate)
             .start_date(start_date.inner())
-            .end_date(end_date.inner())
+            .maturity(end_date.inner())
             .frequency(freq)
             .day_count(dc)
             .stub_kind(stub)
@@ -349,7 +349,7 @@ impl JsInflationCapFloor {
     /// Get the end date.
     #[wasm_bindgen(getter, js_name = endDate)]
     pub fn end_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.end_date)
+        JsDate::from_core(self.inner.maturity)
     }
 
     /// Check if this is a cap.

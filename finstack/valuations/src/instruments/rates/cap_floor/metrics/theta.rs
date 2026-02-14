@@ -32,7 +32,7 @@ impl MetricCalculator for ThetaCalculator {
             use crate::cashflow::builder::date_generation::build_dates;
             let schedule = build_dates(
                 option.start_date,
-                option.end_date,
+                option.maturity,
                 option.frequency,
                 option.stub_kind,
                 option.bdc,
@@ -51,7 +51,7 @@ impl MetricCalculator for ThetaCalculator {
                 .find(|&&date| date > context.as_of)
                 .copied();
 
-            next_fixing.or(Some(option.end_date)) // Fallback to end_date if no future fixings
+            next_fixing.or(Some(option.maturity)) // Fallback to end_date if no future fixings
         };
 
         let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;

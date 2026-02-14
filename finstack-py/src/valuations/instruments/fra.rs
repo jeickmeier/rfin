@@ -302,7 +302,7 @@ impl PyForwardRateAgreementBuilder {
             .fixed_rate(fixed_rate)
             .fixing_date(fixing_date)
             .start_date(start_date)
-            .end_date(end_date)
+            .maturity(end_date)
             .day_count(slf.day_count)
             .reset_lag(slf.reset_lag)
             .discount_curve_id(discount)
@@ -433,7 +433,7 @@ impl PyForwardRateAgreement {
     ///     datetime.date: Accrual end date converted to Python.
     #[getter]
     fn end_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.end_date)
+        date_to_py(py, self.inner.maturity)
     }
 
     /// Notional amount for the FRA.

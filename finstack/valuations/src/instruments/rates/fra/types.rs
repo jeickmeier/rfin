@@ -67,7 +67,8 @@ pub struct ForwardRateAgreement {
     /// Interest period start date
     pub start_date: Date,
     /// Interest period end date
-    pub end_date: Date,
+    #[serde(alias = "end_date")]
+    pub maturity: Date,
     /// Fixed rate (decimal, e.g., 0.05 for 5%)
     pub fixed_rate: f64,
     /// Day count convention for interest accrual
@@ -115,7 +116,8 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             #[serde(default)]
             fixing_date: Option<Date>,
             start_date: Date,
-            end_date: Date,
+            #[serde(alias = "end_date")]
+            maturity: Date,
             fixed_rate: f64,
             day_count: DayCount,
             reset_lag: i32,
@@ -157,7 +159,7 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             notional: helper.notional,
             fixing_date: helper.fixing_date,
             start_date: helper.start_date,
-            end_date: helper.end_date,
+            maturity: helper.maturity,
             fixed_rate: helper.fixed_rate,
             day_count: helper.day_count,
             reset_lag: helper.reset_lag,
@@ -178,7 +180,7 @@ impl ForwardRateAgreement {
     /// This does not encode market conventions; it enforces finiteness and
     /// basic ordering constraints to prevent ambiguous pricing.
     pub fn validate(&self) -> finstack_core::Result<()> {
-        validation::validate_date_range_non_strict(self.start_date, self.end_date, "FRA")?;
+        validation::validate_date_range_non_strict(self.start_date, self.maturity, "FRA")?;
 
         validation::validate_money_finite(self.notional, "FRA notional")?;
         validation::validate_money_gt_with(self.notional, 0.0, |amount| {
@@ -232,7 +234,7 @@ impl ForwardRateAgreement {
             .notional(Money::new(10_000_000.0, Currency::USD))
             .fixing_date(date!(2024 - 04 - 01))
             .start_date(date!(2024 - 04 - 03))
-            .end_date(date!(2024 - 07 - 03))
+            .maturity(date!(2024 - 07 - 03))
             .fixed_rate(0.045)
             .day_count(DayCount::Act360)
             .reset_lag(2)
@@ -325,7 +327,7 @@ impl ForwardRateAgreement {
         let t_end = fwd_dc
             .year_fraction(
                 fwd_base,
-                self.end_date,
+                self.maturity,
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(t_start);
@@ -335,7 +337,7 @@ impl ForwardRateAgreement {
             .day_count
             .year_fraction(
                 self.start_date,
-                self.end_date,
+                self.maturity,
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
@@ -469,7 +471,7 @@ impl crate::instruments::common_impl::traits::Instrument for ForwardRateAgreemen
     }
 
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
-        Some(self.end_date)
+        Some(self.maturity)
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
@@ -569,7 +571,7 @@ mod tests {
             .notional(Money::new(1_000_000.0, Currency::USD))
             .fixing_date(fixing)
             .start_date(start)
-            .end_date(end)
+            .maturity(end)
             .fixed_rate(0.05)
             .day_count(finstack_core::dates::DayCount::Act360)
             .reset_lag(2)
@@ -623,7 +625,7 @@ mod tests {
             .notional(Money::new(1_000_000.0, Currency::USD))
             .fixing_date(fixing)
             .start_date(start)
-            .end_date(end)
+            .maturity(end)
             .fixed_rate(0.04) // Different from market rate
             .day_count(finstack_core::dates::DayCount::Act360)
             .reset_lag(2)

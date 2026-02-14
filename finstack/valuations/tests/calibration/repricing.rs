@@ -399,7 +399,7 @@ fn forward_curve_fra_repricing() {
             .notional(Money::new(fixtures::STANDARD_NOTIONAL, currency))
             .fixing_date(fixing_date)
             .start_date(start)
-            .end_date(end)
+            .maturity(end)
             .fixed_rate(rate)
             .day_count(day_count)
             .reset_lag(2)

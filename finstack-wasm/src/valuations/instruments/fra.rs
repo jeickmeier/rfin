@@ -135,7 +135,7 @@ impl JsForwardRateAgreementBuilder {
             .fixed_rate(fixed_rate)
             .fixing_date(fixing_date)
             .start_date(start_date)
-            .end_date(end_date)
+            .maturity(end_date)
             .discount_curve_id(curve_id_from_str(discount_curve))
             .forward_curve_id(curve_id_from_str(forward_curve));
 
@@ -241,7 +241,7 @@ impl JsForwardRateAgreement {
             .fixed_rate(fixed_rate)
             .fixing_date(fixing_date.inner())
             .start_date(start_date.inner())
-            .end_date(end_date.inner())
+            .maturity(end_date.inner())
             .discount_curve_id(curve_id_from_str(discount_curve))
             .forward_curve_id(curve_id_from_str(forward_curve));
 
@@ -343,7 +343,7 @@ impl JsForwardRateAgreement {
 
     #[wasm_bindgen(getter, js_name = endDate)]
     pub fn end_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.end_date)
+        JsDate::from_core(self.inner.maturity)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]

@@ -84,7 +84,7 @@ mod tests {
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
             .start_date(Date::from_calendar_date(2025, Month::January, 1).expect("valid date"))
-            .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
             .frequency(Tenor::new(1, TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(crate::instruments::common_impl::traits::Attributes::new())

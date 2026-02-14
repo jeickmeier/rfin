@@ -367,7 +367,7 @@ impl PyCommoditySwapBuilder {
                 PayReceive::ReceiveFixed
             })
             .start_date(start_date)
-            .end_date(end_date)
+            .maturity(end_date)
             .frequency(payment_frequency)
             .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new());
@@ -465,7 +465,7 @@ impl PyCommoditySwap {
     /// End date.
     #[getter]
     fn end_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.end_date)
+        date_to_py(py, self.inner.maturity)
     }
 
     /// Floating index ID.

@@ -384,7 +384,7 @@ impl PyInterestRateOption {
     ///     datetime.date: End date converted to Python.
     #[getter]
     fn end_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.end_date)
+        date_to_py(py, self.inner.maturity)
     }
 
     /// Discount curve identifier.

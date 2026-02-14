@@ -40,7 +40,7 @@ impl MetricCalculator for GammaCalculator {
         let base_pv = context.base_value.amount();
 
         // Expired options have zero gamma
-        if as_of >= option.end_date {
+        if as_of >= option.maturity {
             return Ok(0.0);
         }
 

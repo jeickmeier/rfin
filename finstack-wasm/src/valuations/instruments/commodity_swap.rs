@@ -200,7 +200,7 @@ impl JsCommoditySwapBuilder {
                 PayReceive::ReceiveFixed
             })
             .start_date(start_date)
-            .end_date(end_date)
+            .maturity(end_date)
             .frequency(freq)
             .discount_curve_id(CurveId::new(discount_curve_id))
             .attributes(Attributes::new());
@@ -312,7 +312,7 @@ impl JsCommoditySwap {
                 PayReceive::ReceiveFixed
             })
             .start_date(start_date.inner())
-            .end_date(end_date.inner())
+            .maturity(end_date.inner())
             .frequency(freq)
             .discount_curve_id(CurveId::new(discount_curve_id))
             .attributes(Attributes::new());
@@ -375,7 +375,7 @@ impl JsCommoditySwap {
 
     #[wasm_bindgen(getter, js_name = endDate)]
     pub fn end_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.end_date)
+        JsDate::from_core(self.inner.maturity)
     }
 
     #[wasm_bindgen(getter, js_name = floatingIndexId)]

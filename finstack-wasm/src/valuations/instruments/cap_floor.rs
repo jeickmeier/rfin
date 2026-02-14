@@ -325,7 +325,7 @@ impl JsInterestRateOption {
 
     #[wasm_bindgen(getter, js_name = endDate)]
     pub fn end_date(&self) -> JsDate {
-        JsDate::from_core(self.0.end_date)
+        JsDate::from_core(self.0.maturity)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]

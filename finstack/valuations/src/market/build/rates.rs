@@ -211,7 +211,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 .notional(Money::new(ctx.notional(), conv.currency))
                 .fixing_date(fixing_date)
                 .start_date(start_date)
-                .end_date(end_date)
+                .maturity(end_date)
                 .fixed_rate(*rate)
                 .day_count(conv.day_count)
                 .reset_lag(reset_lag)

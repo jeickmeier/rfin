@@ -70,7 +70,7 @@ where
         super::super::RateOptionType::Caplet | super::super::RateOptionType::Floorlet
     ) {
         let payment_date = crate::cashflow::builder::calendar::adjust_date(
-            option.end_date,
+            option.maturity,
             option.bdc,
             option
                 .calendar_id
@@ -79,10 +79,10 @@ where
         )?;
         let tau = option.day_count.year_fraction(
             option.start_date,
-            option.end_date,
+            option.maturity,
             finstack_core::dates::DayCountCtx::default(),
         )?;
-        return accumulate(option.start_date, option.end_date, payment_date, tau);
+        return accumulate(option.start_date, option.maturity, payment_date, tau);
     }
 
     // Cap/floor: iterate schedule
@@ -102,7 +102,7 @@ where
     let periods = crate::cashflow::builder::periods::build_periods(
         crate::cashflow::builder::periods::BuildPeriodsParams {
             start: option.start_date,
-            end: option.end_date,
+            end: option.maturity,
             frequency: option.frequency,
             stub: option.stub_kind,
             bdc: option.bdc,

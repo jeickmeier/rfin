@@ -119,7 +119,8 @@ pub struct InflationCapFloor {
     /// Start date of the first inflation period.
     pub start_date: Date,
     /// End date of the final inflation period.
-    pub end_date: Date,
+    #[serde(alias = "end_date")]
+    pub maturity: Date,
     /// Payment frequency (ignored for caplet/floorlet).
     pub frequency: Tenor,
     /// Day count convention for accrual and option time.
@@ -150,7 +151,7 @@ impl InflationCapFloor {
     /// Validate structural invariants.
     pub fn validate(&self) -> finstack_core::Result<()> {
         validation::require_or(
-            self.start_date < self.end_date,
+            self.start_date < self.maturity,
             finstack_core::InputError::InvalidDateRange,
         )?;
         validation::require_or(
@@ -260,19 +261,19 @@ impl InflationCapFloor {
             InflationCapFloorType::Caplet | InflationCapFloorType::Floorlet
         ) {
             let pay = crate::cashflow::builder::calendar::adjust_date(
-                self.end_date,
+                self.maturity,
                 self.bdc,
                 self.calendar_id
                     .as_deref()
                     .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             )?;
-            return Ok(vec![(self.start_date, self.end_date, pay)]);
+            return Ok(vec![(self.start_date, self.maturity, pay)]);
         }
 
         let periods = crate::cashflow::builder::periods::build_periods(
             crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start_date,
-                end: self.end_date,
+                end: self.maturity,
                 frequency: self.frequency,
                 stub: self.stub_kind,
                 bdc: self.bdc,

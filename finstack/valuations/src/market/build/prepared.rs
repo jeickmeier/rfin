@@ -161,7 +161,7 @@ pub fn prepare_rate_quote(
         .as_any()
         .downcast_ref::<crate::instruments::rates::fra::ForwardRateAgreement>(
     ) {
-        fra.end_date
+        fra.maturity
     } else if let Some(swp) = instrument
         .as_any()
         .downcast_ref::<crate::instruments::rates::irs::InterestRateSwap>()

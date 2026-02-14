@@ -36,7 +36,7 @@ fn test_cap_creation_basic() {
     assert_eq!(cap.frequency, Tenor::quarterly());
     assert_eq!(cap.day_count, DayCount::Act360);
     assert_eq!(cap.start_date, start);
-    assert_eq!(cap.end_date, end);
+    assert_eq!(cap.maturity, end);
 }
 
 #[test]
@@ -124,7 +124,7 @@ fn test_caplet_creation() {
         notional,
         strike_rate: 0.05,
         start_date: start,
-        end_date: end,
+        maturity: end,
         frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
@@ -156,7 +156,7 @@ fn test_floorlet_creation() {
         notional,
         strike_rate: 0.02,
         start_date: start,
-        end_date: end,
+        maturity: end,
         frequency: Tenor::semi_annual(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,

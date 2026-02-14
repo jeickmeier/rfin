@@ -103,7 +103,7 @@ pub fn create_standard_fra() -> ForwardRateAgreement {
         notional: Money::new(1_000_000.0, Currency::USD),
         fixing_date: Some(fixing),
         start_date: start,
-        end_date: end,
+        maturity: end,
         fixed_rate: 0.05, // At-market: 5% = forward rate
         day_count: DayCount::Act360,
         reset_lag: 2,
@@ -124,7 +124,7 @@ pub struct TestFraBuilder {
     notional: Money,
     fixing_date: Option<Date>,
     start_date: Date,
-    end_date: Date,
+    maturity: Date,
     fixed_rate: f64,
     day_count: DayCount,
     reset_lag: i32,
@@ -141,7 +141,7 @@ impl Default for TestFraBuilder {
             notional: Money::new(1_000_000.0, Currency::USD),
             fixing_date: Some(fixing),
             start_date: start,
-            end_date: end,
+            maturity: end,
             fixed_rate: 0.05, // At-market: 5% = forward rate
             day_count: DayCount::Act360,
             reset_lag: 2,
@@ -170,7 +170,7 @@ impl TestFraBuilder {
     pub fn dates(mut self, fixing: Date, start: Date, end: Date) -> Self {
         self.fixing_date = Some(fixing);
         self.start_date = start;
-        self.end_date = end;
+        self.maturity = end;
         self
     }
 
@@ -206,7 +206,7 @@ impl TestFraBuilder {
             notional: self.notional,
             fixing_date: self.fixing_date,
             start_date: self.start_date,
-            end_date: self.end_date,
+            maturity: self.maturity,
             fixed_rate: self.fixed_rate,
             day_count: self.day_count,
             reset_lag: self.reset_lag,

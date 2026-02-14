@@ -26,7 +26,7 @@ impl MetricCalculator for VegaCalculator {
         let option: &InflationCapFloor = context.instrument_as()?;
         let as_of = context.as_of;
 
-        if as_of >= option.end_date {
+        if as_of >= option.maturity {
             return Ok(0.0);
         }
 

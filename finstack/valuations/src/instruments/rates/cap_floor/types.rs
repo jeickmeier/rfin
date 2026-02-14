@@ -117,7 +117,8 @@ pub struct InterestRateOption {
     /// Start date of underlying period
     pub start_date: Date,
     /// End date of underlying period
-    pub end_date: Date,
+    #[serde(alias = "end_date")]
+    pub maturity: Date,
     /// Payment frequency for caps/floors
     pub frequency: Tenor,
     /// Day count convention
@@ -159,7 +160,7 @@ impl InterestRateOption {
         id: impl Into<InstrumentId>,
         option_params: &InterestRateOptionParams,
         start_date: Date,
-        end_date: Date,
+        maturity: Date,
         discount_curve_id: impl Into<CurveId>,
         forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
@@ -170,7 +171,7 @@ impl InterestRateOption {
             notional: option_params.notional,
             strike_rate: option_params.strike_rate,
             start_date,
-            end_date,
+            maturity,
             frequency: option_params.frequency,
             day_count: option_params.day_count,
             stub_kind: option_params.stub_kind,
@@ -193,7 +194,7 @@ impl InterestRateOption {
         notional: Money,
         strike_rate: f64,
         start_date: Date,
-        end_date: Date,
+        maturity: Date,
         frequency: Tenor,
         day_count: DayCount,
         discount_curve_id: impl Into<CurveId>,
@@ -206,7 +207,7 @@ impl InterestRateOption {
             id,
             &option_params,
             start_date,
-            end_date,
+            maturity,
             discount_curve_id.into(),
             forward_curve_id.into(),
             vol_surface_id,
@@ -220,7 +221,7 @@ impl InterestRateOption {
         notional: Money,
         strike_rate: f64,
         start_date: Date,
-        end_date: Date,
+        maturity: Date,
         frequency: Tenor,
         day_count: DayCount,
         discount_curve_id: impl Into<CurveId>,
@@ -233,7 +234,7 @@ impl InterestRateOption {
             id,
             &option_params,
             start_date,
-            end_date,
+            maturity,
             discount_curve_id.into(),
             forward_curve_id.into(),
             vol_surface_id,
@@ -343,7 +344,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             RateOptionType::Caplet | RateOptionType::Floorlet
         ) {
             // Skip entirely settled cashflows (payment date already passed)
-            if self.end_date <= as_of {
+            if self.maturity <= as_of {
                 return Ok(total_pv);
             }
 
@@ -355,11 +356,11 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             // Accrual year fraction
             let tau = self
                 .day_count
-                .year_fraction(self.start_date, self.end_date, dc_ctx)?;
+                .year_fraction(self.start_date, self.maturity, dc_ctx)?;
 
             // Use curve-consistent helpers for forward rate and discount factor
-            let forward = rate_period_on_dates(fwd_curve.as_ref(), self.start_date, self.end_date)?;
-            let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, self.end_date)?;
+            let forward = rate_period_on_dates(fwd_curve.as_ref(), self.start_date, self.maturity)?;
+            let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, self.maturity)?;
 
             // Use MIN_VOL_LOOKUP_TIME floor for seasoned caplets (t_fix <= 0)
             let sigma = vol_surface.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), self.strike_rate);
@@ -407,7 +408,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
         let periods = crate::cashflow::builder::periods::build_periods(
             crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start_date,
-                end: self.end_date,
+                end: self.maturity,
                 frequency: self.frequency,
                 stub: self.stub_kind,
                 bdc: self.bdc,
@@ -505,7 +506,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
     }
 
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
-        Some(self.end_date)
+        Some(self.maturity)
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {

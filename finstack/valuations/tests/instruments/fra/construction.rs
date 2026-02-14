@@ -52,7 +52,7 @@ fn test_builder_6x12_fra() {
         .build();
 
     assert_eq!(fra.start_date, start);
-    assert_eq!(fra.end_date, end);
+    assert_eq!(fra.maturity, end);
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn test_short_tenor_1m() {
     let fra = TestFraBuilder::new().dates(start, start, end).build();
 
     assert_eq!(fra.start_date, start);
-    assert_eq!(fra.end_date, end);
+    assert_eq!(fra.maturity, end);
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn test_long_tenor_12m() {
     let fra = TestFraBuilder::new().dates(start, start, end).build();
 
     assert_eq!(fra.start_date, start);
-    assert_eq!(fra.end_date, end);
+    assert_eq!(fra.maturity, end);
 }
 
 #[test]
