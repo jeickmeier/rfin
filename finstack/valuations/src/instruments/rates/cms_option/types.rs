@@ -4,7 +4,7 @@ use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::OptionType;
 use crate::instruments::PricingOverrides;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
 
@@ -31,19 +31,19 @@ pub struct CmsOption {
     /// Notional amount
     pub notional: Money,
     /// Day count convention for the option accrual
-    pub day_count: finstack_core::dates::DayCount,
+    pub day_count: DayCount,
 
     // --- Underlying Swap Conventions ---
     /// Fixed leg frequency of the underlying swap
-    pub swap_fixed_freq: finstack_core::dates::Tenor,
+    pub swap_fixed_freq: Tenor,
     /// Floating leg frequency of the underlying swap
-    pub swap_float_freq: finstack_core::dates::Tenor,
+    pub swap_float_freq: Tenor,
     /// Day count convention of the underlying swap fixed leg
-    pub swap_day_count: finstack_core::dates::DayCount,
+    pub swap_day_count: DayCount,
     /// Optional day count convention of the underlying swap floating leg
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub swap_float_day_count: Option<finstack_core::dates::DayCount>,
+    pub swap_float_day_count: Option<DayCount>,
 
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
@@ -62,7 +62,6 @@ impl CmsOption {
     #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
-        use finstack_core::dates::{DayCount, Tenor};
         use time::Month;
 
         let fixing_dates = vec![

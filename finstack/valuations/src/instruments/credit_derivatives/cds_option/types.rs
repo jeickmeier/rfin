@@ -24,7 +24,7 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::money::Money;
-use finstack_core::types::{InstrumentId, Percentage};
+use finstack_core::types::{CurveId, InstrumentId, Percentage};
 
 use super::parameters::CDSOptionParams;
 use crate::impl_instrument_base;
@@ -64,11 +64,11 @@ pub struct CDSOption {
     /// Recovery rate assumption
     pub recovery_rate: f64,
     /// Discount curve identifier
-    pub discount_curve_id: finstack_core::types::CurveId,
+    pub discount_curve_id: CurveId,
     /// Credit curve identifier
-    pub credit_curve_id: finstack_core::types::CurveId,
+    pub credit_curve_id: CurveId,
     /// Volatility surface identifier
-    pub vol_surface_id: finstack_core::types::CurveId,
+    pub vol_surface_id: CurveId,
     /// Pricing overrides (including implied volatility)
     pub pricing_overrides: PricingOverrides,
     /// Additional attributes
@@ -195,8 +195,8 @@ impl CDSOption {
         id: impl Into<InstrumentId>,
         option_params: &CDSOptionParams,
         credit_params: &CreditParams,
-        discount_curve_id: impl Into<finstack_core::types::CurveId>,
-        vol_surface_id: impl Into<finstack_core::types::CurveId>,
+        discount_curve_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
     ) -> finstack_core::Result<Self> {
         let option = Self {
             id: id.into(),
