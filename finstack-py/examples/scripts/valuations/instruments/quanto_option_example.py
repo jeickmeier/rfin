@@ -83,7 +83,7 @@ def example_quanto_call_positive_correlation():
         domestic_currency=USD,  # Settlement currency
         foreign_currency=EUR,  # Underlying currency
         correlation=0.3,  # Positive correlation between SAP and EUR/USD
-        discount_curve="USD.SOFR",
+        domestic_discount_curve="USD.SOFR",
         foreign_discount_curve="EUR.ESTR",
         spot_id="SAP",
         vol_surface="SAP.VOL",
@@ -114,7 +114,7 @@ def example_quanto_put_negative_correlation():
         domestic_currency=USD,
         foreign_currency=EUR,
         correlation=-0.2,  # Negative correlation (SAP falls when EUR strengthens)
-        discount_curve="USD.SOFR",
+        domestic_discount_curve="USD.SOFR",
         foreign_discount_curve="EUR.ESTR",
         spot_id="SAP",
         vol_surface="SAP.VOL",
@@ -145,7 +145,7 @@ def example_quanto_call_zero_correlation():
         domestic_currency=USD,
         foreign_currency=EUR,
         correlation=0.0,  # Zero correlation
-        discount_curve="USD.SOFR",
+        domestic_discount_curve="USD.SOFR",
         foreign_discount_curve="EUR.ESTR",
         spot_id="SAP",
         vol_surface="SAP.VOL",

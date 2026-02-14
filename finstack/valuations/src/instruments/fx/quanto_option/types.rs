@@ -30,18 +30,16 @@ pub struct QuantoOption {
     pub expiry: Date,
     /// Notional amount (in domestic currency)
     pub notional: Money,
-    /// Base currency (equity denomination, formerly foreign_currency)
-    #[serde(alias = "foreign_currency")]
+    /// Base currency (equity denomination)
     pub base_currency: Currency,
-    /// Quote currency (payment/settlement currency, formerly domestic_currency)
-    #[serde(alias = "domestic_currency")]
+    /// Quote currency (payment/settlement currency)
     pub quote_currency: Currency,
     /// Correlation between equity price and FX rate
     pub correlation: f64, // Correlation between equity and FX
     /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
     /// Discount curve ID (domestic currency)
-    pub discount_curve_id: CurveId,
+    pub domestic_discount_curve_id: CurveId,
     /// Discount curve ID (foreign currency)
     pub foreign_discount_curve_id: CurveId,
     /// Equity spot price identifier
@@ -66,7 +64,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for QuantoOption
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
-            .discount(self.discount_curve_id.clone())
+            .discount(self.domestic_discount_curve_id.clone())
             .discount(self.foreign_discount_curve_id.clone())
             .build()
     }
@@ -91,7 +89,7 @@ impl QuantoOption {
             .quote_currency(Currency::USD)
             .correlation(-0.2)
             .day_count(DayCount::Act365F)
-            .discount_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("JPY-OIS"))
             .spot_id("NKY-SPOT".to_string())
             .vol_surface_id(CurveId::new("NKY-VOL"))
@@ -270,8 +268,11 @@ impl crate::instruments::common_impl::traits::OptionRhoProvider for QuantoOption
 
         let base_pv = self.value(market, as_of)?.amount();
         let bump_bp = self.pricing_overrides.rho_bump_bp();
-        let bumped =
-            crate::metrics::bump_discount_curve_parallel(market, &self.discount_curve_id, bump_bp)?;
+        let bumped = crate::metrics::bump_discount_curve_parallel(
+            market,
+            &self.domestic_discount_curve_id,
+            bump_bp,
+        )?;
         let pv_bumped = self.value(&bumped, as_of)?.amount();
         Ok(pv_bumped - base_pv)
     }

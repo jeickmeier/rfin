@@ -38,11 +38,11 @@ export interface QuantoOptionJsonData {
   expiry: string;
   option_type: 'call' | 'put';
   notional: MoneyData;
-  domestic_currency: string;
-  foreign_currency: string;
+  quote_currency: string;
+  base_currency: string;
   correlation: number;
   day_count: string;
-  discount_curve_id: string;
+  domestic_discount_curve_id: string;
   foreign_discount_curve_id: string;
   spot_id: string;
   vol_surface_id: string;
@@ -179,11 +179,11 @@ const DEFAULT_QUANTO_OPTIONS: QuantoOptionJsonData[] = [
     expiry: '2024-12-31',
     option_type: 'call',
     notional: { amount: 1, currency: 'USD' },
-    domestic_currency: 'USD',
-    foreign_currency: 'EUR',
+    quote_currency: 'USD',
+    base_currency: 'EUR',
     correlation: 0.3,
     day_count: 'Act365F',
-    discount_curve_id: 'USD-OIS',
+    domestic_discount_curve_id: 'USD-OIS',
     foreign_discount_curve_id: 'EUR-OIS',
     spot_id: 'EUR-EQUITY-SPOT',
     vol_surface_id: 'EQUITY-VOL',
@@ -196,11 +196,11 @@ const DEFAULT_QUANTO_OPTIONS: QuantoOptionJsonData[] = [
     expiry: '2024-12-31',
     option_type: 'put',
     notional: { amount: 1, currency: 'USD' },
-    domestic_currency: 'USD',
-    foreign_currency: 'GBP',
+    quote_currency: 'USD',
+    base_currency: 'GBP',
     correlation: 0.3,
     day_count: 'Act365F',
-    discount_curve_id: 'USD-OIS',
+    domestic_discount_curve_id: 'USD-OIS',
     foreign_discount_curve_id: 'GBP-OIS',
     spot_id: 'GBP-EQUITY-SPOT',
     vol_surface_id: 'EQUITY-VOL',

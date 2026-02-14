@@ -28,7 +28,7 @@ fn collect_quanto_inputs(
         .day_count
         .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
-    let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
+    let disc_curve = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
     let r_dom = disc_curve.zero(t);
 
     // Get foreign rate

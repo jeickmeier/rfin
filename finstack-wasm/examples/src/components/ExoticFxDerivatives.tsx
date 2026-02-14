@@ -117,8 +117,8 @@ export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (p
           try {
             const fxBarrierJson = JSON.stringify({
               id: opt.id,
-              domestic_currency: opt.domestic_currency,
-              foreign_currency: opt.foreign_currency,
+              quote_currency: opt.quote_currency,
+              base_currency: opt.base_currency,
               strike: { amount: opt.strike.amount, currency: opt.strike.currency },
               barrier: { amount: opt.barrier.amount, currency: opt.barrier.currency },
               option_type: opt.option_type,
@@ -172,11 +172,11 @@ export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (p
               expiry: opt.expiry,
               option_type: opt.option_type,
               notional: { amount: opt.notional.amount, currency: opt.notional.currency },
-              domestic_currency: opt.domestic_currency,
-              foreign_currency: opt.foreign_currency,
+              quote_currency: opt.quote_currency,
+              base_currency: opt.base_currency,
               correlation: opt.correlation,
               day_count: opt.day_count,
-              discount_curve_id: opt.discount_curve_id,
+              domestic_discount_curve_id: opt.domestic_discount_curve_id,
               foreign_discount_curve_id: opt.foreign_discount_curve_id,
               spot_id: opt.spot_id,
               vol_surface_id: opt.vol_surface_id,
@@ -196,9 +196,9 @@ export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (p
             );
 
             results.push({
-              name: `Quanto ${opt.option_type.charAt(0).toUpperCase() + opt.option_type.slice(1)} (${opt.foreign_currency} equity, ${opt.domestic_currency} payment)`,
+              name: `Quanto ${opt.option_type.charAt(0).toUpperCase() + opt.option_type.slice(1)} (${opt.base_currency} equity, ${opt.quote_currency} payment)`,
               type: 'QuantoOption',
-              pair: `${opt.foreign_currency}/${opt.domestic_currency}`,
+              pair: `${opt.base_currency}/${opt.quote_currency}`,
               presentValue: result.presentValue.amount,
               details: `Strike: ${opt.equity_strike.amount.toFixed(1)}, Cross-currency`,
             });

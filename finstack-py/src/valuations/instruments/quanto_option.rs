@@ -32,7 +32,7 @@ impl PyQuantoOption {
 impl PyQuantoOption {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, equity_strike, option_type, expiry, notional, domestic_currency, foreign_currency, correlation, discount_curve, foreign_discount_curve, spot_id, vol_surface, *, div_yield_id=None, fx_rate_id=None, fx_vol_id=None)"
+        text_signature = "(cls, instrument_id, ticker, equity_strike, option_type, expiry, notional, domestic_currency, foreign_currency, correlation, domestic_discount_curve, foreign_discount_curve, spot_id, vol_surface, *, div_yield_id=None, fx_rate_id=None, fx_vol_id=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a quanto option.
@@ -47,7 +47,7 @@ impl PyQuantoOption {
     ///     domestic_currency: Currency for settlement.
     ///     foreign_currency: Currency of the underlying.
     ///     correlation: Correlation between equity and FX.
-    ///     discount_curve: Discount curve identifier.
+    ///     domestic_discount_curve: Domestic discount curve identifier.
     ///     foreign_discount_curve: Foreign discount curve identifier.
     ///     spot_id: Spot price identifier.
     ///     vol_surface: Volatility surface identifier.
@@ -68,7 +68,7 @@ impl PyQuantoOption {
         domestic_currency: Bound<'_, PyAny>,
         foreign_currency: Bound<'_, PyAny>,
         correlation: f64,
-        discount_curve: Bound<'_, PyAny>,
+        domestic_discount_curve: Bound<'_, PyAny>,
         foreign_discount_curve: Bound<'_, PyAny>,
         spot_id: &str,
         vol_surface: Bound<'_, PyAny>,
@@ -83,8 +83,11 @@ impl PyQuantoOption {
 
         let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let discount_curve_id =
-            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let domestic_discount_curve_id = CurveId::new(
+            domestic_discount_curve
+                .extract::<&str>()
+                .context("domestic_discount_curve")?,
+        );
         let foreign_discount_curve_id = CurveId::new(
             foreign_discount_curve
                 .extract::<&str>()
@@ -123,7 +126,7 @@ impl PyQuantoOption {
         builder = builder.day_count(DayCount::Act365F);
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
-        builder = builder.discount_curve_id(discount_curve_id);
+        builder = builder.domestic_discount_curve_id(domestic_discount_curve_id);
         builder = builder.foreign_discount_curve_id(foreign_discount_curve_id);
         builder = builder.spot_id(spot_id.to_string());
         builder = builder.vol_surface_id(vol_surface_id);

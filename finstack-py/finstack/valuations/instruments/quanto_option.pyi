@@ -33,7 +33,7 @@ class QuantoOption:
         ...     domestic_currency=Currency("USD"),
         ...     foreign_currency=Currency("JPY"),
         ...     correlation=-0.3,  # Negative correlation (equity down, JPY up)
-        ...     discount_curve="USD",
+        ...     domestic_discount_curve="USD",
         ...     foreign_discount_curve="JPY",
         ...     spot_id="NIKKEI",
         ...     vol_surface="NIKKEI-VOL",
@@ -55,12 +55,12 @@ class QuantoOption:
     - ``correlation`` is the (model) correlation between equity returns and FX returns used for the quanto
       adjustment.
     - Rates/volatilities referenced via curves/surfaces are expected as decimals.
-    - Required market data is referenced by IDs (``discount_curve``, ``foreign_discount_curve``, ``spot_id``,
+    - Required market data is referenced by IDs (``domestic_discount_curve``, ``foreign_discount_curve``, ``spot_id``,
       ``vol_surface`` and optional FX IDs) and must be present in ``MarketContext``.
 
     MarketContext Requirements
     -------------------------
-    - Discount curves: ``discount_curve`` and ``foreign_discount_curve`` (required).
+    - Discount curves: ``domestic_discount_curve`` and ``foreign_discount_curve`` (required).
     - Equity spot: ``spot_id`` (required).
     - Equity volatility surface: ``vol_surface`` (required).
     - Optional FX inputs: ``fx_rate_id`` / ``fx_vol_id`` (used when provided by the model).
@@ -89,7 +89,7 @@ class QuantoOption:
         domestic_currency: Currency,
         foreign_currency: Currency,
         correlation: float,
-        discount_curve: str,
+        domestic_discount_curve: str,
         foreign_discount_curve: str,
         spot_id: str,
         vol_surface: str,
@@ -120,7 +120,7 @@ class QuantoOption:
             Currency of underlying asset (e.g., Currency("JPY")).
         correlation : float
             Correlation between equity returns and FX returns (typically -0.2 to -0.5).
-        discount_curve : str
+        domestic_discount_curve : str
             Domestic discount curve identifier in MarketContext.
         foreign_discount_curve : str
             Foreign discount curve identifier in MarketContext.
@@ -157,7 +157,7 @@ class QuantoOption:
             ...     Currency("USD"),
             ...     Currency("JPY"),
             ...     -0.3,
-            ...     discount_curve="USD",
+            ...     domestic_discount_curve="USD",
             ...     foreign_discount_curve="JPY",
             ...     spot_id="NIKKEI",
             ...     vol_surface="NIKKEI-VOL",
