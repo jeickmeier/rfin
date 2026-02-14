@@ -120,7 +120,7 @@ impl JsAgencyMbsPassthrough {
             .guarantee_fee_rate(guar_fee)
             .wam(wam)
             .issue_date(issue_date.inner())
-            .maturity_date(maturity_date.inner())
+            .maturity(maturity_date.inner())
             .prepayment_model(PrepaymentModelSpec::psa(psa))
             .discount_curve_id(CurveId::new(discount_curve_id))
             .day_count(DayCount::Thirty360)
@@ -189,7 +189,7 @@ impl JsAgencyMbsPassthrough {
 
     #[wasm_bindgen(getter, js_name = maturityDate)]
     pub fn maturity_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.maturity_date)
+        JsDate::from_core(self.inner.maturity)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurveId)]

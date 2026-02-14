@@ -42,7 +42,7 @@ fn test_pricing_recovery_consistency() {
         .commitment_amount(commitment)
         .drawn_amount(drawn)
         .commitment_date(as_of)
-        .maturity_date(maturity)
+        .maturity(maturity)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.07 }) // 7% Coupon
         .day_count(DayCount::Act365F)
         .frequency(Tenor::annual()) // Single payment at end

@@ -468,7 +468,7 @@ impl JsXccySwap {
     /// Get the maturity date.
     #[wasm_bindgen(getter, js_name = maturityDate)]
     pub fn maturity_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.maturity_date)
+        JsDate::from_core(self.inner.maturity)
     }
 
     /// Get the reporting currency.
@@ -557,10 +557,10 @@ impl JsXccySwap {
             if matches!(
                 self.inner.notional_exchange,
                 NotionalExchange::Final | NotionalExchange::InitialAndFinal
-            ) && self.inner.maturity_date > as_of
+            ) && self.inner.maturity > as_of
             {
                 let entry = Array::new();
-                entry.push(&JsDate::from_core(self.inner.maturity_date).into());
+                entry.push(&JsDate::from_core(self.inner.maturity).into());
                 entry.push(
                     &JsMoney::from_inner(finstack_core::money::Money::new(
                         principal_sign.1 * leg.notional.amount(),
@@ -576,7 +576,7 @@ impl JsXccySwap {
             // Floating coupons
             let sched = build_dates(
                 self.inner.start_date,
-                self.inner.maturity_date,
+                self.inner.maturity,
                 leg.frequency,
                 self.inner.stub_kind,
                 leg.bdc,

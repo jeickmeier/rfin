@@ -24,7 +24,7 @@ fn valid_facility() -> RevolvingCredit {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(5_000_000.0, Currency::USD))
         .commitment_date(date!(2025 - 01 - 01))
-        .maturity_date(date!(2026 - 01 - 01))
+        .maturity(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -244,13 +244,13 @@ fn test_validate_currency_mismatch() {
 fn test_validate_maturity_before_commitment() {
     // This is also caught by the builder macro, but validate should also catch it
     let mut facility = valid_facility();
-    facility.maturity_date = date!(2024 - 01 - 01); // Before commitment date
+    facility.maturity = date!(2024 - 01 - 01); // Before commitment date
 
     let result = facility.validate();
     assert!(result.is_err());
     let err_msg = result.unwrap_err().to_string();
     assert!(
-        err_msg.contains("commitment_date") && err_msg.contains("maturity_date"),
+        err_msg.contains("commitment_date") && err_msg.contains("maturity"),
         "Expected date ordering error, got: {}",
         err_msg
     );

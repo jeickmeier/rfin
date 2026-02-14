@@ -46,8 +46,8 @@ impl MetricCalculator for Fx01Calculator {
         let domestic_disc = curves.get_discount(fwd.domestic_discount_curve_id.as_str())?;
         let foreign_disc = curves.get_discount(fwd.foreign_discount_curve_id.as_str())?;
 
-        let df_domestic = domestic_disc.df_between_dates(as_of, fwd.maturity_date)?;
-        let df_foreign = foreign_disc.df_between_dates(as_of, fwd.maturity_date)?;
+        let df_domestic = domestic_disc.df_between_dates(as_of, fwd.maturity)?;
+        let df_foreign = foreign_disc.df_between_dates(as_of, fwd.maturity)?;
 
         let spot = if let Some(rate) = fwd.spot_rate_override {
             rate
@@ -139,7 +139,7 @@ mod tests {
             .id(InstrumentId::new("EURUSD-ATM"))
             .base_currency(Currency::EUR)
             .quote_currency(Currency::USD)
-            .maturity_date(maturity)
+            .maturity(maturity)
             .notional(Money::new(notional, Currency::EUR))
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
@@ -195,7 +195,7 @@ mod tests {
             .id(InstrumentId::new("EURUSD-CONTRACT"))
             .base_currency(Currency::EUR)
             .quote_currency(Currency::USD)
-            .maturity_date(maturity)
+            .maturity(maturity)
             .notional(Money::new(notional, Currency::EUR))
             .contract_rate_opt(Some(1.05))
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))

@@ -40,7 +40,8 @@ pub struct RevolvingCredit {
     pub commitment_date: Date,
 
     /// Date when the facility expires.
-    pub maturity_date: Date,
+    #[serde(alias = "maturity")]
+    pub maturity: Date,
 
     /// Base rate specification (fixed or floating).
     pub base_rate_spec: BaseRateSpec,
@@ -169,7 +170,7 @@ impl RevolvingCredit {
             .commitment_amount(commitment)
             .drawn_amount(initial_draw)
             .commitment_date(start)
-            .maturity_date(end)
+            .maturity(end)
             .base_rate_spec(base_rate)
             .day_count(DayCount::Act360)
             .frequency(Tenor::quarterly())
@@ -655,10 +656,10 @@ impl RevolvingCredit {
         // Date ordering: commitment must be before maturity
         validation::validate_date_range_strict_with(
             self.commitment_date,
-            self.maturity_date,
+            self.maturity,
             |start, end| {
                 format!(
-                    "RevolvingCredit commitment_date ({}) must be before maturity_date ({})",
+                    "RevolvingCredit commitment_date ({}) must be before maturity ({})",
                     start, end
                 )
             },

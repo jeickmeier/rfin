@@ -464,7 +464,7 @@ impl PyCrossCurrencySwapBuilder {
         let swap = XccySwap {
             id: slf.instrument_id.clone(),
             start_date,
-            maturity_date,
+            maturity: maturity_date,
             leg1,
             leg2,
             notional_exchange: slf.notional_exchange,
@@ -497,7 +497,7 @@ impl PyCrossCurrencySwap {
 
     #[getter]
     fn maturity_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.maturity_date)
+        date_to_py(py, self.inner.maturity)
     }
 
     #[getter]
@@ -513,10 +513,7 @@ impl PyCrossCurrencySwap {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "CrossCurrencySwap(id='{}', {}/{}, maturity='{}')",
-            self.inner.id,
-            self.inner.leg1.currency,
-            self.inner.leg2.currency,
-            self.inner.maturity_date
+            self.inner.id, self.inner.leg1.currency, self.inner.leg2.currency, self.inner.maturity
         ))
     }
 }

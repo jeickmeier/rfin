@@ -21,7 +21,7 @@ fn test_utilization_fee_above_threshold() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(8_000_000.0, Currency::USD)) // 80% > threshold
         .commitment_date(as_of)
-        .maturity_date(date!(2026 - 01 - 01))
+        .maturity(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())

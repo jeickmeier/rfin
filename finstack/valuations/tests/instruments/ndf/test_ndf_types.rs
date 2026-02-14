@@ -16,7 +16,7 @@ fn test_ndf_builder() {
         .base_currency(Currency::CNY)
         .settlement_currency(Currency::USD)
         .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
-        .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+        .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
         .settlement_curve_id(CurveId::new("USD-OIS"))
@@ -39,7 +39,7 @@ fn test_ndf_builder_with_optional_fields() {
         .base_currency(Currency::CNY)
         .settlement_currency(Currency::USD)
         .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
-        .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+        .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
         .settlement_curve_id(CurveId::new("USD-OIS"))
@@ -94,12 +94,12 @@ fn test_ndf_from_trade_date() {
     .expect("should build");
 
     // Check that fixing date is before maturity
-    assert!(ndf.fixing_date < ndf.maturity_date);
+    assert!(ndf.fixing_date < ndf.maturity);
 
     // Check that maturity is roughly 3 months from spot
     let spot_date = trade_date + time::Duration::days(2);
     let expected_maturity = spot_date + time::Duration::days(90);
-    let days_diff = (ndf.maturity_date - expected_maturity).whole_days().abs();
+    let days_diff = (ndf.maturity - expected_maturity).whole_days().abs();
     assert!(days_diff <= 5, "Maturity should be close to expected");
 }
 
@@ -139,7 +139,7 @@ fn test_ndf_curve_dependencies_with_foreign() {
         .base_currency(Currency::CNY)
         .settlement_currency(Currency::USD)
         .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
-        .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+        .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
         .settlement_curve_id(CurveId::new("USD-OIS"))
@@ -170,7 +170,7 @@ fn test_ndf_required_discount_curves() {
         .base_currency(Currency::CNY)
         .settlement_currency(Currency::USD)
         .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
-        .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+        .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
         .settlement_curve_id(CurveId::new("USD-OIS"))
@@ -207,7 +207,7 @@ fn test_ndf_common_currencies() {
         .base_currency(Currency::INR)
         .settlement_currency(Currency::USD)
         .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
-        .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+        .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(100_000_000.0, Currency::INR))
         .contract_rate(83.0)
         .settlement_curve_id(CurveId::new("USD-OIS"))
@@ -226,7 +226,7 @@ fn test_ndf_common_currencies() {
         .base_currency(Currency::BRL)
         .settlement_currency(Currency::USD)
         .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
-        .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+        .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(10_000_000.0, Currency::BRL))
         .contract_rate(5.0)
         .settlement_curve_id(CurveId::new("USD-OIS"))

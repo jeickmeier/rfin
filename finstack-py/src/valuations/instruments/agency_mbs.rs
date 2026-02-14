@@ -477,7 +477,7 @@ impl PyAgencyMbsPassthroughBuilder {
             .guarantee_fee_rate(slf.guarantee_fee_rate)
             .wam(slf.wam.unwrap())
             .issue_date(slf.issue_date.unwrap())
-            .maturity_date(slf.maturity_date.unwrap())
+            .maturity(slf.maturity_date.unwrap())
             .prepayment_model(prepay)
             .discount_curve_id(CurveId::new(slf.discount_curve_id.as_deref().unwrap()))
             .day_count(slf.day_count)
@@ -590,7 +590,7 @@ impl PyAgencyMbsPassthrough {
     /// Maturity date.
     #[getter]
     fn maturity_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.maturity_date)
+        date_to_py(py, self.inner.maturity)
     }
 
     /// Discount curve ID.

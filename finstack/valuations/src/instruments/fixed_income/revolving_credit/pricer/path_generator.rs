@@ -408,7 +408,7 @@ fn build_credit_spread_params(
             let base_date = hazard.base_date();
 
             let t_maturity =
-                dc.year_fraction(base_date, facility.maturity_date, DayCountCtx::default())?;
+                dc.year_fraction(base_date, facility.maturity, DayCountCtx::default())?;
             let t = tenor_years.unwrap_or_else(|| t_maturity.max(CIR_MIN_SPREAD));
 
             // Survival and average hazard over [0,T]

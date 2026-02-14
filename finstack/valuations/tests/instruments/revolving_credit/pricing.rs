@@ -21,7 +21,7 @@ fn test_pricing_fixed_utilization() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(5_000_000.0, Currency::USD)) // 50% drawn
         .commitment_date(as_of)
-        .maturity_date(date!(2026 - 01 - 01))
+        .maturity(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -53,7 +53,7 @@ fn test_pricing_zero_utilization() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(0.0, Currency::USD)) // Undrawn
         .commitment_date(as_of)
-        .maturity_date(date!(2026 - 01 - 01))
+        .maturity(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -83,7 +83,7 @@ fn test_pricing_full_utilization() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(10_000_000.0, Currency::USD)) // 100% drawn
         .commitment_date(as_of)
-        .maturity_date(date!(2026 - 01 - 01))
+        .maturity(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.06 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())

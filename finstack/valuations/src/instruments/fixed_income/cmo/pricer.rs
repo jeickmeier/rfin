@@ -121,7 +121,7 @@ fn create_assumed_collateral(cmo: &AgencyCmo) -> Result<AgencyMbsPassthrough> {
     let guarantee_fee = 0.0025;
     let pass_through = wac - servicing_fee - guarantee_fee;
 
-    let maturity_date = cmo
+    let maturity = cmo
         .issue_date
         .checked_add(time::Duration::days((wam as i64) * 30))
         .ok_or_else(|| finstack_core::Error::Validation("Invalid maturity".to_string()))?;
@@ -140,7 +140,7 @@ fn create_assumed_collateral(cmo: &AgencyCmo) -> Result<AgencyMbsPassthrough> {
         .guarantee_fee_rate(guarantee_fee)
         .wam(wam)
         .issue_date(cmo.issue_date)
-        .maturity_date(maturity_date)
+        .maturity(maturity)
         .prepayment_model(PrepaymentModelSpec::psa(1.0))
         .discount_curve_id(cmo.discount_curve_id.clone())
         .day_count(DayCount::Thirty360)

@@ -357,7 +357,7 @@ impl PyBasisSwapBuilder {
             .id(slf.instrument_id.clone())
             .notional(notional)
             .start_date(start)
-            .maturity_date(maturity)
+            .maturity(maturity)
             .primary_leg(primary_leg)
             .reference_leg(reference_leg)
             .discount_curve_id(discount_curve_id)

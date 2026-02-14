@@ -21,7 +21,7 @@ fn test_zero_utilization() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(0.0, Currency::USD)) // Zero drawn
         .commitment_date(as_of)
-        .maturity_date(date!(2030 - 01 - 01))
+        .maturity(date!(2030 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -50,7 +50,7 @@ fn test_full_utilization() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(10_000_000.0, Currency::USD)) // 100% drawn
         .commitment_date(as_of)
-        .maturity_date(date!(2030 - 01 - 01))
+        .maturity(date!(2030 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.06 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -79,7 +79,7 @@ fn test_very_short_commitment_period() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(5_000_000.0, Currency::USD))
         .commitment_date(as_of)
-        .maturity_date(date!(2025 - 07 - 01)) // 6 months
+        .maturity(date!(2025 - 07 - 01)) // 6 months
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -108,7 +108,7 @@ fn test_very_long_commitment_period() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(5_000_000.0, Currency::USD))
         .commitment_date(as_of)
-        .maturity_date(date!(2040 - 01 - 01)) // 15 years
+        .maturity(date!(2040 - 01 - 01)) // 15 years
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.06 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())

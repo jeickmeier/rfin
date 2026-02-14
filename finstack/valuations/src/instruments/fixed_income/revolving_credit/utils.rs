@@ -53,7 +53,7 @@ pub(super) fn build_payment_dates(
     facility: &RevolvingCredit,
     include_sentinel: bool,
 ) -> Result<Vec<Date>> {
-    let mut builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)?
+    let mut builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity)?
         .frequency(facility.frequency)
         .stub_rule(facility.stub_rule);
 
@@ -100,7 +100,7 @@ pub(super) fn build_reset_dates(facility: &RevolvingCredit) -> Result<Option<Vec
     match &facility.base_rate_spec {
         BaseRateSpec::Floating(spec) => {
             let mut reset_builder =
-                ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)?
+                ScheduleBuilder::new(facility.commitment_date, facility.maturity)?
                     .frequency(spec.reset_freq)
                     .stub_rule(facility.stub_rule);
 
@@ -262,7 +262,7 @@ mod tests {
             commitment_amount: Money::new(10_000_000.0, Currency::USD),
             drawn_amount: Money::new(5_000_000.0, Currency::USD),
             commitment_date: start,
-            maturity_date: end,
+            maturity: end,
             base_rate_spec,
             day_count: DayCount::Act360,
             frequency: payment_freq,

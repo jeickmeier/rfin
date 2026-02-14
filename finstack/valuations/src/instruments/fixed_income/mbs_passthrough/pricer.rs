@@ -200,7 +200,7 @@ pub fn generate_cashflows(
         period_start = next_month_start(period_start)?;
 
         // Early termination if past maturity
-        if period_end >= mbs.maturity_date {
+        if period_end >= mbs.maturity {
             break;
         }
     }
@@ -367,7 +367,7 @@ mod tests {
             .guarantee_fee_rate(0.0025)
             .wam(360)
             .issue_date(Date::from_calendar_date(2024, Month::January, 1).expect("valid"))
-            .maturity_date(Date::from_calendar_date(2054, Month::January, 1).expect("valid"))
+            .maturity(Date::from_calendar_date(2054, Month::January, 1).expect("valid"))
             .prepayment_model(PrepaymentModelSpec::psa(1.0))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .day_count(DayCount::Thirty360)

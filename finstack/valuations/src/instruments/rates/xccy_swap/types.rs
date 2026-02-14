@@ -140,7 +140,8 @@ pub struct XccySwap {
     /// Swap start date (typically spot).
     pub start_date: Date,
     /// Swap maturity date.
-    pub maturity_date: Date,
+    #[serde(alias = "maturity")]
+    pub maturity: Date,
     /// First leg.
     pub leg1: XccySwapLeg,
     /// Second leg.
@@ -162,7 +163,7 @@ impl XccySwap {
     pub fn new(
         id: impl Into<String>,
         start_date: Date,
-        maturity_date: Date,
+        maturity: Date,
         leg1: XccySwapLeg,
         leg2: XccySwapLeg,
         reporting_currency: Currency,
@@ -170,7 +171,7 @@ impl XccySwap {
         Self {
             id: InstrumentId::new(id.into()),
             start_date,
-            maturity_date,
+            maturity,
             leg1,
             leg2,
             notional_exchange: NotionalExchange::InitialAndFinal,
@@ -226,7 +227,7 @@ impl XccySwap {
     fn leg_schedule(&self, leg: &XccySwapLeg) -> Result<Schedule> {
         let sched = crate::cashflow::builder::build_dates(
             self.start_date,
-            self.maturity_date,
+            self.maturity,
             leg.frequency,
             self.stub_kind,
             leg.bdc,
@@ -339,18 +340,18 @@ impl XccySwap {
         if matches!(
             self.notional_exchange,
             NotionalExchange::Final | NotionalExchange::InitialAndFinal
-        ) && self.maturity_date > as_of
+        ) && self.maturity > as_of
         {
-            let df = robust_relative_df(disc.as_ref(), as_of, self.maturity_date)?;
+            let df = robust_relative_df(disc.as_ref(), as_of, self.maturity)?;
             let cf_leg_ccy = leg.side.final_principal_sign() * leg.notional.amount() * df;
-            let cf_rep = convert_cf(cf_leg_ccy, self.maturity_date, &mut fx_approximation_warned)?;
+            let cf_rep = convert_cf(cf_leg_ccy, self.maturity, &mut fx_approximation_warned)?;
             pv.add(cf_rep);
         }
 
         let periods = crate::cashflow::builder::periods::build_periods(
             crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start_date,
-                end: self.maturity_date,
+                end: self.maturity,
                 frequency: leg.frequency,
                 stub: self.stub_kind,
                 bdc: leg.bdc,

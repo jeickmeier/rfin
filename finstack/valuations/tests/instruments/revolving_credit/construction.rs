@@ -41,7 +41,7 @@ fn test_builder_fixed_rate_facility() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(5_000_000.0, Currency::USD))
         .commitment_date(date!(2025 - 01 - 01))
-        .maturity_date(date!(2028 - 01 - 01))
+        .maturity(date!(2028 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 }) // 5%
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -68,7 +68,7 @@ fn test_builder_floating_rate_facility() {
         .commitment_amount(Money::new(20_000_000.0, Currency::USD))
         .drawn_amount(Money::new(10_000_000.0, Currency::USD))
         .commitment_date(date!(2025 - 01 - 01))
-        .maturity_date(date!(2030 - 01 - 01))
+        .maturity(date!(2030 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Floating(floating_rate_spec(
             "USD-SOFR-3M",
             250.0,
@@ -97,7 +97,7 @@ fn test_builder_with_tiered_fees() {
         .commitment_amount(Money::new(50_000_000.0, Currency::USD))
         .drawn_amount(Money::new(0.0, Currency::USD))
         .commitment_date(date!(2025 - 01 - 01))
-        .maturity_date(date!(2030 - 01 - 01))
+        .maturity(date!(2030 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -139,7 +139,7 @@ fn test_validation_maturity_after_commitment() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(5_000_000.0, Currency::USD))
         .commitment_date(date!(2030 - 01 - 01))
-        .maturity_date(date!(2025 - 01 - 01)) // Before commitment!
+        .maturity(date!(2025 - 01 - 01)) // Before commitment!
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -160,7 +160,7 @@ fn test_validation_drawn_within_commitment() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(15_000_000.0, Currency::USD)) // Over commitment!
         .commitment_date(date!(2025 - 01 - 01))
-        .maturity_date(date!(2030 - 01 - 01))
+        .maturity(date!(2030 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())

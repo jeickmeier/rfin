@@ -162,7 +162,7 @@ impl PyRevolvingCredit {
     ///     datetime.date: Maturity date converted to Python.
     #[getter]
     fn maturity_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.maturity_date)
+        date_to_py(py, self.inner.maturity)
     }
 
     /// Currency for all cashflows.
@@ -444,7 +444,7 @@ impl PyRevolvingCredit {
             self.inner.commitment_amount,
             self.inner.drawn_amount,
             self.inner.commitment_date,
-            self.inner.maturity_date
+            self.inner.maturity
         ))
     }
 }
@@ -456,7 +456,7 @@ impl fmt::Display for PyRevolvingCredit {
             "RevolvingCredit({}, {} -> {}, util={:.1}%)",
             self.inner.id,
             self.inner.commitment_date,
-            self.inner.maturity_date,
+            self.inner.maturity,
             self.inner.utilization_rate() * 100.0
         )
     }

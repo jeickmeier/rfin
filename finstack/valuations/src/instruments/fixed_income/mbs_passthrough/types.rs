@@ -160,7 +160,7 @@ pub enum PoolType {
 ///     .guarantee_fee_rate(0.0025)
 ///     .wam(348)
 ///     .issue_date(Date::from_calendar_date(2022, Month::January, 1).unwrap())
-///     .maturity_date(Date::from_calendar_date(2052, Month::January, 1).unwrap())
+///     .maturity(Date::from_calendar_date(2052, Month::January, 1).unwrap())
 ///     .prepayment_model(PrepaymentModelSpec::psa(1.0))
 ///     .discount_curve_id(CurveId::new("USD-OIS"))
 ///     .day_count(finstack_core::dates::DayCount::Thirty360)
@@ -200,7 +200,8 @@ pub struct AgencyMbsPassthrough {
     /// Issue date of the pool.
     pub issue_date: Date,
     /// Legal maturity date.
-    pub maturity_date: Date,
+    #[serde(alias = "maturity")]
+    pub maturity: Date,
     /// Optional custom payment delay (overrides agency default).
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -240,7 +241,7 @@ impl AgencyMbsPassthrough {
             .guarantee_fee_rate(0.0025)
             .wam(348)
             .issue_date(date!(2022 - 01 - 01))
-            .maturity_date(date!(2052 - 01 - 01))
+            .maturity(date!(2052 - 01 - 01))
             .prepayment_model(PrepaymentModelSpec::psa(1.0))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .day_count(DayCount::Thirty360)

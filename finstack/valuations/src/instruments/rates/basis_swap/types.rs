@@ -104,7 +104,8 @@ pub struct BasisSwap {
     /// Start date of the swap.
     pub start_date: Date,
     /// Maturity date of the swap.
-    pub maturity_date: Date,
+    #[serde(alias = "maturity")]
+    pub maturity: Date,
     /// Primary leg that typically receives the spread.
     pub primary_leg: BasisSwapLeg,
     /// Reference leg that typically pays flat.
@@ -140,7 +141,7 @@ impl BasisSwap {
     /// * `id` — Unique identifier for the swap
     /// * `notional` — Notional amount for both legs
     /// * `start_date` — Start date of the swap
-    /// * `maturity_date` — Maturity date of the swap
+    /// * `maturity` — Maturity date of the swap
     /// * `primary_leg` — Primary leg specification (typically receives spread)
     /// * `reference_leg` — Reference leg specification (typically pays flat)
     /// * `discount_curve_id` — Discount curve identifier for present value calculations
@@ -151,13 +152,13 @@ impl BasisSwap {
     ///
     /// # Errors
     /// Returns an error if:
-    /// - `start_date >= maturity_date` (invalid swap tenor)
+    /// - `start_date >= maturity` (invalid swap tenor)
     /// - Both legs reference the same forward curve (use `with_allow_same_curve(true)` to override)
     pub fn new(
         id: impl Into<String>,
         notional: Money,
         start_date: Date,
-        maturity_date: Date,
+        maturity: Date,
         primary_leg: BasisSwapLeg,
         reference_leg: BasisSwapLeg,
         discount_curve_id: impl Into<CurveId>,
@@ -165,11 +166,11 @@ impl BasisSwap {
         let id_str = id.into();
 
         // Validate dates
-        if start_date >= maturity_date {
+        if start_date >= maturity {
             return Err(finstack_core::Error::Validation(format!(
-                "BasisSwap '{}' has start_date ({}) >= maturity_date ({}); \
+                "BasisSwap '{}' has start_date ({}) >= maturity ({}); \
                  swap must have positive tenor",
-                id_str, start_date, maturity_date
+                id_str, start_date, maturity
             )));
         }
 
@@ -218,7 +219,7 @@ impl BasisSwap {
             id: InstrumentId::new(id_str),
             notional,
             start_date,
-            maturity_date,
+            maturity,
             primary_leg,
             reference_leg,
             discount_curve_id: discount_curve_id.into(),
@@ -316,7 +317,7 @@ impl BasisSwap {
         id: impl Into<String>,
         notional: Money,
         start_date: Date,
-        maturity_date: Date,
+        maturity: Date,
         primary_leg: BasisSwapLeg,
         reference_leg: BasisSwapLeg,
         discount_curve_id: impl Into<CurveId>,
@@ -324,11 +325,11 @@ impl BasisSwap {
         let id_str = id.into();
 
         // Validate dates only
-        if start_date >= maturity_date {
+        if start_date >= maturity {
             return Err(finstack_core::Error::Validation(format!(
-                "BasisSwap '{}' has start_date ({}) >= maturity_date ({}); \
+                "BasisSwap '{}' has start_date ({}) >= maturity ({}); \
                  swap must have positive tenor",
-                id_str, start_date, maturity_date
+                id_str, start_date, maturity
             )));
         }
 
@@ -376,7 +377,7 @@ impl BasisSwap {
             id: InstrumentId::new(id_str),
             notional,
             start_date,
-            maturity_date,
+            maturity,
             primary_leg,
             reference_leg,
             discount_curve_id: discount_curve_id.into(),
@@ -398,7 +399,7 @@ impl BasisSwap {
     pub fn leg_schedule(&self, leg: &BasisSwapLeg) -> Result<Schedule> {
         let sched = crate::cashflow::builder::build_dates(
             self.start_date,
-            self.maturity_date,
+            self.maturity,
             leg.frequency,
             self.stub_kind,
             leg.bdc,
@@ -480,7 +481,7 @@ impl BasisSwap {
         let periods = crate::cashflow::builder::periods::build_periods(
             crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start_date,
-                end: self.maturity_date,
+                end: self.maturity,
                 frequency: leg.frequency,
                 stub: self.stub_kind,
                 bdc: leg.bdc,
@@ -586,7 +587,7 @@ impl BasisSwap {
         let periods = crate::cashflow::builder::periods::build_periods(
             crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start_date,
-                end: self.maturity_date,
+                end: self.maturity,
                 frequency: leg.frequency,
                 stub: self.stub_kind,
                 bdc: leg.bdc,
@@ -659,7 +660,7 @@ impl crate::instruments::common_impl::traits::Instrument for BasisSwap {
     }
 
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
-        Some(self.maturity_date)
+        Some(self.maturity)
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
@@ -946,7 +947,7 @@ mod tests {
             ..primary_leg.clone()
         };
 
-        // Test start_date == maturity_date
+        // Test start_date == maturity
         let err = BasisSwap::new(
             "INVALID_DATES",
             Money::new(1_000_000.0, Currency::USD),
@@ -958,11 +959,11 @@ mod tests {
         )
         .expect_err("should fail for equal dates");
         assert!(
-            format!("{err}").contains("start_date") && format!("{err}").contains("maturity_date"),
+            format!("{err}").contains("start_date") && format!("{err}").contains("maturity"),
             "Expected date validation error, got: {err}"
         );
 
-        // Test start_date > maturity_date
+        // Test start_date > maturity
         let err = BasisSwap::new(
             "INVERTED_DATES",
             Money::new(1_000_000.0, Currency::USD),

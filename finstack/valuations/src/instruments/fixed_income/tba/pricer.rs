@@ -28,7 +28,7 @@ pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPas
 
     // Use provided pool factor or default to 1.0 (newly issued)
     let factor = tba.pool_factor.unwrap_or(1.0);
-    let maturity_date = settlement_date.add_months(term_months as i32);
+    let maturity = settlement_date.add_months(term_months as i32);
 
     // Standard servicing and g-fee assumptions
     let servicing_fee = 0.0025; // 25 bps
@@ -57,7 +57,7 @@ pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPas
         .guarantee_fee_rate(guarantee_fee)
         .wam(term_months)
         .issue_date(settlement_date)
-        .maturity_date(maturity_date)
+        .maturity(maturity)
         .prepayment_model(PrepaymentModelSpec::psa(1.0))
         .discount_curve_id(tba.discount_curve_id.clone())
         .day_count(DayCount::Thirty360)

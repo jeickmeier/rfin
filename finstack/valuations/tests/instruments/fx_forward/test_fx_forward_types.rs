@@ -15,7 +15,7 @@ fn test_fx_forward_builder() {
         .id(InstrumentId::new("TEST-FWD"))
         .base_currency(Currency::EUR)
         .quote_currency(Currency::USD)
-        .maturity_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+        .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
         .notional(Money::new(1_000_000.0, Currency::EUR))
         .domestic_discount_curve_id(CurveId::new("USD-OIS"))
         .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
@@ -36,7 +36,7 @@ fn test_fx_forward_builder_with_optional_fields() {
         .id(InstrumentId::new("TEST-FWD-FULL"))
         .base_currency(Currency::EUR)
         .quote_currency(Currency::USD)
-        .maturity_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+        .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
         .notional(Money::new(1_000_000.0, Currency::EUR))
         .contract_rate_opt(Some(1.12))
         .spot_rate_override_opt(Some(1.10))
@@ -90,11 +90,9 @@ fn test_fx_forward_from_trade_date() {
     let spot_date = trade_date + time::Duration::days(2);
     let expected_maturity = spot_date + time::Duration::days(90);
 
-    assert!(forward.maturity_date >= spot_date);
+    assert!(forward.maturity >= spot_date);
     // Allow some business day adjustment tolerance
-    let days_diff = (forward.maturity_date - expected_maturity)
-        .whole_days()
-        .abs();
+    let days_diff = (forward.maturity - expected_maturity).whole_days().abs();
     assert!(days_diff <= 5, "Maturity should be close to expected");
 }
 
@@ -136,7 +134,7 @@ fn test_fx_forward_with_forward_points_builder() {
         .id(InstrumentId::new("POINTS-TEST"))
         .base_currency(Currency::EUR)
         .quote_currency(Currency::USD)
-        .maturity_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+        .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
         .notional(Money::new(1_000_000.0, Currency::EUR))
         .domestic_discount_curve_id(CurveId::new("USD-OIS"))
         .foreign_discount_curve_id(CurveId::new("EUR-OIS"))

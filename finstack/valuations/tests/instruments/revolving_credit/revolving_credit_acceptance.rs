@@ -43,7 +43,7 @@ fn test_upfront_fee_sign() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(0.0, Currency::USD)) // No draws
         .commitment_date(start)
-        .maturity_date(end)
+        .maturity(end)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.0 }) // Zero interest
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -90,7 +90,7 @@ fn test_mid_period_draw_accrual() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(5_000_000.0, Currency::USD))
         .commitment_date(start)
-        .maturity_date(end)
+        .maturity(end)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 }) // 5% annual
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -161,7 +161,7 @@ fn test_floating_vs_margin_only() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(5_000_000.0, Currency::USD))
         .commitment_date(start)
-        .maturity_date(end)
+        .maturity(end)
         .base_rate_spec(BaseRateSpec::Floating(
             finstack_valuations::cashflow::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-3M".into(),
@@ -241,7 +241,7 @@ fn test_reset_frequency_mismatch() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(5_000_000.0, Currency::USD))
         .commitment_date(start)
-        .maturity_date(end)
+        .maturity(end)
         .base_rate_spec(BaseRateSpec::Floating(
             finstack_valuations::cashflow::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-1M".into(),
@@ -330,7 +330,7 @@ fn test_utilization_tier() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(3_000_000.0, Currency::USD)) // 30% utilization
         .commitment_date(start)
-        .maturity_date(end)
+        .maturity(end)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.0 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -349,7 +349,7 @@ fn test_utilization_tier() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(7_000_000.0, Currency::USD)) // 70% utilization
         .commitment_date(start)
-        .maturity_date(end)
+        .maturity(end)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.0 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
@@ -416,7 +416,7 @@ fn test_as_of_filtering() {
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
         .drawn_amount(Money::new(5_000_000.0, Currency::USD))
         .commitment_date(start)
-        .maturity_date(end)
+        .maturity(end)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())

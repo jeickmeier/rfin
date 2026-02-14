@@ -479,7 +479,7 @@ impl<'a> CashflowEngine<'a> {
         // Add terminal repayment
         let mut final_balance = self.facility.drawn_amount;
         for event in draw_repay_events.iter() {
-            if event.date < self.facility.maturity_date {
+            if event.date < self.facility.maturity {
                 final_balance = if event.is_draw {
                     final_balance.checked_add(event.amount)?
                 } else {
@@ -490,7 +490,7 @@ impl<'a> CashflowEngine<'a> {
 
         let mut final_balance_for_terminal = final_balance;
         for event in draw_repay_events.iter() {
-            if event.date == self.facility.maturity_date {
+            if event.date == self.facility.maturity {
                 final_balance_for_terminal = if event.is_draw {
                     final_balance_for_terminal.checked_add(event.amount)?
                 } else {
@@ -499,11 +499,11 @@ impl<'a> CashflowEngine<'a> {
             }
         }
 
-        if self.facility.maturity_date > self.as_of
+        if self.facility.maturity > self.as_of
             && !rc.is_effectively_zero(final_balance_for_terminal.amount(), ZeroKind::Money(ccy))
         {
             flows.push(CashFlow {
-                date: self.facility.maturity_date,
+                date: self.facility.maturity,
                 reset_date: None,
                 amount: final_balance_for_terminal,
                 kind: CFKind::Notional,
@@ -684,11 +684,11 @@ impl<'a> CashflowEngine<'a> {
             .clamp(0.0, 1.0);
         let final_balance = self.facility.commitment_amount * final_utilization;
 
-        if self.facility.maturity_date > self.as_of
+        if self.facility.maturity > self.as_of
             && !rc.is_effectively_zero(final_balance.amount(), ZeroKind::Money(ccy))
         {
             flows.push(CashFlow {
-                date: self.facility.maturity_date,
+                date: self.facility.maturity,
                 reset_date: None,
                 amount: final_balance,
                 kind: CFKind::Notional,

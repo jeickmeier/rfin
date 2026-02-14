@@ -175,7 +175,7 @@ impl PyNdfBuilder {
             .base_currency(base_currency)
             .settlement_currency(settlement_currency)
             .fixing_date(fixing_date)
-            .maturity_date(maturity_date)
+            .maturity(maturity_date)
             .notional(notional)
             .contract_rate(contract_rate)
             .settlement_curve_id(settlement_curve_id)
@@ -357,7 +357,7 @@ impl PyNdf {
     /// Maturity/settlement date.
     #[getter]
     fn maturity_date<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.maturity_date)
+        date_to_py(py, self.inner.maturity)
     }
 
     /// Notional amount in base currency.
@@ -438,7 +438,7 @@ impl PyNdf {
             self.inner.base_currency,
             self.inner.settlement_currency,
             self.inner.contract_rate,
-            self.inner.maturity_date,
+            self.inner.maturity,
             fixed_status
         )
     }

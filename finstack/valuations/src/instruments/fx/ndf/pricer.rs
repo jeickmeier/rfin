@@ -44,11 +44,11 @@ impl Pricer for NdfDiscountingPricer {
         let ndf = expect_inst::<Ndf>(instrument, InstrumentType::Ndf)?;
 
         // Validate fixing date <= maturity
-        if ndf.fixing_date > ndf.maturity_date {
+        if ndf.fixing_date > ndf.maturity {
             return Err(PricingError::invalid_input_with_context(
                 format!(
                     "NDF fixing date {} must be on or before maturity date {}",
-                    ndf.fixing_date, ndf.maturity_date
+                    ndf.fixing_date, ndf.maturity
                 ),
                 PricingErrorContext::default(),
             ));
@@ -110,7 +110,7 @@ mod tests {
             .base_currency(Currency::CNY)
             .settlement_currency(Currency::USD)
             .fixing_date(Date::from_calendar_date(2024, Month::April, 13).expect("valid date"))
-            .maturity_date(Date::from_calendar_date(2024, Month::April, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2024, Month::April, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25) // At market spot
             .settlement_curve_id(CurveId::new("USD-OIS"))
@@ -143,7 +143,7 @@ mod tests {
             .base_currency(Currency::CNY)
             .settlement_currency(Currency::USD)
             .fixing_date(Date::from_calendar_date(2024, Month::April, 13).expect("valid date"))
-            .maturity_date(Date::from_calendar_date(2024, Month::April, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2024, Month::April, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .fixing_rate_opt(Some(7.30)) // Fixed above contract rate
@@ -177,7 +177,7 @@ mod tests {
             .base_currency(Currency::CNY)
             .settlement_currency(Currency::USD)
             .fixing_date(Date::from_calendar_date(2024, Month::April, 13).expect("valid date"))
-            .maturity_date(Date::from_calendar_date(2024, Month::April, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2024, Month::April, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .fixing_rate_opt(Some(7.20)) // Fixed below contract rate
@@ -209,7 +209,7 @@ mod tests {
             .base_currency(Currency::CNY)
             .settlement_currency(Currency::USD)
             .fixing_date(Date::from_calendar_date(2024, Month::April, 13).expect("valid date"))
-            .maturity_date(Date::from_calendar_date(2024, Month::April, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2024, Month::April, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .settlement_curve_id(CurveId::new("USD-OIS"))

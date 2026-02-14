@@ -48,7 +48,7 @@ use time::macros::date;
 ///     .id(InstrumentId::new("EURUSD-FWD-6M"))
 ///     .base_currency(Currency::EUR)
 ///     .quote_currency(Currency::USD)
-///     .maturity_date(Date::from_calendar_date(2025, Month::June, 15).unwrap())
+///     .maturity(Date::from_calendar_date(2025, Month::June, 15).unwrap())
 ///     .notional(Money::new(1_000_000.0, Currency::EUR))
 ///     .domestic_discount_curve_id(CurveId::new("USD-OIS"))
 ///     .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
@@ -67,7 +67,8 @@ pub struct FxForward {
     /// Quote currency (domestic currency, denominator of the pair, PV currency).
     pub quote_currency: Currency,
     /// Maturity/settlement date.
-    pub maturity_date: Date,
+    #[serde(alias = "maturity")]
+    pub maturity: Date,
     /// Notional amount in base currency.
     pub notional: Money,
     /// Contract forward rate (quote per base). If None, valued at-market.
@@ -158,7 +159,7 @@ impl FxForward {
             .id(InstrumentId::new("EURUSD-FWD-6M"))
             .base_currency(Currency::EUR)
             .quote_currency(Currency::USD)
-            .maturity_date(date!(2025 - 06 - 15))
+            .maturity(date!(2025 - 06 - 15))
             .notional(Money::new(1_000_000.0, Currency::EUR))
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
@@ -320,7 +321,7 @@ impl FxForward {
             quote_calendar_id.as_deref(),
         )?;
         let maturity_unadjusted = spot_date + time::Duration::days(tenor_days);
-        let maturity_date = adjust_joint_calendar(
+        let maturity = adjust_joint_calendar(
             maturity_unadjusted,
             bdc,
             base_calendar_id.as_deref(),
@@ -331,7 +332,7 @@ impl FxForward {
             .id(id.into())
             .base_currency(base_currency)
             .quote_currency(quote_currency)
-            .maturity_date(maturity_date)
+            .maturity(maturity)
             .notional(notional)
             .domestic_discount_curve_id(domestic_discount_curve_id.into())
             .foreign_discount_curve_id(foreign_discount_curve_id.into())
@@ -382,7 +383,7 @@ impl FxForward {
     ///     .id(InstrumentId::new("EURUSD-FWD"))
     ///     .base_currency(Currency::EUR)
     ///     .quote_currency(Currency::USD)
-    ///     .maturity_date(Date::from_calendar_date(2025, Month::June, 15).unwrap())
+    ///     .maturity(Date::from_calendar_date(2025, Month::June, 15).unwrap())
     ///     .notional(Money::new(1_000_000.0, Currency::EUR))
     ///     .domestic_discount_curve_id(CurveId::new("USD-OIS"))
     ///     .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
@@ -410,7 +411,7 @@ impl FxForward {
     pub fn market_forward_rate(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
         use finstack_core::money::fx::FxQuery;
 
-        if self.maturity_date <= as_of {
+        if self.maturity <= as_of {
             return Err(finstack_core::Error::from(
                 finstack_core::InputError::Invalid,
             ));
@@ -419,8 +420,8 @@ impl FxForward {
         let domestic_disc = market.get_discount(self.domestic_discount_curve_id.as_str())?;
         let foreign_disc = market.get_discount(self.foreign_discount_curve_id.as_str())?;
 
-        let df_domestic = domestic_disc.df_between_dates(as_of, self.maturity_date)?;
-        let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity_date)?;
+        let df_domestic = domestic_disc.df_between_dates(as_of, self.maturity)?;
+        let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity)?;
 
         // Guard against near-zero domestic discount factor to prevent division by zero.
         // A DF very close to zero implies an extreme rate environment or a data error.
@@ -429,7 +430,7 @@ impl FxForward {
             return Err(finstack_core::Error::Validation(format!(
                 "FxForward: domestic discount factor ({}) is near zero for maturity {}, \
                  which would cause division by zero in CIRP forward rate calculation",
-                df_domestic, self.maturity_date
+                df_domestic, self.maturity
             )));
         }
 
@@ -488,7 +489,7 @@ impl crate::instruments::common_impl::traits::Instrument for FxForward {
         self.validate()?;
 
         // If maturity has passed or is today, the forward is settled with zero remaining value.
-        if self.maturity_date <= as_of {
+        if self.maturity <= as_of {
             return Ok(finstack_core::money::Money::new(0.0, self.quote_currency));
         }
 
@@ -497,8 +498,8 @@ impl crate::instruments::common_impl::traits::Instrument for FxForward {
         let foreign_disc = market.get_discount(self.foreign_discount_curve_id.as_str())?;
 
         // Discount factors from as_of to maturity
-        let df_domestic = domestic_disc.df_between_dates(as_of, self.maturity_date)?;
-        let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity_date)?;
+        let df_domestic = domestic_disc.df_between_dates(as_of, self.maturity)?;
+        let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity)?;
 
         // Resolve spot rate
         let spot = if let Some(rate) = self.spot_rate_override {
@@ -521,7 +522,7 @@ impl crate::instruments::common_impl::traits::Instrument for FxForward {
             return Err(finstack_core::Error::Validation(format!(
                 "FxForward: domestic discount factor ({}) is near zero for maturity {}, \
                  which would cause division by zero in CIRP forward rate calculation",
-                df_domestic, self.maturity_date
+                df_domestic, self.maturity
             )));
         }
 
@@ -557,7 +558,7 @@ mod tests {
             .id(InstrumentId::new("TEST-FWD"))
             .base_currency(Currency::EUR)
             .quote_currency(Currency::USD)
-            .maturity_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .notional(Money::new(1_000_000.0, Currency::EUR))
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
@@ -586,7 +587,7 @@ mod tests {
             .id(InstrumentId::new("FWD-POINTS"))
             .base_currency(Currency::EUR)
             .quote_currency(Currency::USD)
-            .maturity_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .notional(Money::new(1_000_000.0, Currency::EUR))
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
@@ -637,7 +638,7 @@ mod tests {
             id: InstrumentId::new("TEST"),
             base_currency: Currency::EUR,
             quote_currency: Currency::EUR, // Same as base - invalid
-            maturity_date: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
+            maturity: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
             notional: Money::new(1_000_000.0, Currency::EUR),
             contract_rate: None,
             domestic_discount_curve_id: CurveId::new("EUR-OIS"),
@@ -662,7 +663,7 @@ mod tests {
             id: InstrumentId::new("TEST"),
             base_currency: Currency::EUR,
             quote_currency: Currency::USD,
-            maturity_date: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
+            maturity: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
             notional: Money::new(1_000_000.0, Currency::USD), // Wrong currency
             contract_rate: None,
             domestic_discount_curve_id: CurveId::new("USD-OIS"),
@@ -687,7 +688,7 @@ mod tests {
             id: InstrumentId::new("TEST"),
             base_currency: Currency::EUR,
             quote_currency: Currency::USD,
-            maturity_date: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
+            maturity: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
             notional: Money::new(1_000_000.0, Currency::EUR),
             contract_rate: Some(-1.10), // Negative rate - invalid
             domestic_discount_curve_id: CurveId::new("USD-OIS"),
@@ -712,7 +713,7 @@ mod tests {
             id: InstrumentId::new("TEST"),
             base_currency: Currency::EUR,
             quote_currency: Currency::USD,
-            maturity_date: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
+            maturity: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
             notional: Money::new(1_000_000.0, Currency::EUR),
             contract_rate: Some(1.10),
             domestic_discount_curve_id: CurveId::new("USD-OIS"),
