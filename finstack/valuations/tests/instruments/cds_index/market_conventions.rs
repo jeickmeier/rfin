@@ -45,7 +45,7 @@ fn test_cdx_na_ig_standard_conventions() {
 
     assert_eq!(idx.convention, CDSConvention::IsdaNa);
     assert_eq!(idx.premium.frequency, Tenor::quarterly());
-    assert_eq!(idx.premium.dc, DayCount::Act360);
+    assert_eq!(idx.premium.day_count, DayCount::Act360);
 }
 
 #[test]
@@ -144,7 +144,7 @@ fn test_act_360_day_count() {
 
     let idx = standard_single_curve_index("CDX-DC", start, end, 10_000_000.0);
 
-    assert_eq!(idx.premium.dc, DayCount::Act360);
+    assert_eq!(idx.premium.day_count, DayCount::Act360);
 }
 
 #[test]

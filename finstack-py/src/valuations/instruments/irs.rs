@@ -414,7 +414,7 @@ impl PyInterestRateSwapBuilder {
             discount_curve_id: discount.clone(),
             rate: rust_decimal::Decimal::from_f64_retain(fixed_rate).unwrap_or_default(),
             frequency: slf.fixed_frequency,
-            dc: slf.fixed_day_count,
+            day_count: slf.fixed_day_count,
             bdc: slf.bdc,
             calendar_id: calendar.clone(),
             stub: slf.stub,
@@ -432,7 +432,7 @@ impl PyInterestRateSwapBuilder {
             spread_bp: rust_decimal::Decimal::from_f64_retain(slf.float_spread_bp)
                 .unwrap_or_default(),
             frequency: slf.float_frequency,
-            dc: slf.float_day_count,
+            day_count: slf.float_day_count,
             bdc: slf.bdc,
             calendar_id: calendar.clone(),
             stub: slf.stub,

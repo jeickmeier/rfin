@@ -433,7 +433,7 @@ fn test_jump_to_default_uses_adjusted_coupon_schedule_for_accrued() {
     let last_coupon = date!(2027 - 03 - 22);
     let accrual_fraction = cds
         .premium
-        .dc
+        .day_count
         .year_fraction(
             last_coupon,
             as_of,

@@ -234,7 +234,7 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
             stub: StubKind::None, // Default to None or derive?
             bdc: conv.bdc,
             calendar_id: Some(conv.calendar_id.clone()),
-            dc: conv.day_count,
+            day_count: conv.day_count,
             spread_bp: Decimal::try_from(spread_bp).map_err(|e| {
                 finstack_core::Error::Validation(format!(
                     "spread_bp {} cannot be represented as Decimal: {}",

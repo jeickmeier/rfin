@@ -78,7 +78,8 @@ pub struct FixedLegSpec {
     #[serde(alias = "freq")]
     pub frequency: Tenor,
     /// Day count convention for accrual
-    pub dc: DayCount,
+    #[serde(alias = "dc")]
+    pub day_count: DayCount,
     /// Business day convention for payment dates
     pub bdc: BusinessDayConvention,
     /// Optional calendar for business day adjustments
@@ -128,7 +129,8 @@ pub struct FloatLegSpec {
     #[serde(alias = "freq")]
     pub frequency: Tenor,
     /// Day count convention for accrual
-    pub dc: DayCount,
+    #[serde(alias = "dc")]
+    pub day_count: DayCount,
     /// Business day convention for payment dates
     pub bdc: BusinessDayConvention,
     /// Optional calendar for business day adjustments
@@ -259,7 +261,8 @@ pub struct PremiumLegSpec {
     /// Holiday calendar identifier
     pub calendar_id: Option<String>,
     /// Day count convention
-    pub dc: DayCount,
+    #[serde(alias = "dc")]
+    pub day_count: DayCount,
     /// Fixed spread in basis points (e.g., 100 = 100bp = 1%)
     pub spread_bp: Decimal,
     /// Discount curve identifier

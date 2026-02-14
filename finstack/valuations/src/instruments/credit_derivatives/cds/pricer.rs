@@ -698,7 +698,7 @@ impl CDSPricer {
             }
 
             // Accrual uses instrument's day-count convention (e.g., Act/360 for ISDA NA)
-            let accrual = year_fraction(cds.premium.dc, start_date, end_date)?;
+            let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
             let df = df_asof_to(disc, as_of, end_date)?;
@@ -743,7 +743,7 @@ impl CDSPricer {
         }
 
         // Remaining accrual fraction uses the instrument premium day count convention.
-        let tau_remaining = year_fraction(inp.cds.premium.dc, inp.start_date, inp.end_date)?;
+        let tau_remaining = year_fraction(inp.cds.premium.day_count, inp.start_date, inp.end_date)?;
 
         // Conditional default probability between start and end (conditioned on survival to as_of).
         let sp_start = sp_cond_to(inp.surv, inp.as_of, inp.start_date)?;
@@ -1733,7 +1733,7 @@ impl CDSPricer {
                 }
 
                 // Accrual uses instrument day-count
-                let accrual = year_fraction(cds.premium.dc, start_date, end_date)?;
+                let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
 
                 // Discounting uses discount curve's day-count and relative DF from as_of
                 let df = df_asof_to(disc, as_of, end_date)?;
@@ -1797,7 +1797,7 @@ impl CDSPricer {
             }
 
             // Accrual uses instrument day-count
-            let accrual = year_fraction(cds.premium.dc, start_date, end_date)?;
+            let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
             let df = df_asof_to(disc, as_of, end_date)?;
@@ -1848,7 +1848,7 @@ impl CDSPricer {
             }
 
             // Accrual uses instrument day-count
-            let accrual = year_fraction(cds.premium.dc, start_date, end_date)?;
+            let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
             let df = df_asof_to(disc, as_of, end_date)?;

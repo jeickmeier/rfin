@@ -124,7 +124,7 @@ fn calculate_accrued_premium(
     // Calculate accrual fraction from last_coupon to as_of
     let accrual_fraction =
         cds.premium
-            .dc
+            .day_count
             .year_fraction(last_coupon, as_of, DayCountCtx::default())?;
 
     // Spread in decimal (convert from basis points)

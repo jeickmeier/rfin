@@ -349,7 +349,7 @@ impl JsCDSIndex {
             let year_frac = self
                 .inner
                 .premium
-                .dc
+                .day_count
                 .year_fraction(prev, d, DayCountCtx::default())
                 .map_err(|e| js_error(e.to_string()))?;
             let amount = self.inner.notional.amount() * spread_decimal * year_frac;

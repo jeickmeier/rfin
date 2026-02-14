@@ -77,7 +77,7 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
             coupon_type: crate::cashflow::builder::CouponType::Cash,
             rate: fixed.rate,
             freq: fixed.frequency,
-            dc: fixed.dc,
+            dc: fixed.day_count,
             bdc: fixed.bdc,
             calendar_id: fixed
                 .calendar_id
@@ -168,7 +168,7 @@ pub fn float_leg_schedule_with_curves(
                 index_cap_bp: None,
                 reset_freq: float.frequency,
                 reset_lag_days: float.reset_lag_days,
-                dc: float.dc,
+                dc: float.day_count,
                 bdc: float.bdc,
                 calendar_id: float
                     .calendar_id
@@ -408,7 +408,7 @@ pub fn full_signed_schedule_with_curves(
     Ok(CashFlowSchedule {
         flows: all_flows,
         notional,
-        day_count: irs.fixed.dc, // Use fixed leg day count as representative
+        day_count: irs.fixed.day_count, // Use fixed leg day count as representative
         meta: Default::default(),
     })
 }

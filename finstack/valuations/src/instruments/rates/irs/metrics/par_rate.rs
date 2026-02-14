@@ -229,7 +229,7 @@ mod tests {
                     discount_curve_id: disc.clone(),
                     rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
                     frequency: Tenor::semi_annual(),
-                    dc: DayCount::Thirty360,
+                    day_count: DayCount::Thirty360,
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
                     stub: StubKind::None,
@@ -247,7 +247,7 @@ mod tests {
                     forward_curve_id: fwd.clone(), // multi-curve
                     spread_bp: rust_decimal::Decimal::ZERO,
                     frequency: Tenor::quarterly(),
-                    dc: DayCount::Act360,
+                    day_count: DayCount::Act360,
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
                     stub: StubKind::None,

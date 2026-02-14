@@ -504,7 +504,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             stub: convention.stub_convention(),
             bdc: convention.business_day_convention(),
             calendar_id: None,
-            dc: convention.day_count(),
+            day_count: convention.day_count(),
             spread_bp: rust_decimal::Decimal::from(100),
             discount_curve_id: "USD-OIS".into(),
         };

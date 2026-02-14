@@ -121,7 +121,7 @@ fn test_builder_pattern() {
             stub: convention.stub_convention(),
             bdc: convention.business_day_convention(),
             calendar_id: None,
-            dc: convention.day_count(),
+            day_count: convention.day_count(),
             spread_bp: Decimal::from(200),
             discount_curve_id: "USD-OIS".into(),
         })
@@ -304,7 +304,7 @@ fn test_premium_leg_spec_fields() {
     assert_eq!(cds.premium.start, start);
     assert_eq!(cds.premium.end, end);
     assert_eq!(cds.premium.frequency, Tenor::quarterly());
-    assert_eq!(cds.premium.dc, DayCount::Act360);
+    assert_eq!(cds.premium.day_count, DayCount::Act360);
     assert_eq!(cds.premium.discount_curve_id.as_str(), "USD-OIS");
 }
 

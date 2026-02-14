@@ -625,7 +625,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             discount_curve_id: "USD".into(),
             rate: dec!(0.04),
             frequency: finstack_core::dates::Tenor::semi_annual(),
-            dc: DayCount::Thirty360,
+            day_count: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: StubKind::None,
@@ -641,7 +641,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             forward_curve_id: "USD_SOFR_3M".into(),
             spread_bp: dec!(25.0),
             frequency: finstack_core::dates::Tenor::quarterly(),
-            dc: DayCount::Act360,
+            day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             fixing_calendar_id: None,
@@ -716,7 +716,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
                 stub,
                 bdc,
                 calendar_id: Some(convention.default_calendar().to_string()),
-                dc,
+                day_count: dc,
                 spread_bp: dec!(100.0), // 100bp running spread
                 discount_curve_id: finstack_core::types::CurveId::new("USD"),
             })

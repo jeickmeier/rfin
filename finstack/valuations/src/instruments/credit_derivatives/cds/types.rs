@@ -478,7 +478,7 @@ impl CreditDefaultSwap {
                 stub,
                 bdc,
                 calendar_id: Some(convention.default_calendar().to_string()),
-                dc,
+                day_count: dc,
                 spread_bp: spread_bp_decimal,
                 discount_curve_id: finstack_core::types::CurveId::new("USD-OIS"),
             })
@@ -540,7 +540,7 @@ impl CreditDefaultSwap {
                 stub,
                 bdc,
                 calendar_id: Some(convention.default_calendar().to_string()),
-                dc,
+                day_count: dc,
                 spread_bp,
                 discount_curve_id: discount_curve_id.into(),
             },
@@ -656,7 +656,7 @@ impl CreditDefaultSwap {
         let mut flows = Vec::with_capacity(dates.len() - 1);
         let mut prev = dates[0];
         for &d in &dates[1..] {
-            let year_frac = self.premium.dc.year_fraction(
+            let year_frac = self.premium.day_count.year_fraction(
                 prev,
                 d,
                 finstack_core::dates::DayCountCtx::default(),
@@ -818,7 +818,7 @@ impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             flows,
             self.notional(),
-            self.premium.dc,
+            self.premium.day_count,
         ))
     }
 }

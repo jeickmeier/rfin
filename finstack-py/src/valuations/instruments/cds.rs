@@ -434,7 +434,7 @@ fn construct_cds(
             stub,
             bdc,
             calendar_id: Some(convention.default_calendar().to_string()),
-            dc,
+            day_count: dc,
             spread_bp: spread_bp_decimal,
             discount_curve_id: disc,
         })
