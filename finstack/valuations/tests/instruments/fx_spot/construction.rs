@@ -15,7 +15,7 @@ fn test_basic_construction() {
     assert_eq!(fx.quote_currency, Currency::USD);
     assert!(fx.settlement.is_none());
     assert!(fx.spot_rate.is_none());
-    assert_eq!(fx.notional, Some(Money::new(1.0, Currency::EUR)));
+    assert_eq!(fx.notional, Money::new(1.0, Currency::EUR));
     // Default BDC is ModifiedFollowing per ISDA FX settlement standard
     assert_eq!(fx.bdc, BusinessDayConvention::ModifiedFollowing);
 }
@@ -33,8 +33,8 @@ fn test_construction_with_notional() {
         .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap();
 
-    assert_eq!(fx.notional.unwrap().amount(), 1_000_000.0);
-    assert_eq!(fx.notional.unwrap().currency(), Currency::EUR);
+    assert_eq!(fx.notional.amount(), 1_000_000.0);
+    assert_eq!(fx.notional.currency(), Currency::EUR);
 }
 
 #[test]
@@ -88,7 +88,7 @@ fn test_construction_full_builder() {
     assert_eq!(fx.id.as_str(), "GBPUSD");
     assert_eq!(fx.base_currency, Currency::GBP);
     assert_eq!(fx.quote_currency, Currency::USD);
-    assert_eq!(fx.notional.unwrap().amount(), 5_000_000.0);
+    assert_eq!(fx.notional.amount(), 5_000_000.0);
     assert_eq!(fx.spot_rate, Some(1.32));
     assert_eq!(fx.settlement, Some(d(2025, 1, 17)));
     assert_eq!(fx.bdc, BusinessDayConvention::ModifiedFollowing);

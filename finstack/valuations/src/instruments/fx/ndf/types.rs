@@ -117,7 +117,7 @@ impl std::str::FromStr for NdfQuoteConvention {
 ///     .maturity(Date::from_calendar_date(2025, Month::March, 15).unwrap())
 ///     .notional(Money::new(10_000_000.0, Currency::CNY))
 ///     .contract_rate(7.25)
-///     .settlement_curve_id(CurveId::new("USD-OIS"))
+///     .domestic_discount_curve_id(CurveId::new("USD-OIS"))
 ///     .quote_convention(NdfQuoteConvention::BasePerSettlement)
 ///     .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
 ///     .build()
@@ -280,7 +280,7 @@ impl std::str::FromStr for NdfFixingSource {
 ///     .maturity(Date::from_calendar_date(2025, Month::March, 15).unwrap())
 ///     .notional(Money::new(10_000_000.0, Currency::CNY))
 ///     .contract_rate(7.25)
-///     .settlement_curve_id(CurveId::new("USD-OIS"))
+///     .domestic_discount_curve_id(CurveId::new("USD-OIS"))
 ///     .quote_convention(NdfQuoteConvention::BasePerSettlement)
 ///     .build()
 ///     .expect("Valid NDF");
@@ -308,14 +308,14 @@ pub struct Ndf {
     /// - SettlementPerBase: settlement per base (e.g., 0.138 USD per CNY)
     pub contract_rate: f64,
     /// Settlement currency discount curve ID.
-    pub settlement_curve_id: CurveId,
+    pub domestic_discount_curve_id: CurveId,
     /// Quote convention for contract_rate and fixing_rate.
     pub quote_convention: NdfQuoteConvention,
     /// Optional foreign (base) currency discount curve ID.
     /// If not provided, forward rate estimation uses settlement curve as fallback.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub foreign_curve_id: Option<CurveId>,
+    pub foreign_discount_curve_id: Option<CurveId>,
     /// Observed fixing rate. Interpretation depends on `quote_convention`.
     /// If Some, NDF is post-fixing.
     #[builder(optional)]
@@ -340,7 +340,7 @@ pub struct Ndf {
     /// Optional settlement currency calendar.
     #[builder(default)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub settlement_calendar_id: Option<String>,
+    pub quote_calendar_id: Option<String>,
     /// Attributes for tagging and selection.
     #[builder(default)]
     #[serde(default)]
@@ -370,7 +370,7 @@ impl Ndf {
             )
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
             .attributes(
@@ -406,7 +406,7 @@ impl Ndf {
     ///     .maturity(Date::from_calendar_date(2025, Month::March, 15).unwrap())
     ///     .notional(Money::new(10_000_000.0, Currency::CNY))
     ///     .contract_rate(7.25)
-    ///     .settlement_curve_id(CurveId::new("USD-OIS"))
+    ///     .domestic_discount_curve_id(CurveId::new("USD-OIS"))
     ///     .quote_convention(NdfQuoteConvention::BasePerSettlement)
     ///     .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
     ///     .build()
@@ -448,9 +448,9 @@ impl Ndf {
     /// * `tenor_days` - Days from spot to maturity
     /// * `notional` - Notional in base currency
     /// * `contract_rate` - Contract forward rate
-    /// * `settlement_curve_id` - Settlement currency discount curve
+    /// * `domestic_discount_curve_id` - Settlement/quote currency discount curve
     /// * `base_calendar_id` - Optional base currency calendar
-    /// * `settlement_calendar_id` - Optional settlement currency calendar
+    /// * `quote_calendar_id` - Optional quote/settlement currency calendar
     /// * `spot_lag_days` - Spot lag (typically 2)
     /// * `fixing_offset_days` - Days before maturity for fixing (typically 2)
     /// * `bdc` - Business day convention
@@ -463,9 +463,9 @@ impl Ndf {
         tenor_days: i64,
         notional: Money,
         contract_rate: f64,
-        settlement_curve_id: impl Into<CurveId>,
+        domestic_discount_curve_id: impl Into<CurveId>,
         base_calendar_id: Option<String>,
-        settlement_calendar_id: Option<String>,
+        quote_calendar_id: Option<String>,
         spot_lag_days: u32,
         fixing_offset_days: i64,
         bdc: finstack_core::dates::BusinessDayConvention,
@@ -479,20 +479,20 @@ impl Ndf {
             spot_lag_days,
             bdc,
             base_calendar_id.as_deref(),
-            settlement_calendar_id.as_deref(),
+            quote_calendar_id.as_deref(),
         )?;
         let maturity_unadjusted = spot_date + time::Duration::days(tenor_days);
         let maturity = adjust_joint_calendar(
             maturity_unadjusted,
             bdc,
             base_calendar_id.as_deref(),
-            settlement_calendar_id.as_deref(),
+            quote_calendar_id.as_deref(),
         )?;
 
         // Fixing date is typically T-2 before maturity using joint-business-day stepping.
         let joint_cal = ResolvedCalendarPair::resolve(
             base_calendar_id.as_deref(),
-            settlement_calendar_id.as_deref(),
+            quote_calendar_id.as_deref(),
         )?;
         let mut fixing_unadjusted = maturity;
         if fixing_offset_days >= 0 {
@@ -516,7 +516,7 @@ impl Ndf {
             fixing_unadjusted,
             finstack_core::dates::BusinessDayConvention::Preceding,
             base_calendar_id.as_deref(),
-            settlement_calendar_id.as_deref(),
+            quote_calendar_id.as_deref(),
         )?;
 
         Self::builder()
@@ -527,10 +527,10 @@ impl Ndf {
             .maturity(maturity)
             .notional(notional)
             .contract_rate(contract_rate)
-            .settlement_curve_id(settlement_curve_id.into())
+            .domestic_discount_curve_id(domestic_discount_curve_id.into())
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .base_calendar_id_opt(base_calendar_id)
-            .settlement_calendar_id_opt(settlement_calendar_id)
+            .quote_calendar_id_opt(quote_calendar_id)
             .attributes(Attributes::new())
             .build()
     }
@@ -584,11 +584,11 @@ impl Ndf {
         };
 
         // Get settlement discount factor
-        let settlement_disc = market.get_discount(self.settlement_curve_id.as_str())?;
+        let settlement_disc = market.get_discount(self.domestic_discount_curve_id.as_str())?;
         let df_settlement = settlement_disc.df_between_dates(as_of, self.maturity)?;
 
         // If foreign curve available, use CIRP
-        if let Some(ref foreign_curve_id) = self.foreign_curve_id {
+        if let Some(ref foreign_curve_id) = self.foreign_discount_curve_id {
             if let Ok(foreign_disc) = market.get_discount(foreign_curve_id.as_str()) {
                 let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity)?;
                 // Forward rate via covered interest rate parity (Hull Ch.5)
@@ -609,7 +609,7 @@ impl Ndf {
         // Fallback for restricted currencies: assume flat basis (F ≈ S).
         // This is a simplification; in practice you'd use NDF market quotes or basis curves.
         // For restricted currencies without a foreign discount curve, the forward rate
-        // cannot be properly estimated via CIRP. Consider providing a foreign_curve_id
+        // cannot be properly estimated via CIRP. Consider providing a foreign_discount_curve_id
         // or using an NDF-specific basis curve for more accurate valuations.
         tracing::warn!(
             instrument = %self.id,
@@ -617,7 +617,7 @@ impl Ndf {
             settlement_currency = %self.settlement_currency,
             "NDF forward rate estimation falling back to spot ≈ forward (no foreign curve). \
              This may produce material errors for long-dated NDFs. \
-             Provide a foreign_curve_id for CIRP-based forward estimation."
+             Provide a foreign_discount_curve_id for CIRP-based forward estimation."
         );
         Ok(spot)
     }
@@ -645,9 +645,9 @@ impl crate::instruments::common_impl::traits::CurveDependencies for Ndf {
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder()
-            .discount(self.settlement_curve_id.clone());
+            .discount(self.domestic_discount_curve_id.clone());
 
-        if let Some(ref foreign_curve) = self.foreign_curve_id {
+        if let Some(ref foreign_curve) = self.foreign_discount_curve_id {
             builder = builder.discount(foreign_curve.clone());
         }
 
@@ -689,7 +689,7 @@ impl crate::instruments::common_impl::traits::Instrument for Ndf {
         }
 
         // Get settlement discount curve
-        let settlement_disc = market.get_discount(self.settlement_curve_id.as_str())?;
+        let settlement_disc = market.get_discount(self.domestic_discount_curve_id.as_str())?;
         let df_settlement = settlement_disc.df_between_dates(as_of, self.maturity)?;
 
         // Determine the forward rate to use
@@ -772,7 +772,7 @@ mod tests {
             .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .attributes(Attributes::new())
             .build()
@@ -834,9 +834,9 @@ mod tests {
             .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
-            .foreign_curve_id_opt(Some(CurveId::new("CNY-OIS")))
+            .foreign_discount_curve_id_opt(Some(CurveId::new("CNY-OIS")))
             .attributes(Attributes::new())
             .build()
             .expect("should build");
@@ -867,7 +867,7 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(0.138) // USD per CNY
             .quote_convention(NdfQuoteConvention::SettlementPerBase)
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(Attributes::new())
             .build()
             .expect("should build");
@@ -988,7 +988,7 @@ mod tests {
             .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .attributes(Attributes::new())
             .build()
@@ -1081,7 +1081,7 @@ mod tests {
             .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
             .attributes(Attributes::new())
@@ -1102,7 +1102,7 @@ mod tests {
             .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::INR))
             .contract_rate(83.50)
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .fixing_source_enum_opt(Some(NdfFixingSource::Pboc)) // Wrong! PBOC is for CNY
             .attributes(Attributes::new())
@@ -1131,7 +1131,7 @@ mod tests {
             .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
             .attributes(Attributes::new())
@@ -1151,7 +1151,7 @@ mod tests {
             .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(0.0)
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .attributes(Attributes::new())
             .build()
@@ -1181,7 +1181,7 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .fixing_rate_opt(Some(f64::INFINITY))
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .attributes(Attributes::new())
             .build()

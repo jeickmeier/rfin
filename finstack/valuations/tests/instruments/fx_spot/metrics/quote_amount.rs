@@ -152,7 +152,7 @@ fn test_quote_amount_conversion_relationship() {
     let spot_rate = fx.spot_rate.unwrap();
 
     // Base amount is the notional
-    let base_amt = fx.notional.unwrap().amount();
+    let base_amt = fx.notional.amount();
 
     let expected_quote = base_amt * spot_rate;
     assert_approx_eq(

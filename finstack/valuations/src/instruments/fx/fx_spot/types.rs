@@ -109,9 +109,8 @@ pub struct FxSpot {
     /// Optional spot rate (if not provided, will look up from market data)
     #[builder(optional)]
     pub spot_rate: Option<f64>,
-    /// Optional notional amount in base currency (defaults to 1)
-    #[builder(optional)]
-    pub notional: Option<Money>,
+    /// Notional amount in base currency.
+    pub notional: Money,
     /// Per-instrument pricing/sensitivity override knobs.
     #[serde(default)]
     #[builder(default)]
@@ -150,7 +149,7 @@ struct FxSpotUnchecked {
     settlement: Option<Date>,
     settlement_lag_days: Option<i32>,
     spot_rate: Option<f64>,
-    notional: Option<Money>,
+    notional: Money,
     #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     bdc: BusinessDayConvention,
     base_calendar_id: Option<String>,
@@ -195,7 +194,7 @@ impl FxSpot {
             settlement: None,
             settlement_lag_days: None,
             spot_rate: None,
-            notional: Some(Money::new(1.0, base_currency)),
+            notional: Money::new(1.0, base_currency),
             pricing_overrides: crate::instruments::PricingOverrides::default(),
             bdc: BusinessDayConvention::ModifiedFollowing,
             base_calendar_id: None,
@@ -326,7 +325,7 @@ impl FxSpot {
                 actual: notional.currency(),
             });
         }
-        self.notional = Some(notional);
+        self.notional = notional;
         Ok(self)
     }
 
@@ -373,17 +372,17 @@ impl FxSpot {
         self
     }
 
-    /// Get the effective notional (defaults to 1 unit of base currency)
+    /// Get the configured notional amount.
     pub fn effective_notional(&self) -> Money {
         self.notional
-            .unwrap_or_else(|| Money::new(1.0, self.base_currency))
     }
 
     fn validate_economics(&self) -> finstack_core::Result<()> {
-        if self.notional.is_none() && self.spot_rate.is_none() {
-            return Err(finstack_core::Error::Validation(
-                "FxSpot requires at least one of `notional` or `spot_rate`".to_string(),
-            ));
+        if self.notional.currency() != self.base_currency {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: self.base_currency,
+                actual: self.notional.currency(),
+            });
         }
         Ok(())
     }
@@ -543,7 +542,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for FxSpot {
 
 impl CashflowProvider for FxSpot {
     fn notional(&self) -> Option<Money> {
-        self.notional
+        Some(self.notional)
     }
 
     fn build_full_schedule(

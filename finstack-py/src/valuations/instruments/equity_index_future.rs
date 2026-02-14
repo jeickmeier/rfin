@@ -1,8 +1,9 @@
 use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::money::{extract_money, PyMoney};
 use crate::valuations::common::PyInstrumentType;
-use finstack_core::currency::Currency;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::equity_index_future::{
     EquityFutureSpecs, EquityIndexFuture,
@@ -180,11 +181,11 @@ impl PyEquityFutureSpecs {
 /// The contract supports two pricing modes:
 ///
 /// 1. **Mark-to-Market** (when quoted_price is provided):
-///    NPV = (quoted_price - entry_price) × multiplier × quantity × position_sign
+///    NPV = (quoted_price - entry_price) × contracts × position_sign
 ///
 /// 2. **Fair Value** (cost-of-carry model):
 ///    F = S₀ × exp((r - q) × T)
-///    NPV = (F - entry_price) × multiplier × quantity × position_sign
+///    NPV = (F - entry_price) × contracts × position_sign
 ///
 /// where:
 /// - S₀ = Current spot index level
@@ -202,8 +203,7 @@ impl PyEquityFutureSpecs {
 ///     future = (
 ///         EquityIndexFuture.builder("ES-2025M03")
 ///         .index_ticker("SPX")
-///         .currency("USD")
-///         .quantity(10.0)
+///         .notional(Money.from_code(2_250_000.0, "USD"))
 ///         .expiry_date(Date(2025, 3, 21))
 ///         .last_trading_date(Date(2025, 3, 20))
 ///         .entry_price(4500.0)
@@ -245,8 +245,7 @@ impl PyEquityIndexFuture {
 pub struct PyEquityIndexFutureBuilder {
     instrument_id: InstrumentId,
     index_ticker: Option<String>,
-    currency: Option<Currency>,
-    quantity: Option<f64>,
+    notional: Option<Money>,
     expiry_date: Option<time::Date>,
     last_trading_date: Option<time::Date>,
     entry_price: Option<f64>,
@@ -263,8 +262,7 @@ impl PyEquityIndexFutureBuilder {
         Self {
             instrument_id: id,
             index_ticker: None,
-            currency: None,
-            quantity: None,
+            notional: None,
             expiry_date: None,
             last_trading_date: None,
             entry_price: None,
@@ -284,13 +282,9 @@ impl PyEquityIndexFutureBuilder {
             PyValueError::new_err("index_ticker is required (e.g., 'SPX', 'NDX')")
         })?;
 
-        let currency = self
-            .currency
-            .ok_or_else(|| PyValueError::new_err("currency is required"))?;
-
-        let quantity = self
-            .quantity
-            .ok_or_else(|| PyValueError::new_err("quantity is required"))?;
+        let notional = self
+            .notional
+            .ok_or_else(|| PyValueError::new_err("notional is required"))?;
 
         let expiry_date = self
             .expiry_date
@@ -315,8 +309,7 @@ impl PyEquityIndexFutureBuilder {
         EquityIndexFuture::builder()
             .id(self.instrument_id.clone())
             .underlying_ticker(index_ticker)
-            .currency(currency)
-            .quantity(quantity)
+            .notional(notional)
             .expiry_date(expiry_date)
             .last_trading_date(last_trading_date)
             .entry_price_opt(self.entry_price)
@@ -339,18 +332,12 @@ impl PyEquityIndexFutureBuilder {
         slf
     }
 
-    fn currency<'py>(
+    fn notional<'py>(
         mut slf: PyRefMut<'py, Self>,
-        ccy: Bound<'py, PyAny>,
+        money: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        use crate::core::currency::extract_currency;
-        slf.currency = Some(extract_currency(&ccy)?);
+        slf.notional = Some(extract_money(&money)?);
         Ok(slf)
-    }
-
-    fn quantity<'py>(mut slf: PyRefMut<'py, Self>, qty: f64) -> PyRefMut<'py, Self> {
-        slf.quantity = Some(qty);
-        slf
     }
 
     fn expiry_date<'py>(
@@ -553,13 +540,13 @@ impl PyEquityIndexFuture {
     /// Settlement currency.
     #[getter]
     fn currency(&self) -> PyCurrency {
-        PyCurrency::new(self.inner.currency)
+        PyCurrency::new(self.inner.notional.currency())
     }
 
-    /// Number of contracts.
+    /// Position notional.
     #[getter]
-    fn quantity(&self) -> f64 {
-        self.inner.quantity
+    fn notional(&self) -> PyMoney {
+        PyMoney::new(self.inner.notional)
     }
 
     /// Expiry/settlement date.
@@ -610,9 +597,9 @@ impl PyEquityIndexFuture {
     /// Returns
     /// -------
     /// float
-    ///     Notional value = price × multiplier × quantity
+    ///     Notional value = contracts × price × multiplier
     fn notional_value(&self, price: f64) -> f64 {
-        self.inner.notional_value(price)
+        self.inner.num_contracts(price.max(1e-12)) * price * self.inner.contract_specs.multiplier
     }
 
     /// Calculate delta exposure (index point sensitivity).
@@ -620,7 +607,7 @@ impl PyEquityIndexFuture {
     /// Returns
     /// -------
     /// float
-    ///     Delta = multiplier × quantity × position_sign
+    ///     Delta = multiplier × contracts × position_sign
     ///
     /// This represents the currency P&L change for a 1-point move in the index.
     fn delta(&self) -> f64 {
@@ -629,10 +616,10 @@ impl PyEquityIndexFuture {
 
     fn __repr__(&self) -> String {
         format!(
-            "EquityIndexFuture(id='{}', index='{}', quantity={}, position={}, expiry={})",
+            "EquityIndexFuture(id='{}', index='{}', notional={}, position={}, expiry={})",
             self.inner.id,
             self.inner.underlying_ticker,
-            self.inner.quantity,
+            self.inner.notional.amount(),
             match self.inner.position {
                 Position::Long => "long",
                 Position::Short => "short",
@@ -647,8 +634,10 @@ impl fmt::Display for PyEquityIndexFuture {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "EquityIndexFuture({}, {}, qty={})",
-            self.inner.id, self.inner.underlying_ticker, self.inner.quantity
+            "EquityIndexFuture({}, {}, notional={})",
+            self.inner.id,
+            self.inner.underlying_ticker,
+            self.inner.notional.amount()
         )
     }
 }

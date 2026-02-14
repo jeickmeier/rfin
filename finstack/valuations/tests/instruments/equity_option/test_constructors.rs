@@ -2,7 +2,9 @@
 
 use super::helpers::*;
 use crate::finstack_test_utils as test_utils;
+use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
@@ -21,7 +23,7 @@ fn test_builder_creates_valid_option() {
         .option_type(OptionType::Call)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
-        .contract_size(100.0)
+        .notional(Money::new(100.0, Currency::USD))
         .day_count(DayCount::Act365F)
         .settlement(SettlementType::Cash)
         .discount_curve_id(CurveId::new(DISC_ID))
@@ -36,7 +38,7 @@ fn test_builder_creates_valid_option() {
     assert_eq!(option.id.as_str(), "TEST_CALL");
     assert_eq!(option.strike, 150.0);
     assert_eq!(option.option_type, OptionType::Call);
-    assert_eq!(option.contract_size, 100.0);
+    assert_eq!(option.notional.amount(), 100.0);
 }
 
 #[test]
@@ -48,7 +50,7 @@ fn test_european_call_convenience_constructor() {
     assert_eq!(call.option_type, OptionType::Call);
     assert_eq!(call.exercise_style, ExerciseStyle::European);
     assert_eq!(call.strike, 4500.0);
-    assert_eq!(call.contract_size, 100.0);
+    assert_eq!(call.notional.amount(), 100.0);
     assert_eq!(call.settlement, SettlementType::Cash);
 }
 
@@ -61,7 +63,7 @@ fn test_european_put_convenience_constructor() {
     assert_eq!(put.option_type, OptionType::Put);
     assert_eq!(put.exercise_style, ExerciseStyle::European);
     assert_eq!(put.strike, 4200.0);
-    assert_eq!(put.contract_size, 100.0);
+    assert_eq!(put.notional.amount(), 100.0);
 }
 
 #[test]
@@ -81,16 +83,16 @@ fn test_contract_size_variations() {
     // Standard contract
     let standard =
         test_utils::equity_option_european_call("STD", "SPX", 100.0, expiry, 100.0).unwrap();
-    assert_eq!(standard.contract_size, 100.0);
+    assert_eq!(standard.notional.amount(), 100.0);
 
     // Mini contract
     let mini = test_utils::equity_option_european_call("MINI", "SPX", 100.0, expiry, 10.0).unwrap();
-    assert_eq!(mini.contract_size, 10.0);
+    assert_eq!(mini.notional.amount(), 10.0);
 
     // Custom size
     let custom =
         test_utils::equity_option_european_call("CUSTOM", "SPX", 100.0, expiry, 50.0).unwrap();
-    assert_eq!(custom.contract_size, 50.0);
+    assert_eq!(custom.notional.amount(), 50.0);
 }
 
 #[test]

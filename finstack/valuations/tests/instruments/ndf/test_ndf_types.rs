@@ -19,7 +19,7 @@ fn test_ndf_builder() {
         .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
-        .settlement_curve_id(CurveId::new("USD-OIS"))
+        .domestic_discount_curve_id(CurveId::new("USD-OIS"))
         .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .attributes(Attributes::new())
         .build()
@@ -42,21 +42,21 @@ fn test_ndf_builder_with_optional_fields() {
         .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
-        .settlement_curve_id(CurveId::new("USD-OIS"))
-        .foreign_curve_id_opt(Some(CurveId::new("CNY-OIS")))
+        .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+        .foreign_discount_curve_id_opt(Some(CurveId::new("CNY-OIS")))
         .fixing_rate_opt(Some(7.30))
         .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .fixing_source_enum_opt(Some(NdfFixingSource::Cnhfix))
         .spot_rate_override_opt(Some(7.25))
         .base_calendar_id_opt(Some("CNY".to_string()))
-        .settlement_calendar_id_opt(Some("USD".to_string()))
+        .quote_calendar_id_opt(Some("USD".to_string()))
         .attributes(Attributes::new().with_tag("ndf"))
         .build()
         .expect("should build");
 
     assert_eq!(ndf.fixing_rate, Some(7.30));
     assert_eq!(ndf.fixing_source_enum, Some(NdfFixingSource::Cnhfix));
-    assert!(ndf.foreign_curve_id.is_some());
+    assert!(ndf.foreign_discount_curve_id.is_some());
     assert!(ndf.is_fixed());
     assert!(ndf.attributes.has_tag("ndf"));
 }
@@ -142,9 +142,9 @@ fn test_ndf_curve_dependencies_with_foreign() {
         .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
-        .settlement_curve_id(CurveId::new("USD-OIS"))
+        .domestic_discount_curve_id(CurveId::new("USD-OIS"))
         .quote_convention(NdfQuoteConvention::BasePerSettlement)
-        .foreign_curve_id_opt(Some(CurveId::new("CNY-OIS")))
+        .foreign_discount_curve_id_opt(Some(CurveId::new("CNY-OIS")))
         .attributes(Attributes::new())
         .build()
         .expect("should build");
@@ -173,9 +173,9 @@ fn test_ndf_required_discount_curves() {
         .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
-        .settlement_curve_id(CurveId::new("USD-OIS"))
+        .domestic_discount_curve_id(CurveId::new("USD-OIS"))
         .quote_convention(NdfQuoteConvention::BasePerSettlement)
-        .foreign_curve_id_opt(Some(CurveId::new("CNY-OIS")))
+        .foreign_discount_curve_id_opt(Some(CurveId::new("CNY-OIS")))
         .attributes(Attributes::new())
         .build()
         .expect("should build");
@@ -210,7 +210,7 @@ fn test_ndf_common_currencies() {
         .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(100_000_000.0, Currency::INR))
         .contract_rate(83.0)
-        .settlement_curve_id(CurveId::new("USD-OIS"))
+        .domestic_discount_curve_id(CurveId::new("USD-OIS"))
         .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .fixing_source_enum_opt(Some(NdfFixingSource::Rbi))
         .attributes(Attributes::new())
@@ -229,7 +229,7 @@ fn test_ndf_common_currencies() {
         .maturity(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
         .notional(Money::new(10_000_000.0, Currency::BRL))
         .contract_rate(5.0)
-        .settlement_curve_id(CurveId::new("USD-OIS"))
+        .domestic_discount_curve_id(CurveId::new("USD-OIS"))
         .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .fixing_source_enum_opt(Some(NdfFixingSource::Ptax))
         .attributes(Attributes::new())

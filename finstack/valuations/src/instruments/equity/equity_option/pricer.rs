@@ -31,15 +31,15 @@ pub(crate) fn compute_pv(
     as_of: Date,
 ) -> Result<Money> {
     let (spot, r, q, sigma, t) = collect_inputs(inst, curves, as_of)?;
-    let ccy = option_currency(inst, curves);
+    let ccy = option_currency(inst);
 
     if t <= 0.0 {
-        // Expired: intrinsic value scaled by contract size
+        // Expired: intrinsic value scaled by notional amount
         let intrinsic = match inst.option_type {
             OptionType::Call => (spot - inst.strike).max(0.0),
             OptionType::Put => (inst.strike - spot).max(0.0),
         };
-        return Ok(Money::new(intrinsic * inst.contract_size, ccy));
+        return Ok(Money::new(intrinsic * inst.notional.amount(), ccy));
     }
 
     // Dispatch based on exercise style
@@ -70,14 +70,11 @@ pub(crate) fn compute_pv(
         }
     };
 
-    Ok(Money::new(unit_price * inst.contract_size, ccy))
+    Ok(Money::new(unit_price * inst.notional.amount(), ccy))
 }
 
-fn option_currency(inst: &EquityOption, curves: &MarketContext) -> Currency {
-    match curves.price(&inst.spot_id) {
-        Ok(finstack_core::market_data::scalars::MarketScalar::Price(m)) => m.currency(),
-        _ => Currency::USD,
-    }
+fn option_currency(inst: &EquityOption) -> Currency {
+    inst.notional.currency()
 }
 
 /// Collected market inputs for equity option pricing.
@@ -345,7 +342,7 @@ pub fn compute_greeks(
                 }
             }
         };
-        let scale = inst.contract_size;
+        let scale = inst.notional.amount();
         return Ok(EquityOptionGreeks {
             delta: delta_unit * scale,
             ..Default::default()
@@ -364,7 +361,7 @@ pub fn compute_greeks(
                 inst.option_type,
                 TRADING_DAYS_PER_YEAR,
             );
-            let scale = inst.contract_size;
+            let scale = inst.notional.amount();
             Ok(EquityOptionGreeks {
                 delta: greeks_unit.delta * scale,
                 gamma: greeks_unit.gamma * scale,
@@ -434,7 +431,7 @@ pub fn compute_greeks(
                 0.0
             };
 
-            let scale = inst.contract_size;
+            let scale = inst.notional.amount();
             Ok(EquityOptionGreeks {
                 delta: delta_unit * scale,
                 gamma: gamma_unit * scale,
@@ -649,8 +646,8 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
                 equity_option.id(),
                 as_of,
                 Money::new(
-                    intrinsic * equity_option.contract_size,
-                    option_currency(equity_option, market),
+                    intrinsic * equity_option.notional.amount(),
+                    option_currency(equity_option),
                 ),
             ));
         }
@@ -710,8 +707,8 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
         };
 
         let pv = Money::new(
-            price * equity_option.contract_size,
-            option_currency(equity_option, market),
+            price * equity_option.notional.amount(),
+            option_currency(equity_option),
         );
         Ok(crate::results::ValuationResult::stamped(
             equity_option.id(),

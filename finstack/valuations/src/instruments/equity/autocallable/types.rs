@@ -70,12 +70,14 @@ pub struct Autocallable {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Underlying asset ticker symbol
-    pub underlying_ticker: String,
+    pub underlying_ticker: crate::instruments::equity::spot::Ticker,
     /// Observation dates for autocall and coupon checks.
     ///
     /// Barriers are monitored **discretely** at these exact dates only.
     /// The Monte Carlo time grid is constructed to include these dates precisely.
     pub observation_dates: Vec<Date>,
+    /// Explicit terminal expiry date for the structure.
+    pub expiry: Date,
     /// Autocall barrier levels (as ratios of initial spot, e.g., 1.0 = 100%).
     ///
     /// Each barrier corresponds to the observation date at the same index.
@@ -126,6 +128,7 @@ impl Autocallable {
             .id(InstrumentId::new("AUTO-SPX-QTR"))
             .underlying_ticker("SPX".to_string())
             .observation_dates(observation_dates)
+            .expiry(date!(2024 - 12 - 31))
             .autocall_barriers(autocall_barriers)
             .coupons(coupons)
             .final_barrier(0.6) // 60% final KI barrier
@@ -180,6 +183,10 @@ impl crate::instruments::common_impl::traits::Instrument for Autocallable {
 
     fn effective_start_date(&self) -> Option<Date> {
         self.observation_dates.first().copied()
+    }
+
+    fn expiry(&self) -> Option<Date> {
+        Some(self.expiry)
     }
 
     fn scenario_overrides_mut(

@@ -39,7 +39,7 @@
 //!     .quantity(1000.0)
 //!     .unit("BBL".to_string())
 //!     .multiplier(1.0)
-//!     .settlement_date(date!(2025-12-15))
+//!     .maturity(date!(2025-12-15))
 //!     .currency(Currency::USD)
 //!     .forward_curve_id(CurveId::new("CL-FORWARD"))
 //!     .discount_curve_id(CurveId::new("USD-OIS"))

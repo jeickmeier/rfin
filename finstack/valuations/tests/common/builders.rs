@@ -178,7 +178,7 @@ pub struct TestOptionBuilder {
     option_type: OptionType,
     exercise_style: ExerciseStyle,
     expiry: Date,
-    contract_size: f64,
+    notional_amount: f64,
     day_count: DayCount,
     settlement: SettlementType,
     discount_curve_id: String,
@@ -198,7 +198,7 @@ impl TestOptionBuilder {
             option_type: OptionType::Call,
             exercise_style: ExerciseStyle::European,
             expiry,
-            contract_size: 100.0,
+            notional_amount: 100.0,
             day_count: DayCount::Act365F,
             settlement: SettlementType::Cash,
             discount_curve_id: "USD-OIS".to_string(),
@@ -226,9 +226,9 @@ impl TestOptionBuilder {
         self
     }
 
-    /// Set the contract size.
+    /// Set the equity option notional amount.
     pub fn contract_size(mut self, size: f64) -> Self {
-        self.contract_size = size;
+        self.notional_amount = size;
         self
     }
 
@@ -265,7 +265,7 @@ impl TestOptionBuilder {
             option_type: self.option_type,
             exercise_style: self.exercise_style,
             expiry: self.expiry,
-            contract_size: self.contract_size,
+            notional: Money::new(self.notional_amount, self.currency),
             day_count: self.day_count,
             settlement: self.settlement,
             discount_curve_id: self.discount_curve_id.into(),
@@ -422,7 +422,7 @@ mod tests {
 
         assert_eq!(option.strike, 100.0);
         assert!(matches!(option.option_type, OptionType::Call));
-        assert_eq!(option.contract_size, 100.0);
+        assert_eq!(option.notional.amount(), 100.0);
         assert_eq!(option.expiry, expiry);
     }
 
@@ -449,7 +449,7 @@ mod tests {
         let expiry = date!(2025 - 01 - 01);
         let option = TestOptionBuilder::new(expiry).contract_size(50.0).build();
 
-        assert_eq!(option.contract_size, 50.0);
+        assert_eq!(option.notional.amount(), 50.0);
     }
 
     #[test]

@@ -80,11 +80,6 @@ impl PyFxSpotBuilder {
         if self.quote_currency.is_none() {
             return Err(PyValueError::new_err("quote_currency() is required."));
         }
-        if self.notional.is_none() && self.spot_rate.is_none() {
-            return Err(PyValueError::new_err(
-                "FxSpot requires at least one of notional() or spot_rate().",
-            ));
-        }
         Ok(())
     }
 }
@@ -268,13 +263,13 @@ impl PyFxSpot {
         PyCurrency::new(self.inner.quote_currency)
     }
 
-    /// Optional notional in base currency (defaults to 1 unit when absent).
+    /// Notional in base currency.
     ///
     /// Returns:
-    ///     Money | None: Base notional amount when provided.
+    ///     Money: Base notional amount.
     #[getter]
-    fn notional(&self) -> Option<PyMoney> {
-        self.inner.notional.map(PyMoney::new)
+    fn notional(&self) -> PyMoney {
+        PyMoney::new(self.inner.notional)
     }
 
     /// Explicit spot rate if provided.

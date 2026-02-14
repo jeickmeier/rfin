@@ -152,7 +152,7 @@ fn test_near_expiry_delta_stability() {
 
         // Normalize delta by contract size (100) to get per-share delta
         // Cash delta = normalized_delta × contract_size
-        let delta_normalized = delta / call.contract_size;
+        let delta_normalized = delta / call.notional.amount();
 
         // Normalized delta must be in [0, 1] for calls
         assert!(
@@ -221,7 +221,7 @@ fn test_expired_option_price_is_intrinsic() {
     // ITM call: intrinsic = max(S - K, 0)
     let itm_call = create_call(as_of, expiry, 90.0);
     let pv_itm = itm_call.value(&market, as_of).unwrap().amount();
-    let intrinsic_itm = (spot - 90.0).max(0.0) * itm_call.contract_size;
+    let intrinsic_itm = (spot - 90.0).max(0.0) * itm_call.notional.amount();
 
     assert!(
         (pv_itm - intrinsic_itm).abs() < 0.01,

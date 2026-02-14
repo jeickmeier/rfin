@@ -17,9 +17,11 @@ pub struct CliquetOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Underlying asset ticker symbol
-    pub underlying_ticker: String,
+    pub underlying_ticker: crate::instruments::equity::spot::Ticker,
     /// Reset dates for periodic return locking
     pub reset_dates: Vec<Date>,
+    /// Explicit terminal expiry date for the structure.
+    pub expiry: Date,
     /// Local cap on individual period returns
     pub local_cap: f64,
     /// Local floor on individual period returns (default 0.0)
@@ -86,6 +88,7 @@ impl CliquetOption {
             .id(InstrumentId::new("CLIQ-SPX-QTR"))
             .underlying_ticker("SPX".to_string())
             .reset_dates(reset_dates)
+            .expiry(date!(2024 - 12 - 31))
             .local_cap(0.05) // 5% per period
             .local_floor(0.0) // 0% per period (min)
             .global_cap(0.20) // 20% max cumulative
@@ -138,6 +141,10 @@ impl crate::instruments::common_impl::traits::Instrument for CliquetOption {
 
     fn effective_start_date(&self) -> Option<Date> {
         self.reset_dates.first().copied()
+    }
+
+    fn expiry(&self) -> Option<Date> {
+        Some(self.expiry)
     }
 
     fn scenario_overrides_mut(

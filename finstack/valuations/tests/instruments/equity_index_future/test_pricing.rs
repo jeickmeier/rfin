@@ -5,6 +5,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::equity_index_future::{
     EquityFutureSpecs, EquityIndexFuture,
@@ -38,8 +39,7 @@ fn create_long_es_future_with_quoted() -> EquityIndexFuture {
     EquityIndexFuture::builder()
         .id(InstrumentId::new("ES-QUOTED"))
         .underlying_ticker("SPX".to_string())
-        .currency(Currency::USD)
-        .quantity(10.0)
+        .notional(Money::new(2_250_000.0, Currency::USD))
         .expiry_date(expiry)
         .last_trading_date(last_trade)
         .entry_price_opt(Some(4500.0))
@@ -60,8 +60,7 @@ fn create_short_es_future_with_quoted() -> EquityIndexFuture {
     EquityIndexFuture::builder()
         .id(InstrumentId::new("ES-SHORT"))
         .underlying_ticker("SPX".to_string())
-        .currency(Currency::USD)
-        .quantity(10.0)
+        .notional(Money::new(2_250_000.0, Currency::USD))
         .expiry_date(expiry)
         .last_trading_date(last_trade)
         .entry_price_opt(Some(4500.0))
@@ -82,8 +81,7 @@ fn create_es_future_fair_value() -> EquityIndexFuture {
     EquityIndexFuture::builder()
         .id(InstrumentId::new("ES-FAIR"))
         .underlying_ticker("SPX".to_string())
-        .currency(Currency::USD)
-        .quantity(10.0)
+        .notional(Money::new(2_250_000.0, Currency::USD))
         .expiry_date(expiry)
         .last_trading_date(last_trade)
         .entry_price_opt(Some(4500.0))
@@ -220,8 +218,7 @@ fn test_nq_future_pricing() {
     let future = EquityIndexFuture::builder()
         .id(InstrumentId::new("NQ-TEST"))
         .underlying_ticker("NDX".to_string())
-        .currency(Currency::USD)
-        .quantity(5.0)
+        .notional(Money::new(1_500_000.0, Currency::USD))
         .expiry_date(expiry)
         .last_trading_date(last_trade)
         .entry_price_opt(Some(15000.0))
@@ -254,8 +251,7 @@ fn test_at_the_money_future() {
     let future = EquityIndexFuture::builder()
         .id(InstrumentId::new("ES-ATM"))
         .underlying_ticker("SPX".to_string())
-        .currency(Currency::USD)
-        .quantity(10.0)
+        .notional(Money::new(2_250_000.0, Currency::USD))
         .expiry_date(expiry)
         .last_trading_date(last_trade)
         .entry_price_opt(Some(4500.0))

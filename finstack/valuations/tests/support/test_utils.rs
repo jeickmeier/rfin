@@ -187,8 +187,7 @@ pub fn equity_option_european_call(
 ) -> finstack_core::Result<EquityOption> {
     let ticker = ticker.into();
     let underlying = EquityUnderlyingParams::new(ticker.clone(), "EQUITY-SPOT", Currency::USD)
-        .with_dividend_yield("EQUITY-DIVYIELD")
-        .with_contract_size(contract_size);
+        .with_dividend_yield("EQUITY-DIVYIELD");
 
     EquityOption::builder()
         .id(InstrumentId::new(id.into()))
@@ -197,7 +196,7 @@ pub fn equity_option_european_call(
         .option_type(OptionType::Call)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
-        .contract_size(underlying.contract_size)
+        .notional(Money::new(contract_size, underlying.currency))
         .day_count(finstack_core::dates::DayCount::Act365F)
         .settlement(SettlementType::Cash)
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -219,8 +218,7 @@ pub fn equity_option_european_put(
 ) -> finstack_core::Result<EquityOption> {
     let ticker = ticker.into();
     let underlying = EquityUnderlyingParams::new(ticker.clone(), "EQUITY-SPOT", Currency::USD)
-        .with_dividend_yield("EQUITY-DIVYIELD")
-        .with_contract_size(contract_size);
+        .with_dividend_yield("EQUITY-DIVYIELD");
 
     EquityOption::builder()
         .id(InstrumentId::new(id.into()))
@@ -229,7 +227,7 @@ pub fn equity_option_european_put(
         .option_type(OptionType::Put)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
-        .contract_size(underlying.contract_size)
+        .notional(Money::new(contract_size, underlying.currency))
         .day_count(finstack_core::dates::DayCount::Act365F)
         .settlement(SettlementType::Cash)
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -251,8 +249,7 @@ pub fn equity_option_american_call(
 ) -> finstack_core::Result<EquityOption> {
     let ticker = ticker.into();
     let underlying = EquityUnderlyingParams::new(ticker.clone(), "EQUITY-SPOT", Currency::USD)
-        .with_dividend_yield("EQUITY-DIVYIELD")
-        .with_contract_size(contract_size);
+        .with_dividend_yield("EQUITY-DIVYIELD");
 
     EquityOption::builder()
         .id(InstrumentId::new(id.into()))
@@ -261,7 +258,7 @@ pub fn equity_option_american_call(
         .option_type(OptionType::Call)
         .exercise_style(ExerciseStyle::American)
         .expiry(expiry)
-        .contract_size(underlying.contract_size)
+        .notional(Money::new(contract_size, underlying.currency))
         .day_count(finstack_core::dates::DayCount::Act365F)
         .settlement(SettlementType::Cash)
         .discount_curve_id(CurveId::new("USD-OIS"))

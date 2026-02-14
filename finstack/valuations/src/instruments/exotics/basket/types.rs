@@ -171,6 +171,8 @@ pub struct Basket {
     pub expense_ratio: f64,
     /// Base currency of the basket
     pub currency: Currency,
+    /// Position notional used to scale basket NAV to portfolio PV.
+    pub notional: Money,
     /// Discount curve identifier for present value calculations
     pub discount_curve_id: finstack_core::types::CurveId,
     /// Attributes for scenario selection and tagging
@@ -215,6 +217,7 @@ impl Basket {
             .constituents(constituents)
             .expense_ratio(0.0025)
             .currency(Currency::USD)
+            .notional(Money::new(1_000_000.0, Currency::USD))
             .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
             .attributes(Attributes::new())
             .pricing_config(BasketPricingConfig::default())
@@ -268,6 +271,7 @@ impl Basket {
             .constituents(constituents)
             .expense_ratio(0.001)
             .currency(Currency::USD)
+            .notional(Money::new(1_000_000.0, Currency::USD))
             .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
             .attributes(Attributes::new())
             .pricing_config(BasketPricingConfig::default())
@@ -318,6 +322,10 @@ impl Basket {
 
         // Validate each constituent's currency compatibility would happen
         // during pricing through the existing instrument validation
+        validation::require_or(
+            self.notional.currency() == self.currency,
+            finstack_core::InputError::Invalid,
+        )?;
 
         Ok(())
     }
@@ -330,9 +338,10 @@ impl Instrument for Basket {
     // === Pricing Methods ===
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        // For the Instrument trait, we use the calculator with default shares of 1.0
-        // This represents the NAV per unit of the basket
-        self.calculator().nav(self, curves, as_of, 1.0)
+        // Scale NAV-per-unit by explicit basket notional for portfolio PV.
+        let nav_per_unit = self.calculator().nav(self, curves, as_of, 1.0)?;
+        let scaled = nav_per_unit.amount() * self.notional.amount();
+        Ok(Money::new(scaled, self.notional.currency()))
     }
 
     fn effective_start_date(&self) -> Option<Date> {
@@ -375,6 +384,7 @@ mod tests {
             constituents: vec![],
             expense_ratio: 0.001,
             currency: Currency::USD,
+            notional: Money::new(1_000_000.0, Currency::USD),
             discount_curve_id: "USD-OIS".into(),
             pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
@@ -413,6 +423,7 @@ mod tests {
             ],
             expense_ratio: 0.001,
             currency: Currency::USD,
+            notional: Money::new(1_000_000.0, Currency::USD),
             discount_curve_id: "USD-OIS".into(),
             pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),

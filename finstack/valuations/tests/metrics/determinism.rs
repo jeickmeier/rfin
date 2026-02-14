@@ -334,6 +334,9 @@ mod tests {
             id: "AUTOCALL_TEST".into(),
             underlying_ticker: "SPOT".to_string(),
             observation_dates: observation_dates.clone(),
+            expiry: *observation_dates
+                .last()
+                .expect("non-empty observation schedule"),
             autocall_barriers: vec![1.1, 1.15, 1.2, 1.25],
             coupons: vec![0.05, 0.05, 0.05, 0.05],
             final_barrier: 0.8,

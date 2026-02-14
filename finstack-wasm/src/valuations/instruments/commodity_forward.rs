@@ -20,7 +20,7 @@ pub struct JsCommodityForwardBuilder {
     ticker: Option<String>,
     quantity: Option<f64>,
     unit: Option<String>,
-    settlement_date: Option<finstack_core::dates::Date>,
+    maturity: Option<finstack_core::dates::Date>,
     currency: Option<finstack_core::currency::Currency>,
     forward_curve_id: Option<String>,
     discount_curve_id: Option<String>,
@@ -64,8 +64,8 @@ impl JsCommodityForwardBuilder {
     }
 
     #[wasm_bindgen(js_name = settlementDate)]
-    pub fn settlement_date(mut self, settlement_date: &JsDate) -> JsCommodityForwardBuilder {
-        self.settlement_date = Some(settlement_date.inner());
+    pub fn maturity(mut self, maturity: &JsDate) -> JsCommodityForwardBuilder {
+        self.maturity = Some(maturity.inner());
         self
     }
 
@@ -121,9 +121,9 @@ impl JsCommodityForwardBuilder {
             .unit
             .as_deref()
             .ok_or_else(|| JsValue::from_str("CommodityForwardBuilder: unit is required"))?;
-        let settlement_date = self.settlement_date.ok_or_else(|| {
-            JsValue::from_str("CommodityForwardBuilder: settlementDate is required")
-        })?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| JsValue::from_str("CommodityForwardBuilder: maturity is required"))?;
         let currency = self
             .currency
             .ok_or_else(|| JsValue::from_str("CommodityForwardBuilder: currency is required"))?;
@@ -153,7 +153,7 @@ impl JsCommodityForwardBuilder {
             .quantity(quantity)
             .unit(unit.to_string())
             .multiplier(self.multiplier.unwrap_or(1.0))
-            .settlement_date(settlement_date)
+            .maturity(maturity)
             .currency(currency)
             .forward_curve_id(CurveId::new(forward_curve_id))
             .discount_curve_id(CurveId::new(discount_curve_id))
@@ -245,7 +245,7 @@ impl JsCommodityForward {
             .quantity(quantity)
             .unit(unit.to_string())
             .multiplier(multiplier.unwrap_or(1.0))
-            .settlement_date(settlement_date.inner())
+            .maturity(settlement_date.inner())
             .currency(currency.inner())
             .forward_curve_id(CurveId::new(forward_curve_id))
             .discount_curve_id(CurveId::new(discount_curve_id))
@@ -297,7 +297,7 @@ impl JsCommodityForward {
 
     #[wasm_bindgen(getter, js_name = settlementDate)]
     pub fn settlement_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.settlement_date)
+        JsDate::from_core(self.inner.maturity)
     }
 
     #[wasm_bindgen(getter)]
@@ -352,7 +352,7 @@ impl JsCommodityForward {
             self.inner.id.as_str(),
             self.inner.ticker,
             self.inner.quantity,
-            self.inner.settlement_date
+            self.inner.maturity
         )
     }
 

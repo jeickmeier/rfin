@@ -20,7 +20,7 @@ pub struct JsCommoditySwapBuilder {
     ticker: Option<String>,
     unit: Option<String>,
     currency: Option<finstack_core::currency::Currency>,
-    notional_quantity: Option<f64>,
+    quantity: Option<f64>,
     fixed_price: Option<f64>,
     floating_index_id: Option<String>,
     pay_fixed: Option<bool>,
@@ -66,8 +66,8 @@ impl JsCommoditySwapBuilder {
     }
 
     #[wasm_bindgen(js_name = notionalQuantity)]
-    pub fn notional_quantity(mut self, notional_quantity: f64) -> JsCommoditySwapBuilder {
-        self.notional_quantity = Some(notional_quantity);
+    pub fn quantity(mut self, quantity: f64) -> JsCommoditySwapBuilder {
+        self.quantity = Some(quantity);
         self
     }
 
@@ -136,7 +136,7 @@ impl JsCommoditySwapBuilder {
         let currency = self
             .currency
             .ok_or_else(|| JsValue::from_str("CommoditySwapBuilder: currency is required"))?;
-        let notional_quantity = self.notional_quantity.ok_or_else(|| {
+        let quantity = self.quantity.ok_or_else(|| {
             JsValue::from_str("CommoditySwapBuilder: notionalQuantity is required")
         })?;
         let fixed_price = self
@@ -191,7 +191,7 @@ impl JsCommoditySwapBuilder {
             .ticker(ticker.to_string())
             .unit(unit.to_string())
             .currency(currency)
-            .notional_quantity(notional_quantity)
+            .quantity(quantity)
             .fixed_price(fixed_price)
             .floating_index_id(CurveId::new(floating_index_id))
             .side(if pay_fixed {
@@ -260,7 +260,7 @@ impl JsCommoditySwap {
         ticker: &str,
         unit: &str,
         currency: &JsCurrency,
-        notional_quantity: f64,
+        quantity: f64,
         fixed_price: f64,
         floating_index_id: &str,
         pay_fixed: bool,
@@ -303,7 +303,7 @@ impl JsCommoditySwap {
             .ticker(ticker.to_string())
             .unit(unit.to_string())
             .currency(currency.inner())
-            .notional_quantity(notional_quantity)
+            .quantity(quantity)
             .fixed_price(fixed_price)
             .floating_index_id(CurveId::new(floating_index_id))
             .side(if pay_fixed {
@@ -355,7 +355,7 @@ impl JsCommoditySwap {
 
     #[wasm_bindgen(getter, js_name = notionalQuantity)]
     pub fn notional_quantity(&self) -> f64 {
-        self.inner.notional_quantity
+        self.inner.quantity
     }
 
     #[wasm_bindgen(getter, js_name = fixedPrice)]

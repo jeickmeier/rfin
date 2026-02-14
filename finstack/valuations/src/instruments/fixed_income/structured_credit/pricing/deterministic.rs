@@ -95,7 +95,7 @@ pub fn run_simulation(
     // Generate payment schedule with calendar-adjusted dates
     let schedule = ScheduleBuilder::new(
         instrument.first_payment_date.max(as_of),
-        instrument.legal_maturity,
+        instrument.maturity,
     )?
     .frequency(instrument.frequency)
     .build()?;

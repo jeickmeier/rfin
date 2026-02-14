@@ -4,7 +4,7 @@ use crate::core::dates::FsDate;
 use crate::core::market_data::context::JsMarketContext;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::instruments::bond_future::JsFuturePosition;
-use finstack_core::currency::Currency;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::equity_index_future::{
     EquityFutureSpecs, EquityIndexFuture,
@@ -121,8 +121,7 @@ impl JsEquityFutureSpecs {
 /// const future = new EquityIndexFuture(
 ///   "ESH5",
 ///   "SPX",
-///   "USD",
-///   10,                          // Number of contracts
+///   Money.fromCode(2_250_000, "USD"), // Position notional
 ///   new FsDate(2025, 3, 21),    // Expiry date
 ///   new FsDate(2025, 3, 20),    // Last trading date
 ///   FuturePosition.Long(),
@@ -148,8 +147,7 @@ impl JsEquityIndexFuture {
 pub struct JsEquityIndexFutureBuilder {
     instrument_id: String,
     index_ticker: Option<String>,
-    currency: Option<String>,
-    quantity: Option<f64>,
+    notional: Option<Money>,
     expiry_date: Option<finstack_core::dates::Date>,
     last_trading_date: Option<finstack_core::dates::Date>,
     position: Option<finstack_valuations::instruments::fixed_income::bond_future::Position>,
@@ -174,15 +172,12 @@ impl JsEquityIndexFutureBuilder {
         self
     }
 
-    #[wasm_bindgen(js_name = currency)]
-    pub fn currency(mut self, currency: String) -> JsEquityIndexFutureBuilder {
-        self.currency = Some(currency);
-        self
-    }
-
-    #[wasm_bindgen(js_name = quantity)]
-    pub fn quantity(mut self, quantity: f64) -> JsEquityIndexFutureBuilder {
-        self.quantity = Some(quantity);
+    #[wasm_bindgen(js_name = notional)]
+    pub fn notional(
+        mut self,
+        notional: &crate::core::money::JsMoney,
+    ) -> JsEquityIndexFutureBuilder {
+        self.notional = Some(notional.inner());
         self
     }
 
@@ -227,13 +222,9 @@ impl JsEquityIndexFutureBuilder {
         let index_ticker = self.index_ticker.as_deref().ok_or_else(|| {
             JsValue::from_str("EquityIndexFutureBuilder: indexTicker is required")
         })?;
-        let currency = self
-            .currency
-            .as_deref()
-            .ok_or_else(|| JsValue::from_str("EquityIndexFutureBuilder: currency is required"))?;
-        let quantity = self
-            .quantity
-            .ok_or_else(|| JsValue::from_str("EquityIndexFutureBuilder: quantity is required"))?;
+        let notional = self
+            .notional
+            .ok_or_else(|| JsValue::from_str("EquityIndexFutureBuilder: notional is required"))?;
         let expiry_date = self
             .expiry_date
             .ok_or_else(|| JsValue::from_str("EquityIndexFutureBuilder: expiryDate is required"))?;
@@ -254,15 +245,10 @@ impl JsEquityIndexFutureBuilder {
             .as_deref()
             .ok_or_else(|| JsValue::from_str("EquityIndexFutureBuilder: spotId is required"))?;
 
-        let ccy: Currency = currency
-            .parse()
-            .map_err(|e: strum::ParseError| JsValue::from_str(&e.to_string()))?;
-
         let future = EquityIndexFuture::builder()
             .id(InstrumentId::new(&self.instrument_id))
             .underlying_ticker(index_ticker.to_string())
-            .currency(ccy)
-            .quantity(quantity)
+            .notional(notional)
             .expiry_date(expiry_date)
             .last_trading_date(last_trading_date)
             .position(position)
@@ -283,8 +269,7 @@ impl JsEquityIndexFuture {
     ///
     /// @param {string} id - Instrument identifier (e.g., "ESH5")
     /// @param {string} indexTicker - Index ticker symbol (e.g., "SPX")
-    /// @param {string} currency - Settlement currency
-    /// @param {number} quantity - Number of contracts
+    /// @param {Money} notional - Position notional
     /// @param {FsDate} expiryDate - Contract expiry date
     /// @param {FsDate} lastTradingDate - Last trading date
     /// @param {FuturePosition} position - Long or Short
@@ -296,8 +281,7 @@ impl JsEquityIndexFuture {
     pub fn new(
         id: &str,
         index_ticker: &str,
-        currency: &str,
-        quantity: f64,
+        notional: &crate::core::money::JsMoney,
         expiry_date: &FsDate,
         last_trading_date: &FsDate,
         position: &JsFuturePosition,
@@ -308,15 +292,10 @@ impl JsEquityIndexFuture {
         web_sys::console::warn_1(&JsValue::from_str(
             "EquityIndexFuture constructor is deprecated; use EquityIndexFutureBuilder instead.",
         ));
-        let ccy: Currency = currency
-            .parse()
-            .map_err(|e: strum::ParseError| JsValue::from_str(&e.to_string()))?;
-
         let future = EquityIndexFuture::builder()
             .id(InstrumentId::new(id))
             .underlying_ticker(index_ticker.to_string())
-            .currency(ccy)
-            .quantity(quantity)
+            .notional(notional.inner())
             .expiry_date(expiry_date.inner())
             .last_trading_date(last_trading_date.inner())
             .position(position.inner())
@@ -342,10 +321,10 @@ impl JsEquityIndexFuture {
         self.inner.underlying_ticker.clone()
     }
 
-    /// Get the quantity (number of contracts).
+    /// Get the configured position notional.
     #[wasm_bindgen(getter)]
-    pub fn quantity(&self) -> f64 {
-        self.inner.quantity
+    pub fn notional(&self) -> crate::core::money::JsMoney {
+        crate::core::money::JsMoney::from_inner(self.inner.notional)
     }
 
     /// Get the entry price (if set).
@@ -381,7 +360,7 @@ impl JsEquityIndexFuture {
     /// Calculate notional value at a given price.
     #[wasm_bindgen(js_name = notionalValue)]
     pub fn notional_value(&self, price: f64) -> f64 {
-        self.inner.notional_value(price)
+        self.inner.num_contracts(price.max(1e-12)) * price * self.inner.contract_specs.multiplier
     }
 
     /// Get the fair forward price using cost-of-carry model.

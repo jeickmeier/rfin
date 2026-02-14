@@ -44,12 +44,12 @@ fn analytical_call_price(
     vol: f64,
     as_of: finstack_core::dates::Date,
     expiry: finstack_core::dates::Date,
-    contract_size: f64,
+    notional: f64,
 ) -> f64 {
     let t = DayCount::Act365F
         .year_fraction(as_of, expiry, DayCountCtx::default())
         .unwrap_or(0.0);
-    bs_price(spot, strike, rate, div_yield, vol, t, OptionType::Call) * contract_size
+    bs_price(spot, strike, rate, div_yield, vol, t, OptionType::Call) * notional
 }
 #[test]
 fn test_implied_vol_recovers_surface_vol() {
@@ -71,7 +71,7 @@ fn test_implied_vol_recovers_surface_vol() {
         vol,
         as_of,
         expiry,
-        call.contract_size,
+        call.notional.amount(),
     );
 
     // Set market price in attributes
@@ -119,7 +119,7 @@ fn test_implied_vol_atm_option() {
         vol,
         as_of,
         expiry,
-        call.contract_size,
+        call.notional.amount(),
     );
     call.attributes
         .meta
@@ -159,7 +159,7 @@ fn test_implied_vol_itm_option() {
         vol,
         as_of,
         expiry,
-        call.contract_size,
+        call.notional.amount(),
     );
     call.attributes
         .meta
@@ -199,7 +199,7 @@ fn test_implied_vol_otm_option() {
         vol,
         as_of,
         expiry,
-        call.contract_size,
+        call.notional.amount(),
     );
     call.attributes
         .meta
@@ -239,7 +239,7 @@ fn test_implied_vol_short_dated() {
         vol,
         as_of,
         expiry,
-        call.contract_size,
+        call.notional.amount(),
     );
     call.attributes
         .meta
@@ -279,7 +279,7 @@ fn test_implied_vol_long_dated() {
         vol,
         as_of,
         expiry,
-        call.contract_size,
+        call.notional.amount(),
     );
     call.attributes
         .meta
@@ -319,7 +319,7 @@ fn test_implied_vol_high_volatility() {
         vol,
         as_of,
         expiry,
-        call.contract_size,
+        call.notional.amount(),
     );
     call.attributes
         .meta
@@ -360,7 +360,7 @@ fn test_implied_vol_low_volatility() {
         vol,
         as_of,
         expiry,
-        call.contract_size,
+        call.notional.amount(),
     );
     call.attributes
         .meta
@@ -400,7 +400,7 @@ fn test_implied_vol_returns_zero_for_expired() {
         vol,
         as_of,
         expiry,
-        call.contract_size,
+        call.notional.amount(),
     );
     call.attributes
         .meta
@@ -436,7 +436,7 @@ fn test_implied_vol_with_dividends() {
         vol,
         as_of,
         expiry,
-        call.contract_size,
+        call.notional.amount(),
     );
     call.attributes
         .meta

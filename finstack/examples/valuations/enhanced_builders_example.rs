@@ -140,10 +140,14 @@ fn main() -> finstack_core::Result<()> {
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
 
-        let option_params =
-            EquityOptionParams::new(150.0, expiry_1y, OptionType::Call, contract_size)
-                .with_exercise_style(ExerciseStyle::European)
-                .with_settlement(SettlementType::Cash);
+        let option_params = EquityOptionParams::new(
+            150.0,
+            expiry_1y,
+            OptionType::Call,
+            Money::new(contract_size, Currency::USD),
+        )
+        .with_exercise_style(ExerciseStyle::European)
+        .with_settlement(SettlementType::Cash);
 
         EquityOption::new(
             "OPT-001",
@@ -230,7 +234,10 @@ fn main() -> finstack_core::Result<()> {
         .option_type(finstack_valuations::instruments::OptionType::Call)
         .exercise_style(option_type)
         .expiry(expiry_1y)
-        .contract_size(underlying_params.contract_size)
+        .notional(Money::new(
+            underlying_params.contract_size,
+            underlying_params.currency,
+        ))
         .day_count(finstack_core::dates::DayCount::Act365F)
         .settlement(finstack_valuations::instruments::SettlementType::Cash)
         .discount_curve_id("USD-OIS".into())

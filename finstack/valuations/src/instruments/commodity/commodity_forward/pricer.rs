@@ -79,7 +79,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .currency(Currency::USD)
             .position(Position::Long)
             .contract_price_opt(Some(72.0)) // Entry price below market for positive MTM
@@ -162,7 +162,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))

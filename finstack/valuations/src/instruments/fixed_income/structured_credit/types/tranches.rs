@@ -254,7 +254,7 @@ pub struct Tranche {
     /// Whether reinvestment of principal is permitted
     pub can_reinvest: bool,
     /// Legal final maturity date
-    pub legal_maturity: Date,
+    pub maturity: Date,
     /// Expected maturity date (may be earlier than legal maturity for CLOs)
     pub expected_maturity: Option<Date>,
 
@@ -274,7 +274,7 @@ impl Tranche {
         seniority: TrancheSeniority,
         original_balance: Money,
         coupon: TrancheCoupon,
-        legal_maturity: Date,
+        maturity: Date,
     ) -> finstack_core::Result<Self> {
         // Validate attachment/detachment points
         if attachment_point < 0.0 || detachment_point <= attachment_point {
@@ -303,7 +303,7 @@ impl Tranche {
             deferred_interest: Money::new(0.0, original_balance.currency()),
             is_revolving: false,
             can_reinvest: false,
-            legal_maturity,
+            maturity,
             expected_maturity: None,
             payment_priority: match seniority {
                 TrancheSeniority::Senior => 1,
@@ -430,7 +430,7 @@ pub struct TrancheBuilder {
     seniority: Option<TrancheSeniority>,
     original_balance: Option<Money>,
     coupon: Option<TrancheCoupon>,
-    legal_maturity: Option<Date>,
+    maturity: Option<Date>,
     rating: Option<CreditRating>,
     frequency: Tenor,
     day_count: DayCount,
@@ -446,7 +446,7 @@ impl TrancheBuilder {
             seniority: None,
             original_balance: None,
             coupon: None,
-            legal_maturity: None,
+            maturity: None,
             rating: None,
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
@@ -491,8 +491,8 @@ impl TrancheBuilder {
 
     /// Set legal maturity date
     #[must_use]
-    pub fn legal_maturity(mut self, date: Date) -> Self {
-        self.legal_maturity = Some(date);
+    pub fn maturity(mut self, date: Date) -> Self {
+        self.maturity = Some(date);
         self
     }
 
@@ -537,9 +537,7 @@ impl TrancheBuilder {
         }
 
         let coupon = self.coupon.ok_or(finstack_core::InputError::Invalid)?;
-        let legal_maturity = self
-            .legal_maturity
-            .ok_or(finstack_core::InputError::Invalid)?;
+        let maturity = self.maturity.ok_or(finstack_core::InputError::Invalid)?;
 
         let mut tranche = Tranche::new(
             id,
@@ -548,7 +546,7 @@ impl TrancheBuilder {
             seniority,
             original_balance,
             coupon,
-            legal_maturity,
+            maturity,
         )?;
 
         if let Some(rating) = self.rating {
@@ -762,7 +760,7 @@ mod tests {
             .seniority(TrancheSeniority::Equity)
             .balance(Money::new(100_000_000.0, Currency::USD))
             .coupon(TrancheCoupon::Fixed { rate: 0.12 })
-            .legal_maturity(test_date())
+            .maturity(test_date())
             .build()
             .expect("should succeed");
 
@@ -792,7 +790,7 @@ mod tests {
                     overnight_compounding: None,
                 },
             ))
-            .legal_maturity(test_date())
+            .maturity(test_date())
             .build()
             .expect("should succeed");
 

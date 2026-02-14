@@ -19,7 +19,7 @@ fn test_expired_itm_call_equals_intrinsic() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let pv = call.value(&market, as_of).unwrap();
-    let expected = (spot - strike) * call.contract_size;
+    let expected = (spot - strike) * call.notional.amount();
 
     assert_approx_eq_tol(
         pv.amount(),
@@ -55,7 +55,7 @@ fn test_expired_itm_put_equals_intrinsic() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let pv = put.value(&market, as_of).unwrap();
-    let expected = (strike - spot) * put.contract_size;
+    let expected = (strike - spot) * put.notional.amount();
 
     assert_approx_eq_tol(
         pv.amount(),
@@ -128,7 +128,7 @@ fn test_very_deep_itm_call() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let pv = call.value(&market, as_of).unwrap();
-    let intrinsic = (spot - strike) * call.contract_size;
+    let intrinsic = (spot - strike) * call.notional.amount();
 
     // Very deep ITM should be close to discounted intrinsic
     assert!(
@@ -171,7 +171,7 @@ fn test_very_high_volatility() {
     assert_positive(pv.amount(), "High vol call PV");
     // But should not exceed spot * contract_size
     assert!(
-        pv.amount() < spot * call.contract_size,
+        pv.amount() < spot * call.notional.amount(),
         "Call cannot exceed spot * contract_size"
     );
 }
@@ -283,7 +283,7 @@ fn test_very_high_spot_price() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let pv = call.value(&market, as_of).unwrap();
-    let intrinsic = (spot - strike) * call.contract_size;
+    let intrinsic = (spot - strike) * call.notional.amount();
 
     // Deep ITM should be close to intrinsic
     assert!(

@@ -145,7 +145,7 @@ fn test_itm_call_exceeds_intrinsic() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let pv = call.value(&market, as_of).unwrap().amount();
-    let intrinsic = (spot - strike) * call.contract_size;
+    let intrinsic = (spot - strike) * call.notional.amount();
 
     assert!(
         pv > intrinsic,
@@ -166,7 +166,7 @@ fn test_otm_call_is_all_time_value() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let pv = call.value(&market, as_of).unwrap().amount();
-    let intrinsic = (spot - strike).max(0.0) * call.contract_size;
+    let intrinsic = (spot - strike).max(0.0) * call.notional.amount();
 
     // OTM intrinsic is zero
     assert_approx_eq_tol(intrinsic, 0.0, TIGHT_TOL, "OTM intrinsic");
@@ -191,9 +191,9 @@ fn test_atm_call_maximizes_time_value() {
     let otm_pv = otm_call.value(&market, as_of).unwrap().amount();
 
     // Calculate time values
-    let itm_intrinsic = (spot - 90.0) * itm_call.contract_size;
-    let atm_intrinsic = (spot - 100.0).max(0.0) * atm_call.contract_size;
-    let otm_intrinsic = (spot - 110.0).max(0.0) * otm_call.contract_size;
+    let itm_intrinsic = (spot - 90.0) * itm_call.notional.amount();
+    let atm_intrinsic = (spot - 100.0).max(0.0) * atm_call.notional.amount();
+    let otm_intrinsic = (spot - 110.0).max(0.0) * otm_call.notional.amount();
 
     let itm_time_value = itm_pv - itm_intrinsic;
     let atm_time_value = atm_pv - atm_intrinsic;
@@ -256,7 +256,7 @@ fn test_deep_itm_approaches_forward() {
     let pv = call.value(&market, as_of).unwrap().amount();
 
     // Deep ITM call ≈ (S - K*e^(-rT)) * contract_size
-    let forward_value = (spot - strike * (-rate * 1.0).exp()) * call.contract_size;
+    let forward_value = (spot - strike * (-rate * 1.0).exp()) * call.notional.amount();
 
     assert!(
         (pv - forward_value).abs() < 100.0,

@@ -30,7 +30,7 @@ use std::sync::Arc;
 ///     ...     .ticker("CL")
 ///     ...     .quantity(1000.0)
 ///     ...     .unit("BBL")
-///     ...     .settlement_date(Date(2025, 3, 15))
+///     ...     .maturity(Date(2025, 3, 15))
 ///     ...     .currency("USD")
 ///     ...     .forward_curve_id("WTI-FORWARD")
 ///     ...     .discount_curve_id("USD-OIS")
@@ -65,7 +65,7 @@ pub struct PyCommodityForwardBuilder {
     ticker: Option<String>,
     quantity: Option<f64>,
     unit: Option<String>,
-    settlement_date: Option<time::Date>,
+    maturity: Option<time::Date>,
     currency: Option<finstack_core::currency::Currency>,
     forward_curve_id: Option<CurveId>,
     discount_curve_id: Option<CurveId>,
@@ -87,7 +87,7 @@ impl PyCommodityForwardBuilder {
             ticker: None,
             quantity: None,
             unit: None,
-            settlement_date: None,
+            maturity: None,
             currency: None,
             forward_curve_id: None,
             discount_curve_id: None,
@@ -115,8 +115,8 @@ impl PyCommodityForwardBuilder {
         if self.unit.as_deref().unwrap_or("").is_empty() {
             return Err(PyValueError::new_err("unit() is required."));
         }
-        if self.settlement_date.is_none() {
-            return Err(PyValueError::new_err("settlement_date() is required."));
+        if self.maturity.is_none() {
+            return Err(PyValueError::new_err("maturity() is required."));
         }
         if self.currency.is_none() {
             return Err(PyValueError::new_err("currency() is required."));
@@ -166,12 +166,12 @@ impl PyCommodityForwardBuilder {
         slf
     }
 
-    #[pyo3(text_signature = "($self, settlement_date)")]
-    fn settlement_date<'py>(
+    #[pyo3(text_signature = "($self, maturity)")]
+    fn maturity<'py>(
         mut slf: PyRefMut<'py, Self>,
-        settlement_date: Bound<'py, PyAny>,
+        maturity: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.settlement_date = Some(py_to_date(&settlement_date).context("settlement_date")?);
+        slf.maturity = Some(py_to_date(&maturity).context("maturity")?);
         Ok(slf)
     }
 
@@ -301,9 +301,9 @@ impl PyCommodityForwardBuilder {
                 "CommodityForwardBuilder internal error: missing unit after validation",
             )
         })?;
-        let settlement_date = slf.settlement_date.ok_or_else(|| {
+        let maturity = slf.maturity.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
-                "CommodityForwardBuilder internal error: missing settlement_date after validation",
+                "CommodityForwardBuilder internal error: missing maturity after validation",
             )
         })?;
         let currency = slf.currency.ok_or_else(|| {
@@ -329,7 +329,7 @@ impl PyCommodityForwardBuilder {
             .quantity(quantity)
             .unit(unit)
             .multiplier(slf.multiplier)
-            .settlement_date(settlement_date)
+            .maturity(maturity)
             .currency(currency)
             .forward_curve_id(forward_curve_id)
             .discount_curve_id(discount_curve_id)
@@ -419,10 +419,10 @@ impl PyCommodityForward {
         self.inner.multiplier
     }
 
-    /// Settlement date.
+    /// Maturity date.
     #[getter]
-    fn settlement_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.settlement_date)
+    fn maturity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.maturity)
     }
 
     /// Currency.
@@ -485,11 +485,11 @@ impl PyCommodityForward {
 
     fn __repr__(&self) -> String {
         format!(
-            "CommodityForward(id='{}', ticker='{}', quantity={}, settlement_date='{}')",
+            "CommodityForward(id='{}', ticker='{}', quantity={}, maturity='{}')",
             self.inner.id.as_str(),
             self.inner.ticker,
             self.inner.quantity,
-            self.inner.settlement_date
+            self.inner.maturity
         )
     }
 }

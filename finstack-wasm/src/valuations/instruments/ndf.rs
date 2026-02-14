@@ -20,7 +20,7 @@ pub struct JsNdfBuilder {
     maturity_date: Option<finstack_core::dates::Date>,
     notional: Option<f64>,
     contract_rate: Option<f64>,
-    settlement_curve_id: Option<String>,
+    domestic_discount_curve_id: Option<String>,
 }
 
 #[wasm_bindgen(js_class = NdfBuilder)]
@@ -71,7 +71,7 @@ impl JsNdfBuilder {
 
     #[wasm_bindgen(js_name = settlementCurveId)]
     pub fn settlement_curve_id(mut self, settlement_curve_id: &str) -> JsNdfBuilder {
-        self.settlement_curve_id = Some(settlement_curve_id.to_string());
+        self.domestic_discount_curve_id = Some(settlement_curve_id.to_string());
         self
     }
 
@@ -98,7 +98,7 @@ impl JsNdfBuilder {
             .contract_rate
             .ok_or_else(|| JsValue::from_str("NdfBuilder: contractRate is required"))?;
         let settlement_curve_id = self
-            .settlement_curve_id
+            .domestic_discount_curve_id
             .as_deref()
             .ok_or_else(|| JsValue::from_str("NdfBuilder: settlementCurveId is required"))?;
 
@@ -110,7 +110,7 @@ impl JsNdfBuilder {
             .maturity(maturity_date)
             .notional(Money::new(notional, base_currency))
             .contract_rate(contract_rate)
-            .settlement_curve_id(CurveId::new(settlement_curve_id))
+            .domestic_discount_curve_id(CurveId::new(settlement_curve_id))
             .attributes(Attributes::new())
             .build()
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
@@ -189,7 +189,7 @@ impl JsNdf {
             .maturity(maturity_date.inner())
             .notional(Money::new(notional, base_currency.inner()))
             .contract_rate(contract_rate)
-            .settlement_curve_id(CurveId::new(settlement_curve_id))
+            .domestic_discount_curve_id(CurveId::new(settlement_curve_id))
             .attributes(Attributes::new())
             .build()
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
@@ -248,7 +248,7 @@ impl JsNdf {
     /// Set the foreign discount curve ID (for CIRP-based forward estimation).
     #[wasm_bindgen(js_name = setForeignCurveId)]
     pub fn set_foreign_curve_id(&mut self, curve_id: &str) {
-        self.inner.foreign_curve_id = Some(CurveId::new(curve_id));
+        self.inner.foreign_discount_curve_id = Some(CurveId::new(curve_id));
     }
 
     /// Calculate present value.

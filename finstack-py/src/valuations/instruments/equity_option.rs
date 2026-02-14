@@ -1,8 +1,10 @@
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::money::{extract_money, PyMoney};
 use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::{
@@ -18,7 +20,7 @@ use std::sync::Arc;
 /// Equity option priced via Black–Scholes style models.
 ///
 /// Examples:
-///     >>> option = EquityOption.builder("opt_aapl_jan").ticker("AAPL").strike(180.0).expiry(date(2024, 1, 19)).contract_size(1.0).option_type("call").exercise_style("european").disc_id("USD-OIS").spot_id("AAPL").vol_surface("AAPL-VOL").build()
+///     >>> option = EquityOption.builder("opt_aapl_jan").ticker("AAPL").strike(180.0).expiry(date(2024, 1, 19)).notional(Money.from_code(1.0, "USD")).option_type("call").exercise_style("european").disc_id("USD-OIS").spot_id("AAPL").vol_surface("AAPL-VOL").build()
 ///     >>> option.option_type
 ///     'call'
 #[pyclass(
@@ -51,7 +53,7 @@ pub struct PyEquityOptionBuilder {
     option_type: OptionType,
     exercise_style: ExerciseStyle,
     expiry: Option<time::Date>,
-    contract_size: f64,
+    notional: Option<Money>,
     day_count: DayCount,
     settlement: SettlementType,
     discount_curve_id: Option<CurveId>,
@@ -69,7 +71,7 @@ impl PyEquityOptionBuilder {
             option_type: OptionType::Call,
             exercise_style: ExerciseStyle::European,
             expiry: None,
-            contract_size: 1.0,
+            notional: None,
             day_count: DayCount::Act365F,
             settlement: SettlementType::Cash,
             discount_curve_id: None,
@@ -201,15 +203,12 @@ impl PyEquityOptionBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, contract_size)")]
-    fn contract_size(
-        mut slf: PyRefMut<'_, Self>,
-        contract_size: f64,
-    ) -> PyResult<PyRefMut<'_, Self>> {
-        if contract_size <= 0.0 {
-            return Err(PyValueError::new_err("contract_size must be positive"));
-        }
-        slf.contract_size = contract_size;
+    #[pyo3(text_signature = "($self, notional)")]
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.notional = Some(extract_money(&notional).context("notional")?);
         Ok(slf)
     }
 
@@ -297,7 +296,10 @@ impl PyEquityOptionBuilder {
             .option_type(slf.option_type)
             .exercise_style(slf.exercise_style)
             .expiry(expiry)
-            .contract_size(slf.contract_size)
+            .notional(
+                slf.notional
+                    .unwrap_or(Money::new(1.0, finstack_core::currency::Currency::USD)),
+            )
             .day_count(slf.day_count)
             .settlement(slf.settlement)
             .discount_curve_id(discount)
@@ -357,13 +359,13 @@ impl PyEquityOption {
         self.inner.strike
     }
 
-    /// Contract size (units per contract).
+    /// Position notional.
     ///
     /// Returns:
-    ///     float: Number of underlying units per option contract.
+    ///     Money: Notional amount for the option position.
     #[getter]
-    fn contract_size(&self) -> f64 {
-        self.inner.contract_size
+    fn notional(&self) -> PyMoney {
+        PyMoney::new(self.inner.notional)
     }
 
     /// Option type label (``"call"``/``"put"``).

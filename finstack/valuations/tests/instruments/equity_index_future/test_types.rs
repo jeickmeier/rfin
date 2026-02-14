@@ -2,6 +2,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::equity_index_future::{
     EquityFutureSpecs, EquityIndexFuture,
@@ -63,8 +64,7 @@ fn test_equity_index_future_builder() {
     let future = EquityIndexFuture::builder()
         .id(InstrumentId::new("ES-TEST"))
         .underlying_ticker("SPX".to_string())
-        .currency(Currency::USD)
-        .quantity(10.0)
+        .notional(Money::new(2_250_000.0, Currency::USD))
         .expiry_date(expiry)
         .last_trading_date(last_trade)
         .entry_price_opt(Some(4500.0))
@@ -79,8 +79,7 @@ fn test_equity_index_future_builder() {
 
     assert_eq!(future.id.as_str(), "ES-TEST");
     assert_eq!(future.underlying_ticker, "SPX");
-    assert_eq!(future.currency, Currency::USD);
-    assert_eq!(future.quantity, 10.0);
+    assert_eq!(future.notional, Money::new(2_250_000.0, Currency::USD));
     assert_eq!(future.entry_price, Some(4500.0));
     assert_eq!(future.quoted_price, Some(4550.0));
     assert_eq!(future.position, Position::Long);
@@ -93,7 +92,7 @@ fn test_sp500_emini_convenience_constructor() {
 
     let future = EquityIndexFuture::sp500_emini(
         "ESH5",
-        10.0,
+        Money::new(2_250_000.0, Currency::USD),
         expiry,
         last_trade,
         Some(4500.0),
@@ -104,7 +103,7 @@ fn test_sp500_emini_convenience_constructor() {
 
     assert_eq!(future.id.as_str(), "ESH5");
     assert_eq!(future.underlying_ticker, "SPX");
-    assert_eq!(future.currency, Currency::USD);
+    assert_eq!(future.notional.currency(), Currency::USD);
     assert_eq!(future.contract_specs.multiplier, 50.0);
     assert_eq!(future.spot_id, "SPX-SPOT");
 }
@@ -116,7 +115,7 @@ fn test_nasdaq100_emini_convenience_constructor() {
 
     let future = EquityIndexFuture::nasdaq100_emini(
         "NQH5",
-        5.0,
+        Money::new(1_500_000.0, Currency::USD),
         expiry,
         last_trade,
         Some(15000.0),
@@ -127,7 +126,7 @@ fn test_nasdaq100_emini_convenience_constructor() {
 
     assert_eq!(future.id.as_str(), "NQH5");
     assert_eq!(future.underlying_ticker, "NDX");
-    assert_eq!(future.currency, Currency::USD);
+    assert_eq!(future.notional.currency(), Currency::USD);
     assert_eq!(future.contract_specs.multiplier, 20.0);
     assert_eq!(future.spot_id, "NDX-SPOT");
     assert_eq!(future.position, Position::Short);
@@ -140,7 +139,7 @@ fn test_position_sign() {
 
     let long = EquityIndexFuture::sp500_emini(
         "ES-LONG",
-        10.0,
+        Money::new(2_250_000.0, Currency::USD),
         expiry,
         last_trade,
         None,
@@ -152,7 +151,7 @@ fn test_position_sign() {
 
     let short = EquityIndexFuture::sp500_emini(
         "ES-SHORT",
-        10.0,
+        Money::new(2_250_000.0, Currency::USD),
         expiry,
         last_trade,
         None,
@@ -171,7 +170,7 @@ fn test_delta_calculation() {
     // Long 10 ES contracts
     let long = EquityIndexFuture::sp500_emini(
         "ES-LONG",
-        10.0,
+        Money::new(2_250_000.0, Currency::USD),
         expiry,
         last_trade,
         None,
@@ -185,7 +184,7 @@ fn test_delta_calculation() {
     // Short 5 NQ contracts
     let short = EquityIndexFuture::nasdaq100_emini(
         "NQ-SHORT",
-        5.0,
+        Money::new(1_500_000.0, Currency::USD),
         expiry,
         last_trade,
         None,
@@ -198,10 +197,10 @@ fn test_delta_calculation() {
 }
 
 #[test]
-fn test_notional_value() {
+fn test_num_contracts() {
     let future = EquityIndexFuture::example();
-    // At price 4500: notional = 4500 × 50 × 10 = 2,250,000
-    assert_eq!(future.notional_value(4500.0), 2_250_000.0);
+    // At price 4500: contracts = 2,250,000 / (4500 × 50) = 10
+    assert_eq!(future.num_contracts(4500.0), 10.0);
 }
 
 #[test]
@@ -234,7 +233,7 @@ fn test_serde_roundtrip() {
 
     assert_eq!(future.id, recovered.id);
     assert_eq!(future.underlying_ticker, recovered.underlying_ticker);
-    assert_eq!(future.quantity, recovered.quantity);
+    assert_eq!(future.notional, recovered.notional);
     assert_eq!(future.entry_price, recovered.entry_price);
     assert_eq!(future.quoted_price, recovered.quoted_price);
 }

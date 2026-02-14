@@ -113,7 +113,7 @@ mod tests {
             .maturity(Date::from_calendar_date(2024, Month::April, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25) // At market spot
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .build()
             .expect("valid");
@@ -147,7 +147,7 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .fixing_rate_opt(Some(7.30)) // Fixed above contract rate
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .build()
             .expect("valid");
@@ -181,7 +181,7 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .fixing_rate_opt(Some(7.20)) // Fixed below contract rate
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .build()
             .expect("valid");
@@ -212,7 +212,7 @@ mod tests {
             .maturity(Date::from_calendar_date(2024, Month::April, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
-            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .build()
             .expect("valid");

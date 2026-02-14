@@ -21,7 +21,7 @@ pub struct QuantoOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Underlying equity ticker symbol
-    pub underlying_ticker: String,
+    pub underlying_ticker: crate::instruments::equity::spot::Ticker,
     /// Strike price for equity option
     pub equity_strike: Money,
     /// Option type (call or put)

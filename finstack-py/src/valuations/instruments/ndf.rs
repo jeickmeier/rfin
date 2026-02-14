@@ -85,14 +85,14 @@ pub struct PyNdfBuilder {
     maturity_date: Option<time::Date>,
     notional: Option<Money>,
     contract_rate: Option<f64>,
-    settlement_curve_id: Option<CurveId>,
-    foreign_curve_id: Option<CurveId>,
+    domestic_discount_curve_id: Option<CurveId>,
+    foreign_discount_curve_id: Option<CurveId>,
     fixing_rate: Option<f64>,
     fixing_source_enum: Option<NdfFixingSource>,
     quote_convention: Option<NdfQuoteConvention>,
     spot_rate_override: Option<f64>,
     base_calendar_id: Option<String>,
-    settlement_calendar_id: Option<String>,
+    quote_calendar_id: Option<String>,
 }
 
 impl PyNdfBuilder {
@@ -105,14 +105,14 @@ impl PyNdfBuilder {
             maturity_date: None,
             notional: None,
             contract_rate: None,
-            settlement_curve_id: None,
-            foreign_curve_id: None,
+            domestic_discount_curve_id: None,
+            foreign_discount_curve_id: None,
             fixing_rate: None,
             fixing_source_enum: None,
             quote_convention: None,
             spot_rate_override: None,
             base_calendar_id: None,
-            settlement_calendar_id: None,
+            quote_calendar_id: None,
         }
     }
 
@@ -162,7 +162,7 @@ impl PyNdfBuilder {
         }
 
         let settlement_curve_id = self
-            .settlement_curve_id
+            .domestic_discount_curve_id
             .clone()
             .ok_or_else(|| PyValueError::new_err("settlement_curve_id is required"))?;
 
@@ -178,14 +178,14 @@ impl PyNdfBuilder {
             .maturity(maturity_date)
             .notional(notional)
             .contract_rate(contract_rate)
-            .settlement_curve_id(settlement_curve_id)
+            .domestic_discount_curve_id(settlement_curve_id)
             .quote_convention(quote_convention)
-            .foreign_curve_id_opt(self.foreign_curve_id.clone())
+            .foreign_discount_curve_id_opt(self.foreign_discount_curve_id.clone())
             .fixing_rate_opt(self.fixing_rate)
             .fixing_source_enum_opt(self.fixing_source_enum)
             .spot_rate_override_opt(self.spot_rate_override)
             .base_calendar_id_opt(self.base_calendar_id.clone())
-            .settlement_calendar_id_opt(self.settlement_calendar_id.clone())
+            .quote_calendar_id_opt(self.quote_calendar_id.clone())
             .attributes(Attributes::new())
             .build()
             .map_err(core_to_py)
@@ -242,12 +242,12 @@ impl PyNdfBuilder {
     }
 
     fn settlement_curve<'py>(mut slf: PyRefMut<'py, Self>, curve_id: &str) -> PyRefMut<'py, Self> {
-        slf.settlement_curve_id = Some(CurveId::new(curve_id));
+        slf.domestic_discount_curve_id = Some(CurveId::new(curve_id));
         slf
     }
 
     fn foreign_curve<'py>(mut slf: PyRefMut<'py, Self>, curve_id: &str) -> PyRefMut<'py, Self> {
-        slf.foreign_curve_id = Some(CurveId::new(curve_id));
+        slf.foreign_discount_curve_id = Some(CurveId::new(curve_id));
         slf
     }
 
@@ -288,11 +288,8 @@ impl PyNdfBuilder {
         slf
     }
 
-    fn settlement_calendar<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        calendar_id: &str,
-    ) -> PyRefMut<'py, Self> {
-        slf.settlement_calendar_id = Some(calendar_id.to_string());
+    fn quote_calendar<'py>(mut slf: PyRefMut<'py, Self>, calendar_id: &str) -> PyRefMut<'py, Self> {
+        slf.quote_calendar_id = Some(calendar_id.to_string());
         slf
     }
 

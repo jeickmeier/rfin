@@ -70,6 +70,7 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};
     use time::Month;
 
@@ -96,8 +97,7 @@ mod tests {
         EquityIndexFuture::builder()
             .id(InstrumentId::new("ES-TEST"))
             .underlying_ticker("SPX".to_string())
-            .currency(Currency::USD)
-            .quantity(10.0)
+            .notional(Money::new(2_250_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::June, 20).expect("valid date"))
             .last_trading_date(Date::from_calendar_date(2025, Month::June, 19).expect("valid date"))
             .entry_price_opt(Some(4500.0))
@@ -118,8 +118,7 @@ mod tests {
         EquityIndexFuture::builder()
             .id(InstrumentId::new("ES-FAIR"))
             .underlying_ticker("SPX".to_string())
-            .currency(Currency::USD)
-            .quantity(10.0)
+            .notional(Money::new(2_250_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::June, 20).expect("valid date"))
             .last_trading_date(Date::from_calendar_date(2025, Month::June, 19).expect("valid date"))
             .entry_price_opt(Some(4500.0))

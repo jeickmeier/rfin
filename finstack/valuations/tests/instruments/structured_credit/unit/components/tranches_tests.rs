@@ -178,7 +178,7 @@ fn test_tranche_builder_complete() {
         .seniority(Seniority::Mezzanine)
         .balance(Money::new(5_000_000.0, Currency::USD))
         .coupon(TrancheCoupon::Fixed { rate: 0.08 })
-        .legal_maturity(maturity_date())
+        .maturity(maturity_date())
         .rating(CreditRating::BBB)
         .frequency(Tenor::quarterly())
         .build()
@@ -200,7 +200,7 @@ fn test_tranche_builder_missing_required_field() {
         .seniority(Seniority::Equity)
         // Missing: .balance()
         .coupon(TrancheCoupon::Fixed { rate: 0.12 })
-        .legal_maturity(maturity_date())
+        .maturity(maturity_date())
         .build();
 
     // Assert
@@ -391,7 +391,7 @@ fn test_tranche_structure_creation() {
         .seniority(Seniority::Equity)
         .balance(Money::new(10_000_000.0, Currency::USD))
         .coupon(TrancheCoupon::Fixed { rate: 0.12 })
-        .legal_maturity(maturity_date())
+        .maturity(maturity_date())
         .build()
         .unwrap();
 
@@ -401,7 +401,7 @@ fn test_tranche_structure_creation() {
         .seniority(Seniority::Senior)
         .balance(Money::new(90_000_000.0, Currency::USD))
         .coupon(TrancheCoupon::Fixed { rate: 0.05 })
-        .legal_maturity(maturity_date())
+        .maturity(maturity_date())
         .build()
         .unwrap();
 
@@ -422,7 +422,7 @@ fn test_tranche_structure_validates_gaps() {
         .seniority(Seniority::Equity)
         .balance(Money::new(10_000_000.0, Currency::USD))
         .coupon(TrancheCoupon::Fixed { rate: 0.12 })
-        .legal_maturity(maturity_date())
+        .maturity(maturity_date())
         .build()
         .unwrap();
 
@@ -432,7 +432,7 @@ fn test_tranche_structure_validates_gaps() {
         .seniority(Seniority::Senior)
         .balance(Money::new(80_000_000.0, Currency::USD))
         .coupon(TrancheCoupon::Fixed { rate: 0.05 })
-        .legal_maturity(maturity_date())
+        .maturity(maturity_date())
         .build()
         .unwrap();
 
@@ -452,7 +452,7 @@ fn test_tranche_structure_validates_overlap() {
         .seniority(Seniority::Equity)
         .balance(Money::new(15_000_000.0, Currency::USD))
         .coupon(TrancheCoupon::Fixed { rate: 0.12 })
-        .legal_maturity(maturity_date())
+        .maturity(maturity_date())
         .build()
         .unwrap();
 
@@ -462,7 +462,7 @@ fn test_tranche_structure_validates_overlap() {
         .seniority(Seniority::Senior)
         .balance(Money::new(85_000_000.0, Currency::USD))
         .coupon(TrancheCoupon::Fixed { rate: 0.05 })
-        .legal_maturity(maturity_date())
+        .maturity(maturity_date())
         .build()
         .unwrap();
 
@@ -482,7 +482,7 @@ fn test_tranche_structure_validates_reaches_100() {
         .seniority(Seniority::Senior)
         .balance(Money::new(90_000_000.0, Currency::USD))
         .coupon(TrancheCoupon::Fixed { rate: 0.05 })
-        .legal_maturity(maturity_date())
+        .maturity(maturity_date())
         .build()
         .unwrap();
 

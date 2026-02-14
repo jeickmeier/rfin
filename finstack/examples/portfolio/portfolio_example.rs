@@ -948,7 +948,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         300.0,                 // $300 strike
         date!(2024 - 12 - 20), // ~6M expiry
         OptionType::Call,
-        33_333.33, // Shares to make ~$10M exposure
+        Money::new(33_333.33, Currency::USD), // Shares to make ~$10M exposure
     );
 
     let underlying_params = finstack_valuations::instruments::EquityUnderlyingParams::new(
@@ -1157,7 +1157,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .seniority(Seniority::Senior)
         .balance(Money::new(10_000_000.0, Currency::USD)) // $10M senior tranche
         .coupon(TrancheCoupon::Fixed { rate: 0.035 }) // 3.5% coupon
-        .legal_maturity(date!(2031 - 01 - 15))
+        .maturity(date!(2031 - 01 - 15))
         .build()
         .unwrap();
 
@@ -1167,7 +1167,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .seniority(Seniority::Mezzanine)
         .balance(Money::new(10_000_000.0, Currency::USD)) // $10M mezzanine tranche
         .coupon(TrancheCoupon::Fixed { rate: 0.055 }) // 5.5% coupon
-        .legal_maturity(date!(2031 - 01 - 15))
+        .maturity(date!(2031 - 01 - 15))
         .build()
         .unwrap();
 
@@ -1177,7 +1177,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .seniority(Seniority::Equity)
         .balance(Money::new(10_000_000.0, Currency::USD)) // $10M equity tranche
         .coupon(TrancheCoupon::Fixed { rate: 0.00 }) // No coupon
-        .legal_maturity(date!(2031 - 01 - 15))
+        .maturity(date!(2031 - 01 - 15))
         .build()
         .unwrap();
 

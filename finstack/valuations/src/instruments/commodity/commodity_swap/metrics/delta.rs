@@ -37,7 +37,7 @@ impl MetricCalculator for DeltaCalculator {
             }
             // Use df_between_dates for base-date-safe discounting (consistent with npv())
             let df = disc.df_between_dates(context.as_of, payment_date)?;
-            delta += sign * swap.notional_quantity * df;
+            delta += sign * swap.quantity * df;
         }
 
         Ok(delta)

@@ -10,13 +10,13 @@
 //!
 //! 1. **Mark-to-Market** (when `quoted_price` is provided):
 //!    ```text
-//!    NPV = (quoted_price - entry_price) × multiplier × quantity × position_sign
+//!    NPV = (quoted_price - entry_price) × contracts × position_sign
 //!    ```
 //!
 //! 2. **Fair Value** (cost-of-carry model):
 //!    ```text
 //!    F = S₀ × exp((r - q) × T)
-//!    NPV = (F - entry_price) × multiplier × quantity × position_sign
+//!    NPV = (F - entry_price) × contracts × position_sign
 //!    ```
 //!
 //! where:
@@ -207,8 +207,7 @@ impl EquityFutureSpecs {
 /// let future = EquityIndexFuture::builder()
 ///     .id(InstrumentId::new("ES-2025M03"))
 ///     .underlying_ticker("SPX".to_string())
-///     .currency(Currency::USD)
-///     .quantity(10.0)
+///     .notional(Money::new(2_250_000.0, Currency::USD))
 ///     .expiry_date(Date::from_calendar_date(2025, Month::March, 21).unwrap())
 ///     .last_trading_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
 ///     .position(Position::Long)
@@ -227,11 +226,9 @@ pub struct EquityIndexFuture {
     pub id: InstrumentId,
     /// Index ticker symbol (e.g., "SPX", "NDX", "SX5E").
     #[serde(alias = "index_ticker")]
-    pub underlying_ticker: String,
-    /// Settlement currency.
-    pub currency: Currency,
-    /// Number of contracts (positive for long exposure).
-    pub quantity: f64,
+    pub underlying_ticker: crate::instruments::equity::spot::Ticker,
+    /// Notional exposure in settlement currency.
+    pub notional: Money,
     /// Future expiry/settlement date.
     pub expiry_date: Date,
     /// Last trading date (typically one day before expiry).
@@ -284,8 +281,7 @@ impl EquityIndexFuture {
         Self::builder()
             .id(InstrumentId::new("ES-2025M03"))
             .underlying_ticker("SPX".to_string())
-            .currency(Currency::USD)
-            .quantity(10.0)
+            .notional(Money::new(2_250_000.0, Currency::USD))
             .expiry_date(date!(2025 - 03 - 21))
             .last_trading_date(date!(2025 - 03 - 20))
             .entry_price_opt(Some(4500.0))
@@ -306,7 +302,7 @@ impl EquityIndexFuture {
     /// # Arguments
     ///
     /// * `id` - Instrument identifier (e.g., "ESH5" for March 2025)
-    /// * `quantity` - Number of contracts
+    /// * `notional` - Notional exposure in settlement currency
     /// * `expiry_date` - Contract expiry date
     /// * `last_trading_date` - Last trading date
     /// * `entry_price` - Entry price (None for new trades)
@@ -314,7 +310,7 @@ impl EquityIndexFuture {
     /// * `discount_curve_id` - Discount curve for PV calculations
     pub fn sp500_emini(
         id: impl Into<InstrumentId>,
-        quantity: f64,
+        notional: Money,
         expiry_date: Date,
         last_trading_date: Date,
         entry_price: Option<f64>,
@@ -324,8 +320,7 @@ impl EquityIndexFuture {
         Self::builder()
             .id(id.into())
             .underlying_ticker("SPX".to_string())
-            .currency(Currency::USD)
-            .quantity(quantity)
+            .notional(notional)
             .expiry_date(expiry_date)
             .last_trading_date(last_trading_date)
             .entry_price_opt(entry_price)
@@ -342,7 +337,7 @@ impl EquityIndexFuture {
     /// # Arguments
     ///
     /// * `id` - Instrument identifier (e.g., "NQH5" for March 2025)
-    /// * `quantity` - Number of contracts
+    /// * `notional` - Notional exposure in settlement currency
     /// * `expiry_date` - Contract expiry date
     /// * `last_trading_date` - Last trading date
     /// * `entry_price` - Entry price (None for new trades)
@@ -350,7 +345,7 @@ impl EquityIndexFuture {
     /// * `discount_curve_id` - Discount curve for PV calculations
     pub fn nasdaq100_emini(
         id: impl Into<InstrumentId>,
-        quantity: f64,
+        notional: Money,
         expiry_date: Date,
         last_trading_date: Date,
         entry_price: Option<f64>,
@@ -360,8 +355,7 @@ impl EquityIndexFuture {
         Self::builder()
             .id(id.into())
             .underlying_ticker("NDX".to_string())
-            .currency(Currency::USD)
-            .quantity(quantity)
+            .notional(notional)
             .expiry_date(expiry_date)
             .last_trading_date(last_trading_date)
             .entry_price_opt(entry_price)
@@ -381,26 +375,31 @@ impl EquityIndexFuture {
         }
     }
 
-    /// Calculate the notional value of the position.
-    ///
-    /// # Formula
-    /// ```text
-    /// notional = price × multiplier × quantity
-    /// ```
-    pub fn notional_value(&self, price: f64) -> f64 {
-        price * self.contract_specs.multiplier * self.quantity
+    /// Calculate the current number of futures contracts implied by notional.
+    pub fn num_contracts(&self, price: f64) -> f64 {
+        let contract_value = price * self.contract_specs.multiplier;
+        if contract_value > 0.0 {
+            self.notional.amount() / contract_value
+        } else {
+            0.0
+        }
     }
 
     /// Calculate delta exposure (index point sensitivity).
     ///
     /// # Formula
     /// ```text
-    /// delta = multiplier × quantity × position_sign
+    /// delta = contracts × multiplier × position_sign
     /// ```
     ///
     /// This represents the USD P&L change for a 1-point move in the index.
     pub fn delta(&self) -> f64 {
-        self.contract_specs.multiplier * self.quantity * self.position_sign()
+        let px = self
+            .quoted_price
+            .or(self.entry_price)
+            .unwrap_or(1.0)
+            .max(1e-12);
+        self.contract_specs.multiplier * self.num_contracts(px) * self.position_sign()
     }
 
     /// Calculate the raw present value as f64.
@@ -423,7 +422,8 @@ impl EquityIndexFuture {
     fn price_quoted(&self, quoted_price: f64) -> finstack_core::Result<f64> {
         let entry = self.entry_price.unwrap_or(0.0);
         let price_diff = quoted_price - entry;
-        let pv = price_diff * self.contract_specs.multiplier * self.quantity * self.position_sign();
+        let contracts = self.num_contracts(quoted_price.max(1e-12));
+        let pv = price_diff * self.contract_specs.multiplier * contracts * self.position_sign();
         Ok(pv)
     }
 
@@ -437,7 +437,8 @@ impl EquityIndexFuture {
         // Calculate PV relative to entry price
         let entry = self.entry_price.unwrap_or(0.0);
         let price_diff = fair_value - entry;
-        let pv = price_diff * self.contract_specs.multiplier * self.quantity * self.position_sign();
+        let contracts = self.num_contracts(fair_value.max(1e-12));
+        let pv = price_diff * self.contract_specs.multiplier * contracts * self.position_sign();
 
         Ok(pv)
     }
@@ -562,7 +563,10 @@ impl crate::instruments::common_impl::traits::Instrument for EquityIndexFuture {
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let pv = self.npv_raw(curves, as_of)?;
-        Ok(finstack_core::money::Money::new(pv, self.currency))
+        Ok(finstack_core::money::Money::new(
+            pv,
+            self.notional.currency(),
+        ))
     }
 
     fn value_raw(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
@@ -592,9 +596,7 @@ impl crate::instruments::common_impl::traits::Instrument for EquityIndexFuture {
 
 impl CashflowProvider for EquityIndexFuture {
     fn notional(&self) -> Option<Money> {
-        // Notional based on entry price or quoted price
-        let price = self.quoted_price.or(self.entry_price).unwrap_or(0.0);
-        Some(Money::new(self.notional_value(price), self.currency))
+        Some(self.notional)
     }
 
     fn build_full_schedule(
@@ -662,8 +664,7 @@ mod tests {
         let future = EquityIndexFuture::builder()
             .id(InstrumentId::new("ES-TEST"))
             .underlying_ticker("SPX".to_string())
-            .currency(Currency::USD)
-            .quantity(10.0)
+            .notional(Money::new(2_250_000.0, Currency::USD))
             .expiry_date(Date::from_calendar_date(2025, Month::March, 21).expect("valid test date"))
             .last_trading_date(
                 Date::from_calendar_date(2025, Month::March, 20).expect("valid test date"),
@@ -678,8 +679,8 @@ mod tests {
 
         assert_eq!(future.id.as_str(), "ES-TEST");
         assert_eq!(future.underlying_ticker, "SPX");
-        assert_eq!(future.quantity, 10.0);
-        assert_eq!(future.currency, Currency::USD);
+        assert_eq!(future.notional.amount(), 2_250_000.0);
+        assert_eq!(future.notional.currency(), Currency::USD);
     }
 
     #[test]
@@ -687,7 +688,7 @@ mod tests {
         let future = EquityIndexFuture::example();
         assert_eq!(future.id.as_str(), "ES-2025M03");
         assert_eq!(future.underlying_ticker, "SPX");
-        assert_eq!(future.quantity, 10.0);
+        assert_eq!(future.notional.amount(), 2_250_000.0);
         assert_eq!(future.contract_specs.multiplier, 50.0);
     }
 
@@ -698,7 +699,7 @@ mod tests {
 
         let future = EquityIndexFuture::sp500_emini(
             "ESH5",
-            10.0,
+            Money::new(2_250_000.0, Currency::USD),
             expiry,
             last_trade,
             Some(4500.0),
@@ -720,7 +721,7 @@ mod tests {
 
         let future = EquityIndexFuture::nasdaq100_emini(
             "NQH5",
-            5.0,
+            Money::new(1_500_000.0, Currency::USD),
             expiry,
             last_trade,
             Some(15000.0),
@@ -757,10 +758,10 @@ mod tests {
     }
 
     #[test]
-    fn test_notional_value() {
+    fn test_num_contracts() {
         let future = EquityIndexFuture::example();
-        // At price 4500: notional = 4500 × 50 × 10 = 2,250,000
-        assert_eq!(future.notional_value(4500.0), 2_250_000.0);
+        // At price 4500: contracts = 2,250,000 / (4500 × 50) = 10
+        assert_eq!(future.num_contracts(4500.0), 10.0);
     }
 
     #[test]
@@ -770,6 +771,6 @@ mod tests {
         let recovered: EquityIndexFuture = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(future.id, recovered.id);
         assert_eq!(future.underlying_ticker, recovered.underlying_ticker);
-        assert_eq!(future.quantity, recovered.quantity);
+        assert_eq!(future.notional, recovered.notional);
     }
 }

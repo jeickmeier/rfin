@@ -77,8 +77,8 @@ pub struct CommodityAsianOption {
     pub realized_fixings: Vec<(Date, f64)>,
     /// Contract quantity in commodity units.
     pub quantity: f64,
-    /// Settlement date for the option payoff.
-    pub settlement_date: Date,
+    /// Option expiry/settlement date for the payoff.
+    pub expiry: Date,
     /// Currency for pricing.
     pub currency: Currency,
     /// Forward/futures price curve ID.
@@ -122,7 +122,7 @@ impl CommodityAsianOption {
             .averaging_method(AveragingMethod::Arithmetic)
             .fixing_dates(fixing_dates)
             .quantity(1000.0)
-            .settlement_date(date!(2025 - 07 - 02))
+            .expiry(date!(2025 - 07 - 02))
             .currency(Currency::USD)
             .forward_curve_id(CurveId::new("CL-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -194,7 +194,7 @@ impl CommodityAsianOption {
     #[allow(dead_code)] // Used by pricer module
     pub(crate) fn time_to_settlement(&self, as_of: Date) -> finstack_core::Result<f64> {
         self.day_count
-            .year_fraction(as_of, self.settlement_date, DayCountCtx::default())
+            .year_fraction(as_of, self.expiry, DayCountCtx::default())
             .map(|t| t.max(0.0))
     }
 }
@@ -235,7 +235,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityAsianOptio
     }
 
     fn expiry(&self) -> Option<Date> {
-        Some(self.settlement_date)
+        Some(self.expiry)
     }
 
     fn scenario_overrides_mut(

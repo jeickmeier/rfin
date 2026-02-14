@@ -85,6 +85,9 @@ pub fn create_quarterly_autocallable(
     Autocallable {
         id: "AUTO_DC_TEST".into(),
         underlying_ticker: SPOT_ID.into(),
+        expiry: *observation_dates
+            .last()
+            .expect("observation_dates cannot be empty"),
         observation_dates,
         autocall_barriers,
         coupons,

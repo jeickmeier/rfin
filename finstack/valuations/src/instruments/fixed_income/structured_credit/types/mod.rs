@@ -231,7 +231,7 @@ pub struct StructuredCredit {
     /// End of reinvestment period (if applicable).
     pub reinvestment_end_date: Option<Date>,
     /// Legal final maturity date.
-    pub legal_maturity: Date,
+    pub maturity: Date,
 
     /// Payment frequency for the structure.
     #[serde(alias = "payment_frequency")]
@@ -499,9 +499,9 @@ impl StructuredCredit {
     }
 
     fn build_scenario_tree_config(&self, as_of: Date) -> finstack_core::Result<ScenarioTreeConfig> {
-        let months_to_maturity = as_of.months_until(self.legal_maturity).max(1) as usize;
+        let months_to_maturity = as_of.months_until(self.maturity).max(1) as usize;
         let horizon_years = DayCount::Act365F
-            .year_fraction(as_of, self.legal_maturity, DayCountCtx::default())?
+            .year_fraction(as_of, self.maturity, DayCountCtx::default())?
             .abs()
             .max(0.25);
 
@@ -982,7 +982,7 @@ impl core::fmt::Debug for StructuredCredit {
             .field("deal_type", &self.deal_type)
             .field("closing_date", &self.closing_date)
             .field("first_payment_date", &self.first_payment_date)
-            .field("legal_maturity", &self.legal_maturity)
+            .field("maturity", &self.maturity)
             .field("frequency", &self.frequency)
             .field("discount_curve_id", &self.discount_curve_id)
             .finish()
@@ -1006,7 +1006,7 @@ impl core::fmt::Display for StructuredCredit {
             pool_balance.currency(),
             tranche_count,
             self.closing_date,
-            self.legal_maturity,
+            self.maturity,
         )
     }
 }

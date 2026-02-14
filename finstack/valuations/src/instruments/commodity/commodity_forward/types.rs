@@ -61,7 +61,7 @@ pub use crate::instruments::common_impl::parameters::Position;
 ///     .quantity(1000.0)
 ///     .unit("BBL".to_string())
 ///     .multiplier(1.0)
-///     .settlement_date(Date::from_calendar_date(2025, Month::March, 15).unwrap())
+///     .maturity(Date::from_calendar_date(2025, Month::March, 15).unwrap())
 ///     .currency(Currency::USD)
 ///     .position(Position::Long)
 ///     .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -77,7 +77,7 @@ pub use crate::instruments::common_impl::parameters::Position;
 ///     .quantity(1000.0)
 ///     .unit("BBL".to_string())
 ///     .multiplier(1.0)
-///     .settlement_date(Date::from_calendar_date(2025, Month::March, 15).unwrap())
+///     .maturity(Date::from_calendar_date(2025, Month::March, 15).unwrap())
 ///     .currency(Currency::USD)
 ///     .position(Position::Long)
 ///     .contract_price_opt(Some(72.0)) // Entry price
@@ -104,7 +104,7 @@ pub struct CommodityForward {
     /// Contract multiplier (typically 1.0 for OTC forwards).
     pub multiplier: f64,
     /// Settlement/delivery date.
-    pub settlement_date: Date,
+    pub maturity: Date,
     /// Settlement type (physical or cash).
     #[builder(default)]
     #[serde(
@@ -216,7 +216,7 @@ impl CommodityForward {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(
+            .maturity(
                 Date::from_calendar_date(2025, time::Month::March, 15).expect("Valid example date"),
             )
             .settlement_opt(Some(SettlementType::Cash))
@@ -278,7 +278,7 @@ impl CommodityForward {
     ///
     /// # Note on PriceCurve Evaluation
     ///
-    /// When using a `PriceCurve`, this method uses `price_on_date(settlement_date)`
+    /// When using a `PriceCurve`, this method uses `price_on_date(maturity)`
     /// which respects the curve's own day count convention. This avoids hard-coding
     /// Act365F and ensures consistent time calculation across different curves.
     pub fn forward_price(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
@@ -288,7 +288,7 @@ impl CommodityForward {
         }
 
         // At or past settlement, return spot price from curve
-        if self.settlement_date <= as_of {
+        if self.maturity <= as_of {
             if let Ok(price_curve) = market.get_price_curve(self.forward_curve_id.as_str()) {
                 return Ok(price_curve.spot_price());
             }
@@ -297,7 +297,7 @@ impl CommodityForward {
         // Primary path: use PriceCurve with date-based evaluation
         if let Ok(price_curve) = market.get_price_curve(self.forward_curve_id.as_str()) {
             // Use price_on_date to respect the curve's day count convention
-            return price_curve.price_on_date(self.settlement_date);
+            return price_curve.price_on_date(self.maturity);
         }
 
         // Fallback: if we have a spot price and discount curve, use cost-of-carry model
@@ -315,7 +315,7 @@ impl CommodityForward {
                     use finstack_core::dates::DayCountCtx;
                     let curve_dc = disc.day_count();
                     let t = curve_dc
-                        .year_fraction(as_of, self.settlement_date, DayCountCtx::default())
+                        .year_fraction(as_of, self.maturity, DayCountCtx::default())
                         .unwrap_or(0.0)
                         .max(0.0);
                     let rate = disc.zero(t);
@@ -435,7 +435,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // If settlement has passed, value is zero
-        if self.settlement_date < as_of {
+        if self.maturity < as_of {
             return Ok(finstack_core::money::Money::new(0.0, self.currency));
         }
 
@@ -447,7 +447,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
 
         // Get discount factor
         let disc = market.get_discount(self.discount_curve_id.as_str())?;
-        let df = disc.df_between_dates(as_of, self.settlement_date)?;
+        let df = disc.df_between_dates(as_of, self.maturity)?;
 
         // NPV = sign(position) × (F - K) × Q × M × DF
         let price_diff = forward_price - contract_price;
@@ -462,7 +462,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
     }
 
     fn expiry(&self) -> Option<Date> {
-        Some(self.settlement_date)
+        Some(self.maturity)
     }
 
     fn scenario_overrides_mut(
@@ -516,7 +516,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("CL-FWD"))
@@ -552,7 +552,7 @@ mod tests {
             .quantity(100.0)
             .unit("OZ".to_string())
             .multiplier(1.0)
-            .settlement_date(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
             .currency(Currency::USD)
             .quoted_price_opt(Some(2000.0))
             .forward_curve_id(CurveId::new("GC-FWD"))
@@ -585,7 +585,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
             .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -615,7 +615,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
             .currency(Currency::USD)
             .position(Position::Long)
             .contract_price_opt(Some(72.0)) // Bought at $72, market is ~$76
@@ -646,7 +646,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
             .currency(Currency::USD)
             .position(Position::Short)
             .contract_price_opt(Some(72.0)) // Sold at $72, market is ~$76
@@ -677,7 +677,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(settlement)
+            .maturity(settlement)
             .currency(Currency::USD)
             .position(Position::Long)
             .contract_price_opt(Some(72.0))
@@ -693,7 +693,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(settlement)
+            .maturity(settlement)
             .currency(Currency::USD)
             .position(Position::Short)
             .contract_price_opt(Some(72.0))
@@ -751,7 +751,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -776,7 +776,7 @@ mod tests {
             .quantity(100.0)
             .unit("OZ".to_string())
             .multiplier(1.0)
-            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("GC-FORWARD"))
@@ -805,7 +805,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -838,7 +838,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))

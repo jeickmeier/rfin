@@ -138,10 +138,10 @@ fn test_contract_size_scales_value_linearly() {
     let spot = 100.0;
 
     let mut call_100 = create_call(as_of, expiry, strike);
-    call_100.contract_size = 100.0;
+    call_100.notional = finstack_core::money::Money::new(100.0, call_100.notional.currency());
 
     let mut call_200 = create_call(as_of, expiry, strike);
-    call_200.contract_size = 200.0;
+    call_200.notional = finstack_core::money::Money::new(200.0, call_200.notional.currency());
 
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.02);
 
@@ -215,7 +215,7 @@ fn test_deep_itm_call_approaches_intrinsic() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let pv = call.value(&market, as_of).unwrap();
-    let intrinsic = (spot - strike) * call.contract_size;
+    let intrinsic = (spot - strike) * call.notional.amount();
 
     // Deep ITM short-dated should be close to intrinsic
     assert!(

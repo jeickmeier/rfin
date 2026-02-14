@@ -426,7 +426,7 @@ mod tests {
             .option_type(crate::instruments::OptionType::Call)
             .exercise_style(crate::instruments::ExerciseStyle::European)
             .expiry(expiry)
-            .contract_size(100.0)
+            .notional(Money::new(100.0, Currency::USD))
             .day_count(DayCount::Act365F)
             .settlement(crate::instruments::SettlementType::Cash)
             .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))

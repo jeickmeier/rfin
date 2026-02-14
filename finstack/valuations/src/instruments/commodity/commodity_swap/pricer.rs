@@ -79,7 +79,7 @@ mod tests {
             .ticker("NG".to_string())
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
-            .notional_quantity(10000.0)
+            .quantity(10000.0)
             .fixed_price(3.50)
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)

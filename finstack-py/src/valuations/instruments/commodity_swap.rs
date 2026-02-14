@@ -29,7 +29,7 @@ use std::sync::Arc;
 ///     ...     .ticker("NG")
 ///     ...     .unit("MMBTU")
 ///     ...     .currency("USD")
-///     ...     .notional_quantity(10000.0)
+///     ...     .quantity(10000.0)
 ///     ...     .fixed_price(3.50)
 ///     ...     .floating_index_id("NG-SPOT-AVG")
 ///     ...     .pay_fixed(True)
@@ -68,7 +68,7 @@ pub struct PyCommoditySwapBuilder {
     ticker: Option<String>,
     unit: Option<String>,
     currency: Option<finstack_core::currency::Currency>,
-    notional_quantity: Option<f64>,
+    quantity: Option<f64>,
     fixed_price: Option<f64>,
     floating_index_id: Option<CurveId>,
     pay_fixed: Option<bool>,
@@ -89,7 +89,7 @@ impl PyCommoditySwapBuilder {
             ticker: None,
             unit: None,
             currency: None,
-            notional_quantity: None,
+            quantity: None,
             fixed_price: None,
             floating_index_id: None,
             pay_fixed: None,
@@ -116,8 +116,8 @@ impl PyCommoditySwapBuilder {
         if self.currency.is_none() {
             return Err(PyValueError::new_err("currency() is required."));
         }
-        if self.notional_quantity.is_none() {
-            return Err(PyValueError::new_err("notional_quantity() is required."));
+        if self.quantity.is_none() {
+            return Err(PyValueError::new_err("quantity() is required."));
         }
         if self.fixed_price.is_none() {
             return Err(PyValueError::new_err("fixed_price() is required."));
@@ -180,15 +180,12 @@ impl PyCommoditySwapBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, notional_quantity)")]
-    fn notional_quantity(
-        mut slf: PyRefMut<'_, Self>,
-        notional_quantity: f64,
-    ) -> PyResult<PyRefMut<'_, Self>> {
-        if notional_quantity <= 0.0 {
-            return Err(PyValueError::new_err("notional_quantity must be positive"));
+    #[pyo3(text_signature = "($self, quantity)")]
+    fn quantity(mut slf: PyRefMut<'_, Self>, quantity: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if quantity <= 0.0 {
+            return Err(PyValueError::new_err("quantity must be positive"));
         }
-        slf.notional_quantity = Some(notional_quantity);
+        slf.quantity = Some(quantity);
         Ok(slf)
     }
 
@@ -311,9 +308,9 @@ impl PyCommoditySwapBuilder {
                 "CommoditySwapBuilder internal error: missing currency after validation",
             )
         })?;
-        let notional_quantity = slf.notional_quantity.ok_or_else(|| {
+        let quantity = slf.quantity.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
-                "CommoditySwapBuilder internal error: missing notional_quantity after validation",
+                "CommoditySwapBuilder internal error: missing quantity after validation",
             )
         })?;
         let fixed_price = slf.fixed_price.ok_or_else(|| {
@@ -358,7 +355,7 @@ impl PyCommoditySwapBuilder {
             .ticker(ticker)
             .unit(unit)
             .currency(currency)
-            .notional_quantity(notional_quantity)
+            .quantity(quantity)
             .fixed_price(fixed_price)
             .floating_index_id(floating_index_id)
             .side(if pay_fixed {
@@ -438,10 +435,10 @@ impl PyCommoditySwap {
         PyCurrency::new(self.inner.currency)
     }
 
-    /// Notional quantity per period.
+    /// Quantity per period.
     #[getter]
-    fn notional_quantity(&self) -> f64 {
-        self.inner.notional_quantity
+    fn quantity(&self) -> f64 {
+        self.inner.quantity
     }
 
     /// Fixed price per unit.

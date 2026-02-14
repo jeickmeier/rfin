@@ -87,7 +87,7 @@ fn create_test_option(
         option_type,
         exercise_style: ExerciseStyle::European,
         expiry,
-        contract_size: 100.0,
+        notional: Money::new(100.0, Currency::USD),
         day_count: DayCount::Act365F,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD-OIS".into(),

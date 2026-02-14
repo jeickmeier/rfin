@@ -15,6 +15,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::{currency::Currency, money::Money};
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{Attributes, Instrument, PricingOverrides, SettlementType};
@@ -80,7 +81,7 @@ fn create_option(expiry: Date, option_type: OptionType) -> EquityOption {
         option_type,
         exercise_style: ExerciseStyle::European,
         expiry,
-        contract_size: 1.0, // Per-unit pricing
+        notional: Money::new(1.0, Currency::USD), // Per-unit pricing
         day_count: DayCount::Act365F,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD-OIS".into(),

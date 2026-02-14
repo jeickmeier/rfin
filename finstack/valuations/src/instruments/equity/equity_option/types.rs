@@ -63,6 +63,7 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use time::macros::date;
 
@@ -78,7 +79,7 @@ pub struct EquityOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Underlying equity ticker symbol
-    pub underlying_ticker: String,
+    pub underlying_ticker: crate::instruments::equity::spot::Ticker,
     /// Strike price
     pub strike: f64,
     /// Option type (call or put)
@@ -87,8 +88,8 @@ pub struct EquityOption {
     pub exercise_style: ExerciseStyle,
     /// Option expiry date
     pub expiry: Date,
-    /// Contract size (number of shares per contract)
-    pub contract_size: f64,
+    /// Notional amount for valuation scaling.
+    pub notional: Money,
     /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
     /// Settlement type (physical or cash)
@@ -166,8 +167,7 @@ impl EquityOption {
     /// Returns an at-the-money SPX call option with 6 months to expiry.
     pub fn example() -> Self {
         let underlying = EquityUnderlyingParams::new("SPX", "EQUITY-SPOT", Currency::USD)
-            .with_dividend_yield("EQUITY-DIVYIELD")
-            .with_contract_size(100.0);
+            .with_dividend_yield("EQUITY-DIVYIELD");
 
         // SAFETY: All inputs are compile-time validated constants
         Self::builder()
@@ -177,7 +177,7 @@ impl EquityOption {
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
             .expiry(date!(2024 - 06 - 21))
-            .contract_size(underlying.contract_size)
+            .notional(Money::new(100.0, underlying.currency))
             .day_count(finstack_core::dates::DayCount::Act365F)
             .settlement(SettlementType::Cash)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -204,11 +204,10 @@ impl EquityOption {
         ticker: impl Into<String>,
         strike: f64,
         expiry: Date,
-        contract_size: f64,
+        notional: Money,
     ) -> finstack_core::Result<Self> {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
-            .with_dividend_yield("EQUITY-DIVYIELD")
-            .with_contract_size(contract_size);
+            .with_dividend_yield("EQUITY-DIVYIELD");
 
         // Build directly using derive-generated builder setters
         Self::builder()
@@ -218,7 +217,7 @@ impl EquityOption {
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
             .expiry(expiry)
-            .contract_size(underlying.contract_size)
+            .notional(notional)
             .day_count(finstack_core::dates::DayCount::Act365F)
             .settlement(SettlementType::Cash)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -240,11 +239,10 @@ impl EquityOption {
         ticker: impl Into<String>,
         strike: f64,
         expiry: Date,
-        contract_size: f64,
+        notional: Money,
     ) -> finstack_core::Result<Self> {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
-            .with_dividend_yield("EQUITY-DIVYIELD")
-            .with_contract_size(contract_size);
+            .with_dividend_yield("EQUITY-DIVYIELD");
 
         Self::builder()
             .id(InstrumentId::new(id.into()))
@@ -253,7 +251,7 @@ impl EquityOption {
             .option_type(OptionType::Put)
             .exercise_style(ExerciseStyle::European)
             .expiry(expiry)
-            .contract_size(underlying.contract_size)
+            .notional(notional)
             .day_count(finstack_core::dates::DayCount::Act365F)
             .settlement(SettlementType::Cash)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -275,11 +273,10 @@ impl EquityOption {
         ticker: impl Into<String>,
         strike: f64,
         expiry: Date,
-        contract_size: f64,
+        notional: Money,
     ) -> finstack_core::Result<Self> {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
-            .with_dividend_yield("EQUITY-DIVYIELD")
-            .with_contract_size(contract_size);
+            .with_dividend_yield("EQUITY-DIVYIELD");
 
         Self::builder()
             .id(InstrumentId::new(id.into()))
@@ -288,7 +285,7 @@ impl EquityOption {
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::American)
             .expiry(expiry)
-            .contract_size(underlying.contract_size)
+            .notional(notional)
             .day_count(finstack_core::dates::DayCount::Act365F)
             .settlement(SettlementType::Cash)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -315,7 +312,7 @@ impl EquityOption {
             option_type: option_params.option_type,
             exercise_style: option_params.exercise_style,
             expiry: option_params.expiry,
-            contract_size: option_params.contract_size,
+            notional: option_params.notional,
             day_count: finstack_core::dates::DayCount::Act365F,
             settlement: option_params.settlement,
             discount_curve_id,
@@ -407,7 +404,7 @@ impl EquityOption {
         if market_price <= 0.0 {
             return Ok(0.0);
         }
-        if self.contract_size <= 0.0 {
+        if self.notional.amount() <= 0.0 {
             return Ok(0.0);
         }
 
@@ -418,7 +415,7 @@ impl EquityOption {
             (spot, r, q, sigma, t)
         };
         let k = self.strike;
-        let target_unit = market_price / self.contract_size;
+        let target_unit = market_price / self.notional.amount();
         Ok(crate::instruments::common_impl::models::bs_implied_vol(
             spot,
             k,
@@ -697,7 +694,7 @@ mod tests {
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
             .expiry(expiry)
-            .contract_size(100.0)
+            .notional(Money::new(100.0, Currency::USD))
             .day_count(DayCount::Act365F)
             .settlement(SettlementType::Cash)
             .discount_curve_id(CurveId::new(DISC_ID))
@@ -732,13 +729,13 @@ mod tests {
         let put =
             test_utils::equity_option_european_put("SPX-PUT", "SPX", 90.0, expiry, 50.0).unwrap();
         assert_eq!(put.option_type, OptionType::Put);
-        assert_eq!(put.contract_size, 50.0);
+        assert_eq!(put.notional.amount(), 50.0);
 
         let american =
             test_utils::equity_option_american_call("SPX-AMER", "SPX", 105.0, expiry, 75.0)
                 .unwrap();
         assert_eq!(american.exercise_style, ExerciseStyle::American);
-        assert_eq!(american.contract_size, 75.0);
+        assert_eq!(american.notional.amount(), 75.0);
     }
 
     #[test]
@@ -756,7 +753,11 @@ mod tests {
         let expected_unit =
             pricer::price_bs_unit(spot, option.strike, r, q, sigma, t, option.option_type);
         // Slightly wider tolerance due to MonotoneConvex interpolation (vs Linear)
-        approx_eq(price.amount(), expected_unit * option.contract_size, 5e-3);
+        approx_eq(
+            price.amount(),
+            expected_unit * option.notional.amount(),
+            5e-3,
+        );
 
         let greeks = option
             .greeks(&curves, as_of)
@@ -838,7 +839,7 @@ mod tests {
             0.45,
             t,
             override_option.option_type,
-        ) * override_option.contract_size;
+        ) * override_option.notional.amount();
         // Slightly wider tolerance due to MonotoneConvex interpolation (vs Linear)
         approx_eq(override_price.amount(), expected, 5e-3);
     }
@@ -848,7 +849,7 @@ mod tests {
         let expiry = date(2025, 1, 3);
         let as_of = expiry;
         let mut option = base_option(expiry);
-        option.contract_size = 50.0;
+        option.notional = Money::new(50.0, Currency::USD);
         let curves = build_market_context(as_of, 120.0, 0.25, 0.01, 0.0);
 
         let pv = option.value(&curves, as_of).expect("should succeed");
@@ -935,7 +936,7 @@ mod tests {
         let greeks = option
             .greeks(&curves, as_of)
             .expect("Greeks should succeed with mixed day counts");
-        assert!(greeks.delta > 0.0 && greeks.delta < option.contract_size);
+        assert!(greeks.delta > 0.0 && greeks.delta < option.notional.amount());
         assert!(greeks.gamma > 0.0);
         assert!(greeks.vega > 0.0);
 
@@ -949,7 +950,7 @@ mod tests {
             inputs.sigma,
             inputs.t_vol,
             option.option_type,
-        ) * option.contract_size;
+        ) * option.notional.amount();
 
         // Slightly wider tolerance due to MonotoneConvex interpolation (vs Linear)
         // Same tolerance as other tests in this file

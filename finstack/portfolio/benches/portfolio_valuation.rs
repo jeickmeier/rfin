@@ -457,8 +457,9 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     for i in 0..positions_per_common {
         let option_id = format!("OPTION_{}", i);
         let contract_size = 100.0;
+        let option_notional = Money::new(contract_size, Currency::USD);
         let option_params =
-            EquityOptionParams::new(150.0, maturity_2y(), OptionType::Call, contract_size)
+            EquityOptionParams::new(150.0, maturity_2y(), OptionType::Call, option_notional)
                 .with_exercise_style(ExerciseStyle::European)
                 .with_settlement(SettlementType::Cash);
 

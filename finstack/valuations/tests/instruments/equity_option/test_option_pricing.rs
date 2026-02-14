@@ -108,13 +108,13 @@ fn test_option_delta_determinism() {
 
     // Correctness: Call delta must be positive
     // Note: Total delta = unit_delta × contract_size (100), so expect 0 < delta < 100
-    let contract_size = 100.0;
+    let notional = 100.0;
     assert!(
-        deltas[0] > 0.0 && deltas[0] < contract_size,
+        deltas[0] > 0.0 && deltas[0] < notional,
         "Call delta {} must be in (0, {}) for contract size {}",
         deltas[0],
-        contract_size,
-        contract_size
+        notional,
+        notional
     );
 }
 

@@ -36,7 +36,7 @@ pub(super) struct DealConfig {
 pub(super) struct InstrumentParams<'a> {
     pub pool: AssetPool,
     pub tranches: TrancheStructure,
-    pub legal_maturity: Date,
+    pub maturity: Date,
     pub discount_curve_id: &'a str,
 }
 
@@ -60,7 +60,7 @@ impl StructuredCredit {
     ///     base.pool.clone(),
     ///     base.tranches.clone(),
     ///     base.closing_date,
-    ///     base.legal_maturity,
+    ///     base.maturity,
     ///     base.discount_curve_id.as_str(),
     /// );
     /// # let _ = clo;
@@ -74,7 +74,7 @@ impl StructuredCredit {
         pool: AssetPool,
         tranches: TrancheStructure,
         closing_date: Date,
-        legal_maturity: Date,
+        maturity: Date,
         discount_curve_id: impl Into<String>,
     ) -> Self {
         match deal_type {
@@ -83,7 +83,7 @@ impl StructuredCredit {
                 pool,
                 tranches,
                 closing_date,
-                legal_maturity,
+                maturity,
                 discount_curve_id,
             ),
             DealType::CLO => Self::new_clo(
@@ -91,7 +91,7 @@ impl StructuredCredit {
                 pool,
                 tranches,
                 closing_date,
-                legal_maturity,
+                maturity,
                 discount_curve_id,
             ),
             DealType::CMBS => Self::new_cmbs(
@@ -99,7 +99,7 @@ impl StructuredCredit {
                 pool,
                 tranches,
                 closing_date,
-                legal_maturity,
+                maturity,
                 discount_curve_id,
             ),
             DealType::RMBS => Self::new_rmbs(
@@ -107,7 +107,7 @@ impl StructuredCredit {
                 pool,
                 tranches,
                 closing_date,
-                legal_maturity,
+                maturity,
                 discount_curve_id,
             ),
             _ => Self::new_abs(
@@ -115,7 +115,7 @@ impl StructuredCredit {
                 pool,
                 tranches,
                 closing_date,
-                legal_maturity,
+                maturity,
                 discount_curve_id,
             ), // Default to ABS
         }
@@ -173,7 +173,7 @@ impl StructuredCredit {
             closing_date,
             first_payment_date: config.first_payment_date,
             reinvestment_end_date: None,
-            legal_maturity: params.legal_maturity,
+            maturity: params.maturity,
             frequency: config.frequency,
             payment_calendar_id: None,
             payment_bdc: None,
@@ -206,7 +206,7 @@ impl StructuredCredit {
         pool: AssetPool,
         tranches: TrancheStructure,
         closing_date: Date,
-        legal_maturity: Date,
+        maturity: Date,
         discount_curve_id: impl Into<String>,
     ) -> Self {
         let disc_id_str = discount_curve_id.into();
@@ -216,7 +216,7 @@ impl StructuredCredit {
             InstrumentParams {
                 pool,
                 tranches,
-                legal_maturity,
+                maturity,
                 discount_curve_id: &disc_id_str,
             },
             DealConfig {
@@ -244,7 +244,7 @@ impl StructuredCredit {
         pool: AssetPool,
         tranches: TrancheStructure,
         closing_date: Date,
-        legal_maturity: Date,
+        maturity: Date,
         discount_curve_id: impl Into<String>,
     ) -> Self {
         let disc_id_str = discount_curve_id.into();
@@ -254,7 +254,7 @@ impl StructuredCredit {
             InstrumentParams {
                 pool,
                 tranches,
-                legal_maturity,
+                maturity,
                 discount_curve_id: &disc_id_str,
             },
             DealConfig {
@@ -282,7 +282,7 @@ impl StructuredCredit {
         pool: AssetPool,
         tranches: TrancheStructure,
         closing_date: Date,
-        legal_maturity: Date,
+        maturity: Date,
         discount_curve_id: impl Into<String>,
     ) -> Self {
         let disc_id_str = discount_curve_id.into();
@@ -292,7 +292,7 @@ impl StructuredCredit {
             InstrumentParams {
                 pool,
                 tranches,
-                legal_maturity,
+                maturity,
                 discount_curve_id: &disc_id_str,
             },
             DealConfig {
@@ -320,7 +320,7 @@ impl StructuredCredit {
         pool: AssetPool,
         tranches: TrancheStructure,
         closing_date: Date,
-        legal_maturity: Date,
+        maturity: Date,
         discount_curve_id: impl Into<String>,
     ) -> Self {
         let disc_id_str = discount_curve_id.into();
@@ -330,7 +330,7 @@ impl StructuredCredit {
             InstrumentParams {
                 pool,
                 tranches,
-                legal_maturity,
+                maturity,
                 discount_curve_id: &disc_id_str,
             },
             DealConfig {

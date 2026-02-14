@@ -28,7 +28,7 @@ impl MetricCalculator for DeltaCalculator {
         let fwd: &CommodityForward = context.instrument_as()?;
 
         // Expired forward has zero delta
-        if fwd.settlement_date < context.as_of {
+        if fwd.maturity < context.as_of {
             return Ok(0.0);
         }
 
@@ -37,7 +37,7 @@ impl MetricCalculator for DeltaCalculator {
             .get_discount(fwd.discount_curve_id.as_str())?;
 
         // Use df_between_dates for base-date-safe discounting (consistent with npv())
-        let df = disc.df_between_dates(context.as_of, fwd.settlement_date)?;
+        let df = disc.df_between_dates(context.as_of, fwd.maturity)?;
 
         // Delta = sign(position) × Q × M × DF
         Ok(fwd.position.sign() * fwd.quantity * fwd.multiplier * df)

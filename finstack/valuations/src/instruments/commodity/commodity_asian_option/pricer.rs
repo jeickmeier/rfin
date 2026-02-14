@@ -38,7 +38,7 @@ pub(crate) fn compute_pv(
 ) -> finstack_core::Result<Money> {
     let t = inst
         .day_count
-        .year_fraction(as_of, inst.settlement_date, DayCountCtx::default())?;
+        .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
     let (hist_sum, hist_prod_log, hist_count) = inst.accumulated_state(as_of);
     let total_fixings = inst.fixing_dates.len();
@@ -71,7 +71,7 @@ pub(crate) fn compute_pv(
 
     // Get discount curve
     let disc_curve = market.get_discount(inst.discount_curve_id.as_str())?;
-    let df = disc_curve.df_between_dates(as_of, inst.settlement_date)?;
+    let df = disc_curve.df_between_dates(as_of, inst.expiry)?;
 
     // Get volatility
     let sigma = if let Some(impl_vol) = inst.pricing_overrides.implied_volatility {
@@ -517,7 +517,7 @@ mod tests {
             .averaging_method(AveragingMethod::Arithmetic)
             .fixing_dates(fixing_dates)
             .quantity(1000.0)
-            .settlement_date(settlement)
+            .expiry(settlement)
             .currency(Currency::USD)
             .forward_curve_id(CurveId::new("CL-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -649,7 +649,7 @@ mod tests {
 
     #[test]
     fn test_expired_option_returns_intrinsic() {
-        // Use as_of = settlement_date (not after) to avoid date range issues
+        // Use as_of = expiry (not after) to avoid date range issues
         let settlement = date(2025, 7, 2);
         let as_of = settlement;
         let fixing_dates = vec![date(2025, 4, 30), date(2025, 5, 31), date(2025, 6, 30)];

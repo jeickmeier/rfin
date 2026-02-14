@@ -43,7 +43,7 @@ use finstack_core::Result;
 ///     .ticker("NG".to_string())
 ///     .unit("MMBTU".to_string())
 ///     .currency(Currency::USD)
-///     .notional_quantity(10000.0)
+///     .quantity(10000.0)
 ///     .fixed_price(3.50)
 ///     .floating_index_id(CurveId::new("NG-SPOT-AVG"))
 ///     .side(PayReceive::PayFixed)
@@ -67,7 +67,7 @@ pub struct CommoditySwap {
     /// Currency for pricing and settlement.
     pub currency: Currency,
     /// Notional quantity per period.
-    pub notional_quantity: f64,
+    pub quantity: f64,
     /// Fixed price per unit.
     pub fixed_price: f64,
     /// Floating index ID for price lookups.
@@ -121,7 +121,7 @@ impl<'de> serde::Deserialize<'de> for CommoditySwap {
             ticker: String,
             unit: String,
             currency: Currency,
-            notional_quantity: f64,
+            quantity: f64,
             fixed_price: f64,
             floating_index_id: CurveId,
             /// New-style direction field (preferred).
@@ -167,7 +167,7 @@ impl<'de> serde::Deserialize<'de> for CommoditySwap {
             ticker: helper.ticker,
             unit: helper.unit,
             currency: helper.currency,
-            notional_quantity: helper.notional_quantity,
+            quantity: helper.quantity,
             fixed_price: helper.fixed_price,
             floating_index_id: helper.floating_index_id,
             side,
@@ -196,7 +196,7 @@ impl CommoditySwap {
             .ticker("NG".to_string())
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
-            .notional_quantity(10000.0)
+            .quantity(10000.0)
             .fixed_price(3.50)
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
@@ -231,7 +231,7 @@ impl CommoditySwap {
                 continue; // Skip past payments
             }
             let df = disc.df_between_dates(as_of, payment_date)?;
-            let period_value = self.notional_quantity * self.fixed_price;
+            let period_value = self.quantity * self.fixed_price;
             pv += period_value * df;
         }
 
@@ -267,7 +267,7 @@ impl CommoditySwap {
                 self.expected_period_price(&price_curve, as_of, period_start, period_end)?;
 
             let df = disc.df_between_dates(as_of, payment_date)?;
-            let period_value = self.notional_quantity * forward_price;
+            let period_value = self.quantity * forward_price;
             pv += period_value * df;
 
             prev_period_end = payment_date;
@@ -417,10 +417,8 @@ impl CommoditySwap {
                 self.expected_period_price(&price_curve, as_of, period_start, period_end)?;
 
             let net_cashflow = match self.side {
-                PayReceive::PayFixed => self.notional_quantity * (forward_price - self.fixed_price),
-                PayReceive::ReceiveFixed => {
-                    self.notional_quantity * (self.fixed_price - forward_price)
-                }
+                PayReceive::PayFixed => self.quantity * (forward_price - self.fixed_price),
+                PayReceive::ReceiveFixed => self.quantity * (self.fixed_price - forward_price),
             };
 
             flows.push((payment_date, Money::new(net_cashflow, self.currency)));
@@ -527,7 +525,7 @@ mod tests {
             .ticker("CL".to_string())
             .unit("BBL".to_string())
             .currency(Currency::USD)
-            .notional_quantity(1000.0)
+            .quantity(1000.0)
             .fixed_price(70.0)
             .floating_index_id(CurveId::new("CL-AVG"))
             .side(PayReceive::PayFixed)
@@ -541,7 +539,7 @@ mod tests {
 
         assert_eq!(swap.id.as_str(), "TEST-SWAP");
         assert_eq!(swap.ticker, "CL");
-        assert_eq!(swap.notional_quantity, 1000.0);
+        assert_eq!(swap.quantity, 1000.0);
         assert_eq!(swap.fixed_price, 70.0);
         assert_eq!(swap.side, PayReceive::PayFixed);
     }
@@ -567,7 +565,7 @@ mod tests {
             .ticker("NG".to_string())
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
-            .notional_quantity(10000.0)
+            .quantity(10000.0)
             .fixed_price(3.50) // Same as spot
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
@@ -600,7 +598,7 @@ mod tests {
             .ticker("NG".to_string())
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
-            .notional_quantity(10000.0)
+            .quantity(10000.0)
             .fixed_price(3.55)
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
@@ -617,7 +615,7 @@ mod tests {
             .ticker("NG".to_string())
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
-            .notional_quantity(10000.0)
+            .quantity(10000.0)
             .fixed_price(3.55)
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::ReceiveFixed) // Receiving fixed
@@ -651,7 +649,7 @@ mod tests {
             .ticker("NG".to_string())
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
-            .notional_quantity(10000.0)
+            .quantity(10000.0)
             .fixed_price(3.50)
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)

@@ -131,6 +131,7 @@ fn simple_equity_basket() -> Basket {
         ],
         expense_ratio: 0.001,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -150,6 +151,7 @@ fn test_basket_creation_with_minimal_fields() {
         constituents: vec![],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -169,6 +171,7 @@ fn test_basket_builder_pattern() {
     let basket = Basket::builder()
         .id("BUILDER_BASKET".into())
         .currency(Currency::USD)
+        .notional(usd(1_000_000.0))
         .discount_curve_id("USD-OIS".into())
         .expense_ratio(0.0025)
         .pricing_config(BasketPricingConfig::default())
@@ -230,6 +233,7 @@ fn test_basket_validation_empty_constituents() {
         constituents: vec![],
         expense_ratio: 0.001,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -311,6 +315,7 @@ fn test_custom_pricing_config() {
     let basket = Basket::builder()
         .id("TEST".into())
         .currency(Currency::USD)
+        .notional(usd(1_000_000.0))
         .discount_curve_id("USD-OIS".into())
         .expense_ratio(0.001)
         .pricing_config(BasketPricingConfig::default())
@@ -365,6 +370,7 @@ fn test_pricing_with_explicit_units() {
         ],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -404,6 +410,7 @@ fn test_nav_calculation_with_units() {
         }],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -564,6 +571,7 @@ fn test_fx_conversion_eur_to_usd() {
         }],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -625,6 +633,7 @@ fn test_fx_conversion_multiple_currencies() {
         ],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -664,6 +673,7 @@ fn test_fx_conversion_error_without_fx_provider() {
         }],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -718,6 +728,7 @@ fn test_mixed_units_and_weights_with_aum() {
         ],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -772,6 +783,7 @@ fn test_constituent_reference_with_bond_instrument() {
         }],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -835,6 +847,7 @@ fn test_basket_with_multiple_asset_types() {
         ],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -934,6 +947,7 @@ fn test_asset_exposure_metric_equity() {
         ],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -997,6 +1011,7 @@ fn test_asset_exposure_metric_bond() {
         ],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -1135,6 +1150,7 @@ fn test_basket_value_with_zero_shares() {
         }],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -1171,6 +1187,7 @@ fn test_basket_value_with_negative_shares() {
         }],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -1283,6 +1300,7 @@ fn test_single_constituent_basket() {
         }],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -1311,6 +1329,7 @@ fn test_unitless_scalar_defaults_to_basket_currency() {
         }],
         expense_ratio: 0.0,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -1411,6 +1430,7 @@ fn test_basket_with_mixed_constituents_serialization() {
         ],
         expense_ratio: 0.001,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -1527,6 +1547,7 @@ fn test_basket_envelope_roundtrip_with_instruments() {
         }],
         expense_ratio: 0.001,
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -1626,6 +1647,7 @@ fn test_full_pricing_workflow_units_based() {
         ],
         expense_ratio: 0.01, // 1% annual
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
@@ -1731,6 +1753,7 @@ fn test_real_world_etf_scenario() {
         ],
         expense_ratio: 0.0009, // 9 bps (typical for equity ETF)
         currency: Currency::USD,
+        notional: usd(1_000_000.0),
         discount_curve_id: "USD-OIS".into(),
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Attributes::new(),
