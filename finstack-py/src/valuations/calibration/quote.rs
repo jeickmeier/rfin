@@ -65,8 +65,8 @@ impl PyRatesQuote {
 impl PyRatesQuote {
     #[classmethod]
     #[pyo3(
-        signature = (id, expiry, price, *, contract=None, convexity_adjustment=None, volatility_id=None),
-        text_signature = "(cls, id, expiry, price, *, contract=None, convexity_adjustment=None, volatility_id=None)"
+        signature = (id, expiry, price, *, contract=None, convexity_adjustment=None, vol_surface_id=None),
+        text_signature = "(cls, id, expiry, price, *, contract=None, convexity_adjustment=None, vol_surface_id=None)"
     )]
     fn future(
         _cls: &Bound<'_, PyType>,
@@ -75,7 +75,7 @@ impl PyRatesQuote {
         price: f64,
         contract: Option<&str>,
         convexity_adjustment: Option<f64>,
-        volatility_id: Option<&str>,
+        vol_surface_id: Option<&str>,
     ) -> PyResult<Self> {
         let expiry_date = py_to_date(&expiry)?;
         let contract_id = IrFutureContractId::new(contract.unwrap_or("UNKNOWN"));
@@ -85,7 +85,7 @@ impl PyRatesQuote {
             expiry: expiry_date,
             price,
             convexity_adjustment,
-            volatility_id: volatility_id.map(CurveId::new),
+            vol_surface_id: vol_surface_id.map(CurveId::new),
         }))
     }
 

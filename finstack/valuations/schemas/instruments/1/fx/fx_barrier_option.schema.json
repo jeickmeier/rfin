@@ -23,7 +23,7 @@
           "expiry": "2024-12-20",
           "foreign_currency": "EUR",
           "fx_spot_id": "EURUSD-SPOT",
-          "fx_vol_id": "EURUSD-VOL",
+          "vol_surface_id": "EURUSD-VOL",
           "id": "FXBAR-EURUSD-UO-CALL",
           "notional": {
             "amount": "1000000",
@@ -75,7 +75,7 @@
           "expiry": "2024-12-20",
           "foreign_currency": "EUR",
           "fx_spot_id": "EURUSD-SPOT",
-          "fx_vol_id": "EURUSD-VOL",
+          "vol_surface_id": "EURUSD-VOL",
           "id": "FXBAR-EURUSD-UO-CALL",
           "notional": {
             "amount": "1000000",

@@ -103,7 +103,7 @@ pub enum RateQuote {
         /// Optional convexity adjustment (rate, decimal).
         ///
         /// If provided, this fixed value is used. Otherwise, the calibration
-        /// engine will compute the adjustment dynamically using `volatility_id`.
+        /// engine will compute the adjustment dynamically using `vol_surface_id`.
         #[serde(default)]
         convexity_adjustment: Option<f64>,
         /// Optional volatility surface identifier for dynamic convexity adjustment.
@@ -113,7 +113,8 @@ pub enum RateQuote {
         /// dynamically based on the model forward rate and time to expiry.
         #[serde(default)]
         #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
-        volatility_id: Option<CurveId>,
+        #[serde(alias = "volatility_id")]
+        vol_surface_id: Option<CurveId>,
     },
     /// Interest Rate Swap (par rate).
     Swap {
@@ -274,14 +275,14 @@ impl RateQuote {
                 expiry,
                 price,
                 convexity_adjustment,
-                volatility_id,
+                vol_surface_id,
             } => RateQuote::Futures {
                 id: id.clone(),
                 contract: contract.clone(),
                 expiry: *expiry,
                 price: price + rate_bump,
                 convexity_adjustment: *convexity_adjustment,
-                volatility_id: volatility_id.clone(),
+                vol_surface_id: vol_surface_id.clone(),
             },
             RateQuote::Swap {
                 id,

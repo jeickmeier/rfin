@@ -24,7 +24,7 @@
       },
       "discount_curve_id": "USD-OIS",
       "forward_curve_id": "USD-SOFR-3M",
-      "volatility_id": null,
+      "vol_surface_id": null,
       "attributes": {
         "tags": [],
         "meta": {}

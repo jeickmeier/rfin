@@ -50,7 +50,7 @@ class RateQuote:
         *,
         contract: str | None = ...,
         convexity_adjustment: Optional[float] = ...,
-        volatility_id: Optional[str] = ...,
+        vol_surface_id: Optional[str] = ...,
     ) -> RateQuote: ...
     @classmethod
     def swap(

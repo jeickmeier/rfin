@@ -87,7 +87,8 @@ impl PyFxBarrierOption {
                 .extract::<&str>()
                 .context("foreign_discount_curve")?,
         );
-        let fx_vol_id = CurveId::new(fx_vol_surface.extract::<&str>().context("fx_vol_surface")?);
+        let vol_surface_id =
+            CurveId::new(fx_vol_surface.extract::<&str>().context("fx_vol_surface")?);
 
         let CurrencyArg(dom_currency) = domestic_currency.extract().context("domestic_currency")?;
         let CurrencyArg(for_currency) = foreign_currency.extract().context("foreign_currency")?;
@@ -131,7 +132,7 @@ impl PyFxBarrierOption {
         builder = builder.domestic_discount_curve_id(domestic_discount_curve_id);
         builder = builder.foreign_discount_curve_id(foreign_discount_curve_id);
         builder = builder.fx_spot_id(fx_spot_id.to_string());
-        builder = builder.fx_vol_id(fx_vol_id);
+        builder = builder.vol_surface_id(vol_surface_id);
         let option = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!(
                 "Failed to build FxBarrierOption: {e}"

@@ -53,7 +53,8 @@ pub struct FxBarrierOption {
     /// FX spot price identifier
     pub fx_spot_id: String,
     /// FX volatility surface ID
-    pub fx_vol_id: CurveId,
+    #[serde(alias = "fx_vol_id")]
+    pub vol_surface_id: CurveId,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
@@ -102,7 +103,7 @@ impl FxBarrierOption {
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
             .fx_spot_id("EURUSD-SPOT".to_string())
-            .fx_vol_id(CurveId::new("EURUSD-VOL"))
+            .vol_surface_id(CurveId::new("EURUSD-VOL"))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -234,7 +235,7 @@ impl crate::instruments::common_impl::traits::OptionVegaProvider for FxBarrierOp
         let base_pv = self.value(market, as_of)?.amount();
         let bumped = crate::metrics::bump_surface_vol_absolute(
             market,
-            self.fx_vol_id.as_str(),
+            self.vol_surface_id.as_str(),
             crate::metrics::bump_sizes::VOLATILITY,
         )?;
         let pv_bumped = self.value(&bumped, as_of)?.amount();
@@ -301,8 +302,11 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for FxBarrierO
         let vol_bump = crate::metrics::bump_sizes::VOLATILITY;
 
         // Delta at vol_up (central diff in spot)
-        let curves_vol_up =
-            crate::metrics::bump_surface_vol_absolute(market, self.fx_vol_id.as_str(), vol_bump)?;
+        let curves_vol_up = crate::metrics::bump_surface_vol_absolute(
+            market,
+            self.vol_surface_id.as_str(),
+            vol_bump,
+        )?;
         let curves_up = crate::metrics::bump_scalar_price(
             &curves_vol_up,
             &self.fx_spot_id,
@@ -318,8 +322,11 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for FxBarrierO
         let delta_vol_up = (pv_up - pv_dn) / (2.0 * spot_bump);
 
         // Delta at vol_down
-        let curves_vol_dn =
-            crate::metrics::bump_surface_vol_absolute(market, self.fx_vol_id.as_str(), -vol_bump)?;
+        let curves_vol_dn = crate::metrics::bump_surface_vol_absolute(
+            market,
+            self.vol_surface_id.as_str(),
+            -vol_bump,
+        )?;
         let curves_up = crate::metrics::bump_scalar_price(
             &curves_vol_dn,
             &self.fx_spot_id,
@@ -357,10 +364,16 @@ impl crate::instruments::common_impl::traits::OptionVolgaProvider for FxBarrierO
         }
 
         let vol_bump = crate::metrics::bump_sizes::VOLATILITY;
-        let up =
-            crate::metrics::bump_surface_vol_absolute(market, self.fx_vol_id.as_str(), vol_bump)?;
-        let dn =
-            crate::metrics::bump_surface_vol_absolute(market, self.fx_vol_id.as_str(), -vol_bump)?;
+        let up = crate::metrics::bump_surface_vol_absolute(
+            market,
+            self.vol_surface_id.as_str(),
+            vol_bump,
+        )?;
+        let dn = crate::metrics::bump_surface_vol_absolute(
+            market,
+            self.vol_surface_id.as_str(),
+            -vol_bump,
+        )?;
         let pv_up = self.value(&up, as_of)?.amount();
         let pv_dn = self.value(&dn, as_of)?.amount();
         Ok((pv_up - 2.0 * base_pv + pv_dn) / (vol_bump * vol_bump))
@@ -379,7 +392,7 @@ impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
                 self,
             )?;
         deps.add_spot_id(self.fx_spot_id.as_str());
-        deps.add_vol_surface_id(self.fx_vol_id.as_str());
+        deps.add_vol_surface_id(self.vol_surface_id.as_str());
         deps.add_fx_pair(self.base_currency, self.quote_currency);
         Ok(deps)
     }
@@ -497,7 +510,7 @@ mod tests {
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
             .fx_spot_id("EURUSD-SPOT".to_string())
-            .fx_vol_id(CurveId::new("EURUSD-VOL"))
+            .vol_surface_id(CurveId::new("EURUSD-VOL"))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()

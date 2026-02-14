@@ -231,7 +231,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             expiry,
             price,
             convexity_adjustment,
-            volatility_id,
+            vol_surface_id,
         } => {
             let fut_conv = registry.require_ir_future(contract)?;
             let idx_conv = registry.require_rate_index(&fut_conv.index_id)?;
@@ -282,7 +282,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 .contract_specs(contract_specs)
                 .discount_curve_id(CurveId::new(discount_id))
                 .forward_curve_id(CurveId::new(forward_id))
-                .volatility_id_opt(volatility_id.clone())
+                .vol_surface_id_opt(vol_surface_id.clone())
                 .attributes(Default::default())
                 .build()?;
 

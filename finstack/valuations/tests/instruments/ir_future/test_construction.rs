@@ -86,7 +86,7 @@ fn test_multiple_contracts() {
         contract_specs: FutureContractSpecs::default(),
         discount_curve_id: "USD_OIS".into(),
         forward_curve_id: "USD_LIBOR_3M".into(),
-        volatility_id: None,
+        vol_surface_id: None,
         attributes: Default::default(),
     };
 
@@ -117,7 +117,7 @@ fn test_different_day_counts() {
             contract_specs: FutureContractSpecs::default(),
             discount_curve_id: "USD_OIS".into(),
             forward_curve_id: "USD_LIBOR_3M".into(),
-            volatility_id: None,
+            vol_surface_id: None,
             attributes: Default::default(),
         };
 

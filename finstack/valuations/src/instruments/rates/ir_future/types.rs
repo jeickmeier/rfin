@@ -19,7 +19,7 @@
 //!
 //! 1. **Fixed adjustment**: Set `convexity_adjustment` in [`FutureContractSpecs`] to
 //!    a pre-computed value (e.g., from broker quotes or historical analysis)
-//! 2. **Model-based**: Provide a `volatility_id` to compute the adjustment using
+//! 2. **Model-based**: Provide a `vol_surface_id` to compute the adjustment using
 //!    the Hull-White approximation: CA ≈ 0.5 × σ² × T₁ × T₂
 //!
 //! ## Market Practice
@@ -79,7 +79,8 @@ pub struct InterestRateFuture {
     #[serde(alias = "forward_id")]
     pub forward_curve_id: CurveId,
     /// Optional volatility surface identifier for convexity adjustment
-    pub volatility_id: Option<CurveId>,
+    #[serde(alias = "volatility_id")]
+    pub vol_surface_id: Option<CurveId>,
     /// Attributes
     pub attributes: Attributes,
 }
@@ -104,7 +105,7 @@ pub struct FutureContractSpecs {
     ///
     /// - `Some(0.0)`: Explicitly disable model-based adjustment (strict mode)
     /// - `Some(x)`: Use fixed adjustment of `x` (e.g., from broker quote)
-    /// - `None`: Compute adjustment from volatility surface (requires `volatility_id`)
+    /// - `None`: Compute adjustment from volatility surface (requires `vol_surface_id`)
     ///
     /// # Market Practice
     ///
@@ -336,7 +337,7 @@ impl InterestRateFuture {
         t_start: f64,
         t_end: f64,
     ) -> finstack_core::Result<f64> {
-        let vol_estimate = if let Some(vol_id) = &self.volatility_id {
+        let vol_estimate = if let Some(vol_id) = &self.vol_surface_id {
             // Use provided volatility surface
             // Strike for vol lookup is the forward rate (ATM)
             let surface = context.surface(vol_id)?;
@@ -345,7 +346,7 @@ impl InterestRateFuture {
             return Err(finstack_core::Error::Input(
                 finstack_core::InputError::NotFound {
                     id: format!(
-                        "IR Future {}: Missing volatility_id or fixed convexity_adjustment",
+                        "IR Future {}: Missing vol_surface_id or fixed convexity_adjustment",
                         self.id
                     ),
                 },

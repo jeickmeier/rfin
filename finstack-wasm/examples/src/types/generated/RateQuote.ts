@@ -111,7 +111,7 @@ export type RateQuote =
          * Optional convexity adjustment (rate, decimal).
          *
          * If provided, this fixed value is used. Otherwise, the calibration
-         * engine will compute the adjustment dynamically using `volatility_id`.
+         * engine will compute the adjustment dynamically using `vol_surface_id`.
          */
         convexity_adjustment: number | null;
         /**
@@ -121,7 +121,7 @@ export type RateQuote =
          * will look up this volatility surface to calculate the convexity adjustment
          * dynamically based on the model forward rate and time to expiry.
          */
-        volatility_id: string | null;
+        vol_surface_id: string | null;
       };
     }
   | {

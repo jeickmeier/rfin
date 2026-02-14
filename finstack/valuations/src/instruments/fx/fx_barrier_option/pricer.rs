@@ -107,7 +107,7 @@ impl FxBarrierOptionMcPricer {
             0.0
         };
 
-        let vol_surface = curves.surface(inst.fx_vol_id.as_str())?;
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, inst.strike);
 
         // For FX, drift is r_dom - r_for.
@@ -381,7 +381,7 @@ fn collect_fx_barrier_inputs(
         )));
     }
 
-    let vol_surface = curves.surface(inst.fx_vol_id.as_str())?;
+    let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
     let sigma = vol_surface.value_clamped(t, inst.strike);
     if !sigma.is_finite() || sigma < 0.0 {
         return Err(finstack_core::Error::Validation(format!(

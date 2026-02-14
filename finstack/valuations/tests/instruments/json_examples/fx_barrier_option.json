@@ -26,7 +26,7 @@
       "domestic_discount_curve_id": "USD-OIS",
       "foreign_discount_curve_id": "EUR-OIS",
       "fx_spot_id": "EURUSD-SPOT",
-      "fx_vol_id": "EURUSD-VOL",
+      "vol_surface_id": "EURUSD-VOL",
       "pricing_overrides": {
         "quoted_clean_price": null,
         "rho_bump_decimal": null,

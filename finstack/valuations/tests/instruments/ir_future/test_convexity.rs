@@ -21,7 +21,7 @@ fn test_strict_convexity_error() {
         Position::Long,
     );
     future.contract_specs.convexity_adjustment = None;
-    future.volatility_id = None;
+    future.vol_surface_id = None;
 
     let result = future.value(&market, as_of);
 
@@ -30,7 +30,7 @@ fn test_strict_convexity_error() {
     assert!(result
         .unwrap_err()
         .to_string()
-        .contains("Missing volatility_id"));
+        .contains("Missing vol_surface_id"));
 }
 
 #[test]
@@ -182,7 +182,7 @@ fn test_volatility_based_convexity_adjustment() {
         Position::Long,
     );
     future.contract_specs.convexity_adjustment = None; // Use vol-based calculation
-    future.volatility_id = Some("USD_SWAPTION_VOL".into());
+    future.vol_surface_id = Some("USD_SWAPTION_VOL".into());
 
     let pv = future.value(&market, as_of).unwrap();
 
@@ -246,7 +246,7 @@ fn test_volatility_based_convexity_increases_with_maturity() {
         Position::Long,
     );
     near_future.contract_specs.convexity_adjustment = None;
-    near_future.volatility_id = Some("USD_SWAPTION_VOL".into());
+    near_future.vol_surface_id = Some("USD_SWAPTION_VOL".into());
 
     // Far-dated future (3 years forward)
     let far_start = time::macros::date!(2027 - 01 - 01);
@@ -261,7 +261,7 @@ fn test_volatility_based_convexity_increases_with_maturity() {
         Position::Long,
     );
     far_future.contract_specs.convexity_adjustment = None;
-    far_future.volatility_id = Some("USD_SWAPTION_VOL".into());
+    far_future.vol_surface_id = Some("USD_SWAPTION_VOL".into());
 
     // Calculate PVs with vol-based convexity
     let pv_near = near_future.value(&market, as_of).unwrap().amount();
@@ -340,7 +340,7 @@ fn test_volatility_based_convexity_increases_with_vol() {
         Position::Long,
     );
     future.contract_specs.convexity_adjustment = None;
-    future.volatility_id = Some("USD_SWAPTION_VOL".into());
+    future.vol_surface_id = Some("USD_SWAPTION_VOL".into());
 
     let pv_low_vol = future.value(&low_vol_market, as_of).unwrap().amount();
     let pv_high_vol = future.value(&high_vol_market, as_of).unwrap().amount();
