@@ -469,7 +469,7 @@ impl PyCrossCurrencySwapBuilder {
             leg2,
             notional_exchange: slf.notional_exchange,
             reporting_currency,
-            stub_kind: slf.stub_kind,
+            stub: slf.stub_kind,
             attributes: Attributes::new(),
         };
 

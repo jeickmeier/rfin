@@ -26,7 +26,7 @@ pub struct InterestRateOptionParams {
     /// Day count convention
     pub day_count: DayCount,
     /// Stub convention for schedule generation
-    pub stub_kind: StubKind,
+    pub stub: StubKind,
     /// Business day convention for schedule generation
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar identifier for schedule generation
@@ -42,7 +42,7 @@ impl InterestRateOptionParams {
             strike_rate,
             frequency,
             day_count,
-            stub_kind: StubKind::None,
+            stub: StubKind::None,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }
@@ -61,7 +61,7 @@ impl InterestRateOptionParams {
             strike_rate: strike_rate.as_decimal(),
             frequency,
             day_count,
-            stub_kind: StubKind::None,
+            stub: StubKind::None,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }
@@ -75,7 +75,7 @@ impl InterestRateOptionParams {
             strike_rate,
             frequency,
             day_count,
-            stub_kind: StubKind::None,
+            stub: StubKind::None,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }
@@ -94,7 +94,7 @@ impl InterestRateOptionParams {
             strike_rate: strike_rate.as_decimal(),
             frequency,
             day_count,
-            stub_kind: StubKind::None,
+            stub: StubKind::None,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }

@@ -126,7 +126,8 @@ pub struct InflationCapFloor {
     /// Day count convention for accrual and option time.
     pub day_count: DayCount,
     /// Schedule stub convention.
-    pub stub_kind: StubKind,
+    #[serde(alias = "stub_kind")]
+    pub stub: StubKind,
     /// Business day convention for schedule and payments.
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar identifier.
@@ -275,7 +276,7 @@ impl InflationCapFloor {
                 start: self.start_date,
                 end: self.maturity,
                 frequency: self.frequency,
-                stub: self.stub_kind,
+                stub: self.stub,
                 bdc: self.bdc,
                 calendar_id: self
                     .calendar_id

@@ -121,7 +121,8 @@ pub struct BasisSwap {
     #[serde(default)]
     pub allow_calendar_fallback: bool,
     /// Stub handling convention for irregular periods.
-    pub stub_kind: StubKind,
+    #[serde(alias = "stub_kind")]
+    pub stub: StubKind,
     /// Allow both legs to reference the same forward curve.
     ///
     /// When `false` (default), having identical forward curves on both legs produces
@@ -225,7 +226,7 @@ impl BasisSwap {
             discount_curve_id: discount_curve_id.into(),
             calendar_id: None,
             allow_calendar_fallback: false,
-            stub_kind: StubKind::None,
+            stub: StubKind::None,
             allow_same_curve: false,
             attributes: crate::instruments::common_impl::traits::Attributes::default(),
         })
@@ -260,7 +261,7 @@ impl BasisSwap {
     /// # Returns
     /// Self for method chaining.
     pub fn with_stub(mut self, stub_kind: StubKind) -> Self {
-        self.stub_kind = stub_kind;
+        self.stub = stub_kind;
         self
     }
 
@@ -383,7 +384,7 @@ impl BasisSwap {
             discount_curve_id: discount_curve_id.into(),
             calendar_id: None,
             allow_calendar_fallback: false,
-            stub_kind: StubKind::None,
+            stub: StubKind::None,
             allow_same_curve: true,
             attributes: crate::instruments::common_impl::traits::Attributes::default(),
         })
@@ -401,7 +402,7 @@ impl BasisSwap {
             self.start_date,
             self.maturity,
             leg.frequency,
-            self.stub_kind,
+            self.stub,
             leg.bdc,
             false,
             leg.payment_lag_days,
@@ -483,7 +484,7 @@ impl BasisSwap {
                 start: self.start_date,
                 end: self.maturity,
                 frequency: leg.frequency,
-                stub: self.stub_kind,
+                stub: self.stub,
                 bdc: leg.bdc,
                 calendar_id: self
                     .calendar_id
@@ -589,7 +590,7 @@ impl BasisSwap {
                 start: self.start_date,
                 end: self.maturity,
                 frequency: leg.frequency,
-                stub: self.stub_kind,
+                stub: self.stub,
                 bdc: leg.bdc,
                 calendar_id: self
                     .calendar_id

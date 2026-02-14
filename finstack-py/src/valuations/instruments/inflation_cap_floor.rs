@@ -412,7 +412,7 @@ impl PyInflationCapFloorBuilder {
             maturity: end_date,
             frequency: slf.frequency,
             day_count: slf.day_count,
-            stub_kind: slf.stub_kind,
+            stub: slf.stub_kind,
             bdc: slf.bdc,
             calendar_id: slf.calendar_id.clone(),
             inflation_index_id,

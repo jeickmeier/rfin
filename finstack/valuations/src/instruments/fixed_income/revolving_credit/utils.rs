@@ -55,7 +55,7 @@ pub(super) fn build_payment_dates(
 ) -> Result<Vec<Date>> {
     let mut builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity)?
         .frequency(facility.frequency)
-        .stub_rule(facility.stub_rule);
+        .stub_rule(facility.stub);
 
     if let Some(cal) = resolve_facility_calendar(&facility.attributes) {
         builder = builder.adjust_with(BusinessDayConvention::ModifiedFollowing, cal);
@@ -102,7 +102,7 @@ pub(super) fn build_reset_dates(facility: &RevolvingCredit) -> Result<Option<Vec
             let mut reset_builder =
                 ScheduleBuilder::new(facility.commitment_date, facility.maturity)?
                     .frequency(spec.reset_freq)
-                    .stub_rule(facility.stub_rule);
+                    .stub_rule(facility.stub);
 
             if let Some(cal) = resolve_facility_calendar(&facility.attributes) {
                 reset_builder =
@@ -271,7 +271,7 @@ mod tests {
             discount_curve_id: "USD-OIS".into(),
             hazard_curve_id: None,
             recovery_rate: 0.0,
-            stub_rule: StubKind::ShortFront,
+            stub: StubKind::ShortFront,
             attributes: attrs,
         }
     }

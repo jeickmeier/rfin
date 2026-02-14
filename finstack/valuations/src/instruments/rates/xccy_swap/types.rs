@@ -152,8 +152,8 @@ pub struct XccySwap {
     /// PV reporting currency (output currency of `value`/`npv`).
     pub reporting_currency: Currency,
     /// Stub handling convention for irregular periods.
-    #[serde(default)]
-    pub stub_kind: StubKind,
+    #[serde(default, alias = "stub_kind")]
+    pub stub: StubKind,
     /// Attributes for instrument selection and tagging.
     pub attributes: crate::instruments::common_impl::traits::Attributes,
 }
@@ -176,14 +176,14 @@ impl XccySwap {
             leg2,
             notional_exchange: NotionalExchange::InitialAndFinal,
             reporting_currency,
-            stub_kind: StubKind::None,
+            stub: StubKind::None,
             attributes: crate::instruments::common_impl::traits::Attributes::default(),
         }
     }
 
     /// Set stub handling convention.
     pub fn with_stub(mut self, stub_kind: StubKind) -> Self {
-        self.stub_kind = stub_kind;
+        self.stub = stub_kind;
         self
     }
 
@@ -229,7 +229,7 @@ impl XccySwap {
             self.start_date,
             self.maturity,
             leg.frequency,
-            self.stub_kind,
+            self.stub,
             leg.bdc,
             false,
             leg.payment_lag_days,
@@ -353,7 +353,7 @@ impl XccySwap {
                 start: self.start_date,
                 end: self.maturity,
                 frequency: leg.frequency,
-                stub: self.stub_kind,
+                stub: self.stub,
                 bdc: leg.bdc,
                 calendar_id: leg
                     .calendar_id

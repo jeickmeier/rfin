@@ -104,7 +104,7 @@ where
             start: option.start_date,
             end: option.maturity,
             frequency: option.frequency,
-            stub: option.stub_kind,
+            stub: option.stub,
             bdc: option.bdc,
             calendar_id: option
                 .calendar_id

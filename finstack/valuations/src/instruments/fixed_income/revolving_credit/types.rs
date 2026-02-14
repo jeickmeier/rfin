@@ -89,8 +89,8 @@ pub struct RevolvingCredit {
     ///
     /// Defaults to `ShortFront` for maximum flexibility with unaligned dates.
     #[builder(default = StubKind::ShortFront)]
-    #[serde(default = "default_stub_kind")]
-    pub stub_rule: StubKind,
+    #[serde(default = "default_stub_kind", alias = "stub_rule")]
+    pub stub: StubKind,
 
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
@@ -179,7 +179,7 @@ impl RevolvingCredit {
             .discount_curve_id(CurveId::new("USD-OIS"))
             .hazard_curve_id_opt(None)
             .recovery_rate(0.0)
-            .stub_rule(StubKind::ShortFront)
+            .stub(StubKind::ShortFront)
             .attributes(Attributes::new())
             .build()
             .unwrap_or_else(|_| {

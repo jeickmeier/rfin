@@ -191,7 +191,7 @@ impl JsBasisSwapBuilder {
             .primary_leg(primary_leg)
             .reference_leg(reference_leg)
             .discount_curve_id(curve_id_from_str(discount_curve))
-            .stub_kind(stub_kind)
+            .stub(stub_kind)
             .calendar_id_opt(self.calendar)
             .attributes(Default::default())
             .build()
@@ -263,7 +263,7 @@ impl JsBasisSwap {
             .primary_leg(primary_leg.inner.clone())
             .reference_leg(reference_leg.inner.clone())
             .discount_curve_id(curve_id_from_str(discount_curve))
-            .stub_kind(stub_kind)
+            .stub(stub_kind)
             .calendar_id_opt(calendar)
             .attributes(Default::default());
 

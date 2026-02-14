@@ -361,7 +361,7 @@ impl PyBasisSwapBuilder {
             .primary_leg(primary_leg)
             .reference_leg(reference_leg)
             .discount_curve_id(discount_curve_id)
-            .stub_kind(slf.stub)
+            .stub(slf.stub)
             .calendar_id_opt(slf.calendar.clone())
             .allow_calendar_fallback(false)
             .allow_same_curve(false)

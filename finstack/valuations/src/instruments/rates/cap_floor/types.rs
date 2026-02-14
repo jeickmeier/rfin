@@ -124,7 +124,8 @@ pub struct InterestRateOption {
     /// Day count convention
     pub day_count: DayCount,
     /// Schedule stub convention
-    pub stub_kind: StubKind,
+    #[serde(alias = "stub_kind")]
+    pub stub: StubKind,
     /// Schedule business day convention
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar identifier for schedule and roll conventions
@@ -174,7 +175,7 @@ impl InterestRateOption {
             maturity,
             frequency: option_params.frequency,
             day_count: option_params.day_count,
-            stub_kind: option_params.stub_kind,
+            stub: option_params.stub,
             bdc: option_params.bdc,
             calendar_id: option_params.calendar_id.map(|s| s.to_string()),
             exercise_style: ExerciseStyle::European,
@@ -410,7 +411,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                 start: self.start_date,
                 end: self.maturity,
                 frequency: self.frequency,
-                stub: self.stub_kind,
+                stub: self.stub,
                 bdc: self.bdc,
                 calendar_id: self
                     .calendar_id

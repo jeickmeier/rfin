@@ -578,7 +578,7 @@ impl JsXccySwap {
                 self.inner.start_date,
                 self.inner.maturity,
                 leg.frequency,
-                self.inner.stub_kind,
+                self.inner.stub,
                 leg.bdc,
                 false,
                 leg.payment_lag_days,

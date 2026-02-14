@@ -34,7 +34,7 @@ impl MetricCalculator for ThetaCalculator {
                 option.start_date,
                 option.maturity,
                 option.frequency,
-                option.stub_kind,
+                option.stub,
                 option.bdc,
                 false,
                 0,
