@@ -40,7 +40,9 @@ pub const MIN_IMPLIED_VOL: f64 = 0.0;
 pub const MAX_IMPLIED_VOL: f64 = 5.0;
 
 /// Credit option instrument (option on CDS spread)
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct CDSOption {
     /// Unique instrument identifier
