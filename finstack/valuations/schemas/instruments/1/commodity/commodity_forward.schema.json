@@ -24,7 +24,7 @@
           "quantity": 1000.0,
           "quoted_price": null,
           "settlement_date": "2025-03-15",
-          "settlement_type": "Cash",
+          "settlement": "Cash",
           "spot_price_id": null,
           "ticker": "CL",
           "unit": "BBL"

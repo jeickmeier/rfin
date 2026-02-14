@@ -107,8 +107,12 @@ pub struct CommodityForward {
     pub settlement_date: Date,
     /// Settlement type (physical or cash).
     #[builder(default)]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub settlement_type: Option<SettlementType>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "settlement_type"
+    )]
+    pub settlement: Option<SettlementType>,
     /// Currency for pricing.
     pub currency: Currency,
     /// Position direction (long or short).
@@ -211,7 +215,7 @@ impl CommodityForward {
             .settlement_date(
                 Date::from_calendar_date(2025, time::Month::March, 15).expect("Valid example date"),
             )
-            .settlement_type_opt(Some(SettlementType::Cash))
+            .settlement_opt(Some(SettlementType::Cash))
             .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))

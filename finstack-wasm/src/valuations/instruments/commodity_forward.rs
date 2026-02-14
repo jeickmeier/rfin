@@ -26,7 +26,7 @@ pub struct JsCommodityForwardBuilder {
     discount_curve_id: Option<String>,
     multiplier: Option<f64>,
     quoted_price: Option<f64>,
-    settlement_type: Option<String>,
+    settlement: Option<String>,
 }
 
 #[wasm_bindgen(js_class = CommodityForwardBuilder)]
@@ -101,7 +101,7 @@ impl JsCommodityForwardBuilder {
 
     #[wasm_bindgen(js_name = settlementType)]
     pub fn settlement_type(mut self, settlement_type: String) -> JsCommodityForwardBuilder {
-        self.settlement_type = Some(settlement_type);
+        self.settlement = Some(settlement_type);
         self
     }
 
@@ -134,7 +134,7 @@ impl JsCommodityForwardBuilder {
             JsValue::from_str("CommodityForwardBuilder: discountCurveId is required")
         })?;
 
-        let settlement_type_enum = match self.settlement_type.as_deref() {
+        let settlement_type_enum = match self.settlement.as_deref() {
             Some("physical") | Some("Physical") => Some(SettlementType::Physical),
             Some("cash") | Some("Cash") => Some(SettlementType::Cash),
             None => None,
@@ -160,7 +160,7 @@ impl JsCommodityForwardBuilder {
             .attributes(Attributes::new());
 
         if let Some(st) = settlement_type_enum {
-            builder = builder.settlement_type_opt(Some(st));
+            builder = builder.settlement_opt(Some(st));
         }
         if let Some(qp) = self.quoted_price {
             builder = builder.quoted_price_opt(Some(qp));
@@ -252,7 +252,7 @@ impl JsCommodityForward {
             .attributes(Attributes::new());
 
         if let Some(st) = settlement_type_enum {
-            builder = builder.settlement_type_opt(Some(st));
+            builder = builder.settlement_opt(Some(st));
         }
         if let Some(qp) = quoted_price {
             builder = builder.quoted_price_opt(Some(qp));

@@ -72,7 +72,7 @@ pub struct PyCommodityForwardBuilder {
     multiplier: f64,
     quoted_price: Option<f64>,
     spot_price_id: Option<String>,
-    settlement_type: Option<SettlementType>,
+    settlement: Option<SettlementType>,
     exchange: Option<String>,
     contract_month: Option<String>,
     position: Option<Position>,
@@ -94,7 +94,7 @@ impl PyCommodityForwardBuilder {
             multiplier: 1.0,
             quoted_price: None,
             spot_price_id: None,
-            settlement_type: None,
+            settlement: None,
             exchange: None,
             contract_month: None,
             position: None,
@@ -223,7 +223,7 @@ impl PyCommodityForwardBuilder {
         mut slf: PyRefMut<'_, Self>,
         settlement_type: Option<String>,
     ) -> PyResult<PyRefMut<'_, Self>> {
-        slf.settlement_type = match settlement_type.as_deref() {
+        slf.settlement = match settlement_type.as_deref() {
             Some("physical") | Some("Physical") => Some(SettlementType::Physical),
             Some("cash") | Some("Cash") => Some(SettlementType::Cash),
             None => None,
@@ -338,8 +338,8 @@ impl PyCommodityForwardBuilder {
             .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new());
 
-        if let Some(st) = slf.settlement_type {
-            builder = builder.settlement_type_opt(Some(st));
+        if let Some(st) = slf.settlement {
+            builder = builder.settlement_opt(Some(st));
         }
         if let Some(qp) = slf.quoted_price {
             builder = builder.quoted_price_opt(Some(qp));
