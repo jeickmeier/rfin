@@ -9,6 +9,7 @@ use finstack_core::{
     money::Money,
     types::Rate,
 };
+use rust_decimal::Decimal;
 
 /// Interest rate option specific parameters.
 ///
@@ -20,7 +21,7 @@ pub struct InterestRateOptionParams {
     /// Notional amount
     pub notional: Money,
     /// Strike rate
-    pub strike_rate: f64,
+    pub strike_rate: Decimal,
     /// Payment frequency
     pub frequency: Tenor,
     /// Day count convention
@@ -39,7 +40,7 @@ impl InterestRateOptionParams {
         Self {
             rate_option_type: RateOptionType::Cap,
             notional,
-            strike_rate,
+            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
             frequency,
             day_count,
             stub: StubKind::None,
@@ -58,7 +59,7 @@ impl InterestRateOptionParams {
         Self {
             rate_option_type: RateOptionType::Cap,
             notional,
-            strike_rate: strike_rate.as_decimal(),
+            strike_rate: Decimal::try_from(strike_rate.as_decimal()).unwrap_or_default(),
             frequency,
             day_count,
             stub: StubKind::None,
@@ -72,7 +73,7 @@ impl InterestRateOptionParams {
         Self {
             rate_option_type: RateOptionType::Floor,
             notional,
-            strike_rate,
+            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
             frequency,
             day_count,
             stub: StubKind::None,
@@ -91,7 +92,7 @@ impl InterestRateOptionParams {
         Self {
             rate_option_type: RateOptionType::Floor,
             notional,
-            strike_rate: strike_rate.as_decimal(),
+            strike_rate: Decimal::try_from(strike_rate.as_decimal()).unwrap_or_default(),
             frequency,
             day_count,
             stub: StubKind::None,

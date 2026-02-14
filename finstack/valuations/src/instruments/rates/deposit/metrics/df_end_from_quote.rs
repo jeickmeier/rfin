@@ -1,5 +1,6 @@
 use crate::instruments::rates::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use rust_decimal::prelude::ToPrimitive;
 
 /// Calculates implied DF(end) from quoted rate.
 ///
@@ -29,6 +30,9 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
                 id: "QuoteRate (required for implied DF calculation)".to_string(),
             })
         })?;
+        let r = r
+            .to_f64()
+            .ok_or(finstack_core::InputError::ConversionOverflow)?;
 
         let df_s = context
             .computed

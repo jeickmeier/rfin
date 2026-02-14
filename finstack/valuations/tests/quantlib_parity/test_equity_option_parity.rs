@@ -85,7 +85,7 @@ fn create_option(expiry: Date, option_type: OptionType) -> EquityOption {
         day_count: DayCount::Act365F,
         settlement: SettlementType::Cash,
         discount_curve_id: "USD-OIS".into(),
-        spot_id: "SPOT".to_string(),
+        spot_id: "SPOT".into(),
         vol_surface_id: "SPOT_VOL".into(),
         div_yield_id: Some("SPOT_DIV".into()),
         discrete_dividends: Vec::new(),

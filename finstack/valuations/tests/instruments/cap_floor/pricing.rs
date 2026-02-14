@@ -11,6 +11,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
+use rust_decimal::Decimal;
 use time::macros::date;
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
@@ -53,7 +54,7 @@ fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOptio
         id: "CAP_TEST".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: strike,
+        strike_rate: Decimal::try_from(strike).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -78,7 +79,7 @@ fn create_standard_floor(as_of: Date, end: Date, strike: f64) -> InterestRateOpt
         id: "FLOOR_TEST".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: strike,
+        strike_rate: Decimal::try_from(strike).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -276,7 +277,7 @@ fn test_caplet_single_period_pricing() {
         id: "CAPLET_TEST".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -417,7 +418,7 @@ fn test_fixing_vs_payment_date_timing() {
         id: "CAPLET_TIMING".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: fixing_date,
         maturity: payment_date,
         frequency: Tenor::quarterly(),
@@ -494,7 +495,7 @@ fn test_caplet_after_payment_date_is_zero() {
         id: "CAPLET_EXPIRED".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: fixing_date,
         maturity: payment_date,
         frequency: Tenor::quarterly(),

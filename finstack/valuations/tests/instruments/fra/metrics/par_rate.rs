@@ -10,6 +10,7 @@ use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::prelude::ToPrimitive;
 use time::macros::date;
 
 #[test]
@@ -45,7 +46,7 @@ fn test_par_rate_at_market_fra_is_fixed_rate() {
 
     assert_approx_equal(
         par_rate,
-        fra.fixed_rate,
+        fra.fixed_rate.to_f64().unwrap_or_default(),
         0.001,
         "At-market FRA par rate should equal fixed rate",
     );

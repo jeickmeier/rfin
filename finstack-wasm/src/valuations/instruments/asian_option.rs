@@ -208,7 +208,7 @@ impl JsAsianOptionBuilder {
         builder = builder.notional(notional);
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.discount_curve_id(curve_id_from_str(discount_curve));
-        builder = builder.spot_id(spot_id.to_string());
+        builder = builder.spot_id(spot_id.to_string().into());
         builder = builder.vol_surface_id(curve_id_from_str(vol_surface));
         builder = builder.pricing_overrides(Default::default());
         builder = builder.attributes(Default::default());
@@ -324,7 +324,7 @@ impl JsAsianOption {
         builder = builder.notional(notional.inner());
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.discount_curve_id(curve_id_from_str(discount_curve));
-        builder = builder.spot_id(spot_id.to_string());
+        builder = builder.spot_id(spot_id.to_string().into());
         builder = builder.vol_surface_id(curve_id_from_str(vol_surface));
         builder = builder.pricing_overrides(Default::default());
         builder = builder.attributes(Default::default());
@@ -393,7 +393,7 @@ impl JsAsianOption {
 
     #[wasm_bindgen(getter, js_name = spotId)]
     pub fn spot_id(&self) -> String {
-        self.inner.spot_id.clone()
+        self.inner.spot_id.to_string()
     }
 
     #[wasm_bindgen(getter, js_name = volSurface)]

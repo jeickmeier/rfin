@@ -11,7 +11,7 @@ use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, DealId, InstrumentId};
 
 /// CMO tranche type enumeration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -226,7 +226,7 @@ pub struct AgencyCmo {
     /// Unique instrument identifier.
     pub id: InstrumentId,
     /// Deal name (e.g., "FNR 2024-1")
-    pub deal_name: String,
+    pub deal_name: DealId,
     /// Agency program
     pub agency: AgencyProgram,
     /// Issue date
@@ -273,7 +273,7 @@ impl AgencyCmo {
 
         Self::builder()
             .id(InstrumentId::new("FNR-2024-1-A"))
-            .deal_name("FNR 2024-1".to_string())
+            .deal_name("FNR 2024-1".into())
             .agency(AgencyProgram::Fnma)
             .issue_date(date!(2024 - 01 - 01))
             .waterfall(CmoWaterfall::new(tranches))
@@ -307,7 +307,7 @@ impl AgencyCmo {
 
         Self::builder()
             .id(InstrumentId::new("FNR-2024-2-PAC"))
-            .deal_name("FNR 2024-2".to_string())
+            .deal_name("FNR 2024-2".into())
             .agency(AgencyProgram::Fnma)
             .issue_date(date!(2024 - 01 - 01))
             .waterfall(CmoWaterfall::new(tranches))
@@ -331,7 +331,7 @@ impl AgencyCmo {
 
         Self::builder()
             .id(InstrumentId::new("FNS-2024-1-IO"))
-            .deal_name("FNS 2024-1".to_string())
+            .deal_name("FNS 2024-1".into())
             .agency(AgencyProgram::Fnma)
             .issue_date(date!(2024 - 01 - 01))
             .waterfall(CmoWaterfall::new(tranches))

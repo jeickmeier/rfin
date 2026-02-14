@@ -12,6 +12,7 @@ use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::Instrument;
+use rust_decimal::Decimal;
 
 #[test]
 fn test_valuation_after_maturity() {
@@ -69,7 +70,7 @@ fn test_valuation_before_issue() {
 fn test_zero_coupon_ilb() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.real_coupon = 0.0; // Zero coupon
+    ilb.real_coupon = Decimal::try_from(0.0).expect("valid decimal"); // Zero coupon
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
@@ -87,7 +88,7 @@ fn test_zero_coupon_ilb() {
 fn test_very_high_coupon() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.real_coupon = 0.50; // 50% coupon (extreme)
+    ilb.real_coupon = Decimal::try_from(0.50).expect("valid decimal"); // 50% coupon (extreme)
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2027, 1, 2);
 

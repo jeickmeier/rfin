@@ -128,7 +128,7 @@ impl PyQuantoOption {
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder = builder.domestic_discount_curve_id(domestic_discount_curve_id);
         builder = builder.foreign_discount_curve_id(foreign_discount_curve_id);
-        builder = builder.spot_id(spot_id.to_string());
+        builder = builder.spot_id(spot_id.to_string().into());
         builder = builder.vol_surface_id(vol_surface_id);
         if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(CurveId::new(div.to_string()));

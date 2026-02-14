@@ -23,7 +23,9 @@ fn cross_currency_conversion_uses_fx_matrix() {
         .maturity(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("EUR".into())
-        .quote_rate_opt(Some(0.045))
+        .quote_rate_opt(Some(
+            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+        ))
         .build()
         .unwrap();
 
@@ -83,7 +85,9 @@ fn missing_fx_matrix_errors_for_cross_currency() {
         .maturity(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("EUR".into())
-        .quote_rate_opt(Some(0.045))
+        .quote_rate_opt(Some(
+            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+        ))
         .build()
         .unwrap();
 
@@ -125,7 +129,7 @@ fn quantity_scaling_and_entity_totals() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
         .maturity(end_date)
-        .quote_rate(0.05) // Add a 5% rate so deposit has non-zero PV
+        .quote_rate(rust_decimal::Decimal::try_from(0.05).unwrap_or_default()) // Add a 5% rate so deposit has non-zero PV
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .build()

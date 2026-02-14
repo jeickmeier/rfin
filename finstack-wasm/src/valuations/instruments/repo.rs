@@ -136,7 +136,7 @@ impl JsRepoBuilder {
             .id(instrument_id_from_str(&self.instrument_id))
             .cash_amount(cash_amount)
             .collateral(collateral)
-            .repo_rate(repo_rate)
+            .repo_rate(rust_decimal::Decimal::try_from(repo_rate).unwrap_or_default())
             .start_date(start_date)
             .maturity(maturity)
             .haircut(self.haircut.unwrap_or(0.0))
@@ -262,7 +262,7 @@ impl JsRepo {
             .id(instrument_id_from_str(instrument_id))
             .cash_amount(cash_amount.inner())
             .collateral(collateral.inner.clone())
-            .repo_rate(repo_rate)
+            .repo_rate(rust_decimal::Decimal::try_from(repo_rate).unwrap_or_default())
             .start_date(start_date.inner())
             .maturity(maturity.inner())
             .haircut(haircut.unwrap_or(0.0))
@@ -341,7 +341,7 @@ impl JsRepo {
 
     #[wasm_bindgen(getter, js_name = repoRate)]
     pub fn repo_rate(&self) -> f64 {
-        self.inner.repo_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.repo_rate).unwrap_or_default()
     }
 
     #[wasm_bindgen(getter, js_name = startDate)]

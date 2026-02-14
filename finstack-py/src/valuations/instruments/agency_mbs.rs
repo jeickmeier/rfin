@@ -465,7 +465,7 @@ impl PyAgencyMbsPassthroughBuilder {
         let ccy = slf.currency.unwrap();
         let mbs = AgencyMbsPassthrough::builder()
             .id(slf.instrument_id.clone())
-            .pool_id(slf.pool_id.clone().unwrap())
+            .pool_id(slf.pool_id.clone().unwrap().into())
             .agency(slf.agency.unwrap())
             .pool_type(slf.pool_type)
             .original_face(Money::new(original_face, ccy))
@@ -1677,7 +1677,7 @@ impl PyAgencyCmoBuilder {
 
         let mut builder = AgencyCmo::builder()
             .id(slf.instrument_id.clone())
-            .deal_name(slf.deal_name.clone().unwrap())
+            .deal_name(slf.deal_name.clone().unwrap().into())
             .agency(slf.agency.unwrap())
             .issue_date(slf.issue_date.unwrap())
             .waterfall(slf.waterfall.clone().unwrap())

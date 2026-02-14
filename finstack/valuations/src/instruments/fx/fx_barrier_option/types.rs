@@ -12,7 +12,7 @@ use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, PriceId};
 
 /// FX barrier option instrument.
 #[derive(
@@ -51,7 +51,7 @@ pub struct FxBarrierOption {
     /// Foreign discount curve ID
     pub foreign_discount_curve_id: CurveId,
     /// FX spot price identifier
-    pub fx_spot_id: String,
+    pub fx_spot_id: PriceId,
     /// FX volatility surface ID
     #[serde(alias = "fx_vol_id")]
     pub vol_surface_id: CurveId,
@@ -102,7 +102,7 @@ impl FxBarrierOption {
             .use_gobet_miri(false)
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
-            .fx_spot_id("EURUSD-SPOT".to_string())
+            .fx_spot_id("EURUSD-SPOT".into())
             .vol_surface_id(CurveId::new("EURUSD-VOL"))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -521,7 +521,7 @@ mod tests {
             .use_gobet_miri(false)
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
-            .fx_spot_id("EURUSD-SPOT".to_string())
+            .fx_spot_id("EURUSD-SPOT".into())
             .vol_surface_id(CurveId::new("EURUSD-VOL"))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())

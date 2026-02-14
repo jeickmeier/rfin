@@ -12,6 +12,7 @@ use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, Rat
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
@@ -60,7 +61,7 @@ fn test_implied_vol_requires_market_price() {
         id: "CAPLET_TEST".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -124,7 +125,7 @@ fn test_implied_vol_fails_without_market_price_override() {
         id: "CAPLET_TEST".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),

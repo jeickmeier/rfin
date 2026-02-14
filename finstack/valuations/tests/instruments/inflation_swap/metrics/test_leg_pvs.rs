@@ -5,6 +5,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceive};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::Month;
 
 #[test]
@@ -19,7 +20,7 @@ fn test_fixed_leg_pv_metric() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -54,7 +55,7 @@ fn test_inflation_leg_pv_metric() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -92,7 +93,7 @@ fn test_leg_pvs_sum_to_npv() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.015)
+        .fixed_rate(Decimal::try_from(0.015).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -139,7 +140,7 @@ fn test_leg_pvs_scale_with_notional() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -153,7 +154,7 @@ fn test_leg_pvs_scale_with_notional() {
         .notional(large_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)

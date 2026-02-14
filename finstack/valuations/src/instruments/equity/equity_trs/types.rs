@@ -114,7 +114,7 @@ impl EquityTotalReturnSwap {
             .notional(Money::new(5_000_000.0, Currency::USD))
             .underlying(EquityUnderlyingParams {
                 ticker: "SPX".to_string(),
-                spot_id: "SPX-SPOT".to_string(),
+                spot_id: "SPX-SPOT".into(),
                 div_yield_id: Some(CurveId::new("SPX-DIV")),
                 contract_size: 1.0,
                 currency: Currency::USD,

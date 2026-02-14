@@ -268,7 +268,7 @@ where
                 factors,
                 seen,
                 RiskFactorType::EquitySpot {
-                    ticker: opt.spot_id.clone(),
+                    ticker: opt.spot_id.to_string(),
                 },
             );
         }
@@ -430,7 +430,7 @@ mod tests {
             .day_count(DayCount::Act365F)
             .settlement(crate::instruments::SettlementType::Cash)
             .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
-            .spot_id("EQUITY-SPOT".to_string())
+            .spot_id("EQUITY-SPOT".into())
             .vol_surface_id(finstack_core::types::CurveId::new("EQUITY-VOL"))
             .div_yield_id_opt(Some(finstack_core::types::CurveId::new("EQUITY-DIVYIELD")))
             .pricing_overrides(crate::instruments::PricingOverrides::default())
@@ -462,7 +462,7 @@ mod tests {
 
         assert!(
             factors.iter().any(
-                |f| matches!(f, RiskFactorType::EquitySpot { ticker } if ticker == &option.spot_id)
+                |f| matches!(f, RiskFactorType::EquitySpot { ticker } if ticker == option.spot_id.as_str())
             ),
             "should include equity spot factor"
         );

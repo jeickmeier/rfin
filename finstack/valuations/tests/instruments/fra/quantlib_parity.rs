@@ -40,6 +40,7 @@ use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
 use finstack_valuations::instruments::rates::irs::PayReceive;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 /// Helper: Create a flat discount curve
@@ -83,6 +84,10 @@ fn create_flat_market(base_date: Date, rate: f64) -> MarketContext {
         .insert_forward(fwd)
 }
 
+fn dec(value: f64) -> Decimal {
+    Decimal::try_from(value).unwrap_or_default()
+}
+
 // =============================================================================
 // Test 1: Standard FRA Valuation
 // =============================================================================
@@ -108,7 +113,7 @@ fn quantlib_parity_fra_at_market_valuation() {
         fixing_date: Some(fixing),
         start_date: start,
         maturity: end,
-        fixed_rate: strike,
+        fixed_rate: dec(strike),
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -153,7 +158,7 @@ fn quantlib_parity_fra_off_market_valuation() {
         fixing_date: Some(fixing),
         start_date: start,
         maturity: end,
-        fixed_rate: strike,
+        fixed_rate: dec(strike),
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -214,7 +219,7 @@ fn quantlib_parity_fra_implied_rate() {
         fixing_date: Some(fixing),
         start_date: start,
         maturity: end,
-        fixed_rate: 0.05, // Will be overridden by par rate calculation
+        fixed_rate: dec(0.05), // Will be overridden by par rate calculation
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -271,7 +276,7 @@ fn quantlib_parity_fra_settlement_adjustment() {
         fixing_date: Some(fixing),
         start_date: start,
         maturity: end,
-        fixed_rate: strike,
+        fixed_rate: dec(strike),
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -344,7 +349,7 @@ fn quantlib_parity_fra_buy_sell_symmetry() {
         fixing_date: Some(fixing),
         start_date: start,
         maturity: end,
-        fixed_rate: strike,
+        fixed_rate: dec(strike),
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -364,7 +369,7 @@ fn quantlib_parity_fra_buy_sell_symmetry() {
         fixing_date: Some(fixing),
         start_date: start,
         maturity: end,
-        fixed_rate: strike,
+        fixed_rate: dec(strike),
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -412,7 +417,7 @@ fn quantlib_parity_fra_standard_tenor_3x6() {
         fixing_date: Some(start),
         start_date: start,
         maturity: end,
-        fixed_rate: 0.05,
+        fixed_rate: dec(0.05),
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -447,7 +452,7 @@ fn quantlib_parity_fra_standard_tenor_6x9() {
         fixing_date: Some(start),
         start_date: start,
         maturity: end,
-        fixed_rate: 0.05,
+        fixed_rate: dec(0.05),
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -481,7 +486,7 @@ fn quantlib_parity_fra_standard_tenor_6x12() {
         fixing_date: Some(start),
         start_date: start,
         maturity: end,
-        fixed_rate: 0.05,
+        fixed_rate: dec(0.05),
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -522,7 +527,7 @@ fn quantlib_parity_fra_dv01_sign_convention() {
         fixing_date: Some(start),
         start_date: start,
         maturity: end,
-        fixed_rate: 0.05,
+        fixed_rate: dec(0.05),
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -541,7 +546,7 @@ fn quantlib_parity_fra_dv01_sign_convention() {
         fixing_date: Some(start),
         start_date: start,
         maturity: end,
-        fixed_rate: 0.05,
+        fixed_rate: dec(0.05),
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -601,7 +606,7 @@ fn quantlib_parity_fra_day_count_act360_vs_act365() {
         fixing_date: Some(start),
         start_date: start,
         maturity: end,
-        fixed_rate: 0.06, // Off-market for visible difference
+        fixed_rate: dec(0.06), // Off-market for visible difference
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -620,7 +625,7 @@ fn quantlib_parity_fra_day_count_act360_vs_act365() {
         fixing_date: Some(start),
         start_date: start,
         maturity: end,
-        fixed_rate: 0.06,
+        fixed_rate: dec(0.06),
         day_count: DayCount::Act365F,
         reset_lag: 2,
         fixing_calendar_id: None,

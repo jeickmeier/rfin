@@ -34,6 +34,7 @@ use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
 use finstack_valuations::market::BuildCtx;
+use rust_decimal::Decimal;
 use time::Month;
 
 use crate::common::fixtures;
@@ -400,7 +401,7 @@ fn forward_curve_fra_repricing() {
             .fixing_date(fixing_date)
             .start_date(start)
             .maturity(end)
-            .fixed_rate(rate)
+            .fixed_rate(Decimal::try_from(rate).expect("valid decimal"))
             .day_count(day_count)
             .reset_lag(2)
             .discount_curve_id("USD-OIS".into())
@@ -666,15 +667,15 @@ fn inflation_curve_swap_repricing() {
             .notional(Money::new(fixtures::STANDARD_NOTIONAL, currency))
             .start_date(base_date)
             .maturity(maturity)
-            .fixed_rate(rate)
+            .fixed_rate(Decimal::try_from(rate).expect("valid decimal"))
             .inflation_index_id("USD-CPI".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(conventions.day_count)
             .side(PayReceive::PayFixed)
             .lag_override_opt(Some(lag))
             .base_cpi_opt(Some(base_cpi))
-            .bdc_opt(Some(conventions.business_day_convention))
-            .calendar_id_opt(Some(conventions.calendar_id.clone()))
+            .bdc(conventions.business_day_convention)
+            .calendar_id_opt(Some(conventions.calendar_id.clone().into()))
             .build()
             .expect("inflation swap build");
 

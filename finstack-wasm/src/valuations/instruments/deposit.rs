@@ -94,7 +94,10 @@ impl JsDepositBuilder {
             .maturity(maturity)
             .day_count(day_count)
             .discount_curve_id(curve_id_from_str(discount_curve))
-            .quote_rate_opt(self.quote_rate)
+            .quote_rate_opt(
+                self.quote_rate
+                    .map(|rate| rust_decimal::Decimal::try_from(rate).unwrap_or_default()),
+            )
             .build()
             .map(JsDeposit::from_inner)
             .map_err(|e| js_error(e.to_string()))
@@ -170,7 +173,9 @@ impl JsDeposit {
             .maturity(maturity.inner())
             .day_count(day_count.inner())
             .discount_curve_id(curve_id_from_str(discount_curve))
-            .quote_rate_opt(quote_rate)
+            .quote_rate_opt(
+                quote_rate.map(|rate| rust_decimal::Decimal::try_from(rate).unwrap_or_default()),
+            )
             .build()
             .map(JsDeposit::from_inner)
             .map_err(|e| js_error(e.to_string()))
@@ -254,7 +259,10 @@ impl JsDeposit {
 
     #[wasm_bindgen(getter, js_name = quoteRate)]
     pub fn quote_rate(&self) -> Option<f64> {
-        self.inner.quote_rate
+        self.inner
+            .quote_rate
+            .as_ref()
+            .and_then(rust_decimal::prelude::ToPrimitive::to_f64)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]

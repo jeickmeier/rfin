@@ -245,7 +245,7 @@ impl JsInflationCapFloorBuilder {
             .id(instrument_id_from_str(&self.instrument_id))
             .option_type(option_type)
             .notional(notional)
-            .strike_rate(strike_rate)
+            .strike_rate(rust_decimal::Decimal::try_from(strike_rate).unwrap_or_default())
             .start_date(start_date)
             .maturity(end_date)
             .frequency(freq)
@@ -300,7 +300,7 @@ impl JsInflationCapFloor {
             .id(instrument_id_from_str(instrument_id))
             .option_type(option_type.inner())
             .notional(notional.inner())
-            .strike_rate(strike_rate)
+            .strike_rate(rust_decimal::Decimal::try_from(strike_rate).unwrap_or_default())
             .start_date(start_date.inner())
             .maturity(end_date.inner())
             .frequency(freq)
@@ -337,7 +337,7 @@ impl JsInflationCapFloor {
     /// Get the strike rate.
     #[wasm_bindgen(getter, js_name = strikeRate)]
     pub fn strike_rate(&self) -> f64 {
-        self.inner.strike_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike_rate).unwrap_or_default()
     }
 
     /// Get the start date.

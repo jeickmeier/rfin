@@ -16,6 +16,7 @@ use finstack_valuations::instruments::rates::inflation_cap_floor::{
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::pricer::ModelKey;
+use rust_decimal::Decimal;
 use time::{Duration, Month};
 
 #[test]
@@ -46,7 +47,7 @@ fn test_caplet_intrinsic_after_fixing() {
         .id("INF-CAPLET".into())
         .option_type(InflationCapFloorType::Caplet)
         .notional(notional)
-        .strike_rate(0.02)
+        .strike_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .start_date(start)
         .maturity(end)
         .frequency(Tenor::new(3, TenorUnit::Months))
@@ -106,7 +107,7 @@ fn test_floor_value_with_negative_forward_normal_model() {
         .id("INF-FLOOR".into())
         .option_type(InflationCapFloorType::Floorlet)
         .notional(notional)
-        .strike_rate(0.0)
+        .strike_rate(Decimal::try_from(0.0).expect("valid decimal"))
         .start_date(start)
         .maturity(end)
         .frequency(Tenor::new(1, TenorUnit::Years))
@@ -127,7 +128,7 @@ fn test_floor_value_with_negative_forward_normal_model() {
         .id("INF-CAP".into())
         .option_type(InflationCapFloorType::Caplet)
         .notional(notional)
-        .strike_rate(0.0)
+        .strike_rate(Decimal::try_from(0.0).expect("valid decimal"))
         .start_date(start)
         .maturity(end)
         .frequency(Tenor::new(1, TenorUnit::Years))

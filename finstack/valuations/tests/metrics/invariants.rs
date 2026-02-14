@@ -235,7 +235,7 @@ mod mc_invariants {
         let option = AsianOption {
             id: "MC_SEED_DETERMINISM".into(),
             underlying_ticker: "SPOT".to_string(),
-            spot_id: "SPOT".to_string(),
+            spot_id: "SPOT".into(),
             strike: 100.0,
             option_type: OptionType::Call,
             expiry,
@@ -283,7 +283,7 @@ mod mc_invariants {
         let option = AsianOption {
             id: "MC_VARIOUS_MARKETS".into(),
             underlying_ticker: "SPOT".to_string(),
-            spot_id: "SPOT".to_string(),
+            spot_id: "SPOT".into(),
             strike: 100.0,
             option_type: OptionType::Call,
             expiry,

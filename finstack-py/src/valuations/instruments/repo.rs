@@ -364,7 +364,7 @@ impl PyRepoBuilder {
             .id(slf.instrument_id.clone())
             .cash_amount(cash)
             .collateral(collateral)
-            .repo_rate(repo_rate)
+            .repo_rate(rust_decimal::Decimal::try_from(repo_rate).unwrap_or_default())
             .start_date(start)
             .maturity(maturity)
             .haircut(slf.haircut)
@@ -372,7 +372,7 @@ impl PyRepoBuilder {
             .triparty(slf.triparty)
             .day_count(slf.day_count)
             .bdc(slf.business_day_convention)
-            .calendar_id_opt(to_optional_string(slf.calendar.as_deref()))
+            .calendar_id_opt(to_optional_string(slf.calendar.as_deref()).map(Into::into))
             .discount_curve_id(discount)
             .build()
             .map(PyRepo::new)
@@ -407,7 +407,7 @@ impl PyRepo {
 
     #[getter]
     fn repo_rate(&self) -> f64 {
-        self.inner.repo_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.repo_rate).unwrap_or_default()
     }
 
     #[getter]

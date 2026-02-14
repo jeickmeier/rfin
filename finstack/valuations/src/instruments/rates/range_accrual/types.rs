@@ -6,7 +6,7 @@ use crate::instruments::common_impl::validation;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId, Rate};
+use finstack_core::types::{CurveId, InstrumentId, PriceId, Rate};
 
 /// Specifies how the range bounds are interpreted.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -65,7 +65,7 @@ pub struct RangeAccrual {
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
     /// Spot price identifier
-    pub spot_id: String,
+    pub spot_id: PriceId,
     /// Volatility surface ID
     pub vol_surface_id: CurveId,
     /// Optional dividend yield curve ID
@@ -79,7 +79,7 @@ pub struct RangeAccrual {
     /// Optional FX volatility surface ID (required for Quanto)
     pub fx_vol_surface_id: Option<CurveId>,
     /// Optional FX spot price identifier (required for proper Quanto vol lookup)
-    pub fx_spot_id: Option<String>,
+    pub fx_spot_id: Option<PriceId>,
     /// Optional payment date (defaults to last observation date)
     pub payment_date: Option<Date>,
     /// Number of past observations that were in range (for mid-life valuations).
@@ -125,7 +125,7 @@ impl RangeAccrual {
             .notional(Money::new(100_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .spot_id("SPX-SPOT".to_string())
+            .spot_id("SPX-SPOT".into())
             .vol_surface_id(CurveId::new("SPX-VOL"))
             .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
             .pricing_overrides(PricingOverrides::default())
@@ -162,7 +162,7 @@ impl RangeAccrual {
             .notional(Money::new(1_000_000.0, Currency::USD))
             .day_count(DayCount::Act360)
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .spot_id("SOFR-RATE".to_string())
+            .spot_id("SOFR-RATE".into())
             .vol_surface_id(CurveId::new("SOFR-VOL"))
             .div_yield_id_opt(None)
             .pricing_overrides(PricingOverrides::default())

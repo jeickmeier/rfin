@@ -129,7 +129,7 @@ mod tests {
         let option = AsianOption {
             id: "MC_DETERMINISM_LIGHTWEIGHT".into(),
             underlying_ticker: "SPOT".to_string(),
-            spot_id: "SPOT".to_string(),
+            spot_id: "SPOT".into(),
             strike: 100.0,
             option_type: OptionType::Call,
             expiry,
@@ -159,7 +159,7 @@ mod tests {
         let option = AsianOption {
             id: "ASIAN_DELTA_TEST".into(),
             underlying_ticker: "SPOT".to_string(),
-            spot_id: "SPOT".to_string(),
+            spot_id: "SPOT".into(),
             strike: 100.0,
             option_type: OptionType::Call,
             expiry,
@@ -193,7 +193,7 @@ mod tests {
         let option = AsianOption {
             id: "ASIAN_VEGA_TEST".into(),
             underlying_ticker: "SPOT".to_string(),
-            spot_id: "SPOT".to_string(),
+            spot_id: "SPOT".into(),
             strike: 100.0,
             option_type: OptionType::Call,
             expiry,
@@ -227,7 +227,7 @@ mod tests {
         let option = AsianOption {
             id: "ASIAN_ALL_GREEKS".into(),
             underlying_ticker: "SPOT".to_string(),
-            spot_id: "SPOT".to_string(),
+            spot_id: "SPOT".into(),
             strike: 100.0,
             option_type: OptionType::Call,
             expiry,
@@ -267,7 +267,7 @@ mod tests {
         let option = BarrierOption {
             id: "BARRIER_TEST".into(),
             underlying_ticker: "SPOT".to_string(),
-            spot_id: "SPOT".to_string(),
+            spot_id: "SPOT".into(),
             strike: 100.0,
             barrier: Money::new(120.0, Currency::USD),
             barrier_type: BarrierType::UpAndOut,
@@ -298,7 +298,7 @@ mod tests {
         let option = LookbackOption {
             id: "LOOKBACK_TEST".into(),
             underlying_ticker: "SPOT".to_string(),
-            spot_id: "SPOT".to_string(),
+            spot_id: "SPOT".into(),
             strike: Some(100.0),
             lookback_type: LookbackType::FixedStrike,
             option_type: OptionType::Call,
@@ -346,7 +346,7 @@ mod tests {
             notional: Money::new(1.0, Currency::USD),
             day_count: DayCount::Act365F,
             discount_curve_id: "USD-OIS".into(),
-            spot_id: "SPOT".to_string(),
+            spot_id: "SPOT".into(),
             vol_surface_id: "SPOT_VOL".into(),
             div_yield_id: None,
             pricing_overrides: Default::default(),
@@ -372,7 +372,7 @@ mod tests {
         let option = AsianOption {
             id: "CRN_SMOOTHNESS_TEST".into(),
             underlying_ticker: "SPOT".to_string(),
-            spot_id: "SPOT".to_string(),
+            spot_id: "SPOT".into(),
             strike: 100.0,
             option_type: OptionType::Call,
             expiry,

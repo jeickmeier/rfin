@@ -6,6 +6,7 @@ use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::repo::{Repo, RepoBuilder, RepoType};
 use finstack_valuations::instruments::Attributes;
+use rust_decimal::Decimal;
 
 #[test]
 fn test_overnight_repo_factory() {
@@ -28,7 +29,10 @@ fn test_overnight_repo_factory() {
     assert_eq!(repo.start_date, start_date);
     assert!(repo.maturity > start_date, "Maturity must be after start");
     assert_eq!(repo.cash_amount.amount(), 1_000_000.0);
-    assert_eq!(repo.repo_rate, 0.05);
+    assert_eq!(
+        repo.repo_rate,
+        Decimal::try_from(0.05).expect("valid decimal")
+    );
     assert_eq!(repo.day_count, DayCount::Act360);
 }
 
@@ -54,7 +58,10 @@ fn test_term_repo_factory() {
     assert_eq!(repo.start_date, start_date);
     assert_eq!(repo.maturity, maturity);
     assert_eq!(repo.cash_amount.amount(), 2_000_000.0);
-    assert_eq!(repo.repo_rate, 0.045);
+    assert_eq!(
+        repo.repo_rate,
+        Decimal::try_from(0.045).expect("valid decimal")
+    );
 }
 
 #[test]
@@ -87,14 +94,14 @@ fn test_builder_with_all_fields() {
         .id("REPO_FULL".into())
         .cash_amount(Money::new(5_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.055)
+        .repo_rate(Decimal::try_from(0.055).expect("valid decimal"))
         .start_date(date(2025, 1, 10))
         .maturity(date(2025, 7, 10))
         .repo_type(RepoType::Term)
         .haircut(0.025)
         .day_count(DayCount::Act365F)
         .bdc(BusinessDayConvention::ModifiedFollowing)
-        .calendar_id_opt(Some("nyc".to_string()))
+        .calendar_id_opt(Some("nyc".into()))
         .triparty(true)
         .discount_curve_id("USD-OIS".into())
         .attributes(
@@ -109,7 +116,10 @@ fn test_builder_with_all_fields() {
 
     assert_eq!(repo.id.as_str(), "REPO_FULL");
     assert_eq!(repo.cash_amount.amount(), 5_000_000.0);
-    assert_eq!(repo.repo_rate, 0.055);
+    assert_eq!(
+        repo.repo_rate,
+        Decimal::try_from(0.055).expect("valid decimal")
+    );
     assert_eq!(repo.haircut, 0.025);
     assert_eq!(repo.day_count, DayCount::Act365F);
     assert_eq!(repo.bdc, BusinessDayConvention::ModifiedFollowing);
@@ -127,7 +137,7 @@ fn test_builder_minimal_fields() {
         .id("MINIMAL".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .haircut(0.02)
@@ -135,7 +145,7 @@ fn test_builder_minimal_fields() {
         .triparty(false)
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(Some("target2".to_string()))
+        .calendar_id_opt(Some("target2".into()))
         .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
@@ -166,7 +176,7 @@ fn test_validation_maturity_before_start() {
         .id("INVALID_DATES".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 4, 15))
         .maturity(date(2025, 1, 15)) // Maturity before start
         .discount_curve_id("USD-OIS".into())
@@ -184,7 +194,7 @@ fn test_validation_same_day_maturity() {
         .id("SAME_DAY".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(same_date)
         .maturity(same_date)
         .discount_curve_id("USD-OIS".into())
@@ -201,7 +211,7 @@ fn test_validation_negative_rate() {
         .id("NEGATIVE_RATE".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(-0.01)
+        .repo_rate(Decimal::try_from(-0.01).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .discount_curve_id("USD-OIS".into())
@@ -218,7 +228,7 @@ fn test_validation_negative_haircut() {
         .id("NEGATIVE_HAIRCUT".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .haircut(-0.05)
@@ -236,7 +246,7 @@ fn test_validation_zero_or_negative_cash() {
         .id("ZERO_CASH".into())
         .cash_amount(Money::new(0.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .discount_curve_id("USD-OIS".into())
@@ -302,7 +312,7 @@ fn test_attributes_tagging() {
         .id("TAGGED".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .haircut(0.02)
@@ -310,7 +320,7 @@ fn test_attributes_tagging() {
         .triparty(false)
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(Some("target2".to_string()))
+        .calendar_id_opt(Some("target2".into()))
         .discount_curve_id("USD-OIS".into())
         .attributes(
             Attributes::new()

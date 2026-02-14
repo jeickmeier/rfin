@@ -16,6 +16,7 @@ use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, Rat
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
@@ -64,7 +65,7 @@ fn test_quantlib_parity_atm_cap() {
         id: "ATM_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -115,7 +116,7 @@ fn test_quantlib_parity_cap_floor_parity() {
         id: "CAP_PARITY".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: strike,
+        strike_rate: Decimal::try_from(strike).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -138,7 +139,7 @@ fn test_quantlib_parity_cap_floor_parity() {
         id: "FLOOR_PARITY".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: strike,
+        strike_rate: Decimal::try_from(strike).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -194,7 +195,7 @@ fn test_quantlib_parity_vol_sensitivity() {
         id: "CAP_VEGA".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -262,7 +263,7 @@ fn test_quantlib_parity_caplet_pricing() {
         id: "CAPLET".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -312,7 +313,7 @@ fn test_quantlib_parity_moneyness() {
         id: "ITM_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.03, // ITM (forward = 5%)
+        strike_rate: Decimal::try_from(0.03).expect("valid decimal"), // ITM (forward = 5%)
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -335,7 +336,7 @@ fn test_quantlib_parity_moneyness() {
         id: "ATM_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -358,7 +359,7 @@ fn test_quantlib_parity_moneyness() {
         id: "OTM_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.07, // OTM (forward = 5%)
+        strike_rate: Decimal::try_from(0.07).expect("valid decimal"), // OTM (forward = 5%)
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -416,7 +417,7 @@ fn test_quantlib_parity_delta_sign() {
         id: "CAP_DELTA".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -439,7 +440,7 @@ fn test_quantlib_parity_delta_sign() {
         id: "FLOOR_DELTA".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -503,7 +504,7 @@ fn test_quantlib_parity_gamma_positive() {
         id: "CAP_GAMMA".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -526,7 +527,7 @@ fn test_quantlib_parity_gamma_positive() {
         id: "FLOOR_GAMMA".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -587,7 +588,7 @@ fn test_quantlib_parity_time_to_maturity() {
         id: "SHORT_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: date!(2025 - 01 - 01), // 1Y
         frequency: Tenor::quarterly(),
@@ -610,7 +611,7 @@ fn test_quantlib_parity_time_to_maturity() {
         id: "LONG_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: date!(2034 - 01 - 01), // 10Y
         frequency: Tenor::quarterly(),
@@ -661,7 +662,7 @@ fn test_quantlib_parity_zero_vol_itm() {
         id: "CAP_ZERO_VOL".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.03, // Deep ITM (forward = 5%)
+        strike_rate: Decimal::try_from(0.03).expect("valid decimal"), // Deep ITM (forward = 5%)
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -712,7 +713,7 @@ fn test_quantlib_parity_frequency_impact() {
         id: "QUARTERLY_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -735,7 +736,7 @@ fn test_quantlib_parity_frequency_impact() {
         id: "ANNUAL_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::annual(),

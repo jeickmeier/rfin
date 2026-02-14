@@ -22,6 +22,7 @@ use finstack_valuations::instruments::rates::swaption::Swaption;
 use finstack_valuations::instruments::rates::swaption::SwaptionParams;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use std::hint::black_box;
 use time::Month;
 
@@ -33,7 +34,7 @@ fn create_swaption(expiry_months: i64, swap_tenor_years: i32) -> Swaption {
 
     let params = SwaptionParams {
         notional: Money::new(10_000_000.0, Currency::USD),
-        strike_rate: 0.04, // 4% strike
+        strike_rate: Decimal::try_from(0.04).unwrap_or_default(), // 4% strike
         expiry,
         swap_start,
         swap_end,

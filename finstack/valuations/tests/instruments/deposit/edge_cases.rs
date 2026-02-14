@@ -9,6 +9,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::Deposit;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 
 #[test]
 fn test_zero_period_deposit() {
@@ -20,7 +21,7 @@ fn test_zero_period_deposit() {
         .start_date(base)
         .maturity(base)
         .day_count(DayCount::Act360)
-        .quote_rate_opt(Some(0.05))
+        .quote_rate_opt(Some(Decimal::try_from(0.05).expect("valid decimal")))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .build();
 
@@ -394,11 +395,11 @@ fn test_bdc_adjustment_causes_effective_date_crossover() {
         .start_date(date(2025, 1, 3)) // Friday - trade date
         .maturity(date(2025, 1, 6)) // Monday - just 1 business day after Friday
         .day_count(DayCount::Act360)
-        .quote_rate_opt(Some(0.03))
+        .quote_rate_opt(Some(Decimal::try_from(0.03).expect("valid decimal")))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .spot_lag_days_opt(Some(2)) // T+2: Friday + 2 biz days = Tuesday Jan 7
-        .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
-        .calendar_id_opt(Some("nyse".to_string()))
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(Some("nyse".into()))
         .build()
         .unwrap();
 

@@ -152,11 +152,13 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 .start_date(start)
                 .maturity(end)
                 .day_count(conv.day_count)
-                .quote_rate_opt(Some(*rate))
+                .quote_rate_opt(Some(
+                    Decimal::try_from(*rate).map_err(|_| InputError::ConversionOverflow)?,
+                ))
                 .discount_curve_id(CurveId::new(discount_id))
                 // Optional fields
-                .bdc_opt(Some(conv.market_business_day_convention))
-                .calendar_id_opt(Some(conv.market_calendar_id.clone()))
+                .bdc(conv.market_business_day_convention)
+                .calendar_id_opt(Some(conv.market_calendar_id.clone().into()))
                 .attributes(Default::default())
                 .build()?;
 
@@ -212,13 +214,13 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 .fixing_date(fixing_date)
                 .start_date(start_date)
                 .maturity(end_date)
-                .fixed_rate(*rate)
+                .fixed_rate(Decimal::try_from(*rate).map_err(|_| InputError::ConversionOverflow)?)
                 .day_count(conv.day_count)
                 .reset_lag(reset_lag)
                 .discount_curve_id(CurveId::new(discount_id))
                 .forward_curve_id(CurveId::new(forward_id))
                 .side(crate::instruments::common_impl::parameters::legs::PayReceive::ReceiveFixed)
-                .fixing_calendar_id_opt(Some(conv.market_calendar_id.clone()))
+                .fixing_calendar_id_opt(Some(conv.market_calendar_id.clone().into()))
                 .fixing_bdc_opt(Some(conv.market_business_day_convention))
                 .attributes(Default::default())
                 .build()?;

@@ -11,6 +11,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::cms_option::CmsOption;
 use finstack_valuations::instruments::{Instrument, OptionType, PricingOverrides};
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::Month;
 
 fn standard_market(as_of: Date) -> MarketContext {
@@ -134,7 +135,7 @@ fn create_long_tenor_cms_option(_as_of: Date) -> CmsOption {
 
     CmsOption {
         id: InstrumentId::new("CMS-20Y-CAP"),
-        strike_rate: 0.025,
+        strike_rate: Decimal::try_from(0.025).expect("valid decimal"),
         cms_tenor: 20.0, // 20Y CMS
         fixing_dates,
         payment_dates,
@@ -355,13 +356,13 @@ fn test_vanna_changes_with_moneyness() {
 
     // Deep ITM cap (low strike, ~1%)
     let itm_cap = CmsOption {
-        strike_rate: 0.01, // 1% strike when forward is ~3.5%
+        strike_rate: Decimal::try_from(0.01).expect("valid decimal"), // 1% strike when forward is ~3.5%
         ..base.clone()
     };
 
     // Deep OTM cap (high strike, ~6%)
     let otm_cap = CmsOption {
-        strike_rate: 0.06, // 6% strike when forward is ~3.5%
+        strike_rate: Decimal::try_from(0.06).expect("valid decimal"), // 6% strike when forward is ~3.5%
         ..base.clone()
     };
 
@@ -459,7 +460,7 @@ fn test_cms_option_requires_vol_surface_in_market() {
 
     let inst = CmsOption {
         id: InstrumentId::new("CMS-NO-VOL"),
-        strike_rate: 0.025,
+        strike_rate: Decimal::try_from(0.025).expect("valid decimal"),
         cms_tenor: 10.0,
         fixing_dates,
         payment_dates,

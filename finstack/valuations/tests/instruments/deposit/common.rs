@@ -12,6 +12,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 pub use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
+use rust_decimal::Decimal;
 use std::sync::Arc;
 
 /// Tolerance for floating point comparisons in financial calculations.
@@ -91,7 +92,7 @@ pub fn standard_deposit(base: Date) -> Deposit {
             base.day(),
         ))
         .day_count(DayCount::Act360)
-        .quote_rate_opt(Some(0.0))
+        .quote_rate_opt(Some(Decimal::try_from(0.0).expect("valid decimal")))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .build()
         .unwrap()
@@ -104,7 +105,7 @@ pub struct DepositBuilder {
     start_date: Date,
     maturity: Date,
     day_count: DayCount,
-    quote_rate: Option<f64>,
+    quote_rate: Option<Decimal>,
     discount_curve_id: String,
 }
 
@@ -116,7 +117,7 @@ impl DepositBuilder {
             start_date: base,
             maturity: date(base.year(), (base.month() as u8 + 6).min(12), base.day()),
             day_count: DayCount::Act360,
-            quote_rate: Some(0.0),
+            quote_rate: Some(Decimal::try_from(0.0).expect("valid decimal")),
             discount_curve_id: "USD-OIS".to_string(),
         }
     }
@@ -147,7 +148,7 @@ impl DepositBuilder {
     }
 
     pub fn quote_rate(mut self, rate: f64) -> Self {
-        self.quote_rate = Some(rate);
+        self.quote_rate = Some(Decimal::try_from(rate).expect("valid decimal"));
         self
     }
 

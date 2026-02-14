@@ -11,8 +11,10 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, CalendarRegistry, Date, ScheduleBuilder, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CalendarId, CurveId, InstrumentId};
 use finstack_core::Result;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 /// Commodity swap (fixed-for-floating commodity price exchange).
 ///
@@ -44,7 +46,7 @@ use finstack_core::Result;
 ///     .unit("MMBTU".to_string())
 ///     .currency(Currency::USD)
 ///     .quantity(10000.0)
-///     .fixed_price(3.50)
+///     .fixed_price(rust_decimal::Decimal::try_from(3.50).expect("valid decimal"))
 ///     .floating_index_id(CurveId::new("NG-SPOT-AVG"))
 ///     .side(PayReceive::PayFixed)
 ///     .start_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
@@ -69,7 +71,7 @@ pub struct CommoditySwap {
     /// Notional quantity per period.
     pub quantity: f64,
     /// Fixed price per unit.
-    pub fixed_price: f64,
+    pub fixed_price: Decimal,
     /// Floating index ID for price lookups.
     pub floating_index_id: CurveId,
     /// Direction of the swap: PayFixed means paying the fixed price leg,
@@ -86,11 +88,11 @@ pub struct CommoditySwap {
     /// Optional calendar ID for date adjustments.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub calendar_id: Option<String>,
+    pub calendar_id: Option<CalendarId>,
     /// Business day convention for date adjustments.
-    #[builder(optional)]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bdc: Option<BusinessDayConvention>,
+    #[builder(default = BusinessDayConvention::ModifiedFollowing)]
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
+    pub bdc: BusinessDayConvention,
     /// Discount curve ID.
     pub discount_curve_id: CurveId,
     /// Optional index lag in days (for averaging period).
@@ -122,7 +124,7 @@ impl<'de> serde::Deserialize<'de> for CommoditySwap {
             unit: String,
             currency: Currency,
             quantity: f64,
-            fixed_price: f64,
+            fixed_price: Decimal,
             floating_index_id: CurveId,
             /// New-style direction field (preferred).
             #[serde(default)]
@@ -137,9 +139,9 @@ impl<'de> serde::Deserialize<'de> for CommoditySwap {
             #[serde(alias = "payment_frequency")]
             frequency: Tenor,
             #[serde(default)]
-            calendar_id: Option<String>,
-            #[serde(default)]
-            bdc: Option<BusinessDayConvention>,
+            calendar_id: Option<CalendarId>,
+            #[serde(default = "crate::serde_defaults::bdc_modified_following")]
+            bdc: BusinessDayConvention,
             discount_curve_id: CurveId,
             #[serde(default)]
             index_lag_days: Option<i32>,
@@ -197,7 +199,7 @@ impl CommoditySwap {
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
             .quantity(10000.0)
-            .fixed_price(3.50)
+            .fixed_price(Decimal::try_from(3.50).expect("valid decimal"))
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
             .start_date(
@@ -209,7 +211,7 @@ impl CommoditySwap {
                     .expect("Valid example date"),
             )
             .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
-            .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
+            .bdc(BusinessDayConvention::ModifiedFollowing)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(
                 Attributes::new()
@@ -224,6 +226,10 @@ impl CommoditySwap {
     pub fn fixed_leg_pv(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
         let disc = market.get_discount(self.discount_curve_id.as_str())?;
         let schedule = self.payment_schedule(as_of)?;
+        let fixed_price = self
+            .fixed_price
+            .to_f64()
+            .ok_or(finstack_core::InputError::ConversionOverflow)?;
 
         let mut pv = 0.0;
         for payment_date in schedule {
@@ -231,7 +237,7 @@ impl CommoditySwap {
                 continue; // Skip past payments
             }
             let df = disc.df_between_dates(as_of, payment_date)?;
-            let period_value = self.quantity * self.fixed_price;
+            let period_value = self.quantity * fixed_price;
             pv += period_value * df;
         }
 
@@ -370,7 +376,7 @@ impl CommoditySwap {
     /// Generate the payment schedule for this swap.
     pub fn payment_schedule(&self, _as_of: Date) -> Result<Vec<Date>> {
         // Market standard: Modified Following for commodity swaps (matches QuantLib/Bloomberg)
-        let bdc = self.bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing);
+        let bdc = self.bdc;
 
         let mut builder =
             ScheduleBuilder::new(self.start_date, self.maturity)?.frequency(self.frequency);
@@ -403,6 +409,10 @@ impl CommoditySwap {
 
         let mut flows = Vec::new();
         let mut prev_period_end = self.start_date;
+        let fixed_price = self
+            .fixed_price
+            .to_f64()
+            .ok_or(finstack_core::InputError::ConversionOverflow)?;
 
         for payment_date in schedule {
             if payment_date < as_of {
@@ -417,8 +427,8 @@ impl CommoditySwap {
                 self.expected_period_price(&price_curve, as_of, period_start, period_end)?;
 
             let net_cashflow = match self.side {
-                PayReceive::PayFixed => self.quantity * (forward_price - self.fixed_price),
-                PayReceive::ReceiveFixed => self.quantity * (self.fixed_price - forward_price),
+                PayReceive::PayFixed => self.quantity * (forward_price - fixed_price),
+                PayReceive::ReceiveFixed => self.quantity * (fixed_price - forward_price),
             };
 
             flows.push((payment_date, Money::new(net_cashflow, self.currency)));
@@ -526,7 +536,7 @@ mod tests {
             .unit("BBL".to_string())
             .currency(Currency::USD)
             .quantity(1000.0)
-            .fixed_price(70.0)
+            .fixed_price(rust_decimal::Decimal::try_from(70.0).expect("valid decimal"))
             .floating_index_id(CurveId::new("CL-AVG"))
             .side(PayReceive::PayFixed)
             .start_date(Date::from_calendar_date(2025, Month::January, 1).expect("valid date"))
@@ -540,7 +550,7 @@ mod tests {
         assert_eq!(swap.id.as_str(), "TEST-SWAP");
         assert_eq!(swap.ticker, "CL");
         assert_eq!(swap.quantity, 1000.0);
-        assert_eq!(swap.fixed_price, 70.0);
+        assert_eq!(swap.fixed_price.to_f64().expect("decimal to f64"), 70.0);
         assert_eq!(swap.side, PayReceive::PayFixed);
     }
 
@@ -566,7 +576,7 @@ mod tests {
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
             .quantity(10000.0)
-            .fixed_price(3.50) // Same as spot
+            .fixed_price(rust_decimal::Decimal::try_from(3.50).expect("valid decimal")) // Same as spot
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
             .start_date(as_of)
@@ -599,7 +609,7 @@ mod tests {
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
             .quantity(10000.0)
-            .fixed_price(3.55)
+            .fixed_price(rust_decimal::Decimal::try_from(3.55).expect("valid decimal"))
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
             .start_date(as_of)
@@ -616,7 +626,7 @@ mod tests {
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
             .quantity(10000.0)
-            .fixed_price(3.55)
+            .fixed_price(rust_decimal::Decimal::try_from(3.55).expect("valid decimal"))
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::ReceiveFixed) // Receiving fixed
             .start_date(as_of)
@@ -650,7 +660,7 @@ mod tests {
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
             .quantity(10000.0)
-            .fixed_price(3.50)
+            .fixed_price(rust_decimal::Decimal::try_from(3.50).expect("valid decimal"))
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
             .start_date(as_of)

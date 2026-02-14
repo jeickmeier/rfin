@@ -108,7 +108,7 @@ impl JsAgencyMbsPassthrough {
 
         let mbs = AgencyMbsPassthrough::builder()
             .id(InstrumentId::new(instrument_id))
-            .pool_id(pool_id.to_string())
+            .pool_id(pool_id.to_string().into())
             .agency(agency_enum)
             .pool_type(PoolType::Generic)
             .original_face(Money::new(original_face, ccy))
@@ -138,7 +138,7 @@ impl JsAgencyMbsPassthrough {
 
     #[wasm_bindgen(getter, js_name = poolId)]
     pub fn pool_id(&self) -> String {
-        self.inner.pool_id.clone()
+        self.inner.pool_id.to_string()
     }
 
     #[wasm_bindgen(getter)]
@@ -774,7 +774,7 @@ impl JsAgencyCmo {
 
         let mut builder = AgencyCmo::builder()
             .id(InstrumentId::new(instrument_id))
-            .deal_name(deal_name.to_string())
+            .deal_name(deal_name.to_string().into())
             .agency(agency_enum)
             .issue_date(issue_date.inner())
             .waterfall(waterfall.inner.clone())
@@ -803,7 +803,7 @@ impl JsAgencyCmo {
 
     #[wasm_bindgen(getter, js_name = dealName)]
     pub fn deal_name(&self) -> String {
-        self.inner.deal_name.clone()
+        self.inner.deal_name.to_string()
     }
 
     #[wasm_bindgen(getter)]

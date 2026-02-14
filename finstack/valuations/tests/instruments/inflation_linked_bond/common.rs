@@ -12,6 +12,7 @@ use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     DeflationProtection, IndexationMethod, InflationLinkedBond,
 };
 use finstack_valuations::instruments::Attributes;
+use rust_decimal::Decimal;
 use time::Month;
 
 /// Shorthand for date creation
@@ -24,7 +25,7 @@ pub fn sample_tips() -> InflationLinkedBond {
     let mut bond = InflationLinkedBond::builder()
         .id(InstrumentId::new("TIPS-TEST"))
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .real_coupon(0.0125) // 1.25% real coupon
+        .real_coupon(Decimal::try_from(0.0125).expect("valid decimal")) // 1.25% real coupon
         .frequency(Tenor::semi_annual())
         .day_count(DayCount::ActAct)
         .issue_date(d(2020, 1, 15))
@@ -51,7 +52,7 @@ pub fn sample_uk_linker() -> InflationLinkedBond {
     let mut bond = InflationLinkedBond::builder()
         .id(InstrumentId::new("UK-GILT-TEST"))
         .notional(Money::new(1_000_000.0, Currency::GBP))
-        .real_coupon(0.00625) // 0.625% real coupon
+        .real_coupon(Decimal::try_from(0.00625).expect("valid decimal")) // 0.625% real coupon
         .frequency(Tenor::semi_annual())
         .day_count(DayCount::ActAct)
         .issue_date(d(2020, 3, 22))

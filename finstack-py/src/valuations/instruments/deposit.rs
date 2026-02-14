@@ -219,7 +219,10 @@ impl PyDepositBuilder {
             .maturity(maturity)
             .day_count(slf.day_count)
             .discount_curve_id(discount)
-            .quote_rate_opt(slf.quote_rate)
+            .quote_rate_opt(
+                slf.quote_rate
+                    .map(|rate| rust_decimal::Decimal::try_from(rate).unwrap_or_default()),
+            )
             .build()
             .map(PyDeposit::new)
             .map_err(core_to_py)
@@ -292,7 +295,10 @@ impl PyDeposit {
     ///     float | None: Quoted rate in decimal form when supplied.
     #[getter]
     fn quote_rate(&self) -> Option<f64> {
-        self.inner.quote_rate
+        self.inner
+            .quote_rate
+            .as_ref()
+            .and_then(rust_decimal::prelude::ToPrimitive::to_f64)
     }
 
     /// Discount curve identifier used for valuation.

@@ -9,6 +9,7 @@ use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::deposit::Deposit;
+use rust_decimal::Decimal;
 
 #[test]
 fn test_basic_construction() {
@@ -52,11 +53,14 @@ fn test_construction_with_quote_rate() {
         .discount_curve_id(CurveId::new("USD-OIS"))
         .build()
         .unwrap();
-    dep.quote_rate = Some(0.05);
+    dep.quote_rate = Some(Decimal::try_from(0.05).expect("valid decimal"));
 
     // Validate
     assert!(dep.quote_rate.is_some());
-    assert!((dep.quote_rate.unwrap() - 0.05).abs() < 1e-12);
+    assert_eq!(
+        dep.quote_rate,
+        Some(Decimal::try_from(0.05).expect("valid decimal"))
+    );
 }
 
 #[test]

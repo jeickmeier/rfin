@@ -315,7 +315,7 @@ impl JsInterestRateOption {
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> f64 {
-        self.0.strike_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.0.strike_rate).unwrap_or_default()
     }
 
     #[wasm_bindgen(getter, js_name = startDate)]

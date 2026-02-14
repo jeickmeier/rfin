@@ -299,7 +299,7 @@ impl PyForwardRateAgreementBuilder {
         ForwardRateAgreement::builder()
             .id(slf.instrument_id.clone())
             .notional(notional)
-            .fixed_rate(fixed_rate)
+            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
             .fixing_date(fixing_date)
             .start_date(start_date)
             .maturity(end_date)
@@ -351,7 +351,7 @@ impl PyForwardRateAgreement {
     ///     float: Fixed rate paid or received on the FRA.
     #[getter]
     fn fixed_rate(&self) -> f64 {
-        self.inner.fixed_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default()
     }
 
     /// Day-count convention used for accrual.

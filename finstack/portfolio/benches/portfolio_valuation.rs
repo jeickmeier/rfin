@@ -845,7 +845,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .notional(Money::new(10_000_000.0, Currency::USD))
             .start_date(base)
             .maturity(maturity_5y())
-            .fixed_rate(0.02) // 2% fixed real rate
+            .fixed_rate(rust_decimal::Decimal::try_from(0.02).unwrap_or_default()) // 2% fixed real rate
             .inflation_index_id("USD-CPI".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)

@@ -20,8 +20,10 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Teno
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CalendarId, CurveId, InstrumentId};
 use finstack_core::{Error, Result};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 use super::parameters::SwaptionParams;
 use crate::impl_instrument_base;
@@ -450,7 +452,7 @@ pub struct Swaption {
     /// Notional amount of underlying swap
     pub notional: Money,
     /// Strike rate (fixed rate on underlying swap)
-    pub strike_rate: f64,
+    pub strike_rate: Decimal,
     /// Option expiry date
     pub expiry: Date,
     /// Underlying swap start date
@@ -498,7 +500,7 @@ pub struct Swaption {
     ///     .with_calendar("nyse");
     /// ```
     #[serde(default)]
-    pub calendar_id: Option<String>,
+    pub calendar_id: Option<CalendarId>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
     /// Optional SABR volatility model parameters
@@ -508,6 +510,12 @@ pub struct Swaption {
 }
 
 impl Swaption {
+    pub(crate) fn strike_rate_f64(&self) -> Result<f64> {
+        self.strike_rate.to_f64().ok_or_else(|| {
+            Error::Validation("Swaption strike_rate could not be converted to f64".to_string())
+        })
+    }
+
     /// Create a canonical example swaption for testing and documentation.
     ///
     /// Returns a 1Y x 5Y payer swaption (1 year to expiry, 5 year swap tenor).
@@ -517,7 +525,7 @@ impl Swaption {
             id: InstrumentId::new("SWPN-1Yx5Y-USD"),
             option_type: OptionType::Call,
             notional: Money::new(10_000_000.0, Currency::USD),
-            strike_rate: 0.03,
+            strike_rate: Decimal::try_from(0.03).expect("valid decimal"),
             expiry: Date::from_calendar_date(2027, time::Month::January, 15)
                 .expect("Valid example date"),
             swap_start: Date::from_calendar_date(2027, time::Month::January, 17)
@@ -644,7 +652,7 @@ impl Swaption {
     /// # Arguments
     /// * `calendar_id` - Calendar ID registered in `CalendarRegistry`
     ///   (e.g., `"nyse"` for USD, `"target"` for EUR)
-    pub fn with_calendar(mut self, calendar_id: impl Into<String>) -> Self {
+    pub fn with_calendar(mut self, calendar_id: impl Into<CalendarId>) -> Self {
         self.calendar_id = Some(calendar_id.into());
         self
     }
@@ -699,10 +707,11 @@ impl Swaption {
         let disc = curves.get_discount(self.discount_curve_id.as_ref())?;
         let forward_rate = self.forward_swap_rate(curves, as_of)?;
         let annuity = self.annuity(disc.as_ref(), as_of, forward_rate)?;
+        let strike_rate = self.strike_rate_f64()?;
 
         let value = model_fn(
             forward_rate,
-            self.strike_rate,
+            strike_rate,
             volatility,
             time_to_expiry,
             annuity,
@@ -799,10 +808,11 @@ impl Swaption {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
         let forward_rate = self.forward_swap_rate(curves, as_of)?;
+        let strike_rate = self.strike_rate_f64()?;
 
         // SABR outputs lognormal (Black) volatility
         let sabr_lognormal_vol =
-            model.implied_volatility(forward_rate, self.strike_rate, time_to_expiry)?;
+            model.implied_volatility(forward_rate, strike_rate, time_to_expiry)?;
 
         // Dispatch to the appropriate pricing model
         match self.vol_model {
@@ -811,7 +821,7 @@ impl Swaption {
                 let sabr_normal_vol = lognormal_to_normal_vol(
                     sabr_lognormal_vol,
                     forward_rate,
-                    self.strike_rate,
+                    strike_rate,
                     time_to_expiry,
                     params.shift,
                 );
@@ -1051,7 +1061,7 @@ impl Swaption {
         // 1. SABR model (highest priority)
         if let Some(sabr) = &self.sabr_params {
             let model = SABRModel::new(sabr.to_internal()?);
-            return model.implied_volatility(forward, self.strike_rate, time_to_expiry);
+            return model.implied_volatility(forward, self.strike_rate_f64()?, time_to_expiry);
         }
 
         // 2. Pricing override
@@ -1061,13 +1071,14 @@ impl Swaption {
 
         // 3. Volatility surface
         let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
+        let strike_rate = self.strike_rate_f64()?;
         match self.pricing_overrides.vol_surface_extrapolation {
             VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
                 // LinearInVariance falls back to Clamp until surface impl is ready
-                Ok(vol_surface.value_clamped(time_to_expiry, self.strike_rate))
+                Ok(vol_surface.value_clamped(time_to_expiry, strike_rate))
             }
             VolSurfaceExtrapolation::Error => {
-                Ok(vol_surface.value_checked(time_to_expiry, self.strike_rate)?)
+                Ok(vol_surface.value_checked(time_to_expiry, strike_rate)?)
             }
         }
     }
@@ -1141,16 +1152,17 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
 
         let time_to_expiry = year_fraction(self.day_count, as_of, self.expiry)?;
         let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
+        let strike_rate = self.strike_rate_f64()?;
         let vol = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             match self.pricing_overrides.vol_surface_extrapolation {
                 VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
                     // LinearInVariance falls back to Clamp until surface impl is ready
-                    vol_surface.value_clamped(time_to_expiry, self.strike_rate)
+                    vol_surface.value_clamped(time_to_expiry, strike_rate)
                 }
                 VolSurfaceExtrapolation::Error => {
-                    vol_surface.value_checked(time_to_expiry, self.strike_rate)?
+                    vol_surface.value_checked(time_to_expiry, strike_rate)?
                 }
             }
         };
@@ -1234,7 +1246,7 @@ pub struct BermudanSwaption {
     /// Notional amount of underlying swap
     pub notional: Money,
     /// Strike rate (fixed rate on underlying swap)
-    pub strike_rate: f64,
+    pub strike_rate: Decimal,
     /// Underlying swap start date (first accrual start)
     pub swap_start: Date,
     /// Underlying swap end date (final payment)
@@ -1264,7 +1276,7 @@ pub struct BermudanSwaption {
     /// When `None`, uses weekends-only calendar. For production use, set to
     /// the appropriate currency calendar (e.g., `"nyse"` for USD).
     #[serde(default)]
-    pub calendar_id: Option<String>,
+    pub calendar_id: Option<CalendarId>,
     /// Pricing overrides (manual price, yield, spread)
     #[serde(default)]
     pub pricing_overrides: PricingOverrides,
@@ -1291,7 +1303,7 @@ impl BermudanSwaption {
             id: InstrumentId::new("BERM-10NC2-USD"),
             option_type: OptionType::Call,
             notional: Money::new(10_000_000.0, Currency::USD),
-            strike_rate: 0.03,
+            strike_rate: Decimal::try_from(0.03).expect("valid decimal"),
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),
@@ -1331,7 +1343,7 @@ impl BermudanSwaption {
             id: id.into(),
             option_type: OptionType::Call,
             notional,
-            strike_rate,
+            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),
@@ -1366,7 +1378,7 @@ impl BermudanSwaption {
             id: id.into(),
             option_type: OptionType::Put,
             notional,
-            strike_rate,
+            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),
@@ -1415,7 +1427,7 @@ impl BermudanSwaption {
     }
 
     /// Set the holiday calendar for schedule generation.
-    pub fn with_calendar(mut self, calendar_id: impl Into<String>) -> Self {
+    pub fn with_calendar(mut self, calendar_id: impl Into<CalendarId>) -> Self {
         self.calendar_id = Some(calendar_id.into());
         self
     }
@@ -1510,6 +1522,12 @@ impl BermudanSwaption {
             .iter()
             .map(|&d| self.day_count.year_fraction(as_of, d, ctx))
             .collect()
+    }
+
+    pub(crate) fn strike_rate_f64(&self) -> Result<f64> {
+        self.strike_rate.to_f64().ok_or_else(|| {
+            Error::Validation("BermudanSwaption strike_rate could not be converted to f64".into())
+        })
     }
 
     /// Forward swap rate at a given exercise date (multi-curve).

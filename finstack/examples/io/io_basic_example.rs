@@ -103,7 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .notional(Money::new(10_000_000.0, Currency::USD))
         .start_date(as_of)
         .maturity(Date::from_calendar_date(2024, time::Month::February, 15)?)
-        .quote_rate(0.0525)
+        .quote_rate(rust_decimal::Decimal::try_from(0.0525).unwrap_or_default())
         .day_count(finstack::core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -113,7 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .notional(Money::new(25_000_000.0, Currency::USD))
         .start_date(as_of)
         .maturity(Date::from_calendar_date(2024, time::Month::April, 15)?)
-        .quote_rate(0.0535)
+        .quote_rate(rust_decimal::Decimal::try_from(0.0535).unwrap_or_default())
         .day_count(finstack::core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -145,6 +145,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("   ✅ Loaded instrument: {}", dep.id);
         println!("      Notional: {:?}", dep.notional);
         if let Some(rate) = dep.quote_rate {
+            let rate = rust_decimal::prelude::ToPrimitive::to_f64(&rate).unwrap_or_default();
             println!("      Rate: {:.2}%", rate * 100.0);
         }
     }

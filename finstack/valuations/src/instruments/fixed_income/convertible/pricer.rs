@@ -16,6 +16,7 @@
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::types::PriceId;
 use finstack_core::HashMap;
 use finstack_core::InputError;
 use finstack_core::{Error, Result};
@@ -663,7 +664,7 @@ impl<'a> TsiveriotisZhangEngine<'a> {
 
 /// Resolved market data identifiers for Greek bumping.
 struct ResolvedIds {
-    spot_id: String,
+    spot_id: PriceId,
     vol_id: String,
 }
 
@@ -733,7 +734,7 @@ fn extract_equity_state(
     let dividend_yield = resolve_unitless_scalar(ctx, &dividend_candidates)?.unwrap_or(0.0);
 
     let resolved_ids = ResolvedIds {
-        spot_id: underlying_id.to_string(),
+        spot_id: underlying_id.into(),
         vol_id: resolved_vol_id,
     };
 
@@ -966,11 +967,11 @@ pub fn calculate_convertible_greeks(
     if h_spot > 0.0 {
         use finstack_core::market_data::scalars::MarketScalar;
         let market_up = market_context.clone().insert_price(
-            &inputs.resolved_ids.spot_id,
+            inputs.resolved_ids.spot_id.as_str(),
             MarketScalar::Unitless(inputs.spot + h_spot),
         );
         let market_down = market_context.clone().insert_price(
-            &inputs.resolved_ids.spot_id,
+            inputs.resolved_ids.spot_id.as_str(),
             MarketScalar::Unitless(inputs.spot - h_spot),
         );
 

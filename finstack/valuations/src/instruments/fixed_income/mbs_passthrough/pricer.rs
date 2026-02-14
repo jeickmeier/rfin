@@ -355,7 +355,7 @@ mod tests {
     fn create_test_mbs() -> AgencyMbsPassthrough {
         AgencyMbsPassthrough::builder()
             .id(InstrumentId::new("TEST-MBS"))
-            .pool_id("TEST-POOL".to_string())
+            .pool_id("TEST-POOL".into())
             .agency(super::super::AgencyProgram::Fnma)
             .pool_type(super::super::PoolType::Generic)
             .original_face(Money::new(1_000_000.0, Currency::USD))

@@ -141,7 +141,7 @@ impl JsYoYInflationSwapBuilder {
         YoYInflationSwap::builder()
             .id(instrument_id_from_str(&self.instrument_id))
             .notional(notional)
-            .fixed_rate(fixed_rate)
+            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
             .start_date(start_date)
             .maturity(maturity)
             .frequency(freq)
@@ -183,7 +183,7 @@ impl JsYoYInflationSwap {
         let builder = YoYInflationSwap::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
-            .fixed_rate(fixed_rate)
+            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
             .start_date(start_date.inner())
             .maturity(maturity.inner())
             .frequency(freq)
@@ -214,7 +214,7 @@ impl JsYoYInflationSwap {
     /// Get the fixed rate.
     #[wasm_bindgen(getter, js_name = fixedRate)]
     pub fn fixed_rate(&self) -> f64 {
-        self.inner.fixed_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default()
     }
 
     /// Get the start date.
@@ -317,7 +317,9 @@ impl JsYoYInflationSwap {
             let ccy = self.inner.notional.currency();
 
             let infl_amt = notional * yoy * accrual;
-            let fixed_amt = notional * self.inner.fixed_rate * accrual;
+            let fixed_rate = rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate)
+                .unwrap_or_default();
+            let fixed_amt = notional * fixed_rate * accrual;
 
             let (infl_sign, fixed_sign) = match self.inner.side {
                 PayReceive::PayFixed => (1.0, -1.0),

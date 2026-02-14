@@ -11,6 +11,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
 use finstack_valuations::instruments::rates::irs::PayReceive;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 /// Standard test base date
@@ -104,7 +105,7 @@ pub fn create_standard_fra() -> ForwardRateAgreement {
         fixing_date: Some(fixing),
         start_date: start,
         maturity: end,
-        fixed_rate: 0.05, // At-market: 5% = forward rate
+        fixed_rate: Decimal::try_from(0.05).expect("valid decimal"), // At-market: 5% = forward rate
         day_count: DayCount::Act360,
         reset_lag: 2,
         fixing_calendar_id: None,
@@ -208,7 +209,7 @@ impl TestFraBuilder {
             fixing_date: self.fixing_date,
             start_date: self.start_date,
             maturity: self.maturity,
-            fixed_rate: self.fixed_rate,
+            fixed_rate: Decimal::try_from(self.fixed_rate).expect("valid decimal"),
             day_count: self.day_count,
             reset_lag: self.reset_lag,
             fixing_calendar_id: None,

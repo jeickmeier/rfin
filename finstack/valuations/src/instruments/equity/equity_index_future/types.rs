@@ -38,7 +38,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, PriceId};
 use time::macros::date;
 
 /// Contract specifications for equity index futures.
@@ -213,7 +213,7 @@ impl EquityFutureSpecs {
 ///     .position(Position::Long)
 ///     .contract_specs(EquityFutureSpecs::sp500_emini())
 ///     .discount_curve_id(CurveId::new("USD-OIS"))
-///     .spot_id("SPX-SPOT".to_string())
+///     .spot_id("SPX-SPOT".into())
 ///     .build()
 ///     .expect("Valid future");
 /// ```
@@ -250,7 +250,7 @@ pub struct EquityIndexFuture {
     /// Discount curve identifier for present value calculations.
     pub discount_curve_id: CurveId,
     /// Index spot price identifier for fair value calculation.
-    pub spot_id: String,
+    pub spot_id: PriceId,
     /// Optional dividend yield identifier for fair value calculation.
     #[builder(optional)]
     #[serde(
@@ -289,7 +289,7 @@ impl EquityIndexFuture {
             .position(Position::Long)
             .contract_specs(EquityFutureSpecs::sp500_emini())
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .spot_id("SPX-SPOT".to_string())
+            .spot_id("SPX-SPOT".into())
             .attributes(Attributes::new())
             .build()
             .unwrap_or_else(|_| {
@@ -327,7 +327,7 @@ impl EquityIndexFuture {
             .position(position)
             .contract_specs(EquityFutureSpecs::sp500_emini())
             .discount_curve_id(discount_curve_id.into())
-            .spot_id("SPX-SPOT".to_string())
+            .spot_id("SPX-SPOT".into())
             .attributes(Attributes::new())
             .build()
     }
@@ -362,7 +362,7 @@ impl EquityIndexFuture {
             .position(position)
             .contract_specs(EquityFutureSpecs::nasdaq100_emini())
             .discount_curve_id(discount_curve_id.into())
-            .spot_id("NDX-SPOT".to_string())
+            .spot_id("NDX-SPOT".into())
             .attributes(Attributes::new())
             .build()
     }
@@ -672,7 +672,7 @@ mod tests {
             .position(Position::Long)
             .contract_specs(EquityFutureSpecs::sp500_emini())
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .spot_id("SPX-SPOT".to_string())
+            .spot_id("SPX-SPOT".into())
             .attributes(Attributes::new())
             .build()
             .expect("should build");

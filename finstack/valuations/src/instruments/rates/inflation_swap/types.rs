@@ -10,7 +10,9 @@ use finstack_core::dates::{
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId, Rate};
+use finstack_core::types::{CalendarId, CurveId, InstrumentId, Rate};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 /// Zero-coupon Inflation Swap instrument.
 ///
@@ -46,7 +48,7 @@ pub struct InflationSwap {
     /// Maturity date
     pub maturity: Date,
     /// Fixed real rate (as decimal)
-    pub fixed_rate: f64,
+    pub fixed_rate: Decimal,
     /// Inflation index identifier (e.g., US-CPI-U)
     pub inflation_index_id: CurveId,
     /// Discount curve identifier (quote currency)
@@ -65,12 +67,13 @@ pub struct InflationSwap {
     pub base_cpi: Option<f64>,
     /// Business day convention for payment date adjustment.
     /// Defaults to `Following` if not specified.
-    #[builder(optional)]
-    pub bdc: Option<BusinessDayConvention>,
+    #[builder(default = BusinessDayConvention::ModifiedFollowing)]
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
+    pub bdc: BusinessDayConvention,
     /// Holiday calendar identifier for payment date adjustment.
     /// If not specified, payment dates are used unadjusted.
     #[builder(optional)]
-    pub calendar_id: Option<String>,
+    pub calendar_id: Option<CalendarId>,
     /// Attributes for scenario selection and tagging
     #[serde(default)]
     #[builder(default)]
@@ -96,7 +99,7 @@ impl InflationSwap {
             .maturity(
                 Date::from_calendar_date(2029, Month::January, 15).expect("Valid example date"),
             )
-            .fixed_rate(0.02)
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
             .inflation_index_id(CurveId::new("US-CPI"))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .day_count(DayCount::Act365F)
@@ -275,7 +278,7 @@ impl InflationSwap {
     ///
     /// If no calendar is specified, returns the unadjusted date.
     fn adjusted_payment_date(&self, date: Date) -> Date {
-        let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
+        let bdc = self.bdc;
         if let Some(ref cal_id) = self.calendar_id {
             use finstack_core::dates::CalendarRegistry;
             if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
@@ -310,7 +313,12 @@ impl InflationSwap {
             finstack_core::dates::DayCountCtx::default(),
         )?;
 
-        let fixed_payment = self.notional * ((1.0 + self.fixed_rate).powf(tau_accrual) - 1.0);
+        let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "InflationSwap fixed_rate could not be converted to f64".to_string(),
+            )
+        })?;
+        let fixed_payment = self.notional * ((1.0 + fixed_rate).powf(tau_accrual) - 1.0);
 
         // Use curve's day count for discounting (market standard)
         let payment_date = self.adjusted_payment_date(self.maturity);
@@ -398,7 +406,7 @@ impl InflationSwap {
 impl InflationSwapBuilder {
     /// Set the fixed rate using a typed rate.
     pub fn fixed_rate_rate(mut self, rate: Rate) -> Self {
-        self.fixed_rate = Some(rate.as_decimal());
+        self.fixed_rate = Decimal::try_from(rate.as_decimal()).ok();
         self
     }
 }
@@ -478,7 +486,7 @@ pub struct YoYInflationSwap {
     /// Maturity date
     pub maturity: Date,
     /// Fixed rate (decimal)
-    pub fixed_rate: f64,
+    pub fixed_rate: Decimal,
     /// Payment frequency
     pub frequency: Tenor,
     /// Inflation index identifier (e.g., US-CPI-U)
@@ -494,11 +502,12 @@ pub struct YoYInflationSwap {
     #[builder(optional)]
     pub lag_override: Option<InflationLag>,
     /// Business day convention for payment date adjustment.
-    #[builder(optional)]
-    pub bdc: Option<BusinessDayConvention>,
+    #[builder(default = BusinessDayConvention::ModifiedFollowing)]
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
+    pub bdc: BusinessDayConvention,
     /// Holiday calendar identifier for payment date adjustment.
     #[builder(optional)]
-    pub calendar_id: Option<String>,
+    pub calendar_id: Option<CalendarId>,
     /// Attributes for scenario selection and tagging
     #[serde(default)]
     #[builder(default)]
@@ -595,7 +604,7 @@ impl YoYInflationSwap {
     }
 
     fn schedule(&self) -> finstack_core::Result<Vec<(Date, Date, Date)>> {
-        let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
+        let bdc = self.bdc;
         let periods = crate::cashflow::builder::periods::build_periods(
             crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start_date,
@@ -649,7 +658,12 @@ impl YoYInflationSwap {
             let cpi_end = self.cpi_value(curves, as_of, end)?;
 
             let inflation_leg = self.notional.amount() * (cpi_end / cpi_start - 1.0);
-            let fixed_leg = self.notional.amount() * self.fixed_rate * accrual;
+            let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "YoYInflationSwap fixed_rate could not be converted to f64".to_string(),
+                )
+            })?;
+            let fixed_leg = self.notional.amount() * fixed_rate * accrual;
 
             let net = match self.side {
                 PayReceive::PayFixed => inflation_leg - fixed_leg,
@@ -723,7 +737,7 @@ impl YoYInflationSwap {
 impl YoYInflationSwapBuilder {
     /// Set the fixed rate using a typed rate.
     pub fn fixed_rate_rate(mut self, rate: Rate) -> Self {
-        self.fixed_rate = Some(rate.as_decimal());
+        self.fixed_rate = Decimal::try_from(rate.as_decimal()).ok();
         self
     }
 }

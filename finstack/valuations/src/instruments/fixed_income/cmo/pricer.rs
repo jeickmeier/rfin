@@ -128,7 +128,7 @@ fn create_assumed_collateral(cmo: &AgencyCmo) -> Result<AgencyMbsPassthrough> {
 
     AgencyMbsPassthrough::builder()
         .id(InstrumentId::new(format!("{}-COLLATERAL", cmo.id.as_str())))
-        .pool_id(format!("{}-POOL", cmo.deal_name))
+        .pool_id(format!("{}-POOL", cmo.deal_name).into())
         .agency(cmo.agency)
         .pool_type(PoolType::Generic)
         .original_face(total_face)

@@ -12,6 +12,7 @@ use finstack_valuations::instruments::rates::swaption::{
     Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel,
 };
 use finstack_valuations::instruments::PricingOverrides;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 /// Build a flat forward curve with constant rate
@@ -75,7 +76,7 @@ pub fn create_standard_payer_swaption(
         id: "SWAPTION_TEST".into(),
         option_type: OptionType::Call,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: strike,
+        strike_rate: Decimal::try_from(strike).expect("valid decimal"),
         expiry,
         swap_start,
         swap_end,

@@ -128,7 +128,7 @@ impl PySwaption {
 
     #[getter]
     fn strike(&self) -> f64 {
-        self.inner.strike_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike_rate).unwrap_or_default()
     }
 
     #[getter]

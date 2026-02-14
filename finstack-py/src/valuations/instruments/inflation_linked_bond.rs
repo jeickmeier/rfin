@@ -263,7 +263,7 @@ impl PyInflationLinkedBondBuilder {
         builder = builder.deflation_protection(slf.deflation_protection);
         builder = builder.bdc(BusinessDayConvention::Following);
         builder = builder.stub(StubKind::None);
-        builder = builder.calendar_id_opt(slf.calendar.clone());
+        builder = builder.calendar_id_opt(slf.calendar.clone().map(Into::into));
         builder = builder.discount_curve_id(slf.discount_curve.clone().unwrap());
         builder = builder.inflation_index_id(slf.inflation_curve.clone().unwrap());
         builder = builder.attributes(Default::default());
@@ -315,7 +315,7 @@ impl PyInflationLinkedBond {
     ///     float: Real coupon rate.
     #[getter]
     fn real_coupon(&self) -> f64 {
-        self.inner.real_coupon
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.real_coupon).unwrap_or_default()
     }
 
     /// Maturity date of the bond.

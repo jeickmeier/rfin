@@ -407,7 +407,7 @@ impl PyInflationCapFloorBuilder {
             id: slf.instrument_id.clone(),
             option_type: slf.option_type,
             notional,
-            strike_rate: slf.strike_rate,
+            strike_rate: rust_decimal::Decimal::try_from(slf.strike_rate).unwrap_or_default(),
             start_date,
             maturity: end_date,
             frequency: slf.frequency,
@@ -467,7 +467,7 @@ impl PyInflationCapFloor {
     /// Strike rate (annualized, decimal).
     #[getter]
     fn strike_rate(&self) -> f64 {
-        self.inner.strike_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike_rate).unwrap_or_default()
     }
 
     /// Start date of the first inflation period.

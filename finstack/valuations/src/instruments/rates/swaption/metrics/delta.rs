@@ -27,6 +27,7 @@ pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
+        let strike = option.strike_rate_f64()?;
 
         // Use consolidated helper to get pre-computed inputs
         let inputs = match option.greek_inputs(&context.curves, context.as_of)? {
@@ -39,14 +40,14 @@ impl MetricCalculator for DeltaCalculator {
         if inputs.time_to_expiry < EXPIRY_THRESHOLD {
             let intrinsic_delta = match option.option_type {
                 OptionType::Call => {
-                    if inputs.forward > option.strike_rate {
+                    if inputs.forward > strike {
                         1.0
                     } else {
                         0.0
                     }
                 }
                 OptionType::Put => {
-                    if inputs.forward < option.strike_rate {
+                    if inputs.forward < strike {
                         -1.0
                     } else {
                         0.0
@@ -63,12 +64,7 @@ impl MetricCalculator for DeltaCalculator {
                     return Ok(0.0);
                 }
                 use crate::instruments::common_impl::models::d1_black76;
-                let d1 = d1_black76(
-                    inputs.forward,
-                    option.strike_rate,
-                    inputs.sigma,
-                    inputs.time_to_expiry,
-                );
+                let d1 = d1_black76(inputs.forward, strike, inputs.sigma, inputs.time_to_expiry);
                 match option.option_type {
                     OptionType::Call => finstack_core::math::norm_cdf(d1),
                     OptionType::Put => -finstack_core::math::norm_cdf(-d1),
@@ -76,12 +72,7 @@ impl MetricCalculator for DeltaCalculator {
             }
             VolatilityModel::Normal => {
                 use crate::instruments::common_impl::models::volatility::normal::d_bachelier;
-                let d = d_bachelier(
-                    inputs.forward,
-                    option.strike_rate,
-                    inputs.sigma,
-                    inputs.time_to_expiry,
-                );
+                let d = d_bachelier(inputs.forward, strike, inputs.sigma, inputs.time_to_expiry);
                 match option.option_type {
                     OptionType::Call => finstack_core::math::norm_cdf(d),
                     OptionType::Put => -finstack_core::math::norm_cdf(-d),

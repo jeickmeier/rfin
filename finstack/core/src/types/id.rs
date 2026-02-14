@@ -19,6 +19,9 @@
 //! - [`InstrumentId`]: Financial instrument identifiers (bonds, swaps, options)
 //! - [`IndexId`]: Market index identifiers (equity or fixed income indices)
 //! - [`PriceId`]: Price/scalar identifiers for market observables
+//! - [`CalendarId`]: Holiday calendar identifiers for schedule generation
+//! - [`PoolId`]: Pool identifiers for securitized instruments
+//! - [`DealId`]: Deal identifiers for structured products
 //!
 //! # Examples
 //!
@@ -395,6 +398,18 @@ pub struct PriceTag;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct UnderlyingTag;
 
+/// Marker type for holiday calendar identifiers
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CalendarTag;
+
+/// Marker type for securitized pool identifiers
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PoolTag;
+
+/// Marker type for structured deal identifiers
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DealTag;
+
 /// Type aliases for common ID types
 /// Type-safe identifier for market data curves
 pub type CurveId = Id<CurveTag>;
@@ -406,6 +421,12 @@ pub type IndexId = Id<IndexTag>;
 pub type PriceId = Id<PriceTag>;
 /// Type-safe identifier for underlying assets
 pub type UnderlyingId = Id<UnderlyingTag>;
+/// Type-safe identifier for holiday calendars
+pub type CalendarId = Id<CalendarTag>;
+/// Type-safe identifier for securitized pools
+pub type PoolId = Id<PoolTag>;
+/// Type-safe identifier for structured deals
+pub type DealId = Id<DealTag>;
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]

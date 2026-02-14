@@ -18,6 +18,7 @@ pub struct ImpliedVolCalculator;
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
+        let strike = option.strike_rate_f64()?;
 
         // Time to expiry from as_of
         let t = year_fraction(option.day_count, context.as_of, option.expiry)?;
@@ -46,9 +47,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         } else if let Some(sabr) = &option.sabr_params {
             let model =
                 crate::instruments::common_impl::models::SABRModel::new(sabr.to_internal()?);
-            model
-                .implied_volatility(forward, option.strike_rate, t)
-                .unwrap_or(0.2)
+            model.implied_volatility(forward, strike, t).unwrap_or(0.2)
         } else {
             context
                 .curves
@@ -58,9 +57,9 @@ impl MetricCalculator for ImpliedVolCalculator {
                         VolSurfaceExtrapolation::Clamp
                         | VolSurfaceExtrapolation::LinearInVariance => {
                             // LinearInVariance falls back to Clamp until surface impl is ready
-                            Ok(s.value_clamped(t, option.strike_rate))
+                            Ok(s.value_clamped(t, strike))
                         }
-                        VolSurfaceExtrapolation::Error => s.value_checked(t, option.strike_rate),
+                        VolSurfaceExtrapolation::Error => s.value_checked(t, strike),
                     },
                 )
                 .unwrap_or(0.2)

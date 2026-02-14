@@ -8,6 +8,7 @@ use finstack_valuations::instruments::rates::repo::{
     CollateralSpec, CollateralType, Repo, RepoType,
 };
 use finstack_valuations::instruments::Attributes;
+use rust_decimal::Decimal;
 
 #[allow(unused_imports)]
 use finstack_valuations::instruments::rates::repo as _;
@@ -131,7 +132,7 @@ fn test_required_collateral_high_haircut() {
         .id("HIGH_HAIRCUT".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .haircut(0.20) // 20% haircut
@@ -139,7 +140,7 @@ fn test_required_collateral_high_haircut() {
         .triparty(false)
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(Some("target2".to_string()))
+        .calendar_id_opt(Some("target2".into()))
         .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
@@ -163,7 +164,7 @@ fn test_required_collateral_zero_haircut() {
         .id("ZERO_HAIRCUT".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .haircut(0.0)
@@ -171,7 +172,7 @@ fn test_required_collateral_zero_haircut() {
         .triparty(false)
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(Some("target2".to_string()))
+        .calendar_id_opt(Some("target2".into()))
         .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()

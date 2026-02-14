@@ -7,6 +7,8 @@ use crate::instruments::PricingOverrides;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 /// CMS option instrument (cap/floor on CMS rates).
 #[derive(
@@ -17,7 +19,7 @@ pub struct CmsOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Strike rate (fixed rate for CMS option)
-    pub strike_rate: f64,
+    pub strike_rate: Decimal,
     /// Tenor of the CMS swap in years (e.g., 10.0 for 10Y)
     pub cms_tenor: f64,
     /// Observation/fixing dates for CMS rate
@@ -58,6 +60,12 @@ pub struct CmsOption {
 }
 
 impl CmsOption {
+    pub(crate) fn strike_rate_f64(&self) -> finstack_core::Result<f64> {
+        self.strike_rate
+            .to_f64()
+            .ok_or(finstack_core::InputError::ConversionOverflow.into())
+    }
+
     /// Create a canonical example CMS option (10Y CMS caplet style).
     #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
@@ -80,7 +88,7 @@ impl CmsOption {
 
         CmsOption::builder()
             .id(InstrumentId::new("CMSOPT-10Y-USD"))
-            .strike_rate(0.025)
+            .strike_rate(Decimal::try_from(0.025).expect("valid decimal"))
             .cms_tenor(10.0)
             .fixing_dates(fixing_dates)
             .payment_dates(payment_dates)
@@ -105,7 +113,7 @@ impl CmsOption {
 impl CmsOptionBuilder {
     /// Set the strike rate using a typed rate.
     pub fn strike_rate_rate(mut self, rate: Rate) -> Self {
-        self.strike_rate = Some(rate.as_decimal());
+        self.strike_rate = Decimal::try_from(rate.as_decimal()).ok();
         self
     }
 }

@@ -1103,12 +1103,12 @@ mod tests {
         // Mock instrument using Deposit with all required fields
         let instrument = std::sync::Arc::new(crate::instruments::rates::deposit::Deposit {
             id: InstrumentId::new("DEP-1Y"),
-            quote_rate: Some(0.02),
+            quote_rate: Some(rust_decimal::Decimal::try_from(0.02).expect("valid decimal")),
             discount_curve_id: CurveId::new("USD-OIS"),
             pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Default::default(),
             spot_lag_days: Some(0),
-            bdc: Some(BusinessDayConvention::Following),
+            bdc: BusinessDayConvention::Following,
             calendar_id: None,
             start_date: base_date,
             maturity: pay_date,
@@ -1170,12 +1170,12 @@ mod tests {
         // Dummy Instrument for PreparedQuote
         let instrument = std::sync::Arc::new(crate::instruments::rates::deposit::Deposit {
             id: InstrumentId::new("DEP-1Y"),
-            quote_rate: Some(rate),
+            quote_rate: Some(rust_decimal::Decimal::try_from(rate).expect("valid decimal")),
             discount_curve_id: CurveId::new("USD-OIS"),
             pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Default::default(),
             spot_lag_days: Some(0),
-            bdc: Some(BusinessDayConvention::Following),
+            bdc: BusinessDayConvention::Following,
             calendar_id: None,
             start_date: base_date,
             maturity,
@@ -1238,12 +1238,12 @@ mod tests {
 
                 let instrument = std::sync::Arc::new(crate::instruments::rates::deposit::Deposit {
                     id: InstrumentId::new(format!("DEP-{}D", days)),
-                    quote_rate: Some(rate),
+                    quote_rate: Some(rust_decimal::Decimal::try_from(rate).expect("valid decimal")),
                     discount_curve_id: CurveId::new("USD-OIS"),
                     pricing_overrides: crate::instruments::PricingOverrides::default(),
                     attributes: Default::default(),
                     spot_lag_days: Some(0),
-                    bdc: Some(BusinessDayConvention::Following),
+                    bdc: BusinessDayConvention::Following,
                     calendar_id: None,
                     start_date: base_date,
                     maturity,

@@ -3,6 +3,7 @@
 use crate::inflation_swap::fixtures::*;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::InflationCurve;
+use rust_decimal::Decimal;
 
 use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceive};
 use finstack_valuations::instruments::Instrument;
@@ -21,7 +22,7 @@ fn test_inflation01_finite_difference_validation() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -81,7 +82,7 @@ fn test_inflation01_sign_pay_fixed() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -118,7 +119,7 @@ fn test_inflation01_sign_receive_fixed() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -154,7 +155,7 @@ fn test_inflation01_scales_with_maturity() {
             .notional(standard_notional())
             .start_date(as_of)
             .maturity(maturity)
-            .fixed_rate(0.02)
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
@@ -192,7 +193,7 @@ fn test_inflation01_scales_with_notional() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -206,7 +207,7 @@ fn test_inflation01_scales_with_notional() {
         .notional(large_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)

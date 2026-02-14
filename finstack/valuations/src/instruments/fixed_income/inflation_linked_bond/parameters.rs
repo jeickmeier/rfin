@@ -4,6 +4,7 @@ use finstack_core::{
     dates::{Date, DayCount, Tenor},
     money::Money,
 };
+use rust_decimal::Decimal;
 
 /// Inflation-linked bond specific parameters.
 ///
@@ -13,7 +14,7 @@ pub struct InflationLinkedBondParams {
     /// Notional amount
     pub notional: Money,
     /// Real coupon rate
-    pub real_coupon: f64,
+    pub real_coupon: Decimal,
     /// Issue date
     pub issue: Date,
     /// Maturity date
@@ -39,7 +40,7 @@ impl InflationLinkedBondParams {
     ) -> Self {
         Self {
             notional,
-            real_coupon,
+            real_coupon: Decimal::try_from(real_coupon).unwrap_or_default(),
             issue,
             maturity,
             base_index,

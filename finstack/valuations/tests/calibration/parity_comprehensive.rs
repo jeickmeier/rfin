@@ -20,6 +20,7 @@ use time::Month;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DateExt; // Imports DateExt
 use finstack_core::HashMap;
+use rust_decimal::Decimal;
 
 // Helper to create date validly
 fn date(year: i32, month: Month, day: u8) -> Date {
@@ -180,7 +181,7 @@ fn test_all_quote_types_instrument_construction() {
                     .notional(Money::new(1_000_000.0, currency))
                     .start_date(base_date)
                     .maturity(*maturity)
-                    .fixed_rate(*rate)
+                    .fixed_rate(Decimal::try_from(*rate).expect("valid decimal"))
                     .inflation_index_id(index.clone().into())
                     .discount_curve_id("USD-OIS".into())
                     .day_count(DayCount::Act365F)

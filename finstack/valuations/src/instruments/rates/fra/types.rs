@@ -15,7 +15,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{adjust, BusinessDayConvention, CalendarRegistry, Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId, Rate};
+use finstack_core::types::{CalendarId, CurveId, InstrumentId, Rate};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 // =============================================================================
@@ -70,7 +72,7 @@ pub struct ForwardRateAgreement {
     #[serde(alias = "end_date")]
     pub maturity: Date,
     /// Fixed rate (decimal, e.g., 0.05 for 5%)
-    pub fixed_rate: f64,
+    pub fixed_rate: Decimal,
     /// Day count convention for interest accrual
     pub day_count: DayCount,
     /// Reset lag in business days (fixing to value date)
@@ -78,7 +80,7 @@ pub struct ForwardRateAgreement {
     /// Optional fixing calendar identifier for business day adjustment
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fixing_calendar_id: Option<String>,
+    pub fixing_calendar_id: Option<CalendarId>,
     /// Optional business day convention for fixing date adjustment (default: ModifiedFollowing)
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -122,11 +124,11 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             start_date: Date,
             #[serde(alias = "end_date")]
             maturity: Date,
-            fixed_rate: f64,
+            fixed_rate: Decimal,
             day_count: DayCount,
             reset_lag: i32,
             #[serde(default)]
-            fixing_calendar_id: Option<String>,
+            fixing_calendar_id: Option<CalendarId>,
             #[serde(default)]
             fixing_bdc: Option<BusinessDayConvention>,
             #[serde(default)]
@@ -194,7 +196,11 @@ impl ForwardRateAgreement {
             format!("FRA notional must be positive, got {}", amount)
         })?;
 
-        validation::validate_f64_finite(self.fixed_rate, "FRA fixed_rate")?;
+        let _ = self.fixed_rate.to_f64().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "FRA fixed_rate could not be converted to f64".to_string(),
+            )
+        })?;
 
         if let Some(observed) = self.observed_fixing {
             validation::validate_f64_finite(observed, "FRA observed_fixing")?;
@@ -217,7 +223,7 @@ impl ForwardRateAgreement {
         Ok(())
     }
 
-    fn resolved_fixing_calendar_id(&self) -> Option<String> {
+    fn resolved_fixing_calendar_id(&self) -> Option<CalendarId> {
         if let Some(id) = &self.fixing_calendar_id {
             return Some(id.clone());
         }
@@ -228,7 +234,7 @@ impl ForwardRateAgreement {
         registry
             .require_rate_index(&index_id)
             .ok()
-            .map(|conv| conv.market_calendar_id.clone())
+            .map(|conv| conv.market_calendar_id.clone().into())
     }
 
     /// Create a canonical example FRA for testing and documentation.
@@ -242,7 +248,7 @@ impl ForwardRateAgreement {
             .fixing_date(date!(2024 - 04 - 01))
             .start_date(date!(2024 - 04 - 03))
             .maturity(date!(2024 - 07 - 03))
-            .fixed_rate(0.045)
+            .fixed_rate(Decimal::try_from(0.045).unwrap_or_default())
             .day_count(DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -380,7 +386,12 @@ impl ForwardRateAgreement {
 
         // Market-standard FRA settlement at period start includes the
         // settlement discounting adjustment 1 / (1 + F × τ).
-        let rate_diff = forward_rate - self.fixed_rate;
+        let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "FRA fixed_rate could not be converted to f64".to_string(),
+            )
+        })?;
+        let rate_diff = forward_rate - fixed_rate;
         let denom = 1.0_f64 + forward_rate * tau;
 
         // Denominator near zero indicates pathological forward rate (F ≈ -1/τ)
@@ -438,7 +449,7 @@ impl ForwardRateAgreement {
 impl ForwardRateAgreementBuilder {
     /// Set the fixed rate using a typed rate.
     pub fn fixed_rate_rate(mut self, rate: Rate) -> Self {
-        self.fixed_rate = Some(rate.as_decimal());
+        self.fixed_rate = Decimal::try_from(rate.as_decimal()).ok();
         self
     }
 
@@ -591,7 +602,7 @@ mod tests {
             .fixing_date(fixing)
             .start_date(start)
             .maturity(end)
-            .fixed_rate(0.05)
+            .fixed_rate(Decimal::try_from(0.05).unwrap_or_default())
             .day_count(finstack_core::dates::DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id("DISC".into())
@@ -645,7 +656,7 @@ mod tests {
             .fixing_date(fixing)
             .start_date(start)
             .maturity(end)
-            .fixed_rate(0.04) // Different from market rate
+            .fixed_rate(Decimal::try_from(0.04).unwrap_or_default()) // Different from market rate
             .day_count(finstack_core::dates::DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id("DISC".into())

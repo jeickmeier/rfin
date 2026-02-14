@@ -10,12 +10,10 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &InterestRateOption = context.instrument_as()?;
+        let strike = option.strike_rate_f64()?;
         super::common::aggregate_over_caplets(option, context, |forward, sigma, t_fix| {
             crate::instruments::rates::cap_floor::pricing::black::vega_per_pct(
-                option.strike_rate,
-                forward,
-                sigma,
-                t_fix,
+                strike, forward, sigma, t_fix,
             )
         })
     }

@@ -42,6 +42,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::HashSet;
 use finstack_core::Result;
+use rust_decimal::prelude::ToPrimitive;
 
 /// Tree valuator for Bermudan swaption pricing.
 ///
@@ -217,7 +218,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
         );
 
         // Intrinsic value
-        let strike = self.swaption.strike_rate;
+        let strike = self.swaption.strike_rate.to_f64().unwrap_or(0.0);
         let notional = self.swaption.notional.amount();
 
         let intrinsic = match self.swaption.option_type {
@@ -447,6 +448,7 @@ mod tests {
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};
+    use rust_decimal::Decimal;
     use time::Month;
 
     fn test_discount_curve() -> DiscountCurve {
@@ -474,7 +476,7 @@ mod tests {
             id: InstrumentId::new("TEST-BERM"),
             option_type: OptionType::Call,
             notional: Money::new(10_000_000.0, Currency::USD),
-            strike_rate: 0.03, // 3%
+            strike_rate: Decimal::try_from(0.03).expect("valid decimal"), // 3%
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),

@@ -34,7 +34,10 @@ fn test_build_deposit() {
 
     if let Some(dep) = instrument.as_any().downcast_ref::<Deposit>() {
         assert_eq!(dep.notional.currency(), Currency::USD);
-        assert_eq!(dep.quote_rate, Some(0.035));
+        assert_eq!(
+            dep.quote_rate,
+            Some(Decimal::try_from(0.035).expect("valid decimal"))
+        );
     } else {
         panic!("Expected Deposit");
     }
@@ -58,7 +61,10 @@ fn test_build_fra() {
 
     if let Some(fra) = instrument.as_any().downcast_ref::<ForwardRateAgreement>() {
         assert_eq!(fra.notional.currency(), Currency::USD);
-        assert_eq!(fra.fixed_rate, 0.032);
+        assert_eq!(
+            fra.fixed_rate,
+            Decimal::try_from(0.032).expect("valid decimal")
+        );
     } else {
         panic!("Expected ForwardRateAgreement");
     }

@@ -476,7 +476,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .discount_curve_id("USD".into())
         .build()
         .unwrap();
-    deposit1.quote_rate = Some(0.05); // 5% quoted rate
+    deposit1.quote_rate = Some(rust_decimal::Decimal::try_from(0.05).unwrap_or_default()); // 5% quoted rate
 
     let deposit1_position = Position::new(
         "POS_DEP_001",
@@ -501,7 +501,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .discount_curve_id("USD".into())
         .build()
         .unwrap();
-    deposit2.quote_rate = Some(0.045); // 4.5% quoted rate
+    deposit2.quote_rate = Some(rust_decimal::Decimal::try_from(0.045).unwrap_or_default()); // 4.5% quoted rate
 
     let deposit2_position = Position::new(
         "POS_DEP_002",
@@ -526,7 +526,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .discount_curve_id("EUR".into())
         .build()
         .unwrap();
-    deposit_eur.quote_rate = Some(0.03); // 3% quoted rate
+    deposit_eur.quote_rate = Some(rust_decimal::Decimal::try_from(0.03).unwrap_or_default()); // 3% quoted rate
 
     let deposit_eur_position = Position::new(
         "POS_DEP_003",
@@ -1028,7 +1028,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .notional(Money::new(10_000_000.0, Currency::USD)) // $10M
         .start_date(as_of)
         .maturity(date!(2029 - 01 - 01)) // 5Y maturity
-        .fixed_rate(0.025) // 2.5% fixed rate
+        .fixed_rate(rust_decimal::Decimal::try_from(0.025).unwrap_or_default()) // 2.5% fixed rate
         .inflation_index_id("US-CPI".into())
         .discount_curve_id("USD".into())
         .day_count(finstack_core::dates::DayCount::Act365F)

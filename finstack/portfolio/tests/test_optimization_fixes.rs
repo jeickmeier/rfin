@@ -45,7 +45,9 @@ fn test_notional_weighting() -> Result<(), Box<dyn std::error::Error>> {
         .maturity(create_date(2024, Month::February, 1)?)
         .day_count(DayCount::Act365F)
         .discount_curve_id("USD-OIS".into())
-        .quote_rate_opt(Some(0.045))
+        .quote_rate_opt(Some(
+            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+        ))
         .build()?;
 
     let dep2 = Deposit::builder()
@@ -55,7 +57,9 @@ fn test_notional_weighting() -> Result<(), Box<dyn std::error::Error>> {
         .maturity(create_date(2024, Month::February, 1)?)
         .day_count(DayCount::Act365F)
         .discount_curve_id("USD-OIS".into())
-        .quote_rate_opt(Some(0.045))
+        .quote_rate_opt(Some(
+            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+        ))
         .build()?;
 
     let p1 = Position::new(
@@ -141,7 +145,9 @@ fn test_candidate_batching() -> Result<(), Box<dyn std::error::Error>> {
             .maturity(create_date(2024, Month::February, 1)?)
             .day_count(DayCount::Act365F)
             .discount_curve_id("USD-OIS".into())
-            .quote_rate_opt(Some(0.045))
+            .quote_rate_opt(Some(
+                rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            ))
             .build()?;
 
         let cand = CandidatePosition::new(

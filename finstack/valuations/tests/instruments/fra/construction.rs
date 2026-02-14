@@ -7,6 +7,7 @@ use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::Instrument;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 #[test]
@@ -16,7 +17,10 @@ fn test_standard_fra_construction() {
     assert_eq!(fra.id(), "FRA_TEST");
     assert_eq!(fra.notional.amount(), 1_000_000.0);
     assert_eq!(fra.notional.currency(), Currency::USD);
-    assert_eq!(fra.fixed_rate, 0.05);
+    assert_eq!(
+        fra.fixed_rate,
+        Decimal::try_from(0.05).expect("valid decimal")
+    );
     assert_eq!(fra.day_count, DayCount::Act360);
     assert_eq!(
         fra.side,
@@ -35,7 +39,10 @@ fn test_builder_standard_3x6() {
 
     assert_eq!(fra.id(), "FRA-3x6-USD");
     assert_eq!(fra.notional.amount(), 10_000_000.0);
-    assert_eq!(fra.fixed_rate, 0.045);
+    assert_eq!(
+        fra.fixed_rate,
+        Decimal::try_from(0.045).expect("valid decimal")
+    );
 }
 
 #[test]
@@ -143,7 +150,10 @@ fn test_negative_rate_environment() {
         .fixed_rate(-0.005) // -50bp
         .build();
 
-    assert_eq!(fra.fixed_rate, -0.005);
+    assert_eq!(
+        fra.fixed_rate,
+        Decimal::try_from(-0.005).expect("valid decimal")
+    );
 }
 
 #[test]
@@ -152,7 +162,10 @@ fn test_high_rate_environment() {
         .fixed_rate(0.15) // 15%
         .build();
 
-    assert_eq!(fra.fixed_rate, 0.15);
+    assert_eq!(
+        fra.fixed_rate,
+        Decimal::try_from(0.15).expect("valid decimal")
+    );
 }
 
 #[test]

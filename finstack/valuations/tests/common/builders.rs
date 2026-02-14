@@ -269,7 +269,7 @@ impl TestOptionBuilder {
             day_count: self.day_count,
             settlement: self.settlement,
             discount_curve_id: self.discount_curve_id.into(),
-            spot_id: self.spot_id,
+            spot_id: self.spot_id.into(),
             vol_surface_id: self.vol_surface_id.into(),
             div_yield_id: self.div_yield_id,
             discrete_dividends: Vec::new(),
@@ -464,7 +464,7 @@ mod tests {
 
         assert_eq!(option.id.as_str(), "CUSTOM-OPT");
         assert_eq!(option.discount_curve_id.as_str(), "CUSTOM-DISC");
-        assert_eq!(option.spot_id, "CUSTOM-SPOT");
+        assert_eq!(option.spot_id.as_str(), "CUSTOM-SPOT");
         assert_eq!(option.vol_surface_id.as_str(), "CUSTOM-VOL");
     }
 

@@ -5,6 +5,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceive};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::Month;
 
 #[test]
@@ -19,7 +20,7 @@ fn test_bucketed_dv01_computed() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -61,7 +62,7 @@ fn test_bucketed_dv01_reasonable_magnitude() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -120,7 +121,7 @@ fn test_bucketed_dv01_zero_for_matured() {
         .notional(standard_notional())
         .start_date(Date::from_calendar_date(2015, Month::January, 1).unwrap())
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)

@@ -6,6 +6,7 @@ use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::repo::{Repo, RepoType};
 use finstack_valuations::instruments::{Attributes, Instrument};
+use rust_decimal::Decimal;
 
 #[test]
 fn test_interest_calculation_act360() {
@@ -15,7 +16,7 @@ fn test_interest_calculation_act360() {
         .id("INTEREST_360".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15)) // 90 days
         .haircut(0.02)
@@ -23,7 +24,7 @@ fn test_interest_calculation_act360() {
         .triparty(false)
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(Some("target2".to_string()))
+        .calendar_id_opt(Some("target2".into()))
         .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
@@ -44,7 +45,7 @@ fn test_interest_calculation_act365() {
         .id("INTEREST_365".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .haircut(0.02)
@@ -52,7 +53,7 @@ fn test_interest_calculation_act365() {
         .triparty(false)
         .day_count(DayCount::Act365F)
         .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(Some("target2".to_string()))
+        .calendar_id_opt(Some("target2".into()))
         .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
@@ -74,7 +75,7 @@ fn test_daycount_360_vs_365_difference() {
         .id("DC360".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral1)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .haircut(0.02)
@@ -82,7 +83,7 @@ fn test_daycount_360_vs_365_difference() {
         .triparty(false)
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(Some("target2".to_string()))
+        .calendar_id_opt(Some("target2".into()))
         .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
@@ -92,7 +93,7 @@ fn test_daycount_360_vs_365_difference() {
         .id("DC365".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral2)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .haircut(0.02)
@@ -100,7 +101,7 @@ fn test_daycount_360_vs_365_difference() {
         .triparty(false)
         .day_count(DayCount::Act365F)
         .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(Some("target2".to_string()))
+        .calendar_id_opt(Some("target2".into()))
         .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
@@ -296,7 +297,7 @@ fn test_pv_with_flat_curve() {
         .id("FLAT_CURVE".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .haircut(0.02)
@@ -304,7 +305,7 @@ fn test_pv_with_flat_curve() {
         .triparty(false)
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(Some("target2".to_string()))
+        .calendar_id_opt(Some("target2".into()))
         .discount_curve_id("USD-FLAT".into())
         .attributes(Attributes::default())
         .build()

@@ -7,6 +7,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceive};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::Month;
 
 #[test]
@@ -24,7 +25,7 @@ fn test_inflation_convexity_par_swap_nonzero() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.0)
+        .fixed_rate(Decimal::try_from(0.0).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -41,7 +42,7 @@ fn test_inflation_convexity_par_swap_nonzero() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(par_rate)
+        .fixed_rate(Decimal::try_from(par_rate).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -95,7 +96,7 @@ fn test_inflation_convexity_finite_and_nonzero() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -139,7 +140,7 @@ fn test_inflation_convexity_varies_with_maturity() {
             .notional(standard_notional())
             .start_date(as_of)
             .maturity(maturity)
-            .fixed_rate(0.02)
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
@@ -196,7 +197,7 @@ fn test_inflation_convexity_scales_with_notional() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -210,7 +211,7 @@ fn test_inflation_convexity_scales_with_notional() {
         .notional(large_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -262,7 +263,7 @@ fn test_inflation_convexity_finite_for_edge_cases() {
             .notional(standard_notional())
             .start_date(as_of)
             .maturity(maturity)
-            .fixed_rate(0.02)
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)

@@ -20,7 +20,9 @@ mod id;
 mod rates;
 mod ratings;
 
-pub use id::{CurveId, Id, IndexId, InstrumentId, PriceId, TypeTag, UnderlyingId};
+pub use id::{
+    CalendarId, CurveId, DealId, Id, IndexId, InstrumentId, PoolId, PriceId, TypeTag, UnderlyingId,
+};
 pub use rates::{Bps, Percentage, Rate};
 pub use ratings::{
     moodys_warf_factor, CreditRating, NotchedRating, RatingFactorTable, RatingLabel, RatingNotch,

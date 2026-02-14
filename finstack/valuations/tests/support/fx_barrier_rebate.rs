@@ -56,7 +56,7 @@ fn test_fx_barrier_rebate_added_to_closed_form_price() {
         .use_gobet_miri(false)
         .domestic_discount_curve_id(CurveId::new("USD-OIS"))
         .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
-        .fx_spot_id("EURUSD-SPOT".to_string())
+        .fx_spot_id("EURUSD-SPOT".into())
         .vol_surface_id(CurveId::new("EURUSD-VOL"))
         .pricing_overrides(PricingOverrides::default())
         .attributes(Attributes::new())

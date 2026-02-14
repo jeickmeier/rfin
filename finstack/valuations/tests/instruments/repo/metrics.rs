@@ -8,6 +8,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::repo::{CollateralSpec, Repo};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::*;
+use rust_decimal::Decimal;
 use std::sync::Arc;
 
 fn create_test_repo() -> Repo {
@@ -473,7 +474,7 @@ fn test_metric_date_handling_uses_adjusted_dates() {
         .id("WEEKEND-DATES".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral.clone())
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(start_saturday)
         .maturity(maturity_saturday)
         .haircut(0.02)
@@ -481,7 +482,7 @@ fn test_metric_date_handling_uses_adjusted_dates() {
         .triparty(false)
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(Some("target2".to_string()))
+        .calendar_id_opt(Some("target2".into()))
         .discount_curve_id(CurveId::from("USD-OIS"))
         .margin_spec_opt(None)
         .attributes(Attributes::default())
@@ -496,7 +497,7 @@ fn test_metric_date_handling_uses_adjusted_dates() {
         .id("ADJUSTED-DATES".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
-        .repo_rate(0.05)
+        .repo_rate(Decimal::try_from(0.05).expect("valid decimal"))
         .start_date(start_monday)
         .maturity(maturity_monday)
         .haircut(0.02)
@@ -504,7 +505,7 @@ fn test_metric_date_handling_uses_adjusted_dates() {
         .triparty(false)
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(Some("target2".to_string()))
+        .calendar_id_opt(Some("target2".into()))
         .discount_curve_id(CurveId::from("USD-OIS"))
         .margin_spec_opt(None)
         .attributes(Attributes::default())

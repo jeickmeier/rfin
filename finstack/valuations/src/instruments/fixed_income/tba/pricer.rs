@@ -42,7 +42,7 @@ pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPas
 
     AgencyMbsPassthrough::builder()
         .id(InstrumentId::new(format!("{}-ASSUMED", tba.id.as_str())))
-        .pool_id(format!("{}-POOL", tba.id.as_str()))
+        .pool_id(format!("{}-POOL", tba.id.as_str()).into())
         .agency(tba.agency)
         .pool_type(PoolType::Generic)
         .original_face(tba.notional)

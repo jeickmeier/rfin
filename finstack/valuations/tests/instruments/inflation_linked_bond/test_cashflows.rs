@@ -106,7 +106,7 @@ fn test_coupon_amounts_reflect_inflation_adjustment() {
     ilb.base_index = 300.0;
     ilb.notional =
         finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD);
-    ilb.real_coupon = 0.01; // 1% real coupon
+    ilb.real_coupon = rust_decimal::Decimal::try_from(0.01).expect("valid decimal"); // 1% real coupon
     ilb.frequency = Tenor::annual();
     ilb.issue_date = d(2024, 1, 1);
     ilb.maturity = d(2026, 1, 1);

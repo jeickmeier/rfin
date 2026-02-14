@@ -11,7 +11,7 @@ use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, PoolId};
 use finstack_core::Result;
 
 /// Agency program enumeration.
@@ -148,7 +148,7 @@ pub enum PoolType {
 ///
 /// let mbs = AgencyMbsPassthrough::builder()
 ///     .id(InstrumentId::new("FN-MA1234"))
-///     .pool_id("MA1234".to_string())
+///     .pool_id("MA1234".into())
 ///     .agency(AgencyProgram::Fnma)
 ///     .pool_type(PoolType::Generic)
 ///     .original_face(Money::new(1_000_000.0, Currency::USD))
@@ -175,7 +175,7 @@ pub struct AgencyMbsPassthrough {
     /// Unique instrument identifier.
     pub id: InstrumentId,
     /// Pool identifier (CUSIP or internal pool ID).
-    pub pool_id: String,
+    pub pool_id: PoolId,
     /// Agency program (FNMA, FHLMC, GNMA).
     pub agency: AgencyProgram,
     /// Pool type (generic or specified).
@@ -232,7 +232,7 @@ impl AgencyMbsPassthrough {
         use time::macros::date;
         Self::builder()
             .id(InstrumentId::new("FN-MA1234"))
-            .pool_id("MA1234".to_string())
+            .pool_id("MA1234".into())
             .agency(AgencyProgram::Fnma)
             .pool_type(PoolType::Generic)
             .original_face(Money::new(1_000_000.0, Currency::USD))

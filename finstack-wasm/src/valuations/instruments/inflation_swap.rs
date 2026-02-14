@@ -127,7 +127,7 @@ impl JsInflationSwapBuilder {
         InflationSwap::builder()
             .id(instrument_id_from_str(&self.instrument_id))
             .notional(notional)
-            .fixed_rate(fixed_rate)
+            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
             .start_date(start_date)
             .maturity(maturity)
             .discount_curve_id(curve_id_from_str(discount_curve))
@@ -200,7 +200,7 @@ impl JsInflationSwap {
         let builder = InflationSwap::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
-            .fixed_rate(fixed_rate)
+            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
             .start_date(start_date.inner())
             .maturity(maturity.inner())
             .discount_curve_id(curve_id_from_str(discount_curve))
@@ -274,7 +274,9 @@ impl JsInflationSwap {
         let ccy = self.inner.notional.currency();
 
         let inflation_leg = notional * (index_ratio - 1.0);
-        let fixed_leg = notional * ((1.0 + self.inner.fixed_rate).powf(tau) - 1.0);
+        let fixed_rate =
+            rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default();
+        let fixed_leg = notional * ((1.0 + fixed_rate).powf(tau) - 1.0);
 
         let (infl_sign, fixed_sign) = match self.inner.side {
             PayReceive::PayFixed => (1.0, -1.0),
@@ -309,7 +311,7 @@ impl JsInflationSwap {
 
     #[wasm_bindgen(getter, js_name = fixedRate)]
     pub fn fixed_rate(&self) -> f64 {
-        self.inner.fixed_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default()
     }
 
     #[wasm_bindgen(getter)]

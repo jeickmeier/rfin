@@ -12,6 +12,7 @@ use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, Rat
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
@@ -60,7 +61,7 @@ fn test_black_model_symmetry() {
         id: "CAPLET".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -119,7 +120,7 @@ fn test_vega_gamma_relation() {
         id: "CAP_RELATIONS".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -176,7 +177,7 @@ fn test_delta_by_finite_difference() {
         id: "CAPLET_FD".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -261,7 +262,7 @@ fn test_vega_by_finite_difference() {
         id: "CAPLET_VEGA_FD".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -348,7 +349,7 @@ fn test_numerical_stability_extreme_params() {
         id: "CAP_EXTREME".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(100_000_000.0, Currency::USD), // $100MM
-        strike_rate: 0.15,                                  // 15% strike
+        strike_rate: Decimal::try_from(0.15).expect("valid decimal"), // 15% strike
         start_date: as_of,
         maturity: end,
         frequency: Tenor::monthly(),

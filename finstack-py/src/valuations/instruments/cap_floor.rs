@@ -366,7 +366,7 @@ impl PyInterestRateOption {
     ///     float: Strike rate of the instrument.
     #[getter]
     fn strike(&self) -> f64 {
-        self.inner.strike_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike_rate).unwrap_or_default()
     }
 
     /// Start date for accrual.

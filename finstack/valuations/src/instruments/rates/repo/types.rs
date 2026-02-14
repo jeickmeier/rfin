@@ -6,8 +6,10 @@ use crate::instruments::rates::repo::margin::RepoMarginSpec;
 use finstack_core::dates::{adjust, BusinessDayConvention, Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
+use finstack_core::types::{Bps, CalendarId, CurveId, InstrumentId, Rate};
 use finstack_core::{Error, Result};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 use crate::impl_instrument_base;
 
@@ -162,7 +164,7 @@ pub struct Repo {
     /// Collateral specification
     pub collateral: CollateralSpec,
     /// Repo rate (annual, as decimal)
-    pub repo_rate: f64,
+    pub repo_rate: Decimal,
     /// Start date of the repo
     pub start_date: Date,
     /// Maturity date of the repo
@@ -180,7 +182,7 @@ pub struct Repo {
     #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Optional calendar for business day adjustments
-    pub calendar_id: Option<String>,
+    pub calendar_id: Option<CalendarId>,
     /// Discount curve identifier for valuation
     pub discount_curve_id: CurveId,
     /// Optional margin specification for mark-to-market margining.
@@ -260,6 +262,9 @@ impl Repo {
         // Maturity is next business day after adjusted start
         let maturity = adj_start.add_business_days(1, calendar)?;
 
+        let repo_rate = Decimal::try_from(repo_rate)
+            .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
+
         Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
@@ -272,7 +277,7 @@ impl Repo {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some(cal_id))
+            .calendar_id_opt(Some(cal_id.into()))
             .discount_curve_id(discount_curve_id.into())
             .margin_spec_opt(None)
             .attributes(Attributes::default())
@@ -301,11 +306,14 @@ impl Repo {
         let adj_start = adjust(start_date, BusinessDayConvention::Following, calendar)?;
         let maturity = adj_start.add_business_days(1, calendar)?;
 
+        let repo_rate = Decimal::try_from(repo_rate.as_decimal())
+            .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
+
         Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
             .collateral(collateral)
-            .repo_rate(repo_rate.as_decimal())
+            .repo_rate(repo_rate)
             .start_date(adj_start)
             .maturity(maturity)
             .haircut(0.02)
@@ -313,7 +321,7 @@ impl Repo {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some(cal_id))
+            .calendar_id_opt(Some(cal_id.into()))
             .discount_curve_id(discount_curve_id.into())
             .margin_spec_opt(None)
             .attributes(Attributes::default())
@@ -330,6 +338,9 @@ impl Repo {
         maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
+        let repo_rate = Decimal::try_from(repo_rate)
+            .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
+
         Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
@@ -342,7 +353,7 @@ impl Repo {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("usny".to_string()))
+            .calendar_id_opt(Some("usny".into()))
             .discount_curve_id(discount_curve_id.into())
             .margin_spec_opt(None)
             .attributes(Attributes::default())
@@ -359,11 +370,14 @@ impl Repo {
         maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
+        let repo_rate = Decimal::try_from(repo_rate.as_decimal())
+            .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
+
         Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
             .collateral(collateral)
-            .repo_rate(repo_rate.as_decimal())
+            .repo_rate(repo_rate)
             .start_date(start_date)
             .maturity(maturity)
             .haircut(0.02)
@@ -371,7 +385,7 @@ impl Repo {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("usny".to_string()))
+            .calendar_id_opt(Some("usny".into()))
             .discount_curve_id(discount_curve_id.into())
             .margin_spec_opt(None)
             .attributes(Attributes::default())
@@ -388,6 +402,9 @@ impl Repo {
         initial_maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
+        let repo_rate = Decimal::try_from(repo_rate)
+            .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
+
         Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
@@ -400,7 +417,7 @@ impl Repo {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("usny".to_string()))
+            .calendar_id_opt(Some("usny".into()))
             .discount_curve_id(discount_curve_id.into())
             .margin_spec_opt(None)
             .attributes(Attributes::default())
@@ -417,11 +434,14 @@ impl Repo {
         initial_maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
+        let repo_rate = Decimal::try_from(repo_rate.as_decimal())
+            .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
+
         Repo::builder()
             .id(id.into().into())
             .cash_amount(cash_amount)
             .collateral(collateral)
-            .repo_rate(repo_rate.as_decimal())
+            .repo_rate(repo_rate)
             .start_date(start_date)
             .maturity(initial_maturity)
             .haircut(0.02)
@@ -429,7 +449,7 @@ impl Repo {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("usny".to_string()))
+            .calendar_id_opt(Some("usny".into()))
             .discount_curve_id(discount_curve_id.into())
             .margin_spec_opt(None)
             .attributes(Attributes::default())
@@ -438,16 +458,17 @@ impl Repo {
 
     /// Calculate the effective repo rate considering special collateral adjustments.
     pub fn effective_rate(&self) -> f64 {
+        let base_rate = self.repo_rate.to_f64().unwrap_or(0.0);
         match &self.collateral.collateral_type {
-            CollateralType::General => self.repo_rate,
+            CollateralType::General => base_rate,
             CollateralType::Special {
                 rate_adjustment_bp, ..
             } => {
                 if let Some(adjustment_bp) = rate_adjustment_bp {
                     const ONE_BP: f64 = 1e-4;
-                    self.repo_rate + (adjustment_bp * ONE_BP) // Convert bp to decimal
+                    base_rate + (adjustment_bp * ONE_BP) // Convert bp to decimal
                 } else {
-                    self.repo_rate
+                    base_rate
                 }
             }
         }
@@ -794,7 +815,7 @@ mod tests {
             .id(InstrumentId::from("REPO-WEEKEND-TEST"))
             .cash_amount(Money::new(1_000_000.0, Currency::USD))
             .collateral(collateral)
-            .repo_rate(0.05)
+            .repo_rate(rust_decimal::Decimal::try_from(0.05).expect("valid decimal"))
             .start_date(start_saturday)
             .maturity(maturity_saturday)
             .haircut(0.02)
@@ -802,7 +823,7 @@ mod tests {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("target2".to_string()))
+            .calendar_id_opt(Some("target2".into()))
             .discount_curve_id(CurveId::from("USD-OIS"))
             .margin_spec_opt(None)
             .attributes(Attributes::default())
@@ -872,7 +893,7 @@ mod tests {
             .id(InstrumentId::from("REPO-NO-CAL"))
             .cash_amount(Money::new(1_000_000.0, Currency::USD))
             .collateral(collateral)
-            .repo_rate(0.05)
+            .repo_rate(rust_decimal::Decimal::try_from(0.05).expect("valid decimal"))
             .start_date(date(2025, 1, 4)) // Saturday
             .maturity(date(2025, 1, 11)) // Saturday
             .haircut(0.02)
@@ -910,7 +931,7 @@ mod tests {
             .id(InstrumentId::from("REPO-BAD-CAL"))
             .cash_amount(Money::new(1_000_000.0, Currency::USD))
             .collateral(collateral)
-            .repo_rate(0.05)
+            .repo_rate(rust_decimal::Decimal::try_from(0.05).expect("valid decimal"))
             .start_date(date(2025, 1, 4))
             .maturity(date(2025, 1, 11))
             .haircut(0.02)
@@ -918,7 +939,7 @@ mod tests {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("NONEXISTENT_CALENDAR".to_string()))
+            .calendar_id_opt(Some("NONEXISTENT_CALENDAR".into()))
             .discount_curve_id(CurveId::from("USD-OIS"))
             .margin_spec_opt(None)
             .attributes(Attributes::default())
@@ -950,7 +971,7 @@ mod tests {
         let maturity_monday = date(2025, 1, 13);
 
         let cash_amount = Money::new(1_000_000.0, Currency::USD);
-        let repo_rate = 0.05;
+        let repo_rate = rust_decimal::Decimal::try_from(0.05).expect("valid decimal");
 
         let collateral1 = CollateralSpec::new("BOND", 100.0, "BOND_PX");
         let collateral2 = CollateralSpec::new("BOND", 100.0, "BOND_PX");
@@ -968,7 +989,7 @@ mod tests {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("target2".to_string()))
+            .calendar_id_opt(Some("target2".into()))
             .discount_curve_id(CurveId::from("USD-OIS"))
             .margin_spec_opt(None)
             .attributes(Attributes::default())
@@ -988,7 +1009,7 @@ mod tests {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("target2".to_string()))
+            .calendar_id_opt(Some("target2".into()))
             .discount_curve_id(CurveId::from("USD-OIS"))
             .margin_spec_opt(None)
             .attributes(Attributes::default())

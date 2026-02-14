@@ -228,7 +228,9 @@ impl PyInflationSwapBuilder {
         let mut builder = InflationSwap::builder();
         builder = builder.id(slf.instrument_id.clone());
         builder = builder.notional(slf.notional.unwrap());
-        builder = builder.fixed_rate(slf.fixed_rate.unwrap());
+        builder = builder.fixed_rate(
+            rust_decimal::Decimal::try_from(slf.fixed_rate.unwrap()).unwrap_or_default(),
+        );
         builder = builder.start_date(slf.start_date.unwrap());
         builder = builder.maturity(slf.maturity.unwrap());
         builder = builder.discount_curve_id(slf.discount_curve.clone().unwrap());
@@ -285,7 +287,7 @@ impl PyInflationSwap {
     ///     float: Fixed rate of the swap.
     #[getter]
     fn fixed_rate(&self) -> f64 {
-        self.inner.fixed_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default()
     }
 
     /// Maturity date of the swap.

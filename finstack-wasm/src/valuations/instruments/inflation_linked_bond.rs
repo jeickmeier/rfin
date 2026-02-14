@@ -310,7 +310,7 @@ impl JsInflationLinkedBond {
 
     #[wasm_bindgen(getter, js_name = realCoupon)]
     pub fn real_coupon(&self) -> f64 {
-        self.inner.real_coupon
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.real_coupon).unwrap_or_default()
     }
 
     #[wasm_bindgen(getter)]

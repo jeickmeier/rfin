@@ -8,6 +8,7 @@
 //! - Sensitivity to coupon and maturity
 
 use super::common::*;
+use rust_decimal::Decimal;
 
 #[test]
 fn test_real_duration_positive() {
@@ -33,19 +34,19 @@ fn test_real_duration_increases_with_maturity() {
     let mut ilb_short = sample_tips();
     ilb_short.issue_date = d(2025, 1, 2);
     ilb_short.maturity = d(2027, 1, 2); // 2 years
-    ilb_short.real_coupon = 0.02;
+    ilb_short.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
 
     // Medium-dated bond
     let mut ilb_mid = sample_tips();
     ilb_mid.issue_date = d(2025, 1, 2);
     ilb_mid.maturity = d(2030, 1, 2); // 5 years
-    ilb_mid.real_coupon = 0.02;
+    ilb_mid.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
 
     // Long-dated bond
     let mut ilb_long = sample_tips();
     ilb_long.issue_date = d(2025, 1, 2);
     ilb_long.maturity = d(2035, 1, 2); // 10 years
-    ilb_long.real_coupon = 0.02;
+    ilb_long.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
 
     // Act
     let dur_short = ilb_short.real_duration(&ctx, as_of).unwrap();
@@ -67,13 +68,13 @@ fn test_real_duration_decreases_with_higher_coupon() {
     let mut ilb_low = sample_tips();
     ilb_low.issue_date = d(2025, 1, 2);
     ilb_low.maturity = d(2030, 1, 2);
-    ilb_low.real_coupon = 0.01; // 1%
+    ilb_low.real_coupon = Decimal::try_from(0.01).expect("valid decimal"); // 1%
 
     // High coupon bond
     let mut ilb_high = sample_tips();
     ilb_high.issue_date = d(2025, 1, 2);
     ilb_high.maturity = d(2030, 1, 2);
-    ilb_high.real_coupon = 0.05; // 5%
+    ilb_high.real_coupon = Decimal::try_from(0.05).expect("valid decimal"); // 5%
 
     // Act
     let dur_low = ilb_low.real_duration(&ctx, as_of).unwrap();
@@ -89,7 +90,7 @@ fn test_real_duration_reasonable_range() {
     let mut ilb = sample_tips();
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2); // 5 years
-    ilb.real_coupon = 0.02;
+    ilb.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
 
     let (ctx, _) = market_context_with_index();
     let as_of = d(2025, 1, 2);
@@ -108,7 +109,7 @@ fn test_real_duration_decreases_over_time() {
     let mut ilb = sample_tips();
     ilb.issue_date = d(2020, 1, 2);
     ilb.maturity = d(2030, 1, 2);
-    ilb.real_coupon = 0.02;
+    ilb.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
 
     let (ctx, _) = market_context_with_index();
 
@@ -155,14 +156,14 @@ fn test_real_duration_with_different_frequencies() {
     ilb_annual.frequency = finstack_core::dates::Tenor::annual();
     ilb_annual.issue_date = d(2025, 1, 2);
     ilb_annual.maturity = d(2030, 1, 2);
-    ilb_annual.real_coupon = 0.02;
+    ilb_annual.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
 
     // Semi-annual payments
     let mut ilb_semi = sample_tips();
     ilb_semi.frequency = finstack_core::dates::Tenor::semi_annual();
     ilb_semi.issue_date = d(2025, 1, 2);
     ilb_semi.maturity = d(2030, 1, 2);
-    ilb_semi.real_coupon = 0.02;
+    ilb_semi.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
 
     // Act
     let dur_annual = ilb_annual.real_duration(&ctx, as_of).unwrap();

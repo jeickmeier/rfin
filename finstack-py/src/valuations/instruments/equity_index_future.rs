@@ -317,7 +317,7 @@ impl PyEquityIndexFutureBuilder {
             .position(self.position)
             .contract_specs(contract_specs)
             .discount_curve_id(discount_curve_id)
-            .spot_id(spot_id)
+            .spot_id(spot_id.into())
             .div_yield_id_opt(self.div_yield_id.clone())
             .attributes(Attributes::new())
             .build()

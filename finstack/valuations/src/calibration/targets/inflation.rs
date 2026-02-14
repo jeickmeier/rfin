@@ -19,6 +19,7 @@ use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::money::Money;
 use finstack_core::Result;
+use rust_decimal::Decimal;
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -150,15 +151,17 @@ impl InflationBootstrapper {
                     .notional(Money::new(self.params.notional, self.params.currency))
                     .start_date(base_date)
                     .maturity(maturity)
-                    .fixed_rate(rate)
+                    .fixed_rate(Decimal::try_from(rate).map_err(|_| {
+                        finstack_core::Error::Input(finstack_core::InputError::ConversionOverflow)
+                    })?)
                     .frequency(freq)
                     .inflation_index_id(self.params.curve_id.clone())
                     .discount_curve_id(self.params.discount_curve_id.clone())
                     .day_count(conventions.day_count)
                     .side(PayReceive::PayFixed)
                     .lag_override_opt(if has_index_fixings { None } else { Some(lag) })
-                    .bdc_opt(Some(conventions.business_day_convention))
-                    .calendar_id_opt(Some(conventions.calendar_id.clone()))
+                    .bdc(conventions.business_day_convention)
+                    .calendar_id_opt(Some(conventions.calendar_id.clone().into()))
                     .build()
                     .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
                 Arc::new(instrument)
@@ -168,7 +171,9 @@ impl InflationBootstrapper {
                     .notional(Money::new(self.params.notional, self.params.currency))
                     .start_date(base_date)
                     .maturity(maturity)
-                    .fixed_rate(rate)
+                    .fixed_rate(Decimal::try_from(rate).map_err(|_| {
+                        finstack_core::Error::Input(finstack_core::InputError::ConversionOverflow)
+                    })?)
                     .inflation_index_id(self.params.curve_id.clone())
                     .discount_curve_id(self.params.discount_curve_id.clone())
                     .day_count(conventions.day_count)
@@ -179,8 +184,8 @@ impl InflationBootstrapper {
                     } else {
                         Some(base_cpi)
                     })
-                    .bdc_opt(Some(conventions.business_day_convention))
-                    .calendar_id_opt(Some(conventions.calendar_id.clone()))
+                    .bdc(conventions.business_day_convention)
+                    .calendar_id_opt(Some(conventions.calendar_id.clone().into()))
                     .build()
                     .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
                 Arc::new(instrument)

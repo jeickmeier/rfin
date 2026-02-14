@@ -12,6 +12,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceive};
 use finstack_valuations::instruments::{Attributes, Instrument};
+use rust_decimal::Decimal;
 use time::Month;
 
 #[test]
@@ -28,7 +29,7 @@ fn test_par_rate_gives_zero_pv() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.0) // doesn't matter for par_rate calculation
+        .fixed_rate(Decimal::try_from(0.0).expect("valid decimal")) // doesn't matter for par_rate calculation
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -49,7 +50,7 @@ fn test_par_rate_gives_zero_pv() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(par_rate)
+        .fixed_rate(Decimal::try_from(par_rate).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -78,7 +79,7 @@ fn test_fixed_leg_pv_scales_with_notional() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -92,7 +93,7 @@ fn test_fixed_leg_pv_scales_with_notional() {
         .notional(Money::new(10_000_000.0, Currency::USD))
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -124,7 +125,7 @@ fn test_inflation_leg_pv_scales_with_notional() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -138,7 +139,7 @@ fn test_inflation_leg_pv_scales_with_notional() {
         .notional(Money::new(5_000_000.0, Currency::USD))
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -172,7 +173,7 @@ fn test_pv_sign_convention_pay_fixed() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.01) // 1% real rate, below 3% inflation
+        .fixed_rate(Decimal::try_from(0.01).expect("valid decimal")) // 1% real rate, below 3% inflation
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -202,7 +203,7 @@ fn test_pv_sign_convention_receive_fixed() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.03) // 3% real rate, above 1% inflation
+        .fixed_rate(Decimal::try_from(0.03).expect("valid decimal")) // 3% real rate, above 1% inflation
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -231,7 +232,7 @@ fn test_par_rate_increases_with_inflation_expectations() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.0)
+        .fixed_rate(Decimal::try_from(0.0).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -264,7 +265,7 @@ fn test_fixed_leg_increases_with_maturity() {
             .notional(standard_notional())
             .start_date(as_of)
             .maturity(maturity)
-            .fixed_rate(0.02)
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
@@ -299,7 +300,7 @@ fn test_inflation_leg_increases_with_maturity() {
             .notional(standard_notional())
             .start_date(as_of)
             .maturity(maturity)
-            .fixed_rate(0.02)
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
@@ -334,7 +335,7 @@ fn test_par_rate_formula_consistency() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.0)
+        .fixed_rate(Decimal::try_from(0.0).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -366,7 +367,7 @@ fn test_npv_equals_leg_difference() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.015)
+        .fixed_rate(Decimal::try_from(0.015).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -401,7 +402,7 @@ fn test_realistic_market_pricing() {
         .notional(large_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02) // 2% real rate
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal")) // 2% real rate
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -431,7 +432,7 @@ fn test_day_count_impact_on_fixed_leg() {
             .notional(standard_notional())
             .start_date(as_of)
             .maturity(maturity)
-            .fixed_rate(0.02)
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(*dc)
@@ -465,7 +466,7 @@ fn test_zero_fixed_rate() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.0)
+        .fixed_rate(Decimal::try_from(0.0).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)

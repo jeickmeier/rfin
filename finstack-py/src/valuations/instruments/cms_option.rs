@@ -133,7 +133,8 @@ impl PyCmsOption {
 
         let mut builder = CmsOption::builder();
         builder = builder.id(id);
-        builder = builder.strike_rate(strike_rate);
+        builder =
+            builder.strike_rate(rust_decimal::Decimal::try_from(strike_rate).unwrap_or_default());
         builder = builder.cms_tenor(cms_tenor);
         builder = builder.fixing_dates(fixing_dates_vec);
         builder = builder.payment_dates(payment_dates_vec);
@@ -165,7 +166,7 @@ impl PyCmsOption {
     /// Strike rate.
     #[getter]
     fn strike_rate(&self) -> f64 {
-        self.inner.strike_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike_rate).unwrap_or_default()
     }
 
     /// CMS tenor.

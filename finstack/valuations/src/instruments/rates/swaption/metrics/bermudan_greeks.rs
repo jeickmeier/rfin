@@ -668,7 +668,7 @@ mod tests {
             id: InstrumentId::new("TEST-BERM"),
             option_type: crate::instruments::common_impl::parameters::OptionType::Call,
             notional: Money::new(10_000_000.0, Currency::USD),
-            strike_rate: 0.03,
+            strike_rate: rust_decimal::Decimal::try_from(0.03).expect("valid decimal"),
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),

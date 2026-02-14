@@ -12,6 +12,7 @@ use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, Rat
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::macros::date;
 use time::Duration;
 
@@ -59,7 +60,7 @@ fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOptio
         id: "CAP_TEST".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: strike,
+        strike_rate: Decimal::try_from(strike).expect("valid decimal"),
         start_date,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -117,7 +118,7 @@ fn test_floor_theta() {
         id: "FLOOR_TEST".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: 0.05,
+        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
         start_date,
         maturity: end,
         frequency: Tenor::quarterly(),

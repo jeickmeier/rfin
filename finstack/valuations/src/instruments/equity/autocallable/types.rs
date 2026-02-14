@@ -38,7 +38,7 @@ use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, PriceId};
 use time::macros::date;
 
 /// Final payoff type for autocallable products.
@@ -100,7 +100,7 @@ pub struct Autocallable {
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
     /// Spot price identifier for underlying asset
-    pub spot_id: String,
+    pub spot_id: PriceId,
     /// Volatility surface ID for option pricing
     pub vol_surface_id: CurveId,
     /// Optional dividend yield curve ID
@@ -138,7 +138,7 @@ impl Autocallable {
             .notional(Money::new(100_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .spot_id("SPX-SPOT".to_string())
+            .spot_id("SPX-SPOT".into())
             .vol_surface_id(CurveId::new("SPX-VOL"))
             .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
             .pricing_overrides(PricingOverrides::default())

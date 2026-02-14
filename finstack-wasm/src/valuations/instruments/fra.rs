@@ -132,7 +132,7 @@ impl JsForwardRateAgreementBuilder {
         let mut builder = ForwardRateAgreement::builder()
             .id(instrument_id_from_str(&self.instrument_id))
             .notional(notional)
-            .fixed_rate(fixed_rate)
+            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
             .fixing_date(fixing_date)
             .start_date(start_date)
             .maturity(end_date)
@@ -238,7 +238,7 @@ impl JsForwardRateAgreement {
         let mut builder = ForwardRateAgreement::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
-            .fixed_rate(fixed_rate)
+            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
             .fixing_date(fixing_date.inner())
             .start_date(start_date.inner())
             .maturity(end_date.inner())
@@ -328,7 +328,7 @@ impl JsForwardRateAgreement {
 
     #[wasm_bindgen(getter, js_name = fixedRate)]
     pub fn fixed_rate(&self) -> f64 {
-        self.inner.fixed_rate
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default()
     }
 
     #[wasm_bindgen(getter, js_name = fixingDate)]

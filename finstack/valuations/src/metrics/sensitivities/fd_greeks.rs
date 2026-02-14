@@ -713,6 +713,7 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::money::Money;
+    use finstack_core::types::PriceId;
     use std::sync::Arc;
     use time::macros::date;
 
@@ -722,7 +723,7 @@ mod tests {
         id: String,
         expiry: Date,
         day_count: DayCount,
-        spot_id: String,
+        spot_id: PriceId,
         overrides: PricingOverrides,
         attributes: Attributes,
     }
@@ -733,7 +734,7 @@ mod tests {
                 id: id.to_string(),
                 expiry,
                 day_count: DayCount::Act365F,
-                spot_id: spot_id.to_string(),
+                spot_id: spot_id.into(),
                 overrides: PricingOverrides::default(),
                 attributes: Attributes::new(),
             }
@@ -746,7 +747,7 @@ mod tests {
         id: String,
         expiry: Date,
         day_count: DayCount,
-        spot_id: String,
+        spot_id: PriceId,
         overrides: PricingOverrides,
         attributes: Attributes,
     }
@@ -757,7 +758,7 @@ mod tests {
                 id: id.to_string(),
                 expiry,
                 day_count: DayCount::Act365F,
-                spot_id: spot_id.to_string(),
+                spot_id: spot_id.into(),
                 overrides: PricingOverrides::default(),
                 attributes: Attributes::new(),
             }
@@ -776,7 +777,7 @@ mod tests {
     impl EquityDependencies for TestFdInstrument {
         fn equity_dependencies(&self) -> finstack_core::Result<EquityInstrumentDeps> {
             EquityInstrumentDeps::builder()
-                .spot(self.spot_id.clone())
+                .spot(self.spot_id.as_str().to_string())
                 .build()
         }
     }
@@ -802,7 +803,7 @@ mod tests {
     impl EquityDependencies for RoundingSensitiveInstrument {
         fn equity_dependencies(&self) -> finstack_core::Result<EquityInstrumentDeps> {
             EquityInstrumentDeps::builder()
-                .spot(self.spot_id.clone())
+                .spot(self.spot_id.as_str().to_string())
                 .build()
         }
     }

@@ -182,7 +182,7 @@ impl JsBarrierOptionBuilder {
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.use_gobet_miri(self.use_gobet_miri.unwrap_or(false));
         builder = builder.discount_curve_id(curve_id_from_str(discount_curve));
-        builder = builder.spot_id(spot_id.to_string());
+        builder = builder.spot_id(spot_id.to_string().into());
         builder = builder.vol_surface_id(curve_id_from_str(vol_surface));
         if let Some(div) = self.div_yield_id {
             builder = builder.div_yield_id(curve_id_from_str(&div));
@@ -313,7 +313,7 @@ impl JsBarrierOption {
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
         builder = builder.discount_curve_id(curve_id_from_str(discount_curve));
-        builder = builder.spot_id(spot_id.to_string());
+        builder = builder.spot_id(spot_id.to_string().into());
         builder = builder.vol_surface_id(curve_id_from_str(vol_surface));
         if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(curve_id_from_str(&div));
@@ -389,7 +389,7 @@ impl JsBarrierOption {
 
     #[wasm_bindgen(getter, js_name = spotId)]
     pub fn spot_id(&self) -> String {
-        self.inner.spot_id.clone()
+        self.inner.spot_id.to_string()
     }
 
     #[wasm_bindgen(getter, js_name = volSurface)]

@@ -42,6 +42,7 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
+        let strike = option.strike_rate_f64()?;
 
         // Use consolidated helper to get pre-computed inputs
         let inputs = match option.greek_inputs(&context.curves, context.as_of)? {
@@ -61,12 +62,8 @@ impl MetricCalculator for VegaCalculator {
                     0.0
                 } else {
                     use crate::instruments::common_impl::models::d1_black76;
-                    let d1 = d1_black76(
-                        inputs.forward,
-                        option.strike_rate,
-                        inputs.sigma,
-                        inputs.time_to_expiry,
-                    );
+                    let d1 =
+                        d1_black76(inputs.forward, strike, inputs.sigma, inputs.time_to_expiry);
                     inputs.forward
                         * finstack_core::math::norm_pdf(d1)
                         * inputs.time_to_expiry.sqrt()
@@ -74,12 +71,7 @@ impl MetricCalculator for VegaCalculator {
             }
             VolatilityModel::Normal => {
                 use crate::instruments::common_impl::models::volatility::normal::d_bachelier;
-                let d = d_bachelier(
-                    inputs.forward,
-                    option.strike_rate,
-                    inputs.sigma,
-                    inputs.time_to_expiry,
-                );
+                let d = d_bachelier(inputs.forward, strike, inputs.sigma, inputs.time_to_expiry);
                 finstack_core::math::norm_pdf(d) * inputs.time_to_expiry.sqrt()
             }
         };

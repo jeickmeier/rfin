@@ -27,6 +27,7 @@ impl MetricCalculator for VannaCalculator {
         let pricer = CmsOptionPricer::new();
         let curves = &context.curves;
         let as_of = context.as_of;
+        let strike = inst.strike_rate_f64()?;
 
         let mut total_vanna = 0.0;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
@@ -58,7 +59,7 @@ impl MetricCalculator for VannaCalculator {
                 continue;
             }
 
-            let vol = vol_surface.value_clamped(time_to_fixing, inst.strike_rate);
+            let vol = vol_surface.value_clamped(time_to_fixing, strike);
 
             // 3. Convexity Adjustment Derivative
             // Convexity = 0.5 * vol^2 * T * G(S)
@@ -81,7 +82,7 @@ impl MetricCalculator for VannaCalculator {
             let df_pay = relative_df_discount_curve(discount_curve.as_ref(), as_of, payment_date)?;
 
             // Use combined d1_d2 for efficiency
-            let (d1, d2) = d1_d2_black76(adjusted_rate, inst.strike_rate, vol, time_to_fixing);
+            let (d1, d2) = d1_d2_black76(adjusted_rate, strike, vol, time_to_fixing);
             let nd1_prime = norm_pdf(d1);
 
             let sqrt_t = time_to_fixing.sqrt();

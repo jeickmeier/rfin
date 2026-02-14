@@ -12,6 +12,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
+use rust_decimal::Decimal;
 use time::macros::date;
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
@@ -54,7 +55,7 @@ fn create_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
         id: "CAP_PARITY".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: strike,
+        strike_rate: Decimal::try_from(strike).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -79,7 +80,7 @@ fn create_floor(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
         id: "FLOOR_PARITY".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: strike,
+        strike_rate: Decimal::try_from(strike).expect("valid decimal"),
         start_date: as_of,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -244,7 +245,7 @@ fn test_caplet_floorlet_parity() {
         id: "CAPLET".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: strike,
+        strike_rate: Decimal::try_from(strike).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -267,7 +268,7 @@ fn test_caplet_floorlet_parity() {
         id: "FLOORLET".into(),
         rate_option_type: RateOptionType::Floorlet,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: strike,
+        strike_rate: Decimal::try_from(strike).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),

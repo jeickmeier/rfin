@@ -20,7 +20,9 @@ use finstack_core::dates::{
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId, Rate};
+use finstack_core::types::{CalendarId, CurveId, InstrumentId, Rate};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 use crate::cashflow::traits::CashflowProvider;
@@ -68,7 +70,7 @@ pub struct Deposit {
     /// is only appropriate if the caller never requests cashflow generation/PV from
     /// this instrument (e.g., constructing placeholders).
     #[builder(optional)]
-    pub quote_rate: Option<f64>,
+    pub quote_rate: Option<Decimal>,
     /// Discount curve id used for valuation and par extraction.
     pub discount_curve_id: CurveId,
     /// Attributes for scenario selection and tagging.
@@ -89,16 +91,16 @@ pub struct Deposit {
     ///
     /// Used to adjust the effective start/end dates to valid business days.
     /// Default: `ModifiedFollowing` (standard money market convention).
-    #[builder(optional)]
-    #[serde(default)]
-    pub bdc: Option<BusinessDayConvention>,
+    #[builder(default = BusinessDayConvention::ModifiedFollowing)]
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
+    pub bdc: BusinessDayConvention,
 
     /// Optional holiday calendar identifier for business day logic.
     ///
     /// Examples: "nyse", "target", "london", "tokyo".
     /// When set, enables calendar-aware spot date and accrual date adjustments.
     #[builder(optional)]
-    pub calendar_id: Option<String>,
+    pub calendar_id: Option<CalendarId>,
 }
 
 impl Deposit {
@@ -114,11 +116,11 @@ impl Deposit {
             .start_date(date!(2024 - 01 - 01))
             .maturity(date!(2024 - 07 - 01))
             .day_count(DayCount::Act360)
-            .quote_rate_opt(Some(0.045))
+            .quote_rate_opt(Decimal::try_from(0.045).ok())
             .discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(Attributes::new())
             .spot_lag_days_opt(Some(2))
-            .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
+            .bdc(BusinessDayConvention::ModifiedFollowing)
             .build()
             .unwrap_or_else(|_| {
                 unreachable!("Example deposit with valid constants should never fail")
@@ -143,7 +145,7 @@ impl Deposit {
 impl DepositBuilder {
     /// Set the quoted rate using a typed rate.
     pub fn quote_rate_rate(mut self, rate: Rate) -> Self {
-        self.quote_rate = Some(rate.as_decimal());
+        self.quote_rate = Decimal::try_from(rate.as_decimal()).ok();
         self
     }
 }
@@ -281,15 +283,20 @@ impl Deposit {
 
         // Warn about extreme rates (don't fail, as they may be intentional)
         if let Some(r) = self.quote_rate {
-            if !(MIN_REASONABLE_RATE..=MAX_REASONABLE_RATE).contains(&r) {
+            let r_f64 = r.to_f64().ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "Deposit quote_rate could not be converted to f64".to_string(),
+                )
+            })?;
+            if !(MIN_REASONABLE_RATE..=MAX_REASONABLE_RATE).contains(&r_f64) {
                 tracing::warn!(
                     deposit_id = %self.id,
-                    quote_rate = r,
+                    quote_rate = r_f64,
                     min_bound = MIN_REASONABLE_RATE,
                     max_bound = MAX_REASONABLE_RATE,
                     "Deposit quote rate {:.4} ({:.0} bps) is outside typical range [{:.0}%, {:.0}%]",
-                    r,
-                    r * 10000.0,
+                    r_f64,
+                    r_f64 * 10000.0,
                     MIN_REASONABLE_RATE * 100.0,
                     MAX_REASONABLE_RATE * 100.0
                 );
@@ -314,7 +321,7 @@ impl Deposit {
             .as_deref()
             .and_then(|id| CalendarRegistry::global().resolve_str(id));
 
-        let bdc = self.bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing);
+        let bdc = self.bdc;
 
         let base_start = if let Some(lag_days) = self.spot_lag_days {
             // Compute spot date: start + spot_lag business days
@@ -354,7 +361,7 @@ impl Deposit {
             .as_deref()
             .and_then(|id| CalendarRegistry::global().resolve_str(id));
 
-        let bdc = self.bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing);
+        let bdc = self.bdc;
 
         // Apply business day adjustment if calendar is available
         if let Some(cal) = calendar {
@@ -397,6 +404,11 @@ impl CashflowProvider for Deposit {
             finstack_core::Error::Input(finstack_core::InputError::NotFound {
                 id: "deposit quote_rate".to_string(),
             })
+        })?;
+        let r = r.to_f64().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "Deposit quote_rate could not be converted to f64".to_string(),
+            )
         })?;
         let redemption = self.notional * (1.0 + r * yf);
         let flows = vec![

@@ -37,7 +37,9 @@ fn test_compensated_summation_large_portfolio() {
             .maturity(end_date)
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
-            .quote_rate_opt(Some(0.045))
+            .quote_rate_opt(Some(
+                rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            ))
             .build()
             .unwrap();
 
@@ -94,7 +96,9 @@ fn test_aggregated_metrics_are_finite() {
         .maturity(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
-        .quote_rate_opt(Some(0.045))
+        .quote_rate_opt(Some(
+            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+        ))
         .build()
         .unwrap();
 

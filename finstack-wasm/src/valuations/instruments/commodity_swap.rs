@@ -192,7 +192,7 @@ impl JsCommoditySwapBuilder {
             .unit(unit.to_string())
             .currency(currency)
             .quantity(quantity)
-            .fixed_price(fixed_price)
+            .fixed_price(rust_decimal::Decimal::try_from(fixed_price).unwrap_or_default())
             .floating_index_id(CurveId::new(floating_index_id))
             .side(if pay_fixed {
                 PayReceive::PayFixed
@@ -304,7 +304,7 @@ impl JsCommoditySwap {
             .unit(unit.to_string())
             .currency(currency.inner())
             .quantity(quantity)
-            .fixed_price(fixed_price)
+            .fixed_price(rust_decimal::Decimal::try_from(fixed_price).unwrap_or_default())
             .floating_index_id(CurveId::new(floating_index_id))
             .side(if pay_fixed {
                 PayReceive::PayFixed
@@ -360,7 +360,7 @@ impl JsCommoditySwap {
 
     #[wasm_bindgen(getter, js_name = fixedPrice)]
     pub fn fixed_price(&self) -> f64 {
-        self.inner.fixed_price
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_price).unwrap_or_default()
     }
 
     #[wasm_bindgen(getter, js_name = payFixed)]

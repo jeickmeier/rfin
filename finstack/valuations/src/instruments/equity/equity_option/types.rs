@@ -64,7 +64,7 @@ use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, PriceId};
 use time::macros::date;
 
 use super::parameters::EquityOptionParams;
@@ -97,7 +97,7 @@ pub struct EquityOption {
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
     /// Equity spot price identifier
-    pub spot_id: String,
+    pub spot_id: PriceId,
     /// Equity volatility surface ID
     pub vol_surface_id: CurveId,
     /// Optional continuous dividend yield identifier.
@@ -155,7 +155,7 @@ impl crate::instruments::common_impl::traits::EquityDependencies for EquityOptio
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::EquityInstrumentDeps> {
         crate::instruments::common_impl::traits::EquityInstrumentDeps::builder()
-            .spot(self.spot_id.clone())
+            .spot(self.spot_id.as_str())
             .vol_surface(self.vol_surface_id.as_str())
             .build()
     }
@@ -316,7 +316,7 @@ impl EquityOption {
             day_count: finstack_core::dates::DayCount::Act365F,
             settlement: option_params.settlement,
             discount_curve_id,
-            spot_id: underlying_params.spot_id.to_owned(),
+            spot_id: underlying_params.spot_id.clone(),
             vol_surface_id,
             div_yield_id: underlying_params.div_yield_id.clone(),
             discrete_dividends: Vec::new(),
@@ -698,7 +698,7 @@ mod tests {
             .day_count(DayCount::Act365F)
             .settlement(SettlementType::Cash)
             .discount_curve_id(CurveId::new(DISC_ID))
-            .spot_id(SPOT_ID.to_string())
+            .spot_id(SPOT_ID.into())
             .vol_surface_id(CurveId::new(VOL_ID))
             .div_yield_id_opt(Some(CurveId::new(DIV_ID)))
             .pricing_overrides(PricingOverrides::default())
@@ -723,7 +723,7 @@ mod tests {
         assert_eq!(call.exercise_style, ExerciseStyle::European);
         assert_eq!(call.option_type, OptionType::Call);
         assert_eq!(call.discount_curve_id, CurveId::new(DISC_ID));
-        assert_eq!(call.spot_id, "EQUITY-SPOT");
+        assert_eq!(call.spot_id.as_str(), "EQUITY-SPOT");
         assert_eq!(call.vol_surface_id, CurveId::new("EQUITY-VOL"));
 
         let put =

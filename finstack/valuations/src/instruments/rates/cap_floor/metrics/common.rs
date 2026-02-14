@@ -28,6 +28,7 @@ where
     let fwd_curve = context
         .curves
         .get_forward(option.forward_curve_id.as_ref())?;
+    let strike_rate = option.strike_rate_f64()?;
 
     // Helper to compute contribution for a single period
     let mut accumulate = |start: finstack_core::dates::Date,
@@ -58,7 +59,7 @@ where
         let sigma = context
             .curves
             .surface(option.vol_surface_id.as_str())?
-            .value_clamped(t_fix, option.strike_rate);
+            .value_clamped(t_fix, strike_rate);
 
         let per_unit = f(forward, sigma, t_fix);
         Ok(per_unit * option.notional.amount() * tau * df)

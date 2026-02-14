@@ -11,9 +11,12 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation, InflationLag};
 use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::money::Money;
+use finstack_core::types::CalendarId;
 use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
 use finstack_core::Result;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use std::sync::Arc;
 use time::Duration;
 
@@ -202,7 +205,7 @@ pub struct InflationLinkedBond {
     /// Notional amount (in real terms)
     pub notional: Money,
     /// Real coupon rate (as decimal)
-    pub real_coupon: f64,
+    pub real_coupon: Decimal,
     /// Coupon frequency
     #[serde(alias = "freq")]
     pub frequency: Tenor,
@@ -233,7 +236,7 @@ pub struct InflationLinkedBond {
     #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Holiday calendar identifier
-    pub calendar_id: Option<String>,
+    pub calendar_id: Option<CalendarId>,
     /// Discount curve identifier (real or nominal depending on method)
     pub discount_curve_id: CurveId,
     /// Inflation index identifier
@@ -265,7 +268,7 @@ impl InflationLinkedBond {
         Self {
             id: InstrumentId::new("TIPS-10Y"),
             notional: Money::new(1_000_000.0, Currency::USD),
-            real_coupon: 0.025,
+            real_coupon: Decimal::try_from(0.025).unwrap_or_default(),
             frequency: Tenor::semi_annual(),
             day_count: DayCount::ActActIsma, // US Treasury convention
             issue_date: date!(2024 - 01 - 15),
@@ -552,7 +555,7 @@ impl InflationLinkedBond {
             deflation_protection: DeflationProtection::MaturityOnly,
             bdc: BusinessDayConvention::Following,
             stub: StubKind::None,
-            calendar_id: Some("jpto".to_string()),
+            calendar_id: Some("jpto".into()),
             discount_curve_id: discount_curve_id.into(),
             inflation_index_id: inflation_index_id.into(),
             quoted_clean: None,
@@ -739,7 +742,11 @@ impl InflationLinkedBond {
                     DayCountCtx::default(),
                 )?
                 .max(0.0);
-            let base_amount = self.notional * self.real_coupon * year_frac;
+            let coupon_rate = self
+                .real_coupon
+                .to_f64()
+                .ok_or(finstack_core::InputError::ConversionOverflow)?;
+            let base_amount = self.notional * coupon_rate * year_frac;
             let ratio = inflation_source.ratio(self, period.payment_date)?;
             flows.push((period.payment_date, base_amount * ratio));
         }
@@ -789,7 +796,11 @@ impl InflationLinkedBond {
                 }
 
                 // Real coupon amount for the full period
-                let full_coupon = self.notional.amount() * self.real_coupon * total_yf;
+                let coupon_rate = self
+                    .real_coupon
+                    .to_f64()
+                    .ok_or(finstack_core::InputError::ConversionOverflow)?;
+                let full_coupon = self.notional.amount() * coupon_rate * total_yf;
 
                 // Linear accrual: Coupon * (elapsed / total)
                 // Note: This matches standard bond accrual for fixed coupons.
@@ -834,7 +845,11 @@ impl InflationLinkedBond {
                     DayCountCtx::default(),
                 )?
                 .max(0.0);
-            let base_amount = self.notional.amount() * self.real_coupon * year_frac;
+            let coupon_rate = self
+                .real_coupon
+                .to_f64()
+                .ok_or(finstack_core::InputError::ConversionOverflow)?;
+            let base_amount = self.notional.amount() * coupon_rate * year_frac;
             // No inflation adjustment
             flows.push((
                 period.payment_date,
@@ -896,7 +911,10 @@ impl InflationLinkedBond {
         let spec = YtmPricingSpec {
             day_count: self.day_count,
             notional: self.notional,
-            coupon_rate: self.real_coupon,
+            coupon_rate: self
+                .real_coupon
+                .to_f64()
+                .ok_or(finstack_core::InputError::ConversionOverflow)?,
             compounding: YieldCompounding::Street,
             frequency: self.frequency,
         };

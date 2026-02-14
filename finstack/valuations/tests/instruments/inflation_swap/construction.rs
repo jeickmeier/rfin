@@ -9,6 +9,7 @@ use finstack_valuations::instruments::rates::inflation_swap::{
     InflationSwap, InflationSwapBuilder, PayReceive,
 };
 use finstack_valuations::instruments::Attributes;
+use rust_decimal::Decimal;
 use time::Month;
 
 #[test]
@@ -21,7 +22,7 @@ fn test_builder_creates_valid_swap() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -34,7 +35,10 @@ fn test_builder_creates_valid_swap() {
     assert_eq!(swap.notional.amount(), 1_000_000.0);
     assert_eq!(swap.start_date, as_of);
     assert_eq!(swap.maturity, maturity);
-    assert_eq!(swap.fixed_rate, 0.02);
+    assert_eq!(
+        swap.fixed_rate,
+        Decimal::try_from(0.02).expect("valid decimal")
+    );
     assert_eq!(swap.side, PayReceive::PayFixed);
 }
 
@@ -48,7 +52,7 @@ fn test_builder_with_lag_override() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.025)
+        .fixed_rate(Decimal::try_from(0.025).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -107,7 +111,7 @@ fn test_swap_with_different_day_counts() {
             .notional(standard_notional())
             .start_date(as_of)
             .maturity(maturity)
-            .fixed_rate(0.02)
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(*dc)
@@ -131,7 +135,7 @@ fn test_swap_with_different_notionals() {
             .notional(Money::new(*notional_amt, Currency::USD))
             .start_date(as_of)
             .maturity(maturity)
-            .fixed_rate(0.02)
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
@@ -155,7 +159,7 @@ fn test_swap_with_various_maturities() {
             .notional(standard_notional())
             .start_date(as_of)
             .maturity(maturity)
-            .fixed_rate(0.02)
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
@@ -179,7 +183,7 @@ fn test_swap_with_negative_fixed_rate() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(-0.01) // -1% real rate
+        .fixed_rate(Decimal::try_from(-0.01).expect("valid decimal")) // -1% real rate
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -188,7 +192,10 @@ fn test_swap_with_negative_fixed_rate() {
         .build()
         .unwrap();
 
-    assert_eq!(swap.fixed_rate, -0.01);
+    assert_eq!(
+        swap.fixed_rate,
+        Decimal::try_from(-0.01).expect("valid decimal")
+    );
 }
 
 #[test]
@@ -205,7 +212,7 @@ fn test_swap_with_attributes() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -230,7 +237,7 @@ fn test_instrument_trait_implementations() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
@@ -257,7 +264,7 @@ fn test_clone_and_equality() {
         .notional(standard_notional())
         .start_date(as_of)
         .maturity(maturity)
-        .fixed_rate(0.02)
+        .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)

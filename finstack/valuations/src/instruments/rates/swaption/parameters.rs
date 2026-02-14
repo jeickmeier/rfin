@@ -5,6 +5,7 @@ use finstack_core::dates::Date;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::Rate;
+use rust_decimal::Decimal;
 
 /// Swaption-specific parameters.
 ///
@@ -14,7 +15,7 @@ pub struct SwaptionParams {
     /// Notional amount
     pub notional: Money,
     /// Strike rate (fixed rate)
-    pub strike_rate: f64,
+    pub strike_rate: Decimal,
     /// Swaption expiry date
     pub expiry: Date,
     /// Underlying swap start date
@@ -44,7 +45,7 @@ impl SwaptionParams {
     ) -> Self {
         Self {
             notional,
-            strike_rate,
+            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
             expiry,
             swap_start,
             swap_end,
@@ -66,7 +67,7 @@ impl SwaptionParams {
     ) -> Self {
         Self {
             notional,
-            strike_rate: strike_rate.as_decimal(),
+            strike_rate: Decimal::try_from(strike_rate.as_decimal()).unwrap_or_default(),
             expiry,
             swap_start,
             swap_end,
@@ -88,7 +89,7 @@ impl SwaptionParams {
     ) -> Self {
         Self {
             notional,
-            strike_rate,
+            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
             expiry,
             swap_start,
             swap_end,
@@ -110,7 +111,7 @@ impl SwaptionParams {
     ) -> Self {
         Self {
             notional,
-            strike_rate: strike_rate.as_decimal(),
+            strike_rate: Decimal::try_from(strike_rate.as_decimal()).unwrap_or_default(),
             expiry,
             swap_start,
             swap_end,

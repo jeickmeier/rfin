@@ -90,6 +90,12 @@ impl Pricer for SimpleSwaptionBlackPricer {
                         )
                     })?
                 } else {
+                    let strike = swaption.strike_rate_f64().map_err(|e| {
+                        PricingError::model_failure_with_context(
+                            e.to_string(),
+                            PricingErrorContext::default(),
+                        )
+                    })?;
                     let time_to_expiry = year_fraction(swaption.day_count, as_of, swaption.expiry)
                         .map_err(|e| {
                             PricingError::model_failure_with_context(
@@ -116,10 +122,10 @@ impl Pricer for SimpleSwaptionBlackPricer {
                             VolSurfaceExtrapolation::Clamp
                             | VolSurfaceExtrapolation::LinearInVariance => {
                                 // LinearInVariance falls back to Clamp until surface impl is ready
-                                vol_surface.value_clamped(time_to_expiry, swaption.strike_rate)
+                                vol_surface.value_clamped(time_to_expiry, strike)
                             }
                             VolSurfaceExtrapolation::Error => vol_surface
-                                .value_checked(time_to_expiry, swaption.strike_rate)
+                                .value_checked(time_to_expiry, strike)
                                 .map_err(|e| {
                                     PricingError::missing_market_data_with_context(
                                         e.to_string(),
@@ -638,12 +644,15 @@ impl BermudanSwaptionPricer {
             OptionType::Call => SwaptionType::Payer,
             OptionType::Put => SwaptionType::Receiver,
         };
+        let strike = swaption.strike_rate_f64().map_err(|e| {
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+        })?;
 
         // Create Bermudan payoff
         let payoff = BermudanSwaptionPayoff::new(
             valid_exercise_times.clone(),
             swap_schedule,
-            swaption.strike_rate,
+            strike,
             option_type,
             swaption.notional.amount(),
             swaption.notional.currency(),

@@ -3,6 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::types::CurveId;
 use finstack_core::types::IndexId;
+use finstack_core::types::PriceId;
 
 use serde::{Deserialize, Serialize};
 
@@ -79,7 +80,7 @@ pub struct EquityUnderlyingParams {
     /// Underlying ticker/identifier
     pub ticker: String,
     /// Spot price identifier in market data
-    pub spot_id: String,
+    pub spot_id: PriceId,
     /// Optional dividend yield identifier
     pub div_yield_id: Option<CurveId>,
     /// Contract size (shares per contract)
@@ -90,7 +91,7 @@ pub struct EquityUnderlyingParams {
 
 impl EquityUnderlyingParams {
     /// Create equity underlying parameters
-    pub fn new(ticker: impl Into<String>, spot_id: impl Into<String>, currency: Currency) -> Self {
+    pub fn new(ticker: impl Into<String>, spot_id: impl Into<PriceId>, currency: Currency) -> Self {
         Self {
             ticker: ticker.into(),
             spot_id: spot_id.into(),

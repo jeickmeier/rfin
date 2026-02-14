@@ -356,7 +356,7 @@ impl PyCommoditySwapBuilder {
             .unit(unit)
             .currency(currency)
             .quantity(quantity)
-            .fixed_price(fixed_price)
+            .fixed_price(rust_decimal::Decimal::try_from(fixed_price).unwrap_or_default())
             .floating_index_id(floating_index_id)
             .side(if pay_fixed {
                 PayReceive::PayFixed
@@ -370,7 +370,7 @@ impl PyCommoditySwapBuilder {
             .attributes(Attributes::new());
 
         if let Some(cal) = slf.calendar_id.clone() {
-            builder = builder.calendar_id_opt(Some(cal));
+            builder = builder.calendar_id_opt(Some(cal.into()));
         }
         if let Some(b) = slf.bdc {
             builder = builder.bdc(b);
@@ -444,7 +444,7 @@ impl PyCommoditySwap {
     /// Fixed price per unit.
     #[getter]
     fn fixed_price(&self) -> f64 {
-        self.inner.fixed_price
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_price).unwrap_or_default()
     }
 
     /// Whether paying fixed (receiving floating).

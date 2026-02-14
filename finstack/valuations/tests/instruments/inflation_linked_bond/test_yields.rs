@@ -8,6 +8,8 @@
 //! - Error handling for invalid inputs
 
 use super::common::*;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 fn running_under_coverage() -> bool {
     // `cargo llvm-cov` runs tests with LLVM coverage instrumentation enabled, which can slow down
@@ -19,7 +21,7 @@ fn running_under_coverage() -> bool {
 fn test_real_yield_at_par() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.real_coupon = 0.02; // 2% coupon
+    ilb.real_coupon = Decimal::try_from(0.02).expect("valid decimal"); // 2% coupon
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
@@ -41,7 +43,7 @@ fn test_real_yield_at_par() {
 fn test_real_yield_premium_bond() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.real_coupon = 0.02;
+    ilb.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
     ilb.issue_date = d(2020, 1, 2); // Issue in the past
     ilb.maturity = d(2030, 1, 2);
 
@@ -56,7 +58,7 @@ fn test_real_yield_premium_bond() {
     // Premium pricing for ILBs is complex due to inflation adjustments
     // For a premium bond (price > 100), yield should be less than coupon
     assert!(
-        y < ilb.real_coupon,
+        y < ilb.real_coupon.to_f64().unwrap(),
         "Premium bond should have yield < coupon, got yield={}, coupon={}",
         y,
         ilb.real_coupon
@@ -69,7 +71,7 @@ fn test_real_yield_premium_bond() {
 fn test_real_yield_discount_bond() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.real_coupon = 0.02;
+    ilb.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
@@ -81,14 +83,14 @@ fn test_real_yield_discount_bond() {
     let y = ilb.real_yield(clean_price, &ctx, as_of).unwrap();
 
     // Assert - discount bond → yield > coupon
-    assert!(y > ilb.real_coupon);
+    assert!(y > ilb.real_coupon.to_f64().unwrap());
 }
 
 #[test]
 fn test_real_yield_price_relationship() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.real_coupon = 0.02;
+    ilb.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
@@ -117,7 +119,7 @@ fn test_real_yield_uses_quoted_price_when_available() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.quoted_clean = Some(105.0);
-    ilb.real_coupon = 0.02;
+    ilb.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
@@ -195,7 +197,7 @@ fn test_real_yield_rejects_nan_price() {
 fn test_real_yield_extreme_prices_produce_valid_results() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.real_coupon = 0.02;
+    ilb.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
@@ -225,7 +227,7 @@ fn test_breakeven_inflation_basic() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.quoted_clean = Some(100.0);
-    ilb.real_coupon = 0.01; // 1% real yield at par
+    ilb.real_coupon = Decimal::try_from(0.01).expect("valid decimal"); // 1% real yield at par
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
@@ -247,7 +249,7 @@ fn test_breakeven_inflation_fisher_equation() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.quoted_clean = Some(100.0);
-    ilb.real_coupon = 0.015;
+    ilb.real_coupon = Decimal::try_from(0.015).expect("valid decimal");
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
@@ -276,7 +278,7 @@ fn test_breakeven_inflation_varies_with_nominal_yield() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.quoted_clean = Some(100.0);
-    ilb.real_coupon = 0.01;
+    ilb.real_coupon = Decimal::try_from(0.01).expect("valid decimal");
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
@@ -327,7 +329,7 @@ fn test_breakeven_can_be_negative() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.quoted_clean = Some(100.0);
-    ilb.real_coupon = 0.05; // High real coupon
+    ilb.real_coupon = Decimal::try_from(0.05).expect("valid decimal"); // High real coupon
     ilb.issue_date = d(2025, 1, 2);
     ilb.maturity = d(2030, 1, 2);
 
@@ -352,13 +354,13 @@ fn test_real_yield_varies_with_time_to_maturity() {
     let mut ilb_long = sample_tips();
     ilb_long.issue_date = d(2025, 1, 2);
     ilb_long.maturity = d(2035, 1, 2); // 10 years
-    ilb_long.real_coupon = 0.02;
+    ilb_long.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
 
     // Short-dated bond
     let mut ilb_short = sample_tips();
     ilb_short.issue_date = d(2025, 1, 2);
     ilb_short.maturity = d(2027, 1, 2); // 2 years
-    ilb_short.real_coupon = 0.02;
+    ilb_short.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
 
     let as_of = d(2025, 1, 2);
     let clean_price = 100.0;
@@ -382,13 +384,13 @@ fn test_real_yield_different_day_counts() {
     // Same bond with different day count conventions
     let mut ilb_actact = sample_tips();
     ilb_actact.day_count = finstack_core::dates::DayCount::ActAct;
-    ilb_actact.real_coupon = 0.02;
+    ilb_actact.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
     ilb_actact.issue_date = d(2025, 1, 2);
     ilb_actact.maturity = d(2030, 1, 2);
 
     let mut ilb_30360 = sample_tips();
     ilb_30360.day_count = finstack_core::dates::DayCount::Thirty360;
-    ilb_30360.real_coupon = 0.02;
+    ilb_30360.real_coupon = Decimal::try_from(0.02).expect("valid decimal");
     ilb_30360.issue_date = d(2025, 1, 2);
     ilb_30360.maturity = d(2030, 1, 2);
 

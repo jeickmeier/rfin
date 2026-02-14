@@ -49,7 +49,7 @@ fn test_bermudan_swaption(
         id: InstrumentId::new("TEST-BERM"),
         option_type,
         notional: Money::new(10_000_000.0, Currency::USD),
-        strike_rate: strike,
+        strike_rate: rust_decimal::Decimal::try_from(strike).expect("valid decimal"),
         swap_start,
         swap_end,
         fixed_freq: Tenor::semi_annual(),

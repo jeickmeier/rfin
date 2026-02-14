@@ -254,7 +254,7 @@ impl JsEquityIndexFutureBuilder {
             .position(position)
             .contract_specs(specs)
             .discount_curve_id(CurveId::new(discount_curve_id))
-            .spot_id(spot_id.to_string())
+            .spot_id(spot_id.to_string().into())
             .attributes(Attributes::new())
             .build()
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
@@ -301,7 +301,7 @@ impl JsEquityIndexFuture {
             .position(position.inner())
             .contract_specs(specs.inner())
             .discount_curve_id(CurveId::new(discount_curve_id))
-            .spot_id(spot_id.to_string())
+            .spot_id(spot_id.to_string().into())
             .attributes(Attributes::new())
             .build()
             .map_err(|e| JsValue::from_str(&e.to_string()))?;

@@ -67,6 +67,7 @@ impl CmsOptionPricer {
         use crate::instruments::common_impl::pricing::time::relative_df_discount_curve;
 
         let mut total_pv = 0.0;
+        let strike = inst.strike_rate_f64()?;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
 
         let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
@@ -104,7 +105,7 @@ impl CmsOptionPricer {
                     .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
 
             // Get volatility from surface
-            let vol = vol_surface.value_clamped(time_to_fixing.max(0.0), inst.strike_rate);
+            let vol = vol_surface.value_clamped(time_to_fixing.max(0.0), strike);
 
             // Convexity adjustment using Hagan (2003) formula with forward rate
             let raw_convexity_adj = if time_to_fixing > 0.0 {
@@ -119,21 +120,11 @@ impl CmsOptionPricer {
             // 3. Black Price
             let option_val = if time_to_fixing <= 0.0 {
                 match inst.option_type {
-                    crate::instruments::OptionType::Call => {
-                        (forward_swap_rate - inst.strike_rate).max(0.0)
-                    }
-                    crate::instruments::OptionType::Put => {
-                        (inst.strike_rate - forward_swap_rate).max(0.0)
-                    }
+                    crate::instruments::OptionType::Call => (forward_swap_rate - strike).max(0.0),
+                    crate::instruments::OptionType::Put => (strike - forward_swap_rate).max(0.0),
                 }
             } else {
-                self.black_price(
-                    adjusted_rate,
-                    inst.strike_rate,
-                    vol,
-                    time_to_fixing,
-                    inst.option_type,
-                )
+                self.black_price(adjusted_rate, strike, vol, time_to_fixing, inst.option_type)
             };
 
             // 4. Discount to present using curve-consistent relative DF

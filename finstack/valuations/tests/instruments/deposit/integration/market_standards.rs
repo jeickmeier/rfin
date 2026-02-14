@@ -9,6 +9,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 
 #[test]
 fn test_standard_usd_3m_deposit() {
@@ -284,12 +285,12 @@ fn test_usd_deposit_friday_trade_with_nyse_calendar() {
         .start_date(trade_date) // Will be adjusted by spot lag
         .maturity(date(2025, 2, 7)) // 1 month maturity from spot
         .day_count(DayCount::Act360)
-        .quote_rate_opt(Some(0.02))
+        .quote_rate_opt(Some(Decimal::try_from(0.02).expect("valid decimal")))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .attributes(finstack_valuations::instruments::Attributes::new())
         .spot_lag_days_opt(Some(2))
-        .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
-        .calendar_id_opt(Some("nyse".to_string()))
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(Some("nyse".into()))
         .build()
         .expect("Valid deposit");
 
@@ -358,7 +359,7 @@ fn test_deposit_without_spot_lag_uses_raw_dates() {
         .start_date(trade_date)
         .maturity(date(2025, 2, 3))
         .day_count(DayCount::Act360)
-        .quote_rate_opt(Some(0.02))
+        .quote_rate_opt(Some(Decimal::try_from(0.02).expect("valid decimal")))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .attributes(finstack_valuations::instruments::Attributes::new())
         // No spot_lag_days_opt - should use raw dates
@@ -392,11 +393,11 @@ fn test_gbp_deposit_t0_settlement() {
         .start_date(trade_date)
         .maturity(date(2025, 2, 3))
         .day_count(DayCount::Act365F) // GBP uses Act/365
-        .quote_rate_opt(Some(0.02))
+        .quote_rate_opt(Some(Decimal::try_from(0.02).expect("valid decimal")))
         .discount_curve_id(CurveId::new("GBP-OIS"))
         .attributes(finstack_valuations::instruments::Attributes::new())
         .spot_lag_days_opt(Some(0)) // T+0 for GBP
-        .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
+        .bdc(BusinessDayConvention::ModifiedFollowing)
         .build()
         .expect("Valid deposit");
 
@@ -444,11 +445,11 @@ fn test_modified_following_eom_adjustment() {
         .start_date(trade_date)
         .maturity(date(2026, 1, 31)) // Saturday - should roll back to Friday Jan 30
         .day_count(DayCount::Act360)
-        .quote_rate_opt(Some(0.02))
+        .quote_rate_opt(Some(Decimal::try_from(0.02).expect("valid decimal")))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .attributes(finstack_valuations::instruments::Attributes::new())
-        .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
-        .calendar_id_opt(Some("nyse".to_string()))
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(Some("nyse".into()))
         .build()
         .expect("Valid deposit");
 

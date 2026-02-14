@@ -7,7 +7,7 @@ use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, PriceId};
 
 /// Quanto option instrument.
 ///
@@ -43,7 +43,7 @@ pub struct QuantoOption {
     /// Discount curve ID (foreign currency)
     pub foreign_discount_curve_id: CurveId,
     /// Equity spot price identifier
-    pub spot_id: String,
+    pub spot_id: PriceId,
     /// Equity volatility surface ID
     pub vol_surface_id: CurveId,
     /// Optional dividend yield curve ID
@@ -91,7 +91,7 @@ impl QuantoOption {
             .day_count(DayCount::Act365F)
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("JPY-OIS"))
-            .spot_id("NKY-SPOT".to_string())
+            .spot_id("NKY-SPOT".into())
             .vol_surface_id(CurveId::new("NKY-VOL"))
             .div_yield_id_opt(Some(CurveId::new("NKY-DIV")))
             .fx_rate_id_opt(Some("USDJPY-SPOT".to_string()))

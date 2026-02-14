@@ -6,7 +6,9 @@ use crate::market::conventions::ids::IndexId;
 use crate::market::conventions::ConventionRegistry;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CalendarId, CurveId, InstrumentId};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 use super::parameters::InterestRateOptionParams;
 use crate::impl_instrument_base;
@@ -113,7 +115,7 @@ pub struct InterestRateOption {
     /// Notional amount
     pub notional: Money,
     /// Strike rate (as decimal, e.g., 0.05 for 5%)
-    pub strike_rate: f64,
+    pub strike_rate: Decimal,
     /// Start date of underlying period
     pub start_date: Date,
     /// End date of underlying period
@@ -135,7 +137,7 @@ pub struct InterestRateOption {
     #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar identifier for schedule and roll conventions
-    pub calendar_id: Option<String>,
+    pub calendar_id: Option<CalendarId>,
     /// Exercise style
     pub exercise_style: ExerciseStyle,
     /// Settlement type
@@ -166,6 +168,12 @@ pub struct InterestRateOption {
 }
 
 impl InterestRateOption {
+    pub(crate) fn strike_rate_f64(&self) -> finstack_core::Result<f64> {
+        self.strike_rate
+            .to_f64()
+            .ok_or(finstack_core::InputError::ConversionOverflow.into())
+    }
+
     /// Create a new interest rate option using parameter structs
     pub fn new(
         id: impl Into<InstrumentId>,
@@ -187,7 +195,7 @@ impl InterestRateOption {
             day_count: option_params.day_count,
             stub: option_params.stub,
             bdc: option_params.bdc,
-            calendar_id: option_params.calendar_id.map(|s| s.to_string()),
+            calendar_id: option_params.calendar_id.map(CalendarId::new),
             exercise_style: ExerciseStyle::European,
             settlement: SettlementType::Cash,
             discount_curve_id: discount_curve_id.into(),
@@ -346,6 +354,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
         let disc_curve = curves.get_discount(self.discount_curve_id.as_ref())?;
         let fwd_curve = curves.get_forward(self.forward_curve_id.as_ref())?;
         let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
+        let strike_rate = self.strike_rate_f64()?;
 
         let mut total_pv = finstack_core::money::Money::new(0.0, self.notional.currency());
         let dc_ctx = finstack_core::dates::DayCountCtx::default();
@@ -375,7 +384,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, self.maturity)?;
 
             // Use MIN_VOL_LOOKUP_TIME floor for seasoned caplets (t_fix <= 0)
-            let sigma = vol_surface.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), self.strike_rate);
+            let sigma = vol_surface.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), strike_rate);
 
             let is_cap = matches!(
                 self.rate_option_type,
@@ -395,16 +404,16 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                 })
             };
             return match self.vol_type {
-                CapFloorVolType::Lognormal => black_price(self.strike_rate, forward),
+                CapFloorVolType::Lognormal => black_price(strike_rate, forward),
                 CapFloorVolType::ShiftedLognormal => {
                     let vol_shift = self.resolved_vol_shift();
-                    black_price(self.strike_rate + vol_shift, forward + vol_shift)
+                    black_price(strike_rate + vol_shift, forward + vol_shift)
                 }
                 CapFloorVolType::Normal => {
                     normal_ir::price_caplet_floorlet(normal_ir::CapletFloorletInputs {
                         is_cap,
                         notional: self.notional.amount(),
-                        strike: self.strike_rate,
+                        strike: strike_rate,
                         forward,
                         discount_factor: df,
                         volatility: sigma,
@@ -464,7 +473,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, pay)?;
 
             // Use MIN_VOL_LOOKUP_TIME floor for seasoned caplets (t_fix <= 0)
-            let sigma = vol_surface.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), self.strike_rate);
+            let sigma = vol_surface.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), strike_rate);
 
             // Include ALL periods where payment_date > as_of, including
             // seasoned periods where fixing_date <= as_of < payment_date.
@@ -474,7 +483,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                     black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
                         is_cap,
                         notional: self.notional.amount(),
-                        strike: self.strike_rate,
+                        strike: strike_rate,
                         forward,
                         discount_factor: df,
                         volatility: sigma,
@@ -488,7 +497,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                     black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
                         is_cap,
                         notional: self.notional.amount(),
-                        strike: self.strike_rate + vol_shift,
+                        strike: strike_rate + vol_shift,
                         forward: forward + vol_shift,
                         discount_factor: df,
                         volatility: sigma,
@@ -501,7 +510,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                     normal_ir::price_caplet_floorlet(normal_ir::CapletFloorletInputs {
                         is_cap,
                         notional: self.notional.amount(),
-                        strike: self.strike_rate,
+                        strike: strike_rate,
                         forward,
                         discount_factor: df,
                         volatility: sigma,

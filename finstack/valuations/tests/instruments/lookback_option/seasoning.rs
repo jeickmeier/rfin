@@ -25,7 +25,7 @@ fn get_base_builder(as_of: Date) -> LookbackOptionBuilder {
         .notional(Money::new(1.0, Currency::USD))
         .day_count(DayCount::Act365F)
         .discount_curve_id(CurveId::new("USD-OIS"))
-        .spot_id("SPX-SPOT".to_string())
+        .spot_id("SPX-SPOT".into())
         .vol_surface_id(CurveId::new("SPX-VOL"))
         .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
         .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())

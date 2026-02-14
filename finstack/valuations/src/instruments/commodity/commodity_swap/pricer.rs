@@ -80,7 +80,7 @@ mod tests {
             .unit("MMBTU".to_string())
             .currency(Currency::USD)
             .quantity(10000.0)
-            .fixed_price(3.50)
+            .fixed_price(rust_decimal::Decimal::try_from(3.50).expect("valid decimal"))
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))
             .side(PayReceive::PayFixed)
             .start_date(Date::from_calendar_date(2025, Month::January, 1).expect("valid date"))

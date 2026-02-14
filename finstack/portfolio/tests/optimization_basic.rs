@@ -36,7 +36,9 @@ fn build_deposit_portfolio() -> finstack_portfolio::Portfolio {
         .maturity(dep1_end)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
-        .quote_rate_opt(Some(0.045))
+        .quote_rate_opt(Some(
+            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+        ))
         .build()
         .expect("deposit 1 should build");
 
@@ -47,7 +49,9 @@ fn build_deposit_portfolio() -> finstack_portfolio::Portfolio {
         .maturity(dep2_end)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
-        .quote_rate_opt(Some(0.045))
+        .quote_rate_opt(Some(
+            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+        ))
         .build()
         .expect("deposit 2 should build");
 

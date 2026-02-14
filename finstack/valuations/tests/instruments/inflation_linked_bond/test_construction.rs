@@ -15,6 +15,7 @@ use finstack_valuations::instruments::fixed_income::inflation_linked_bond::Infla
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     DeflationProtection, IndexationMethod, InflationLinkedBond,
 };
+use rust_decimal::Decimal;
 
 #[test]
 fn test_tips_creation_via_helper() {
@@ -34,7 +35,10 @@ fn test_tips_creation_via_helper() {
     // Assert
     assert_eq!(tips.id.as_str(), "US_TIPS_2030");
     assert_eq!(tips.indexation_method, IndexationMethod::TIPS);
-    assert_eq!(tips.real_coupon, 0.0125);
+    assert_eq!(
+        tips.real_coupon,
+        Decimal::try_from(0.0125).expect("valid decimal")
+    );
     assert_eq!(tips.base_index, 250.0);
     assert_eq!(tips.notional.amount(), 1_000_000.0);
     assert_eq!(tips.notional.currency(), Currency::USD);
@@ -68,7 +72,10 @@ fn test_uk_linker_creation_via_helper() {
     // Assert
     assert_eq!(uk_gilt.id.as_str(), "UK_GILT_2040");
     assert_eq!(uk_gilt.indexation_method, IndexationMethod::UK);
-    assert_eq!(uk_gilt.real_coupon, 0.00625);
+    assert_eq!(
+        uk_gilt.real_coupon,
+        Decimal::try_from(0.00625).expect("valid decimal")
+    );
     assert_eq!(uk_gilt.base_index, 280.0);
     assert_eq!(uk_gilt.base_date, base_date);
     assert_eq!(uk_gilt.notional.currency(), Currency::GBP);
@@ -83,7 +90,10 @@ fn test_builder_pattern_full_customization() {
     // Assert - verify all fields are set correctly
     assert_eq!(bond.id.as_str(), "TIPS-TEST");
     assert_eq!(bond.notional.amount(), 1_000_000.0);
-    assert_eq!(bond.real_coupon, 0.0125);
+    assert_eq!(
+        bond.real_coupon,
+        Decimal::try_from(0.0125).expect("valid decimal")
+    );
     assert_eq!(bond.issue_date, d(2020, 1, 15));
     assert_eq!(bond.maturity, d(2030, 1, 15));
     assert_eq!(bond.base_index, 250.0);
@@ -229,7 +239,10 @@ fn test_parameter_struct_tips() {
 
     // Assert
     assert_eq!(params.notional.amount(), 100_000.0);
-    assert_eq!(params.real_coupon, 0.02);
+    assert_eq!(
+        params.real_coupon,
+        Decimal::try_from(0.02).expect("valid decimal")
+    );
     assert_eq!(params.issue, issue);
     assert_eq!(params.maturity, maturity);
     assert_eq!(params.base_index, 200.0);
@@ -249,7 +262,10 @@ fn test_parameter_struct_uk_linker() {
 
     // Assert
     assert_eq!(params.notional.amount(), 100_000.0);
-    assert_eq!(params.real_coupon, 0.005);
+    assert_eq!(
+        params.real_coupon,
+        Decimal::try_from(0.005).expect("valid decimal")
+    );
     assert_eq!(params.issue, issue);
     assert_eq!(params.maturity, maturity);
     assert_eq!(params.base_index, 300.0);
