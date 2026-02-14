@@ -253,11 +253,9 @@ pub use xccy_swap::{
 pub use xccy_swap::{
     JsXccySwapBuilder as XccySwapBuilder, JsXccySwapLegBuilder as XccySwapLegBuilder,
 };
+pub use yoy_inflation_swap::JsYoYInflationSwap as YoYInflationSwap;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use yoy_inflation_swap::JsYoYInflationSwapBuilder as YoYInflationSwapBuilder;
-pub use yoy_inflation_swap::{
-    JsPayReceiveInflation as PayReceiveInflation, JsYoYInflationSwap as YoYInflationSwap,
-};
 
 /// Downcast a JavaScript instrument wrapper into a core instrument reference.
 ///

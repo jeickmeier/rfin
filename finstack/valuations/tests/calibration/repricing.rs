@@ -18,7 +18,7 @@ use finstack_valuations::calibration::api::schema::{
     HazardCurveParams, InflationCurveParams, StepParams,
 };
 use finstack_valuations::calibration::{CalibrationConfig, CalibrationMethod};
-use finstack_valuations::instruments::rates::inflation_swap::PayReceiveInflation;
+use finstack_valuations::instruments::rates::inflation_swap::PayReceive;
 use finstack_valuations::instruments::rates::InflationSwap;
 use finstack_valuations::instruments::ForwardRateAgreement;
 use finstack_valuations::instruments::Instrument;
@@ -670,7 +670,7 @@ fn inflation_curve_swap_repricing() {
             .inflation_index_id("USD-CPI".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(conventions.day_count)
-            .side(PayReceiveInflation::PayFixed)
+            .side(PayReceive::PayFixed)
             .lag_override_opt(Some(lag))
             .base_cpi_opt(Some(base_cpi))
             .bdc_opt(Some(conventions.business_day_convention))

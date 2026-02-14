@@ -185,10 +185,10 @@ pub use valuations::instruments::{
     FxBarrierOption, FxForward, FxOption, FxSpot, FxSwap, FxVarianceSwap, InflationCapFloor,
     InflationCapFloorType, InflationLinkedBond, InflationSwap, InterestRateFuture,
     InterestRateOption, InterestRateSwap, LegSide, LookbackOption, LookbackType, Ndf,
-    NotionalExchange, PayReceiveInflation, Pool, PrivateMarketsFund, QuantoOption, RangeAccrual,
-    RealEstateAsset, RealEstateValuationMethod, RealizedVarMethod, Repo, RevolvingCredit,
-    StructuredCredit, Swaption, TermLoan, TrancheStructure, VarianceSwap, VarianceSwapSide,
-    WaterfallDistribution, WaterfallEngine, XccySwap, XccySwapLeg, YoYInflationSwap,
+    NotionalExchange, Pool, PrivateMarketsFund, QuantoOption, RangeAccrual, RealEstateAsset,
+    RealEstateValuationMethod, RealizedVarMethod, Repo, RevolvingCredit, StructuredCredit,
+    Swaption, TermLoan, TrancheStructure, VarianceSwap, VarianceSwapSide, WaterfallDistribution,
+    WaterfallEngine, XccySwap, XccySwapLeg, YoYInflationSwap,
 };
 pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,

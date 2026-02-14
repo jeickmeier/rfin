@@ -1,5 +1,6 @@
 //! Pricing overrides for market-quoted instruments.
 
+use crate::instruments::common_impl::parameters::{SABRParameters, VolatilityModel};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{Bps, Percentage};
@@ -68,6 +69,14 @@ pub struct PricingOverrides {
     /// Volatility surface extrapolation policy when `implied_volatility` is not set.
     #[serde(default)]
     pub vol_surface_extrapolation: VolSurfaceExtrapolation,
+    /// Volatility model choice for option pricing.
+    ///
+    /// When set, overrides the default Black (lognormal) model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vol_model: Option<VolatilityModel>,
+    /// Optional SABR volatility model parameters.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sabr_params: Option<SABRParameters>,
     /// Quoted spread (for credit instruments)
     pub quoted_spread_bp: Option<f64>,
     /// PV adjustment at valuation date (for CDS, CDSIndex, convertibles).
@@ -163,6 +172,14 @@ pub struct PricingOverrides {
     /// For credit instruments, this translates to a wider/tighter spread.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scenario_spread_shock_bp: Option<f64>,
+
+    /// Use Gobet-Miri discrete monitoring correction for barrier options.
+    ///
+    /// When true, uses a Monte Carlo correction for discrete monitoring
+    /// (requires `mc` feature). When false, uses analytical continuous
+    /// monitoring pricing.
+    #[serde(default)]
+    pub use_gobet_miri: bool,
 }
 
 impl PricingOverrides {

@@ -4,7 +4,7 @@
 
 - Zero-coupon inflation swap exchanging fixed real rate versus cumulative inflation over life, with configurable lag override and base CPI.
 - Supports standard lags (3m/8m) via `InflationLag`, business-day adjustments, and day-count selection for fixed leg compounding.
-- Pay/receive direction controlled via `PayReceiveInflation`; integrates inflation index and discount curves from `MarketContext`.
+- Pay/receive direction controlled via `PayReceive`; integrates inflation index and discount curves from `MarketContext`.
 
 ## Methodology & References
 

@@ -57,7 +57,7 @@ use finstack_valuations::instruments::fixed_income::structured_credit::{
 use finstack_valuations::instruments::fx::fx_option::FxOption;
 use finstack_valuations::instruments::fx::fx_spot::FxSpot;
 use finstack_valuations::instruments::rates::deposit::Deposit;
-use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
+use finstack_valuations::instruments::rates::inflation_swap::InflationSwap;
 use finstack_valuations::instruments::rates::repo::{CollateralSpec, CollateralType, Repo};
 use finstack_valuations::instruments::rates::swaption::Swaption;
 use finstack_valuations::instruments::rates::swaption::SwaptionParams;
@@ -852,7 +852,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .inflation_index_id("USD-CPI".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
-            .side(PayReceiveInflation::PayFixed)
+            .side(PayReceive::PayFixed)
             .attributes(Attributes::default())
             .build()
             .unwrap();

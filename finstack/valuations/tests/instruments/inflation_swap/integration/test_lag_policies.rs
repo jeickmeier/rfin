@@ -5,9 +5,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
-use finstack_valuations::instruments::rates::inflation_swap::{
-    InflationSwapBuilder, PayReceiveInflation,
-};
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceive};
 use finstack_valuations::instruments::Instrument;
 use time::Month;
 
@@ -42,7 +40,7 @@ fn test_lag_override_vs_index_lag() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .attributes(Default::default())
         .build()
         .unwrap();
@@ -57,7 +55,7 @@ fn test_lag_override_vs_index_lag() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .lag_override(InflationLag::None)
         .attributes(Default::default())
         .build()
@@ -101,7 +99,7 @@ fn test_different_lag_durations() {
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
-            .side(PayReceiveInflation::PayFixed)
+            .side(PayReceive::PayFixed)
             .lag_override(if *lag_months == 0 {
                 InflationLag::None
             } else {
@@ -148,7 +146,7 @@ fn test_lag_in_days_vs_months() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .lag_override(InflationLag::Months(3))
         .attributes(Default::default())
         .build()
@@ -163,7 +161,7 @@ fn test_lag_in_days_vs_months() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .lag_override(InflationLag::Days(90))
         .attributes(Default::default())
         .build()
@@ -205,7 +203,7 @@ fn test_no_index_fallback_to_curve() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .attributes(Default::default())
         .build()
         .unwrap();

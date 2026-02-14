@@ -4,9 +4,7 @@
 
 use crate::inflation_swap::fixtures::*;
 use finstack_core::dates::{Date, DayCount};
-use finstack_valuations::instruments::rates::inflation_swap::{
-    InflationSwapBuilder, PayReceiveInflation,
-};
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceive};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
@@ -30,7 +28,7 @@ fn test_inflation_convexity_par_swap_nonzero() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .attributes(Default::default())
         .build()
         .unwrap();
@@ -47,7 +45,7 @@ fn test_inflation_convexity_par_swap_nonzero() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .attributes(Default::default())
         .build()
         .unwrap();
@@ -101,7 +99,7 @@ fn test_inflation_convexity_finite_and_nonzero() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .attributes(Default::default())
         .build()
         .unwrap();
@@ -145,7 +143,7 @@ fn test_inflation_convexity_varies_with_maturity() {
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
-            .side(PayReceiveInflation::PayFixed)
+            .side(PayReceive::PayFixed)
             .attributes(Default::default())
             .build()
             .unwrap();
@@ -202,7 +200,7 @@ fn test_inflation_convexity_scales_with_notional() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .attributes(Default::default())
         .build()
         .unwrap();
@@ -216,7 +214,7 @@ fn test_inflation_convexity_scales_with_notional() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .attributes(Default::default())
         .build()
         .unwrap();
@@ -268,7 +266,7 @@ fn test_inflation_convexity_finite_for_edge_cases() {
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
-            .side(PayReceiveInflation::PayFixed)
+            .side(PayReceive::PayFixed)
             .attributes(Default::default())
             .build()
             .unwrap();

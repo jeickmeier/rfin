@@ -8,13 +8,12 @@ use crate::core::common::parse::ParseFromString;
 use crate::core::error::js_error;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::math::stats::RealizedVarMethod;
-use finstack_valuations::instruments::credit_derivatives::cds::PayReceive as CdsPayReceive;
+use finstack_valuations::instruments::credit_derivatives::cds::PayReceive;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide;
 use finstack_valuations::instruments::equity::variance_swap::PayReceive as VarSwapPayReceive;
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     DeflationProtection, IndexationMethod,
 };
-use finstack_valuations::instruments::rates::inflation_swap::PayReceiveInflation;
 use finstack_valuations::instruments::rates::ir_future::Position;
 use finstack_valuations::instruments::rates::repo::RepoType;
 use finstack_valuations::instruments::rates::swaption::{SwaptionExercise, SwaptionSettlement};
@@ -59,39 +58,22 @@ impl FromJsLabel for BusinessDayConvention {
 }
 
 // ============================================================================
-// Swap & Rate Instruments
+// Swap & Rate Instruments (PayReceive covers IRS, CDS, and Inflation Swaps)
 // ============================================================================
 
-impl FromJsLabel for PayReceiveInflation {
-    fn from_label(label: &str) -> Result<Self, JsValue> {
-        let normalized = normalize_label(label);
-        match normalized.as_str() {
-            "pay_fixed" | "payfixed" => Ok(PayReceiveInflation::PayFixed),
-            "receive_fixed" | "receivefixed" => Ok(PayReceiveInflation::ReceiveFixed),
-            _ => normalized
-                .parse()
-                .map_err(|e: String| js_error(format!("Invalid inflation swap side: {}", e))),
-        }
-    }
-}
-
-// ============================================================================
-// Credit Instruments
-// ============================================================================
-
-impl FromJsLabel for CdsPayReceive {
+impl FromJsLabel for PayReceive {
     fn from_label(label: &str) -> Result<Self, JsValue> {
         let normalized = normalize_label(label);
         match normalized.as_str() {
             "pay_protection" | "payprotection" | "pay_fixed" | "payfixed" => {
-                Ok(CdsPayReceive::PayFixed)
+                Ok(PayReceive::PayFixed)
             }
             "receive_protection" | "receiveprotection" | "receive_fixed" | "receivefixed" => {
-                Ok(CdsPayReceive::ReceiveFixed)
+                Ok(PayReceive::ReceiveFixed)
             }
             _ => normalized
                 .parse()
-                .map_err(|e: String| js_error(format!("Invalid CDS pay/receive side: {}", e))),
+                .map_err(|e: String| js_error(format!("Invalid pay/receive side: {}", e))),
         }
     }
 }

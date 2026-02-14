@@ -64,7 +64,7 @@ pub(crate) mod pricer;
 mod types;
 
 pub use pricer::SimpleInflationSwapDiscountingPricer;
-pub use types::{
-    InflationSwap, InflationSwapBuilder, PayReceiveInflation, YoYInflationSwap,
-    YoYInflationSwapBuilder,
-};
+pub use types::{InflationSwap, InflationSwapBuilder, YoYInflationSwap, YoYInflationSwapBuilder};
+
+// Re-export PayReceive from common parameters for backward compatibility
+pub use crate::instruments::common_impl::parameters::legs::PayReceive;

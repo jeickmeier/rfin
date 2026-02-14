@@ -1,6 +1,7 @@
 //! Zero-coupon Inflation Swap types and pricing implementation.
 
 use crate::impl_instrument_base;
+use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use finstack_core::dates::{
@@ -10,38 +11,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
-
-/// Direction from the perspective of paying fixed real vs receiving inflation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[non_exhaustive]
-pub enum PayReceiveInflation {
-    /// Pay fixed (real) leg, receive inflation leg
-    PayFixed,
-    /// Receive fixed (real) leg, pay inflation leg
-    ReceiveFixed,
-}
-
-impl std::fmt::Display for PayReceiveInflation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PayReceiveInflation::PayFixed => write!(f, "pay_fixed"),
-            PayReceiveInflation::ReceiveFixed => write!(f, "receive_fixed"),
-        }
-    }
-}
-
-impl std::str::FromStr for PayReceiveInflation {
-    type Err = String;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let normalized = s.to_ascii_lowercase().replace('-', "_");
-        match normalized.as_str() {
-            "pay_fixed" | "pay" => Ok(PayReceiveInflation::PayFixed),
-            "receive_fixed" | "receive" => Ok(PayReceiveInflation::ReceiveFixed),
-            other => Err(format!("Unknown inflation swap pay/receive: {}", other)),
-        }
-    }
-}
 
 /// Zero-coupon Inflation Swap instrument.
 ///
@@ -86,7 +55,7 @@ pub struct InflationSwap {
     #[serde(alias = "dc")]
     pub day_count: DayCount,
     /// Trade side
-    pub side: PayReceiveInflation,
+    pub side: PayReceive,
     /// Optional contract-level lag override (if set, overrides index lag)
     #[builder(optional)]
     pub lag_override: Option<InflationLag>,
@@ -127,7 +96,7 @@ impl InflationSwap {
             .inflation_index_id(CurveId::new("US-CPI"))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .day_count(DayCount::Act365F)
-            .side(PayReceiveInflation::PayFixed)
+            .side(PayReceive::PayFixed)
             .lag_override(InflationLag::Months(3))
             .bdc(BusinessDayConvention::Following)
             .attributes(Attributes::new())
@@ -449,8 +418,8 @@ impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
         let pv_fixed = self.pv_fixed_leg(curves, as_of)?;
         let pv_inflation = self.pv_inflation_leg(curves, as_of)?;
         match self.side {
-            PayReceiveInflation::ReceiveFixed => pv_fixed.checked_sub(pv_inflation),
-            PayReceiveInflation::PayFixed => pv_inflation.checked_sub(pv_fixed),
+            PayReceive::ReceiveFixed => pv_fixed.checked_sub(pv_inflation),
+            PayReceive::PayFixed => pv_inflation.checked_sub(pv_fixed),
         }
     }
 
@@ -504,7 +473,7 @@ pub struct YoYInflationSwap {
     #[serde(alias = "dc")]
     pub day_count: DayCount,
     /// Trade side
-    pub side: PayReceiveInflation,
+    pub side: PayReceive,
     /// Optional contract-level lag override (if set, overrides index lag)
     #[builder(optional)]
     pub lag_override: Option<InflationLag>,
@@ -663,8 +632,8 @@ impl YoYInflationSwap {
             let fixed_leg = self.notional.amount() * self.fixed_rate * accrual;
 
             let net = match self.side {
-                PayReceiveInflation::PayFixed => inflation_leg - fixed_leg,
-                PayReceiveInflation::ReceiveFixed => fixed_leg - inflation_leg,
+                PayReceive::PayFixed => inflation_leg - fixed_leg,
+                PayReceive::ReceiveFixed => fixed_leg - inflation_leg,
             };
 
             let t_discount = disc

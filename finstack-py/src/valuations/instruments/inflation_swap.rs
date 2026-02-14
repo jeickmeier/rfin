@@ -6,7 +6,7 @@ use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceive};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -14,9 +14,9 @@ use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
-fn parse_side(label: Option<&str>) -> PyResult<PayReceiveInflation> {
+fn parse_side(label: Option<&str>) -> PyResult<PayReceive> {
     match label {
-        None => Ok(PayReceiveInflation::PayFixed),
+        None => Ok(PayReceive::PayFixed),
         Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
 }
@@ -67,7 +67,7 @@ pub struct PyInflationSwapBuilder {
     maturity: Option<time::Date>,
     discount_curve: Option<CurveId>,
     inflation_index_id: Option<String>,
-    side: PayReceiveInflation,
+    side: PayReceive,
     day_count: DayCount,
     lag_override: Option<finstack_core::market_data::scalars::InflationLag>,
 }
@@ -82,7 +82,7 @@ impl PyInflationSwapBuilder {
             maturity: None,
             discount_curve: None,
             inflation_index_id: None,
-            side: PayReceiveInflation::PayFixed,
+            side: PayReceive::PayFixed,
             day_count: DayCount::ActAct,
             lag_override: None,
         }

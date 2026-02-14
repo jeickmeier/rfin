@@ -9,58 +9,11 @@ use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{DayCount, Tenor};
-use finstack_valuations::instruments::rates::inflation_swap::{
-    PayReceiveInflation, YoYInflationSwap,
-};
+use finstack_valuations::instruments::rates::inflation_swap::{PayReceive, YoYInflationSwap};
 use finstack_valuations::prelude::Instrument;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
-
-/// Pay/receive direction for inflation swaps.
-#[wasm_bindgen(js_name = PayReceiveInflation)]
-#[derive(Clone, Copy)]
-pub struct JsPayReceiveInflation {
-    inner: PayReceiveInflation,
-}
-
-#[wasm_bindgen(js_class = PayReceiveInflation)]
-impl JsPayReceiveInflation {
-    /// Pay fixed (real) leg, receive inflation leg.
-    #[wasm_bindgen(js_name = PayFixed)]
-    pub fn pay_fixed() -> JsPayReceiveInflation {
-        JsPayReceiveInflation {
-            inner: PayReceiveInflation::PayFixed,
-        }
-    }
-
-    /// Receive fixed (real) leg, pay inflation leg.
-    #[wasm_bindgen(js_name = ReceiveFixed)]
-    pub fn receive_fixed() -> JsPayReceiveInflation {
-        JsPayReceiveInflation {
-            inner: PayReceiveInflation::ReceiveFixed,
-        }
-    }
-
-    /// Check if this is pay-fixed.
-    #[wasm_bindgen(js_name = isPayFixed)]
-    pub fn is_pay_fixed(&self) -> bool {
-        matches!(self.inner, PayReceiveInflation::PayFixed)
-    }
-
-    /// Get string representation.
-    #[wasm_bindgen(js_name = toString)]
-    pub fn to_string_js(&self) -> String {
-        self.inner.to_string()
-    }
-}
-
-impl JsPayReceiveInflation {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> PayReceiveInflation {
-        self.inner
-    }
-}
 
 /// Year-on-year (YoY) Inflation Swap instrument.
 ///
@@ -182,7 +135,7 @@ impl JsYoYInflationSwapBuilder {
         })?;
 
         let freq = parse_optional_with_default(self.frequency, Tenor::annual())?;
-        let side_value = parse_optional_with_default(self.side, PayReceiveInflation::PayFixed)?;
+        let side_value = parse_optional_with_default(self.side, PayReceive::PayFixed)?;
         let dc = parse_optional_with_default(self.day_count, DayCount::ActAct)?;
 
         YoYInflationSwap::builder()
@@ -224,7 +177,7 @@ impl JsYoYInflationSwap {
             "YoYInflationSwap constructor is deprecated; use YoYInflationSwapBuilder instead.",
         ));
         let freq = parse_optional_with_default(frequency, Tenor::annual())?;
-        let side_value = parse_optional_with_default(side, PayReceiveInflation::PayFixed)?;
+        let side_value = parse_optional_with_default(side, PayReceive::PayFixed)?;
         let dc = parse_optional_with_default(day_count, DayCount::ActAct)?;
 
         let builder = YoYInflationSwap::builder()
@@ -367,9 +320,8 @@ impl JsYoYInflationSwap {
             let fixed_amt = notional * self.inner.fixed_rate * accrual;
 
             let (infl_sign, fixed_sign) = match self.inner.side {
-                PayReceiveInflation::PayFixed => (1.0, -1.0),
-                PayReceiveInflation::ReceiveFixed => (-1.0, 1.0),
-                _ => unreachable!("unknown PayReceiveInflation variant"),
+                PayReceive::PayFixed => (1.0, -1.0),
+                PayReceive::ReceiveFixed => (-1.0, 1.0),
             };
 
             for (kind, amt) in [

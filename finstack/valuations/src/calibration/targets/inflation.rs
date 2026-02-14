@@ -9,9 +9,7 @@ use crate::calibration::CalibrationReport;
 use crate::market::quotes::inflation::InflationQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
 
-use crate::instruments::rates::inflation_swap::{
-    InflationSwap, PayReceiveInflation, YoYInflationSwap,
-};
+use crate::instruments::rates::inflation_swap::{InflationSwap, PayReceive, YoYInflationSwap};
 use crate::market::build::prepared::PreparedQuote;
 use crate::market::conventions::registry::ConventionRegistry;
 use finstack_core::dates::DateExt;
@@ -157,7 +155,7 @@ impl InflationBootstrapper {
                     .inflation_index_id(self.params.curve_id.clone())
                     .discount_curve_id(self.params.discount_curve_id.clone())
                     .day_count(conventions.day_count)
-                    .side(PayReceiveInflation::PayFixed)
+                    .side(PayReceive::PayFixed)
                     .lag_override_opt(if has_index_fixings { None } else { Some(lag) })
                     .bdc_opt(Some(conventions.business_day_convention))
                     .calendar_id_opt(Some(conventions.calendar_id.clone()))
@@ -174,7 +172,7 @@ impl InflationBootstrapper {
                     .inflation_index_id(self.params.curve_id.clone())
                     .discount_curve_id(self.params.discount_curve_id.clone())
                     .day_count(conventions.day_count)
-                    .side(PayReceiveInflation::PayFixed)
+                    .side(PayReceive::PayFixed)
                     .lag_override_opt(if has_index_fixings { None } else { Some(lag) })
                     .base_cpi_opt(if has_index_fixings {
                         None

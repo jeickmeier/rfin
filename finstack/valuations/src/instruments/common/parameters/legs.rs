@@ -13,10 +13,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PayReceive {
     /// Pay the primary leg (fixed rate in IRS, protection premium in CDS)
-    #[serde(rename = "pay_fixed")]
+    #[serde(rename = "pay_fixed", alias = "PayFixed")]
     PayFixed,
     /// Receive the primary leg (fixed rate in IRS, protection premium in CDS)
-    #[serde(rename = "receive_fixed")]
+    #[serde(rename = "receive_fixed", alias = "ReceiveFixed")]
     ReceiveFixed,
 }
 

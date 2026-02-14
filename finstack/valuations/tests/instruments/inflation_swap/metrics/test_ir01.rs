@@ -4,9 +4,7 @@ use crate::inflation_swap::fixtures::*;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::DiscountCurve;
 
-use finstack_valuations::instruments::rates::inflation_swap::{
-    InflationSwapBuilder, PayReceiveInflation,
-};
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceive};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
@@ -27,7 +25,7 @@ fn test_ir01_finite_difference_validation() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .attributes(Default::default())
         .build()
         .unwrap();
@@ -98,7 +96,7 @@ fn test_ir01_scales_with_maturity() {
             .inflation_index_id("US-CPI-U".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
-            .side(PayReceiveInflation::PayFixed)
+            .side(PayReceive::PayFixed)
             .attributes(Default::default())
             .build()
             .unwrap();
@@ -136,7 +134,7 @@ fn test_ir01_sign_pay_fixed() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .attributes(Default::default())
         .build()
         .unwrap();
@@ -167,7 +165,7 @@ fn test_ir01_sign_receive_fixed() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::ReceiveFixed)
+        .side(PayReceive::ReceiveFixed)
         .attributes(Default::default())
         .build()
         .unwrap();
@@ -198,7 +196,7 @@ fn test_ir01_zero_for_matured_swap() {
         .inflation_index_id("US-CPI-U".into())
         .discount_curve_id("USD-OIS".into())
         .day_count(DayCount::Act365F)
-        .side(PayReceiveInflation::PayFixed)
+        .side(PayReceive::PayFixed)
         .attributes(Default::default())
         .build()
         .unwrap();

@@ -46,7 +46,7 @@
 //! - **Zero-coupon (this)**: Uses analytical approximation for speed
 //! - **YoY swaps**: Uses finite differences for accuracy with periodic cashflows
 
-use crate::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
+use crate::instruments::rates::inflation_swap::{InflationSwap, PayReceive};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::scalars::InflationLag;
@@ -115,8 +115,8 @@ impl MetricCalculator for Inflation01Calculator {
         let inflation_sensitivity = s.notional.amount() * index_ratio * df * t_maturity * 0.0001;
 
         let signed_sensitivity = match s.side {
-            PayReceiveInflation::PayFixed => inflation_sensitivity,
-            PayReceiveInflation::ReceiveFixed => -inflation_sensitivity,
+            PayReceive::PayFixed => inflation_sensitivity,
+            PayReceive::ReceiveFixed => -inflation_sensitivity,
         };
 
         Ok(signed_sensitivity)

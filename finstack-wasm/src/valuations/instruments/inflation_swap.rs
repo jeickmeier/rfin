@@ -6,7 +6,8 @@ use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
-use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
+use finstack_valuations::instruments::rates::inflation_swap::InflationSwap;
+use finstack_valuations::instruments::rates::inflation_swap::PayReceive;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
@@ -120,7 +121,7 @@ impl JsInflationSwapBuilder {
             js_error("InflationSwapBuilder: inflationCurve is required".to_string())
         })?;
 
-        let side_value = parse_optional_with_default(self.side, PayReceiveInflation::PayFixed)?;
+        let side_value = parse_optional_with_default(self.side, PayReceive::PayFixed)?;
         let dc = parse_optional_with_default(self.day_count, DayCount::ActAct)?;
 
         InflationSwap::builder()
@@ -193,7 +194,7 @@ impl JsInflationSwap {
         web_sys::console::warn_1(&JsValue::from_str(
             "InflationSwap constructor is deprecated; use InflationSwapBuilder instead.",
         ));
-        let side_value = parse_optional_with_default(side, PayReceiveInflation::PayFixed)?;
+        let side_value = parse_optional_with_default(side, PayReceive::PayFixed)?;
         let dc = parse_optional_with_default(day_count, DayCount::ActAct)?;
 
         let builder = InflationSwap::builder()
@@ -276,9 +277,8 @@ impl JsInflationSwap {
         let fixed_leg = notional * ((1.0 + self.inner.fixed_rate).powf(tau) - 1.0);
 
         let (infl_sign, fixed_sign) = match self.inner.side {
-            PayReceiveInflation::PayFixed => (1.0, -1.0),
-            PayReceiveInflation::ReceiveFixed => (-1.0, 1.0),
-            _ => unreachable!("unknown PayReceiveInflation variant"),
+            PayReceive::PayFixed => (1.0, -1.0),
+            PayReceive::ReceiveFixed => (-1.0, 1.0),
         };
 
         let result = Array::new();

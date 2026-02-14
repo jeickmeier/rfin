@@ -52,7 +52,7 @@ use finstack_valuations::instruments::rates::cap_floor::{
     InterestRateOption, InterestRateOptionParams,
 };
 use finstack_valuations::instruments::rates::deposit::Deposit;
-use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceive};
 #[allow(unused_imports)]
 use finstack_valuations::instruments::rates::irs::*;
 use finstack_valuations::instruments::rates::swaption::{Swaption, SwaptionParams};
@@ -1032,7 +1032,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .inflation_index_id("US-CPI".into())
         .discount_curve_id("USD".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .side(PayReceiveInflation::ReceiveFixed) // Receive fixed, pay inflation
+        .side(PayReceive::ReceiveFixed) // Receive fixed, pay inflation
         .lag_override(finstack_core::market_data::scalars::InflationLag::Months(3))
         .build()
         .unwrap();

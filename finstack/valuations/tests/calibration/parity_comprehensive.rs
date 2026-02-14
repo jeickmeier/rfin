@@ -1,6 +1,6 @@
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::inflation_swap::PayReceiveInflation;
+use finstack_valuations::instruments::rates::inflation_swap::PayReceive;
 use finstack_valuations::instruments::rates::InflationSwap;
 use finstack_valuations::market::conventions::ids::{
     CdsConventionKey, CdsDocClause, IndexId, InflationSwapConventionId,
@@ -184,7 +184,7 @@ fn test_all_quote_types_instrument_construction() {
                     .inflation_index_id(index.clone().into())
                     .discount_curve_id("USD-OIS".into())
                     .day_count(DayCount::Act365F)
-                    .side(PayReceiveInflation::PayFixed)
+                    .side(PayReceive::PayFixed)
                     .build()
                     .expect("inflation swap build");
                 swap.validate().expect("inflation swap validate");
