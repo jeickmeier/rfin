@@ -26,7 +26,7 @@ export interface PortfolioDepositData {
   id: string;
   notional: MoneyData;
   startDate: DateData;
-  endDate: DateData;
+  maturity: DateData;
   dayCount: string;
   discountCurveId: string;
   quoteRate: number;
@@ -95,7 +95,7 @@ const DEFAULT_DEPOSITS: PortfolioDepositData[] = [
     id: 'DEPOSIT_MM',
     notional: { amount: 2_000_000, currency: 'USD' },
     startDate: { year: 2024, month: 1, day: 2 },
-    endDate: { year: 2024, month: 7, day: 2 },
+    maturity: { year: 2024, month: 7, day: 2 },
     dayCount: 'act_360',
     discountCurveId: 'USD-OIS',
     quoteRate: 0.0525,

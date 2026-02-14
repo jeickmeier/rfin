@@ -18,7 +18,7 @@ fn test_zero_period_deposit() {
 
     let dep = DepositBuilder::new(base)
         .start_date(base)
-        .end(base)
+        .maturity(base)
         .quote_rate(0.05)
         .build();
 
@@ -39,7 +39,7 @@ fn test_zero_rate_deposit() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.0)
         .build();
 
@@ -57,7 +57,7 @@ fn test_very_high_rate() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(1.0)
         .build();
 
@@ -77,7 +77,7 @@ fn test_very_small_notional() {
 
     let dep = DepositBuilder::new(base)
         .notional(Money::new(0.01, Currency::USD))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -97,7 +97,7 @@ fn test_very_large_notional() {
 
     let dep = DepositBuilder::new(base)
         .notional(Money::new(1_000_000_000_000.0, Currency::USD))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -117,7 +117,7 @@ fn test_very_short_maturity_one_day() {
 
     let dep = DepositBuilder::new(base)
         .start_date(base)
-        .end(date(2025, 1, 2))
+        .maturity(date(2025, 1, 2))
         .quote_rate(0.03)
         .build();
 
@@ -137,7 +137,7 @@ fn test_very_long_maturity() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .end(date(2035, 1, 1))
+        .maturity(date(2035, 1, 1))
         .quote_rate(0.03)
         .build();
 
@@ -155,7 +155,7 @@ fn test_negative_rate_environment() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(-0.005)
         .build();
 
@@ -178,7 +178,7 @@ fn test_pricing_on_start_date() {
 
     let dep = DepositBuilder::new(base)
         .start_date(start)
-        .end(date(2025, 8, 1))
+        .maturity(date(2025, 8, 1))
         .quote_rate(0.03)
         .build();
 
@@ -197,7 +197,7 @@ fn test_pricing_after_maturity() {
 
     let dep = DepositBuilder::new(date(2024, 1, 1))
         .start_date(date(2024, 1, 1))
-        .end(date(2024, 7, 1))
+        .maturity(date(2024, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -218,7 +218,7 @@ fn test_thirty360_with_end_of_month() {
 
     let dep = DepositBuilder::new(base)
         .start_date(date(2025, 1, 31))
-        .end(date(2025, 7, 31))
+        .maturity(date(2025, 7, 31))
         .day_count(DayCount::Thirty360)
         .quote_rate(0.03)
         .build();
@@ -240,7 +240,7 @@ fn test_leap_year_handling() {
 
     let dep = DepositBuilder::new(base)
         .start_date(base)
-        .end(date(2024, 8, 29))
+        .maturity(date(2024, 8, 29))
         .day_count(DayCount::Act365F)
         .quote_rate(0.03)
         .build();
@@ -262,7 +262,7 @@ fn test_missing_quote_rate_defaults_to_zero() {
         .id(InstrumentId::new("DEP-NO-QUOTE"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .discount_curve_id(CurveId::new("USD-OIS"))
         .build()
@@ -289,13 +289,13 @@ fn test_back_to_back_deposits_same_period() {
 
     let dep1 = DepositBuilder::new(base)
         .id("DEP-1")
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
     let dep2 = DepositBuilder::new(base)
         .id("DEP-2")
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -312,13 +312,13 @@ fn test_rate_exactly_equal_to_par() {
     // Setup
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
-    let dep = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
+    let dep = DepositBuilder::new(base).maturity(date(2025, 7, 1)).build();
 
     // Execute - get par rate and use it
     let par = compute_metric(&dep, &ctx, base, MetricId::DepositParRate);
 
     let dep_at_par = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(par)
         .build();
 
@@ -342,14 +342,14 @@ fn test_multiple_currencies_independent() {
 
     let dep_usd = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .discount_curve_id("USD-OIS")
         .build();
 
     let dep_eur = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::EUR))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .discount_curve_id("EUR-OIS")
         .build();
@@ -393,7 +393,7 @@ fn test_bdc_adjustment_causes_effective_date_crossover() {
         .id(InstrumentId::new("DEP-CROSSOVER"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(date(2025, 1, 3)) // Friday - trade date
-        .end(date(2025, 1, 6)) // Monday - just 1 business day after Friday
+        .maturity(date(2025, 1, 6)) // Monday - just 1 business day after Friday
         .day_count(DayCount::Act360)
         .quote_rate_opt(Some(0.03))
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -436,7 +436,7 @@ fn test_extreme_rate_warning_but_valid() {
 
     // Test with very high rate (200% = 20000 bps)
     let dep_high = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(2.0) // 200% - triggers warning
         .build();
 
@@ -450,7 +450,7 @@ fn test_extreme_rate_warning_but_valid() {
 
     // Test with very negative rate (-20% = -2000 bps)
     let dep_low = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(-0.2) // -20% - triggers warning
         .build();
 

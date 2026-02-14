@@ -13,7 +13,7 @@
           },
           "day_count": "Act360",
           "discount_curve_id": "USD-OIS",
-          "end": "2024-07-01",
+          "maturity": "2024-07-01",
           "id": "DEP-USD-6M",
           "notional": {
             "amount": "100000",
@@ -38,7 +38,7 @@
           },
           "day_count": "Act360",
           "discount_curve_id": "USD-OIS",
-          "end": "2024-07-01",
+          "maturity": "2024-07-01",
           "id": "DEP-USD-6M",
           "notional": {
             "amount": "100000",

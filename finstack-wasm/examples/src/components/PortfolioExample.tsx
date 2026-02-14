@@ -107,9 +107,9 @@ export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
             depositData.startDate.day
           ),
           new finstack.FsDate(
-            depositData.endDate.year,
-            depositData.endDate.month,
-            depositData.endDate.day
+            depositData.maturity.year,
+            depositData.maturity.month,
+            depositData.maturity.day
           ),
           finstack.DayCount.act360(),
           depositData.discountCurveId,

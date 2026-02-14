@@ -9,7 +9,7 @@ fn test_theta_calculation_exists() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -26,7 +26,7 @@ fn test_theta_with_zero_rate() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.0)
         .build();
 
@@ -43,7 +43,7 @@ fn test_theta_magnitude_reasonable() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -68,12 +68,12 @@ fn test_theta_longer_maturity() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep_short = DepositBuilder::new(base)
-        .end(date(2025, 4, 1))
+        .maturity(date(2025, 4, 1))
         .quote_rate(0.03)
         .build();
 
     let dep_long = DepositBuilder::new(base)
-        .end(date(2026, 1, 1))
+        .maturity(date(2026, 1, 1))
         .quote_rate(0.03)
         .build();
 

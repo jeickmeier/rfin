@@ -8,7 +8,7 @@ fn test_bucketed_dv01_calculation() {
     // Setup
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
-    let dep = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
+    let dep = DepositBuilder::new(base).maturity(date(2025, 7, 1)).build();
 
     // Execute
     let bucketed_dv01 = compute_metric(&dep, &ctx, base, MetricId::BucketedDv01);
@@ -28,7 +28,7 @@ fn test_bucketed_dv01_scales_with_notional() {
             1_000_000.0,
             finstack_core::currency::Currency::USD,
         ))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .build();
 
     let dep_2m = DepositBuilder::new(base)
@@ -36,7 +36,7 @@ fn test_bucketed_dv01_scales_with_notional() {
             2_000_000.0,
             finstack_core::currency::Currency::USD,
         ))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .build();
 
     // Execute
@@ -53,9 +53,9 @@ fn test_bucketed_dv01_different_maturities() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep_3m = DepositBuilder::new(base).end(date(2025, 4, 1)).build();
+    let dep_3m = DepositBuilder::new(base).maturity(date(2025, 4, 1)).build();
 
-    let dep_1y = DepositBuilder::new(base).end(date(2026, 1, 1)).build();
+    let dep_1y = DepositBuilder::new(base).maturity(date(2026, 1, 1)).build();
 
     // Execute
     let bdv01_3m = compute_metric(&dep_3m, &ctx, base, MetricId::BucketedDv01);

@@ -263,7 +263,7 @@ class TestCrossLanguageDepositPricing:
             Deposit.builder("CONS-DEP")
             .money(Money(notional, Currency("USD")))
             .start(date(2024, 1, 1))
-            .end(date(2024, 1, 1) + timedelta(days=90))
+            .maturity(date(2024, 1, 1) + timedelta(days=90))
             .day_count(DayCount.ACT_360)
             .disc_id("USD-OIS")
             .quote_rate(rate)

@@ -26,7 +26,7 @@ fn test_df_end_matches_curve() {
     // Setup
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
-    let dep = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
+    let dep = DepositBuilder::new(base).maturity(date(2025, 7, 1)).build();
 
     // Execute
     let df_end_metric = compute_metric(&dep, &ctx, base, MetricId::DfEnd);
@@ -46,7 +46,7 @@ fn test_df_end_less_than_df_start() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
     let dep = DepositBuilder::new(base)
         .start_date(date(2025, 1, 1))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .build();
 
     // Execute
@@ -76,7 +76,7 @@ fn test_df_end_from_quote_consistency() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -103,7 +103,7 @@ fn test_df_end_from_quote_with_zero_rate() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.0)
         .build();
 
@@ -127,7 +127,7 @@ fn test_df_end_from_quote_with_high_rate() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.10) // 10% rate
         .build();
 
@@ -153,9 +153,9 @@ fn test_longer_maturity_gives_lower_df() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep_short = DepositBuilder::new(base).end(date(2025, 4, 1)).build();
+    let dep_short = DepositBuilder::new(base).maturity(date(2025, 4, 1)).build();
 
-    let dep_long = DepositBuilder::new(base).end(date(2026, 1, 1)).build();
+    let dep_long = DepositBuilder::new(base).maturity(date(2026, 1, 1)).build();
 
     // Execute
     let df_short = compute_metric(&dep_short, &ctx, base, MetricId::DfEnd);
@@ -170,7 +170,7 @@ fn test_df_with_steep_curve() {
     // Setup
     let base = date(2025, 1, 1);
     let ctx = ctx_with_steep_curve(base, "USD-OIS");
-    let dep = DepositBuilder::new(base).end(date(2026, 1, 1)).build();
+    let dep = DepositBuilder::new(base).maturity(date(2026, 1, 1)).build();
 
     // Execute
     let df_end = compute_metric(&dep, &ctx, base, MetricId::DfEnd);

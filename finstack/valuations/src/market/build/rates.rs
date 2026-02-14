@@ -150,7 +150,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 .id(InstrumentId::new(id.as_str()))
                 .notional(Money::new(ctx.notional(), currency))
                 .start_date(start)
-                .end(end)
+                .maturity(end)
                 .day_count(conv.day_count)
                 .quote_rate_opt(Some(*rate))
                 .discount_curve_id(CurveId::new(discount_id))

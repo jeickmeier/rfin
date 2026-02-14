@@ -75,7 +75,7 @@ def deposit_strategy(draw: Callable[[Any], Any], currency_code: str = "USD") -> 
         Deposit.builder(f"DEP-{tenor_days}D")
         .money(Money(notional, currency))
         .start(start_date)
-        .end(maturity_date)
+        .maturity(maturity_date)
         .day_count(DayCount.ACT_360)
         .disc_id(f"{currency_code}-OIS")
         .quote_rate(rate)

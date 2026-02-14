@@ -210,7 +210,7 @@ fn extract_bucketed_dv01_per_curve(
 ///         .id("DEP-1D".into())
 ///         .notional(Money::new(1_000_000.0, Currency::USD))
 ///         .start_date(as_of_t0)
-///         .end(as_of_t1)
+///         .maturity(as_of_t1)
 ///         .day_count(finstack_core::dates::DayCount::Act360)
 ///         .discount_curve_id("USD-OIS".into())
 ///         .build()

@@ -19,7 +19,7 @@ fn test_standard_usd_3m_deposit() {
     let dep = DepositBuilder::new(base)
         .notional(Money::new(10_000_000.0, Currency::USD))
         .start_date(base)
-        .end(date(2025, 4, 1))
+        .maturity(date(2025, 4, 1))
         .day_count(DayCount::Act360)
         .quote_rate(0.02)
         .discount_curve_id("USD-OIS")
@@ -51,7 +51,7 @@ fn test_standard_eur_6m_deposit() {
     let dep = DepositBuilder::new(base)
         .notional(Money::new(10_000_000.0, Currency::EUR))
         .start_date(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .quote_rate(0.015)
         .discount_curve_id("EUR-OIS")
@@ -74,7 +74,7 @@ fn test_overnight_deposit_libor_style() {
     let dep = DepositBuilder::new(base)
         .notional(Money::new(50_000_000.0, Currency::USD))
         .start_date(base)
-        .end(date(2025, 1, 2))
+        .maturity(date(2025, 1, 2))
         .day_count(DayCount::Act360)
         .quote_rate(0.05)
         .build();
@@ -96,7 +96,7 @@ fn test_deposit_rate_convention_act360() {
 
     let dep = DepositBuilder::new(base)
         .start_date(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .quote_rate(0.03)
         .build();
@@ -114,7 +114,7 @@ fn test_par_rate_relationship_to_discount_factors() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
+    let dep = DepositBuilder::new(base).maturity(date(2025, 7, 1)).build();
 
     // Execute
     let metrics = compute_metrics(
@@ -147,7 +147,7 @@ fn test_dv01_magnitude_check() {
 
     let dep = DepositBuilder::new(base)
         .notional(Money::new(10_000_000.0, Currency::USD))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .build();
 
     // Execute
@@ -169,7 +169,7 @@ fn test_simple_interest_calculation() {
     let dep = DepositBuilder::new(base)
         .notional(Money::new(notional, Currency::USD))
         .start_date(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(rate)
         .build();
 
@@ -191,21 +191,21 @@ fn test_multi_currency_portfolio() {
 
     let dep_usd = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .discount_curve_id("USD-OIS")
         .build();
 
     let dep_eur = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::EUR))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.02)
         .discount_curve_id("EUR-OIS")
         .build();
 
     let dep_gbp = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::GBP))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.025)
         .discount_curve_id("GBP-OIS")
         .build();
@@ -232,14 +232,14 @@ fn test_rate_quote_vs_price_quote() {
 
     // Deposit quoted at rate
     let dep_rate = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.035)
         .build();
 
     // Deposit at par rate
     let par = compute_metric(&dep_rate, &ctx, base, MetricId::DepositParRate);
     let dep_par = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(par)
         .build();
 
@@ -282,7 +282,7 @@ fn test_usd_deposit_friday_trade_with_nyse_calendar() {
         .id(InstrumentId::new("DEP-USD-1M-FRIDAY"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(trade_date) // Will be adjusted by spot lag
-        .end(date(2025, 2, 7)) // 1 month maturity from spot
+        .maturity(date(2025, 2, 7)) // 1 month maturity from spot
         .day_count(DayCount::Act360)
         .quote_rate_opt(Some(0.02))
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -356,7 +356,7 @@ fn test_deposit_without_spot_lag_uses_raw_dates() {
         .id(InstrumentId::new("DEP-USD-RAW"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(trade_date)
-        .end(date(2025, 2, 3))
+        .maturity(date(2025, 2, 3))
         .day_count(DayCount::Act360)
         .quote_rate_opt(Some(0.02))
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -390,7 +390,7 @@ fn test_gbp_deposit_t0_settlement() {
         .id(InstrumentId::new("DEP-GBP-1M"))
         .notional(Money::new(1_000_000.0, Currency::GBP))
         .start_date(trade_date)
-        .end(date(2025, 2, 3))
+        .maturity(date(2025, 2, 3))
         .day_count(DayCount::Act365F) // GBP uses Act/365
         .quote_rate_opt(Some(0.02))
         .discount_curve_id(CurveId::new("GBP-OIS"))
@@ -442,7 +442,7 @@ fn test_modified_following_eom_adjustment() {
         .id(InstrumentId::new("DEP-USD-EOM"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(trade_date)
-        .end(date(2026, 1, 31)) // Saturday - should roll back to Friday Jan 30
+        .maturity(date(2026, 1, 31)) // Saturday - should roll back to Friday Jan 30
         .day_count(DayCount::Act360)
         .quote_rate_opt(Some(0.02))
         .discount_curve_id(CurveId::new("USD-OIS"))

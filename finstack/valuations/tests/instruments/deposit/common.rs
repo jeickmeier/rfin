@@ -85,7 +85,7 @@ pub fn standard_deposit(base: Date) -> Deposit {
         .id(InstrumentId::new("DEP-STD"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(base)
-        .end(date(
+        .maturity(date(
             base.year(),
             (base.month() as u8 + 6).min(12),
             base.day(),
@@ -102,7 +102,7 @@ pub struct DepositBuilder {
     id: String,
     notional: Money,
     start_date: Date,
-    end: Date,
+    maturity: Date,
     day_count: DayCount,
     quote_rate: Option<f64>,
     discount_curve_id: String,
@@ -114,7 +114,7 @@ impl DepositBuilder {
             id: "DEP-TEST".to_string(),
             notional: Money::new(1_000_000.0, Currency::USD),
             start_date: base,
-            end: date(base.year(), (base.month() as u8 + 6).min(12), base.day()),
+            maturity: date(base.year(), (base.month() as u8 + 6).min(12), base.day()),
             day_count: DayCount::Act360,
             quote_rate: Some(0.0),
             discount_curve_id: "USD-OIS".to_string(),
@@ -136,8 +136,8 @@ impl DepositBuilder {
         self
     }
 
-    pub fn end(mut self, end: Date) -> Self {
-        self.end = end;
+    pub fn maturity(mut self, maturity: Date) -> Self {
+        self.maturity = maturity;
         self
     }
 
@@ -161,7 +161,7 @@ impl DepositBuilder {
             .id(InstrumentId::new(&self.id))
             .notional(self.notional)
             .start_date(self.start_date)
-            .end(self.end)
+            .maturity(self.maturity)
             .day_count(self.day_count)
             .discount_curve_id(CurveId::new(&self.discount_curve_id))
             .build()

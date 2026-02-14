@@ -471,7 +471,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .id("DEP_ACME_3M".into())
         .notional(Money::new(10_000_000.0, Currency::USD))
         .start_date(as_of)
-        .end(date!(2024 - 04 - 01))
+        .maturity(date!(2024 - 04 - 01))
         .day_count(DayCount::Act360)
         .discount_curve_id("USD".into())
         .build()
@@ -496,7 +496,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .id("DEP_FUND_6M".into())
         .notional(Money::new(10_000_000.0, Currency::USD)) // $10M
         .start_date(as_of)
-        .end(date!(2024 - 07 - 01))
+        .maturity(date!(2024 - 07 - 01))
         .day_count(DayCount::Act360)
         .discount_curve_id("USD".into())
         .build()
@@ -521,7 +521,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .id("DEP_EUR_3M".into())
         .notional(Money::new(10_000_000.0, Currency::EUR)) // €10M
         .start_date(as_of)
-        .end(date!(2024 - 04 - 01))
+        .maturity(date!(2024 - 04 - 01))
         .day_count(DayCount::Act360)
         .discount_curve_id("EUR".into())
         .build()

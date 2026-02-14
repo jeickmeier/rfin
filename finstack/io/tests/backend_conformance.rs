@@ -85,7 +85,7 @@ async fn run_conformance<S: Store + BulkStore + LookbackStore + TimeSeriesStore>
         .id(format!("{prefix}_DEP_1M").into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
-        .end(date!(2024 - 02 - 01))
+        .maturity(date!(2024 - 02 - 01))
         .day_count(DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -196,7 +196,7 @@ async fn postgres_bulk_store_roundtrip() -> finstack_io::Result<()> {
             .id(id.clone().into())
             .notional(Money::new(1_000_000.0, Currency::USD))
             .start_date(as_of)
-            .end(date!(2024 - 02 - 01))
+            .maturity(date!(2024 - 02 - 01))
             .day_count(DayCount::Act360)
             .discount_curve_id("USD-OIS".into())
             .build()?;

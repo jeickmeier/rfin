@@ -32,7 +32,7 @@ fn apply_and_revalue_succeeds() {
         .id("D".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
-        .end(end_date)
+        .maturity(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .quote_rate_opt(Some(0.045))

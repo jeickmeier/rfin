@@ -11,7 +11,7 @@ fn test_dv01_negative_for_long_deposits() {
     // Standard market convention: DV01 = PV(rate+1bp) - PV(base)
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
-    let dep = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
+    let dep = DepositBuilder::new(base).maturity(date(2025, 7, 1)).build();
 
     // Execute
     let dv01 = compute_metric(&dep, &ctx, base, MetricId::Dv01);
@@ -38,12 +38,12 @@ fn test_dv01_scales_with_notional() {
 
     let dep_1m = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .build();
 
     let dep_2m = DepositBuilder::new(base)
         .notional(Money::new(2_000_000.0, Currency::USD))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .build();
 
     // Execute
@@ -60,9 +60,9 @@ fn test_dv01_increases_with_maturity() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep_3m = DepositBuilder::new(base).end(date(2025, 4, 1)).build();
+    let dep_3m = DepositBuilder::new(base).maturity(date(2025, 4, 1)).build();
 
-    let dep_1y = DepositBuilder::new(base).end(date(2026, 1, 1)).build();
+    let dep_1y = DepositBuilder::new(base).maturity(date(2026, 1, 1)).build();
 
     // Execute
     let dv01_3m = compute_metric(&dep_3m, &ctx, base, MetricId::Dv01);
@@ -78,9 +78,12 @@ fn test_dv01_zero_for_zero_period() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep = DepositBuilder::new(base).start_date(base).end(base).build();
+    let dep = DepositBuilder::new(base)
+        .start_date(base)
+        .maturity(base)
+        .build();
 
-    // Execute - should fail validation (end must be after start)
+    // Execute - should fail validation (maturity must be after start)
     let result = dep.value(&ctx, base);
 
     // Validate - zero period deposits are invalid
@@ -98,7 +101,7 @@ fn test_dv01_reasonable_magnitude() {
 
     let dep = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .build();
 
     // Execute
@@ -115,13 +118,13 @@ fn test_dv01_with_different_day_counts() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep_360 = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(finstack_core::dates::DayCount::Act360)
         .quote_rate(0.05) // 5% rate so interest accrual differs
         .build();
 
     let dep_365 = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(finstack_core::dates::DayCount::Act365F)
         .quote_rate(0.05) // Same rate but different accrual due to day count
         .build();

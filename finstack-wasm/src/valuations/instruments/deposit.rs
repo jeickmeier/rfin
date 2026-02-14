@@ -16,7 +16,7 @@ pub struct JsDepositBuilder {
     instrument_id: String,
     notional: Option<finstack_core::money::Money>,
     start: Option<finstack_core::dates::Date>,
-    end: Option<finstack_core::dates::Date>,
+    maturity: Option<finstack_core::dates::Date>,
     day_count: Option<finstack_core::dates::DayCount>,
     discount_curve: Option<String>,
     quote_rate: Option<f64>,
@@ -44,9 +44,9 @@ impl JsDepositBuilder {
         self
     }
 
-    #[wasm_bindgen(js_name = end)]
-    pub fn end(mut self, end: &JsDate) -> JsDepositBuilder {
-        self.end = Some(end.inner());
+    #[wasm_bindgen(js_name = maturity)]
+    pub fn maturity(mut self, maturity: &JsDate) -> JsDepositBuilder {
+        self.maturity = Some(maturity.inner());
         self
     }
 
@@ -76,9 +76,9 @@ impl JsDepositBuilder {
         let start = self
             .start
             .ok_or_else(|| js_error("DepositBuilder: start is required".to_string()))?;
-        let end = self
-            .end
-            .ok_or_else(|| js_error("DepositBuilder: end is required".to_string()))?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| js_error("DepositBuilder: maturity is required".to_string()))?;
         let day_count = self
             .day_count
             .ok_or_else(|| js_error("DepositBuilder: dayCount is required".to_string()))?;
@@ -91,7 +91,7 @@ impl JsDepositBuilder {
             .id(instrument_id_from_str(&self.instrument_id))
             .notional(notional)
             .start_date(start)
-            .end(end)
+            .maturity(maturity)
             .day_count(day_count)
             .discount_curve_id(curve_id_from_str(discount_curve))
             .quote_rate_opt(self.quote_rate)
@@ -128,7 +128,7 @@ impl JsDeposit {
     /// @param instrument_id - Unique identifier
     /// @param notional - Deposit notional (currency-tagged)
     /// @param start - Start date (trade/settlement start)
-    /// @param end - End date (maturity)
+    /// @param maturity - Maturity date
     /// @param day_count - Day count convention for accrual (e.g. `DayCount.act360()`)
     /// @param discount_curve - Discount curve ID (must exist in `MarketContext` when pricing)
     /// @param quote_rate - Optional quoted deposit rate (decimal). If omitted, some models may treat it as 0 or infer from curves.
@@ -155,7 +155,7 @@ impl JsDeposit {
         instrument_id: &str,
         notional: &JsMoney,
         start: &JsDate,
-        end: &JsDate,
+        maturity: &JsDate,
         day_count: &JsDayCount,
         discount_curve: &str,
         quote_rate: Option<f64>,
@@ -167,7 +167,7 @@ impl JsDeposit {
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
             .start_date(start.inner())
-            .end(end.inner())
+            .maturity(maturity.inner())
             .day_count(day_count.inner())
             .discount_curve_id(curve_id_from_str(discount_curve))
             .quote_rate_opt(quote_rate)
@@ -243,8 +243,8 @@ impl JsDeposit {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn end(&self) -> JsDate {
-        JsDate::from_core(self.inner.end)
+    pub fn maturity(&self) -> JsDate {
+        JsDate::from_core(self.inner.maturity)
     }
 
     #[wasm_bindgen(getter, js_name = dayCount)]
@@ -270,8 +270,8 @@ impl JsDeposit {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
         format!(
-            "Deposit(id='{}', start='{}', end='{}', quote_rate={:?})",
-            self.inner.id, self.inner.start_date, self.inner.end, self.inner.quote_rate
+            "Deposit(id='{}', start='{}', maturity='{}', quote_rate={:?})",
+            self.inner.id, self.inner.start_date, self.inner.maturity, self.inner.quote_rate
         )
     }
 

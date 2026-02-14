@@ -1110,7 +1110,7 @@ mod tests {
             bdc: Some(BusinessDayConvention::Following),
             calendar_id: None,
             start_date: base_date,
-            end: pay_date,
+            maturity: pay_date,
             notional: Money::new(1.0, Currency::USD),
             day_count: DayCount::Act360,
         });
@@ -1176,7 +1176,7 @@ mod tests {
             bdc: Some(BusinessDayConvention::Following),
             calendar_id: None,
             start_date: base_date,
-            end: maturity,
+            maturity,
             notional: Money::new(1.0, Currency::USD),
             day_count: DayCount::Act360,
         });
@@ -1243,7 +1243,7 @@ mod tests {
                     bdc: Some(BusinessDayConvention::Following),
                     calendar_id: None,
                     start_date: base_date,
-                    end: maturity,
+                    maturity,
                     notional: Money::new(notional, Currency::USD),
                     day_count: DayCount::Act360,
                 });

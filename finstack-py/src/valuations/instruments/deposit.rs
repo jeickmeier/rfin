@@ -52,7 +52,7 @@ pub struct PyDepositBuilder {
     pending_notional_amount: Option<f64>,
     pending_currency: Option<Currency>,
     start: Option<time::Date>,
-    end: Option<time::Date>,
+    maturity: Option<time::Date>,
     day_count: finstack_core::dates::DayCount,
     discount_curve_id: Option<CurveId>,
     quote_rate: Option<f64>,
@@ -65,7 +65,7 @@ impl PyDepositBuilder {
             pending_notional_amount: None,
             pending_currency: None,
             start: None,
-            end: None,
+            maturity: None,
             day_count: finstack_core::dates::DayCount::Act360,
             discount_curve_id: None,
             quote_rate: None,
@@ -101,9 +101,9 @@ impl PyDepositBuilder {
                 "Start date must be provided via start().",
             ));
         }
-        if self.end.is_none() {
+        if self.maturity.is_none() {
             return Err(PyValueError::new_err(
-                "End date must be provided via end().",
+                "Maturity date must be provided via maturity().",
             ));
         }
         if self.discount_curve_id.is_none() {
@@ -157,12 +157,12 @@ impl PyDepositBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, end)")]
-    fn end<'py>(
+    #[pyo3(text_signature = "($self, maturity)")]
+    fn maturity<'py>(
         mut slf: PyRefMut<'py, Self>,
-        end: Bound<'py, PyAny>,
+        maturity: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.end = Some(py_to_date(&end).context("end")?);
+        slf.maturity = Some(py_to_date(&maturity).context("maturity")?);
         Ok(slf)
     }
 
@@ -201,9 +201,9 @@ impl PyDepositBuilder {
                 "DepositBuilder internal error: missing start after validation",
             )
         })?;
-        let end = slf.end.ok_or_else(|| {
+        let maturity = slf.maturity.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
-                "DepositBuilder internal error: missing end after validation",
+                "DepositBuilder internal error: missing maturity after validation",
             )
         })?;
         let discount = slf.discount_curve_id.clone().ok_or_else(|| {
@@ -216,7 +216,7 @@ impl PyDepositBuilder {
             .id(slf.instrument_id.clone())
             .notional(notional)
             .start_date(start)
-            .end(end)
+            .maturity(maturity)
             .day_count(slf.day_count)
             .discount_curve_id(discount)
             .quote_rate_opt(slf.quote_rate)
@@ -271,13 +271,10 @@ impl PyDeposit {
         date_to_py(py, self.inner.start_date)
     }
 
-    /// End date of the deposit period.
-    ///
-    /// Returns:
-    ///     datetime.date: Maturity date for the deposit.
+    /// Maturity date of the deposit period.
     #[getter]
-    fn end(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.end)
+    fn maturity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.maturity)
     }
 
     /// Day-count convention used for accrual.
@@ -318,8 +315,8 @@ impl PyDeposit {
 
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
-            "Deposit(id='{}', start='{}', end='{}', quote_rate={:?})",
-            self.inner.id, self.inner.start_date, self.inner.end, self.inner.quote_rate
+            "Deposit(id='{}', start='{}', maturity='{}', quote_rate={:?})",
+            self.inner.id, self.inner.start_date, self.inner.maturity, self.inner.quote_rate
         ))
     }
 }
@@ -329,7 +326,7 @@ impl fmt::Display for PyDeposit {
         write!(
             f,
             "Deposit({}, {} -> {})",
-            self.inner.id, self.inner.start_date, self.inner.end
+            self.inner.id, self.inner.start_date, self.inner.maturity
         )
     }
 }

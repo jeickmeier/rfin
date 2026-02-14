@@ -51,7 +51,7 @@ async fn sqlite_portfolio_hydrates_instruments() -> finstack_io::Result<()> {
         .id("DEP_1M".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
-        .end(date!(2024 - 02 - 01))
+        .maturity(date!(2024 - 02 - 01))
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -73,7 +73,7 @@ async fn sqlite_portfolio_hydrates_instruments() -> finstack_io::Result<()> {
                 .id("DEP_1M".into())
                 .notional(Money::new(1_000_000.0, Currency::USD))
                 .start_date(as_of)
-                .end(date!(2024 - 02 - 01))
+                .maturity(date!(2024 - 02 - 01))
                 .day_count(finstack_core::dates::DayCount::Act360)
                 .discount_curve_id("USD-OIS".into())
                 .build()?,
@@ -262,7 +262,7 @@ async fn sqlite_bulk_instruments() -> finstack_io::Result<()> {
         .id("DEP_1M".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
-        .end(date!(2024 - 02 - 01))
+        .maturity(date!(2024 - 02 - 01))
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -271,7 +271,7 @@ async fn sqlite_bulk_instruments() -> finstack_io::Result<()> {
         .id("DEP_3M".into())
         .notional(Money::new(2_000_000.0, Currency::USD))
         .start_date(as_of)
-        .end(date!(2024 - 04 - 01))
+        .maturity(date!(2024 - 04 - 01))
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -445,7 +445,7 @@ async fn sqlite_meta_json_stored() -> finstack_io::Result<()> {
         .id("DEP_1M".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
-        .end(date!(2024 - 02 - 01))
+        .maturity(date!(2024 - 02 - 01))
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -647,7 +647,7 @@ async fn sqlite_list_instruments() -> finstack_io::Result<()> {
         .id("DEP_1M".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
-        .end(date!(2024 - 02 - 01))
+        .maturity(date!(2024 - 02 - 01))
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -656,7 +656,7 @@ async fn sqlite_list_instruments() -> finstack_io::Result<()> {
         .id("DEP_3M".into())
         .notional(Money::new(2_000_000.0, Currency::USD))
         .start_date(as_of)
-        .end(date!(2024 - 04 - 01))
+        .maturity(date!(2024 - 04 - 01))
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -687,7 +687,7 @@ async fn sqlite_get_instruments_batch() -> finstack_io::Result<()> {
         .id("DEP_1M".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(as_of)
-        .end(date!(2024 - 02 - 01))
+        .maturity(date!(2024 - 02 - 01))
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -696,7 +696,7 @@ async fn sqlite_get_instruments_batch() -> finstack_io::Result<()> {
         .id("DEP_3M".into())
         .notional(Money::new(2_000_000.0, Currency::USD))
         .start_date(as_of)
-        .end(date!(2024 - 04 - 01))
+        .maturity(date!(2024 - 04 - 01))
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -884,7 +884,7 @@ async fn sqlite_concurrent_writes_succeed() -> finstack_io::Result<()> {
         .id("DEPO-001".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(date!(2024 - 01 - 01))
-        .end(date!(2025 - 01 - 01))
+        .maturity(date!(2025 - 01 - 01))
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
@@ -938,7 +938,7 @@ async fn sqlite_concurrent_reads_and_writes() -> finstack_io::Result<()> {
         .id("DEPO-BASE".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start_date(date!(2024 - 01 - 01))
-        .end(date!(2025 - 01 - 01))
+        .maturity(date!(2025 - 01 - 01))
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;

@@ -17,7 +17,7 @@ fn test_zero_rate_deposit_negative_pv() {
 
     // Execute
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.0)
         .build();
 
@@ -35,7 +35,7 @@ fn test_positive_rate_deposit_less_negative_pv() {
 
     // Execute
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.05)
         .build();
 
@@ -51,7 +51,7 @@ fn test_par_rate_gives_zero_pv() {
     // Setup
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
-    let dep = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
+    let dep = DepositBuilder::new(base).maturity(date(2025, 7, 1)).build();
 
     // Execute - compute par rate
     let par_rate = compute_metric(
@@ -63,7 +63,7 @@ fn test_par_rate_gives_zero_pv() {
 
     // Execute - price with par rate
     let dep_par = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(par_rate)
         .build();
 
@@ -86,12 +86,12 @@ fn test_higher_rate_increases_pv() {
 
     // Execute - two deposits with different rates
     let dep_low = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.01)
         .build();
 
     let dep_high = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.05)
         .build();
 
@@ -111,12 +111,12 @@ fn test_longer_maturity_increases_rate_sensitivity() {
 
     // Execute - two deposits with different maturities
     let dep_short = DepositBuilder::new(base)
-        .end(date(2025, 4, 1))
+        .maturity(date(2025, 4, 1))
         .quote_rate(rate)
         .build();
 
     let dep_long = DepositBuilder::new(base)
-        .end(date(2026, 1, 1))
+        .maturity(date(2026, 1, 1))
         .quote_rate(rate)
         .build();
 
@@ -136,13 +136,13 @@ fn test_notional_scales_pv_linearly() {
     // Execute
     let dep_1m = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
     let dep_2m = DepositBuilder::new(base)
         .notional(Money::new(2_000_000.0, Currency::USD))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -160,7 +160,7 @@ fn test_valuation_on_different_as_of_dates() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(date(2025, 1, 15))
-        .end(date(2025, 7, 15))
+        .maturity(date(2025, 7, 15))
         .quote_rate(0.03)
         .build();
 
@@ -183,7 +183,7 @@ fn test_steep_curve_impact() {
     let ctx_flat = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .end(date(2026, 1, 1))
+        .maturity(date(2026, 1, 1))
         .quote_rate(0.03)
         .build();
 
@@ -202,7 +202,7 @@ fn test_value_trait_implementation() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -221,7 +221,7 @@ fn test_npv_matches_value_trait() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -240,13 +240,13 @@ fn test_pricing_with_act_365_day_count() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep_360 = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .quote_rate(0.03)
         .build();
 
     let dep_365 = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(DayCount::Act365F)
         .quote_rate(0.03)
         .build();
@@ -266,7 +266,7 @@ fn test_negative_rate_environment() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(-0.01)
         .build();
 
@@ -285,7 +285,10 @@ fn test_pricing_on_maturity_date() {
     let end = date(2025, 7, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep = DepositBuilder::new(base).end(end).quote_rate(0.03).build();
+    let dep = DepositBuilder::new(base)
+        .maturity(end)
+        .quote_rate(0.03)
+        .build();
 
     // Execute
     let pv = dep.value(&ctx, end).unwrap();
@@ -303,7 +306,7 @@ fn test_theta_correctness_with_as_of_forward() {
     let ctx = ctx_with_standard_disc(curve_base, "USD-OIS");
 
     let dep = DepositBuilder::new(date(2025, 1, 15))
-        .end(date(2025, 7, 15))
+        .maturity(date(2025, 7, 15))
         .quote_rate(0.05)
         .build();
 
@@ -329,7 +332,7 @@ fn test_cashflow_based_npv_consistency() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -349,7 +352,7 @@ fn test_generic_dv01_works_with_cashflows() {
 
     let dep = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::USD))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .build();
 
     // Compute DV01 using the metric registry

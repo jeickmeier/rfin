@@ -71,7 +71,11 @@ export const DepositValuationExample: React.FC<DepositValuationProps> = (props) 
           deposit.startDate.month,
           deposit.startDate.day
         );
-        const end = new FsDate(deposit.endDate.year, deposit.endDate.month, deposit.endDate.day);
+        const maturity = new FsDate(
+          deposit.maturity.year,
+          deposit.maturity.month,
+          deposit.maturity.day
+        );
         const valDate = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
         const quoteRate = deposit.quoteRate;
 
@@ -100,7 +104,7 @@ export const DepositValuationExample: React.FC<DepositValuationProps> = (props) 
           deposit.id,
           notional,
           start,
-          end,
+          maturity,
           DayCount.act360(),
           deposit.discountCurveId,
           quoteRate
@@ -112,18 +116,18 @@ export const DepositValuationExample: React.FC<DepositValuationProps> = (props) 
         const presentValue = result.presentValue.amount;
 
         const dayCount = DayCount.act360();
-        const accrualFraction = dayCount.yearFraction(start, end);
+        const accrualFraction = dayCount.yearFraction(start, maturity);
         const elapsed = dayCount.yearFraction(start, valDate);
         const accrued =
           notional.amount * quoteRate * Math.max(Math.min(elapsed, accrualFraction), 0);
         const cleanPv = presentValue - accrued;
 
-        const dfEnd = curve.dfOnDate(end, null);
+        const dfEnd = curve.dfOnDate(maturity, null);
         const dfStart = curve.dfOnDate(start, null);
         const impliedRate = accrualFraction > 0 ? (dfStart / dfEnd - 1) / accrualFraction : 0;
         const spreadBps = (quoteRate - impliedRate) * 10_000;
 
-        const tenorDescription = `${start.toString()} → ${end.toString()}`;
+        const tenorDescription = `${start.toString()} → ${maturity.toString()}`;
 
         if (!cancelled) {
           setMetrics({

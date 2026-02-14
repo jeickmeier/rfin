@@ -9,7 +9,7 @@ fn test_yf_act360_6_months() {
     // Setup
     let base = date(2025, 1, 1);
     let dep = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .build();
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
@@ -26,7 +26,7 @@ fn test_yf_act365_one_year() {
     // Setup
     let base = date(2025, 1, 1);
     let dep = DepositBuilder::new(base)
-        .end(date(2026, 1, 1))
+        .maturity(date(2026, 1, 1))
         .day_count(DayCount::Act365F)
         .build();
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
@@ -44,7 +44,7 @@ fn test_yf_thirty360() {
     let base = date(2025, 1, 1);
     let dep = DepositBuilder::new(base)
         .start_date(date(2025, 1, 1))
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(DayCount::Thirty360)
         .build();
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
@@ -63,12 +63,12 @@ fn test_yf_different_conventions_give_different_results() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep_360 = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .build();
 
     let dep_365 = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(DayCount::Act365F)
         .build();
 
@@ -87,9 +87,9 @@ fn test_yf_scales_with_period_length() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep_3m = DepositBuilder::new(base).end(date(2025, 4, 1)).build();
+    let dep_3m = DepositBuilder::new(base).maturity(date(2025, 4, 1)).build();
 
-    let dep_6m = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
+    let dep_6m = DepositBuilder::new(base).maturity(date(2025, 7, 1)).build();
 
     // Execute
     let yf_3m = compute_metric(&dep_3m, &ctx, base, MetricId::Yf);
@@ -106,9 +106,12 @@ fn test_yf_zero_period() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep = DepositBuilder::new(base).start_date(base).end(base).build();
+    let dep = DepositBuilder::new(base)
+        .start_date(base)
+        .maturity(base)
+        .build();
 
-    // Execute - should fail validation (end must be after start)
+    // Execute - should fail validation (maturity must be after start)
     let result = dep.value(&ctx, base);
 
     // Validate - zero period deposits are invalid

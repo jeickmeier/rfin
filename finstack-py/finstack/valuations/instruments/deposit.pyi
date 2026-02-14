@@ -15,7 +15,7 @@ class DepositBuilder:
     def currency(self, currency: Union[str, Currency]) -> DepositBuilder: ...
     def money(self, money: Money) -> DepositBuilder: ...
     def start(self, start: date) -> DepositBuilder: ...
-    def end(self, end: date) -> DepositBuilder: ...
+    def maturity(self, maturity: date) -> DepositBuilder: ...
     def day_count(self, day_count: Union[DayCount, str]) -> DepositBuilder: ...
     def disc_id(self, curve_id: str) -> DepositBuilder: ...
     def quote_rate(self, quote_rate: Optional[float] = ...) -> DepositBuilder: ...
@@ -25,7 +25,7 @@ class Deposit:
     """Money-market deposit with simple interest accrual.
 
     Deposit represents a simple money-market instrument where funds are deposited
-    at start_date and repaid with interest at end_date. The interest rate can
+    at start_date and repaid with interest at maturity. The interest rate can
     be quoted (for market deposits) or derived from the discount curve.
 
     Deposits are the simplest interest rate instruments and are used as
@@ -44,7 +44,7 @@ class Deposit:
         ...     Deposit.builder("DEPO-3M")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .start(date(2024, 1, 1))
-        ...     .end(date(2024, 4, 1))  # 3-month deposit
+        ...     .maturity(date(2024, 4, 1))  # 3-month deposit
         ...     .day_count(DayCount.ACT_360)
         ...     .disc_id("USD")
         ...     .quote_rate(0.035)  # 3.5% quoted rate
@@ -62,7 +62,7 @@ class Deposit:
         ...     Deposit.builder("DEPO-6M")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .start(date(2024, 1, 1))
-        ...     .end(date(2024, 7, 1))
+        ...     .maturity(date(2024, 7, 1))
         ...     .day_count(DayCount.ACT_360)
         ...     .disc_id("USD")
         ...     .quote_rate(None)
@@ -86,7 +86,7 @@ class Deposit:
         ...     Deposit.builder("DEPO-3M")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .start(date(2024, 1, 1))
-        ...     .end(date(2024, 4, 1))
+        ...     .maturity(date(2024, 4, 1))
         ...     .day_count(DayCount.ACT_360)
         ...     .disc_id("USD")
         ...     .quote_rate(0.035)
@@ -100,7 +100,7 @@ class Deposit:
     -----
     - Deposits require a discount curve for pricing
     - If quote_rate is provided, it overrides the curve rate
-    - Interest accrues from start_date to end_date
+    - Interest accrues from start_date to maturity
     - Day-count convention determines the interest calculation
     - Standard money-market conventions: ACT/360 for USD, ACT/365 for GBP
     - Deposits are typically used for curve bootstrapping
@@ -130,7 +130,7 @@ class Deposit:
     @property
     def start(self) -> date: ...
     @property
-    def end(self) -> date: ...
+    def maturity(self) -> date: ...
     @property
     def day_count(self) -> DayCount: ...
     @property

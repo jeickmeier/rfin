@@ -36,7 +36,7 @@
 //!     .id("DEP_1M".into())
 //!     .notional(Money::new(1_000_000.0, Currency::USD))
 //!     .start_date(as_of)
-//!     .end(date!(2024-02-01))
+//!     .maturity(date!(2024-02-01))
 //!     .day_count(finstack_core::dates::DayCount::Act360)
 //!     .discount_curve_id("USD".into())
 //!     .build()

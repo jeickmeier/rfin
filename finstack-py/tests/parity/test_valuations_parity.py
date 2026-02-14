@@ -260,7 +260,7 @@ class TestDepositPricingParity:
             Deposit.builder("DEP-001")
             .money(Money(1_000_000.0, Currency("USD")))
             .start(date(2024, 1, 1))
-            .end(date(2024, 4, 1))
+            .maturity(date(2024, 4, 1))
             .day_count(DayCount.ACT_360)
             .disc_id("USD-OIS")
             .quote_rate(0.045)
@@ -278,7 +278,7 @@ class TestDepositPricingParity:
             Deposit.builder("DEP-001")
             .money(Money(1_000_000.0, Currency("USD")))
             .start(date(2024, 1, 1))
-            .end(date(2024, 4, 1))
+            .maturity(date(2024, 4, 1))
             .day_count(DayCount.ACT_360)
             .disc_id("USD-OIS")
             .quote_rate(0.045)
@@ -307,7 +307,7 @@ class TestDepositPricingParity:
             Deposit.builder("DEP-001")
             .money(Money(1_000_000.0, USD))
             .start(date(2024, 1, 1))
-            .end(date(2024, 4, 1))  # 90 days
+            .maturity(date(2024, 4, 1))  # 90 days
             .day_count(DayCount.ACT_360)
             .disc_id("USD-OIS")
             .quote_rate(0.045)
@@ -500,7 +500,7 @@ class TestEdgeCases:
             Deposit.builder("ON-001")
             .money(Money(1_000_000.0, USD))
             .start(date(2024, 1, 1))
-            .end(date(2024, 1, 2))  # 1 day
+            .maturity(date(2024, 1, 2))  # 1 day
             .day_count(DayCount.ACT_360)
             .disc_id("USD-OIS")
             .quote_rate(0.045)

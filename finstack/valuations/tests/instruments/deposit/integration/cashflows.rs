@@ -13,7 +13,7 @@ fn test_cashflow_generation_two_flows() {
 
     let dep = DepositBuilder::new(base)
         .start_date(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -51,7 +51,7 @@ fn test_cashflow_redemption_amount() {
     let dep = DepositBuilder::new(base)
         .notional(Money::new(notional, Currency::USD))
         .start_date(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(rate)
         .build();
 
@@ -63,7 +63,7 @@ fn test_cashflow_redemption_amount() {
         .day_count
         .year_fraction(
             dep.start_date,
-            dep.end,
+            dep.maturity,
             finstack_core::dates::DayCountCtx::default(),
         )
         .unwrap();
@@ -81,7 +81,7 @@ fn test_cashflow_conservation_of_value() {
 
     let dep = DepositBuilder::new(base)
         .start_date(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
@@ -121,7 +121,7 @@ fn test_cashflow_with_zero_rate() {
     let dep = DepositBuilder::new(base)
         .notional(Money::new(notional, Currency::USD))
         .start_date(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(0.0)
         .build();
 
@@ -140,7 +140,7 @@ fn test_cashflow_dates_ordered() {
 
     let dep = DepositBuilder::new(base)
         .start_date(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .build();
 
     // Execute

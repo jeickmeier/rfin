@@ -106,7 +106,7 @@ def main() -> None:
         Deposit.builder("USD-DEP-3M")
         .money(Money(5_000_000, USD))
         .start(as_of)
-        .end(as_of + timedelta(days=92))
+        .maturity(as_of + timedelta(days=92))
         .day_count(DayCount.ACT_360)
         .disc_id("USD-OIS")
         .quote_rate(0.0450)

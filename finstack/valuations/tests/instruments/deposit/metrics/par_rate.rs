@@ -8,14 +8,14 @@ fn test_par_rate_makes_pv_zero() {
     // Setup
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
-    let dep = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
+    let dep = DepositBuilder::new(base).maturity(date(2025, 7, 1)).build();
 
     // Execute - compute par rate
     let par_rate = compute_metric(&dep, &ctx, base, MetricId::DepositParRate);
 
     // Execute - price with par rate
     let dep_par = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .quote_rate(par_rate)
         .build();
 
@@ -35,7 +35,7 @@ fn test_par_rate_formula_consistency() {
     // Setup
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
-    let dep = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
+    let dep = DepositBuilder::new(base).maturity(date(2025, 7, 1)).build();
 
     // Execute
     let metrics = compute_metrics(
@@ -65,7 +65,7 @@ fn test_par_rate_positive_for_normal_curve() {
     // Setup
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
-    let dep = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
+    let dep = DepositBuilder::new(base).maturity(date(2025, 7, 1)).build();
 
     // Execute
     let par = compute_metric(&dep, &ctx, base, MetricId::DepositParRate);
@@ -80,9 +80,9 @@ fn test_par_rate_increases_with_maturity() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep_short = DepositBuilder::new(base).end(date(2025, 4, 1)).build();
+    let dep_short = DepositBuilder::new(base).maturity(date(2025, 4, 1)).build();
 
-    let dep_long = DepositBuilder::new(base).end(date(2026, 1, 1)).build();
+    let dep_long = DepositBuilder::new(base).maturity(date(2026, 1, 1)).build();
 
     // Execute
     let par_short = compute_metric(&dep_short, &ctx, base, MetricId::DepositParRate);
@@ -99,7 +99,7 @@ fn test_par_rate_sensitivity_to_curve_steepness() {
     let ctx_flat = ctx_with_standard_disc(base, "USD-OIS");
     let ctx_steep = ctx_with_steep_curve(base, "USD-OIS");
 
-    let dep = DepositBuilder::new(base).end(date(2026, 1, 1)).build();
+    let dep = DepositBuilder::new(base).maturity(date(2026, 1, 1)).build();
 
     // Execute
     let par_flat = compute_metric(&dep, &ctx_flat, base, MetricId::DepositParRate);
@@ -115,9 +115,12 @@ fn test_par_rate_zero_for_zero_period() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep = DepositBuilder::new(base).start_date(base).end(base).build();
+    let dep = DepositBuilder::new(base)
+        .start_date(base)
+        .maturity(base)
+        .build();
 
-    // Execute - should fail validation (end must be after start)
+    // Execute - should fail validation (maturity must be after start)
     let result = dep.value(&ctx, base);
 
     // Validate - zero period deposits are invalid
@@ -134,12 +137,12 @@ fn test_par_rate_different_day_counts() {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep_360 = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(finstack_core::dates::DayCount::Act360)
         .build();
 
     let dep_365 = DepositBuilder::new(base)
-        .end(date(2025, 7, 1))
+        .maturity(date(2025, 7, 1))
         .day_count(finstack_core::dates::DayCount::Act365F)
         .build();
 
