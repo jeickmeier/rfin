@@ -343,6 +343,7 @@ pub struct Ndf {
     pub settlement_calendar_id: Option<String>,
     /// Attributes for tagging and selection.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

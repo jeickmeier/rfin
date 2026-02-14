@@ -73,6 +73,7 @@ pub struct CommodityAsianOption {
     pub fixing_dates: Vec<Date>,
     /// Already observed fixings for seasoned options (ex-date, price pairs).
     #[builder(default)]
+    #[serde(default)]
     pub realized_fixings: Vec<(Date, f64)>,
     /// Contract quantity in commodity units.
     pub quantity: f64,
@@ -92,6 +93,7 @@ pub struct CommodityAsianOption {
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

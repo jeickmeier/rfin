@@ -130,6 +130,7 @@ pub struct EquityOption {
     /// - Haug, Haug, Lewis (2003). "Back to Basics: a new approach to the
     ///   discrete dividend problem"
     #[builder(default)]
+    #[serde(default)]
     pub discrete_dividends: Vec<(Date, f64)>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,

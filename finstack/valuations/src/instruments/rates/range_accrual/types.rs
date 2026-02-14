@@ -54,6 +54,7 @@ pub struct RangeAccrual {
     pub upper_bound: f64,
     /// How to interpret the range bounds (default: Absolute)
     #[builder(default)]
+    #[serde(default)]
     pub bounds_type: BoundsType,
     /// Coupon rate earned when in range (must be >= 0)
     pub coupon_rate: f64,

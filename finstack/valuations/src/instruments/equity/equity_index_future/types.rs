@@ -248,6 +248,7 @@ pub struct EquityIndexFuture {
     pub position: Position,
     /// Contract specifications.
     #[builder(default)]
+    #[serde(default)]
     pub contract_specs: EquityFutureSpecs,
     /// Discount curve identifier for present value calculations.
     pub discount_curve_id: CurveId,
@@ -270,6 +271,7 @@ pub struct EquityIndexFuture {
     pub discrete_dividends: Vec<(Date, f64)>,
     /// Attributes for tagging and selection.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

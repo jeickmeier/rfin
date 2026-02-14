@@ -46,6 +46,7 @@ pub struct CliquetOption {
     pub attributes: Attributes,
     /// Payoff aggregation type (default: Additive)
     #[builder(default)]
+    #[serde(default)]
     pub payoff_type: CliquetPayoffType,
 }
 

@@ -110,6 +110,7 @@ pub struct AsianOption {
     /// provide the historical fixings here. Only fixings that match dates in
     /// `fixing_dates` and are on or before the valuation date are considered.
     #[builder(default)]
+    #[serde(default)]
     pub past_fixings: Vec<(Date, f64)>,
 }
 

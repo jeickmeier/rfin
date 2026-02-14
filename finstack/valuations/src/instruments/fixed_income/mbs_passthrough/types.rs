@@ -180,6 +180,7 @@ pub struct AgencyMbsPassthrough {
     pub agency: AgencyProgram,
     /// Pool type (generic or specified).
     #[builder(default)]
+    #[serde(default)]
     pub pool_type: PoolType,
     /// Original face amount (initial principal balance).
     pub original_face: Money,
@@ -218,6 +219,7 @@ pub struct AgencyMbsPassthrough {
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and tagging.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

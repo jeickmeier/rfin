@@ -99,6 +99,7 @@ pub struct CommoditySwap {
     pub index_lag_days: Option<i32>,
     /// Attributes for tagging and selection.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

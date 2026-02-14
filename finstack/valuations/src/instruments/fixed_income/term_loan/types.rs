@@ -55,6 +55,10 @@ use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::pricing_overrides::PricingOverrides;
 
+fn default_settlement_days() -> u32 {
+    2
+}
+
 /// Rate specification for term loans.
 ///
 ///  Defines whether the loan uses fixed or floating rate interest, with full
@@ -263,6 +267,7 @@ pub struct TermLoan {
     /// LSTA standard for secondary market loan trades is T+2 (effective since 2023).
     /// Primary market trades may use different conventions.
     #[builder(default = 2)]
+    #[serde(default = "default_settlement_days")]
     pub settlement_days: u32,
 
     /// Attributes for tagging and scenarios

@@ -94,6 +94,7 @@ pub struct VolatilityIndexFuture {
     pub position: Position,
     /// Contract specifications.
     #[builder(default)]
+    #[serde(default)]
     pub contract_specs: VolIndexContractSpecs,
     /// Discount curve identifier for present value calculations.
     pub discount_curve_id: CurveId,
@@ -101,6 +102,7 @@ pub struct VolatilityIndexFuture {
     pub vol_index_curve_id: CurveId,
     /// Attributes for tagging and selection.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

@@ -148,6 +148,7 @@ pub struct AgencyTba {
     pub pricing_overrides: PricingOverrides,
     /// Attributes for tagging and selection.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

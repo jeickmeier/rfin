@@ -141,6 +141,7 @@ pub struct RealEstateAsset {
     pub discount_curve_id: CurveId,
     /// Attributes for tagging and scenarios.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

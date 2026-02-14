@@ -97,6 +97,7 @@ pub struct VolatilityIndexOption {
     pub option_type: OptionType,
     /// Exercise style (always European for VIX options).
     #[builder(default)]
+    #[serde(default)]
     pub exercise_style: ExerciseStyle,
     /// Option expiry date.
     pub expiry: Date,
@@ -106,6 +107,7 @@ pub struct VolatilityIndexOption {
     pub settlement_date: Option<Date>,
     /// Contract specifications.
     #[builder(default)]
+    #[serde(default)]
     pub contract_specs: VolIndexOptionSpecs,
     /// Day count convention (default: Act365F).
     pub day_count: DayCount,
@@ -117,6 +119,7 @@ pub struct VolatilityIndexOption {
     pub vol_of_vol_surface_id: CurveId,
     /// Attributes for tagging and selection.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

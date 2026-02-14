@@ -93,6 +93,7 @@ pub struct FxForward {
     pub quote_calendar_id: Option<String>,
     /// Attributes for tagging and selection.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

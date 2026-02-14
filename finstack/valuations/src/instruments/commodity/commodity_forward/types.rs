@@ -196,6 +196,7 @@ pub struct CommodityForward {
     pub settlement_bdc: Option<BusinessDayConvention>,
     /// Attributes for tagging and selection.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 

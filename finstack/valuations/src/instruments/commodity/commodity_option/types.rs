@@ -105,6 +105,7 @@ pub struct CommodityOption {
     pub premium_settlement_days: Option<u32>,
     /// Attributes for tagging and selection.
     #[builder(default)]
+    #[serde(default)]
     pub attributes: Attributes,
 }
 
