@@ -24,7 +24,7 @@
           "expiry_date": "2025-03-21",
           "id": "ES-2025M03",
           "index_price_id": "SPX-SPOT",
-          "index_ticker": "SPX",
+          "underlying_ticker": "SPX",
           "last_trading_date": "2025-03-20",
           "position": "Long",
           "quantity": 10.0,
@@ -54,7 +54,7 @@
           "expiry_date": "2025-03-21",
           "id": "ES-2025M03",
           "index_price_id": "SPX-SPOT",
-          "index_ticker": "SPX",
+          "underlying_ticker": "SPX",
           "last_trading_date": "2025-03-20",
           "position": "Long",
           "quantity": 10.0

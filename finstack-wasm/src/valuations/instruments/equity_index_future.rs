@@ -259,7 +259,7 @@ impl JsEquityIndexFutureBuilder {
 
         let future = EquityIndexFuture::builder()
             .id(InstrumentId::new(&self.instrument_id))
-            .index_ticker(index_ticker.to_string())
+            .underlying_ticker(index_ticker.to_string())
             .currency(ccy)
             .quantity(quantity)
             .expiry_date(expiry_date)
@@ -313,7 +313,7 @@ impl JsEquityIndexFuture {
 
         let future = EquityIndexFuture::builder()
             .id(InstrumentId::new(id))
-            .index_ticker(index_ticker.to_string())
+            .underlying_ticker(index_ticker.to_string())
             .currency(ccy)
             .quantity(quantity)
             .expiry_date(expiry_date.inner())
@@ -338,7 +338,7 @@ impl JsEquityIndexFuture {
     /// Get the index ticker.
     #[wasm_bindgen(getter, js_name = indexTicker)]
     pub fn index_ticker(&self) -> String {
-        self.inner.index_ticker.clone()
+        self.inner.underlying_ticker.clone()
     }
 
     /// Get the quantity (number of contracts).

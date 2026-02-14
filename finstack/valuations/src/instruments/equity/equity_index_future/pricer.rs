@@ -95,7 +95,7 @@ mod tests {
 
         EquityIndexFuture::builder()
             .id(InstrumentId::new("ES-TEST"))
-            .index_ticker("SPX".to_string())
+            .underlying_ticker("SPX".to_string())
             .currency(Currency::USD)
             .quantity(10.0)
             .expiry_date(Date::from_calendar_date(2025, Month::June, 20).expect("valid date"))
@@ -117,7 +117,7 @@ mod tests {
 
         EquityIndexFuture::builder()
             .id(InstrumentId::new("ES-FAIR"))
-            .index_ticker("SPX".to_string())
+            .underlying_ticker("SPX".to_string())
             .currency(Currency::USD)
             .quantity(10.0)
             .expiry_date(Date::from_calendar_date(2025, Month::June, 20).expect("valid date"))

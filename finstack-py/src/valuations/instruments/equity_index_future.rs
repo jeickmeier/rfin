@@ -314,7 +314,7 @@ impl PyEquityIndexFutureBuilder {
 
         EquityIndexFuture::builder()
             .id(self.instrument_id.clone())
-            .index_ticker(index_ticker)
+            .underlying_ticker(index_ticker)
             .currency(currency)
             .quantity(quantity)
             .expiry_date(expiry_date)
@@ -541,7 +541,7 @@ impl PyEquityIndexFuture {
     /// Index ticker symbol (e.g., "SPX", "NDX").
     #[getter]
     fn index_ticker(&self) -> String {
-        self.inner.index_ticker.clone()
+        self.inner.underlying_ticker.clone()
     }
 
     /// Settlement currency.
@@ -625,7 +625,7 @@ impl PyEquityIndexFuture {
         format!(
             "EquityIndexFuture(id='{}', index='{}', quantity={}, position={}, expiry={})",
             self.inner.id,
-            self.inner.index_ticker,
+            self.inner.underlying_ticker,
             self.inner.quantity,
             match self.inner.position {
                 Position::Long => "long",
@@ -642,7 +642,7 @@ impl fmt::Display for PyEquityIndexFuture {
         write!(
             f,
             "EquityIndexFuture({}, {}, qty={})",
-            self.inner.id, self.inner.index_ticker, self.inner.quantity
+            self.inner.id, self.inner.underlying_ticker, self.inner.quantity
         )
     }
 }

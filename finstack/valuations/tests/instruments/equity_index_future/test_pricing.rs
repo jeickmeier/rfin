@@ -37,7 +37,7 @@ fn create_long_es_future_with_quoted() -> EquityIndexFuture {
 
     EquityIndexFuture::builder()
         .id(InstrumentId::new("ES-QUOTED"))
-        .index_ticker("SPX".to_string())
+        .underlying_ticker("SPX".to_string())
         .currency(Currency::USD)
         .quantity(10.0)
         .expiry_date(expiry)
@@ -59,7 +59,7 @@ fn create_short_es_future_with_quoted() -> EquityIndexFuture {
 
     EquityIndexFuture::builder()
         .id(InstrumentId::new("ES-SHORT"))
-        .index_ticker("SPX".to_string())
+        .underlying_ticker("SPX".to_string())
         .currency(Currency::USD)
         .quantity(10.0)
         .expiry_date(expiry)
@@ -81,7 +81,7 @@ fn create_es_future_fair_value() -> EquityIndexFuture {
 
     EquityIndexFuture::builder()
         .id(InstrumentId::new("ES-FAIR"))
-        .index_ticker("SPX".to_string())
+        .underlying_ticker("SPX".to_string())
         .currency(Currency::USD)
         .quantity(10.0)
         .expiry_date(expiry)
@@ -219,7 +219,7 @@ fn test_nq_future_pricing() {
 
     let future = EquityIndexFuture::builder()
         .id(InstrumentId::new("NQ-TEST"))
-        .index_ticker("NDX".to_string())
+        .underlying_ticker("NDX".to_string())
         .currency(Currency::USD)
         .quantity(5.0)
         .expiry_date(expiry)
@@ -253,7 +253,7 @@ fn test_at_the_money_future() {
     // Entry = Quoted → zero PV
     let future = EquityIndexFuture::builder()
         .id(InstrumentId::new("ES-ATM"))
-        .index_ticker("SPX".to_string())
+        .underlying_ticker("SPX".to_string())
         .currency(Currency::USD)
         .quantity(10.0)
         .expiry_date(expiry)

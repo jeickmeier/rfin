@@ -50,7 +50,7 @@
 //! // Using the builder
 //! let es_future = EquityIndexFuture::builder()
 //!     .id(InstrumentId::new("ESH5"))
-//!     .index_ticker("SPX".to_string())
+//!     .underlying_ticker("SPX".to_string())
 //!     .currency(Currency::USD)
 //!     .quantity(10.0)
 //!     .expiry_date(Date::from_calendar_date(2025, Month::March, 21).unwrap())

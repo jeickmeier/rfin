@@ -62,7 +62,7 @@ fn test_equity_index_future_builder() {
 
     let future = EquityIndexFuture::builder()
         .id(InstrumentId::new("ES-TEST"))
-        .index_ticker("SPX".to_string())
+        .underlying_ticker("SPX".to_string())
         .currency(Currency::USD)
         .quantity(10.0)
         .expiry_date(expiry)
@@ -78,7 +78,7 @@ fn test_equity_index_future_builder() {
         .expect("should build");
 
     assert_eq!(future.id.as_str(), "ES-TEST");
-    assert_eq!(future.index_ticker, "SPX");
+    assert_eq!(future.underlying_ticker, "SPX");
     assert_eq!(future.currency, Currency::USD);
     assert_eq!(future.quantity, 10.0);
     assert_eq!(future.entry_price, Some(4500.0));
@@ -103,7 +103,7 @@ fn test_sp500_emini_convenience_constructor() {
     .expect("should build");
 
     assert_eq!(future.id.as_str(), "ESH5");
-    assert_eq!(future.index_ticker, "SPX");
+    assert_eq!(future.underlying_ticker, "SPX");
     assert_eq!(future.currency, Currency::USD);
     assert_eq!(future.contract_specs.multiplier, 50.0);
     assert_eq!(future.index_price_id, "SPX-SPOT");
@@ -126,7 +126,7 @@ fn test_nasdaq100_emini_convenience_constructor() {
     .expect("should build");
 
     assert_eq!(future.id.as_str(), "NQH5");
-    assert_eq!(future.index_ticker, "NDX");
+    assert_eq!(future.underlying_ticker, "NDX");
     assert_eq!(future.currency, Currency::USD);
     assert_eq!(future.contract_specs.multiplier, 20.0);
     assert_eq!(future.index_price_id, "NDX-SPOT");
@@ -233,7 +233,7 @@ fn test_serde_roundtrip() {
     let recovered: EquityIndexFuture = serde_json::from_str(&json).expect("deserialize");
 
     assert_eq!(future.id, recovered.id);
-    assert_eq!(future.index_ticker, recovered.index_ticker);
+    assert_eq!(future.underlying_ticker, recovered.underlying_ticker);
     assert_eq!(future.quantity, recovered.quantity);
     assert_eq!(future.entry_price, recovered.entry_price);
     assert_eq!(future.quoted_price, recovered.quoted_price);

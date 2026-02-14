@@ -206,7 +206,7 @@ impl EquityFutureSpecs {
 ///
 /// let future = EquityIndexFuture::builder()
 ///     .id(InstrumentId::new("ES-2025M03"))
-///     .index_ticker("SPX".to_string())
+///     .underlying_ticker("SPX".to_string())
 ///     .currency(Currency::USD)
 ///     .quantity(10.0)
 ///     .expiry_date(Date::from_calendar_date(2025, Month::March, 21).unwrap())
@@ -226,7 +226,8 @@ pub struct EquityIndexFuture {
     /// Unique instrument identifier.
     pub id: InstrumentId,
     /// Index ticker symbol (e.g., "SPX", "NDX", "SX5E").
-    pub index_ticker: String,
+    #[serde(alias = "index_ticker")]
+    pub underlying_ticker: String,
     /// Settlement currency.
     pub currency: Currency,
     /// Number of contracts (positive for long exposure).
@@ -273,7 +274,7 @@ impl EquityIndexFuture {
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("ES-2025M03"))
-            .index_ticker("SPX".to_string())
+            .underlying_ticker("SPX".to_string())
             .currency(Currency::USD)
             .quantity(10.0)
             .expiry_date(date!(2025 - 03 - 21))
@@ -313,7 +314,7 @@ impl EquityIndexFuture {
     ) -> finstack_core::Result<Self> {
         Self::builder()
             .id(id.into())
-            .index_ticker("SPX".to_string())
+            .underlying_ticker("SPX".to_string())
             .currency(Currency::USD)
             .quantity(quantity)
             .expiry_date(expiry_date)
@@ -349,7 +350,7 @@ impl EquityIndexFuture {
     ) -> finstack_core::Result<Self> {
         Self::builder()
             .id(id.into())
-            .index_ticker("NDX".to_string())
+            .underlying_ticker("NDX".to_string())
             .currency(Currency::USD)
             .quantity(quantity)
             .expiry_date(expiry_date)
@@ -625,7 +626,7 @@ mod tests {
     fn test_equity_index_future_construction() {
         let future = EquityIndexFuture::builder()
             .id(InstrumentId::new("ES-TEST"))
-            .index_ticker("SPX".to_string())
+            .underlying_ticker("SPX".to_string())
             .currency(Currency::USD)
             .quantity(10.0)
             .expiry_date(Date::from_calendar_date(2025, Month::March, 21).expect("valid test date"))
@@ -641,7 +642,7 @@ mod tests {
             .expect("should build");
 
         assert_eq!(future.id.as_str(), "ES-TEST");
-        assert_eq!(future.index_ticker, "SPX");
+        assert_eq!(future.underlying_ticker, "SPX");
         assert_eq!(future.quantity, 10.0);
         assert_eq!(future.currency, Currency::USD);
     }
@@ -650,7 +651,7 @@ mod tests {
     fn test_equity_index_future_example() {
         let future = EquityIndexFuture::example();
         assert_eq!(future.id.as_str(), "ES-2025M03");
-        assert_eq!(future.index_ticker, "SPX");
+        assert_eq!(future.underlying_ticker, "SPX");
         assert_eq!(future.quantity, 10.0);
         assert_eq!(future.contract_specs.multiplier, 50.0);
     }
@@ -672,7 +673,7 @@ mod tests {
         .expect("should build");
 
         assert_eq!(future.id.as_str(), "ESH5");
-        assert_eq!(future.index_ticker, "SPX");
+        assert_eq!(future.underlying_ticker, "SPX");
         assert_eq!(future.contract_specs.multiplier, 50.0);
         assert_eq!(future.entry_price, Some(4500.0));
     }
@@ -694,7 +695,7 @@ mod tests {
         .expect("should build");
 
         assert_eq!(future.id.as_str(), "NQH5");
-        assert_eq!(future.index_ticker, "NDX");
+        assert_eq!(future.underlying_ticker, "NDX");
         assert_eq!(future.contract_specs.multiplier, 20.0);
         assert_eq!(future.position, Position::Short);
     }
@@ -733,7 +734,7 @@ mod tests {
         let json = serde_json::to_string(&future).expect("serialize");
         let recovered: EquityIndexFuture = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(future.id, recovered.id);
-        assert_eq!(future.index_ticker, recovered.index_ticker);
+        assert_eq!(future.underlying_ticker, recovered.underlying_ticker);
         assert_eq!(future.quantity, recovered.quantity);
     }
 }
