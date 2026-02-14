@@ -50,7 +50,7 @@ fn create_standard_swap(
         fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD_OIS".into(),
             rate: fixed_rate,
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -66,7 +66,7 @@ fn create_standard_swap(
             discount_curve_id: "USD_OIS".into(),
             forward_curve_id: "USD_LIBOR_3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

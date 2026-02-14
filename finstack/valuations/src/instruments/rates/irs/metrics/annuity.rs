@@ -69,7 +69,7 @@ impl MetricCalculator for AnnuityCalculator {
             crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: fixed.start,
                 end: fixed.end,
-                frequency: fixed.freq,
+                frequency: fixed.frequency,
                 stub: fixed.stub,
                 bdc: fixed.bdc,
                 calendar_id: fixed

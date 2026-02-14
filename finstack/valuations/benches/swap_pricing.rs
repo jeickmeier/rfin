@@ -74,7 +74,7 @@ fn create_monthly_swap(tenor_years: i32) -> InterestRateSwap {
         .fixed(FixedLegSpec {
             discount_curve_id: disc_id.clone(),
             rate: dec!(0.04),
-            freq: Tenor::new(1, TenorUnit::Months), // Monthly fixed
+            frequency: Tenor::new(1, TenorUnit::Months), // Monthly fixed
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -90,7 +90,7 @@ fn create_monthly_swap(tenor_years: i32) -> InterestRateSwap {
             discount_curve_id: disc_id,
             forward_curve_id: fwd_id,
             spread_bp: dec!(0.0),
-            freq: Tenor::new(1, TenorUnit::Months), // Monthly float
+            frequency: Tenor::new(1, TenorUnit::Months), // Monthly float
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -122,7 +122,7 @@ fn create_ois_swap(tenor_years: i32) -> InterestRateSwap {
         .fixed(FixedLegSpec {
             discount_curve_id: disc_id.clone(),
             rate: dec!(0.04),
-            freq: Tenor::new(1, TenorUnit::Years), // Annual fixed
+            frequency: Tenor::new(1, TenorUnit::Years), // Annual fixed
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -138,7 +138,7 @@ fn create_ois_swap(tenor_years: i32) -> InterestRateSwap {
             discount_curve_id: disc_id.clone(),
             forward_curve_id: disc_id, // Single-curve OIS
             spread_bp: dec!(0.0),
-            freq: Tenor::new(1, TenorUnit::Years), // Annual payment with daily compounding
+            frequency: Tenor::new(1, TenorUnit::Years), // Annual payment with daily compounding
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

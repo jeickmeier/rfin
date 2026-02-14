@@ -44,7 +44,7 @@ fn test_cdx_na_ig_standard_conventions() {
     .expect("valid test parameters");
 
     assert_eq!(idx.convention, CDSConvention::IsdaNa);
-    assert_eq!(idx.premium.freq, Tenor::quarterly());
+    assert_eq!(idx.premium.frequency, Tenor::quarterly());
     assert_eq!(idx.premium.dc, DayCount::Act360);
 }
 
@@ -72,7 +72,7 @@ fn test_cdx_na_hy_standard_conventions() {
     .expect("valid test parameters");
 
     assert_eq!(idx.convention, CDSConvention::IsdaNa);
-    assert_eq!(idx.premium.freq, Tenor::quarterly());
+    assert_eq!(idx.premium.frequency, Tenor::quarterly());
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn test_quarterly_payment_frequency() {
 
     let idx = standard_single_curve_index("CDX-FREQ", start, end, 10_000_000.0);
 
-    assert_eq!(idx.premium.freq, Tenor::quarterly());
+    assert_eq!(idx.premium.frequency, Tenor::quarterly());
 }
 
 #[test]

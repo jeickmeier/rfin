@@ -57,7 +57,7 @@ pub fn usd_irs_swap(
     let fixed = FixedLegSpec {
         discount_curve_id: CurveId::new("USD-OIS"),
         rate: rate_decimal,
-        freq: Tenor::semi_annual(),
+        frequency: Tenor::semi_annual(),
         dc: DayCount::Thirty360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: Some("usny".to_string()),
@@ -73,7 +73,7 @@ pub fn usd_irs_swap(
         discount_curve_id: CurveId::new("USD-OIS"),
         forward_curve_id: CurveId::new("USD-SOFR-3M"),
         spread_bp: Decimal::ZERO,
-        freq: Tenor::quarterly(),
+        frequency: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: Some("usny".to_string()),
@@ -386,7 +386,7 @@ pub fn cds_buy_protection(
         .premium(PremiumLegSpec {
             start,
             end: maturity,
-            freq,
+            frequency: freq,
             stub,
             bdc,
             calendar_id: Some(convention.default_calendar().to_string()),
@@ -439,7 +439,7 @@ pub fn cds_sell_protection(
         .premium(PremiumLegSpec {
             start,
             end: maturity,
-            freq,
+            frequency: freq,
             stub,
             bdc,
             calendar_id: Some(convention.default_calendar().to_string()),

@@ -430,7 +430,7 @@ fn construct_cds(
         .premium(PremiumLegSpec {
             start,
             end,
-            freq,
+            frequency: freq,
             stub,
             bdc,
             calendar_id: Some(convention.default_calendar().to_string()),

@@ -48,7 +48,7 @@ fn build_cds(args: BuildCdsArgs) -> Result<CreditDefaultSwap, JsValue> {
         .premium(PremiumLegSpec {
             start: args.start,
             end: args.maturity,
-            freq,
+            frequency: freq,
             stub,
             bdc,
             calendar_id: Some(convention.default_calendar().to_string()),

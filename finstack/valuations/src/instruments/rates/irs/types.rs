@@ -351,7 +351,7 @@ impl InterestRateSwap {
             .fixed(crate::instruments::common_impl::parameters::FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 rate: Decimal::try_from(0.03).unwrap_or(Decimal::ZERO),
-                freq: Tenor::semi_annual(),
+                frequency: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -371,7 +371,7 @@ impl InterestRateSwap {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
                 spread_bp: Decimal::ZERO,
-                freq: Tenor::quarterly(),
+                frequency: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,

@@ -624,7 +624,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .fixed(FixedLegSpec {
             discount_curve_id: "USD".into(),
             rate: dec!(0.04),
-            freq: finstack_core::dates::Tenor::semi_annual(),
+            frequency: finstack_core::dates::Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -640,7 +640,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             discount_curve_id: "USD".into(),
             forward_curve_id: "USD_SOFR_3M".into(),
             spread_bp: dec!(25.0),
-            freq: finstack_core::dates::Tenor::quarterly(),
+            frequency: finstack_core::dates::Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -712,7 +712,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             .premium(PremiumLegSpec {
                 start: as_of,
                 end: date!(2029 - 01 - 01),
-                freq,
+                frequency: freq,
                 stub,
                 bdc,
                 calendar_id: Some(convention.default_calendar().to_string()),

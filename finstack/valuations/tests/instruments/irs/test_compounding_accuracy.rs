@@ -68,7 +68,7 @@ fn test_compounding_lookback_sensitivity() {
         .fixed(FixedLegSpec {
             discount_curve_id: "DISC".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),
@@ -83,7 +83,7 @@ fn test_compounding_lookback_sensitivity() {
         .float(FloatLegSpec {
             discount_curve_id: "DISC".into(),
             forward_curve_id: "FWD".into(),
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),
@@ -224,7 +224,7 @@ fn test_seasoned_compounded_swap_requires_fixings() {
         .fixed(FixedLegSpec {
             discount_curve_id: "DISC".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),
@@ -239,7 +239,7 @@ fn test_seasoned_compounded_swap_requires_fixings() {
         .float(FloatLegSpec {
             discount_curve_id: "DISC".into(),
             forward_curve_id: "FWD".into(),
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),
@@ -312,7 +312,7 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
         .fixed(FixedLegSpec {
             discount_curve_id: "DISC".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),
@@ -327,7 +327,7 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
         .float(FloatLegSpec {
             discount_curve_id: "DISC".into(),
             forward_curve_id: "FWD".into(),
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),
@@ -392,7 +392,7 @@ fn test_compounded_swap_with_spread_near_zero_rates() {
         .fixed(FixedLegSpec {
             discount_curve_id: "DISC".into(),
             rate: rust_decimal::Decimal::try_from(0.005).expect("valid"), // 0.5% fixed
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),
@@ -407,7 +407,7 @@ fn test_compounded_swap_with_spread_near_zero_rates() {
         .float(FloatLegSpec {
             discount_curve_id: "DISC".into(),
             forward_curve_id: "FWD".into(),
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),
@@ -486,7 +486,7 @@ fn test_compounded_swap_with_spread_negative_rates() {
         .fixed(FixedLegSpec {
             discount_curve_id: "DISC".into(),
             rate: rust_decimal::Decimal::try_from(0.005).expect("valid"), // 0.5% fixed
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),
@@ -501,7 +501,7 @@ fn test_compounded_swap_with_spread_negative_rates() {
         .float(FloatLegSpec {
             discount_curve_id: "DISC".into(),
             forward_curve_id: "FWD".into(),
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),
@@ -591,7 +591,7 @@ fn test_observation_shift_before_curve_base_date() {
         .fixed(FixedLegSpec {
             discount_curve_id: "DISC".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-            freq: Tenor::monthly(),
+            frequency: Tenor::monthly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),
@@ -606,7 +606,7 @@ fn test_observation_shift_before_curve_base_date() {
         .float(FloatLegSpec {
             discount_curve_id: "DISC".into(),
             forward_curve_id: "FWD".into(),
-            freq: Tenor::monthly(),
+            frequency: Tenor::monthly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".into()),

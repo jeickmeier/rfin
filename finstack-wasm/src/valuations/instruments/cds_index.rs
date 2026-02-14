@@ -319,7 +319,7 @@ impl JsCDSIndex {
         let sched = build_dates(
             self.inner.premium.start,
             self.inner.premium.end,
-            self.inner.premium.freq,
+            self.inner.premium.frequency,
             self.inner.premium.stub,
             self.inner.premium.bdc,
             false,

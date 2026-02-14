@@ -58,7 +58,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> Int
         fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD_OIS".into(),
             rate: fixed_rate,
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -74,7 +74,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> Int
             discount_curve_id: "USD_LIBOR_DISC".into(), // Use different discount curve for non-OIS swap
             forward_curve_id: "USD_LIBOR_3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

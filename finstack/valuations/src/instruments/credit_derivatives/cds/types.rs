@@ -474,7 +474,7 @@ impl CreditDefaultSwap {
             .premium(PremiumLegSpec {
                 start: date!(2024 - 03 - 20),
                 end: date!(2029 - 03 - 20),
-                freq,
+                frequency: freq,
                 stub,
                 bdc,
                 calendar_id: Some(convention.default_calendar().to_string()),
@@ -536,7 +536,7 @@ impl CreditDefaultSwap {
             premium: PremiumLegSpec {
                 start,
                 end,
-                freq,
+                frequency: freq,
                 stub,
                 bdc,
                 calendar_id: Some(convention.default_calendar().to_string()),
@@ -630,7 +630,7 @@ impl CreditDefaultSwap {
         let sched = crate::cashflow::builder::build_dates(
             self.premium.start,
             self.premium.end,
-            self.premium.freq,
+            self.premium.frequency,
             self.premium.stub,
             self.premium.bdc,
             false,

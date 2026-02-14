@@ -368,7 +368,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             let fixed = crate::instruments::common_impl::parameters::legs::FixedLegSpec {
                 discount_curve_id: CurveId::new(discount_id.clone()),
                 rate: rate_decimal,
-                freq: leg_conv.fixed_freq,
+                frequency: leg_conv.fixed_freq,
                 dc: leg_conv.fixed_dc,
                 bdc: leg_conv.bdc,
                 calendar_id: leg_conv.payment_calendar_id.clone(),
@@ -385,7 +385,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 discount_curve_id: CurveId::new(discount_id),
                 forward_curve_id: CurveId::new(forward_id),
                 spread_bp: Decimal::ZERO,
-                freq: leg_conv.float_freq,
+                frequency: leg_conv.float_freq,
                 dc: leg_conv.float_dc,
                 bdc: leg_conv.bdc,
                 calendar_id: leg_conv.payment_calendar_id,

@@ -76,7 +76,7 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
         .fixed_cf(FixedCouponSpec {
             coupon_type: crate::cashflow::builder::CouponType::Cash,
             rate: fixed.rate,
-            freq: fixed.freq,
+            freq: fixed.frequency,
             dc: fixed.dc,
             bdc: fixed.bdc,
             calendar_id: fixed
@@ -166,7 +166,7 @@ pub fn float_leg_schedule_with_curves(
                 cap_bp: None,
                 all_in_floor_bp: None,
                 index_cap_bp: None,
-                reset_freq: float.freq,
+                reset_freq: float.frequency,
                 reset_lag_days: float.reset_lag_days,
                 dc: float.dc,
                 bdc: float.bdc,
@@ -180,7 +180,7 @@ pub fn float_leg_schedule_with_curves(
                 overnight_compounding: None,
             },
             coupon_type: crate::cashflow::builder::CouponType::Cash,
-            freq: float.freq,
+            freq: float.frequency,
             stub: float.stub,
         });
     let mut sched = float_b.build_with_curves(curves)?;

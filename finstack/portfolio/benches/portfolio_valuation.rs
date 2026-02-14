@@ -500,7 +500,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let premium = PremiumLegSpec {
             start: base,
             end: maturity_5y(),
-            freq: convention.frequency(),
+            frequency: convention.frequency(),
             stub: convention.stub_convention(),
             bdc: convention.business_day_convention(),
             calendar_id: None,

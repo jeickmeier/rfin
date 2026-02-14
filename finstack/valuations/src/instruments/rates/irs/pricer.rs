@@ -123,7 +123,7 @@ impl InterestRateSwap {
         let periods = build_periods(BuildPeriodsParams {
             start: float.start,
             end: float.end,
-            frequency: float.freq,
+            frequency: float.frequency,
             stub: float.stub,
             bdc: float.bdc,
             calendar_id: float
@@ -455,7 +455,7 @@ impl InterestRateSwap {
         let schedule_periods = build_periods(BuildPeriodsParams {
             start: float.start,
             end: float.end,
-            frequency: float.freq,
+            frequency: float.frequency,
             stub: float.stub,
             bdc: float.bdc,
             calendar_id: float
@@ -700,7 +700,7 @@ mod tests {
                 crate::instruments::common_impl::parameters::legs::FixedLegSpec {
                     discount_curve_id: disc_id.clone(),
                     rate: rust_decimal::Decimal::ZERO,
-                    freq: Tenor::monthly(),
+                    frequency: Tenor::monthly(),
                     dc: DayCount::Act360,
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
@@ -718,7 +718,7 @@ mod tests {
                     discount_curve_id: disc_id.clone(),
                     forward_curve_id: fwd_id.clone(),
                     spread_bp: rust_decimal::Decimal::ZERO,
-                    freq: Tenor::monthly(),
+                    frequency: Tenor::monthly(),
                     dc: DayCount::Act360,
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
@@ -788,7 +788,7 @@ mod tests {
                 crate::instruments::common_impl::parameters::legs::FixedLegSpec {
                     discount_curve_id: disc_id.clone(),
                     rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
-                    freq: finstack_core::dates::Tenor::quarterly(),
+                    frequency: finstack_core::dates::Tenor::quarterly(),
                     dc: finstack_core::dates::DayCount::Act360,
                     bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
@@ -806,7 +806,7 @@ mod tests {
                     discount_curve_id: disc_id.clone(),
                     forward_curve_id: disc_id.clone(), // single-curve: same id as discount
                     spread_bp: rust_decimal::Decimal::ZERO,
-                    freq: finstack_core::dates::Tenor::quarterly(),
+                    frequency: finstack_core::dates::Tenor::quarterly(),
                     dc: finstack_core::dates::DayCount::Act360,
                     bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
@@ -870,7 +870,7 @@ mod tests {
                 crate::instruments::common_impl::parameters::legs::FixedLegSpec {
                     discount_curve_id: disc_id.clone(),
                     rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
-                    freq: finstack_core::dates::Tenor::quarterly(),
+                    frequency: finstack_core::dates::Tenor::quarterly(),
                     dc: finstack_core::dates::DayCount::Act360,
                     bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
@@ -888,7 +888,7 @@ mod tests {
                     discount_curve_id: disc_id.clone(),
                     forward_curve_id: disc_id.clone(),
                     spread_bp: rust_decimal::Decimal::ZERO,
-                    freq: finstack_core::dates::Tenor::quarterly(),
+                    frequency: finstack_core::dates::Tenor::quarterly(),
                     dc: finstack_core::dates::DayCount::Act360,
                     bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
@@ -951,7 +951,7 @@ mod tests {
                 crate::instruments::common_impl::parameters::legs::FixedLegSpec {
                     discount_curve_id: disc_id.clone(),
                     rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
-                    freq: finstack_core::dates::Tenor::quarterly(),
+                    frequency: finstack_core::dates::Tenor::quarterly(),
                     dc: finstack_core::dates::DayCount::Act360,
                     bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
@@ -969,7 +969,7 @@ mod tests {
                     discount_curve_id: disc_id.clone(),
                     forward_curve_id: disc_id.clone(),
                     spread_bp: rust_decimal::Decimal::ZERO,
-                    freq: finstack_core::dates::Tenor::quarterly(),
+                    frequency: finstack_core::dates::Tenor::quarterly(),
                     dc: finstack_core::dates::DayCount::Act360,
                     bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
@@ -1058,7 +1058,7 @@ mod tests {
                 crate::instruments::common_impl::parameters::legs::FixedLegSpec {
                     discount_curve_id: disc_id.clone(),
                     rate: rust_decimal::Decimal::ZERO, // Zero fixed rate for this test
-                    freq: Tenor::quarterly(),
+                    frequency: Tenor::quarterly(),
                     dc: DayCount::Act360,
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
@@ -1076,7 +1076,7 @@ mod tests {
                     discount_curve_id: disc_id.clone(),
                     forward_curve_id: disc_id.clone(), // Single-curve: forward = discount
                     spread_bp: rust_decimal::Decimal::ZERO, // No spread
-                    freq: Tenor::quarterly(),
+                    frequency: Tenor::quarterly(),
                     dc: DayCount::Act360,
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,

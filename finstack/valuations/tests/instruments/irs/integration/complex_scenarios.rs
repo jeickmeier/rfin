@@ -67,7 +67,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
         fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(fixed_rate).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -83,7 +83,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::ZERO,
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -208,7 +208,7 @@ fn test_forward_starting_swap() {
         fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -224,7 +224,7 @@ fn test_forward_starting_swap() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -346,7 +346,7 @@ fn test_swap_seasoned() {
         fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.04).expect("valid"), // Old rate from 2023
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -362,7 +362,7 @@ fn test_swap_seasoned() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

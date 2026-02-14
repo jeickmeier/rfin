@@ -33,7 +33,7 @@ fn test_irs_at_par_npv_zero() {
         fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -49,7 +49,7 @@ fn test_irs_at_par_npv_zero() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -91,7 +91,7 @@ fn test_irs_receive_fixed_below_market() {
         fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.03).expect("valid"), // Below market
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -107,7 +107,7 @@ fn test_irs_receive_fixed_below_market() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -148,7 +148,7 @@ fn test_irs_receive_fixed_above_market() {
         fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.07).expect("valid"), // Above market
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -164,7 +164,7 @@ fn test_irs_receive_fixed_above_market() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -202,7 +202,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
     let fixed_leg = finstack_valuations::instruments::FixedLegSpec {
         discount_curve_id: "USD-OIS".into(),
         rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-        freq: Tenor::quarterly(),
+        frequency: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
@@ -219,7 +219,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
         discount_curve_id: "USD-OIS".into(),
         forward_curve_id: "USD-SOFR-3M".into(),
         spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-        freq: Tenor::quarterly(),
+        frequency: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,

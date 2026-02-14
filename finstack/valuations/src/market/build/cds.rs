@@ -230,7 +230,7 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
         premium: PremiumLegSpec {
             start,
             end: maturity,
-            freq: conv.frequency,
+            frequency: conv.frequency,
             stub: StubKind::None, // Default to None or derive?
             bdc: conv.bdc,
             calendar_id: Some(conv.calendar_id.clone()),

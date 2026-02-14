@@ -46,7 +46,7 @@ fn main() -> finstack_core::Result<()> {
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: dec!(0.045), // 4.5% fixed rate
-            freq: finstack_core::dates::Tenor::semi_annual(),
+            frequency: finstack_core::dates::Tenor::semi_annual(),
             dc: finstack_core::dates::DayCount::Thirty360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()),
@@ -62,7 +62,7 @@ fn main() -> finstack_core::Result<()> {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: dec!(0.0),
-            freq: finstack_core::dates::Tenor::quarterly(),
+            frequency: finstack_core::dates::Tenor::quarterly(),
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()),
@@ -114,7 +114,7 @@ fn main() -> finstack_core::Result<()> {
             .premium(PremiumLegSpec {
                 start: issue,
                 end: maturity_5y,
-                freq,
+                frequency: freq,
                 stub,
                 bdc,
                 calendar_id: Some(convention.default_calendar().to_string()),
@@ -175,7 +175,7 @@ fn main() -> finstack_core::Result<()> {
         .fixed(finstack_valuations::instruments::rates::irs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: dec!(0.0425),
-            freq: finstack_core::dates::Tenor::semi_annual(),
+            frequency: finstack_core::dates::Tenor::semi_annual(),
             dc: finstack_core::dates::DayCount::Thirty360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -191,7 +191,7 @@ fn main() -> finstack_core::Result<()> {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: dec!(25.0),
-            freq: finstack_core::dates::Tenor::quarterly(),
+            frequency: finstack_core::dates::Tenor::quarterly(),
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -269,7 +269,7 @@ fn main() -> finstack_core::Result<()> {
             .premium(PremiumLegSpec {
                 start: issue,
                 end: maturity_5y,
-                freq,
+                frequency: freq,
                 stub,
                 bdc,
                 calendar_id: Some(convention.default_calendar().to_string()),

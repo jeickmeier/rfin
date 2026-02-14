@@ -75,7 +75,8 @@ pub struct FixedLegSpec {
     /// Fixed rate (e.g., 0.05 for 5%)
     pub rate: Decimal,
     /// Payment frequency
-    pub freq: Tenor,
+    #[serde(alias = "freq")]
+    pub frequency: Tenor,
     /// Day count convention for accrual
     pub dc: DayCount,
     /// Business day convention for payment dates
@@ -124,7 +125,8 @@ pub struct FloatLegSpec {
     /// Spread in basis points added to the forward rate
     pub spread_bp: Decimal,
     /// Payment frequency
-    pub freq: Tenor,
+    #[serde(alias = "freq")]
+    pub frequency: Tenor,
     /// Day count convention for accrual
     pub dc: DayCount,
     /// Business day convention for payment dates
@@ -248,7 +250,8 @@ pub struct PremiumLegSpec {
     /// End date of protection
     pub end: Date,
     /// Payment frequency
-    pub freq: Tenor,
+    #[serde(alias = "freq")]
+    pub frequency: Tenor,
     /// Stub convention
     pub stub: StubKind,
     /// Business day convention

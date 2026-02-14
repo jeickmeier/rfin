@@ -340,7 +340,7 @@ fn test_irs_receive_vs_pay_fixed() {
     let fixed_leg = FixedLegSpec {
         discount_curve_id: "USD-OIS".into(),
         rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-        freq: Tenor::quarterly(),
+        frequency: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
@@ -357,7 +357,7 @@ fn test_irs_receive_vs_pay_fixed() {
         discount_curve_id: "USD-OIS".into(),
         forward_curve_id: "USD-SOFR-3M".into(),
         spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-        freq: Tenor::quarterly(),
+        frequency: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
@@ -427,7 +427,7 @@ fn test_irs_rate_sensitivity() {
     let fixed_leg = FixedLegSpec {
         discount_curve_id: "USD-OIS".into(),
         rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-        freq: Tenor::quarterly(),
+        frequency: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
@@ -444,7 +444,7 @@ fn test_irs_rate_sensitivity() {
         discount_curve_id: "USD-OIS".into(),
         forward_curve_id: "USD-SOFR-3M".into(),
         spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-        freq: Tenor::quarterly(),
+        frequency: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
@@ -528,7 +528,7 @@ fn test_irs_leg_pvs_consistency() {
         fixed: FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -544,7 +544,7 @@ fn test_irs_leg_pvs_consistency() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -600,7 +600,7 @@ fn test_daycount_convention_impact_on_annuity() {
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -616,7 +616,7 @@ fn test_daycount_convention_impact_on_annuity() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -640,7 +640,7 @@ fn test_daycount_convention_impact_on_annuity() {
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -656,7 +656,7 @@ fn test_daycount_convention_impact_on_annuity() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -771,7 +771,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"), // 5% fixed rate
-            freq: Tenor::semi_annual(),
+            frequency: Tenor::semi_annual(),
             dc: DayCount::Thirty360, // USD fixed leg: 30/360
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()),
@@ -787,7 +787,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360, // USD float leg: ACT/360
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()), // Payment calendar
@@ -949,7 +949,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.04).expect("valid"), // Below average forward to create positive NPV
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -965,7 +965,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-365".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360, // Float leg uses ACT/360 for accrual
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -988,7 +988,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.04).expect("valid"), // Below average forward to create positive NPV
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -1004,7 +1004,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-360".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360, // Float leg uses ACT/360 for accrual
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -1086,7 +1086,7 @@ fn test_sofr_ois_par_rate_matches_quantlib_identity() {
         .fixed(FixedLegSpec {
             discount_curve_id: curve_id.into(),
             rate: rust_decimal::Decimal::ZERO,
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -1102,7 +1102,7 @@ fn test_sofr_ois_par_rate_matches_quantlib_identity() {
             discount_curve_id: curve_id.into(),
             forward_curve_id: curve_id.into(),
             spread_bp: rust_decimal::Decimal::ZERO,
-            freq: Tenor::annual(),
+            frequency: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -1227,7 +1227,7 @@ fn test_eom_pricer_cashflow_consistency() {
         .fixed(FixedLegSpec {
             discount_curve_id: CurveId::new("USD-OIS"),
             rate: Decimal::try_from(0.04).unwrap(),
-            freq: Tenor::semi_annual(),
+            frequency: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -1243,7 +1243,7 @@ fn test_eom_pricer_cashflow_consistency() {
             discount_curve_id: CurveId::new("USD-OIS"),
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
             spread_bp: Decimal::ZERO,
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -1267,7 +1267,7 @@ fn test_eom_pricer_cashflow_consistency() {
         .fixed(FixedLegSpec {
             discount_curve_id: CurveId::new("USD-OIS"),
             rate: Decimal::try_from(0.04).unwrap(),
-            freq: Tenor::semi_annual(),
+            frequency: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -1283,7 +1283,7 @@ fn test_eom_pricer_cashflow_consistency() {
             discount_curve_id: CurveId::new("USD-OIS"),
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
             spread_bp: Decimal::ZERO,
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -1387,7 +1387,7 @@ fn test_ois_identity_with_eom() {
         .fixed(FixedLegSpec {
             discount_curve_id: disc_id.clone(),
             rate: Decimal::ZERO,
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -1403,7 +1403,7 @@ fn test_ois_identity_with_eom() {
             discount_curve_id: disc_id.clone(),
             forward_curve_id: disc_id.clone(),
             spread_bp: Decimal::ZERO,
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

@@ -1626,7 +1626,7 @@ impl CDSPricer {
             let sched = crate::cashflow::builder::build_dates(
                 cds.premium.start,
                 cds.premium.end,
-                cds.premium.freq,
+                cds.premium.frequency,
                 cds.premium.stub,
                 cds.premium.bdc,
                 false,

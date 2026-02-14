@@ -109,7 +109,7 @@ impl MetricCalculator for ParRateCalculator {
                 let sched = crate::cashflow::builder::build_dates(
                     fixed.start,
                     fixed.end,
-                    fixed.freq,
+                    fixed.frequency,
                     fixed.stub,
                     fixed.bdc,
                     fixed.end_of_month,
@@ -228,7 +228,7 @@ mod tests {
                 crate::instruments::common_impl::parameters::legs::FixedLegSpec {
                     discount_curve_id: disc.clone(),
                     rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
-                    freq: Tenor::semi_annual(),
+                    frequency: Tenor::semi_annual(),
                     dc: DayCount::Thirty360,
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
@@ -246,7 +246,7 @@ mod tests {
                     discount_curve_id: disc.clone(),
                     forward_curve_id: fwd.clone(), // multi-curve
                     spread_bp: rust_decimal::Decimal::ZERO,
-                    freq: Tenor::quarterly(),
+                    frequency: Tenor::quarterly(),
                     dc: DayCount::Act360,
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,

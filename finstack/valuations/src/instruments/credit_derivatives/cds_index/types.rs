@@ -179,7 +179,7 @@ impl CDSIndex {
             premium: PremiumLegSpec {
                 start: date!(2024 - 03 - 20),
                 end: date!(2029 - 12 - 20),
-                freq,
+                frequency: freq,
                 stub,
                 bdc,
                 calendar_id: None,
@@ -240,7 +240,7 @@ impl CDSIndex {
             premium: PremiumLegSpec {
                 start,
                 end,
-                freq,
+                frequency: freq,
                 stub,
                 bdc,
                 calendar_id: None,

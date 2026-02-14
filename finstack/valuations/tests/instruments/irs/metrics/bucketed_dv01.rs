@@ -68,7 +68,7 @@ fn create_swap(as_of: Date, end: Date) -> InterestRateSwap {
         fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD_OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -84,7 +84,7 @@ fn create_swap(as_of: Date, end: Date) -> InterestRateSwap {
             discount_curve_id: "USD_OIS".into(),
             forward_curve_id: "USD_LIBOR_3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-            freq: Tenor::quarterly(),
+            frequency: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

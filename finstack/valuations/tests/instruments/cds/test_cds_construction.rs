@@ -117,7 +117,7 @@ fn test_builder_pattern() {
         .premium(PremiumLegSpec {
             start,
             end,
-            freq: convention.frequency(),
+            frequency: convention.frequency(),
             stub: convention.stub_convention(),
             bdc: convention.business_day_convention(),
             calendar_id: None,
@@ -303,7 +303,7 @@ fn test_premium_leg_spec_fields() {
 
     assert_eq!(cds.premium.start, start);
     assert_eq!(cds.premium.end, end);
-    assert_eq!(cds.premium.freq, Tenor::quarterly());
+    assert_eq!(cds.premium.frequency, Tenor::quarterly());
     assert_eq!(cds.premium.dc, DayCount::Act360);
     assert_eq!(cds.premium.discount_curve_id.as_str(), "USD-OIS");
 }
