@@ -127,7 +127,7 @@ impl RevolvingCreditPricer {
                 facility.commitment_date,
                 facility.day_count,
             )?
-        } else if let Some(ref hazard_id) = facility.hazard_curve_id {
+        } else if let Some(ref hazard_id) = facility.credit_curve_id {
             // Static survival from hazard curve
             let hazard = market.get_hazard(hazard_id.as_str())?;
             hazard.survival_at_dates(
@@ -181,7 +181,7 @@ impl RevolvingCreditPricer {
                         facility.commitment_date,
                         facility.day_count,
                     )?
-                } else if let Some(ref hazard_id) = facility.hazard_curve_id {
+                } else if let Some(ref hazard_id) = facility.credit_curve_id {
                     let hazard = market.get_hazard(hazard_id.as_str())?;
                     hazard.survival_at_dates(&future_grid)?
                 } else {
@@ -228,7 +228,7 @@ impl RevolvingCreditPricer {
                         facility.commitment_date,
                         facility.day_count,
                     )?[0]
-                } else if let Some(ref hazard_id) = facility.hazard_curve_id {
+                } else if let Some(ref hazard_id) = facility.credit_curve_id {
                     let hazard = market.get_hazard(hazard_id.as_str())?;
                     let t = hazard.day_count().year_fraction(
                         hazard.base_date(),
@@ -446,7 +446,7 @@ impl RevolvingCreditPricer {
         } else {
             // Synthesize minimal McConfig
             // If facility has hazard curve, use market-anchored process; otherwise constant zero
-            let credit_process = if let Some(ref hazard_id) = facility.hazard_curve_id {
+            let credit_process = if let Some(ref hazard_id) = facility.credit_curve_id {
                 CreditSpreadProcessSpec::MarketAnchored {
                     hazard_curve_id: hazard_id.clone(),
                     kappa: 0.1,

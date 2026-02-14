@@ -270,7 +270,7 @@ mod tests {
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
-            .hazard_curve_id(CurveId::from("BORROWER-HZ"))
+            .credit_curve_id(CurveId::from("BORROWER-HZ"))
             .recovery_rate(0.4)
             .build()
             .unwrap();
@@ -287,7 +287,7 @@ mod tests {
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Stochastic(create_zero_vol_stochastic(0.5)))
             .discount_curve_id("USD-OIS".into())
-            .hazard_curve_id(CurveId::from("BORROWER-HZ"))
+            .credit_curve_id(CurveId::from("BORROWER-HZ"))
             .recovery_rate(0.4)
             .build()
             .unwrap();

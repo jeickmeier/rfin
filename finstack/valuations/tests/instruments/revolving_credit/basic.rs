@@ -196,7 +196,7 @@ fn test_revolving_credit_standard_metrics() {
         .fees(RevolvingCreditFees::flat(30.0, 15.0, 10.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
-        .hazard_curve_id("BORROWER-A".into())
+        .credit_curve_id("BORROWER-A".into())
         .recovery_rate(0.40)
         .build()
         .unwrap();
@@ -522,7 +522,7 @@ fn test_deterministic_with_credit_risk() {
         .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0)) // 50bp commitment fee
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
-        .hazard_curve_id(finstack_core::types::CurveId::from("BORROWER-A")) // Add credit risk
+        .credit_curve_id(finstack_core::types::CurveId::from("BORROWER-A")) // Add credit risk
         .recovery_rate(0.40) // 40% recovery
         .build()
         .unwrap();
@@ -622,8 +622,8 @@ fn test_deterministic_stochastic_convergence_with_credit_risk() {
         .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
-        .hazard_curve_id(finstack_core::types::CurveId::from("BORROWER-A"))
-        .hazard_curve_id(finstack_core::types::CurveId::from("BORROWER-A"))
+        .credit_curve_id(finstack_core::types::CurveId::from("BORROWER-A"))
+        .credit_curve_id(finstack_core::types::CurveId::from("BORROWER-A"))
         .recovery_rate(0.40)
         .build()
         .unwrap();

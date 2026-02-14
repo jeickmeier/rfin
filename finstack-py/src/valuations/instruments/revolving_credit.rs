@@ -190,7 +190,7 @@ impl PyRevolvingCredit {
     #[getter]
     fn hazard_curve(&self) -> Option<String> {
         self.inner
-            .hazard_curve_id
+            .credit_curve_id
             .as_ref()
             .map(|id| id.as_str().to_string())
     }

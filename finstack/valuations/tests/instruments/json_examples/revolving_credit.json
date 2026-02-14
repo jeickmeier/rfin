@@ -67,7 +67,7 @@
         ]
       },
       "discount_curve_id": "USD-OIS",
-      "hazard_curve_id": null,
+      "credit_curve_id": null,
       "recovery_rate": 0.0,
       "attributes": {
         "tags": [],

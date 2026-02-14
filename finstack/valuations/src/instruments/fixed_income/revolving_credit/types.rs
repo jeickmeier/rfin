@@ -62,14 +62,14 @@ pub struct RevolvingCredit {
     /// Discount curve identifier for pricing.
     pub discount_curve_id: CurveId,
 
-    /// Optional hazard curve identifier for credit risk modeling.
+    /// Optional credit curve identifier for credit risk modeling.
     ///
     /// When provided, survival probabilities from the hazard curve are applied
     /// to discount cashflows, adjusting for default risk.
-    #[serde(default)]
-    pub hazard_curve_id: Option<CurveId>,
+    #[serde(default, alias = "hazard_curve_id")]
+    pub credit_curve_id: Option<CurveId>,
 
-    /// Recovery rate on default (used when hazard_curve_id is present).
+    /// Recovery rate on default (used when credit_curve_id is present).
     ///
     /// Represents the fraction of exposure recovered in the event of default.
     /// Typical values: 0.30-0.50 for senior secured facilities.
@@ -177,7 +177,7 @@ impl RevolvingCredit {
             .fees(fees)
             .draw_repay_spec(draw_repay)
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .hazard_curve_id_opt(None)
+            .credit_curve_id_opt(None)
             .recovery_rate(0.0)
             .stub(StubKind::ShortFront)
             .attributes(Attributes::new())
@@ -721,10 +721,10 @@ impl RevolvingCredit {
 
     /// Check if the facility has a credit curve configured for CS01 calculations.
     ///
-    /// Returns `true` if `hazard_curve_id` is set, indicating that credit risk
+    /// Returns `true` if `credit_curve_id` is set, indicating that credit risk
     /// sensitivity (CS01) calculations are meaningful for this facility.
     pub fn has_credit_curve(&self) -> bool {
-        self.hazard_curve_id.is_some()
+        self.credit_curve_id.is_some()
     }
 }
 
@@ -768,7 +768,7 @@ impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
                         ..
                     } = &mc_cfg.credit_spread_process
                     {
-                        fallback.hazard_curve_id = Some(hazard_curve_id.clone());
+                        fallback.credit_curve_id = Some(hazard_curve_id.clone());
                         fallback.recovery_rate = mc_cfg.recovery_rate;
                     }
                 }
@@ -795,7 +795,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for RevolvingCre
             .discount(self.discount_curve_id.clone());
 
         // Add credit curve if present
-        if let Some(ref credit_curve_id) = self.hazard_curve_id {
+        if let Some(ref credit_curve_id) = self.credit_curve_id {
             builder = builder.credit(credit_curve_id.clone());
         }
 

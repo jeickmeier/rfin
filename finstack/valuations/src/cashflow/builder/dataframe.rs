@@ -151,8 +151,8 @@ fn compute_floating_decomposition(
 /// for market data lookups and discounting conventions.
 #[derive(Debug, Clone, Default)]
 pub struct PeriodDataFrameOptions<'a> {
-    /// Optional hazard curve ID for credit-adjusted discounting
-    pub hazard_curve_id: Option<&'a str>,
+    /// Optional credit curve ID for credit-adjusted discounting
+    pub credit_curve_id: Option<&'a str>,
     /// Optional forward curve ID for floating rate decomposition
     pub forward_curve_id: Option<&'a str>,
     /// Valuation date (defaults to discount curve base date if not provided)
@@ -396,8 +396,8 @@ impl CashFlowSchedule {
         let disc_arc = market.get_discount(discount_curve_id)?;
         let base = options.as_of.unwrap_or_else(|| disc_arc.base_date());
 
-        let has_hazard = options.hazard_curve_id.is_some();
-        let hazard_arc_opt = if let Some(hz) = options.hazard_curve_id {
+        let has_hazard = options.credit_curve_id.is_some();
+        let hazard_arc_opt = if let Some(hz) = options.credit_curve_id {
             Some(market.get_hazard(hz)?)
         } else {
             None
@@ -663,7 +663,7 @@ mod tests {
 
         let periods = quarters_2025();
         let options = PeriodDataFrameOptions {
-            hazard_curve_id: None,
+            credit_curve_id: None,
             forward_curve_id: None,
             as_of: Some(base),
             day_count: Some(DayCount::Act365F),

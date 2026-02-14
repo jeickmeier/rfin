@@ -49,7 +49,7 @@ fn test_pricing_recovery_consistency() {
         .fees(RevolvingCreditFees::default()) // No extra fees
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![])) // No changes
         .discount_curve_id("USD-OIS".into())
-        .hazard_curve_id_opt(Some("BORROWER-HAZARD".into()))
+        .credit_curve_id_opt(Some("BORROWER-HAZARD".into()))
         .recovery_rate(0.40)
         .attributes(Default::default())
         .build()

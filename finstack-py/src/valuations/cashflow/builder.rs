@@ -542,7 +542,7 @@ impl PyCashFlowSchedule {
         let as_of_date = as_of.map(|d| py_to_date(&d)).transpose()?;
 
         let options = val_builder::PeriodDataFrameOptions {
-            hazard_curve_id: None,
+            credit_curve_id: None,
             forward_curve_id: None,
             as_of: as_of_date,
             day_count: None,
