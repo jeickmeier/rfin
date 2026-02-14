@@ -143,7 +143,7 @@ println!("NPV: {}", npv);
 
 - Discount curve (for risk-free rate and DV01)
 - Spot index level (via `spot_id`)
-- Optional: Dividend yield (via `dividend_yield_id`)
+- Optional: Dividend yield (via `div_yield_id`)
 
 ## Risk Metrics
 

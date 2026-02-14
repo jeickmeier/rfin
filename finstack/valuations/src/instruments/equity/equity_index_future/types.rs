@@ -255,8 +255,12 @@ pub struct EquityIndexFuture {
     pub spot_id: String,
     /// Optional dividend yield identifier for fair value calculation.
     #[builder(optional)]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub dividend_yield_id: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "dividend_yield_id"
+    )]
+    pub div_yield_id: Option<CurveId>,
     /// Optional discrete cash dividend schedule `(ex_date, amount)` for index carry.
     ///
     /// When non-empty, fair forward pricing uses PV spot adjustment and treats
@@ -435,18 +439,18 @@ impl EquityIndexFuture {
 
     /// Resolve dividend yield from market context.
     ///
-    /// When `dividend_yield_id` is set, the lookup **must** succeed and
+    /// When `div_yield_id` is set, the lookup **must** succeed and
     /// return a `Unitless` scalar.  A `Price` scalar is rejected to match
     /// the convention used by equity options and TRS (dividend yield is a
     /// dimensionless rate, not a monetary amount).
     fn resolve_dividend_yield(&self, context: &MarketContext) -> finstack_core::Result<f64> {
         use finstack_core::market_data::scalars::MarketScalar;
 
-        if let Some(ref div_id) = self.dividend_yield_id {
-            let ms = context.price(div_id).map_err(|e| {
+        if let Some(ref div_id) = self.div_yield_id {
+            let ms = context.price(div_id.as_str()).map_err(|e| {
                 finstack_core::Error::Validation(format!(
                     "Dividend yield lookup failed for '{}': {}. \
-                     If dividend yield is not needed, set dividend_yield_id to None.",
+                     If dividend yield is not needed, set div_yield_id to None.",
                     div_id, e
                 ))
             })?;
@@ -515,6 +519,20 @@ impl EquityIndexFuture {
         // Fallback to continuous dividend yield carry model.
         let q = self.resolve_dividend_yield(context)?;
         Ok(spot * ((r - q) * t).exp())
+    }
+}
+
+impl EquityIndexFutureBuilder {
+    /// Backward-compatible alias for `div_yield_id`.
+    #[deprecated(note = "use div_yield_id instead")]
+    pub fn dividend_yield_id(self, id: impl Into<CurveId>) -> Self {
+        self.div_yield_id(id.into())
+    }
+
+    /// Backward-compatible alias for `div_yield_id_opt`.
+    #[deprecated(note = "use div_yield_id_opt instead")]
+    pub fn dividend_yield_id_opt(self, id: Option<CurveId>) -> Self {
+        self.div_yield_id_opt(id)
     }
 }
 

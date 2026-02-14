@@ -255,7 +255,7 @@ pub struct PyEquityIndexFutureBuilder {
     contract_specs: Option<EquityFutureSpecs>,
     discount_curve_id: Option<CurveId>,
     spot_id: Option<String>,
-    dividend_yield_id: Option<String>,
+    div_yield_id: Option<CurveId>,
 }
 
 impl PyEquityIndexFutureBuilder {
@@ -273,7 +273,7 @@ impl PyEquityIndexFutureBuilder {
             contract_specs: None,
             discount_curve_id: None,
             spot_id: None,
-            dividend_yield_id: None,
+            div_yield_id: None,
         }
     }
 
@@ -325,7 +325,7 @@ impl PyEquityIndexFutureBuilder {
             .contract_specs(contract_specs)
             .discount_curve_id(discount_curve_id)
             .spot_id(spot_id)
-            .dividend_yield_id_opt(self.dividend_yield_id.clone())
+            .div_yield_id_opt(self.div_yield_id.clone())
             .attributes(Attributes::new())
             .build()
             .map_err(core_to_py)
@@ -402,8 +402,14 @@ impl PyEquityIndexFutureBuilder {
         slf
     }
 
+    fn div_yield_id<'py>(mut slf: PyRefMut<'py, Self>, id: &str) -> PyRefMut<'py, Self> {
+        slf.div_yield_id = Some(CurveId::new(id));
+        slf
+    }
+
+    /// Backward-compatible alias for `div_yield_id`.
     fn dividend_yield_id<'py>(mut slf: PyRefMut<'py, Self>, id: &str) -> PyRefMut<'py, Self> {
-        slf.dividend_yield_id = Some(id.to_string());
+        slf.div_yield_id = Some(CurveId::new(id));
         slf
     }
 

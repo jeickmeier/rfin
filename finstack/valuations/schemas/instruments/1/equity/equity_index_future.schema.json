@@ -19,7 +19,7 @@
           },
           "currency": "USD",
           "discount_curve_id": "USD-OIS",
-          "dividend_yield_id": null,
+          "div_yield_id": null,
           "entry_price": 4500.0,
           "expiry_date": "2025-03-21",
           "id": "ES-2025M03",
