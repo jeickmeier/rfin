@@ -12,10 +12,12 @@ pub struct ScheduleParams {
     /// dc.
     pub dc: DayCount,
     /// bdc.
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Calendar id (use "weekends_only" for weekends-only adjustments).
     pub calendar_id: String,
     /// stub.
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// End-of-month rolling.
     pub end_of_month: bool,

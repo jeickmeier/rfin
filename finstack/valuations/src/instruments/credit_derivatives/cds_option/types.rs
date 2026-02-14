@@ -76,10 +76,12 @@ pub struct CDSOption {
     /// Additional attributes
     pub attributes: Attributes,
     /// If true, the underlying is a CDS index; else single-name CDS
+    #[serde(default)]
     pub underlying_is_index: bool,
     /// Optional index factor scaling for index underlying
     pub index_factor: Option<f64>,
     /// Forward spread adjustment (bp) to apply for forward computation
+    #[serde(default)]
     pub forward_spread_adjust_bp: f64,
 }
 

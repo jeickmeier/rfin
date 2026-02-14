@@ -503,10 +503,12 @@ pub struct TermLoanSpec {
     /// Day count convention for interest accrual
     pub day_count: DayCount,
     /// Business day convention for schedule adjustment
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar ID (default: no holidays)
     pub calendar_id: Option<String>,
     /// Stub period treatment
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Principal amortization schedule
     pub amortization: AmortizationSpec,

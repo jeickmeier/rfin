@@ -124,9 +124,15 @@ pub struct InterestRateOption {
     /// Day count convention
     pub day_count: DayCount,
     /// Schedule stub convention
-    #[serde(alias = "stub_kind")]
+    #[builder(default = StubKind::ShortFront)]
+    #[serde(
+        default = "crate::serde_defaults::stub_short_front",
+        alias = "stub_kind"
+    )]
     pub stub: StubKind,
     /// Schedule business day convention
+    #[builder(default = BusinessDayConvention::ModifiedFollowing)]
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar identifier for schedule and roll conventions
     pub calendar_id: Option<String>,

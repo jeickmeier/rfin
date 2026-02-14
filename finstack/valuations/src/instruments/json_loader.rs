@@ -1031,6 +1031,224 @@ mod tests {
         }
     }
 
+    fn remove_spec_key(value: &mut serde_json::Value, key: &str) {
+        value
+            .get_mut("spec")
+            .and_then(serde_json::Value::as_object_mut)
+            .expect("InstrumentJson should serialize with an object spec")
+            .remove(key);
+    }
+
+    #[test]
+    fn test_basis_swap_defaults_when_optional_fields_omitted() {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+
+        let primary_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0005,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+        let reference_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+        let swap = BasisSwap::new(
+            "BASIS-DEFAULTS",
+            Money::new(10_000_000.0, Currency::USD),
+            Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date"),
+            Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date"),
+            primary_leg,
+            reference_leg,
+            CurveId::new("USD-OIS"),
+        )
+        .expect("BasisSwap construction should succeed in test");
+        let mut json = serde_json::to_value(InstrumentJson::BasisSwap(swap))
+            .expect("BasisSwap JSON serialization should succeed");
+        remove_spec_key(&mut json, "stub");
+        remove_spec_key(&mut json, "allow_calendar_fallback");
+        remove_spec_key(&mut json, "allow_same_curve");
+
+        let deserialized: InstrumentJson =
+            serde_json::from_value(json).expect("BasisSwap JSON deserialization should succeed");
+        match deserialized {
+            InstrumentJson::BasisSwap(i) => {
+                assert_eq!(i.stub, StubKind::ShortFront);
+                assert!(!i.allow_calendar_fallback);
+                assert!(!i.allow_same_curve);
+                assert_eq!(i.primary_leg.bdc, BusinessDayConvention::ModifiedFollowing);
+            }
+            _ => panic!("Expected BasisSwap variant"),
+        }
+    }
+
+    #[test]
+    fn test_interest_rate_option_defaults_when_optional_fields_omitted() {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+
+        let option = InterestRateOption::new_cap(
+            InstrumentId::new("IROPT-DEFAULTS"),
+            Money::new(1_000_000.0, Currency::USD),
+            0.03,
+            Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date"),
+            Date::from_calendar_date(2028, Month::January, 1).expect("Valid test date"),
+            Tenor::quarterly(),
+            DayCount::Act360,
+            CurveId::new("USD-OIS"),
+            CurveId::new("USD-SOFR-3M"),
+            CurveId::new("USD-CAPFLOOR-VOL"),
+        );
+        let mut json = serde_json::to_value(InstrumentJson::InterestRateOption(option))
+            .expect("InterestRateOption JSON serialization should succeed");
+        remove_spec_key(&mut json, "stub");
+        remove_spec_key(&mut json, "bdc");
+
+        let deserialized: InstrumentJson = serde_json::from_value(json)
+            .expect("InterestRateOption JSON deserialization should succeed");
+        match deserialized {
+            InstrumentJson::InterestRateOption(i) => {
+                assert_eq!(i.stub, StubKind::ShortFront);
+                assert_eq!(i.bdc, BusinessDayConvention::ModifiedFollowing);
+            }
+            _ => panic!("Expected InterestRateOption variant"),
+        }
+    }
+
+    #[test]
+    fn test_repo_default_bdc_when_omitted() {
+        use finstack_core::dates::BusinessDayConvention;
+
+        let repo = Repo::term(
+            "REPO-DEFAULTS",
+            Money::new(10_000_000.0, Currency::USD),
+            CollateralSpec::new("UST-10Y", 1000.0, "UST_10Y_PRICE"),
+            0.0525,
+            Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date"),
+            Date::from_calendar_date(2025, Month::January, 9).expect("Valid test date"),
+            CurveId::new("USD-OIS"),
+        )
+        .expect("Repo::term should succeed for test setup");
+        let mut json = serde_json::to_value(InstrumentJson::Repo(repo))
+            .expect("Repo JSON serialization should succeed");
+        remove_spec_key(&mut json, "bdc");
+
+        let deserialized: InstrumentJson =
+            serde_json::from_value(json).expect("Repo JSON deserialization should succeed");
+        match deserialized {
+            InstrumentJson::Repo(i) => {
+                assert_eq!(i.bdc, BusinessDayConvention::ModifiedFollowing);
+            }
+            _ => panic!("Expected Repo variant"),
+        }
+    }
+
+    #[test]
+    fn test_inflation_linked_bond_defaults_when_optional_fields_omitted() {
+        use finstack_core::dates::{BusinessDayConvention, StubKind};
+
+        let bond = InflationLinkedBond::example();
+        let mut json = serde_json::to_value(InstrumentJson::InflationLinkedBond(bond))
+            .expect("InflationLinkedBond JSON serialization should succeed");
+        remove_spec_key(&mut json, "bdc");
+        remove_spec_key(&mut json, "stub");
+
+        let deserialized: InstrumentJson = serde_json::from_value(json)
+            .expect("InflationLinkedBond JSON deserialization should succeed");
+        match deserialized {
+            InstrumentJson::InflationLinkedBond(i) => {
+                assert_eq!(i.bdc, BusinessDayConvention::ModifiedFollowing);
+                assert_eq!(i.stub, StubKind::ShortFront);
+            }
+            _ => panic!("Expected InflationLinkedBond variant"),
+        }
+    }
+
+    #[test]
+    fn test_cds_tranche_default_bdc_when_omitted() {
+        use finstack_core::dates::BusinessDayConvention;
+
+        let tranche = CDSTranche::example();
+        let mut json = serde_json::to_value(InstrumentJson::CDSTranche(tranche))
+            .expect("CDSTranche JSON serialization should succeed");
+        remove_spec_key(&mut json, "bdc");
+
+        let deserialized: InstrumentJson =
+            serde_json::from_value(json).expect("CDSTranche JSON deserialization should succeed");
+        match deserialized {
+            InstrumentJson::CDSTranche(i) => {
+                assert_eq!(i.bdc, BusinessDayConvention::ModifiedFollowing);
+            }
+            _ => panic!("Expected CDSTranche variant"),
+        }
+    }
+
+    #[test]
+    fn test_fx_spot_default_bdc_when_omitted() {
+        use finstack_core::dates::BusinessDayConvention;
+
+        let spot = FxSpot::new(
+            InstrumentId::new("EURUSD-DEFAULTS"),
+            Currency::EUR,
+            Currency::USD,
+        );
+        let mut json = serde_json::to_value(InstrumentJson::FxSpot(spot))
+            .expect("FxSpot JSON serialization should succeed");
+        remove_spec_key(&mut json, "bdc");
+
+        let deserialized: InstrumentJson =
+            serde_json::from_value(json).expect("FxSpot JSON deserialization should succeed");
+        match deserialized {
+            InstrumentJson::FxSpot(i) => {
+                assert_eq!(i.bdc, BusinessDayConvention::ModifiedFollowing);
+            }
+            _ => panic!("Expected FxSpot variant"),
+        }
+    }
+
+    #[test]
+    fn test_cds_option_defaults_when_optional_fields_omitted() {
+        let option = CDSOption::example();
+        let mut json = serde_json::to_value(InstrumentJson::CDSOption(option))
+            .expect("CDSOption JSON serialization should succeed");
+        remove_spec_key(&mut json, "underlying_is_index");
+        remove_spec_key(&mut json, "forward_spread_adjust_bp");
+
+        let deserialized: InstrumentJson =
+            serde_json::from_value(json).expect("CDSOption JSON deserialization should succeed");
+        match deserialized {
+            InstrumentJson::CDSOption(i) => {
+                assert!(!i.underlying_is_index);
+                assert_eq!(i.forward_spread_adjust_bp, 0.0);
+            }
+            _ => panic!("Expected CDSOption variant"),
+        }
+    }
+
+    #[test]
+    fn test_equity_option_default_discrete_dividends_when_omitted() {
+        let option = EquityOption::example();
+        let mut json = serde_json::to_value(InstrumentJson::EquityOption(option))
+            .expect("EquityOption JSON serialization should succeed");
+        remove_spec_key(&mut json, "discrete_dividends");
+
+        let deserialized: InstrumentJson =
+            serde_json::from_value(json).expect("EquityOption JSON deserialization should succeed");
+        match deserialized {
+            InstrumentJson::EquityOption(i) => {
+                assert!(i.discrete_dividends.is_empty());
+            }
+            _ => panic!("Expected EquityOption variant"),
+        }
+    }
+
     /// Canonical list of all instrument type discriminators.
     ///
     /// This list MUST be kept in sync with:

@@ -81,10 +81,12 @@ pub struct FixedLegSpec {
     #[serde(alias = "dc")]
     pub day_count: DayCount,
     /// Business day convention for payment dates
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Optional calendar for business day adjustments
     pub calendar_id: Option<String>,
     /// Stub period handling rule
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Start date of the fixed leg
     pub start: Date,
@@ -132,10 +134,12 @@ pub struct FloatLegSpec {
     #[serde(alias = "dc")]
     pub day_count: DayCount,
     /// Business day convention for payment dates
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Optional calendar for business day adjustments
     pub calendar_id: Option<String>,
     /// Stub period handling rule
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Reset lag in business days for floating rate
     pub reset_lag_days: i32,
@@ -196,6 +200,7 @@ pub struct BasisSwapLeg {
     /// Day count convention for accrual calculations
     pub day_count: DayCount,
     /// Business day convention for date adjustments
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Spread added to the floating rate, in **decimal** form (not basis points).
     ///
@@ -255,8 +260,10 @@ pub struct PremiumLegSpec {
     #[serde(alias = "freq")]
     pub frequency: Tenor,
     /// Stub convention
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Business day convention
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Holiday calendar identifier
     pub calendar_id: Option<String>,

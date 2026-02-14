@@ -317,6 +317,7 @@ pub mod pricer;
 pub mod results;
 /// JSON Schema generation for API contracts.
 pub mod schema;
+pub(crate) mod serde_defaults;
 
 // Export macros before instruments module
 #[macro_use]

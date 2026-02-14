@@ -48,8 +48,10 @@ pub struct ScheduleSpec {
     /// Payment frequency
     pub frequency: Tenor,
     /// Stub period handling
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Business day convention
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Optional calendar for adjustments
     pub calendar_id: Option<&'static str>,

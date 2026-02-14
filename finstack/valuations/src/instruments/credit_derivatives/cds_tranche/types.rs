@@ -70,7 +70,11 @@ pub struct CDSTranche {
     /// Day count (typically Act/360)
     pub day_count: DayCount,
     /// Business day convention
-    #[serde(alias = "business_day_convention")]
+    #[builder(default = BusinessDayConvention::ModifiedFollowing)]
+    #[serde(
+        default = "crate::serde_defaults::bdc_modified_following",
+        alias = "business_day_convention"
+    )]
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar id
     pub calendar_id: Option<String>,

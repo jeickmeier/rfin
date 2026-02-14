@@ -126,9 +126,15 @@ pub struct InflationCapFloor {
     /// Day count convention for accrual and option time.
     pub day_count: DayCount,
     /// Schedule stub convention.
-    #[serde(alias = "stub_kind")]
+    #[builder(default = StubKind::ShortFront)]
+    #[serde(
+        default = "crate::serde_defaults::stub_short_front",
+        alias = "stub_kind"
+    )]
     pub stub: StubKind,
     /// Business day convention for schedule and payments.
+    #[builder(default = BusinessDayConvention::ModifiedFollowing)]
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar identifier.
     #[builder(optional)]

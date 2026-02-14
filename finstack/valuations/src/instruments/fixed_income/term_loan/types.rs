@@ -224,12 +224,16 @@ pub struct TermLoan {
     pub day_count: DayCount,
 
     /// Business day convention
+    #[builder(default = BusinessDayConvention::ModifiedFollowing)]
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
 
     /// Optional calendar id for adjustments
     pub calendar_id: Option<String>,
 
     /// Stub rule
+    #[builder(default = StubKind::ShortFront)]
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
 
     /// Discount curve identifier

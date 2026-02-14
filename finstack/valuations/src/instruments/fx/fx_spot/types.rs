@@ -116,6 +116,8 @@ pub struct FxSpot {
     ///
     /// Note: Default changed from `Following` to `ModifiedFollowing` in v0.8.0 to align
     /// with ISDA standard FX settlement conventions.
+    #[builder(default = BusinessDayConvention::ModifiedFollowing)]
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Optional base currency calendar for joint calendar settlement adjustment.
     ///

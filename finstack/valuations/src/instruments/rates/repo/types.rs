@@ -176,6 +176,8 @@ pub struct Repo {
     /// Day count convention for interest calculations
     pub day_count: DayCount,
     /// Business day convention
+    #[builder(default = BusinessDayConvention::ModifiedFollowing)]
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Optional calendar for business day adjustments
     pub calendar_id: Option<String>,

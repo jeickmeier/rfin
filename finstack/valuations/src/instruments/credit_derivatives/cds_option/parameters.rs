@@ -47,10 +47,12 @@ pub struct CDSOptionParams {
     /// Option type (Call/Put)
     pub option_type: OptionType,
     /// Whether the underlying is a CDS index (vs single-name CDS)
+    #[serde(default)]
     pub underlying_is_index: bool,
     /// Optional index factor scaling for index underlyings (e.g., 0.8). Must be in (0, 1].
     pub index_factor: Option<f64>,
     /// Forward spread adjustment in bp (e.g., to reflect front-end protection on indices)
+    #[serde(default)]
     pub forward_spread_adjust_bp: f64,
     /// Day count convention for time calculations (defaults to Act/360 per ISDA)
     pub day_count: DayCount,

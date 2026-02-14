@@ -112,6 +112,7 @@ pub struct XccySwapLeg {
     /// Accrual day count.
     pub day_count: DayCount,
     /// Business day convention for schedule dates.
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Spread added to the forward rate (decimal, e.g. 0.0001 = 1bp).
     #[serde(default)]
@@ -152,7 +153,11 @@ pub struct XccySwap {
     /// PV reporting currency (output currency of `value`/`npv`).
     pub reporting_currency: Currency,
     /// Stub handling convention for irregular periods.
-    #[serde(default, alias = "stub_kind")]
+    #[builder(default = StubKind::ShortFront)]
+    #[serde(
+        default = "crate::serde_defaults::stub_short_front",
+        alias = "stub_kind"
+    )]
     pub stub: StubKind,
     /// Attributes for instrument selection and tagging.
     pub attributes: crate::instruments::common_impl::traits::Attributes,

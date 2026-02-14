@@ -118,10 +118,15 @@ pub struct BasisSwap {
     ///
     /// When `false` (default), missing calendars are treated as an input error to
     /// avoid silently misaligning schedule and payment-lag conventions.
+    #[builder(default)]
     #[serde(default)]
     pub allow_calendar_fallback: bool,
     /// Stub handling convention for irregular periods.
-    #[serde(alias = "stub_kind")]
+    #[builder(default = StubKind::ShortFront)]
+    #[serde(
+        default = "crate::serde_defaults::stub_short_front",
+        alias = "stub_kind"
+    )]
     pub stub: StubKind,
     /// Allow both legs to reference the same forward curve.
     ///
@@ -129,6 +134,7 @@ pub struct BasisSwap {
     /// a validation error, as this is almost always a configuration mistake (NPV would
     /// equal spread × annuity by construction). Set to `true` only for testing or
     /// deliberate same-index spread trades.
+    #[builder(default)]
     #[serde(default)]
     pub allow_same_curve: bool,
     /// Attributes for instrument selection and tagging.
