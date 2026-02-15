@@ -2,7 +2,7 @@
   "$id": "https://finstack.dev/schemas/instrument/1/bond.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
-  "description": "Fixed income bond instrument with fixed, floating, or amortizing cashflows",
+  "description": "Fixed income bond instrument with fixed, floating, or amortizing cashflows. `issue`/`issue_date` is typically provided; when omitted, deserialization requires `pricing_overrides.quoted_clean_price`.",
   "examples": [
     {
       "instrument": {
@@ -29,7 +29,6 @@
           "discount_curve_id": "USD-TREASURY",
           "ex_coupon_days": null,
           "id": "US912828XG33",
-          "issue": "2024-01-15",
           "maturity": "2034-01-15",
           "notional": {
             "amount": "1000000",
@@ -39,7 +38,7 @@
             "adaptive_bumps": false,
             "implied_volatility": null,
             "mc_seed_scenario": null,
-            "quoted_clean_price": null,
+            "quoted_clean_price": 98.75,
             "quoted_spread_bp": null,
             "rate_bump_bp": null,
             "spot_bump_pct": null,

@@ -2,7 +2,7 @@
   "$id": "https://finstack.dev/schemas/instrument/1/interest_rate_future.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
-  "description": "Exchange-traded interest rate future",
+  "description": "Exchange-traded interest rate future. `fixing_date`, `period_start`, and `period_end` are optional and may be derived from `expiry_date` and contract conventions.",
   "examples": [
     {
       "instrument": {
@@ -57,15 +57,12 @@
           "day_count": "Act360",
           "discount_curve_id": "USD-OIS",
           "expiry_date": "2025-03-17",
-          "fixing_date": "2025-03-17",
           "forward_id": "USD-SOFR-3M",
           "id": "IRF-ED-3M-MAR25",
           "notional": {
             "amount": "1000000",
             "currency": "USD"
           },
-          "period_end": "2025-06-18",
-          "period_start": "2025-03-19",
           "position": "Long",
           "quoted_price": 95.5
         },

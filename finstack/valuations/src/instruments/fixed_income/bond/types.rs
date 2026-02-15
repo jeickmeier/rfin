@@ -29,9 +29,7 @@ pub use crate::cashflow::builder::AmortizationSpec;
 /// Supports call/put schedules, quoted prices for yield-to-maturity calculations,
 /// and custom cashflow schedule overrides. Uses a clean `CashflowSpec` that wraps
 /// the canonical builder coupon specs for maximum flexibility and parity.
-#[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 // Note: JsonSchema derive requires finstack-core types to implement JsonSchema
 // #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -82,6 +80,66 @@ pub struct Bond {
     /// If provided, ex-coupon days are treated as business days according to this calendar.
     /// If None, ex-coupon days are treated as calendar days (default).
     pub ex_coupon_calendar_id: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for Bond {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct BondHelper {
+            id: InstrumentId,
+            notional: Money,
+            #[serde(alias = "issue")]
+            issue_date: Option<Date>,
+            maturity: Date,
+            cashflow_spec: CashflowSpec,
+            discount_curve_id: CurveId,
+            credit_curve_id: Option<CurveId>,
+            #[serde(default)]
+            pricing_overrides: PricingOverrides,
+            call_put: Option<CallPutSchedule>,
+            #[serde(default)]
+            accrual_method: crate::cashflow::accrual::AccrualMethod,
+            attributes: Attributes,
+            settlement_days: Option<u32>,
+            ex_coupon_days: Option<u32>,
+            ex_coupon_calendar_id: Option<String>,
+        }
+
+        let helper = BondHelper::deserialize(deserializer)?;
+        let issue_date = if let Some(issue) = helper.issue_date {
+            issue
+        } else if helper.pricing_overrides.quoted_clean_price.is_some() {
+            // For seasoned bond inputs sourced from clean-price datasets, allow
+            // missing issue date and use a conservative synthetic anchor.
+            helper.maturity - time::Duration::days(1)
+        } else {
+            return Err(serde::de::Error::custom(
+                "Bond requires `issue_date` unless `pricing_overrides.quoted_clean_price` is provided",
+            ));
+        };
+
+        Ok(Bond {
+            id: helper.id,
+            notional: helper.notional,
+            issue_date,
+            maturity: helper.maturity,
+            cashflow_spec: helper.cashflow_spec,
+            discount_curve_id: helper.discount_curve_id,
+            credit_curve_id: helper.credit_curve_id,
+            pricing_overrides: helper.pricing_overrides,
+            call_put: helper.call_put,
+            custom_cashflows: None,
+            accrual_method: helper.accrual_method,
+            attributes: helper.attributes,
+            settlement_days: helper.settlement_days,
+            ex_coupon_days: helper.ex_coupon_days,
+            ex_coupon_calendar_id: helper.ex_coupon_calendar_id,
+        })
+    }
 }
 
 /// Call or put option on a bond.
@@ -1902,5 +1960,36 @@ mod tests {
                 "Flows should be sorted by date"
             );
         }
+    }
+
+    #[test]
+    fn test_bond_serde_allows_missing_issue_date_with_clean_price_override() {
+        let mut value = serde_json::to_value(Bond::example()).expect("serialize");
+        let obj = value
+            .as_object_mut()
+            .expect("Bond should serialize to an object");
+        obj.remove("issue_date");
+        obj.insert(
+            "pricing_overrides".to_string(),
+            serde_json::to_value(PricingOverrides::default().with_clean_price(99.0))
+                .expect("serialize pricing overrides"),
+        );
+        let bond: Bond = serde_json::from_value(value).expect("deserialize");
+        assert!(bond.issue_date < bond.maturity);
+    }
+
+    #[test]
+    fn test_bond_serde_rejects_missing_issue_date_without_clean_price_override() {
+        let mut value = serde_json::to_value(Bond::example()).expect("serialize");
+        let obj = value
+            .as_object_mut()
+            .expect("Bond should serialize to an object");
+        obj.remove("issue_date");
+        let err = serde_json::from_value::<Bond>(value).expect_err("expected error");
+        assert!(
+            err.to_string().contains("Bond requires `issue_date`"),
+            "unexpected error: {}",
+            err
+        );
     }
 }

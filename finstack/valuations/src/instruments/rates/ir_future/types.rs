@@ -39,7 +39,7 @@ use crate::constants::ONE_BASIS_POINT;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::instruments::common_impl::traits::Attributes;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
@@ -59,12 +59,24 @@ pub struct InterestRateFuture {
     pub notional: Money,
     /// Future expiry/delivery date
     pub expiry_date: Date,
-    /// Underlying rate fixing date
-    pub fixing_date: Date,
-    /// Rate period start date
-    pub period_start: Date,
-    /// Rate period end date
-    pub period_end: Date,
+    /// Underlying rate fixing date.
+    ///
+    /// Defaults to `expiry_date` when omitted.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixing_date: Option<Date>,
+    /// Rate period start date.
+    ///
+    /// Defaults to 2 calendar days after fixing date when omitted.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub period_start: Option<Date>,
+    /// Rate period end date.
+    ///
+    /// Defaults to `period_start + contract_specs.delivery_months` months when omitted.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub period_end: Option<Date>,
     /// Quoted future price (e.g., 99.25)
     pub quoted_price: f64,
     /// Day count convention
@@ -168,6 +180,25 @@ impl std::str::FromStr for Position {
 }
 
 impl InterestRateFuture {
+    fn resolve_dates(&self) -> finstack_core::Result<(Date, Date, Date)> {
+        let fixing = self.fixing_date.unwrap_or(self.expiry_date);
+        let period_start = self
+            .period_start
+            .unwrap_or(fixing + time::Duration::days(2));
+        let period_end = if let Some(end) = self.period_end {
+            end
+        } else {
+            period_start.add_months(self.contract_specs.delivery_months as i32)
+        };
+        if period_end < period_start {
+            return Err(finstack_core::Error::Validation(format!(
+                "InterestRateFuture period_end ({}) must be on/after period_start ({})",
+                period_end, period_start
+            )));
+        }
+        Ok((fixing, period_start, period_end))
+    }
+
     // Note: use the builder (FinancialBuilder) for construction.
 
     /// Create a canonical example 3M Eurodollar-style interest rate future.
@@ -178,9 +209,9 @@ impl InterestRateFuture {
             .id(InstrumentId::new("IRF-ED-3M-MAR25"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(date!(2025 - 03 - 17))
-            .fixing_date(date!(2025 - 03 - 17))
-            .period_start(date!(2025 - 03 - 19))
-            .period_end(date!(2025 - 06 - 18))
+            .fixing_date_opt(Some(date!(2025 - 03 - 17)))
+            .period_start_opt(Some(date!(2025 - 03 - 19)))
+            .period_end_opt(Some(date!(2025 - 06 - 18)))
             .quoted_price(95.50)
             .day_count(finstack_core::dates::DayCount::Act360)
             .position(Position::Long)
@@ -236,6 +267,7 @@ impl InterestRateFuture {
     /// quoted entry price.
     pub fn npv_raw(&self, context: &MarketContext) -> finstack_core::Result<f64> {
         use finstack_core::dates::DayCountCtx;
+        let (fixing_date, period_start, period_end) = self.resolve_dates()?;
 
         // Validate discount curve exists (required for curve dependencies, even though
         // futures don't discount due to daily margining)
@@ -247,13 +279,13 @@ impl InterestRateFuture {
         let fwd_dc = fwd.day_count();
         let fwd_base = fwd.base_date();
         let t_fixing = fwd_dc
-            .year_fraction(fwd_base, self.fixing_date, DayCountCtx::default())?
+            .year_fraction(fwd_base, fixing_date, DayCountCtx::default())?
             .max(0.0);
         let t_start = fwd_dc
-            .year_fraction(fwd_base, self.period_start, DayCountCtx::default())?
+            .year_fraction(fwd_base, period_start, DayCountCtx::default())?
             .max(0.0);
         let t_end = fwd_dc
-            .year_fraction(fwd_base, self.period_end, DayCountCtx::default())?
+            .year_fraction(fwd_base, period_end, DayCountCtx::default())?
             .max(t_start);
 
         // Forward rate over the period
@@ -271,7 +303,7 @@ impl InterestRateFuture {
         let implied_rate = self.implied_rate().as_decimal();
         let tau = self
             .day_count
-            .year_fraction(self.period_start, self.period_end, DayCountCtx::default())?
+            .year_fraction(period_start, period_end, DayCountCtx::default())?
             .max(0.0);
         if tau == 0.0 {
             return Ok(0.0);
@@ -300,11 +332,12 @@ impl InterestRateFuture {
     ///
     /// tick_value ≈ Face × tau(period_start, period_end) × 1bp × (tick_size / 1bp)
     pub fn derived_tick_value(&self) -> finstack_core::Result<f64> {
+        let (_fixing_date, period_start, period_end) = self.resolve_dates()?;
         let tau = self
             .day_count
             .year_fraction(
-                self.period_start,
-                self.period_end,
+                period_start,
+                period_end,
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
@@ -403,7 +436,8 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateFuture 
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
-        Some(self.period_start)
+        self.period_start
+            .or_else(|| self.fixing_date.map(|d| d + time::Duration::days(2)))
     }
 
     fn scenario_overrides_mut(
@@ -446,5 +480,61 @@ impl crate::instruments::common_impl::traits::CurveDependencies for InterestRate
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_curve_id.clone())
             .build()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use time::macros::date;
+
+    #[test]
+    fn ir_future_defaults_dates_from_expiry_and_contract_specs() {
+        let irf = InterestRateFuture::builder()
+            .id(InstrumentId::new("IRF-DEFAULT-DATES"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(date!(2025 - 03 - 17))
+            .quoted_price(95.50)
+            .day_count(DayCount::Act360)
+            .position(Position::Long)
+            .contract_specs(FutureContractSpecs::default())
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .forward_curve_id(CurveId::new("USD-SOFR-3M"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("build");
+
+        assert_eq!(irf.fixing_date, None);
+        assert_eq!(irf.period_start, None);
+        assert_eq!(irf.period_end, None);
+        let (_fixing, period_start, period_end) = irf.resolve_dates().expect("resolve dates");
+        assert_eq!(period_start, date!(2025 - 03 - 19));
+        assert_eq!(period_end, date!(2025 - 06 - 19));
+    }
+
+    #[test]
+    fn ir_future_respects_explicit_date_overrides() {
+        let irf = InterestRateFuture::builder()
+            .id(InstrumentId::new("IRF-EXPLICIT-DATES"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(date!(2025 - 03 - 17))
+            .fixing_date_opt(Some(date!(2025 - 03 - 18)))
+            .period_start_opt(Some(date!(2025 - 03 - 20)))
+            .period_end_opt(Some(date!(2025 - 06 - 20)))
+            .quoted_price(95.50)
+            .day_count(DayCount::Act360)
+            .position(Position::Long)
+            .contract_specs(FutureContractSpecs::default())
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .forward_curve_id(CurveId::new("USD-SOFR-3M"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("build");
+
+        let (_fixing, period_start, period_end) = irf.resolve_dates().expect("resolve dates");
+        assert_eq!(period_start, date!(2025 - 03 - 20));
+        assert_eq!(period_end, date!(2025 - 06 - 20));
     }
 }

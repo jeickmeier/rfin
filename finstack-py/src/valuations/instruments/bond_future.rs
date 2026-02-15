@@ -440,11 +440,6 @@ impl PyBondFutureBuilder {
             .quoted_price
             .ok_or_else(|| PyValueError::new_err("quoted_price() must be provided"))?;
 
-        let ctd_bond_id = slf
-            .ctd_bond_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("ctd_bond_id() must be provided"))?;
-
         let discount_curve_id = slf
             .discount_curve
             .clone()
@@ -466,7 +461,7 @@ impl PyBondFutureBuilder {
             position: slf.position,
             contract_specs: slf.contract_specs.clone(),
             deliverable_basket: slf.deliverable_basket.clone(),
-            ctd_bond_id,
+            ctd_bond_id: slf.ctd_bond_id.clone(),
             ctd_bond: None,
             discount_curve_id,
             pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),

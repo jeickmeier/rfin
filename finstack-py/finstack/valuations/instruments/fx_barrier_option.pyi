@@ -61,7 +61,7 @@ class FxBarrierOption:
     MarketContext Requirements
     -------------------------
     - Discount curves: ``discount_curve`` and ``foreign_discount_curve`` (required).
-    - FX spot: ``fx_spot_id`` (required).
+    - FX spot: ``fx_spot_id`` (optional; if omitted, spot is sourced from ``FxMatrix``).
     - FX volatility surface: ``fx_vol_surface`` (required).
 
     See Also
@@ -91,7 +91,7 @@ class FxBarrierOption:
         foreign_currency: Currency,
         discount_curve: str,
         foreign_discount_curve: str,
-        fx_spot_id: str,
+        fx_spot_id: Optional[str],
         fx_vol_surface: str,
         *,
         use_gobet_miri: Optional[bool] = False,
@@ -122,8 +122,9 @@ class FxBarrierOption:
             Domestic discount curve identifier in MarketContext.
         foreign_discount_curve : str
             Foreign discount curve identifier in MarketContext.
-        fx_spot_id : str
-            FX spot rate identifier in MarketContext.
+        fx_spot_id : str, optional
+            FX spot rate identifier in MarketContext. If omitted, pricing uses
+            ``FxMatrix`` for the ``foreign_currency/domestic_currency`` spot rate.
         fx_vol_surface : str
             FX volatility surface identifier in MarketContext.
         use_gobet_miri : bool, optional

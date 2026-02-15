@@ -110,15 +110,6 @@ impl PyInterestRateFutureBuilder {
         if self.expiry.is_none() {
             return Err(PyValueError::new_err("expiry() is required."));
         }
-        if self.fixing_date.is_none() {
-            return Err(PyValueError::new_err("fixing_date() is required."));
-        }
-        if self.period_start.is_none() {
-            return Err(PyValueError::new_err("period_start() is required."));
-        }
-        if self.period_end.is_none() {
-            return Err(PyValueError::new_err("period_end() is required."));
-        }
         if self.discount_curve_id.is_none() {
             return Err(PyValueError::new_err("disc_id() is required."));
         }
@@ -300,21 +291,6 @@ impl PyInterestRateFutureBuilder {
                 "InterestRateFutureBuilder internal error: missing expiry after validation",
             )
         })?;
-        let fixing_date = slf.fixing_date.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateFutureBuilder internal error: missing fixing_date after validation",
-            )
-        })?;
-        let period_start = slf.period_start.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateFutureBuilder internal error: missing period_start after validation",
-            )
-        })?;
-        let period_end = slf.period_end.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateFutureBuilder internal error: missing period_end after validation",
-            )
-        })?;
         let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
                 "InterestRateFutureBuilder internal error: missing discount curve after validation",
@@ -342,9 +318,9 @@ impl PyInterestRateFutureBuilder {
             .notional(notional)
             .quoted_price(quoted_price)
             .expiry_date(expiry)
-            .fixing_date(fixing_date)
-            .period_start(period_start)
-            .period_end(period_end)
+            .fixing_date_opt(slf.fixing_date)
+            .period_start_opt(slf.period_start)
+            .period_end_opt(slf.period_end)
             .discount_curve_id(discount_curve_id)
             .forward_curve_id(forward_curve_id)
             .day_count(slf.day_count)

@@ -44,14 +44,22 @@ pub struct FxBarrierOption {
     pub quote_currency: Currency,
     /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
-    /// Whether to use Gobet-Miri continuous barrier adjustment
+    /// Whether to use Gobet-Miri continuous barrier adjustment.
+    ///
+    /// Defaults to `false` (analytical continuous-monitoring pricer).
+    #[serde(default)]
+    #[builder(default)]
     pub use_gobet_miri: bool,
     /// Domestic discount curve ID
     pub domestic_discount_curve_id: CurveId,
     /// Foreign discount curve ID
     pub foreign_discount_curve_id: CurveId,
-    /// FX spot price identifier
-    pub fx_spot_id: PriceId,
+    /// Optional FX spot scalar identifier.
+    ///
+    /// If omitted, pricing falls back to `FxMatrix(base_currency, quote_currency)`.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fx_spot_id: Option<PriceId>,
     /// FX volatility surface ID
     #[serde(alias = "fx_vol_id")]
     pub vol_surface_id: CurveId,
@@ -102,7 +110,7 @@ impl FxBarrierOption {
             .use_gobet_miri(false)
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
-            .fx_spot_id("EURUSD-SPOT".into())
+            .fx_spot_id_opt(Some("EURUSD-SPOT".into()))
             .vol_surface_id(CurveId::new("EURUSD-VOL"))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -142,7 +150,13 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for FxBarrierO
             return Ok(0.0);
         }
 
-        let spot_scalar = market.price(&self.fx_spot_id)?;
+        let spot_id = self.fx_spot_id.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "FxBarrierOption delta requires fx_spot_id for finite-difference spot bumps"
+                    .to_string(),
+            )
+        })?;
+        let spot_scalar = market.price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -152,17 +166,11 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for FxBarrierO
             return Ok(0.0);
         }
 
-        let up = crate::metrics::bump_scalar_price(
-            market,
-            &self.fx_spot_id,
-            crate::metrics::bump_sizes::SPOT,
-        )?;
+        let up =
+            crate::metrics::bump_scalar_price(market, spot_id, crate::metrics::bump_sizes::SPOT)?;
         let pv_up = self.value(&up, as_of)?.amount();
-        let down = crate::metrics::bump_scalar_price(
-            market,
-            &self.fx_spot_id,
-            -crate::metrics::bump_sizes::SPOT,
-        )?;
+        let down =
+            crate::metrics::bump_scalar_price(market, spot_id, -crate::metrics::bump_sizes::SPOT)?;
         let pv_down = self.value(&down, as_of)?.amount();
 
         Ok((pv_up - pv_down) / (2.0 * bump_size))
@@ -188,7 +196,13 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for FxBarrierO
 
         let base_pv = self.value(market, as_of)?.amount();
 
-        let spot_scalar = market.price(&self.fx_spot_id)?;
+        let spot_id = self.fx_spot_id.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "FxBarrierOption gamma requires fx_spot_id for finite-difference spot bumps"
+                    .to_string(),
+            )
+        })?;
+        let spot_scalar = market.price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -198,17 +212,11 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for FxBarrierO
             return Ok(0.0);
         }
 
-        let up = crate::metrics::bump_scalar_price(
-            market,
-            &self.fx_spot_id,
-            crate::metrics::bump_sizes::SPOT,
-        )?;
+        let up =
+            crate::metrics::bump_scalar_price(market, spot_id, crate::metrics::bump_sizes::SPOT)?;
         let pv_up = self.value(&up, as_of)?.amount();
-        let down = crate::metrics::bump_scalar_price(
-            market,
-            &self.fx_spot_id,
-            -crate::metrics::bump_sizes::SPOT,
-        )?;
+        let down =
+            crate::metrics::bump_scalar_price(market, spot_id, -crate::metrics::bump_sizes::SPOT)?;
         let pv_down = self.value(&down, as_of)?.amount();
 
         Ok((pv_up - 2.0 * base_pv + pv_down) / (bump_size * bump_size))
@@ -289,7 +297,13 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for FxBarrierO
             return Ok(0.0);
         }
 
-        let spot_scalar = market.price(&self.fx_spot_id)?;
+        let spot_id = self.fx_spot_id.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "FxBarrierOption vanna requires fx_spot_id for finite-difference spot bumps"
+                    .to_string(),
+            )
+        })?;
+        let spot_scalar = market.price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -309,12 +323,12 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for FxBarrierO
         )?;
         let curves_up = crate::metrics::bump_scalar_price(
             &curves_vol_up,
-            &self.fx_spot_id,
+            spot_id,
             crate::metrics::bump_sizes::SPOT,
         )?;
         let curves_dn = crate::metrics::bump_scalar_price(
             &curves_vol_up,
-            &self.fx_spot_id,
+            spot_id,
             -crate::metrics::bump_sizes::SPOT,
         )?;
         let pv_up = self.value(&curves_up, as_of)?.amount();
@@ -329,12 +343,12 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for FxBarrierO
         )?;
         let curves_up = crate::metrics::bump_scalar_price(
             &curves_vol_dn,
-            &self.fx_spot_id,
+            spot_id,
             crate::metrics::bump_sizes::SPOT,
         )?;
         let curves_dn = crate::metrics::bump_scalar_price(
             &curves_vol_dn,
-            &self.fx_spot_id,
+            spot_id,
             -crate::metrics::bump_sizes::SPOT,
         )?;
         let pv_up = self.value(&curves_up, as_of)?.amount();
@@ -391,7 +405,9 @@ impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
             crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             )?;
-        deps.add_spot_id(self.fx_spot_id.as_str());
+        if let Some(spot_id) = self.fx_spot_id.as_ref() {
+            deps.add_spot_id(spot_id.as_str());
+        }
         deps.add_vol_surface_id(self.vol_surface_id.as_str());
         deps.add_fx_pair(self.base_currency, self.quote_currency);
         Ok(deps)
@@ -521,7 +537,7 @@ mod tests {
             .use_gobet_miri(false)
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
-            .fx_spot_id("EURUSD-SPOT".into())
+            .fx_spot_id_opt(Some("EURUSD-SPOT".into()))
             .vol_surface_id(CurveId::new("EURUSD-VOL"))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -531,6 +547,28 @@ mod tests {
         assert!((option.strike - 1.10).abs() < 1e-12);
         assert!((option.barrier - 1.20).abs() < 1e-12);
         assert_eq!(option.notional.currency(), Currency::EUR);
+    }
+
+    #[test]
+    fn test_fx_barrier_option_serde_defaults_use_gobet_miri_false() {
+        let mut value = serde_json::to_value(FxBarrierOption::example()).expect("serialize");
+        let obj = value
+            .as_object_mut()
+            .expect("FxBarrierOption should serialize to an object");
+        obj.remove("use_gobet_miri");
+        let option: FxBarrierOption = serde_json::from_value(value).expect("deserialize");
+        assert!(!option.use_gobet_miri);
+    }
+
+    #[test]
+    fn test_fx_barrier_option_serde_allows_missing_fx_spot_id() {
+        let mut value = serde_json::to_value(FxBarrierOption::example()).expect("serialize");
+        let obj = value
+            .as_object_mut()
+            .expect("FxBarrierOption should serialize to an object");
+        obj.remove("fx_spot_id");
+        let option: FxBarrierOption = serde_json::from_value(value).expect("deserialize");
+        assert!(option.fx_spot_id.is_none());
     }
 
     #[cfg(not(feature = "mc"))]

@@ -69,7 +69,7 @@ impl PyFxBarrierOption {
         foreign_currency: Bound<'_, PyAny>,
         discount_curve: Bound<'_, PyAny>,
         foreign_discount_curve: Bound<'_, PyAny>,
-        fx_spot_id: &str,
+        fx_spot_id: Option<&str>,
         fx_vol_surface: Bound<'_, PyAny>,
         use_gobet_miri: Option<bool>,
     ) -> PyResult<Self> {
@@ -131,7 +131,7 @@ impl PyFxBarrierOption {
         builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
         builder = builder.domestic_discount_curve_id(domestic_discount_curve_id);
         builder = builder.foreign_discount_curve_id(foreign_discount_curve_id);
-        builder = builder.fx_spot_id(fx_spot_id.to_string().into());
+        builder = builder.fx_spot_id_opt(fx_spot_id.map(|s| s.to_string().into()));
         builder = builder.vol_surface_id(vol_surface_id);
         let option = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!(

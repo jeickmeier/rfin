@@ -416,7 +416,11 @@ impl JsBondFuture {
     /// Get the CTD bond ID.
     #[wasm_bindgen(getter, js_name = ctdBondId)]
     pub fn ctd_bond_id(&self) -> String {
-        self.inner.ctd_bond_id.as_str().to_string()
+        self.inner
+            .ctd_bond_id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default()
     }
 
     /// Calculate present value.

@@ -52,9 +52,9 @@ const MAX_REASONABLE_RATE: f64 = 0.50;
 ///
 /// # Side field
 ///
-/// Use `side` to indicate the fixed leg direction. This field is required
-/// in JSON inputs. For backward compatibility, `receive_fixed` (bool) is also
-/// accepted during deserialization.
+/// Use `side` to indicate the fixed leg direction. If omitted in JSON,
+/// deserialization defaults to `PayFixed`. For backward compatibility,
+/// `receive_fixed` (bool) is also accepted during deserialization.
 #[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ForwardRateAgreement {
@@ -155,11 +155,7 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             (Some(s), _) => s,
             (None, Some(true)) => PayReceive::ReceiveFixed,
             (None, Some(false)) => PayReceive::PayFixed,
-            (None, None) => {
-                return Err(serde::de::Error::custom(
-                    "FRA requires either `side` or `receive_fixed` field",
-                ));
-            }
+            (None, None) => PayReceive::PayFixed,
         };
 
         Ok(ForwardRateAgreement {
@@ -698,5 +694,32 @@ mod tests {
             par_rate,
             fwd_rate
         );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod serde_tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+
+    #[test]
+    fn fra_deserialize_defaults_side_to_pay_fixed() {
+        let json = serde_json::json!({
+            "id": "FRA-DEFAULT-SIDE",
+            "notional": {"amount": 1_000_000.0, "currency": "USD"},
+            "start_date": "2025-04-03",
+            "maturity": "2025-07-03",
+            "fixed_rate": "0.045",
+            "day_count": "Act360",
+            "reset_lag": 2,
+            "discount_curve_id": "USD-OIS",
+            "forward_curve_id": "USD-SOFR-3M",
+            "pricing_overrides": {},
+            "attributes": {"tags": [], "meta": {}}
+        });
+        let fra: ForwardRateAgreement = serde_json::from_value(json).expect("deserialize FRA");
+        assert_eq!(fra.side, PayReceive::PayFixed);
+        assert_eq!(fra.notional.currency(), Currency::USD);
     }
 }

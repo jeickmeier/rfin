@@ -9,6 +9,7 @@ use crate::pricer::{
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 
 // MC-specific imports
@@ -66,17 +67,7 @@ impl FxBarrierOptionMcPricer {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         validate_fx_barrier_currencies(inst)?;
 
-        let spot_scalar = curves.price(&inst.fx_spot_id)?;
-        let fx_spot = match spot_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-        };
-        if !fx_spot.is_finite() || fx_spot <= 0.0 {
-            return Err(finstack_core::Error::Validation(format!(
-                "FxBarrierOption spot must be finite and > 0, got {}",
-                fx_spot
-            )));
-        }
+        let fx_spot = resolve_fx_spot(inst, curves, as_of)?;
 
         let t = inst
             .day_count
@@ -336,6 +327,43 @@ fn validate_fx_barrier_currencies(inst: &FxBarrierOption) -> finstack_core::Resu
     Ok(())
 }
 
+fn resolve_fx_spot(
+    inst: &FxBarrierOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> finstack_core::Result<f64> {
+    if let Some(spot_id) = inst.fx_spot_id.as_ref() {
+        let spot_scalar = curves.price(spot_id)?;
+        let fx_spot = match spot_scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+        };
+        if !fx_spot.is_finite() || fx_spot <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "FxBarrierOption spot must be finite and > 0, got {}",
+                fx_spot
+            )));
+        }
+        return Ok(fx_spot);
+    }
+
+    let fx_matrix = curves.fx().ok_or_else(|| {
+        finstack_core::Error::from(finstack_core::InputError::NotFound {
+            id: "fx_matrix".to_string(),
+        })
+    })?;
+    let fx_spot = fx_matrix
+        .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
+        .rate;
+    if !fx_spot.is_finite() || fx_spot <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "FxBarrierOption spot must be finite and > 0, got {}",
+            fx_spot
+        )));
+    }
+    Ok(fx_spot)
+}
+
 /// Helper to collect inputs for FX barrier option pricing.
 fn collect_fx_barrier_inputs(
     inst: &FxBarrierOption,
@@ -369,17 +397,7 @@ fn collect_fx_barrier_inputs(
     let df_f = for_curve.df(t_disc_for);
     let r_for = if t > 0.0 { -df_f.ln() / t } else { 0.0 };
 
-    let spot_scalar = curves.price(&inst.fx_spot_id)?;
-    let fx_spot = match spot_scalar {
-        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-        finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-    };
-    if !fx_spot.is_finite() || fx_spot <= 0.0 {
-        return Err(finstack_core::Error::Validation(format!(
-            "FxBarrierOption spot must be finite and > 0, got {}",
-            fx_spot
-        )));
-    }
+    let fx_spot = resolve_fx_spot(inst, curves, as_of)?;
 
     let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
     let sigma = vol_surface.value_clamped(t, inst.strike);

@@ -462,7 +462,13 @@ pub struct BondFuture {
     /// For production systems, use [`BondFuture::determine_ctd`] or integrate with
     /// a real-time CTD analysis service. The CTD can change throughout the day as
     /// bond prices and repo rates fluctuate.
-    pub ctd_bond_id: InstrumentId,
+    ///
+    /// Optional to support workflow where CTD is selected by pricing logic.
+    /// If omitted, the engine resolves CTD as:
+    /// 1) `ctd_bond.id` when embedded CTD bond is provided
+    /// 2) single deliverable bond in basket when basket length is 1
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctd_bond_id: Option<InstrumentId>,
 
     /// Optional embedded CTD bond definition.
     ///
@@ -488,6 +494,22 @@ pub struct BondFuture {
 }
 
 impl BondFuture {
+    fn resolve_ctd_bond_id(&self) -> finstack_core::Result<InstrumentId> {
+        if let Some(id) = &self.ctd_bond_id {
+            return Ok(id.clone());
+        }
+        if let Some(ctd_bond) = &self.ctd_bond {
+            return Ok(ctd_bond.id.clone());
+        }
+        if self.deliverable_basket.len() == 1 {
+            return Ok(self.deliverable_basket[0].bond_id.clone());
+        }
+        Err(finstack_core::Error::Validation(
+            "ctd_bond_id is required when deliverable_basket has multiple bonds and no ctd_bond is embedded"
+                .to_string(),
+        ))
+    }
+
     /// Validate the BondFuture parameters.
     ///
     /// This method checks the following invariants:
@@ -521,25 +543,26 @@ impl BondFuture {
             ));
         }
 
-        // CTD bond exists in basket validation
+        // CTD bond exists in basket validation when we can resolve CTD id.
+        let resolved_ctd_id = self.resolve_ctd_bond_id()?;
         let ctd_exists = self
             .deliverable_basket
             .iter()
-            .any(|bond| bond.bond_id == self.ctd_bond_id);
+            .any(|bond| bond.bond_id == resolved_ctd_id);
         if !ctd_exists {
             return Err(finstack_core::Error::Validation(format!(
-                "ctd_bond_id ({}) not found in deliverable_basket",
-                self.ctd_bond_id.as_str()
+                "resolved ctd_bond_id ({}) not found in deliverable_basket",
+                resolved_ctd_id.as_str()
             )));
         }
 
         // If an embedded CTD bond is provided, it must match the CTD id.
         if let Some(bond) = &self.ctd_bond {
-            if bond.id != self.ctd_bond_id {
+            if bond.id != resolved_ctd_id {
                 return Err(finstack_core::Error::Validation(format!(
                     "ctd_bond.id ({}) must match ctd_bond_id ({})",
                     bond.id.as_str(),
-                    self.ctd_bond_id.as_str()
+                    resolved_ctd_id.as_str()
                 )));
             }
         }
@@ -1069,15 +1092,16 @@ impl BondFuture {
         market: &finstack_core::market_data::context::MarketContext,
         settlement_date: Date,
     ) -> finstack_core::Result<Money> {
+        let ctd_bond_id = self.resolve_ctd_bond_id()?;
         // Find the conversion factor for the CTD bond
         let conversion_factor = self
             .deliverable_basket
             .iter()
-            .find(|db| db.bond_id == self.ctd_bond_id)
+            .find(|db| db.bond_id == ctd_bond_id)
             .ok_or_else(|| finstack_core::InputError::NotFound {
                 id: format!(
                     "CTD bond {} not found in deliverable basket",
-                    self.ctd_bond_id.as_str()
+                    ctd_bond_id.as_str()
                 ),
             })?
             .conversion_factor;
@@ -1858,6 +1882,30 @@ mod tests {
         assert_eq!(future.deliverable_basket.len(), 1);
     }
 
+    #[test]
+    fn test_validation_allows_missing_ctd_with_single_deliverable() {
+        let deliverable = DeliverableBond {
+            bond_id: InstrumentId::new("US912828XG33"),
+            conversion_factor: 0.8234,
+        };
+
+        let result = BondFuture::builder()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"))
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::default())
+            .deliverable_basket(vec![deliverable])
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build_validated();
+
+        assert!(result.is_ok());
+    }
+
     // Convenience constructor tests
     #[test]
     fn test_ust_10y_constructor() {
@@ -2076,12 +2124,13 @@ impl crate::instruments::common_impl::traits::Instrument for BondFuture {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        let ctd_bond_id = self.resolve_ctd_bond_id()?;
         let ctd_bond = self.ctd_bond.as_ref().ok_or_else(|| {
             finstack_core::Error::Validation(format!(
-                "BondFuture '{}' requires an embedded ctd_bond to price (ctd_bond_id={}). \
+                "BondFuture '{}' requires an embedded ctd_bond to price (resolved ctd_bond_id={}). \
 Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using a constructor that embeds the CTD bond.",
                 self.id.as_str(),
-                self.ctd_bond_id.as_str()
+                ctd_bond_id.as_str()
             ))
         })?;
 
@@ -2089,12 +2138,12 @@ Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using
         let conversion_factor = self
             .deliverable_basket
             .iter()
-            .find(|bond| bond.bond_id == self.ctd_bond_id)
+            .find(|bond| bond.bond_id == ctd_bond_id)
             .ok_or_else(|| {
                 finstack_core::Error::Input(finstack_core::InputError::NotFound {
                     id: format!(
                         "CTD bond {} not found in deliverable basket",
-                        self.ctd_bond_id.as_str()
+                        ctd_bond_id.as_str()
                     ),
                 })
             })?

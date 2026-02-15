@@ -193,8 +193,16 @@ pub struct AgencyMbsPassthrough {
     /// Pass-through rate (net coupon to investor).
     pub pass_through_rate: f64,
     /// Servicing fee rate (annual, as decimal e.g., 0.0025 for 25 bps).
+    ///
+    /// Defaults to `0.0` when omitted.
+    #[builder(default)]
+    #[serde(default)]
     pub servicing_fee_rate: f64,
     /// Guarantee fee rate (annual, as decimal e.g., 0.0025 for 25 bps).
+    ///
+    /// Defaults to `0.0` when omitted.
+    #[builder(default)]
+    #[serde(default)]
     pub guarantee_fee_rate: f64,
     /// Weighted average maturity in months.
     pub wam: u32,
@@ -445,5 +453,19 @@ mod tests {
         let deserialized: AgencyMbsPassthrough = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(mbs.id.as_str(), deserialized.id.as_str());
         assert_eq!(mbs.agency, deserialized.agency);
+    }
+
+    #[test]
+    fn test_serde_defaults_fee_rates_to_zero_when_omitted() {
+        let mut value = serde_json::to_value(AgencyMbsPassthrough::example()).expect("serialize");
+        let obj = value
+            .as_object_mut()
+            .expect("AgencyMbsPassthrough should serialize to an object");
+        obj.remove("servicing_fee_rate");
+        obj.remove("guarantee_fee_rate");
+
+        let mbs: AgencyMbsPassthrough = serde_json::from_value(value).expect("deserialize");
+        assert_eq!(mbs.servicing_fee_rate, 0.0);
+        assert_eq!(mbs.guarantee_fee_rate, 0.0);
     }
 }

@@ -68,6 +68,9 @@ pub struct CommodityOption {
     /// Contract multiplier (typically 1.0 for OTC options).
     pub multiplier: f64,
     /// Settlement type (physical or cash).
+    ///
+    /// Defaults to cash settlement when omitted in serialized payloads.
+    #[serde(default = "default_settlement_type")]
     pub settlement: SettlementType,
     /// Currency for pricing.
     pub currency: Currency,
@@ -108,6 +111,10 @@ pub struct CommodityOption {
     #[serde(default)]
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
+}
+
+fn default_settlement_type() -> SettlementType {
+    SettlementType::Cash
 }
 
 impl CommodityOption {
@@ -703,5 +710,27 @@ impl crate::instruments::common_impl::traits::OptionVolgaProvider for CommodityO
         let pv_up = self.value(&up, as_of)?.amount();
         let pv_dn = self.value(&dn, as_of)?.amount();
         Ok((pv_up - 2.0 * base_pv + pv_dn) / (vol_bump * vol_bump))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_settlement_type_is_cash() {
+        assert_eq!(default_settlement_type(), SettlementType::Cash);
+    }
+
+    #[test]
+    fn test_serde_defaults_settlement_to_cash_when_omitted() {
+        let mut value = serde_json::to_value(CommodityOption::example()).expect("serialize");
+        let obj = value
+            .as_object_mut()
+            .expect("CommodityOption should serialize to an object");
+        obj.remove("settlement");
+        let option: CommodityOption = serde_json::from_value(value).expect("deserialize");
+        assert_eq!(option.settlement, SettlementType::Cash);
     }
 }

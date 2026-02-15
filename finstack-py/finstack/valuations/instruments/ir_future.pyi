@@ -53,9 +53,12 @@ class InterestRateFuture:
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .quoted_price(96.50)  # Implies 3.5% rate (100 - 96.50)
         ...     .expiry(date(2024, 12, 15))
+        ...     # Optional dates below are inferred if omitted:
+        ...     # fixing_date = expiry, period_start = fixing + 2d,
+        ...     # period_end = period_start + delivery_months
         ...     .fixing_date(date(2024, 12, 16))
         ...     .period_start(date(2024, 12, 18))
-        ...     .period_end(date(2025, 3, 18))  # 3-month period
+        ...     .period_end(date(2025, 3, 18))
         ...     .disc_id("USD")
         ...     .fwd_id("USD-LIBOR-3M")
         ...     .build()

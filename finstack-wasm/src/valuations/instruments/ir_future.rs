@@ -110,15 +110,6 @@ impl JsInterestRateFutureBuilder {
         let expiry = self
             .expiry
             .ok_or_else(|| js_error("InterestRateFutureBuilder: expiry is required".to_string()))?;
-        let fixing_date = self.fixing_date.ok_or_else(|| {
-            js_error("InterestRateFutureBuilder: fixingDate is required".to_string())
-        })?;
-        let period_start = self.period_start.ok_or_else(|| {
-            js_error("InterestRateFutureBuilder: periodStart is required".to_string())
-        })?;
-        let period_end = self.period_end.ok_or_else(|| {
-            js_error("InterestRateFutureBuilder: periodEnd is required".to_string())
-        })?;
         let discount_curve = self.discount_curve.as_deref().ok_or_else(|| {
             js_error("InterestRateFutureBuilder: discountCurve is required".to_string())
         })?;
@@ -138,9 +129,9 @@ impl JsInterestRateFutureBuilder {
             .notional(notional)
             .quoted_price(quoted_price)
             .expiry_date(expiry)
-            .fixing_date(fixing_date)
-            .period_start(period_start)
-            .period_end(period_end)
+            .fixing_date_opt(self.fixing_date)
+            .period_start_opt(self.period_start)
+            .period_end_opt(self.period_end)
             .discount_curve_id(curve_id_from_str(discount_curve))
             .forward_curve_id(curve_id_from_str(forward_curve))
             .day_count(dc)
@@ -181,9 +172,9 @@ impl JsInterestRateFuture {
     /// @param notional - Contract notional (currency-tagged)
     /// @param quoted_price - Quoted futures price
     /// @param expiry - Expiry date
-    /// @param fixing_date - Fixing date
-    /// @param period_start - Underlying accrual period start
-    /// @param period_end - Underlying accrual period end
+    /// @param fixing_date - Optional fixing date (defaults to expiry)
+    /// @param period_start - Optional accrual period start (defaults to fixing + 2 days)
+    /// @param period_end - Optional accrual period end (defaults by contract tenor)
     /// @param discount_curve - Discount curve ID
     /// @param forward_curve - Forward curve ID
     /// @param position - Optional position string (e.g. `"long"`)
@@ -215,9 +206,9 @@ impl JsInterestRateFuture {
         notional: &JsMoney,
         quoted_price: f64,
         expiry: &JsDate,
-        fixing_date: &JsDate,
-        period_start: &JsDate,
-        period_end: &JsDate,
+        fixing_date: Option<JsDate>,
+        period_start: Option<JsDate>,
+        period_end: Option<JsDate>,
         discount_curve: &str,
         forward_curve: &str,
         position: Option<String>,
@@ -241,9 +232,9 @@ impl JsInterestRateFuture {
             .notional(notional.inner())
             .quoted_price(quoted_price)
             .expiry_date(expiry.inner())
-            .fixing_date(fixing_date.inner())
-            .period_start(period_start.inner())
-            .period_end(period_end.inner())
+            .fixing_date_opt(fixing_date.map(|d| d.inner()))
+            .period_start_opt(period_start.map(|d| d.inner()))
+            .period_end_opt(period_end.map(|d| d.inner()))
             .discount_curve_id(curve_id_from_str(discount_curve))
             .forward_curve_id(curve_id_from_str(forward_curve))
             .day_count(dc)
