@@ -6,11 +6,9 @@ use crate::{
 };
 use async_trait::async_trait;
 use finstack_core::dates::Date;
-use finstack_core::market_data::context::{MarketContext, MarketContextState};
-use finstack_portfolio::PortfolioSpec;
 use libsql::params;
 
-use super::store::{as_of_key, get_blob, get_string, parse_as_of_key, TursoStore};
+use super::store::{as_of_key, get_blob, get_string, TursoStore};
 
 #[async_trait]
 impl LookbackStore for TursoStore {
@@ -31,10 +29,9 @@ impl LookbackStore for TursoStore {
         while let Some(row) = rows.next().await.map_err(Error::from)? {
             let as_of_str = get_string(&row, 0)?;
             let bytes = get_blob(&row, 1)?;
-            let as_of = parse_as_of_key(&as_of_str)?;
-            let state: MarketContextState = serde_json::from_slice(&bytes)?;
-            let context = MarketContext::try_from(state)?;
-            out.push(MarketContextSnapshot { as_of, context });
+            out.push(crate::helpers::market_context_snapshot_from_row(
+                as_of_str, &bytes,
+            )?);
         }
         Ok(out)
     }
@@ -54,10 +51,9 @@ impl LookbackStore for TursoStore {
             Some(row) => {
                 let as_of_str = get_string(&row, 0)?;
                 let bytes = get_blob(&row, 1)?;
-                let as_of = parse_as_of_key(&as_of_str)?;
-                let state: MarketContextState = serde_json::from_slice(&bytes)?;
-                let context = MarketContext::try_from(state)?;
-                Ok(Some(MarketContextSnapshot { as_of, context }))
+                Ok(Some(crate::helpers::market_context_snapshot_from_row(
+                    as_of_str, &bytes,
+                )?))
             }
             None => Ok(None),
         }
@@ -82,9 +78,9 @@ impl LookbackStore for TursoStore {
         while let Some(row) = rows.next().await.map_err(Error::from)? {
             let as_of_str = get_string(&row, 0)?;
             let bytes = get_blob(&row, 1)?;
-            let as_of = parse_as_of_key(&as_of_str)?;
-            let spec: PortfolioSpec = serde_json::from_slice(&bytes)?;
-            out.push(PortfolioSnapshot { as_of, spec });
+            out.push(crate::helpers::portfolio_snapshot_from_row(
+                as_of_str, &bytes,
+            )?);
         }
         Ok(out)
     }
@@ -104,9 +100,9 @@ impl LookbackStore for TursoStore {
             Some(row) => {
                 let as_of_str = get_string(&row, 0)?;
                 let bytes = get_blob(&row, 1)?;
-                let as_of = parse_as_of_key(&as_of_str)?;
-                let spec: PortfolioSpec = serde_json::from_slice(&bytes)?;
-                Ok(Some(PortfolioSnapshot { as_of, spec }))
+                Ok(Some(crate::helpers::portfolio_snapshot_from_row(
+                    as_of_str, &bytes,
+                )?))
             }
             None => Ok(None),
         }

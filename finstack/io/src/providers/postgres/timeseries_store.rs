@@ -7,7 +7,7 @@ use crate::{
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use super::store::{parse_ts_key, quote_ident, ts_key, PostgresStore};
+use super::store::{quote_ident, ts_key, PostgresStore};
 
 #[async_trait]
 impl TimeSeriesStore for PostgresStore {
@@ -153,12 +153,9 @@ DO UPDATE SET\n\
             let value: Option<f64> = row.get(1);
             let payload: Option<serde_json::Value> = row.get(2);
             let meta: Option<serde_json::Value> = row.get(3);
-            out.push(TimeSeriesPoint {
-                ts: parse_ts_key(ts)?,
-                value,
-                payload,
-                meta,
-            });
+            out.push(crate::helpers::time_series_point_from_postgres_row(
+                ts, value, payload, meta,
+            )?);
         }
         Ok(out)
     }
@@ -184,12 +181,9 @@ DO UPDATE SET\n\
                 let value: Option<f64> = row.get(1);
                 let payload: Option<serde_json::Value> = row.get(2);
                 let meta: Option<serde_json::Value> = row.get(3);
-                Ok(Some(TimeSeriesPoint {
-                    ts: parse_ts_key(ts)?,
-                    value,
-                    payload,
-                    meta,
-                }))
+                Ok(Some(crate::helpers::time_series_point_from_postgres_row(
+                    ts, value, payload, meta,
+                )?))
             }
             None => Ok(None),
         }

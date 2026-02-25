@@ -53,7 +53,7 @@ impl Store for PostgresStore {
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
-                let state: MarketContextState = serde_json::from_value(payload)?;
+                let state: MarketContextState = crate::helpers::json_from_value(payload)?;
                 Ok(Some(MarketContext::try_from(state)?))
             }
             None => Ok(None),
@@ -84,7 +84,7 @@ impl Store for PostgresStore {
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
-                Ok(Some(serde_json::from_value(payload)?))
+                Ok(Some(crate::helpers::json_from_value(payload)?))
             }
             None => Ok(None),
         }
@@ -114,7 +114,7 @@ impl Store for PostgresStore {
             for row in rows {
                 let id: String = row.get(0);
                 let payload: serde_json::Value = row.get(1);
-                let instrument: InstrumentJson = serde_json::from_value(payload)?;
+                let instrument: InstrumentJson = crate::helpers::json_from_value(payload)?;
                 result.insert(id, instrument);
             }
         }
@@ -163,7 +163,7 @@ impl Store for PostgresStore {
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
-                Ok(Some(serde_json::from_value(payload)?))
+                Ok(Some(crate::helpers::json_from_value(payload)?))
             }
             None => Ok(None),
         }
@@ -193,7 +193,7 @@ impl Store for PostgresStore {
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
-                Ok(Some(serde_json::from_value(payload)?))
+                Ok(Some(crate::helpers::json_from_value(payload)?))
             }
             None => Ok(None),
         }
@@ -233,7 +233,7 @@ impl Store for PostgresStore {
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
-                Ok(Some(serde_json::from_value(payload)?))
+                Ok(Some(crate::helpers::json_from_value(payload)?))
             }
             None => Ok(None),
         }
@@ -274,7 +274,7 @@ impl Store for PostgresStore {
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
-                Ok(Some(serde_json::from_value(payload)?))
+                Ok(Some(crate::helpers::json_from_value(payload)?))
             }
             None => Ok(None),
         }

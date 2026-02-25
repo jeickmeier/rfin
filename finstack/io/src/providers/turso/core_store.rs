@@ -54,7 +54,7 @@ impl Store for TursoStore {
         match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
-                let state: MarketContextState = serde_json::from_slice(&bytes)?;
+                let state: MarketContextState = crate::helpers::json_from_slice(&bytes)?;
                 let ctx = MarketContext::try_from(state)?;
                 Ok(Some(ctx))
             }
@@ -87,7 +87,7 @@ impl Store for TursoStore {
         match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
-                Ok(Some(serde_json::from_slice::<InstrumentJson>(&bytes)?))
+                Ok(Some(crate::helpers::json_from_slice(&bytes)?))
             }
             None => Ok(None),
         }
@@ -125,7 +125,7 @@ impl Store for TursoStore {
             while let Some(row) = rows.next().await.map_err(Error::from)? {
                 let id = get_string(&row, 0)?;
                 let bytes = get_blob(&row, 1)?;
-                let instrument: InstrumentJson = serde_json::from_slice(&bytes)?;
+                let instrument: InstrumentJson = crate::helpers::json_from_slice(&bytes)?;
                 result.insert(id, instrument);
             }
         }
@@ -179,7 +179,7 @@ impl Store for TursoStore {
         match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
-                Ok(Some(serde_json::from_slice::<PortfolioSpec>(&bytes)?))
+                Ok(Some(crate::helpers::json_from_slice(&bytes)?))
             }
             None => Ok(None),
         }
@@ -210,7 +210,7 @@ impl Store for TursoStore {
         match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
-                Ok(Some(serde_json::from_slice::<ScenarioSpec>(&bytes)?))
+                Ok(Some(crate::helpers::json_from_slice(&bytes)?))
             }
             None => Ok(None),
         }
@@ -256,7 +256,7 @@ impl Store for TursoStore {
         match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
-                Ok(Some(serde_json::from_slice::<FinancialModelSpec>(&bytes)?))
+                Ok(Some(crate::helpers::json_from_slice(&bytes)?))
             }
             None => Ok(None),
         }
@@ -302,7 +302,7 @@ impl Store for TursoStore {
         match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let bytes = get_blob(&row, 0)?;
-                Ok(Some(serde_json::from_slice::<MetricRegistry>(&bytes)?))
+                Ok(Some(crate::helpers::json_from_slice(&bytes)?))
             }
             None => Ok(None),
         }

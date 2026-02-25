@@ -36,6 +36,30 @@ macro_rules! dispatch_store {
     };
 }
 
+macro_rules! impl_store_forwarding {
+    ($trait_name:ident {
+        $(
+            async fn $method:ident(
+                &self
+                $(, $arg:ident : $arg_ty:ty)*
+                $(,)?
+            ) -> $ret:ty;
+        )*
+    }) => {
+        #[async_trait]
+        impl $trait_name for StoreHandle {
+            $(
+                async fn $method(
+                    &self,
+                    $($arg : $arg_ty),*
+                ) -> $ret {
+                    dispatch_store!(self, $method $(, $arg)*)
+                }
+            )*
+        }
+    };
+}
+
 /// Available IO backends.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IoBackend {
@@ -122,139 +146,83 @@ pub enum StoreHandle {
     Turso(crate::turso::TursoStore),
 }
 
-#[async_trait]
-impl Store for StoreHandle {
+impl_store_forwarding!(Store {
     async fn put_market_context(
         &self,
         market_id: &str,
         as_of: finstack_core::dates::Date,
         context: &finstack_core::market_data::context::MarketContext,
         meta: Option<&serde_json::Value>,
-    ) -> Result<()> {
-        dispatch_store!(self, put_market_context, market_id, as_of, context, meta)
-    }
-
+    ) -> Result<()>;
     async fn get_market_context(
         &self,
         market_id: &str,
         as_of: finstack_core::dates::Date,
-    ) -> Result<Option<finstack_core::market_data::context::MarketContext>> {
-        dispatch_store!(self, get_market_context, market_id, as_of)
-    }
-
+    ) -> Result<Option<finstack_core::market_data::context::MarketContext>>;
     async fn put_instrument(
         &self,
         instrument_id: &str,
         instrument: &finstack_valuations::instruments::InstrumentJson,
         meta: Option<&serde_json::Value>,
-    ) -> Result<()> {
-        dispatch_store!(self, put_instrument, instrument_id, instrument, meta)
-    }
-
+    ) -> Result<()>;
     async fn get_instrument(
         &self,
         instrument_id: &str,
-    ) -> Result<Option<finstack_valuations::instruments::InstrumentJson>> {
-        dispatch_store!(self, get_instrument, instrument_id)
-    }
-
+    ) -> Result<Option<finstack_valuations::instruments::InstrumentJson>>;
     async fn get_instruments_batch(
         &self,
         instrument_ids: &[String],
-    ) -> Result<std::collections::HashMap<String, finstack_valuations::instruments::InstrumentJson>>
-    {
-        dispatch_store!(self, get_instruments_batch, instrument_ids)
-    }
-
-    async fn list_instruments(&self) -> Result<Vec<String>> {
-        dispatch_store!(self, list_instruments)
-    }
-
+    ) -> Result<std::collections::HashMap<String, finstack_valuations::instruments::InstrumentJson>>;
+    async fn list_instruments(&self) -> Result<Vec<String>>;
     async fn put_portfolio_spec(
         &self,
         portfolio_id: &str,
         as_of: finstack_core::dates::Date,
         spec: &finstack_portfolio::PortfolioSpec,
         meta: Option<&serde_json::Value>,
-    ) -> Result<()> {
-        dispatch_store!(self, put_portfolio_spec, portfolio_id, as_of, spec, meta)
-    }
-
+    ) -> Result<()>;
     async fn get_portfolio_spec(
         &self,
         portfolio_id: &str,
         as_of: finstack_core::dates::Date,
-    ) -> Result<Option<finstack_portfolio::PortfolioSpec>> {
-        dispatch_store!(self, get_portfolio_spec, portfolio_id, as_of)
-    }
-
+    ) -> Result<Option<finstack_portfolio::PortfolioSpec>>;
     async fn put_scenario(
         &self,
         scenario_id: &str,
         spec: &finstack_scenarios::ScenarioSpec,
         meta: Option<&serde_json::Value>,
-    ) -> Result<()> {
-        dispatch_store!(self, put_scenario, scenario_id, spec, meta)
-    }
-
+    ) -> Result<()>;
     async fn get_scenario(
         &self,
         scenario_id: &str,
-    ) -> Result<Option<finstack_scenarios::ScenarioSpec>> {
-        dispatch_store!(self, get_scenario, scenario_id)
-    }
-
-    async fn list_scenarios(&self) -> Result<Vec<String>> {
-        dispatch_store!(self, list_scenarios)
-    }
-
+    ) -> Result<Option<finstack_scenarios::ScenarioSpec>>;
+    async fn list_scenarios(&self) -> Result<Vec<String>>;
     async fn put_statement_model(
         &self,
         model_id: &str,
         spec: &finstack_statements::FinancialModelSpec,
         meta: Option<&serde_json::Value>,
-    ) -> Result<()> {
-        dispatch_store!(self, put_statement_model, model_id, spec, meta)
-    }
-
+    ) -> Result<()>;
     async fn get_statement_model(
         &self,
         model_id: &str,
-    ) -> Result<Option<finstack_statements::FinancialModelSpec>> {
-        dispatch_store!(self, get_statement_model, model_id)
-    }
-
-    async fn list_statement_models(&self) -> Result<Vec<String>> {
-        dispatch_store!(self, list_statement_models)
-    }
-
+    ) -> Result<Option<finstack_statements::FinancialModelSpec>>;
+    async fn list_statement_models(&self) -> Result<Vec<String>>;
     async fn put_metric_registry(
         &self,
         namespace: &str,
         registry: &finstack_statements::registry::MetricRegistry,
         meta: Option<&serde_json::Value>,
-    ) -> Result<()> {
-        dispatch_store!(self, put_metric_registry, namespace, registry, meta)
-    }
-
+    ) -> Result<()>;
     async fn get_metric_registry(
         &self,
         namespace: &str,
-    ) -> Result<Option<finstack_statements::registry::MetricRegistry>> {
-        dispatch_store!(self, get_metric_registry, namespace)
-    }
+    ) -> Result<Option<finstack_statements::registry::MetricRegistry>>;
+    async fn list_metric_registries(&self) -> Result<Vec<String>>;
+    async fn delete_metric_registry(&self, namespace: &str) -> Result<bool>;
+});
 
-    async fn list_metric_registries(&self) -> Result<Vec<String>> {
-        dispatch_store!(self, list_metric_registries)
-    }
-
-    async fn delete_metric_registry(&self, namespace: &str) -> Result<bool> {
-        dispatch_store!(self, delete_metric_registry, namespace)
-    }
-}
-
-#[async_trait]
-impl BulkStore for StoreHandle {
+impl_store_forwarding!(BulkStore {
     async fn put_instruments_batch(
         &self,
         instruments: &[(
@@ -262,10 +230,7 @@ impl BulkStore for StoreHandle {
             &finstack_valuations::instruments::InstrumentJson,
             Option<&serde_json::Value>,
         )],
-    ) -> Result<()> {
-        dispatch_store!(self, put_instruments_batch, instruments)
-    }
-
+    ) -> Result<()>;
     async fn put_market_contexts_batch(
         &self,
         contexts: &[(
@@ -274,10 +239,7 @@ impl BulkStore for StoreHandle {
             &finstack_core::market_data::context::MarketContext,
             Option<&serde_json::Value>,
         )],
-    ) -> Result<()> {
-        dispatch_store!(self, put_market_contexts_batch, contexts)
-    }
-
+    ) -> Result<()>;
     async fn put_portfolios_batch(
         &self,
         portfolios: &[(
@@ -286,91 +248,111 @@ impl BulkStore for StoreHandle {
             &finstack_portfolio::PortfolioSpec,
             Option<&serde_json::Value>,
         )],
-    ) -> Result<()> {
-        dispatch_store!(self, put_portfolios_batch, portfolios)
-    }
-}
+    ) -> Result<()>;
+});
 
-#[async_trait]
-impl LookbackStore for StoreHandle {
+impl_store_forwarding!(LookbackStore {
     async fn list_market_contexts(
         &self,
         market_id: &str,
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
-    ) -> Result<Vec<crate::MarketContextSnapshot>> {
-        dispatch_store!(self, list_market_contexts, market_id, start, end)
-    }
-
+    ) -> Result<Vec<crate::MarketContextSnapshot>>;
     async fn latest_market_context_on_or_before(
         &self,
         market_id: &str,
         as_of: finstack_core::dates::Date,
-    ) -> Result<Option<crate::MarketContextSnapshot>> {
-        dispatch_store!(self, latest_market_context_on_or_before, market_id, as_of)
-    }
-
+    ) -> Result<Option<crate::MarketContextSnapshot>>;
     async fn list_portfolios(
         &self,
         portfolio_id: &str,
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
-    ) -> Result<Vec<crate::PortfolioSnapshot>> {
-        dispatch_store!(self, list_portfolios, portfolio_id, start, end)
-    }
-
+    ) -> Result<Vec<crate::PortfolioSnapshot>>;
     async fn latest_portfolio_on_or_before(
         &self,
         portfolio_id: &str,
         as_of: finstack_core::dates::Date,
-    ) -> Result<Option<crate::PortfolioSnapshot>> {
-        dispatch_store!(self, latest_portfolio_on_or_before, portfolio_id, as_of)
-    }
-}
+    ) -> Result<Option<crate::PortfolioSnapshot>>;
+});
 
-#[async_trait]
-impl TimeSeriesStore for StoreHandle {
+impl_store_forwarding!(TimeSeriesStore {
     async fn put_series_meta(
         &self,
         key: &crate::SeriesKey,
         meta: Option<&serde_json::Value>,
-    ) -> Result<()> {
-        dispatch_store!(self, put_series_meta, key, meta)
-    }
-
-    async fn get_series_meta(&self, key: &crate::SeriesKey) -> Result<Option<serde_json::Value>> {
-        dispatch_store!(self, get_series_meta, key)
-    }
-
-    async fn list_series(&self, namespace: &str, kind: crate::SeriesKind) -> Result<Vec<String>> {
-        dispatch_store!(self, list_series, namespace, kind)
-    }
-
+    ) -> Result<()>;
+    async fn get_series_meta(
+        &self,
+        key: &crate::SeriesKey,
+    ) -> Result<Option<serde_json::Value>>;
+    async fn list_series(&self, namespace: &str, kind: crate::SeriesKind) -> Result<Vec<String>>;
     async fn put_points_batch(
         &self,
         key: &crate::SeriesKey,
         points: &[crate::TimeSeriesPoint],
-    ) -> Result<()> {
-        dispatch_store!(self, put_points_batch, key, points)
-    }
-
+    ) -> Result<()>;
     async fn get_points_range(
         &self,
         key: &crate::SeriesKey,
         start: time::OffsetDateTime,
         end: time::OffsetDateTime,
         limit: Option<usize>,
-    ) -> Result<Vec<crate::TimeSeriesPoint>> {
-        dispatch_store!(self, get_points_range, key, start, end, limit)
-    }
-
+    ) -> Result<Vec<crate::TimeSeriesPoint>>;
     async fn latest_point_on_or_before(
         &self,
         key: &crate::SeriesKey,
         ts: time::OffsetDateTime,
-    ) -> Result<Option<crate::TimeSeriesPoint>> {
-        dispatch_store!(self, latest_point_on_or_before, key, ts)
-    }
+    ) -> Result<Option<crate::TimeSeriesPoint>>;
+});
+
+fn require_backend_config<T>(backend: &str, env_var: &str, value: Option<T>) -> Result<T> {
+    value.ok_or_else(|| Error::Invariant(format!("{env_var} is required for {backend} backend")))
+}
+
+#[cfg(feature = "sqlite")]
+async fn open_sqlite_store(path: Option<PathBuf>) -> Result<StoreHandle> {
+    let path = require_backend_config("sqlite", "FINSTACK_SQLITE_PATH", path)?;
+    Ok(StoreHandle::Sqlite(
+        crate::sqlite::SqliteStore::open(path).await?,
+    ))
+}
+
+#[cfg(not(feature = "sqlite"))]
+async fn open_sqlite_store(_path: Option<PathBuf>) -> Result<StoreHandle> {
+    Err(Error::Invariant(
+        "sqlite backend requested but feature is disabled".into(),
+    ))
+}
+
+#[cfg(feature = "postgres")]
+async fn open_postgres_store(url: Option<String>) -> Result<StoreHandle> {
+    let url = require_backend_config("postgres", "FINSTACK_POSTGRES_URL", url)?;
+    Ok(StoreHandle::Postgres(
+        crate::postgres::PostgresStore::connect(&url).await?,
+    ))
+}
+
+#[cfg(not(feature = "postgres"))]
+async fn open_postgres_store(_url: Option<String>) -> Result<StoreHandle> {
+    Err(Error::Invariant(
+        "postgres backend requested but feature is disabled".into(),
+    ))
+}
+
+#[cfg(feature = "turso")]
+async fn open_turso_store(path: Option<PathBuf>) -> Result<StoreHandle> {
+    let path = require_backend_config("turso", "FINSTACK_TURSO_PATH", path)?;
+    Ok(StoreHandle::Turso(
+        crate::turso::TursoStore::open(path).await?,
+    ))
+}
+
+#[cfg(not(feature = "turso"))]
+async fn open_turso_store(_path: Option<PathBuf>) -> Result<StoreHandle> {
+    Err(Error::Invariant(
+        "turso backend requested but feature is disabled".into(),
+    ))
 }
 
 /// Open a store using the current environment configuration.
@@ -401,58 +383,8 @@ impl TimeSeriesStore for StoreHandle {
 pub async fn open_store_from_env() -> Result<StoreHandle> {
     let config = FinstackIoConfig::from_env()?;
     match config.backend {
-        IoBackend::Sqlite => {
-            #[cfg(feature = "sqlite")]
-            {
-                let path = config.sqlite_path.ok_or_else(|| {
-                    Error::Invariant("FINSTACK_SQLITE_PATH is required for sqlite backend".into())
-                })?;
-                Ok(StoreHandle::Sqlite(
-                    crate::sqlite::SqliteStore::open(path).await?,
-                ))
-            }
-            #[cfg(not(feature = "sqlite"))]
-            {
-                Err(Error::Invariant(
-                    "sqlite backend requested but feature is disabled".into(),
-                ))
-            }
-        }
-        IoBackend::Postgres => {
-            #[cfg(feature = "postgres")]
-            {
-                let url = config.postgres_url.ok_or_else(|| {
-                    Error::Invariant(
-                        "FINSTACK_POSTGRES_URL is required for postgres backend".into(),
-                    )
-                })?;
-                Ok(StoreHandle::Postgres(
-                    crate::postgres::PostgresStore::connect(&url).await?,
-                ))
-            }
-            #[cfg(not(feature = "postgres"))]
-            {
-                Err(Error::Invariant(
-                    "postgres backend requested but feature is disabled".into(),
-                ))
-            }
-        }
-        IoBackend::Turso => {
-            #[cfg(feature = "turso")]
-            {
-                let path = config.turso_path.ok_or_else(|| {
-                    Error::Invariant("FINSTACK_TURSO_PATH is required for turso backend".into())
-                })?;
-                Ok(StoreHandle::Turso(
-                    crate::turso::TursoStore::open(path).await?,
-                ))
-            }
-            #[cfg(not(feature = "turso"))]
-            {
-                Err(Error::Invariant(
-                    "turso backend requested but feature is disabled".into(),
-                ))
-            }
-        }
+        IoBackend::Sqlite => open_sqlite_store(config.sqlite_path).await,
+        IoBackend::Postgres => open_postgres_store(config.postgres_url).await,
+        IoBackend::Turso => open_turso_store(config.turso_path).await,
     }
 }

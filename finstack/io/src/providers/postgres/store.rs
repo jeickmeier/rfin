@@ -5,7 +5,7 @@ use crate::{
     sql::{migrations, Backend},
     Error, Result,
 };
-use chrono::{DateTime, Datelike, NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use deadpool_postgres::{Config, ManagerConfig, Pool, RecyclingMethod, Runtime};
 use finstack_core::dates::Date;
 use std::sync::Arc;
@@ -315,33 +315,9 @@ pub(crate) fn as_of_key(as_of: Date) -> Result<NaiveDate> {
         .ok_or_else(|| Error::Invariant("Invalid date".into()))
 }
 
-pub(crate) fn parse_as_of_key(value: NaiveDate) -> Result<Date> {
-    let month = u8::try_from(value.month())
-        .map_err(|_| Error::Invariant("Invalid month from database".into()))?;
-    let day = u8::try_from(value.day())
-        .map_err(|_| Error::Invariant("Invalid day from database".into()))?;
-    Date::from_calendar_date(
-        value.year(),
-        month
-            .try_into()
-            .map_err(|_| Error::Invariant("Invalid month from database".into()))?,
-        day,
-    )
-    .map_err(|e| Error::Invariant(format!("Invalid date in database: {e}")))
-}
-
 pub(crate) fn ts_key(ts: time::OffsetDateTime) -> Result<DateTime<Utc>> {
     let seconds = ts.unix_timestamp();
     let nanos = ts.nanosecond();
     DateTime::<Utc>::from_timestamp(seconds, nanos)
         .ok_or_else(|| Error::Invariant("Invalid timestamp".into()))
-}
-
-pub(crate) fn parse_ts_key(ts: DateTime<Utc>) -> Result<time::OffsetDateTime> {
-    let secs = ts.timestamp();
-    let nanos = ts.timestamp_subsec_nanos();
-    let base = time::OffsetDateTime::from_unix_timestamp(secs)
-        .map_err(|e| Error::Invariant(format!("Invalid timestamp in database: {e}")))?;
-    base.replace_nanosecond(nanos)
-        .map_err(|e| Error::Invariant(format!("Invalid timestamp in database: {e}")))
 }

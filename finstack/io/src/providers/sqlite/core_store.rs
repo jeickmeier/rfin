@@ -67,14 +67,10 @@ impl Store for SqliteStore {
             })
             .await?;
 
-        match payload {
-            Some(bytes) => {
-                let state: MarketContextState = serde_json::from_slice(&bytes)?;
-                let ctx = MarketContext::try_from(state)?;
-                Ok(Some(ctx))
-            }
-            None => Ok(None),
-        }
+        let context = crate::helpers::optional_json_from_slice::<MarketContextState>(payload)?
+            .map(MarketContext::try_from)
+            .transpose()?;
+        Ok(context)
     }
 
     async fn put_instrument(
@@ -113,11 +109,7 @@ impl Store for SqliteStore {
                 ))?)
             })
             .await?;
-
-        match payload {
-            Some(bytes) => Ok(Some(serde_json::from_slice::<InstrumentJson>(&bytes)?)),
-            None => Ok(None),
-        }
+        crate::helpers::optional_json_from_slice(payload)
     }
 
     async fn get_instruments_batch(
@@ -164,7 +156,7 @@ impl Store for SqliteStore {
                 .await?;
 
             for (id, bytes) in rows {
-                let instrument: InstrumentJson = serde_json::from_slice(&bytes)?;
+                let instrument: InstrumentJson = crate::helpers::json_from_slice(&bytes)?;
                 result.insert(id, instrument);
             }
         }
@@ -234,11 +226,7 @@ impl Store for SqliteStore {
                 ))?)
             })
             .await?;
-
-        match payload {
-            Some(bytes) => Ok(Some(serde_json::from_slice::<PortfolioSpec>(&bytes)?)),
-            None => Ok(None),
-        }
+        crate::helpers::optional_json_from_slice(payload)
     }
 
     async fn put_scenario(
@@ -277,11 +265,7 @@ impl Store for SqliteStore {
                 ))?)
             })
             .await?;
-
-        match payload {
-            Some(bytes) => Ok(Some(serde_json::from_slice::<ScenarioSpec>(&bytes)?)),
-            None => Ok(None),
-        }
+        crate::helpers::optional_json_from_slice(payload)
     }
 
     async fn list_scenarios(&self) -> Result<Vec<String>> {
@@ -341,11 +325,7 @@ impl Store for SqliteStore {
                 ))?)
             })
             .await?;
-
-        match payload {
-            Some(bytes) => Ok(Some(serde_json::from_slice::<FinancialModelSpec>(&bytes)?)),
-            None => Ok(None),
-        }
+        crate::helpers::optional_json_from_slice(payload)
     }
 
     async fn list_statement_models(&self) -> Result<Vec<String>> {
@@ -406,11 +386,7 @@ impl Store for SqliteStore {
                 ))?)
             })
             .await?;
-
-        match payload {
-            Some(bytes) => Ok(Some(serde_json::from_slice::<MetricRegistry>(&bytes)?)),
-            None => Ok(None),
-        }
+        crate::helpers::optional_json_from_slice(payload)
     }
 
     async fn list_metric_registries(&self) -> Result<Vec<String>> {

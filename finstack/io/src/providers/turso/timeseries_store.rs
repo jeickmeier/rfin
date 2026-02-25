@@ -9,8 +9,7 @@ use libsql::params;
 use time::OffsetDateTime;
 
 use super::store::{
-    get_optional_f64, get_optional_string, get_string, meta_json_str, parse_ts_key, ts_key,
-    TursoStore,
+    get_optional_f64, get_optional_string, get_string, meta_json_str, ts_key, TursoStore,
 };
 
 #[async_trait]
@@ -43,10 +42,7 @@ impl TimeSeriesStore for TursoStore {
         match rows.next().await.map_err(Error::from)? {
             Some(row) => {
                 let meta_str = get_optional_string(&row, 0)?;
-                match meta_str {
-                    Some(s) if !s.is_empty() => Ok(Some(serde_json::from_str(&s)?)),
-                    _ => Ok(None),
-                }
+                crate::helpers::optional_json_string_to_value(meta_str)
             }
             None => Ok(None),
         }
@@ -136,22 +132,12 @@ impl TimeSeriesStore for TursoStore {
             let value = get_optional_f64(&row, 1)?;
             let payload_str = get_optional_string(&row, 2)?;
             let meta_str = get_optional_string(&row, 3)?;
-
-            let payload = match payload_str {
-                Some(s) if !s.is_empty() => Some(serde_json::from_str(&s)?),
-                _ => None,
-            };
-            let meta = match meta_str {
-                Some(s) if !s.is_empty() => Some(serde_json::from_str(&s)?),
-                _ => None,
-            };
-
-            out.push(TimeSeriesPoint {
-                ts: parse_ts_key(&ts_str)?,
+            out.push(crate::helpers::time_series_point_from_row(
+                ts_str,
                 value,
-                payload,
-                meta,
-            });
+                payload_str,
+                meta_str,
+            )?);
         }
         Ok(out)
     }
@@ -178,22 +164,12 @@ impl TimeSeriesStore for TursoStore {
                 let value = get_optional_f64(&row, 1)?;
                 let payload_str = get_optional_string(&row, 2)?;
                 let meta_str = get_optional_string(&row, 3)?;
-
-                let payload = match payload_str {
-                    Some(s) if !s.is_empty() => Some(serde_json::from_str(&s)?),
-                    _ => None,
-                };
-                let meta = match meta_str {
-                    Some(s) if !s.is_empty() => Some(serde_json::from_str(&s)?),
-                    _ => None,
-                };
-
-                Ok(Some(TimeSeriesPoint {
-                    ts: parse_ts_key(&ts_str)?,
+                Ok(Some(crate::helpers::time_series_point_from_row(
+                    ts_str,
                     value,
-                    payload,
-                    meta,
-                }))
+                    payload_str,
+                    meta_str,
+                )?))
             }
             None => Ok(None),
         }

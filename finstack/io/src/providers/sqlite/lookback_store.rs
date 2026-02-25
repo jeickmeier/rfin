@@ -6,11 +6,9 @@ use crate::{
 };
 use async_trait::async_trait;
 use finstack_core::dates::Date;
-use finstack_core::market_data::context::{MarketContext, MarketContextState};
-use finstack_portfolio::PortfolioSpec;
 use rusqlite::params;
 
-use super::store::{as_of_key, optional_row, parse_as_of_key, SqliteStore};
+use super::store::{as_of_key, optional_row, SqliteStore};
 
 #[async_trait]
 impl LookbackStore for SqliteStore {
@@ -47,13 +45,9 @@ impl LookbackStore for SqliteStore {
 
         let mut out = Vec::new();
         for (as_of_str, bytes) in rows {
-            let as_of = parse_as_of_key(&as_of_str)?;
-            let state: MarketContextState = serde_json::from_slice(&bytes)?;
-            let ctx = MarketContext::try_from(state)?;
-            out.push(MarketContextSnapshot {
-                as_of,
-                context: ctx,
-            });
+            out.push(crate::helpers::market_context_snapshot_from_row(
+                as_of_str, &bytes,
+            )?);
         }
         Ok(out)
     }
@@ -83,15 +77,9 @@ impl LookbackStore for SqliteStore {
             .await?;
 
         match row {
-            Some((as_of_str, bytes)) => {
-                let as_of = parse_as_of_key(&as_of_str)?;
-                let state: MarketContextState = serde_json::from_slice(&bytes)?;
-                let ctx = MarketContext::try_from(state)?;
-                Ok(Some(MarketContextSnapshot {
-                    as_of,
-                    context: ctx,
-                }))
-            }
+            Some((as_of_str, bytes)) => Ok(Some(crate::helpers::market_context_snapshot_from_row(
+                as_of_str, &bytes,
+            )?)),
             None => Ok(None),
         }
     }
@@ -128,9 +116,9 @@ impl LookbackStore for SqliteStore {
 
         let mut out = Vec::new();
         for (as_of_str, bytes) in rows {
-            let as_of = parse_as_of_key(&as_of_str)?;
-            let spec: PortfolioSpec = serde_json::from_slice(&bytes)?;
-            out.push(PortfolioSnapshot { as_of, spec });
+            out.push(crate::helpers::portfolio_snapshot_from_row(
+                as_of_str, &bytes,
+            )?);
         }
         Ok(out)
     }
@@ -160,11 +148,9 @@ impl LookbackStore for SqliteStore {
             .await?;
 
         match row {
-            Some((as_of_str, bytes)) => {
-                let as_of = parse_as_of_key(&as_of_str)?;
-                let spec: PortfolioSpec = serde_json::from_slice(&bytes)?;
-                Ok(Some(PortfolioSnapshot { as_of, spec }))
-            }
+            Some((as_of_str, bytes)) => Ok(Some(crate::helpers::portfolio_snapshot_from_row(
+                as_of_str, &bytes,
+            )?)),
             None => Ok(None),
         }
     }

@@ -1,5 +1,6 @@
 //! LookbackStore trait implementation for PostgresStore.
 
+use super::store::{as_of_key, PostgresStore};
 use crate::{
     sql::{statements, Backend},
     LookbackStore, MarketContextSnapshot, PortfolioSnapshot, Result,
@@ -7,10 +8,6 @@ use crate::{
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use finstack_core::dates::Date;
-use finstack_core::market_data::context::{MarketContext, MarketContextState};
-use finstack_portfolio::PortfolioSpec;
-
-use super::store::{as_of_key, parse_as_of_key, PostgresStore};
 
 #[async_trait]
 impl LookbackStore for PostgresStore {
@@ -33,12 +30,9 @@ impl LookbackStore for PostgresStore {
         for row in rows {
             let as_of: NaiveDate = row.get(0);
             let payload: serde_json::Value = row.get(1);
-            let state: MarketContextState = serde_json::from_value(payload)?;
-            let ctx = MarketContext::try_from(state)?;
-            out.push(MarketContextSnapshot {
-                as_of: parse_as_of_key(as_of)?,
-                context: ctx,
-            });
+            out.push(crate::helpers::market_context_snapshot_from_postgres_row(
+                as_of, payload,
+            )?);
         }
         Ok(out)
     }
@@ -58,12 +52,9 @@ impl LookbackStore for PostgresStore {
             Some(row) => {
                 let as_of: NaiveDate = row.get(0);
                 let payload: serde_json::Value = row.get(1);
-                let state: MarketContextState = serde_json::from_value(payload)?;
-                let ctx = MarketContext::try_from(state)?;
-                Ok(Some(MarketContextSnapshot {
-                    as_of: parse_as_of_key(as_of)?,
-                    context: ctx,
-                }))
+                Ok(Some(
+                    crate::helpers::market_context_snapshot_from_postgres_row(as_of, payload)?,
+                ))
             }
             None => Ok(None),
         }
@@ -87,11 +78,9 @@ impl LookbackStore for PostgresStore {
         for row in rows {
             let as_of: NaiveDate = row.get(0);
             let payload: serde_json::Value = row.get(1);
-            let spec: PortfolioSpec = serde_json::from_value(payload)?;
-            out.push(PortfolioSnapshot {
-                as_of: parse_as_of_key(as_of)?,
-                spec,
-            });
+            out.push(crate::helpers::portfolio_snapshot_from_postgres_row(
+                as_of, payload,
+            )?);
         }
         Ok(out)
     }
@@ -112,11 +101,9 @@ impl LookbackStore for PostgresStore {
             Some(row) => {
                 let as_of: NaiveDate = row.get(0);
                 let payload: serde_json::Value = row.get(1);
-                let spec: PortfolioSpec = serde_json::from_value(payload)?;
-                Ok(Some(PortfolioSnapshot {
-                    as_of: parse_as_of_key(as_of)?,
-                    spec,
-                }))
+                Ok(Some(crate::helpers::portfolio_snapshot_from_postgres_row(
+                    as_of, payload,
+                )?))
             }
             None => Ok(None),
         }

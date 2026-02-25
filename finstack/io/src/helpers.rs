@@ -4,7 +4,13 @@
 //! lexicographic ordering in SQL queries.
 
 use crate::{Error, Result};
+use crate::{MarketContextSnapshot, PortfolioSnapshot, TimeSeriesPoint};
+#[cfg(feature = "postgres")]
+use chrono::{DateTime, NaiveDate, Utc};
 use finstack_core::dates::Date;
+use finstack_core::market_data::context::{MarketContext, MarketContextState};
+use finstack_portfolio::PortfolioSpec;
+use serde::de::DeserializeOwned;
 use time::OffsetDateTime;
 
 /// Convert metadata to JSON string.
@@ -18,7 +24,6 @@ pub(crate) fn meta_json_string(meta: Option<&serde_json::Value>) -> Result<Strin
 }
 
 /// Convert metadata to optional JSON string (for time-series where null is allowed).
-#[cfg(feature = "turso")]
 pub(crate) fn meta_json_optional_string(
     meta: Option<&serde_json::Value>,
 ) -> Result<Option<String>> {
@@ -26,6 +31,125 @@ pub(crate) fn meta_json_optional_string(
         Some(v) => Ok(Some(serde_json::to_string(v)?)),
         None => Ok(None),
     }
+}
+
+pub(crate) fn optional_json_string_to_value<T>(value: Option<String>) -> Result<Option<T>>
+where
+    T: DeserializeOwned,
+{
+    match value {
+        Some(raw) if !raw.is_empty() => Ok(Some(serde_json::from_str(&raw)?)),
+        _ => Ok(None),
+    }
+}
+
+pub(crate) fn json_from_slice<T>(bytes: &[u8]) -> Result<T>
+where
+    T: DeserializeOwned,
+{
+    Ok(serde_json::from_slice(bytes)?)
+}
+
+pub(crate) fn optional_json_from_slice<T>(bytes: Option<Vec<u8>>) -> Result<Option<T>>
+where
+    T: DeserializeOwned,
+{
+    bytes.map(|value| json_from_slice::<T>(&value)).transpose()
+}
+
+pub(crate) fn json_from_value<T>(value: serde_json::Value) -> Result<T>
+where
+    T: DeserializeOwned,
+{
+    Ok(serde_json::from_value(value)?)
+}
+
+pub(crate) fn optional_json_from_value<T>(value: Option<serde_json::Value>) -> Result<Option<T>>
+where
+    T: DeserializeOwned,
+{
+    value.map(json_from_value::<T>).transpose()
+}
+
+pub(crate) fn market_context_snapshot_from_row(
+    as_of: String,
+    payload: &[u8],
+) -> Result<MarketContextSnapshot> {
+    let as_of = parse_date_key(&as_of)?;
+    let state: MarketContextState = json_from_slice(payload)?;
+    let context = MarketContext::try_from(state)?;
+    Ok(MarketContextSnapshot { as_of, context })
+}
+
+pub(crate) fn portfolio_snapshot_from_row(
+    as_of: String,
+    payload: &[u8],
+) -> Result<PortfolioSnapshot> {
+    let as_of = parse_date_key(&as_of)?;
+    let spec: PortfolioSpec = json_from_slice(payload)?;
+    Ok(PortfolioSnapshot { as_of, spec })
+}
+
+pub(crate) fn time_series_point_from_row(
+    ts: String,
+    value: Option<f64>,
+    payload: Option<String>,
+    meta: Option<String>,
+) -> Result<TimeSeriesPoint> {
+    let payload = optional_json_string_to_value(payload)?;
+    let meta = optional_json_string_to_value(meta)?;
+    Ok(TimeSeriesPoint {
+        ts: parse_timestamp_key(&ts)?,
+        value,
+        payload,
+        meta,
+    })
+}
+
+#[cfg(feature = "postgres")]
+pub(crate) fn market_context_snapshot_from_postgres_row(
+    as_of: NaiveDate,
+    payload: serde_json::Value,
+) -> Result<MarketContextSnapshot> {
+    let as_of = parse_date_key(&as_of.to_string())?;
+    let state: MarketContextState = json_from_value(payload)?;
+    let context = MarketContext::try_from(state)?;
+    Ok(MarketContextSnapshot { as_of, context })
+}
+
+#[cfg(feature = "postgres")]
+pub(crate) fn portfolio_snapshot_from_postgres_row(
+    as_of: NaiveDate,
+    payload: serde_json::Value,
+) -> Result<PortfolioSnapshot> {
+    let as_of = parse_date_key(&as_of.to_string())?;
+    let spec: PortfolioSpec = json_from_value(payload)?;
+    Ok(PortfolioSnapshot { as_of, spec })
+}
+
+#[cfg(feature = "postgres")]
+pub(crate) fn time_series_point_from_postgres_row(
+    ts: DateTime<Utc>,
+    value: Option<f64>,
+    payload: Option<serde_json::Value>,
+    meta: Option<serde_json::Value>,
+) -> Result<TimeSeriesPoint> {
+    let payload = optional_json_from_value(payload)?;
+    let meta = optional_json_from_value(meta)?;
+    let seconds = ts.timestamp();
+    let nanos = ts.timestamp_subsec_nanos();
+    let base = OffsetDateTime::from_unix_timestamp(seconds)
+        .map_err(|e| Error::Invariant(format!("Invalid timestamp in database: {e}")))?;
+    let ts = base
+        .replace_nanosecond(nanos)
+        .map_err(|e| Error::Invariant(format!("Invalid timestamp in database: {e}")))?;
+
+    Ok(TimeSeriesPoint {
+        ts,
+        value,
+        payload,
+        meta,
+    })
 }
 
 /// Format a date as ISO 8601 (YYYY-MM-DD) for use as a database key.

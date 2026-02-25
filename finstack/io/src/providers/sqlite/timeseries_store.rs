@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use rusqlite::params;
 use time::OffsetDateTime;
 
-use super::store::{optional_row, parse_ts_key, ts_key, SqliteStore};
+use super::store::{optional_row, ts_key, SqliteStore};
 
 type SeriesRow = (String, Option<f64>, Option<String>, Option<String>);
 
@@ -56,10 +56,7 @@ impl TimeSeriesStore for SqliteStore {
             })
             .await?;
 
-        match meta {
-            Some(value) => Ok(Some(serde_json::from_str(&value)?)),
-            None => Ok(None),
-        }
+        crate::helpers::optional_json_string_to_value(meta)
     }
 
     async fn list_series(&self, namespace: &str, kind: SeriesKind) -> Result<Vec<String>> {
@@ -169,20 +166,9 @@ impl TimeSeriesStore for SqliteStore {
 
         let mut out = Vec::new();
         for (ts_str, value, payload, meta) in rows {
-            let payload = match payload {
-                Some(value) => Some(serde_json::from_str(&value)?),
-                None => None,
-            };
-            let meta = match meta {
-                Some(value) => Some(serde_json::from_str(&value)?),
-                None => None,
-            };
-            out.push(TimeSeriesPoint {
-                ts: parse_ts_key(&ts_str)?,
-                value,
-                payload,
-                meta,
-            });
+            out.push(crate::helpers::time_series_point_from_row(
+                ts_str, value, payload, meta,
+            )?);
         }
         Ok(out)
     }
@@ -211,22 +197,9 @@ impl TimeSeriesStore for SqliteStore {
             .await?;
 
         match row {
-            Some((ts_str, value, payload, meta)) => {
-                let payload = match payload {
-                    Some(value) => Some(serde_json::from_str(&value)?),
-                    None => None,
-                };
-                let meta = match meta {
-                    Some(value) => Some(serde_json::from_str(&value)?),
-                    None => None,
-                };
-                Ok(Some(TimeSeriesPoint {
-                    ts: parse_ts_key(&ts_str)?,
-                    value,
-                    payload,
-                    meta,
-                }))
-            }
+            Some((ts_str, value, payload, meta)) => Ok(Some(
+                crate::helpers::time_series_point_from_row(ts_str, value, payload, meta)?,
+            )),
             None => Ok(None),
         }
     }

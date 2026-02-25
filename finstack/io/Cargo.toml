@@ -21,6 +21,7 @@ finstack-statements = { path = "../statements" }
 finstack-scenarios = { path = "../scenarios" }
 
 # Core dependencies
+serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 time = { workspace = true }

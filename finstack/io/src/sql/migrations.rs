@@ -28,7 +28,7 @@ use super::{
 };
 
 /// Latest schema version.
-pub const LATEST_VERSION: i64 = 3;
+pub const LATEST_VERSION: i64 = 4;
 
 fn build_sql(backend: Backend, stmt: impl SchemaStatementBuilder) -> String {
     match backend {
@@ -77,6 +77,14 @@ pub fn migrations_for_with_naming(
         migrations.push((version, stmts));
     }
 
+    // Version 4 migration normalizes existing time-series timestamps.
+    // SQLite/Turso store timestamps as fixed-width strings; older databases may still have
+    // 27-char microsecond strings and need migration to the current 30-char nanosecond format.
+    let v4 = migration_v4_sql(backend, naming);
+    if !v4.is_empty() {
+        migrations.push((4, v4));
+    }
+
     migrations
 }
 
@@ -102,4 +110,22 @@ pub fn schema_migrations_table_sql_with_naming(backend: Backend, naming: &TableN
 #[allow(dead_code)]
 pub fn schema_migrations_table_sql(backend: Backend) -> String {
     build_sql(backend, schema::schema_migrations_table(backend))
+}
+
+fn migration_v4_sql(backend: Backend, naming: &TableNaming) -> Vec<String> {
+    let table = quote_ident(&naming.resolve("series_points"));
+    match backend {
+        Backend::Sqlite => {
+            vec![format!(
+                "UPDATE {table} \
+                 SET ts = substr(ts, 1, length(ts) - 1) || '000Z' \
+                 WHERE ts LIKE '____-__-__T__:%:%.___%Z' AND length(ts) = 27",
+            )]
+        }
+        Backend::Postgres => vec!["SELECT 1".to_string()],
+    }
+}
+
+fn quote_ident(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
 }

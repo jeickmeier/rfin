@@ -196,8 +196,6 @@ pub(crate) use crate::helpers::format_date_key as as_of_key;
 pub(crate) use crate::helpers::format_timestamp_key as ts_key;
 pub(crate) use crate::helpers::meta_json_optional_string as meta_json_str;
 pub(crate) use crate::helpers::meta_json_string as meta_json;
-pub(crate) use crate::helpers::parse_date_key as parse_as_of_key;
-pub(crate) use crate::helpers::parse_timestamp_key as parse_ts_key;
 
 /// Helper to get a string from a libsql row.
 pub(crate) fn get_string(row: &libsql::Row, idx: i32) -> Result<String> {

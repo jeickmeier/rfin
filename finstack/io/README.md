@@ -195,7 +195,7 @@ let migrations = migrations::migrations_for_with_naming(Backend::Sqlite, &naming
 The current schema version is tracked in `sql/migrations.rs`:
 
 ```rust
-pub const LATEST_VERSION: i64 = 3;
+pub const LATEST_VERSION: i64 = 4;
 ```
 
 Migrations are tracked in the `finstack_schema_migrations` table.
@@ -239,7 +239,7 @@ impl TableDefinition for MyTable {
 
     // Migration version when this table was introduced
     fn migration_version() -> i64 {
-        4  // Next version after current LATEST_VERSION
+        5  // Next version after current LATEST_VERSION
     }
 
     fn create_table_with_naming(backend: Backend, naming: &TableNaming) -> TableCreateStatement {
@@ -282,13 +282,13 @@ pub use my_table::MyTable;
 
 ```rust
 // In schema/mod.rs, add to the appropriate version
-(4, vec![MyTable::create_table_with_naming(backend, naming)]),
+(5, vec![MyTable::create_table_with_naming(backend, naming)]),
 ```
 
 4. **Update LATEST_VERSION** in `src/sql/migrations.rs`:
 
 ```rust
-pub const LATEST_VERSION: i64 = 4;
+pub const LATEST_VERSION: i64 = 5;
 ```
 
 5. **Add Store trait methods** (optional) - see next section.
