@@ -64,7 +64,7 @@ fn par_spread_zeros_npv() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -73,7 +73,7 @@ fn par_spread_zeros_npv() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -85,7 +85,6 @@ fn par_spread_zeros_npv() {
         .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
         .unwrap();
     let par_spread_bp = res.measures[MetricId::BasisParSpread.as_str()];
-    let par_spread_decimal = par_spread_bp / 1e4;
 
     // Create new swap with par spread applied
     let swap_at_par = BasisSwap::new(
@@ -100,7 +99,7 @@ fn par_spread_zeros_npv() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: par_spread_decimal,
+            spread_bp: par_spread_bp,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -109,7 +108,7 @@ fn par_spread_zeros_npv() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -144,7 +143,7 @@ fn par_spread_formula_validation() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -153,7 +152,7 @@ fn par_spread_formula_validation() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -210,7 +209,7 @@ fn par_spread_with_existing_spread() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0010, // 10bp existing spread
+            spread_bp: 10.0, // 10bp existing spread
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -219,7 +218,7 @@ fn par_spread_with_existing_spread() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -275,7 +274,7 @@ fn par_spread_inverted_curves() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -284,7 +283,7 @@ fn par_spread_inverted_curves() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -319,7 +318,7 @@ fn par_spread_long_maturity() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -328,7 +327,7 @@ fn par_spread_long_maturity() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -369,7 +368,7 @@ fn par_spread_different_frequencies() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -378,7 +377,7 @@ fn par_spread_different_frequencies() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -413,7 +412,7 @@ fn par_spread_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -422,7 +421,7 @@ fn par_spread_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -482,7 +481,7 @@ fn incremental_par_spread_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -491,7 +490,7 @@ fn incremental_par_spread_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -502,11 +501,10 @@ fn incremental_par_spread_sign_convention() {
         .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
         .unwrap();
     let par_spread_bp = res.measures[MetricId::BasisParSpread.as_str()];
-    let par_spread_decimal = par_spread_bp / 1e4;
 
     // Case 1: Current spread BELOW par -> Positive incremental
     // (need to add more spread to reach par)
-    let below_par_spread = par_spread_decimal - 0.0005; // 5bp below par
+    let below_par_spread = par_spread_bp - 5.0; // 5bp below par
     let swap_below_par = BasisSwap::new(
         "INC-SIGN-BELOW",
         Money::new(10_000_000.0, USD),
@@ -519,7 +517,7 @@ fn incremental_par_spread_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: below_par_spread,
+            spread_bp: below_par_spread,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -528,7 +526,7 @@ fn incremental_par_spread_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -554,7 +552,7 @@ fn incremental_par_spread_sign_convention() {
 
     // Case 2: Current spread ABOVE par -> Negative incremental
     // (would need to reduce spread to reach par)
-    let above_par_spread = par_spread_decimal + 0.0005; // 5bp above par
+    let above_par_spread = par_spread_bp + 5.0; // 5bp above par
     let swap_above_par = BasisSwap::new(
         "INC-SIGN-ABOVE",
         Money::new(10_000_000.0, USD),
@@ -567,7 +565,7 @@ fn incremental_par_spread_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: above_par_spread,
+            spread_bp: above_par_spread,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -576,7 +574,7 @@ fn incremental_par_spread_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -613,7 +611,7 @@ fn incremental_par_spread_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: par_spread_decimal,
+            spread_bp: par_spread_bp,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -622,7 +620,7 @@ fn incremental_par_spread_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -660,7 +658,7 @@ fn zero_notional_par_spread_returns_error() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -669,7 +667,7 @@ fn zero_notional_par_spread_returns_error() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )

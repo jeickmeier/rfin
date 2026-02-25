@@ -143,14 +143,14 @@ def main() -> None:
         frequency="3M",
         day_count=DayCount.ACT_360,
         business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING,
-        spread=0.0,
+        spread_bp=0.0,
     )
     leg_6m = BasisSwapLeg(
         "USD-SOFR-6M",
         frequency="6M",
         day_count=DayCount.ACT_360,
         business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING,
-        spread=0.0005,  # 5bp in decimal terms
+        spread_bp=5.0,  # 5bp
     )
     basis_swap = (
         BasisSwap.builder("USD-BASIS-3M-6M")

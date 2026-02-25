@@ -17,12 +17,12 @@ class BasisSwapLeg:
         frequency: Optional[str] = "quarterly",
         day_count: Optional[DayCount] = None,
         business_day_convention: Optional[BusinessDayConvention] = None,
-        spread: float = 0.0,
+        spread_bp: float = 0.0,
     ) -> None: ...
     @property
     def forward_curve(self) -> str: ...
     @property
-    def spread(self) -> float: ...
+    def spread_bp(self) -> float: ...
 
 class BasisSwapBuilder:
     """Fluent builder returned by :meth:`BasisSwap.builder`."""
@@ -58,11 +58,11 @@ class BasisSwap:
         >>> from finstack.valuations.instruments import BasisSwap, BasisSwapLeg
         >>> from finstack import Money, Currency
         >>> from datetime import date
-        >>> primary_leg = BasisSwapLeg(forward_curve="USD-LIBOR-3M", frequency="quarterly", spread=0.0)
+        >>> primary_leg = BasisSwapLeg(forward_curve="USD-LIBOR-3M", frequency="quarterly", spread_bp=0.0)
         >>> reference_leg = BasisSwapLeg(
         ...     forward_curve="USD-SOFR",
         ...     frequency="quarterly",
-        ...     spread=0.001,  # 10bp basis spread (decimal)
+        ...     spread_bp=10.0,  # 10bp basis spread
         ... )
         >>> basis_swap = (
         ...     BasisSwap

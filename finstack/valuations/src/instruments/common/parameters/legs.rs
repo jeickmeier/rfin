@@ -202,18 +202,20 @@ pub struct BasisSwapLeg {
     /// Business day convention for date adjustments
     #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
-    /// Spread added to the floating rate, in **decimal** form (not basis points).
+    /// Spread added to the floating rate, in **basis points**.
     ///
     /// # Units
     ///
-    /// - `0.0005` represents 5 basis points (5bp)
-    /// - `0.01` represents 100 basis points (1%)
-    /// - `-0.001` represents -10 basis points
+    /// - `5.0` represents 5 basis points (5bp)
+    /// - `100.0` represents 100 basis points (1%)
+    /// - `-10.0` represents -10 basis points
+    ///
+    /// This is consistent with `FloatLegSpec::spread_bp` and `PremiumLegSpec::spread_bp`.
     ///
     /// # Typical Market Range
     ///
-    /// Basis spreads in liquid markets typically range from -50bp to +50bp (-0.005 to +0.005).
-    /// Values outside ±5000bp (±50%, i.e., |spread| > 0.50) are considered extreme and
+    /// Basis spreads in liquid markets typically range from -50bp to +50bp.
+    /// Values outside ±5000bp are considered extreme and
     /// will trigger a validation warning during pricing.
     ///
     /// # Example
@@ -228,12 +230,12 @@ pub struct BasisSwapLeg {
     ///     frequency: Tenor::quarterly(),
     ///     day_count: DayCount::Act360,
     ///     bdc: BusinessDayConvention::ModifiedFollowing,
-    ///     spread: 0.0005, // 5bp spread
+    ///     spread_bp: 5.0, // 5bp spread
     ///     payment_lag_days: 0,
     ///     reset_lag_days: 2,
     /// };
     /// ```
-    pub spread: f64,
+    pub spread_bp: f64,
     /// Payment lag in business days after period end (default: 0).
     ///
     /// E.g., `payment_lag_days: 2` means payment occurs 2 business days after the

@@ -121,7 +121,7 @@ fn theta_is_finite() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -130,7 +130,7 @@ fn theta_is_finite() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -163,7 +163,7 @@ fn theta_matches_pv_change() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -172,7 +172,7 @@ fn theta_matches_pv_change() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -223,7 +223,7 @@ fn theta_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0010, // 10bp spread
+            spread_bp: 10.0, // 10bp spread
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -232,7 +232,7 @@ fn theta_sign_convention() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -269,7 +269,7 @@ fn theta_decreases_near_maturity() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -278,7 +278,7 @@ fn theta_decreases_near_maturity() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -325,7 +325,7 @@ fn theta_at_par() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -334,7 +334,7 @@ fn theta_at_par() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -344,7 +344,7 @@ fn theta_at_par() {
     let res = swap_zero
         .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
         .unwrap();
-    let par_spread = res.measures[MetricId::BasisParSpread.as_str()] / 1e4;
+    let par_spread = res.measures[MetricId::BasisParSpread.as_str()];
 
     // Create swap at par
     let swap_at_par = BasisSwap::new(
@@ -359,7 +359,7 @@ fn theta_at_par() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: par_spread,
+            spread_bp: par_spread,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -368,7 +368,7 @@ fn theta_at_par() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -401,7 +401,7 @@ fn theta_with_long_maturity() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -410,7 +410,7 @@ fn theta_with_long_maturity() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -441,7 +441,7 @@ fn theta_consistency_across_dates() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -450,7 +450,7 @@ fn theta_consistency_across_dates() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -494,7 +494,7 @@ fn theta_multi_year() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0005,
+            spread_bp: 5.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -503,7 +503,7 @@ fn theta_multi_year() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )
@@ -565,7 +565,7 @@ fn theta_zero_at_maturity() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -574,7 +574,7 @@ fn theta_zero_at_maturity() {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )

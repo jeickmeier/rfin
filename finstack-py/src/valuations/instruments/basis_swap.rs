@@ -28,10 +28,10 @@ fn parse_stub(label: Option<&str>) -> PyResult<finstack_core::dates::StubKind> {
 /// Examples:
 ///     >>> leg = BasisSwapLeg(
 ///     ...     "usd_libor_3m",
-///     ...     spread=12.5,
+///     ...     spread_bp=12.5,
 ///     ...     frequency="quarterly"
 ///     ... )
-///     >>> leg.spread
+///     >>> leg.spread_bp
 ///     12.5
 #[pyclass(
     module = "finstack.valuations.instruments",
@@ -53,9 +53,9 @@ impl PyBasisSwapLeg {
             frequency=None,
             day_count=None,
             business_day_convention=None,
-            spread=0.0
+            spread_bp=0.0
         ),
-        text_signature = "(forward_curve, /, *, frequency='quarterly', day_count='act_360', business_day_convention='modified_following', spread=0.0)"
+        text_signature = "(forward_curve, /, *, frequency='quarterly', day_count='act_360', business_day_convention='modified_following', spread_bp=0.0)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a basis swap leg specification.
@@ -65,7 +65,7 @@ impl PyBasisSwapLeg {
     ///     frequency: Optional payment frequency label (e.g., ``"quarterly"``).
     ///     day_count: Optional day-count convention.
     ///     business_day_convention: Optional business-day adjustment rule.
-    ///     spread: Optional spread in basis points.
+    ///     spread_bp: Optional spread in basis points.
     ///
     /// Returns:
     ///     BasisSwapLeg: Leg specification describing accrual and spread inputs.
@@ -78,7 +78,7 @@ impl PyBasisSwapLeg {
         frequency: Option<&str>,
         day_count: Option<Bound<'_, PyAny>>,
         business_day_convention: Option<Bound<'_, PyAny>>,
-        spread: Option<f64>,
+        spread_bp: Option<f64>,
     ) -> PyResult<Self> {
         use crate::errors::PyContext;
         let forward_id = forward_curve.extract::<&str>().context("forward_curve")?;
@@ -103,7 +103,7 @@ impl PyBasisSwapLeg {
                 frequency: freq,
                 day_count: dc,
                 bdc,
-                spread: spread.unwrap_or(0.0),
+                spread_bp: spread_bp.unwrap_or(0.0),
                 payment_lag_days: 0,
                 reset_lag_days: 0,
             },
@@ -124,8 +124,8 @@ impl PyBasisSwapLeg {
     /// Returns:
     ///     float: Leg spread applied to the floating rate.
     #[getter]
-    fn spread(&self) -> f64 {
-        self.inner.spread
+    fn spread_bp(&self) -> f64 {
+        self.inner.spread_bp
     }
 }
 

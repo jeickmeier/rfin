@@ -24,11 +24,11 @@ let primary = BasisSwapLeg {
     frequency: Tenor::quarterly(),
     day_count: DayCount::Act360,
     bdc: BusinessDayConvention::ModifiedFollowing,
-    spread: 0.0005,
+    spread_bp: 5.0,
     payment_lag_days: 0,
     reset_lag_days: 0,
 };
-let reference = BasisSwapLeg { spread: 0.0, forward_curve_id: CurveId::new("USD-SOFR-6M"), ..primary };
+let reference = BasisSwapLeg { spread_bp: 0.0, forward_curve_id: CurveId::new("USD-SOFR-6M"), ..primary };
 
 let swap = BasisSwap::new(
     "BASIS-001",

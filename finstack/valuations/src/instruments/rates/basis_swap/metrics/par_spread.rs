@@ -15,7 +15,7 @@ use finstack_core::{Error, Result};
 /// # Example
 ///
 /// If a swap has:
-/// - Current primary leg spread: 5bp (0.0005 decimal)
+/// - Current primary leg spread: 5bp
 /// - Computed par spread: 8bp
 ///
 /// The swap is **out of the money** by 3bp × annuity × notional. To close the position
@@ -147,7 +147,7 @@ impl MetricCalculator for ParSpreadCalculator {
             bdc: swap.primary_leg.bdc,
             payment_lag_days: swap.primary_leg.payment_lag_days,
             reset_lag_days: swap.primary_leg.reset_lag_days,
-            spread: 0.0,
+            spread_bp: 0.0,
         };
         let schedule = swap.leg_schedule(&primary_leg_no_spread)?;
         let pv_primary_no_spread = swap
@@ -186,8 +186,8 @@ impl MetricCalculator for IncrementalParSpreadCalculator {
             .downcast_ref::<BasisSwap>()
             .ok_or(Error::Input(finstack_core::InputError::Invalid))?;
 
-        // Current spread in bp (convert from decimal)
-        let current_spread_bp = swap.primary_leg.spread * 1e4;
+        // Current spread in bp
+        let current_spread_bp = swap.primary_leg.spread_bp;
 
         // Incremental = absolute par spread - current spread
         Ok(absolute_par_spread_bp - current_spread_bp)

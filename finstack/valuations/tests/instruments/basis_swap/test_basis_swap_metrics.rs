@@ -69,7 +69,7 @@ fn swap() -> BasisSwap {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         BasisSwapLeg {
             payment_lag_days: 0,
@@ -78,7 +78,7 @@ fn swap() -> BasisSwap {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
         },
         CurveId::new("USD-OIS"),
     )

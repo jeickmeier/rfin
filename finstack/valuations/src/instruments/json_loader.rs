@@ -958,7 +958,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0005,
+            spread_bp: 5.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -968,7 +968,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -1049,7 +1049,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0005,
+            spread_bp: 5.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -1058,7 +1058,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };

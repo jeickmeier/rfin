@@ -22,13 +22,13 @@ impl JsBasisSwapLeg {
     /// Create a basis swap floating leg specification.
     ///
     /// Conventions:
-    /// - `spread` is a **decimal rate** (not bps) applied to the index rate.
+    /// - `spread_bp` is in **basis points** (e.g. 5.0 for 5bp), consistent with FloatLegSpec and PremiumLegSpec.
     /// - `frequency` and `day_count` are parsed from strings (e.g. `"3M"`, `"act_360"`).
     ///
     /// @param forward_curve - Forward curve ID (e.g. `"USD-SOFR-3M"`)
     /// @param frequency - Optional payment/reset frequency (e.g. `"3M"`)
     /// @param day_count - Optional day count name (e.g. `"act_360"`)
-    /// @param spread - Optional spread (decimal) added to the forward rate
+    /// @param spread_bp - Optional spread in basis points added to the forward rate
     /// @param business_day_convention - Optional BDC name (e.g. `"modified_following"`)
     /// @returns A `BasisSwapLeg`
     /// @throws {Error} If parsing fails
@@ -37,7 +37,7 @@ impl JsBasisSwapLeg {
         forward_curve: &str,
         frequency: Option<String>,
         day_count: Option<String>,
-        spread: Option<f64>,
+        spread_bp: Option<f64>,
         business_day_convention: Option<String>,
     ) -> Result<JsBasisSwapLeg, JsValue> {
         let freq = parse_optional_with_default(frequency, Tenor::quarterly())?;
@@ -53,7 +53,7 @@ impl JsBasisSwapLeg {
                 frequency: freq,
                 day_count: dc,
                 bdc,
-                spread: spread.unwrap_or(0.0),
+                spread_bp: spread_bp.unwrap_or(0.0),
                 payment_lag_days: 0,
                 reset_lag_days: 0,
             },
@@ -66,8 +66,8 @@ impl JsBasisSwapLeg {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn spread(&self) -> f64 {
-        self.inner.spread
+    pub fn spread_bp(&self) -> f64 {
+        self.inner.spread_bp
     }
 }
 
@@ -358,8 +358,10 @@ impl JsBasisSwap {
                     .year_fraction(period_start, period_end, DayCountCtx::default())
                     .map_err(|e| js_error(e.to_string()))?;
 
-                let coupon =
-                    sign * self.inner.notional.amount() * (forward_rate + leg.spread) * accrual;
+                let coupon = sign
+                    * self.inner.notional.amount()
+                    * (forward_rate + leg.spread_bp / 10_000.0)
+                    * accrual;
                 let entry = Array::new();
                 entry.push(&JsDate::from_core(payment_date).into());
                 entry.push(

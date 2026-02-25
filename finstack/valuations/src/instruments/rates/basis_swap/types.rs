@@ -67,7 +67,7 @@ pub use crate::instruments::common_impl::parameters::legs::BasisSwapLeg;
 ///     frequency: Tenor::quarterly(),
 ///     day_count: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
-///     spread: 0.0005,
+///     spread_bp: 5.0,
 ///     payment_lag_days: 0,
 ///     reset_lag_days: 0,
 /// };
@@ -77,7 +77,7 @@ pub use crate::instruments::common_impl::parameters::legs::BasisSwapLeg;
 ///     frequency: Tenor::semi_annual(),
 ///     day_count: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
-///     spread: 0.0,
+///     spread_bp: 0.0,
 ///     payment_lag_days: 0,
 ///     reset_lag_days: 0,
 /// };
@@ -305,7 +305,7 @@ impl BasisSwap {
     /// #     frequency: Tenor::quarterly(),
     /// #     day_count: DayCount::Act360,
     /// #     bdc: BusinessDayConvention::ModifiedFollowing,
-    /// #     spread: 0.0005,
+    /// #     spread_bp: 5.0,
     /// #     payment_lag_days: 0,
     /// #     reset_lag_days: 0,
     /// # };
@@ -316,7 +316,7 @@ impl BasisSwap {
     ///     Date::from_calendar_date(2024, Month::January, 3).unwrap(),
     ///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
     ///     leg.clone(),
-    ///     BasisSwapLeg { spread: 0.0, ..leg },
+    ///     BasisSwapLeg { spread_bp: 0.0, ..leg },
     ///     CurveId::new("OIS"),
     /// );
     /// ```
@@ -454,29 +454,27 @@ impl BasisSwap {
             ));
         }
 
-        // Validate spread is in reasonable range (±5000bp = ±50%)
+        // Validate spread is in reasonable range (±5000bp)
         // Values beyond this are almost certainly data errors
-        const MAX_SPREAD_DECIMAL: f64 = 0.50; // 5000bp
-        if leg.spread.abs() > MAX_SPREAD_DECIMAL {
+        const MAX_SPREAD_BP: f64 = 5000.0;
+        if leg.spread_bp.abs() > MAX_SPREAD_BP {
             return Err(finstack_core::Error::Validation(format!(
-                "BasisSwap leg spread {} ({:.0}bp) exceeds maximum threshold of ±{}bp. \
-                 Spread should be in decimal form (e.g., 0.0005 for 5bp, not 5.0). \
+                "BasisSwap leg spread {:.0}bp exceeds maximum threshold of ±{:.0}bp. \
+                 Spread is in basis points (e.g., 5.0 for 5bp). \
                  If this is intentional for stress testing, consider using a dedicated stress API.",
-                leg.spread,
-                leg.spread * 10000.0,
-                MAX_SPREAD_DECIMAL * 10000.0
+                leg.spread_bp, MAX_SPREAD_BP
             )));
         }
 
         // Warn on spreads outside typical market range (±500bp)
-        const TYPICAL_SPREAD_DECIMAL: f64 = 0.05; // 500bp
-        if leg.spread.abs() > TYPICAL_SPREAD_DECIMAL {
+        const TYPICAL_SPREAD_BP: f64 = 500.0;
+        if leg.spread_bp.abs() > TYPICAL_SPREAD_BP {
             tracing::warn!(
                 instrument_id = %self.id.as_str(),
-                spread_bp = leg.spread * 10000.0,
+                spread_bp = leg.spread_bp,
                 "BasisSwap leg spread {:.0}bp is outside typical market range (±500bp). \
                  Verify this is intentional and not a unit conversion error.",
-                leg.spread * 10000.0
+                leg.spread_bp
             );
         }
 
@@ -518,9 +516,8 @@ impl BasisSwap {
             })
             .collect();
 
-        // Build floating leg params - spread is in decimal form for BasisSwap
         let params = FloatingLegParams::full(
-            leg.spread * 10000.0, // spread_bp - convert decimal to bp for shared function
+            leg.spread_bp,
             1.0,                  // gearing
             true,                 // gearing_includes_spread
             None,                 // index_floor_bp
@@ -740,7 +737,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0005, // 5bp
+            spread_bp: 5.0, // 5bp
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -750,7 +747,7 @@ mod tests {
             frequency: Tenor::semi_annual(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -814,7 +811,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -823,7 +820,7 @@ mod tests {
             frequency: Tenor::semi_annual(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -880,7 +877,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0010,
+            spread_bp: 10.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -894,7 +891,7 @@ mod tests {
             frequency: Tenor::semi_annual(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -945,7 +942,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -994,7 +991,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0005,
+            spread_bp: 5.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -1005,7 +1002,10 @@ mod tests {
             date(2024, 1, 3),
             date(2025, 1, 3),
             leg.clone(),
-            BasisSwapLeg { spread: 0.0, ..leg },
+            BasisSwapLeg {
+                spread_bp: 0.0,
+                ..leg
+            },
             CurveId::new("OIS"),
         )
         .expect_err("should fail for same forward curve");
@@ -1040,7 +1040,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0010, // 10bp spread
+            spread_bp: 10.0, // 10bp spread
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -1052,7 +1052,10 @@ mod tests {
             date(2024, 1, 3),
             date(2025, 1, 3),
             leg.clone(),
-            BasisSwapLeg { spread: 0.0, ..leg },
+            BasisSwapLeg {
+                spread_bp: 0.0,
+                ..leg
+            },
             CurveId::new("OIS"),
         )
         .expect("should succeed with explicit allow")
@@ -1109,7 +1112,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0, // Start at zero spread
+            spread_bp: 0.0, // Start at zero spread
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -1119,7 +1122,7 @@ mod tests {
             frequency: Tenor::semi_annual(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -1150,12 +1153,9 @@ mod tests {
             .get(MetricId::BasisParSpread.as_str())
             .expect("should have par spread");
 
-        // Convert bp to decimal
-        let par_spread_decimal = par_spread_bp / 10000.0;
-
         // Create a new swap with the par spread applied
         let primary_leg_at_par = BasisSwapLeg {
-            spread: par_spread_decimal,
+            spread_bp: par_spread_bp,
             ..primary_leg
         };
 
@@ -1192,7 +1192,7 @@ mod tests {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            spread: 0.0,
+            spread_bp: 0.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
