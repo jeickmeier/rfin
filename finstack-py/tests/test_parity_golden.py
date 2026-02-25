@@ -176,7 +176,8 @@ def test_bond_pricing_treasury() -> None:
 
     # Create a simple treasury bond
     bond = (
-        Bond.builder("TREASURY-001")
+        Bond
+        .builder("TREASURY-001")
         .notional(1_000_000.0)
         .currency("USD")
         .issue(date(2024, 1, 1))
@@ -216,7 +217,8 @@ def test_irs_valuation() -> None:
 
     # Create a simple interest rate swap
     irs = (
-        InterestRateSwap.builder("IRS-001")
+        InterestRateSwap
+        .builder("IRS-001")
         .notional(10_000_000.0)
         .currency("USD")
         .maturity(date(2029, 1, 1))

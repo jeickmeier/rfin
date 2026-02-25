@@ -41,7 +41,8 @@ class InterestRateSwap:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import InterestRateSwap
         >>> swap = (
-        ...     InterestRateSwap.builder("SWAP-001")
+        ...     InterestRateSwap
+        ...     .builder("SWAP-001")
         ...     .money(Money(10_000_000, Currency("USD")))
         ...     .side(PayReceive.PAY_FIXED)
         ...     .fixed_rate(0.035)
@@ -62,7 +63,8 @@ class InterestRateSwap:
         >>> from finstack.valuations.instruments import InterestRateSwap
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> swap = (
-        ...     InterestRateSwap.builder("SWAP-EXAMPLE")
+        ...     InterestRateSwap
+        ...     .builder("SWAP-EXAMPLE")
         ...     .money(Money(5_000_000, Currency("USD")))
         ...     .side(PayReceive.PAY_FIXED)
         ...     .fixed_rate(0.03)

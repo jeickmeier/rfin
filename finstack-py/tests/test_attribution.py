@@ -47,7 +47,8 @@ def test_bond_attribution_parallel() -> None:
     """Test parallel attribution for a simple bond."""
     # Create bond
     bond = (
-        Bond.builder("TEST-BOND")
+        Bond
+        .builder("TEST-BOND")
         .money(Money(1_000_000, "USD"))
         .coupon_rate(0.05)  # 5% coupon
         .issue(date(2025, 1, 1))
@@ -92,7 +93,8 @@ def test_bond_attribution_waterfall() -> None:
     """Test waterfall attribution for a bond."""
     # Create bond and markets (reusing from above)
     bond = (
-        Bond.builder("TEST-BOND")
+        Bond
+        .builder("TEST-BOND")
         .money(Money(1_000_000, "USD"))
         .coupon_rate(0.05)
         .issue(date(2025, 1, 1))
@@ -125,7 +127,8 @@ def test_bond_attribution_waterfall() -> None:
 def test_attribution_exports() -> None:
     """Test CSV and explain exports."""
     bond = (
-        Bond.builder("TEST-BOND")
+        Bond
+        .builder("TEST-BOND")
         .money(Money(1_000_000, "USD"))
         .coupon_rate(0.05)
         .issue(date(2025, 1, 1))
@@ -156,7 +159,8 @@ def test_attribution_exports() -> None:
 def test_attribution_tolerance_check() -> None:
     """Test residual tolerance checking."""
     bond = (
-        Bond.builder("TEST-BOND")
+        Bond
+        .builder("TEST-BOND")
         .money(Money(1_000_000, "USD"))
         .coupon_rate(0.05)
         .issue(date(2025, 1, 1))
@@ -180,7 +184,8 @@ def test_attribution_tolerance_check() -> None:
 def test_attribution_detail_access() -> None:
     """Test accessing detailed attribution breakdowns."""
     bond = (
-        Bond.builder("TEST-BOND")
+        Bond
+        .builder("TEST-BOND")
         .money(Money(1_000_000, "USD"))
         .coupon_rate(0.05)
         .issue(date(2025, 1, 1))

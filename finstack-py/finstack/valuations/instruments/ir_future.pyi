@@ -49,7 +49,8 @@ class InterestRateFuture:
         >>> from finstack import Money, Currency
         >>> from datetime import date
         >>> future = (
-        ...     InterestRateFuture.builder("IR-FUTURE-DEC24")
+        ...     InterestRateFuture
+        ...     .builder("IR-FUTURE-DEC24")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .quoted_price(96.50)  # Implies 3.5% rate (100 - 96.50)
         ...     .expiry(date(2024, 12, 15))

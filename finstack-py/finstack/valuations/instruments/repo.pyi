@@ -70,7 +70,8 @@ class Repo:
         ...     market_value_id="UST-5Y-PRICE",
         ... )
         >>> repo = (
-        ...     Repo.builder("REPO-UST-5Y")
+        ...     Repo
+        ...     .builder("REPO-UST-5Y")
         ...     .cash_amount(Money(1_000_000, Currency("USD")))
         ...     .collateral(collateral)
         ...     .repo_rate(0.03)  # 3% repo rate

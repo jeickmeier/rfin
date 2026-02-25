@@ -47,7 +47,8 @@ class TestPositionParity:
         """Test position construction."""
         # Create simple bond
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -75,7 +76,8 @@ class TestPositionParity:
     def test_position_with_tags(self) -> None:
         """Test position with tags."""
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -106,7 +108,8 @@ class TestPositionParity:
     def test_position_negative_quantity(self) -> None:
         """Test position with negative quantity (short position)."""
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -161,7 +164,8 @@ class TestPortfolioBuilderParity:
 
         # Add position
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -195,7 +199,8 @@ class TestPortfolioBuilderParity:
 
         # Add position without corresponding entity
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -236,7 +241,8 @@ class TestPortfolioValuationParity:
         builder.entity(entity)
 
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -289,7 +295,8 @@ class TestPortfolioValuationParity:
         # Add two bond positions
         for i in range(2):
             bond = (
-                Bond.builder(f"BOND-00{i + 1}")
+                Bond
+                .builder(f"BOND-00{i + 1}")
                 .notional(1_000_000.0)
                 .currency("USD")
                 .issue(date(2024, 1, 1))
@@ -337,7 +344,8 @@ class TestPortfolioValuationParity:
 
         # Add USD bond
         usd_bond = (
-            Bond.builder("BOND-USD")
+            Bond
+            .builder("BOND-USD")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -362,7 +370,8 @@ class TestPortfolioValuationParity:
 
         # Add EUR bond
         eur_bond = (
-            Bond.builder("BOND-EUR")
+            Bond
+            .builder("BOND-EUR")
             .notional(1_000_000.0)
             .currency("EUR")
             .issue(date(2024, 1, 1))
@@ -438,7 +447,8 @@ class TestPortfolioAggregationParity:
         # Add positions to each entity
         for fund_id in ["FUND-001", "FUND-002"]:
             bond = (
-                Bond.builder(f"BOND-{fund_id}")
+                Bond
+                .builder(f"BOND-{fund_id}")
                 .notional(1_000_000.0)
                 .currency("USD")
                 .issue(date(2024, 1, 1))
@@ -490,7 +500,8 @@ class TestPortfolioAggregationParity:
         # Add positions with different ratings
         for rating in ["AAA", "AA"]:
             bond = (
-                Bond.builder(f"BOND-{rating}")
+                Bond
+                .builder(f"BOND-{rating}")
                 .notional(1_000_000.0)
                 .currency("USD")
                 .issue(date(2024, 1, 1))
@@ -556,7 +567,8 @@ class TestEdgeCases:
     def test_position_zero_quantity(self) -> None:
         """Test position with zero quantity."""
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -591,7 +603,8 @@ class TestEdgeCases:
         # Add 10 positions
         for i in range(10):
             bond = (
-                Bond.builder(f"BOND-{i:03d}")
+                Bond
+                .builder(f"BOND-{i:03d}")
                 .notional(100_000.0)
                 .currency("USD")
                 .issue(date(2024, 1, 1))

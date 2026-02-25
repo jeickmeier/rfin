@@ -38,7 +38,8 @@ class FxSpot:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import FxSpot
         >>> fx_spot = (
-        ...     FxSpot.builder("FX-EURUSD-SPOT")
+        ...     FxSpot
+        ...     .builder("FX-EURUSD-SPOT")
         ...     .base_currency(Currency("EUR"))
         ...     .quote_currency(Currency("USD"))
         ...     .notional(Money(1_000_000, Currency("EUR")))
@@ -159,7 +160,8 @@ class FxOption:
         >>> from finstack import Currency, Money
         >>> from datetime import date
         >>> fx_option = (
-        ...     FxOption.builder("FX-OPT-EURUSD-CALL")
+        ...     FxOption
+        ...     .builder("FX-OPT-EURUSD-CALL")
         ...     .base_currency(Currency("EUR"))
         ...     .quote_currency(Currency("USD"))
         ...     .strike(1.10)  # EUR/USD strike
@@ -184,7 +186,8 @@ class FxOption:
         >>> from finstack.valuations.instruments import FxOption
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> fx_option = (
-        ...     FxOption.builder("FX-OPT-EURUSD")
+        ...     FxOption
+        ...     .builder("FX-OPT-EURUSD")
         ...     .base_currency(Currency("EUR"))
         ...     .quote_currency(Currency("USD"))
         ...     .strike(1.10)
@@ -316,7 +319,8 @@ class FxSwap:
         >>> from finstack import Currency, Money
         >>> from datetime import date
         >>> fx_swap = (
-        ...     FxSwap.builder("FX-SWAP-EURUSD")
+        ...     FxSwap
+        ...     .builder("FX-SWAP-EURUSD")
         ...     .base_currency(Currency("EUR"))
         ...     .quote_currency(Currency("USD"))
         ...     .notional(Money(1_000_000, Currency("EUR")))
@@ -340,7 +344,8 @@ class FxSwap:
         >>> from finstack.valuations.instruments import FxSwap
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> fx_swap = (
-        ...     FxSwap.builder("FX-SWAP-EURUSD")
+        ...     FxSwap
+        ...     .builder("FX-SWAP-EURUSD")
         ...     .base_currency(Currency("EUR"))
         ...     .quote_currency(Currency("USD"))
         ...     .notional(Money(1_000_000, Currency("EUR")))

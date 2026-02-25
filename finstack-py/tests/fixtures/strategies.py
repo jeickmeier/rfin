@@ -177,7 +177,8 @@ def deposit_strategy(
     currency = Currency(currency_code)
 
     return (
-        Deposit.builder(f"DEP-{tenor_days}D")
+        Deposit
+        .builder(f"DEP-{tenor_days}D")
         .money(Money(notional, currency))
         .start(base_date)
         .maturity(maturity_date)
@@ -204,7 +205,8 @@ def bond_strategy(
     currency = Currency(currency_code)
 
     return (
-        Bond.builder(f"BOND-{tenor_years}Y")
+        Bond
+        .builder(f"BOND-{tenor_years}Y")
         .money(Money(notional, currency))
         .coupon_rate(coupon)
         .issue(base_date)
@@ -228,7 +230,8 @@ def swap_strategy(
     fixed_rate = draw(st.floats(min_value=0.01, max_value=0.10))
 
     return (
-        InterestRateSwap.builder(f"IRS-{tenor_years}Y")
+        InterestRateSwap
+        .builder(f"IRS-{tenor_years}Y")
         .notional(notional)
         .currency(currency_code)
         .maturity(maturity_date)
@@ -310,7 +313,8 @@ def create_test_bond(
     This is a deterministic helper, not a hypothesis strategy.
     """
     return (
-        Bond.builder(bond_id)
+        Bond
+        .builder(bond_id)
         .notional(notional)
         .currency(currency_code)
         .issue(issue)
@@ -338,7 +342,8 @@ def create_test_swap(
     This is a deterministic helper, not a hypothesis strategy.
     """
     return (
-        InterestRateSwap.builder(swap_id)
+        InterestRateSwap
+        .builder(swap_id)
         .notional(notional)
         .currency(currency_code)
         .maturity(maturity)
@@ -367,7 +372,8 @@ def create_test_deposit(
     """
     currency = Currency(currency_code)
     return (
-        Deposit.builder(deposit_id)
+        Deposit
+        .builder(deposit_id)
         .money(Money(notional, currency))
         .start(start)
         .maturity(end)

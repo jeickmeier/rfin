@@ -29,7 +29,8 @@ class PricerRegistry:
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> registry = create_standard_registry()
         >>> bond = (
-        ...     Bond.builder("BOND-001")
+        ...     Bond
+        ...     .builder("BOND-001")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .coupon_rate(0.045)
         ...     .issue(date(2023, 1, 1))
@@ -308,7 +309,8 @@ class PricerRegistry:
             >>> from finstack.valuations.pricer import create_standard_registry
             >>> registry = create_standard_registry()
             >>> bond = (
-            ...     Bond.builder("EXAMPLE")
+            ...     Bond
+            ...     .builder("EXAMPLE")
             ...     .money(Money(1_000_000, Currency("USD")))
             ...     .coupon_rate(0.04)
             ...     .issue(date(2024, 1, 1))

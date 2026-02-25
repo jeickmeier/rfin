@@ -131,7 +131,8 @@ class EquityTotalReturnSwap:
         ...     schedule_params=ScheduleParams.quarterly_act360(),
         ... )
         >>> trs = (
-        ...     EquityTotalReturnSwap.builder("TRS-SPX")
+        ...     EquityTotalReturnSwap
+        ...     .builder("TRS-SPX")
         ...     .notional(Money(10_000_000, Currency("USD")))
         ...     .underlying(underlying)
         ...     .financing(financing)
@@ -204,7 +205,8 @@ class FiIndexTotalReturnSwap:
         ...     schedule_params=ScheduleParams.quarterly_act360(),
         ... )
         >>> trs = (
-        ...     FiIndexTotalReturnSwap.builder("TRS-AGG")
+        ...     FiIndexTotalReturnSwap
+        ...     .builder("TRS-AGG")
         ...     .notional(Money(10_000_000, Currency("USD")))
         ...     .underlying(underlying)
         ...     .financing(financing)

@@ -33,7 +33,8 @@ class Equity:
         >>> from finstack.valuations.instruments import Equity
         >>> from finstack import Currency
         >>> equity = (
-        ...     Equity.builder("EQUITY-AAPL")
+        ...     Equity
+        ...     .builder("EQUITY-AAPL")
         ...     .ticker("AAPL")
         ...     .currency(Currency("USD"))
         ...     .shares(100.0)

@@ -45,7 +45,8 @@ class InflationLinkedBond:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import InflationLinkedBond
         >>> bond = (
-        ...     InflationLinkedBond.builder("TIPS-2030")
+        ...     InflationLinkedBond
+        ...     .builder("TIPS-2030")
         ...     .notional(Money(1_000_000, Currency("USD")))
         ...     .real_coupon(0.02)
         ...     .issue(date(2024, 1, 1))
@@ -68,7 +69,8 @@ class InflationLinkedBond:
         >>> from finstack.valuations.instruments import InflationLinkedBond
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> bond = (
-        ...     InflationLinkedBond.builder("TIPS-2030")
+        ...     InflationLinkedBond
+        ...     .builder("TIPS-2030")
         ...     .notional(Money(1_000_000, Currency("USD")))
         ...     .real_coupon(0.02)
         ...     .issue(date(2024, 1, 1))

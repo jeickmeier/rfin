@@ -21,7 +21,8 @@ class TestBondPricingParity:
     def test_bond_construction(self) -> None:
         """Test bond construction via builder."""
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -41,7 +42,8 @@ class TestBondPricingParity:
         """Test simple bond pricing matches expected NPV."""
         # Create bond
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -75,7 +77,8 @@ class TestBondPricingParity:
         """Test bond priced at par when coupon equals discount rate."""
         # Create bond with 5% coupon
         bond = (
-            Bond.builder("BOND-PAR")
+            Bond
+            .builder("BOND-PAR")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -114,7 +117,8 @@ class TestBondPricingParity:
     def test_bond_with_metrics(self) -> None:
         """Test bond pricing with metrics calculation."""
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -153,7 +157,8 @@ class TestSwapPricingParity:
     def test_swap_construction(self) -> None:
         """Test swap construction via builder."""
         swap = (
-            InterestRateSwap.builder("IRS-001")
+            InterestRateSwap
+            .builder("IRS-001")
             .notional(10_000_000.0)
             .currency("USD")
             .maturity(date(2029, 1, 1))
@@ -169,7 +174,8 @@ class TestSwapPricingParity:
     def test_swap_pricing_simple(self) -> None:
         """Test simple swap pricing."""
         swap = (
-            InterestRateSwap.builder("IRS-001")
+            InterestRateSwap
+            .builder("IRS-001")
             .notional(10_000_000.0)
             .currency("USD")
             .maturity(date(2029, 1, 1))
@@ -210,7 +216,8 @@ class TestSwapPricingParity:
         """Test swap valued at zero when fixed rate equals forward rate."""
         # This test verifies pricing consistency
         swap = (
-            InterestRateSwap.builder("IRS-ATM")
+            InterestRateSwap
+            .builder("IRS-ATM")
             .notional(10_000_000.0)
             .currency("USD")
             .maturity(date(2029, 1, 1))
@@ -257,7 +264,8 @@ class TestDepositPricingParity:
         from finstack.core.money import Money
 
         deposit = (
-            Deposit.builder("DEP-001")
+            Deposit
+            .builder("DEP-001")
             .money(Money(1_000_000.0, Currency("USD")))
             .start(date(2024, 1, 1))
             .maturity(date(2024, 4, 1))
@@ -275,7 +283,8 @@ class TestDepositPricingParity:
         from finstack.core.money import Money
 
         deposit = (
-            Deposit.builder("DEP-001")
+            Deposit
+            .builder("DEP-001")
             .money(Money(1_000_000.0, Currency("USD")))
             .start(date(2024, 1, 1))
             .maturity(date(2024, 4, 1))
@@ -304,7 +313,8 @@ class TestDepositPricingParity:
         """Deposit PV is near zero at market rate."""
         # 1M deposit at 4.5% on 1M USD
         deposit = (
-            Deposit.builder("DEP-001")
+            Deposit
+            .builder("DEP-001")
             .money(Money(1_000_000.0, USD))
             .start(date(2024, 1, 1))
             .maturity(date(2024, 4, 1))  # 90 days
@@ -346,7 +356,8 @@ class TestPricerRegistryParity:
     def test_registry_multiple_model_keys(self) -> None:
         """Test pricing with different model keys."""
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -380,7 +391,8 @@ class TestMetricsParity:
     def test_scalar_metrics_available(self) -> None:
         """Test scalar metrics are computed."""
         bond = (
-            Bond.builder("BOND-001")
+            Bond
+            .builder("BOND-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -465,7 +477,8 @@ class TestEdgeCases:
     def test_zero_coupon_bond(self) -> None:
         """Test zero-coupon bond pricing."""
         bond = (
-            Bond.builder("ZERO-001")
+            Bond
+            .builder("ZERO-001")
             .notional(1_000_000.0)
             .currency("USD")
             .issue(date(2024, 1, 1))
@@ -497,7 +510,8 @@ class TestEdgeCases:
     def test_deposit_overnight(self) -> None:
         """Test overnight deposit pricing."""
         deposit = (
-            Deposit.builder("ON-001")
+            Deposit
+            .builder("ON-001")
             .money(Money(1_000_000.0, USD))
             .start(date(2024, 1, 1))
             .maturity(date(2024, 1, 2))  # 1 day

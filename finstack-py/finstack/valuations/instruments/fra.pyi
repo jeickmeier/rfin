@@ -46,7 +46,8 @@ class ForwardRateAgreement:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import ForwardRateAgreement
         >>> fra = (
-        ...     ForwardRateAgreement.builder("FRA-3M6M")
+        ...     ForwardRateAgreement
+        ...     .builder("FRA-3M6M")
         ...     .money(Money(10_000_000, Currency("USD")))
         ...     .fixed_rate(0.035)
         ...     .fixing_date(date(2024, 6, 1))
@@ -67,7 +68,8 @@ class ForwardRateAgreement:
         >>> from finstack.valuations.instruments import ForwardRateAgreement
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> fra = (
-        ...     ForwardRateAgreement.builder("FRA-3M6M")
+        ...     ForwardRateAgreement
+        ...     .builder("FRA-3M6M")
         ...     .money(Money(5_000_000, Currency("USD")))
         ...     .fixed_rate(0.03)
         ...     .fixing_date(date(2024, 6, 1))

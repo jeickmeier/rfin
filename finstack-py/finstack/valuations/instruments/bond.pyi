@@ -67,7 +67,8 @@ class Bond:
         >>> from finstack import Money, Currency
         >>> from datetime import date
         >>> bond = (
-        ...     Bond.builder("CORP-001")
+        ...     Bond
+        ...     .builder("CORP-001")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .coupon_rate(0.045)  # 4.5% annual coupon
         ...     .issue(date(2023, 1, 1))
@@ -88,7 +89,8 @@ class Bond:
         >>> from finstack.valuations.instruments import Bond
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> bond = (
-        ...     Bond.builder("CORP-001")
+        ...     Bond
+        ...     .builder("CORP-001")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .coupon_rate(0.045)
         ...     .issue(date(2023, 1, 1))

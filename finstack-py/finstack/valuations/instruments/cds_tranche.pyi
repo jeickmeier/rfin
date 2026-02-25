@@ -47,7 +47,8 @@ class CdsTranche:
         >>> from finstack import Money, Currency
         >>> from datetime import date
         >>> tranche = (
-        ...     CdsTranche.builder("CDX-IG-0-3")
+        ...     CdsTranche
+        ...     .builder("CDX-IG-0-3")
         ...     .index_name("CDX.NA.IG")
         ...     .series(40)
         ...     .attach_pct(0.0)  # 0% attachment (equity)

@@ -154,7 +154,8 @@ class ResultsMeta:
         ...     ctx = MarketContext()
         ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.95)]))
         ...     bond = (
-        ...         Bond.builder("BOND-META")
+        ...         Bond
+        ...         .builder("BOND-META")
         ...         .money(Money(1_000_000, Currency("USD")))
         ...         .coupon_rate(0.04)
         ...         .issue(date(2024, 1, 1))
@@ -273,7 +274,8 @@ class ValuationResult:
         >>> market_ctx = MarketContext()
         >>> market_ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         >>> bond = (
-        ...     Bond.builder("BOND-EXAMPLE")
+        ...     Bond
+        ...     .builder("BOND-EXAMPLE")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .coupon_rate(0.05)
         ...     .issue(date(2024, 1, 1))
@@ -298,7 +300,8 @@ class ValuationResult:
         >>> market_ctx = MarketContext()
         >>> market_ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         >>> bond = (
-        ...     Bond.builder("BOND-EXAMPLE")
+        ...     Bond
+        ...     .builder("BOND-EXAMPLE")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .coupon_rate(0.05)
         ...     .issue(date(2024, 1, 1))
@@ -324,7 +327,8 @@ class ValuationResult:
         ...     ctx = MarketContext()
         ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         ...     bond = (
-        ...         Bond.builder("BOND-003")
+        ...         Bond
+        ...         .builder("BOND-003")
         ...         .money(Money(1_000_000, Currency("USD")))
         ...         .coupon_rate(0.05)
         ...         .issue(date(2024, 1, 1))
@@ -351,7 +355,8 @@ class ValuationResult:
         ...     ctx = MarketContext()
         ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         ...     bond = (
-        ...         Bond.builder("BOND-004")
+        ...         Bond
+        ...         .builder("BOND-004")
         ...         .money(Money(1_000_000, Currency("USD")))
         ...         .coupon_rate(0.05)
         ...         .issue(date(2024, 1, 1))
@@ -380,7 +385,8 @@ class ValuationResult:
         ...     ctx = MarketContext()
         ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         ...     bond = (
-        ...         Bond.builder("BOND-005")
+        ...         Bond
+        ...         .builder("BOND-005")
         ...         .money(Money(1_000_000, Currency("USD")))
         ...         .coupon_rate(0.05)
         ...         .issue(date(2024, 1, 1))
@@ -433,7 +439,8 @@ class ValuationResult:
             ...     ctx = MarketContext()
             ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (
-            ...         Bond.builder("BOND-001")
+            ...         Bond
+            ...         .builder("BOND-001")
             ...         .money(Money(1_000_000, Currency("USD")))
             ...         .coupon_rate(0.05)
             ...         .issue(date(2024, 1, 1))
@@ -472,7 +479,8 @@ class ValuationResult:
             ...     ctx = MarketContext()
             ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (
-            ...         Bond.builder("BOND-001")
+            ...         Bond
+            ...         .builder("BOND-001")
             ...         .money(Money(1_000_000, Currency("USD")))
             ...         .coupon_rate(0.05)
             ...         .issue(date(2024, 1, 1))
@@ -513,7 +521,8 @@ class ValuationResult:
             ...     ctx = MarketContext()
             ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (
-            ...         Bond.builder("BOND-001")
+            ...         Bond
+            ...         .builder("BOND-001")
             ...         .money(Money(1_000_000, Currency("USD")))
             ...         .coupon_rate(0.05)
             ...         .issue(date(2024, 1, 1))
@@ -573,7 +582,8 @@ class ValuationResult:
             ...     ctx = MarketContext()
             ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (
-            ...         Bond.builder("BOND-002")
+            ...         Bond
+            ...         .builder("BOND-002")
             ...         .money(Money(1_000_000, Currency("USD")))
             ...         .coupon_rate(0.05)
             ...         .issue(date(2024, 1, 1))

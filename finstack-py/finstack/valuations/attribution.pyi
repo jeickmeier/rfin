@@ -415,7 +415,8 @@ def attribute_pnl(
         >>> from finstack.valuations.attribution import attribute_pnl, AttributionMethod
         >>> from finstack.valuations.instruments import Bond
         >>> bond = (
-        ...     Bond.builder("CORP-001")
+        ...     Bond
+        ...     .builder("CORP-001")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .coupon_rate(0.05)
         ...     .issue(date(2025, 1, 1))

@@ -43,7 +43,8 @@ class CdsOption:
         >>> from finstack import Money, Currency
         >>> from datetime import date
         >>> cds_option = (
-        ...     CdsOption.builder("CDS-OPT-CORP-A")
+        ...     CdsOption
+        ...     .builder("CDS-OPT-CORP-A")
         ...     .money(Money(10_000_000, Currency("USD")))
         ...     .strike_spread_bp(150.0)  # 150bp strike
         ...     .expiry(date(2024, 12, 20))
@@ -135,7 +136,8 @@ class CdsOption:
         Examples
         --------
             >>> cds_option = (
-            ...     CdsOption.builder("CDS-OPT-CORP-A")
+            ...     CdsOption
+            ...     .builder("CDS-OPT-CORP-A")
             ...     .notional(Money(10_000_000, Currency("USD")))
             ...     .strike_spread_bp(150.0)  # 150bp strike
             ...     .expiry(date(2024, 12, 20))

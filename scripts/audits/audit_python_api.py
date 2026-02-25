@@ -179,7 +179,7 @@ class PythonAPIExtractor:
         """Extract function name from function definition."""
         if "pub fn " in line:
             # Extract: pub fn function_name( -> function_name
-            parts = line.split("pub fn ")[1].split("(")[0].strip()
+            parts = line.split("pub fn ", maxsplit=1)[1].split("(", maxsplit=1)[0].strip()
             return parts
         return ""
 
@@ -187,7 +187,7 @@ class PythonAPIExtractor:
         """Extract method name from method definition."""
         if "fn " in line:
             # Extract: pub fn method_name( -> method_name
-            parts = line.split("fn ")[1].split("(")[0].strip()
+            parts = line.split("fn ", maxsplit=1)[1].split("(", maxsplit=1)[0].strip()
             return parts
         return ""
 

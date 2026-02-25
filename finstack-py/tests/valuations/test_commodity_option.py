@@ -8,7 +8,8 @@ from finstack.valuations.instruments import CommodityOption
 def test_commodity_option_create() -> None:
     """Test creating a commodity option."""
     option = (
-        CommodityOption.builder("WTI-CALL-75-2025M06")
+        CommodityOption
+        .builder("WTI-CALL-75-2025M06")
         .commodity_type("Energy")
         .ticker("CL")
         .strike(75.0)
@@ -43,7 +44,8 @@ def test_commodity_option_create() -> None:
 def test_commodity_option_american() -> None:
     """Test creating an American commodity option."""
     option = (
-        CommodityOption.builder("WTI-PUT-70-2025M06")
+        CommodityOption
+        .builder("WTI-PUT-70-2025M06")
         .commodity_type("Energy")
         .ticker("CL")
         .strike(70.0)
@@ -68,7 +70,8 @@ def test_commodity_option_american() -> None:
 def test_commodity_option_with_overrides() -> None:
     """Test commodity option with pricing overrides."""
     option = (
-        CommodityOption.builder("GC-CALL-2000-2025M12")
+        CommodityOption
+        .builder("GC-CALL-2000-2025M12")
         .commodity_type("Metal")
         .ticker("GC")
         .strike(2000.0)
@@ -98,7 +101,8 @@ def test_commodity_option_with_overrides() -> None:
 def test_commodity_option_repr() -> None:
     """Test commodity option repr."""
     option = (
-        CommodityOption.builder("WTI-CALL-75-2025M06")
+        CommodityOption
+        .builder("WTI-CALL-75-2025M06")
         .commodity_type("Energy")
         .ticker("CL")
         .strike(75.0)

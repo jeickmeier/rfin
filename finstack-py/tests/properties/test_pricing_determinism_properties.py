@@ -72,7 +72,8 @@ def deposit_strategy(draw: Callable[[Any], Any], currency_code: str = "USD") -> 
     currency = Currency(currency_code)
 
     return (
-        Deposit.builder(f"DEP-{tenor_days}D")
+        Deposit
+        .builder(f"DEP-{tenor_days}D")
         .money(Money(notional, currency))
         .start(start_date)
         .maturity(maturity_date)
@@ -96,7 +97,8 @@ def bond_strategy(draw: Callable[[Any], Any], currency_code: str = "USD") -> Bon
     currency = Currency(currency_code)
 
     return (
-        Bond.builder(f"BOND-{tenor_years}Y")
+        Bond
+        .builder(f"BOND-{tenor_years}Y")
         .money(Money(notional, currency))
         .coupon_rate(coupon)
         .issue(issue_date)

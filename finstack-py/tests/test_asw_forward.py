@@ -37,7 +37,8 @@ def _build_market_and_bond() -> tuple[Bond, MarketContext]:
     market.insert_forward(fwd)
 
     bond = (
-        Bond.builder("ASW-PY")
+        Bond
+        .builder("ASW-PY")
         .money(Money(100.0, Currency("USD")))
         .coupon_rate(0.05)
         .issue(as_of)

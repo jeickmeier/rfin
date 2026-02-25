@@ -40,7 +40,8 @@ class InflationSwap:
         >>> from finstack import Money, Currency
         >>> from datetime import date
         >>> inflation_swap = (
-        ...     InflationSwap.builder("INFLATION-SWAP-5Y")
+        ...     InflationSwap
+        ...     .builder("INFLATION-SWAP-5Y")
         ...     .notional(Money(10_000_000, Currency("USD")))
         ...     .fixed_rate(0.025)  # 2.5% fixed rate
         ...     .start_date(date(2024, 1, 1))

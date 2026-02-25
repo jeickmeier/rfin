@@ -260,7 +260,8 @@ class TestCrossLanguageDepositPricing:
         from finstack.valuations.instruments import Deposit
 
         deposit = (
-            Deposit.builder("CONS-DEP")
+            Deposit
+            .builder("CONS-DEP")
             .money(Money(notional, Currency("USD")))
             .start(date(2024, 1, 1))
             .maturity(date(2024, 1, 1) + timedelta(days=90))

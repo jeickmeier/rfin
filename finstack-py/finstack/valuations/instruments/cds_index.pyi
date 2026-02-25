@@ -43,7 +43,8 @@ class CDSIndex:
         >>> from finstack import Money, Currency
         >>> from datetime import date
         >>> cds_index = (
-        ...     CDSIndex.builder("CDX-IG-5Y")
+        ...     CDSIndex
+        ...     .builder("CDX-IG-5Y")
         ...     .index_name("CDX.NA.IG")
         ...     .series(40)
         ...     .version(1)

@@ -45,7 +45,8 @@ class EquityOption:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import EquityOption
         >>> option = (
-        ...     EquityOption.builder("SPX-CALL-4500")
+        ...     EquityOption
+        ...     .builder("SPX-CALL-4500")
         ...     .ticker("SPX")
         ...     .strike(4500.0)
         ...     .expiry(date(2024, 12, 20))
@@ -70,7 +71,8 @@ class EquityOption:
         >>> from finstack.valuations.instruments import EquityOption
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> option = (
-        ...     EquityOption.builder("SPX-CALL-4500")
+        ...     EquityOption
+        ...     .builder("SPX-CALL-4500")
         ...     .ticker("SPX")
         ...     .strike(4500.0)
         ...     .expiry(date(2024, 12, 20))

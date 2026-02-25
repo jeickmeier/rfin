@@ -46,7 +46,8 @@ class InterestRateOption:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import InterestRateOption
         >>> cap = (
-        ...     InterestRateOption.builder("CAP-5Y")
+        ...     InterestRateOption
+        ...     .builder("CAP-5Y")
         ...     .kind("cap")
         ...     .money(Money(10_000_000, Currency("USD")))
         ...     .strike(0.03)
@@ -69,7 +70,8 @@ class InterestRateOption:
         >>> from finstack.valuations.instruments import InterestRateOption
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> cap = (
-        ...     InterestRateOption.builder("CAP-5Y")
+        ...     InterestRateOption
+        ...     .builder("CAP-5Y")
         ...     .kind("cap")
         ...     .money(Money(5_000_000, Currency("USD")))
         ...     .strike(0.03)

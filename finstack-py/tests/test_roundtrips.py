@@ -124,7 +124,8 @@ class TestInstrumentRoundtrips:
     def test_bond_builder_roundtrip(self) -> None:
         """Bond built with builder should preserve properties."""
         bond = (
-            Bond.builder("BOND_001")
+            Bond
+            .builder("BOND_001")
             .notional(1_000_000.0)
             .currency("USD")
             .coupon_rate(0.05)
@@ -142,7 +143,8 @@ class TestInstrumentRoundtrips:
     def test_swap_builder_roundtrip(self) -> None:
         """IRS built with builder should preserve properties."""
         irs = (
-            InterestRateSwap.builder("SWAP_001")
+            InterestRateSwap
+            .builder("SWAP_001")
             .notional(10_000_000.0)
             .currency("USD")
             .fixed_rate(0.03)
@@ -280,7 +282,8 @@ class TestPricingRoundtrips:
 
         # Create bond
         bond = (
-            Bond.builder("TEST_BOND")
+            Bond
+            .builder("TEST_BOND")
             .notional(1_000_000.0)
             .currency("USD")
             .coupon_rate(0.05)
@@ -319,7 +322,8 @@ class TestDateRoundtrips:
         calendar = get_calendar("usny")
 
         schedule = (
-            ScheduleBuilder.new(dt.date(2024, 1, 15), dt.date(2024, 12, 15))
+            ScheduleBuilder
+            .new(dt.date(2024, 1, 15), dt.date(2024, 12, 15))
             .frequency(Frequency.QUARTERLY)
             .adjust_with(BusinessDayConvention.MODIFIED_FOLLOWING, calendar)
             .build()

@@ -218,7 +218,8 @@ class TestPricingErrors:
         )
 
         bond = (
-            Bond.builder("TEST_BOND")
+            Bond
+            .builder("TEST_BOND")
             .notional(1_000_000.0)
             .currency("USD")
             .coupon_rate(0.05)

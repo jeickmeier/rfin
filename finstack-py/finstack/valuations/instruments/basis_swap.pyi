@@ -65,7 +65,8 @@ class BasisSwap:
         ...     spread=0.001,  # 10bp basis spread (decimal)
         ... )
         >>> basis_swap = (
-        ...     BasisSwap.builder("BASIS-LIBOR-SOFR")
+        ...     BasisSwap
+        ...     .builder("BASIS-LIBOR-SOFR")
         ...     .money(Money(10_000_000, Currency("USD")))
         ...     .start_date(date(2024, 1, 1))
         ...     .maturity(date(2029, 1, 1))  # 5-year swap

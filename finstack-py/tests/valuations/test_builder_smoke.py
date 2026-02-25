@@ -40,7 +40,8 @@ from finstack import Money
 def test_fx_builders_smoke() -> None:
     """Smoke test FX instrument builders (spot/swap/option)."""
     spot = (
-        FxSpot.builder("EURUSD-SPOT")
+        FxSpot
+        .builder("EURUSD-SPOT")
         .base_currency("EUR")
         .quote_currency("USD")
         .spot_rate(1.10)
@@ -55,7 +56,8 @@ def test_fx_builders_smoke() -> None:
     assert spot.spot_rate == 1.10
 
     swap = (
-        FxSwap.builder("EURUSD-SWAP")
+        FxSwap
+        .builder("EURUSD-SWAP")
         .base_currency("EUR")
         .quote_currency("USD")
         .notional(Money(5_000_000, Currency("EUR")))
@@ -72,7 +74,8 @@ def test_fx_builders_smoke() -> None:
     assert swap.far_rate == 1.11
 
     option = (
-        FxOption.builder("EURUSD-PUT")
+        FxOption
+        .builder("EURUSD-PUT")
         .base_currency("EUR")
         .quote_currency("USD")
         .strike(1.05)
@@ -92,7 +95,8 @@ def test_fx_builders_smoke() -> None:
 def test_inflation_builders_smoke() -> None:
     """Smoke test inflation instrument builders (ILB and swap)."""
     ilb = (
-        InflationLinkedBond.builder("TIPS-2030")
+        InflationLinkedBond
+        .builder("TIPS-2030")
         .notional(Money(1_000_000, USD))
         .real_coupon(0.02)
         .issue(dt.date(2024, 1, 1))
@@ -108,7 +112,8 @@ def test_inflation_builders_smoke() -> None:
     assert ilb.inflation_curve == "US-CPI"
 
     zciis = (
-        InflationSwap.builder("ZCIIS-5Y")
+        InflationSwap
+        .builder("ZCIIS-5Y")
         .notional(Money(10_000_000, USD))
         .fixed_rate(0.025)
         .start_date(dt.date(2024, 1, 1))
@@ -144,7 +149,8 @@ def test_trs_builders_smoke() -> None:
     )
 
     trs = (
-        EquityTotalReturnSwap.builder("TRS-ACME")
+        EquityTotalReturnSwap
+        .builder("TRS-ACME")
         .notional(Money(1_000_000, USD))
         .underlying(underlying)
         .financing(financing)
@@ -165,7 +171,8 @@ def test_trs_builders_smoke() -> None:
         contract_size=1.0,
     )
     idx_trs = (
-        FiIndexTotalReturnSwap.builder("TRS-INDEX")
+        FiIndexTotalReturnSwap
+        .builder("TRS-INDEX")
         .notional(Money(2_000_000, USD))
         .underlying(idx_underlying)
         .financing(financing)
@@ -183,7 +190,8 @@ def test_convertible_builder_smoke() -> None:
     conversion = ConversionSpec(ConversionPolicy.voluntary(), ratio=20.0)
 
     cb = (
-        ConvertibleBond.builder("ACME-CB")
+        ConvertibleBond
+        .builder("ACME-CB")
         .notional(Money(1_000_000, USD))
         .issue(dt.date(2024, 1, 1))
         .maturity(dt.date(2029, 1, 1))
@@ -202,7 +210,8 @@ def test_convertible_builder_smoke() -> None:
 def test_agency_mbs_builders_smoke() -> None:
     """Smoke test agency MBS builders (pass-through/TBA/dollar roll/CMO)."""
     mbs = (
-        AgencyMbsPassthrough.builder("FN-MA1234")
+        AgencyMbsPassthrough
+        .builder("FN-MA1234")
         .pool_id("MA1234")
         .agency(AgencyProgram.Fnma)
         .original_face(1_000_000.0)
@@ -221,7 +230,8 @@ def test_agency_mbs_builders_smoke() -> None:
     assert mbs.instrument_id == "FN-MA1234"
 
     tba = (
-        AgencyTba.builder("FN30-4.0-202403")
+        AgencyTba
+        .builder("FN30-4.0-202403")
         .agency(AgencyProgram.Fnma)
         .coupon(0.04)
         .term(TbaTerm.ThirtyYear)
@@ -236,7 +246,8 @@ def test_agency_mbs_builders_smoke() -> None:
     assert tba.instrument_id == "FN30-4.0-202403"
 
     roll = (
-        DollarRoll.builder("ROLL-0324-0424")
+        DollarRoll
+        .builder("ROLL-0324-0424")
         .agency(AgencyProgram.Fnma)
         .coupon(0.04)
         .term(TbaTerm.ThirtyYear)
@@ -259,7 +270,8 @@ def test_agency_mbs_builders_smoke() -> None:
     ]
     waterfall = CmoWaterfall(tranches)
     cmo = (
-        AgencyCmo.builder("FNR-2024-1-A")
+        AgencyCmo
+        .builder("FNR-2024-1-A")
         .deal_name("FNR 2024-1")
         .agency(AgencyProgram.Fnma)
         .issue_date(dt.date(2024, 1, 1))

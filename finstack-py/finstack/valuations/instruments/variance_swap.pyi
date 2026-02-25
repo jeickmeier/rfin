@@ -67,7 +67,8 @@ class VarianceSwap:
         ...     RealizedVarianceMethod,
         ... )
         >>> variance_swap = (
-        ...     VarianceSwap.builder("VAR-SWAP-SPX")
+        ...     VarianceSwap
+        ...     .builder("VAR-SWAP-SPX")
         ...     .underlying_id("SPX")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .strike_variance(0.04)  # 20% vol squared (0.20^2)

@@ -41,7 +41,8 @@ class Deposit:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import Deposit
         >>> deposit = (
-        ...     Deposit.builder("DEPO-3M")
+        ...     Deposit
+        ...     .builder("DEPO-3M")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .start(date(2024, 1, 1))
         ...     .maturity(date(2024, 4, 1))  # 3-month deposit
@@ -59,7 +60,8 @@ class Deposit:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import Deposit
         >>> deposit = (
-        ...     Deposit.builder("DEPO-6M")
+        ...     Deposit
+        ...     .builder("DEPO-6M")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .start(date(2024, 1, 1))
         ...     .maturity(date(2024, 7, 1))
@@ -83,7 +85,8 @@ class Deposit:
         >>> ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (0.25, 0.995)]))
         >>> registry = create_standard_registry()
         >>> deposit = (
-        ...     Deposit.builder("DEPO-3M")
+        ...     Deposit
+        ...     .builder("DEPO-3M")
         ...     .money(Money(1_000_000, Currency("USD")))
         ...     .start(date(2024, 1, 1))
         ...     .maturity(date(2024, 4, 1))

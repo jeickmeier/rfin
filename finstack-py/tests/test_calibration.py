@@ -57,7 +57,8 @@ def test_calibration_config_builder_and_mutators() -> None:
     assert base_cfg.validation_mode.name == "error"
 
     tuned = (
-        base_cfg.with_tolerance(1e-6)
+        base_cfg
+        .with_tolerance(1e-6)
         .with_max_iterations(10)
         .with_parallel(False)
         .with_verbose(False)

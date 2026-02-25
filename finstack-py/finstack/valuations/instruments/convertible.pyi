@@ -96,7 +96,8 @@ class ConvertibleBond:
         ...     ratio=20.0,  # 20 shares per $1000 bond
         ... )
         >>> convertible = (
-        ...     ConvertibleBond.builder("CONVERTIBLE-CORP-A")
+        ...     ConvertibleBond
+        ...     .builder("CONVERTIBLE-CORP-A")
         ...     .notional(Money(10_000_000, Currency("USD")))
         ...     .issue(date(2024, 1, 1))
         ...     .maturity(date(2029, 1, 1))
