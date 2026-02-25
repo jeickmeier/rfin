@@ -1252,21 +1252,27 @@ pub struct InstrumentCurvesBuilder {
 }
 
 impl InstrumentCurvesBuilder {
-    /// Add a discount curve.
+    /// Add a discount curve (duplicates are ignored).
     pub fn discount(mut self, curve_id: CurveId) -> Self {
-        self.curves.discount_curves.push(curve_id);
+        if !self.curves.discount_curves.contains(&curve_id) {
+            self.curves.discount_curves.push(curve_id);
+        }
         self
     }
 
-    /// Add a forward curve.
+    /// Add a forward curve (duplicates are ignored).
     pub fn forward(mut self, curve_id: CurveId) -> Self {
-        self.curves.forward_curves.push(curve_id);
+        if !self.curves.forward_curves.contains(&curve_id) {
+            self.curves.forward_curves.push(curve_id);
+        }
         self
     }
 
-    /// Add a credit/hazard curve.
+    /// Add a credit/hazard curve (duplicates are ignored).
     pub fn credit(mut self, curve_id: CurveId) -> Self {
-        self.curves.credit_curves.push(curve_id);
+        if !self.curves.credit_curves.contains(&curve_id) {
+            self.curves.credit_curves.push(curve_id);
+        }
         self
     }
 

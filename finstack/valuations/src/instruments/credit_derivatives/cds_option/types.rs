@@ -25,6 +25,8 @@ use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Percentage};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 use super::parameters::CDSOptionParams;
 use crate::impl_instrument_base;
@@ -47,8 +49,9 @@ pub const MAX_IMPLIED_VOL: f64 = 5.0;
 pub struct CDSOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
-    /// Strike spread in basis points
-    pub strike_spread_bp: f64,
+    /// Strike spread as a decimal rate (e.g., 0.01 = 100bp)
+    #[serde(alias = "strike_spread_bp")]
+    pub strike: Decimal,
     /// Option type (Call = right to buy protection, Put = right to sell protection)
     pub option_type: OptionType,
     /// Exercise style
@@ -80,26 +83,28 @@ pub struct CDSOption {
     pub underlying_is_index: bool,
     /// Optional index factor scaling for index underlying
     pub index_factor: Option<f64>,
-    /// Forward spread adjustment (bp) to apply for forward computation
+    /// Forward spread adjustment as a decimal rate (e.g., 0.0025 = 25bp)
+    #[serde(alias = "forward_spread_adjust_bp")]
     #[serde(default)]
-    pub forward_spread_adjust_bp: f64,
+    pub forward_spread_adjust: Decimal,
 }
 
 impl CDSOption {
     /// Validate the CDSOption parameters.
     fn validate(&self) -> finstack_core::Result<()> {
         // Strike validation
-        if self.strike_spread_bp <= super::parameters::MIN_STRIKE_SPREAD_BP {
+        let strike_f64 = self.strike.to_f64().unwrap_or(0.0);
+        if strike_f64 <= super::parameters::MIN_STRIKE {
             return Err(finstack_core::Error::Validation(format!(
-                "strike_spread_bp must be positive, got {}",
-                self.strike_spread_bp
+                "strike must be positive, got {}",
+                self.strike
             )));
         }
-        if self.strike_spread_bp > super::parameters::MAX_STRIKE_SPREAD_BP {
+        if strike_f64 > super::parameters::MAX_STRIKE {
             return Err(finstack_core::Error::Validation(format!(
-                "strike_spread_bp {} exceeds maximum {} bp",
-                self.strike_spread_bp,
-                super::parameters::MAX_STRIKE_SPREAD_BP
+                "strike {} exceeds maximum {}",
+                self.strike,
+                super::parameters::MAX_STRIKE
             )));
         }
 
@@ -157,7 +162,7 @@ impl CDSOption {
         use finstack_core::currency::Currency;
         use time::macros::date;
         let option_params = CDSOptionParams::call(
-            100.0,
+            Decimal::new(1, 2), // 0.01 = 100bp
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),
             Money::new(10_000_000.0, Currency::USD),
@@ -187,7 +192,7 @@ impl CDSOption {
     /// # Arguments
     ///
     /// - `id`: Unique instrument identifier
-    /// - `option_params`: deal-level fields (strike in bp, expiry, CDS maturity, notional, option type)
+    /// - `option_params`: deal-level fields (strike as decimal rate, expiry, CDS maturity, notional, option type)
     /// - `credit_params`: reference entity, recovery rate, and the hazard `credit_id`
     /// - `discount_curve_id`: discount curve identifier for discounting cashflows
     /// - `vol_surface_id`: volatility surface identifier for the CDS option
@@ -204,7 +209,7 @@ impl CDSOption {
     ) -> finstack_core::Result<Self> {
         let option = Self {
             id: id.into(),
-            strike_spread_bp: option_params.strike_spread_bp,
+            strike: option_params.strike,
             option_type: option_params.option_type,
             exercise_style: ExerciseStyle::European,
             expiry: option_params.expiry,
@@ -220,7 +225,7 @@ impl CDSOption {
             attributes: Attributes::new(),
             underlying_is_index: option_params.underlying_is_index,
             index_factor: option_params.index_factor,
-            forward_spread_adjust_bp: option_params.forward_spread_adjust_bp,
+            forward_spread_adjust: option_params.forward_spread_adjust,
         };
         option.validate()?;
         Ok(option)
@@ -296,7 +301,7 @@ impl CDSOption {
         } else {
             curves
                 .surface(self.vol_surface_id.as_str())?
-                .value_clamped(t, self.strike_spread_bp)
+                .value_clamped(t, self.strike.to_f64().unwrap_or(0.0))
         };
 
         // Risky annuity

@@ -12,6 +12,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
+use finstack_valuations::instruments::CommodityUnderlyingParams;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{
     ExerciseStyle, OptionType, PricingOverrides, SettlementType,
@@ -61,17 +62,19 @@ fn test_commodity_option_equity_dependencies_complete() {
 
     let option = CommodityOption::builder()
         .id(InstrumentId::new("WTI-OPT-DEPS"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .strike(100.0)
         .option_type(OptionType::Call)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
         .quantity(1_000.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .settlement(SettlementType::Cash)
-        .currency(Currency::USD)
         .forward_curve_id(CurveId::new("WTI-FWD"))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .vol_surface_id(CurveId::new("WTI-VOL"))
@@ -117,17 +120,19 @@ fn test_missing_equity_spot_fails() {
 
     let option = CommodityOption::builder()
         .id(InstrumentId::new("WTI-OPT-SPOT-MISSING"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .strike(100.0)
         .option_type(OptionType::Call)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
         .quantity(1_000.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .settlement(SettlementType::Cash)
-        .currency(Currency::USD)
         .forward_curve_id(CurveId::new("WTI-FWD"))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .vol_surface_id(CurveId::new("WTI-VOL"))

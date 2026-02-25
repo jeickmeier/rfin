@@ -419,7 +419,7 @@ impl JsSwaption {
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike_rate).unwrap_or_default()
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike).unwrap_or_default()
     }
 
     #[wasm_bindgen(getter)]
@@ -456,7 +456,7 @@ impl JsSwaption {
     pub fn to_string_js(&self) -> String {
         format!(
             "Swaption(id='{}', strike={:.4})",
-            self.inner.id, self.inner.strike_rate
+            self.inner.id, self.inner.strike
         )
     }
 

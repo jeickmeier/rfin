@@ -18,6 +18,7 @@
 //!   European Average Options."
 
 use crate::impl_instrument_base;
+use crate::instruments::common_impl::parameters::CommodityUnderlyingParams;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::exotics::asian_option::AveragingMethod;
 use crate::instruments::OptionType;
@@ -53,14 +54,12 @@ use finstack_core::types::{CurveId, InstrumentId};
 #[derive(
     Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
 )]
-#[serde(deny_unknown_fields)]
 pub struct CommodityAsianOption {
     /// Unique instrument identifier.
     pub id: InstrumentId,
-    /// Commodity type (e.g., "Energy", "Metal", "Agricultural").
-    pub commodity_type: String,
-    /// Ticker or symbol (e.g., "CL" for WTI, "GC" for Gold).
-    pub ticker: String,
+    /// Commodity underlying parameters (type, ticker, unit, currency).
+    #[serde(flatten)]
+    pub underlying: CommodityUnderlyingParams,
     /// Strike price per unit.
     pub strike: f64,
     /// Option type (call or put).
@@ -79,8 +78,6 @@ pub struct CommodityAsianOption {
     pub quantity: f64,
     /// Option expiry/settlement date for the payoff.
     pub expiry: Date,
-    /// Currency for pricing.
-    pub currency: Currency,
     /// Forward/futures price curve ID.
     pub forward_curve_id: CurveId,
     /// Discount curve ID for present value calculations.
@@ -88,6 +85,8 @@ pub struct CommodityAsianOption {
     /// Volatility surface ID for implied vol.
     pub vol_surface_id: CurveId,
     /// Day count convention.
+    #[serde(default = "crate::serde_defaults::day_count_act365f")]
+    #[builder(default = DayCount::Act365F)]
     pub day_count: DayCount,
     /// Pricing overrides.
     pub pricing_overrides: PricingOverrides,
@@ -115,15 +114,18 @@ impl CommodityAsianOption {
         ];
         Self::builder()
             .id(InstrumentId::new("WTI-ASIAN-6M"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .strike(75.0)
             .option_type(OptionType::Call)
             .averaging_method(AveragingMethod::Arithmetic)
             .fixing_dates(fixing_dates)
             .quantity(1000.0)
             .expiry(date!(2025 - 07 - 02))
-            .currency(Currency::USD)
             .forward_curve_id(CurveId::new("CL-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .vol_surface_id(CurveId::new("CL-VOL"))

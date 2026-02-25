@@ -4,6 +4,7 @@ use super::common::*;
 use crate::finstack_test_utils as test_utils;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::prelude::ToPrimitive;
 use time::macros::date;
 
 #[test]
@@ -343,7 +344,7 @@ fn test_put_call_parity_at_forward() {
     let mut underlying = test_utils::cds_buy_protection(
         "CDS-FWD-TEMP",
         temp_option.notional,
-        temp_option.strike_spread_bp,
+        temp_option.strike.to_f64().unwrap_or(0.0) * 10000.0,
         temp_option.expiry,
         temp_option.cds_maturity,
         temp_option.discount_curve_id.clone(),

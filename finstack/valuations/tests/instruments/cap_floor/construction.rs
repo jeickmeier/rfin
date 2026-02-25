@@ -33,10 +33,7 @@ fn test_cap_creation_basic() {
     assert_eq!(cap.rate_option_type, RateOptionType::Cap);
     assert_eq!(cap.notional.amount(), 10_000_000.0);
     assert_eq!(cap.notional.currency(), Currency::USD);
-    assert_eq!(
-        cap.strike_rate,
-        Decimal::try_from(0.03).expect("valid decimal")
-    );
+    assert_eq!(cap.strike, Decimal::try_from(0.03).expect("valid decimal"));
     assert_eq!(cap.frequency, Tenor::quarterly());
     assert_eq!(cap.day_count, DayCount::Act360);
     assert_eq!(cap.start_date, start);
@@ -66,7 +63,7 @@ fn test_floor_creation_basic() {
     assert_eq!(floor.notional.amount(), 5_000_000.0);
     assert_eq!(floor.notional.currency(), Currency::EUR);
     assert_eq!(
-        floor.strike_rate,
+        floor.strike,
         Decimal::try_from(0.01).expect("valid decimal")
     );
     assert_eq!(floor.frequency, Tenor::semi_annual());
@@ -92,10 +89,7 @@ fn test_cap_new_cap_helper() {
     );
 
     assert_eq!(cap.rate_option_type, RateOptionType::Cap);
-    assert_eq!(
-        cap.strike_rate,
-        Decimal::try_from(0.04).expect("valid decimal")
-    );
+    assert_eq!(cap.strike, Decimal::try_from(0.04).expect("valid decimal"));
     assert_eq!(cap.notional.currency(), Currency::GBP);
 }
 
@@ -120,7 +114,7 @@ fn test_floor_new_floor_helper() {
 
     assert_eq!(floor.rate_option_type, RateOptionType::Floor);
     assert_eq!(
-        floor.strike_rate,
+        floor.strike,
         Decimal::try_from(0.005).expect("valid decimal")
     );
 }
@@ -135,7 +129,7 @@ fn test_caplet_creation() {
         id: "CAPLET_TEST".into(),
         rate_option_type: RateOptionType::Caplet,
         notional,
-        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
+        strike: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -168,7 +162,7 @@ fn test_floorlet_creation() {
         id: "FLOORLET_TEST".into(),
         rate_option_type: RateOptionType::Floorlet,
         notional,
-        strike_rate: Decimal::try_from(0.02).expect("valid decimal"),
+        strike: Decimal::try_from(0.02).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::semi_annual(),

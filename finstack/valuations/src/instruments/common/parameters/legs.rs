@@ -191,10 +191,19 @@ pub struct FloatLegSpec {
 /// A basis swap leg represents one side of a floating-for-floating interest rate swap,
 /// where two parties exchange payments linked to different floating rate indices
 /// (e.g., 3M SOFR vs 6M SOFR).
+///
+/// Each leg owns its own dates, discount curve, schedule conventions, and calendar,
+/// following the IRS leg-centric pattern used by `FixedLegSpec` and `FloatLegSpec`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BasisSwapLeg {
     /// Forward curve identifier for this leg
     pub forward_curve_id: CurveId,
+    /// Discount curve identifier for present value calculations
+    pub discount_curve_id: CurveId,
+    /// Start date of the leg
+    pub start: Date,
+    /// End date of the leg
+    pub end: Date,
     /// Payment frequency for the leg
     pub frequency: Tenor,
     /// Day count convention for accrual calculations
@@ -202,6 +211,15 @@ pub struct BasisSwapLeg {
     /// Business day convention for date adjustments
     #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
+    /// Optional calendar identifier for business day adjustments
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calendar_id: Option<String>,
+    /// Stub period handling rule
+    #[serde(
+        default = "crate::serde_defaults::stub_short_front",
+        alias = "stub_kind"
+    )]
+    pub stub: StubKind,
     /// Spread added to the floating rate, in **basis points**.
     ///
     /// # Units
@@ -217,24 +235,6 @@ pub struct BasisSwapLeg {
     /// Basis spreads in liquid markets typically range from -50bp to +50bp.
     /// Values outside ±5000bp are considered extreme and
     /// will trigger a validation warning during pricing.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use finstack_valuations::instruments::rates::basis_swap::BasisSwapLeg;
-    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
-    /// use finstack_core::types::CurveId;
-    ///
-    /// let leg = BasisSwapLeg {
-    ///     forward_curve_id: CurveId::new("USD-SOFR-3M"),
-    ///     frequency: Tenor::quarterly(),
-    ///     day_count: DayCount::Act360,
-    ///     bdc: BusinessDayConvention::ModifiedFollowing,
-    ///     spread_bp: 5.0, // 5bp spread
-    ///     payment_lag_days: 0,
-    ///     reset_lag_days: 2,
-    /// };
-    /// ```
     pub spread_bp: f64,
     /// Payment lag in business days after period end (default: 0).
     ///

@@ -366,7 +366,7 @@ impl PyInterestRateOption {
     ///     float: Strike rate of the instrument.
     #[getter]
     fn strike(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike_rate).unwrap_or_default()
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike).unwrap_or_default()
     }
 
     /// Start date for accrual.
@@ -426,7 +426,7 @@ impl PyInterestRateOption {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "InterestRateOption(id='{}', strike={:.4})",
-            self.inner.id, self.inner.strike_rate
+            self.inner.id, self.inner.strike
         ))
     }
 }
@@ -436,7 +436,7 @@ impl fmt::Display for PyInterestRateOption {
         write!(
             f,
             "InterestRateOption({}, strike={:.4})",
-            self.inner.id, self.inner.strike_rate
+            self.inner.id, self.inner.strike
         )
     }
 }

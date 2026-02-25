@@ -1,4 +1,4 @@
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -60,30 +60,36 @@ fn swap() -> BasisSwap {
     BasisSwap::new(
         "BASIS-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
     .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID)
 }
 
 #[test]

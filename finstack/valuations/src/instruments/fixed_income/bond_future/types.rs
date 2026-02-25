@@ -1110,16 +1110,9 @@ impl BondFuture {
         let schedule = ctd_bond.get_full_schedule(market)?;
 
         // Calculate accrued interest at settlement date
-        use crate::cashflow::accrual::{accrued_interest_amount, AccrualConfig, ExCouponRule};
+        use crate::cashflow::accrual::accrued_interest_amount;
 
-        let accrual_config = AccrualConfig {
-            method: ctd_bond.accrual_method.clone(),
-            ex_coupon: ctd_bond.ex_coupon_days.map(|days| ExCouponRule {
-                days_before_coupon: days,
-                calendar_id: ctd_bond.ex_coupon_calendar_id.clone(),
-            }),
-            include_pik: true,
-        };
+        let accrual_config = ctd_bond.accrual_config();
 
         let accrued_amount = accrued_interest_amount(&schedule, settlement_date, &accrual_config)?;
 

@@ -729,8 +729,8 @@ impl SwaptionLsmcPricer {
 
                 // Compute exercise value: (S(t) - K) * A(t) * N for payer
                 let swap_value = match payoff.option_type {
-                    SwaptionType::Payer => swap_rate - payoff.strike_rate,
-                    SwaptionType::Receiver => payoff.strike_rate - swap_rate,
+                    SwaptionType::Payer => swap_rate - payoff.strike,
+                    SwaptionType::Receiver => payoff.strike - swap_rate,
                 };
 
                 // Compute annuity for proper scaling
@@ -784,8 +784,8 @@ impl SwaptionLsmcPricer {
                     );
 
                     let swap_value = match payoff.option_type {
-                        SwaptionType::Payer => swap_rate - payoff.strike_rate,
-                        SwaptionType::Receiver => payoff.strike_rate - swap_rate,
+                        SwaptionType::Payer => swap_rate - payoff.strike,
+                        SwaptionType::Receiver => payoff.strike - swap_rate,
                     };
 
                     let mut annuity = 0.0;

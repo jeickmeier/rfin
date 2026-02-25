@@ -19,6 +19,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::Result;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 /// Pricing engine for `CDSOption`.
@@ -94,7 +95,7 @@ impl CDSOptionPricer {
         } else {
             curves
                 .surface(option.vol_surface_id.as_str())?
-                .value_clamped(t, option.strike_spread_bp)
+                .value_clamped(t, option.strike.to_f64().unwrap_or(0.0))
         };
 
         // Price using Black-style on spreads
@@ -130,12 +131,8 @@ impl CDSOptionPricer {
 }
 
 fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
-    let spread_bp = Decimal::try_from(option.strike_spread_bp).map_err(|e| {
-        finstack_core::Error::Validation(format!(
-            "strike_spread_bp {} cannot be represented as Decimal: {}",
-            option.strike_spread_bp, e
-        ))
-    })?;
+    // Convert decimal strike to bp for CDS constructor (which expects bp)
+    let spread_bp = option.strike * Decimal::new(10000, 0);
     CreditDefaultSwap::new_isda(
         option.id.to_owned(),
         Money::new(option.notional.amount(), option.notional.currency()),
@@ -162,7 +159,9 @@ impl CDSOptionPricer {
         let pricer = CDSPricer::new();
         let mut forward_bp = pricer.par_spread(&cds, disc, surv, as_of)?;
         if option.underlying_is_index {
-            forward_bp += option.forward_spread_adjust_bp;
+            // Convert decimal adjustment to bp for consistency with forward_bp
+            forward_bp +=
+                option.forward_spread_adjust.to_f64().unwrap_or(0.0) * self.config.bp_per_unit;
         }
         Ok(forward_bp)
     }
@@ -191,20 +190,21 @@ impl CDSOptionPricer {
         } else {
             1.0
         };
+        let strike = option.strike.to_f64().unwrap_or(0.0);
+
         if t <= 0.0 {
+            let forward = forward_spread_bp / self.config.bp_per_unit;
             let intrinsic = match option.option_type {
-                OptionType::Call => (forward_spread_bp - option.strike_spread_bp).max(0.0),
-                OptionType::Put => (option.strike_spread_bp - forward_spread_bp).max(0.0),
+                OptionType::Call => (forward - strike).max(0.0),
+                OptionType::Put => (strike - forward).max(0.0),
             };
             return Ok(Money::new(
-                scale * intrinsic * risky_annuity * option.notional.amount()
-                    / self.config.bp_per_unit,
+                scale * intrinsic * risky_annuity * option.notional.amount(),
                 option.notional.currency(),
             ));
         }
 
         let forward = forward_spread_bp / self.config.bp_per_unit;
-        let strike = option.strike_spread_bp / self.config.bp_per_unit;
 
         // Guard against invalid strike
         if strike <= 0.0 {
@@ -267,18 +267,21 @@ impl CDSOptionPricer {
         } else {
             1.0
         };
+        let strike = option.strike.to_f64().unwrap_or(0.0);
+
         // Delta is effectively A * Delta_Black
         if t <= 0.0 || sigma <= 0.0 {
+            let forward = forward_spread_bp / self.config.bp_per_unit;
             return match option.option_type {
                 OptionType::Call => {
-                    if forward_spread_bp > option.strike_spread_bp {
+                    if forward > strike {
                         scale * risky_annuity
                     } else {
                         0.0
                     }
                 }
                 OptionType::Put => {
-                    if forward_spread_bp < option.strike_spread_bp {
+                    if forward < strike {
                         -scale * risky_annuity
                     } else {
                         0.0
@@ -287,7 +290,6 @@ impl CDSOptionPricer {
             };
         }
         let forward = forward_spread_bp / self.config.bp_per_unit;
-        let strike = option.strike_spread_bp / self.config.bp_per_unit;
         if forward <= 0.0 || strike <= 0.0 {
             return 0.0;
         }
@@ -318,13 +320,14 @@ impl CDSOptionPricer {
         } else {
             1.0
         };
+        let strike = option.strike.to_f64().unwrap_or(0.0);
+
         // Guard against numerical instability near expiry or with very low vol
         // The denominator (forward * sigma * sqrt(t)) approaches zero in these cases
         if t < credit::MIN_TIME_TO_EXPIRY_GREEKS || sigma < credit::MIN_VOLATILITY_GREEKS {
             return 0.0;
         }
         let forward = forward_spread_bp / self.config.bp_per_unit;
-        let strike = option.strike_spread_bp / self.config.bp_per_unit;
         if forward <= 0.0 || strike <= 0.0 {
             return 0.0;
         }
@@ -348,12 +351,13 @@ impl CDSOptionPricer {
         } else {
             1.0
         };
+        let strike = option.strike.to_f64().unwrap_or(0.0);
+
         // Guard against numerical instability near expiry
         if t < credit::MIN_TIME_TO_EXPIRY_GREEKS {
             return 0.0;
         }
         let forward = forward_spread_bp / self.config.bp_per_unit;
-        let strike = option.strike_spread_bp / self.config.bp_per_unit;
         if forward <= 0.0 || strike <= 0.0 {
             return 0.0;
         }
@@ -550,7 +554,7 @@ impl CDSOptionPricer {
             curves
                 .surface(option.vol_surface_id.as_str())
                 .ok()
-                .map(|s| s.value_clamped(t, option.strike_spread_bp))
+                .map(|s| s.value_clamped(t, option.strike.to_f64().unwrap_or(0.0)))
                 .unwrap_or(self.config.iv_initial_guess)
         };
         let x0 = (initial_guess.unwrap_or(sigma0.max(credit::MIN_VOLATILITY_GREEKS))).ln();

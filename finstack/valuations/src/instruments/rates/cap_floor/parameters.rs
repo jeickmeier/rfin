@@ -21,7 +21,7 @@ pub struct InterestRateOptionParams {
     /// Notional amount
     pub notional: Money,
     /// Strike rate
-    pub strike_rate: Decimal,
+    pub strike: Decimal,
     /// Payment frequency
     pub frequency: Tenor,
     /// Day count convention
@@ -36,11 +36,11 @@ pub struct InterestRateOptionParams {
 
 impl InterestRateOptionParams {
     /// Create cap parameters
-    pub fn cap(notional: Money, strike_rate: f64, frequency: Tenor, day_count: DayCount) -> Self {
+    pub fn cap(notional: Money, strike: f64, frequency: Tenor, day_count: DayCount) -> Self {
         Self {
             rate_option_type: RateOptionType::Cap,
             notional,
-            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
+            strike: Decimal::try_from(strike).unwrap_or_default(),
             frequency,
             day_count,
             stub: StubKind::None,
@@ -50,16 +50,11 @@ impl InterestRateOptionParams {
     }
 
     /// Create cap parameters using a typed strike rate.
-    pub fn cap_rate(
-        notional: Money,
-        strike_rate: Rate,
-        frequency: Tenor,
-        day_count: DayCount,
-    ) -> Self {
+    pub fn cap_rate(notional: Money, strike: Rate, frequency: Tenor, day_count: DayCount) -> Self {
         Self {
             rate_option_type: RateOptionType::Cap,
             notional,
-            strike_rate: Decimal::try_from(strike_rate.as_decimal()).unwrap_or_default(),
+            strike: Decimal::try_from(strike.as_decimal()).unwrap_or_default(),
             frequency,
             day_count,
             stub: StubKind::None,
@@ -69,11 +64,11 @@ impl InterestRateOptionParams {
     }
 
     /// Create floor parameters
-    pub fn floor(notional: Money, strike_rate: f64, frequency: Tenor, day_count: DayCount) -> Self {
+    pub fn floor(notional: Money, strike: f64, frequency: Tenor, day_count: DayCount) -> Self {
         Self {
             rate_option_type: RateOptionType::Floor,
             notional,
-            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
+            strike: Decimal::try_from(strike).unwrap_or_default(),
             frequency,
             day_count,
             stub: StubKind::None,
@@ -85,14 +80,14 @@ impl InterestRateOptionParams {
     /// Create floor parameters using a typed strike rate.
     pub fn floor_rate(
         notional: Money,
-        strike_rate: Rate,
+        strike: Rate,
         frequency: Tenor,
         day_count: DayCount,
     ) -> Self {
         Self {
             rate_option_type: RateOptionType::Floor,
             notional,
-            strike_rate: Decimal::try_from(strike_rate.as_decimal()).unwrap_or_default(),
+            strike: Decimal::try_from(strike.as_decimal()).unwrap_or_default(),
             frequency,
             day_count,
             stub: StubKind::None,

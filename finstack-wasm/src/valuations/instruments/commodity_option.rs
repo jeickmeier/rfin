@@ -9,6 +9,7 @@ use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::CommodityUnderlyingParams;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::prelude::Instrument;
 use wasm_bindgen::prelude::*;
@@ -162,17 +163,19 @@ impl JsCommodityOptionBuilder {
 
         let option = CommodityOption::builder()
             .id(InstrumentId::new(&self.instrument_id))
-            .commodity_type(commodity_type.to_string())
-            .ticker(ticker.to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                commodity_type,
+                ticker,
+                unit,
+                ccy,
+            ))
             .strike(strike)
             .option_type(option_type)
             .exercise_style(exercise_style)
             .expiry(expiry)
             .quantity(quantity)
-            .unit(unit.to_string())
             .multiplier(1.0)
             .settlement(SettlementType::Cash)
-            .currency(ccy)
             .forward_curve_id(CurveId::new(forward_curve_id))
             .discount_curve_id(CurveId::new(discount_curve_id))
             .vol_surface_id(CurveId::new(vol_surface_id))
@@ -266,17 +269,19 @@ impl JsCommodityOption {
 
         let option = CommodityOption::builder()
             .id(InstrumentId::new(id))
-            .commodity_type(commodity_type.to_string())
-            .ticker(ticker.to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                commodity_type,
+                ticker,
+                unit,
+                ccy,
+            ))
             .strike(strike)
             .option_type(option_type.inner())
             .exercise_style(exercise_style.inner())
             .expiry(expiry.inner())
             .quantity(quantity)
-            .unit(unit.to_string())
             .multiplier(1.0)
             .settlement(SettlementType::Cash)
-            .currency(ccy)
             .forward_curve_id(CurveId::new(forward_curve_id))
             .discount_curve_id(CurveId::new(discount_curve_id))
             .vol_surface_id(CurveId::new(vol_surface_id))
@@ -304,13 +309,13 @@ impl JsCommodityOption {
     /// Get the ticker.
     #[wasm_bindgen(getter)]
     pub fn ticker(&self) -> String {
-        self.inner.ticker.clone()
+        self.inner.underlying.ticker.clone()
     }
 
     /// Get the commodity type.
     #[wasm_bindgen(getter, js_name = commodityType)]
     pub fn commodity_type(&self) -> String {
-        self.inner.commodity_type.clone()
+        self.inner.underlying.commodity_type.clone()
     }
 
     /// Get the quantity.

@@ -2,8 +2,8 @@ use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
+use crate::valuations::common::curve_id_from_str;
 use crate::valuations::common::parse::parse_optional_with_default;
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
@@ -21,24 +21,33 @@ pub struct JsBasisSwapLeg {
 impl JsBasisSwapLeg {
     /// Create a basis swap floating leg specification.
     ///
-    /// Conventions:
-    /// - `spread_bp` is in **basis points** (e.g. 5.0 for 5bp), consistent with FloatLegSpec and PremiumLegSpec.
-    /// - `frequency` and `day_count` are parsed from strings (e.g. `"3M"`, `"act_360"`).
+    /// Each leg owns its own dates, discount curve, calendar, and stub conventions.
     ///
     /// @param forward_curve - Forward curve ID (e.g. `"USD-SOFR-3M"`)
+    /// @param discount_curve - Discount curve ID (e.g. `"USD-OIS"`)
+    /// @param start - Leg start date
+    /// @param end - Leg end date
     /// @param frequency - Optional payment/reset frequency (e.g. `"3M"`)
     /// @param day_count - Optional day count name (e.g. `"act_360"`)
     /// @param spread_bp - Optional spread in basis points added to the forward rate
     /// @param business_day_convention - Optional BDC name (e.g. `"modified_following"`)
+    /// @param calendar_id - Optional calendar code (e.g. `"usny"`)
+    /// @param stub - Optional stub kind string (e.g. `"short_front"`)
     /// @returns A `BasisSwapLeg`
     /// @throws {Error} If parsing fails
     #[wasm_bindgen(constructor)]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         forward_curve: &str,
+        discount_curve: &str,
+        start: &JsDate,
+        end: &JsDate,
         frequency: Option<String>,
         day_count: Option<String>,
         spread_bp: Option<f64>,
         business_day_convention: Option<String>,
+        calendar_id: Option<String>,
+        stub: Option<String>,
     ) -> Result<JsBasisSwapLeg, JsValue> {
         let freq = parse_optional_with_default(frequency, Tenor::quarterly())?;
         let dc = parse_optional_with_default(day_count, DayCount::Act360)?;
@@ -46,13 +55,19 @@ impl JsBasisSwapLeg {
             business_day_convention,
             BusinessDayConvention::ModifiedFollowing,
         )?;
+        let stub_kind = parse_optional_with_default(stub, StubKind::ShortFront)?;
 
         Ok(JsBasisSwapLeg {
             inner: BasisSwapLeg {
                 forward_curve_id: curve_id_from_str(forward_curve),
+                discount_curve_id: curve_id_from_str(discount_curve),
+                start: start.inner(),
+                end: end.inner(),
                 frequency: freq,
                 day_count: dc,
                 bdc,
+                calendar_id,
+                stub: stub_kind,
                 spread_bp: spread_bp.unwrap_or(0.0),
                 payment_lag_days: 0,
                 reset_lag_days: 0,
@@ -63,6 +78,11 @@ impl JsBasisSwapLeg {
     #[wasm_bindgen(getter, js_name = forwardCurve)]
     pub fn forward_curve(&self) -> String {
         self.inner.forward_curve_id.as_str().to_string()
+    }
+
+    #[wasm_bindgen(getter, js_name = discountCurve)]
+    pub fn discount_curve(&self) -> String {
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
@@ -92,13 +112,8 @@ impl InstrumentWrapper for JsBasisSwap {
 pub struct JsBasisSwapBuilder {
     instrument_id: String,
     notional: Option<finstack_core::money::Money>,
-    start_date: Option<finstack_core::dates::Date>,
-    maturity: Option<finstack_core::dates::Date>,
     primary_leg: Option<BasisSwapLeg>,
     reference_leg: Option<BasisSwapLeg>,
-    discount_curve: Option<String>,
-    calendar: Option<String>,
-    stub: Option<String>,
 }
 
 #[wasm_bindgen(js_class = BasisSwapBuilder)]
@@ -117,18 +132,6 @@ impl JsBasisSwapBuilder {
         self
     }
 
-    #[wasm_bindgen(js_name = startDate)]
-    pub fn start_date(mut self, start_date: &JsDate) -> JsBasisSwapBuilder {
-        self.start_date = Some(start_date.inner());
-        self
-    }
-
-    #[wasm_bindgen(js_name = maturity)]
-    pub fn maturity(mut self, maturity: &JsDate) -> JsBasisSwapBuilder {
-        self.maturity = Some(maturity.inner());
-        self
-    }
-
     #[wasm_bindgen(js_name = primaryLeg)]
     pub fn primary_leg(mut self, primary_leg: &JsBasisSwapLeg) -> JsBasisSwapBuilder {
         self.primary_leg = Some(primary_leg.inner.clone());
@@ -141,60 +144,19 @@ impl JsBasisSwapBuilder {
         self
     }
 
-    #[wasm_bindgen(js_name = discountCurve)]
-    pub fn discount_curve(mut self, discount_curve: &str) -> JsBasisSwapBuilder {
-        self.discount_curve = Some(discount_curve.to_string());
-        self
-    }
-
-    #[wasm_bindgen(js_name = calendar)]
-    pub fn calendar(mut self, calendar: String) -> JsBasisSwapBuilder {
-        self.calendar = Some(calendar);
-        self
-    }
-
-    #[wasm_bindgen(js_name = stub)]
-    pub fn stub(mut self, stub: String) -> JsBasisSwapBuilder {
-        self.stub = Some(stub);
-        self
-    }
-
     #[wasm_bindgen(js_name = build)]
     pub fn build(self) -> Result<JsBasisSwap, JsValue> {
         let notional = self.notional.ok_or_else(|| {
             js_error("BasisSwapBuilder: notional (money) is required".to_string())
         })?;
-        let start_date = self
-            .start_date
-            .ok_or_else(|| js_error("BasisSwapBuilder: startDate is required".to_string()))?;
-        let maturity = self
-            .maturity
-            .ok_or_else(|| js_error("BasisSwapBuilder: maturity is required".to_string()))?;
         let primary_leg = self
             .primary_leg
             .ok_or_else(|| js_error("BasisSwapBuilder: primaryLeg is required".to_string()))?;
         let reference_leg = self
             .reference_leg
             .ok_or_else(|| js_error("BasisSwapBuilder: referenceLeg is required".to_string()))?;
-        let discount_curve = self
-            .discount_curve
-            .as_deref()
-            .ok_or_else(|| js_error("BasisSwapBuilder: discountCurve is required".to_string()))?;
 
-        let stub_kind = parse_optional_with_default(self.stub, StubKind::None)?;
-
-        BasisSwap::builder()
-            .id(instrument_id_from_str(&self.instrument_id))
-            .notional(notional)
-            .start_date(start_date)
-            .maturity(maturity)
-            .primary_leg(primary_leg)
-            .reference_leg(reference_leg)
-            .discount_curve_id(curve_id_from_str(discount_curve))
-            .stub(stub_kind)
-            .calendar_id_opt(self.calendar)
-            .attributes(Default::default())
-            .build()
+        BasisSwap::new(&self.instrument_id, notional, primary_leg, reference_leg)
             .map(JsBasisSwap::from_inner)
             .map_err(|e| js_error(e.to_string()))
     }
@@ -204,19 +166,12 @@ impl JsBasisSwapBuilder {
 impl JsBasisSwap {
     /// Create a float/float basis swap.
     ///
-    /// Conventions:
-    /// - The two legs reference forward curve IDs; discounting uses `discount_curve`.
-    /// - Stub and calendar settings affect schedule generation.
+    /// Each leg owns its own dates, discount curve, calendar, and stub conventions.
     ///
     /// @param instrument_id - Unique identifier
     /// @param notional - Swap notional (currency-tagged)
-    /// @param start_date - Swap start date
-    /// @param maturity - Swap end/maturity date
     /// @param primary_leg - Primary floating leg specification
     /// @param reference_leg - Reference floating leg specification
-    /// @param discount_curve - Discount curve ID
-    /// @param calendar - Optional calendar code (e.g. `"usny"`)
-    /// @param stub - Optional stub kind string
     /// @returns A new `BasisSwap`
     /// @throws {Error} If inputs are invalid
     ///
@@ -225,52 +180,27 @@ impl JsBasisSwap {
     /// import init, { BasisSwap, BasisSwapLeg, Money, FsDate } from "finstack-wasm";
     ///
     /// await init();
-    /// const leg3m = new BasisSwapLeg("USD-SOFR-3M", "3M", "act_360", 0.0, "modified_following");
-    /// const leg1m = new BasisSwapLeg("USD-SOFR-1M", "1M", "act_360", 0.0, "modified_following");
-    /// const swap = new BasisSwap(
-    ///   "basis_1",
-    ///   Money.fromCode(10_000_000, "USD"),
-    ///   new FsDate(2024, 1, 2),
-    ///   new FsDate(2029, 1, 2),
-    ///   leg3m,
-    ///   leg1m,
-    ///   "USD-OIS"
-    /// );
+    /// const start = new FsDate(2024, 1, 2);
+    /// const end = new FsDate(2029, 1, 2);
+    /// const leg3m = new BasisSwapLeg("USD-SOFR-3M", "USD-OIS", start, end, "3M", "act_360", 5.0);
+    /// const leg1m = new BasisSwapLeg("USD-SOFR-1M", "USD-OIS", start, end, "1M", "act_360", 0.0);
+    /// const swap = BasisSwap.fromLegs("basis_1", Money.fromCode(10_000_000, "USD"), leg3m, leg1m);
     /// ```
-    #[wasm_bindgen(constructor)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    #[wasm_bindgen(js_name = fromLegs)]
+    pub fn from_legs(
         instrument_id: &str,
         notional: &JsMoney,
-        start_date: &JsDate,
-        maturity: &JsDate,
         primary_leg: &JsBasisSwapLeg,
         reference_leg: &JsBasisSwapLeg,
-        discount_curve: &str,
-        calendar: Option<String>,
-        stub: Option<String>,
     ) -> Result<JsBasisSwap, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "BasisSwap constructor is deprecated; use BasisSwapBuilder instead.",
-        ));
-        let stub_kind = parse_optional_with_default(stub, StubKind::None)?;
-
-        let builder = BasisSwap::builder()
-            .id(instrument_id_from_str(instrument_id))
-            .notional(notional.inner())
-            .start_date(start_date.inner())
-            .maturity(maturity.inner())
-            .primary_leg(primary_leg.inner.clone())
-            .reference_leg(reference_leg.inner.clone())
-            .discount_curve_id(curve_id_from_str(discount_curve))
-            .stub(stub_kind)
-            .calendar_id_opt(calendar)
-            .attributes(Default::default());
-
-        builder
-            .build()
-            .map(JsBasisSwap::from_inner)
-            .map_err(|e| js_error(e.to_string()))
+        BasisSwap::new(
+            instrument_id,
+            notional.inner(),
+            primary_leg.inner.clone(),
+            reference_leg.inner.clone(),
+        )
+        .map(JsBasisSwap::from_inner)
+        .map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = fromJson)]
@@ -296,7 +226,7 @@ impl JsBasisSwap {
 
         let disc = market
             .inner()
-            .get_discount(self.inner.discount_curve_id.as_str())
+            .get_discount(self.inner.primary_leg.discount_curve_id.as_str())
             .map_err(|e| js_error(e.to_string()))?;
         let as_of = disc.base_date();
 
@@ -321,11 +251,10 @@ impl JsBasisSwap {
             let fwd_dc = fwd.day_count();
             let fwd_base = fwd.base_date();
 
-            let cal = if let Some(id) = self.inner.calendar_id.as_deref() {
-                finstack_core::dates::CalendarRegistry::global().resolve_str(id)
-            } else {
-                None
-            };
+            let cal = leg
+                .calendar_id
+                .as_deref()
+                .and_then(|id| finstack_core::dates::CalendarRegistry::global().resolve_str(id));
 
             for i in 1..schedule.dates.len() {
                 let period_start = schedule.dates[i - 1];
@@ -388,11 +317,6 @@ impl JsBasisSwap {
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
         JsMoney::from_inner(self.inner.notional)
-    }
-
-    #[wasm_bindgen(getter, js_name = discountCurve)]
-    pub fn discount_curve(&self) -> String {
-        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

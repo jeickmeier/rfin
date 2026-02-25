@@ -17,7 +17,7 @@
           "discount_curve_id": "USD-OIS",
           "exercise_style": "european",
           "expiry": "2025-06-20",
-          "forward_spread_adjust_bp": 0.0,
+          "forward_spread_adjust": "0",
           "id": "CDSOPT-CALL-CORP-5Y",
           "index_factor": null,
           "notional": {
@@ -40,7 +40,7 @@
           },
           "recovery_rate": 0.4,
           "settlement": "cash",
-          "strike_spread_bp": 100.0,
+          "strike": "0.01",
           "underlying_is_index": false,
           "vol_surface_id": "CDSOPT-VOL"
         },
@@ -64,7 +64,7 @@
           "discount_curve_id": "USD-OIS",
           "exercise_style": "european",
           "expiry": "2025-06-20",
-          "forward_spread_adjust_bp": 0.0,
+          "forward_spread_adjust": "0",
           "id": "CDSOPT-CALL-CORP-5Y",
           "index_factor": null,
           "notional": {
@@ -87,7 +87,7 @@
           },
           "recovery_rate": 0.4,
           "settlement": "cash",
-          "strike_spread_bp": 100.0,
+          "strike": "0.01",
           "underlying_is_index": false,
           "vol_surface_id": "CDSOPT-VOL"
         },

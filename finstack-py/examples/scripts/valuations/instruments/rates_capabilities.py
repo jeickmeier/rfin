@@ -140,28 +140,31 @@ def main() -> None:
     maturity = date(as_of.year + 5, as_of.month, as_of.day)
     leg_3m = BasisSwapLeg(
         "USD-SOFR-3M",
+        discount_curve="USD-OIS",
+        start_date=start,
+        end_date=maturity,
         frequency="3M",
         day_count=DayCount.ACT_360,
         business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING,
+        calendar_id="usny",
         spread_bp=0.0,
     )
     leg_6m = BasisSwapLeg(
         "USD-SOFR-6M",
+        discount_curve="USD-OIS",
+        start_date=start,
+        end_date=maturity,
         frequency="6M",
         day_count=DayCount.ACT_360,
         business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING,
+        calendar_id="usny",
         spread_bp=5.0,  # 5bp
     )
     basis_swap = (
         BasisSwap.builder("USD-BASIS-3M-6M")
         .money(Money(25_000_000, USD))
-        .start_date(start)
-        .maturity(maturity)
         .primary_leg(leg_3m)
         .reference_leg(leg_6m)
-        .disc_id("USD-OIS")
-        .calendar("usny")
-        .stub("none")
         .build()
     )
     registry.price_with_metrics(

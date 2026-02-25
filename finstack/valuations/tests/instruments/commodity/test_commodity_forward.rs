@@ -7,6 +7,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_forward::{CommodityForward, Position};
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::CommodityUnderlyingParams;
 use finstack_valuations::instruments::Instrument;
 use time::Month;
 
@@ -48,13 +49,15 @@ fn test_commodity_forward_pricing_with_quoted_price() {
     // Create an off-market forward with contract_price below market
     let forward = CommodityForward::builder()
         .id(InstrumentId::new("WTI-TEST"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .quantity(1000.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .maturity(settlement)
-        .currency(Currency::USD)
         .position(Position::Long)
         .contract_price_opt(Some(72.0)) // Entry price below market for positive MTM
         .quoted_price_opt(Some(75.0)) // Quoted market price at $75/BBL
@@ -95,13 +98,15 @@ fn test_commodity_forward_pricing_expired() {
 
     let forward = CommodityForward::builder()
         .id(InstrumentId::new("EXPIRED"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .quantity(1000.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .maturity(settlement)
-        .currency(Currency::USD)
         .position(Position::Long)
         .quoted_price_opt(Some(75.0))
         .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -136,13 +141,15 @@ fn test_commodity_forward_forward_price_from_curve() {
 
     let forward = CommodityForward::builder()
         .id(InstrumentId::new("CURVE-TEST"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .quantity(100.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .maturity(settlement)
-        .currency(Currency::USD)
         .position(Position::Long)
         // No quoted_price - should use PriceCurve
         .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -173,13 +180,15 @@ fn test_commodity_forward_at_market_npv_zero() {
 
     let forward = CommodityForward::builder()
         .id(InstrumentId::new("AT-MARKET"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .quantity(1000.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .maturity(settlement)
-        .currency(Currency::USD)
         .position(Position::Long)
         // No contract_price → at-market
         .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -207,13 +216,15 @@ fn test_commodity_forward_long_short_symmetry() {
 
     let long = CommodityForward::builder()
         .id(InstrumentId::new("LONG"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .quantity(1000.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .maturity(settlement)
-        .currency(Currency::USD)
         .position(Position::Long)
         .contract_price_opt(Some(72.0))
         .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -223,13 +234,15 @@ fn test_commodity_forward_long_short_symmetry() {
 
     let short = CommodityForward::builder()
         .id(InstrumentId::new("SHORT"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .quantity(1000.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .maturity(settlement)
-        .currency(Currency::USD)
         .position(Position::Short)
         .contract_price_opt(Some(72.0))
         .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -266,13 +279,15 @@ fn test_commodity_forward_round_trip_at_market() {
     // Step 1: Get market forward price
     let probe = CommodityForward::builder()
         .id(InstrumentId::new("PROBE"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .quantity(1.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .maturity(settlement)
-        .currency(Currency::USD)
         .position(Position::Long)
         .forward_curve_id(CurveId::new("WTI-FORWARD"))
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -286,13 +301,15 @@ fn test_commodity_forward_round_trip_at_market() {
     // Step 2: Enter forward at this price (round-trip)
     let forward_at_market = CommodityForward::builder()
         .id(InstrumentId::new("AT-MARKET-RT"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .quantity(1000.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .maturity(settlement)
-        .currency(Currency::USD)
         .position(Position::Long)
         .contract_price_opt(Some(market_fwd_price)) // Enter at market price
         .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -330,13 +347,15 @@ fn test_commodity_forward_analytical_parity() {
 
     let forward = CommodityForward::builder()
         .id(InstrumentId::new("ANALYTICAL-TEST"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .quantity(quantity)
-        .unit("BBL".to_string())
         .multiplier(multiplier)
         .maturity(settlement)
-        .currency(Currency::USD)
         .position(Position::Long)
         .contract_price_opt(Some(contract_price))
         .quoted_price_opt(Some(forward_price))
@@ -386,13 +405,15 @@ fn test_commodity_forward_delta_analytical() {
 
     let forward = CommodityForward::builder()
         .id(InstrumentId::new("DELTA-TEST"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .quantity(quantity)
-        .unit("BBL".to_string())
         .multiplier(multiplier)
         .maturity(settlement)
-        .currency(Currency::USD)
         .position(Position::Long)
         .contract_price_opt(Some(72.0))
         .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -439,8 +460,8 @@ fn test_commodity_forward_serialization() {
     let parsed: CommodityForward = serde_json::from_str(&json).expect("deserialize");
 
     assert_eq!(forward.id.as_str(), parsed.id.as_str());
-    assert_eq!(forward.ticker, parsed.ticker);
+    assert_eq!(forward.underlying.ticker, parsed.underlying.ticker);
     assert_eq!(forward.quantity, parsed.quantity);
-    assert_eq!(forward.currency, parsed.currency);
+    assert_eq!(forward.underlying.currency, parsed.underlying.currency);
     assert_eq!(forward.position, parsed.position);
 }

@@ -34,7 +34,7 @@ pub struct ImpliedVolCalculator;
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &InterestRateOption = context.instrument_as()?;
-        let strike = option.strike_rate_f64()?;
+        let strike = option.strike_f64()?;
 
         // Need market price to solve for implied volatility.
         // The quoted_clean_price is passed via the MetricContext pricing overrides,

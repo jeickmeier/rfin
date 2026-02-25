@@ -19,6 +19,7 @@ use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOptionParams;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{CreditParams, OptionType};
+use rust_decimal::Decimal;
 use std::hint::black_box;
 use time::Month;
 
@@ -32,14 +33,14 @@ fn create_cds_option(
     let cds_maturity = base + time::Duration::days((cds_tenor_years * 365) as i64);
 
     let option_params = CDSOptionParams {
-        strike_spread_bp: 100.0, // 100bp strike
+        strike: Decimal::new(1, 2), // 0.01 = 100bp
         option_type,
         expiry,
         cds_maturity,
         notional: Money::new(10_000_000.0, Currency::USD),
         underlying_is_index: false,
         index_factor: None,
-        forward_spread_adjust_bp: 0.0,
+        forward_spread_adjust: Decimal::ZERO,
         day_count: finstack_core::dates::DayCount::Act360,
     };
 
@@ -100,9 +101,9 @@ fn create_market() -> MarketContext {
     // Volatility surface (flat 30% vol for simplicity)
     let vol_surface = VolSurface::from_grid(
         "CDS-VOL",
-        &[0.25, 0.5, 1.0, 2.0, 3.0],        // Expiries in years
-        &[50.0, 75.0, 100.0, 150.0, 200.0], // Strikes in bp
-        &[0.30; 25],                        // Flat 30% vol
+        &[0.25, 0.5, 1.0, 2.0, 3.0],         // Expiries in years
+        &[0.005, 0.0075, 0.01, 0.015, 0.02], // Strikes as decimal rates
+        &[0.30; 25],                         // Flat 30% vol
     )
     .unwrap();
 

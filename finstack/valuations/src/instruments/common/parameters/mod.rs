@@ -36,6 +36,7 @@ pub use option_market::OptionMarketParams;
 pub use quanto::QuantoSpec;
 pub use trs_common::{TrsScheduleSpec, TrsSide};
 pub use underlying::{
-    EquityUnderlyingParams, FxUnderlyingParams, IndexUnderlyingParams, UnderlyingParams,
+    CommodityUnderlyingParams, EquityUnderlyingParams, FxUnderlyingParams, IndexUnderlyingParams,
+    UnderlyingParams,
 };
 pub use volatility::{SABRParameters, VolatilityModel};

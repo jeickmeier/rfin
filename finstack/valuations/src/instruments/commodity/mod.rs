@@ -28,19 +28,17 @@
 //!
 //! ```rust
 //! use finstack_valuations::instruments::commodity::CommodityForward;
+//! use finstack_valuations::instruments::CommodityUnderlyingParams;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::types::{CurveId, InstrumentId};
 //! use time::macros::date;
 //!
 //! let forward = CommodityForward::builder()
 //!     .id(InstrumentId::new("WTI-DEC25"))
-//!     .commodity_type("Energy".to_string())
-//!     .ticker("CL".to_string())
+//!     .underlying(CommodityUnderlyingParams::new("Energy", "CL", "BBL", Currency::USD))
 //!     .quantity(1000.0)
-//!     .unit("BBL".to_string())
 //!     .multiplier(1.0)
 //!     .maturity(date!(2025-12-15))
-//!     .currency(Currency::USD)
 //!     .forward_curve_id(CurveId::new("CL-FORWARD"))
 //!     .discount_curve_id(CurveId::new("USD-OIS"))
 //!     .build()

@@ -24,7 +24,7 @@ use super::super::CashflowSpec;
 /// many business days (using the bond's calendar if available). Otherwise,
 /// returns `as_of` unchanged.
 pub fn settlement_date(bond: &Bond, as_of: Date) -> Result<Date> {
-    let Some(sd_u32) = bond.settlement_days else {
+    let Some(sd_u32) = bond.settlement_days() else {
         return Ok(as_of);
     };
 

@@ -18,7 +18,7 @@ pub struct ImpliedVolCalculator;
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
-        let strike = option.strike_rate_f64()?;
+        let strike = option.strike_f64()?;
 
         // Time to expiry from as_of
         let t = year_fraction(option.day_count, context.as_of, option.expiry)?;

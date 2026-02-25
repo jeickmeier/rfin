@@ -218,7 +218,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
         );
 
         // Intrinsic value
-        let strike = self.swaption.strike_rate.to_f64().unwrap_or(0.0);
+        let strike = self.swaption.strike.to_f64().unwrap_or(0.0);
         let notional = self.swaption.notional.amount();
 
         let intrinsic = match self.swaption.option_type {
@@ -476,7 +476,7 @@ mod tests {
             id: InstrumentId::new("TEST-BERM"),
             option_type: OptionType::Call,
             notional: Money::new(10_000_000.0, Currency::USD),
-            strike_rate: Decimal::try_from(0.03).expect("valid decimal"), // 3%
+            strike: Decimal::try_from(0.03).expect("valid decimal"), // 3%
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),

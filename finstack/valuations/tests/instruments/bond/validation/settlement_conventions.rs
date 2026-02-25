@@ -51,7 +51,12 @@ fn test_pv_anchored_at_as_of() {
         ))
         .discount_curve_id("USD-OIS".into())
         .pricing_overrides(PricingOverrides::default())
-        .settlement_days_opt(Some(2)) // T+2 settlement
+        .settlement_convention_opt(Some(
+            finstack_valuations::instruments::fixed_income::bond::BondSettlementConvention {
+                settlement_days: 2,
+                ..Default::default()
+            },
+        ))
         .attributes(Default::default())
         .build()
         .expect("Valid bond");

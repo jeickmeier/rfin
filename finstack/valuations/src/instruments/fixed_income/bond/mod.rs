@@ -128,6 +128,7 @@ pub use metrics::{
 };
 pub use types::AmortizationSpec;
 pub use types::Bond;
+pub use types::BondSettlementConvention;
 pub use types::CallPut;
 pub use types::CallPutSchedule;
 pub use types::MakeWholeSpec;
@@ -212,11 +213,11 @@ mod tests {
             BondConvention::USTreasury.day_count()
         );
         assert_eq!(
-            bond.settlement_days,
+            bond.settlement_days(),
             Some(BondConvention::USTreasury.settlement_days())
         );
         assert_eq!(
-            bond.ex_coupon_days,
+            bond.ex_coupon_days(),
             BondConvention::USTreasury.ex_coupon_days()
         );
     }
@@ -243,10 +244,13 @@ mod tests {
             BondConvention::UKGilt.day_count()
         );
         assert_eq!(
-            bond.settlement_days,
+            bond.settlement_days(),
             Some(BondConvention::UKGilt.settlement_days())
         );
-        assert_eq!(bond.ex_coupon_days, BondConvention::UKGilt.ex_coupon_days());
+        assert_eq!(
+            bond.ex_coupon_days(),
+            BondConvention::UKGilt.ex_coupon_days()
+        );
     }
 
     #[test]
@@ -303,6 +307,8 @@ mod tests {
 
     #[test]
     fn test_bond_with_settlement_convention() {
+        use crate::instruments::fixed_income::bond::BondSettlementConvention;
+
         let bond = Bond::builder()
             .id("BOND_SETTLE".into())
             .notional(Money::new(1000.0, Currency::USD))
@@ -315,14 +321,17 @@ mod tests {
             ))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
-            .settlement_days_opt(Some(2))
-            .ex_coupon_days_opt(Some(7))
+            .settlement_convention_opt(Some(BondSettlementConvention {
+                settlement_days: 2,
+                ex_coupon_days: 7,
+                ..Default::default()
+            }))
             .attributes(Attributes::new())
             .build()
             .expect("should succeed");
 
-        assert_eq!(bond.settlement_days, Some(2));
-        assert_eq!(bond.ex_coupon_days, Some(7));
+        assert_eq!(bond.settlement_days(), Some(2));
+        assert_eq!(bond.ex_coupon_days(), Some(7));
     }
 
     #[test]

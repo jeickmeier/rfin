@@ -13,44 +13,47 @@
           },
           "id": "XCCY_SWAP_001",
           "leg1": {
-            "allow_calendar_fallback": false,
-            "bdc": "ModifiedFollowing",
-            "calendar_id": "usny",
             "currency": "USD",
-            "day_count": "Act360",
-            "discount_curve_id": "USD-OIS",
-            "forward_curve_id": "USD-SOFR-3M",
-            "frequency": "3M",
             "notional": {
               "amount": "10000000",
               "currency": "USD"
             },
-            "payment_lag_days": 0,
             "side": "receive",
-            "spread": 0.0
+            "forward_curve_id": "USD-SOFR-3M",
+            "discount_curve_id": "USD-OIS",
+            "start": "2024-01-03",
+            "end": "2029-01-03",
+            "frequency": "3M",
+            "day_count": "Act360",
+            "bdc": "ModifiedFollowing",
+            "stub": "ShortFront",
+            "spread_bp": 0.0,
+            "payment_lag_days": 0,
+            "calendar_id": "usny",
+            "allow_calendar_fallback": false
           },
           "leg2": {
-            "allow_calendar_fallback": false,
-            "bdc": "ModifiedFollowing",
-            "calendar_id": "euta",
             "currency": "EUR",
-            "day_count": "Act360",
-            "discount_curve_id": "EUR-ESTR",
-            "forward_curve_id": "EUR-EURIBOR-3M",
-            "frequency": "3M",
             "notional": {
               "amount": "9200000",
               "currency": "EUR"
             },
-            "payment_lag_days": 0,
             "side": "pay",
-            "spread": 0.001
+            "forward_curve_id": "EUR-EURIBOR-3M",
+            "discount_curve_id": "EUR-ESTR",
+            "start": "2024-01-03",
+            "end": "2029-01-03",
+            "frequency": "3M",
+            "day_count": "Act360",
+            "bdc": "ModifiedFollowing",
+            "stub": "ShortFront",
+            "spread_bp": 10.0,
+            "payment_lag_days": 0,
+            "calendar_id": "euta",
+            "allow_calendar_fallback": false
           },
-          "maturity_date": "2029-01-03",
           "notional_exchange": "initial_and_final",
-          "reporting_currency": "USD",
-          "start_date": "2024-01-03",
-          "stub_kind": "None"
+          "reporting_currency": "USD"
         },
         "type": "xccy_swap"
       },

@@ -30,7 +30,7 @@ fn build_swaption(as_of: Date) -> BermudanSwaption {
         id: InstrumentId::new("BERM-LSMC-BENCH"),
         option_type: OptionType::Call,
         notional: Money::new(10_000_000.0, Currency::USD),
-        strike_rate: Decimal::try_from(0.03).unwrap_or_default(),
+        strike: Decimal::try_from(0.03).unwrap_or_default(),
         swap_start,
         swap_end,
         fixed_freq: Tenor::semi_annual(),

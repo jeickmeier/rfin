@@ -12,6 +12,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use std::fmt;
 use std::sync::Arc;
 
@@ -30,7 +32,7 @@ fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
 ///     >>> opt = (
 ///     ...     CDSOption.builder("opt_xyz")
 ///     ...     .money(Money("USD", 5_000_000))
-///     ...     .strike_spread_bp(150.0)
+///     ...     .strike(0.015)
 ///     ...     .expiry(date(2024, 6, 20))
 ///     ...     .cds_maturity(date(2029, 6, 20))
 ///     ...     .discount_curve("usd_discount")
@@ -38,8 +40,8 @@ fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
 ///     ...     .vol_surface("cds_vol_surface")
 ///     ...     .build()
 ///     ... )
-///     >>> opt.strike_spread_bp
-///     150.0
+///     >>> opt.strike
+///     0.015
 #[pyclass(module = "finstack.valuations.instruments", name = "CdsOption", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyCDSOption {
@@ -62,7 +64,7 @@ impl PyCDSOption {
 pub struct PyCDSOptionBuilder {
     instrument_id: InstrumentId,
     notional: Option<finstack_core::money::Money>,
-    strike_spread_bp: Option<f64>,
+    strike: Option<f64>,
     expiry: Option<time::Date>,
     cds_maturity: Option<time::Date>,
     discount_curve: Option<String>,
@@ -72,7 +74,7 @@ pub struct PyCDSOptionBuilder {
     recovery_rate: f64,
     underlying_is_index: bool,
     index_factor: Option<f64>,
-    forward_adjust_bp: f64,
+    forward_adjust: f64,
 }
 
 impl PyCDSOptionBuilder {
@@ -80,7 +82,7 @@ impl PyCDSOptionBuilder {
         Self {
             instrument_id: id,
             notional: None,
-            strike_spread_bp: None,
+            strike: None,
             expiry: None,
             cds_maturity: None,
             discount_curve: None,
@@ -90,7 +92,7 @@ impl PyCDSOptionBuilder {
             recovery_rate: STANDARD_RECOVERY_SENIOR,
             underlying_is_index: false,
             index_factor: None,
-            forward_adjust_bp: 0.0,
+            forward_adjust: 0.0,
         }
     }
 
@@ -98,8 +100,8 @@ impl PyCDSOptionBuilder {
         if self.notional.is_none() {
             return Err(PyValueError::new_err("notional() is required."));
         }
-        if self.strike_spread_bp.is_none() {
-            return Err(PyValueError::new_err("strike_spread_bp() is required."));
+        if self.strike.is_none() {
+            return Err(PyValueError::new_err("strike() is required."));
         }
         if self.expiry.is_none() {
             return Err(PyValueError::new_err("expiry() is required."));
@@ -148,9 +150,18 @@ impl PyCDSOptionBuilder {
         slf
     }
 
+    /// Set strike spread as a decimal rate (e.g., 0.015 for 150bp).
+    #[pyo3(text_signature = "($self, strike)")]
+    fn strike(mut slf: PyRefMut<'_, Self>, strike: f64) -> PyRefMut<'_, Self> {
+        slf.strike = Some(strike);
+        slf
+    }
+
+    /// Set strike spread in basis points (e.g., 150.0 for 150bp).
+    /// Deprecated: prefer `strike()` with decimal rate.
     #[pyo3(text_signature = "($self, strike_spread_bp)")]
     fn strike_spread_bp(mut slf: PyRefMut<'_, Self>, strike_spread_bp: f64) -> PyRefMut<'_, Self> {
-        slf.strike_spread_bp = Some(strike_spread_bp);
+        slf.strike = Some(strike_spread_bp / 10000.0);
         slf
     }
 
@@ -220,12 +231,21 @@ impl PyCDSOptionBuilder {
         slf
     }
 
+    /// Set forward spread adjustment as a decimal rate (e.g., 0.0025 for 25bp).
+    #[pyo3(text_signature = "($self, forward_adjust)")]
+    fn forward_adjust(mut slf: PyRefMut<'_, Self>, forward_adjust: f64) -> PyRefMut<'_, Self> {
+        slf.forward_adjust = forward_adjust;
+        slf
+    }
+
+    /// Set forward spread adjustment in basis points (e.g., 25.0 for 25bp).
+    /// Deprecated: prefer `forward_adjust()` with decimal rate.
     #[pyo3(text_signature = "($self, forward_adjust_bp)")]
     fn forward_adjust_bp(
         mut slf: PyRefMut<'_, Self>,
         forward_adjust_bp: f64,
     ) -> PyRefMut<'_, Self> {
-        slf.forward_adjust_bp = forward_adjust_bp;
+        slf.forward_adjust = forward_adjust_bp / 10000.0;
         slf
     }
 
@@ -237,11 +257,13 @@ impl PyCDSOptionBuilder {
                 "CDSOptionBuilder internal error: missing notional after validation",
             )
         })?;
-        let strike_spread_bp = slf.strike_spread_bp.ok_or_else(|| {
+        let strike_f64 = slf.strike.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
-                "CDSOptionBuilder internal error: missing strike_spread_bp after validation",
+                "CDSOptionBuilder internal error: missing strike after validation",
             )
         })?;
+        let strike = Decimal::try_from(strike_f64)
+            .map_err(|e| PyValueError::new_err(format!("Invalid strike value: {}", e)))?;
         let expiry = slf.expiry.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
                 "CDSOptionBuilder internal error: missing expiry after validation",
@@ -256,22 +278,19 @@ impl PyCDSOptionBuilder {
         let credit = slf.credit_curve.clone().unwrap();
         let vol_surface = slf.vol_surface.clone().unwrap();
 
-        let mut option_params = CDSOptionParams::new(
-            strike_spread_bp,
-            expiry,
-            cds_maturity,
-            notional,
-            slf.option_type,
-        )
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let mut option_params =
+            CDSOptionParams::new(strike, expiry, cds_maturity, notional, slf.option_type)
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
         if slf.underlying_is_index {
             let factor = slf.index_factor.unwrap_or(1.0);
             option_params = option_params
                 .as_index(factor)
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
         }
-        if slf.forward_adjust_bp != 0.0 {
-            option_params = option_params.with_forward_spread_adjust_bp(slf.forward_adjust_bp);
+        if slf.forward_adjust != 0.0 {
+            let adjust = Decimal::try_from(slf.forward_adjust)
+                .map_err(|e| PyValueError::new_err(format!("Invalid forward_adjust: {}", e)))?;
+            option_params = option_params.with_forward_spread_adjust(adjust);
         }
 
         let credit_params = CreditParams::new("CDS_OPTION", slf.recovery_rate, credit.as_str());
@@ -323,13 +342,22 @@ impl PyCDSOption {
         PyMoney::new(self.inner.notional)
     }
 
-    /// Strike spread in basis points.
+    /// Strike spread as a decimal rate (e.g., 0.015 for 150bp).
     ///
     /// Returns:
-    ///     float: Strike spread for the option.
+    ///     float: Strike spread as decimal rate.
+    #[getter]
+    fn strike(&self) -> f64 {
+        self.inner.strike.to_f64().unwrap_or(0.0)
+    }
+
+    /// Strike spread in basis points (backward-compatible alias).
+    ///
+    /// Returns:
+    ///     float: Strike spread in basis points.
     #[getter]
     fn strike_spread_bp(&self) -> f64 {
-        self.inner.strike_spread_bp
+        self.inner.strike.to_f64().unwrap_or(0.0) * 10000.0
     }
 
     /// Option expiry date.
@@ -379,9 +407,9 @@ impl PyCDSOption {
 
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
-            "CDSOption(id='{}', strike_bp={:.1}, type='{}')",
+            "CDSOption(id='{}', strike={}, type='{}')",
             self.inner.id,
-            self.inner.strike_spread_bp,
+            self.inner.strike,
             match self.inner.option_type {
                 OptionType::Call => "call",
                 OptionType::Put => "put",
@@ -394,8 +422,8 @@ impl fmt::Display for PyCDSOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "CDSOption({}, strike_bp={:.1})",
-            self.inner.id, self.inner.strike_spread_bp
+            "CDSOption({}, strike={})",
+            self.inner.id, self.inner.strike
         )
     }
 }

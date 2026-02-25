@@ -62,7 +62,7 @@ def example_cms_cap():
 
     cms_cap = CmsOption.builder(
         instrument_id="CMS_CAP_001",
-        strike_rate=0.04,  # 4% strike
+        strike=0.04,  # 4% strike
         cms_tenor=10.0,  # 10-year CMS rate
         fixing_dates=fixing_dates,
         accrual_fractions=accrual_fractions,
@@ -102,7 +102,7 @@ def example_cms_floor():
 
     cms_floor = CmsOption.builder(
         instrument_id="CMS_FLOOR_001",
-        strike_rate=0.025,  # 2.5% strike
+        strike=0.025,  # 2.5% strike
         cms_tenor=5.0,  # 5-year CMS rate
         fixing_dates=fixing_dates,
         accrual_fractions=accrual_fractions,
@@ -136,7 +136,7 @@ def example_cms_spread_option():
     # Call on 10Y CMS rate
     cms_long = CmsOption.builder(
         instrument_id="CMS_SPREAD_LONG",
-        strike_rate=0.035,  # 3.5% strike
+        strike=0.035,  # 3.5% strike
         cms_tenor=10.0,  # 10-year rate
         fixing_dates=fixing_dates,
         accrual_fractions=accrual_fractions,
@@ -149,7 +149,7 @@ def example_cms_spread_option():
     # Put on 2Y CMS rate (to get positive spread exposure)
     cms_short = CmsOption.builder(
         instrument_id="CMS_SPREAD_SHORT",
-        strike_rate=0.03,  # 3% strike
+        strike=0.03,  # 3% strike
         cms_tenor=2.0,  # 2-year rate
         fixing_dates=fixing_dates,
         accrual_fractions=accrual_fractions,

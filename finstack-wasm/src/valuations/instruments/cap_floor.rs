@@ -315,7 +315,7 @@ impl JsInterestRateOption {
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.0.strike_rate).unwrap_or_default()
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.0.strike).unwrap_or_default()
     }
 
     #[wasm_bindgen(getter, js_name = startDate)]
@@ -357,7 +357,7 @@ impl JsInterestRateOption {
     pub fn to_string_js(&self) -> String {
         format!(
             "InterestRateOption(id='{}', strike={:.4})",
-            self.0.id, self.0.strike_rate
+            self.0.id, self.0.strike
         )
     }
 

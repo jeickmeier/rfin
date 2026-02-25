@@ -12528,7 +12528,7 @@
               "js_name": "money"
             },
             {
-              "name": "strike_rate",
+              "name": "strike",
               "js_name": "strikeRate"
             },
             {
@@ -12588,7 +12588,7 @@
               "js_name": "notional"
             },
             {
-              "name": "strike_rate",
+              "name": "strike",
               "js_name": "strikeRate"
             },
             {
@@ -13100,8 +13100,8 @@
               "js_name": "money"
             },
             {
-              "name": "strike_spread_bp",
-              "js_name": "strikeSpreadBp"
+              "name": "strike",
+              "js_name": "strike"
             },
             {
               "name": "expiry",
@@ -13164,8 +13164,8 @@
               "js_name": "notional"
             },
             {
-              "name": "strike_spread_bp",
-              "js_name": "strikeSpreadBp"
+              "name": "strike",
+              "js_name": "strike"
             },
             {
               "name": "expiry",
@@ -15956,7 +15956,7 @@
         "new",
         "new",
         "money",
-        "strikeSpreadBp",
+        "strike",
         "expiry",
         "cdsMaturity",
         "discountCurve",
@@ -15972,7 +15972,7 @@
         "toJson",
         "instrumentId",
         "notional",
-        "strikeSpreadBp",
+        "strike",
         "expiry",
         "cdsMaturity",
         "instrumentType",

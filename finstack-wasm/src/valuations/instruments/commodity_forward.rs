@@ -9,6 +9,7 @@ use finstack_valuations::instruments::commodity::commodity_forward::{
     CommodityForward, SettlementType,
 };
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::CommodityUnderlyingParams;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
@@ -148,13 +149,15 @@ impl JsCommodityForwardBuilder {
 
         let mut builder = CommodityForward::builder()
             .id(InstrumentId::new(&self.instrument_id))
-            .commodity_type(commodity_type.to_string())
-            .ticker(ticker.to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                commodity_type,
+                ticker,
+                unit,
+                currency,
+            ))
             .quantity(quantity)
-            .unit(unit.to_string())
             .multiplier(self.multiplier.unwrap_or(1.0))
             .maturity(maturity)
-            .currency(currency)
             .forward_curve_id(CurveId::new(forward_curve_id))
             .discount_curve_id(CurveId::new(discount_curve_id))
             .attributes(Attributes::new());
@@ -240,13 +243,15 @@ impl JsCommodityForward {
 
         let mut builder = CommodityForward::builder()
             .id(InstrumentId::new(instrument_id))
-            .commodity_type(commodity_type.to_string())
-            .ticker(ticker.to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                commodity_type,
+                ticker,
+                unit,
+                currency.inner(),
+            ))
             .quantity(quantity)
-            .unit(unit.to_string())
             .multiplier(multiplier.unwrap_or(1.0))
             .maturity(settlement_date.inner())
-            .currency(currency.inner())
             .forward_curve_id(CurveId::new(forward_curve_id))
             .discount_curve_id(CurveId::new(discount_curve_id))
             .attributes(Attributes::new());
@@ -272,12 +277,12 @@ impl JsCommodityForward {
 
     #[wasm_bindgen(getter, js_name = commodityType)]
     pub fn commodity_type(&self) -> String {
-        self.inner.commodity_type.clone()
+        self.inner.underlying.commodity_type.clone()
     }
 
     #[wasm_bindgen(getter)]
     pub fn ticker(&self) -> String {
-        self.inner.ticker.clone()
+        self.inner.underlying.ticker.clone()
     }
 
     #[wasm_bindgen(getter)]
@@ -287,7 +292,7 @@ impl JsCommodityForward {
 
     #[wasm_bindgen(getter)]
     pub fn unit(&self) -> String {
-        self.inner.unit.clone()
+        self.inner.underlying.unit.clone()
     }
 
     #[wasm_bindgen(getter)]
@@ -302,7 +307,7 @@ impl JsCommodityForward {
 
     #[wasm_bindgen(getter)]
     pub fn currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.inner.currency)
+        JsCurrency::from_inner(self.inner.underlying.currency)
     }
 
     #[wasm_bindgen(getter, js_name = quotedPrice)]
@@ -350,7 +355,7 @@ impl JsCommodityForward {
         format!(
             "CommodityForward(id='{}', ticker='{}', quantity={}, settlement='{}')",
             self.inner.id.as_str(),
-            self.inner.ticker,
+            self.inner.underlying.ticker,
             self.inner.quantity,
             self.inner.maturity
         )

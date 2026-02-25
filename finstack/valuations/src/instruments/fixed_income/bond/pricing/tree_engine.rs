@@ -1240,8 +1240,12 @@ mod tests {
             .call_put_opt(None)
             .custom_cashflows_opt(None)
             .attributes(Default::default())
-            .settlement_days_opt(Some(2))
-            .ex_coupon_days_opt(Some(0))
+            .settlement_convention_opt(Some(
+                crate::instruments::fixed_income::bond::BondSettlementConvention {
+                    settlement_days: 2,
+                    ..Default::default()
+                },
+            ))
             .build()
             .expect("Bond builder should succeed with valid test data")
     }

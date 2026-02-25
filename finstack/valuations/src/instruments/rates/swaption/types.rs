@@ -451,8 +451,9 @@ pub struct Swaption {
     pub option_type: OptionType,
     /// Notional amount of underlying swap
     pub notional: Money,
-    /// Strike rate (fixed rate on underlying swap)
-    pub strike_rate: Decimal,
+    /// Strike (fixed rate on underlying swap)
+    #[serde(alias = "strike_rate")]
+    pub strike: Decimal,
     /// Option expiry date
     pub expiry: Date,
     /// Underlying swap start date
@@ -510,9 +511,9 @@ pub struct Swaption {
 }
 
 impl Swaption {
-    pub(crate) fn strike_rate_f64(&self) -> Result<f64> {
-        self.strike_rate.to_f64().ok_or_else(|| {
-            Error::Validation("Swaption strike_rate could not be converted to f64".to_string())
+    pub(crate) fn strike_f64(&self) -> Result<f64> {
+        self.strike.to_f64().ok_or_else(|| {
+            Error::Validation("Swaption strike could not be converted to f64".to_string())
         })
     }
 
@@ -525,7 +526,7 @@ impl Swaption {
             id: InstrumentId::new("SWPN-1Yx5Y-USD"),
             option_type: OptionType::Call,
             notional: Money::new(10_000_000.0, Currency::USD),
-            strike_rate: Decimal::try_from(0.03).expect("valid decimal"),
+            strike: Decimal::try_from(0.03).expect("valid decimal"),
             expiry: Date::from_calendar_date(2027, time::Month::January, 15)
                 .expect("Valid example date"),
             swap_start: Date::from_calendar_date(2027, time::Month::January, 17)
@@ -561,7 +562,7 @@ impl Swaption {
             id: id.into(),
             option_type: OptionType::Call,
             notional: params.notional,
-            strike_rate: params.strike_rate,
+            strike: params.strike,
             expiry: params.expiry,
             swap_start: params.swap_start,
             swap_end: params.swap_end,
@@ -607,7 +608,7 @@ impl Swaption {
             id: id.into(),
             option_type: OptionType::Put,
             notional: params.notional,
-            strike_rate: params.strike_rate,
+            strike: params.strike,
             expiry: params.expiry,
             swap_start: params.swap_start,
             swap_end: params.swap_end,
@@ -707,15 +708,9 @@ impl Swaption {
         let disc = curves.get_discount(self.discount_curve_id.as_ref())?;
         let forward_rate = self.forward_swap_rate(curves, as_of)?;
         let annuity = self.annuity(disc.as_ref(), as_of, forward_rate)?;
-        let strike_rate = self.strike_rate_f64()?;
+        let strike = self.strike_f64()?;
 
-        let value = model_fn(
-            forward_rate,
-            strike_rate,
-            volatility,
-            time_to_expiry,
-            annuity,
-        );
+        let value = model_fn(forward_rate, strike, volatility, time_to_expiry, annuity);
 
         Ok(Money::new(
             value * self.notional.amount(),
@@ -808,11 +803,10 @@ impl Swaption {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
         let forward_rate = self.forward_swap_rate(curves, as_of)?;
-        let strike_rate = self.strike_rate_f64()?;
+        let strike = self.strike_f64()?;
 
         // SABR outputs lognormal (Black) volatility
-        let sabr_lognormal_vol =
-            model.implied_volatility(forward_rate, strike_rate, time_to_expiry)?;
+        let sabr_lognormal_vol = model.implied_volatility(forward_rate, strike, time_to_expiry)?;
 
         // Dispatch to the appropriate pricing model
         match self.vol_model {
@@ -821,7 +815,7 @@ impl Swaption {
                 let sabr_normal_vol = lognormal_to_normal_vol(
                     sabr_lognormal_vol,
                     forward_rate,
-                    strike_rate,
+                    strike,
                     time_to_expiry,
                     params.shift,
                 );
@@ -1061,7 +1055,7 @@ impl Swaption {
         // 1. SABR model (highest priority)
         if let Some(sabr) = &self.sabr_params {
             let model = SABRModel::new(sabr.to_internal()?);
-            return model.implied_volatility(forward, self.strike_rate_f64()?, time_to_expiry);
+            return model.implied_volatility(forward, self.strike_f64()?, time_to_expiry);
         }
 
         // 2. Pricing override
@@ -1071,7 +1065,7 @@ impl Swaption {
 
         // 3. Volatility surface
         let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
-        let strike_rate = self.strike_rate_f64()?;
+        let strike = self.strike_f64()?;
         match self
             .pricing_overrides
             .model_config
@@ -1079,10 +1073,10 @@ impl Swaption {
         {
             VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
                 // LinearInVariance falls back to Clamp until surface impl is ready
-                Ok(vol_surface.value_clamped(time_to_expiry, strike_rate))
+                Ok(vol_surface.value_clamped(time_to_expiry, strike))
             }
             VolSurfaceExtrapolation::Error => {
-                Ok(vol_surface.value_checked(time_to_expiry, strike_rate)?)
+                Ok(vol_surface.value_checked(time_to_expiry, strike)?)
             }
         }
     }
@@ -1156,7 +1150,7 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
 
         let time_to_expiry = year_fraction(self.day_count, as_of, self.expiry)?;
         let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
-        let strike_rate = self.strike_rate_f64()?;
+        let strike = self.strike_f64()?;
         let vol = if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility {
             impl_vol
         } else {
@@ -1167,10 +1161,10 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
             {
                 VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
                     // LinearInVariance falls back to Clamp until surface impl is ready
-                    vol_surface.value_clamped(time_to_expiry, strike_rate)
+                    vol_surface.value_clamped(time_to_expiry, strike)
                 }
                 VolSurfaceExtrapolation::Error => {
-                    vol_surface.value_checked(time_to_expiry, strike_rate)?
+                    vol_surface.value_checked(time_to_expiry, strike)?
                 }
             }
         };
@@ -1253,8 +1247,9 @@ pub struct BermudanSwaption {
     pub option_type: OptionType,
     /// Notional amount of underlying swap
     pub notional: Money,
-    /// Strike rate (fixed rate on underlying swap)
-    pub strike_rate: Decimal,
+    /// Strike (fixed rate on underlying swap)
+    #[serde(alias = "strike_rate")]
+    pub strike: Decimal,
     /// Underlying swap start date (first accrual start)
     pub swap_start: Date,
     /// Underlying swap end date (final payment)
@@ -1311,7 +1306,7 @@ impl BermudanSwaption {
             id: InstrumentId::new("BERM-10NC2-USD"),
             option_type: OptionType::Call,
             notional: Money::new(10_000_000.0, Currency::USD),
-            strike_rate: Decimal::try_from(0.03).expect("valid decimal"),
+            strike: Decimal::try_from(0.03).expect("valid decimal"),
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),
@@ -1339,7 +1334,7 @@ impl BermudanSwaption {
     pub fn new_payer(
         id: impl Into<InstrumentId>,
         notional: Money,
-        strike_rate: f64,
+        strike: f64,
         swap_start: Date,
         swap_end: Date,
         bermudan_schedule: BermudanSchedule,
@@ -1351,7 +1346,7 @@ impl BermudanSwaption {
             id: id.into(),
             option_type: OptionType::Call,
             notional,
-            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
+            strike: Decimal::try_from(strike).unwrap_or_default(),
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),
@@ -1374,7 +1369,7 @@ impl BermudanSwaption {
     pub fn new_receiver(
         id: impl Into<InstrumentId>,
         notional: Money,
-        strike_rate: f64,
+        strike: f64,
         swap_start: Date,
         swap_end: Date,
         bermudan_schedule: BermudanSchedule,
@@ -1386,7 +1381,7 @@ impl BermudanSwaption {
             id: id.into(),
             option_type: OptionType::Put,
             notional,
-            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
+            strike: Decimal::try_from(strike).unwrap_or_default(),
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),
@@ -1532,9 +1527,9 @@ impl BermudanSwaption {
             .collect()
     }
 
-    pub(crate) fn strike_rate_f64(&self) -> Result<f64> {
-        self.strike_rate.to_f64().ok_or_else(|| {
-            Error::Validation("BermudanSwaption strike_rate could not be converted to f64".into())
+    pub(crate) fn strike_f64(&self) -> Result<f64> {
+        self.strike.to_f64().ok_or_else(|| {
+            Error::Validation("BermudanSwaption strike could not be converted to f64".into())
         })
     }
 
@@ -1641,7 +1636,7 @@ impl BermudanSwaption {
             id: InstrumentId::new(format!("{}-EURO", self.id.as_str())),
             option_type: self.option_type,
             notional: self.notional,
-            strike_rate: self.strike_rate,
+            strike: self.strike,
             expiry: first_ex,
             swap_start: first_ex,
             swap_end: self.swap_end,

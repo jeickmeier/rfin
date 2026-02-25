@@ -65,6 +65,7 @@ impl Pricer for CommoditySwapDiscountingPricer {
 mod tests {
     use super::*;
     use crate::instruments::common_impl::parameters::legs::PayReceive;
+    use crate::instruments::common_impl::parameters::CommodityUnderlyingParams;
     use crate::pricer::Pricer;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Tenor, TenorUnit};
@@ -75,10 +76,12 @@ mod tests {
     fn create_test_swap() -> CommoditySwap {
         CommoditySwap::builder()
             .id(InstrumentId::new("TEST-SWAP"))
-            .commodity_type("Energy".to_string())
-            .ticker("NG".to_string())
-            .unit("MMBTU".to_string())
-            .currency(Currency::USD)
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "NG",
+                "MMBTU",
+                Currency::USD,
+            ))
             .quantity(10000.0)
             .fixed_price(rust_decimal::Decimal::try_from(3.50).expect("valid decimal"))
             .floating_index_id(CurveId::new("NG-SPOT-AVG"))

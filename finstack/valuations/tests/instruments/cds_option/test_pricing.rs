@@ -4,6 +4,7 @@ use super::common::*;
 use crate::finstack_test_utils as test_utils;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::prelude::ToPrimitive;
 use time::macros::date;
 
 #[test]
@@ -166,10 +167,11 @@ fn test_forward_spread_calculation() {
     let market = standard_market(as_of);
     let option = CDSOptionBuilder::new().build(as_of);
 
+    let strike_bp = option.strike.to_f64().unwrap_or(0.0) * 10000.0;
     let mut underlying = test_utils::cds_buy_protection(
         "CDS-FWD",
         option.notional,
-        option.strike_spread_bp,
+        strike_bp,
         option.expiry,
         option.cds_maturity,
         option.discount_curve_id.clone(),

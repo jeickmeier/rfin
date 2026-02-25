@@ -26,7 +26,7 @@ class CmsOption:
         >>> fixing_dates = [date(2024, 3, 15), date(2024, 6, 15), date(2024, 9, 15)]
         >>> cms_option = CmsOption.builder(
         ...     "CMS-CAP-10Y",
-        ...     strike_rate=0.035,  # 3.5% strike
+        ...     strike=0.035,  # 3.5% strike
         ...     cms_tenor=10.0,  # 10-year CMS rate
         ...     fixing_dates=fixing_dates,
         ...     accrual_fractions=[0.25, 0.25, 0.25],  # Quarterly
@@ -71,7 +71,7 @@ class CmsOption:
     def builder(
         cls,
         instrument_id: str,
-        strike_rate: float,
+        strike: float,
         cms_tenor: float,
         fixing_dates: List[date],
         accrual_fractions: List[float],
@@ -91,7 +91,7 @@ class CmsOption:
         ----------
         instrument_id : str
             Unique identifier for the option (e.g., "CMS-CAP-10Y").
-        strike_rate : float
+        strike : float
             Strike rate as a decimal (e.g., 0.035 for 3.5%).
         cms_tenor : float
             CMS tenor in years (e.g., 10.0 for 10-year swap rate).
@@ -145,7 +145,7 @@ class CmsOption:
     @property
     def instrument_id(self) -> str: ...
     @property
-    def strike_rate(self) -> float: ...
+    def strike(self) -> float: ...
     @property
     def cms_tenor(self) -> float: ...
     @property

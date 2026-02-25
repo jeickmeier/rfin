@@ -105,10 +105,13 @@ pub struct JsXccySwapLegBuilder {
     side: Option<LegSide>,
     forward_curve_id: Option<String>,
     discount_curve_id: Option<String>,
+    start: Option<finstack_core::dates::Date>,
+    end: Option<finstack_core::dates::Date>,
     frequency: Option<String>,
     day_count: Option<String>,
     bdc: Option<String>,
-    spread: Option<f64>,
+    stub: Option<String>,
+    spread_bp: Option<f64>,
     payment_lag_days: Option<i32>,
     calendar_id: Option<String>,
 }
@@ -150,6 +153,18 @@ impl JsXccySwapLegBuilder {
         self
     }
 
+    #[wasm_bindgen(js_name = start)]
+    pub fn start(mut self, start: &JsDate) -> JsXccySwapLegBuilder {
+        self.start = Some(start.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = end)]
+    pub fn end(mut self, end: &JsDate) -> JsXccySwapLegBuilder {
+        self.end = Some(end.inner());
+        self
+    }
+
     #[wasm_bindgen(js_name = frequency)]
     pub fn frequency(mut self, frequency: String) -> JsXccySwapLegBuilder {
         self.frequency = Some(frequency);
@@ -168,9 +183,15 @@ impl JsXccySwapLegBuilder {
         self
     }
 
-    #[wasm_bindgen(js_name = spread)]
-    pub fn spread(mut self, spread: f64) -> JsXccySwapLegBuilder {
-        self.spread = Some(spread);
+    #[wasm_bindgen(js_name = stubKind)]
+    pub fn stub_kind(mut self, stub: String) -> JsXccySwapLegBuilder {
+        self.stub = Some(stub);
+        self
+    }
+
+    #[wasm_bindgen(js_name = spreadBp)]
+    pub fn spread_bp(mut self, spread_bp: f64) -> JsXccySwapLegBuilder {
+        self.spread_bp = Some(spread_bp);
         self
     }
 
@@ -203,11 +224,18 @@ impl JsXccySwapLegBuilder {
         let discount_curve_id = self.discount_curve_id.as_deref().ok_or_else(|| {
             js_error("XccySwapLegBuilder: discountCurveId is required".to_string())
         })?;
+        let start = self
+            .start
+            .ok_or_else(|| js_error("XccySwapLegBuilder: start is required".to_string()))?;
+        let end = self
+            .end
+            .ok_or_else(|| js_error("XccySwapLegBuilder: end is required".to_string()))?;
 
         let freq = parse_optional_with_default(self.frequency, Tenor::quarterly())?;
         let dc = parse_optional_with_default(self.day_count, DayCount::ActAct)?;
         let bdc_value =
             parse_optional_with_default(self.bdc, BusinessDayConvention::ModifiedFollowing)?;
+        let stub_value = parse_optional_with_default(self.stub, StubKind::ShortFront)?;
 
         Ok(JsXccySwapLeg {
             inner: XccySwapLeg {
@@ -216,10 +244,13 @@ impl JsXccySwapLegBuilder {
                 side,
                 forward_curve_id: curve_id_from_str(forward_curve_id),
                 discount_curve_id: curve_id_from_str(discount_curve_id),
+                start,
+                end,
                 frequency: freq,
                 day_count: dc,
                 bdc: bdc_value,
-                spread: self.spread.unwrap_or(0.0),
+                stub: stub_value,
+                spread_bp: self.spread_bp.unwrap_or(0.0),
                 payment_lag_days: self.payment_lag_days.unwrap_or(0),
                 calendar_id: self.calendar_id,
                 allow_calendar_fallback: true,
@@ -230,7 +261,7 @@ impl JsXccySwapLegBuilder {
 
 #[wasm_bindgen(js_class = XccySwapLeg)]
 impl JsXccySwapLeg {
-    /// Create a new XCCY swap leg.
+    /// Create a new XCCY swap leg (deprecated: prefer XccySwapLegBuilder).
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -239,19 +270,20 @@ impl JsXccySwapLeg {
         side: &JsLegSide,
         forward_curve_id: &str,
         discount_curve_id: &str,
+        start: &JsDate,
+        end: &JsDate,
         frequency: Option<String>,
         day_count: Option<String>,
         bdc: Option<String>,
-        spread: Option<f64>,
+        stub: Option<String>,
+        spread_bp: Option<f64>,
         payment_lag_days: Option<i32>,
         calendar_id: Option<String>,
     ) -> Result<JsXccySwapLeg, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "XccySwapLeg constructor is deprecated; use XccySwapLegBuilder instead.",
-        ));
         let freq = parse_optional_with_default(frequency, Tenor::quarterly())?;
         let dc = parse_optional_with_default(day_count, DayCount::ActAct)?;
         let bdc_value = parse_optional_with_default(bdc, BusinessDayConvention::ModifiedFollowing)?;
+        let stub_value = parse_optional_with_default(stub, StubKind::ShortFront)?;
 
         Ok(JsXccySwapLeg {
             inner: XccySwapLeg {
@@ -260,10 +292,13 @@ impl JsXccySwapLeg {
                 side: side.inner(),
                 forward_curve_id: curve_id_from_str(forward_curve_id),
                 discount_curve_id: curve_id_from_str(discount_curve_id),
+                start: start.inner(),
+                end: end.inner(),
                 frequency: freq,
                 day_count: dc,
                 bdc: bdc_value,
-                spread: spread.unwrap_or(0.0),
+                stub: stub_value,
+                spread_bp: spread_bp.unwrap_or(0.0),
                 payment_lag_days: payment_lag_days.unwrap_or(0),
                 calendar_id,
                 allow_calendar_fallback: true,
@@ -283,10 +318,10 @@ impl JsXccySwapLeg {
         JsMoney::from_inner(self.inner.notional)
     }
 
-    /// Get the spread (in decimal form).
-    #[wasm_bindgen(getter)]
-    pub fn spread(&self) -> f64 {
-        self.inner.spread
+    /// Get the spread in basis points.
+    #[wasm_bindgen(getter, js_name = spreadBp)]
+    pub fn spread_bp(&self) -> f64 {
+        self.inner.spread_bp
     }
 }
 
@@ -317,13 +352,10 @@ impl InstrumentWrapper for JsXccySwap {
 #[derive(Clone, Debug, Default)]
 pub struct JsXccySwapBuilder {
     instrument_id: String,
-    start_date: Option<finstack_core::dates::Date>,
-    maturity_date: Option<finstack_core::dates::Date>,
     leg1: Option<XccySwapLeg>,
     leg2: Option<XccySwapLeg>,
     reporting_currency: Option<finstack_core::currency::Currency>,
     notional_exchange: Option<NotionalExchange>,
-    stub_kind: Option<String>,
 }
 
 #[wasm_bindgen(js_class = XccySwapBuilder)]
@@ -334,18 +366,6 @@ impl JsXccySwapBuilder {
             instrument_id: instrument_id.to_string(),
             ..Default::default()
         }
-    }
-
-    #[wasm_bindgen(js_name = startDate)]
-    pub fn start_date(mut self, start_date: &JsDate) -> JsXccySwapBuilder {
-        self.start_date = Some(start_date.inner());
-        self
-    }
-
-    #[wasm_bindgen(js_name = maturityDate)]
-    pub fn maturity_date(mut self, maturity_date: &JsDate) -> JsXccySwapBuilder {
-        self.maturity_date = Some(maturity_date.inner());
-        self
     }
 
     #[wasm_bindgen(js_name = leg1)]
@@ -372,20 +392,8 @@ impl JsXccySwapBuilder {
         self
     }
 
-    #[wasm_bindgen(js_name = stubKind)]
-    pub fn stub_kind(mut self, stub_kind: String) -> JsXccySwapBuilder {
-        self.stub_kind = Some(stub_kind);
-        self
-    }
-
     #[wasm_bindgen(js_name = build)]
     pub fn build(self) -> Result<JsXccySwap, JsValue> {
-        let start_date = self
-            .start_date
-            .ok_or_else(|| js_error("XccySwapBuilder: startDate is required".to_string()))?;
-        let maturity_date = self
-            .maturity_date
-            .ok_or_else(|| js_error("XccySwapBuilder: maturityDate is required".to_string()))?;
         let leg1 = self
             .leg1
             .ok_or_else(|| js_error("XccySwapBuilder: leg1 is required".to_string()))?;
@@ -396,21 +404,12 @@ impl JsXccySwapBuilder {
             js_error("XccySwapBuilder: reportingCurrency is required".to_string())
         })?;
 
-        let stub = parse_optional_with_default(self.stub_kind, StubKind::None)?;
         let exchange = self
             .notional_exchange
             .unwrap_or(NotionalExchange::InitialAndFinal);
 
-        let swap = XccySwap::new(
-            &self.instrument_id,
-            start_date,
-            maturity_date,
-            leg1,
-            leg2,
-            reporting_currency,
-        )
-        .with_notional_exchange(exchange)
-        .with_stub(stub);
+        let swap = XccySwap::new(&self.instrument_id, leg1, leg2, reporting_currency)
+            .with_notional_exchange(exchange);
 
         Ok(JsXccySwap { inner: swap })
     }
@@ -418,57 +417,22 @@ impl JsXccySwapBuilder {
 
 #[wasm_bindgen(js_class = XccySwap)]
 impl JsXccySwap {
-    /// Create a new cross-currency swap.
-    #[wasm_bindgen(constructor)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        instrument_id: &str,
-        start_date: &JsDate,
-        maturity_date: &JsDate,
-        leg1: &JsXccySwapLeg,
-        leg2: &JsXccySwapLeg,
-        reporting_currency: &JsCurrency,
-        notional_exchange: Option<JsNotionalExchange>,
-        stub_kind: Option<String>,
-    ) -> Result<JsXccySwap, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "XccySwap constructor is deprecated; use XccySwapBuilder instead.",
-        ));
-        let stub = parse_optional_with_default(stub_kind, StubKind::None)?;
-        let exchange = notional_exchange
-            .map(|e| e.inner())
-            .unwrap_or(NotionalExchange::InitialAndFinal);
-
-        let swap = XccySwap::new(
-            instrument_id,
-            start_date.inner(),
-            maturity_date.inner(),
-            leg1.inner(),
-            leg2.inner(),
-            reporting_currency.inner(),
-        )
-        .with_notional_exchange(exchange)
-        .with_stub(stub);
-
-        Ok(JsXccySwap { inner: swap })
-    }
-
     /// Get the instrument ID.
     #[wasm_bindgen(getter)]
     pub fn id(&self) -> String {
         self.inner.id.as_str().to_string()
     }
 
-    /// Get the start date.
+    /// Get the start date (from leg1).
     #[wasm_bindgen(getter, js_name = startDate)]
     pub fn start_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.start_date)
+        JsDate::from_core(self.inner.leg1.start)
     }
 
-    /// Get the maturity date.
+    /// Get the maturity date (from leg1).
     #[wasm_bindgen(getter, js_name = maturityDate)]
     pub fn maturity_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.maturity)
+        JsDate::from_core(self.inner.leg1.end)
     }
 
     /// Get the reporting currency.
@@ -512,7 +476,6 @@ impl JsXccySwap {
         use finstack_core::dates::{CalendarRegistry, DateExt, DayCountCtx};
         use finstack_valuations::cashflow::builder::build_dates;
 
-        // Use leg1 discount curve base date as the projection / filter anchor.
         let disc = market
             .inner()
             .get_discount(self.inner.leg1.discount_curve_id.as_str())
@@ -522,15 +485,13 @@ impl JsXccySwap {
         let result = Array::new();
 
         for (leg_label, leg) in [("Leg1", &self.inner.leg1), ("Leg2", &self.inner.leg2)] {
-            // Resolve calendar (if any)
             let cal = leg
                 .calendar_id
                 .as_deref()
                 .and_then(|id| CalendarRegistry::global().resolve_str(id));
 
-            // Principal exchanges
             let principal_sign = match leg.side {
-                LegSide::Receive => (-1.0, 1.0), // pay at start, receive at end
+                LegSide::Receive => (-1.0, 1.0),
                 LegSide::Pay => (1.0, -1.0),
                 _ => unreachable!("unknown LegSide variant"),
             };
@@ -538,10 +499,10 @@ impl JsXccySwap {
             if matches!(
                 self.inner.notional_exchange,
                 NotionalExchange::InitialAndFinal
-            ) && self.inner.start_date > as_of
+            ) && leg.start > as_of
             {
                 let entry = Array::new();
-                entry.push(&JsDate::from_core(self.inner.start_date).into());
+                entry.push(&JsDate::from_core(leg.start).into());
                 entry.push(
                     &JsMoney::from_inner(finstack_core::money::Money::new(
                         principal_sign.0 * leg.notional.amount(),
@@ -557,10 +518,10 @@ impl JsXccySwap {
             if matches!(
                 self.inner.notional_exchange,
                 NotionalExchange::Final | NotionalExchange::InitialAndFinal
-            ) && self.inner.maturity > as_of
+            ) && leg.end > as_of
             {
                 let entry = Array::new();
-                entry.push(&JsDate::from_core(self.inner.maturity).into());
+                entry.push(&JsDate::from_core(leg.end).into());
                 entry.push(
                     &JsMoney::from_inner(finstack_core::money::Money::new(
                         principal_sign.1 * leg.notional.amount(),
@@ -573,12 +534,11 @@ impl JsXccySwap {
                 result.push(&entry);
             }
 
-            // Floating coupons
             let sched = build_dates(
-                self.inner.start_date,
-                self.inner.maturity,
+                leg.start,
+                leg.end,
                 leg.frequency,
-                self.inner.stub,
+                leg.stub,
                 leg.bdc,
                 false,
                 leg.payment_lag_days,
@@ -637,8 +597,10 @@ impl JsXccySwap {
                     .year_fraction(period_start, period_end, DayCountCtx::default())
                     .map_err(|e| js_error(e.to_string()))?;
 
-                let amount =
-                    coupon_sign * leg.notional.amount() * (forward_rate + leg.spread) * accrual;
+                let amount = coupon_sign
+                    * leg.notional.amount()
+                    * (forward_rate + leg.spread_bp * 0.0001)
+                    * accrual;
 
                 let entry = Array::new();
                 entry.push(&JsDate::from_core(payment_date).into());

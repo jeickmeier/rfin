@@ -6,6 +6,7 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOptionParams;
 use finstack_valuations::instruments::OptionType;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 #[test]
@@ -14,10 +15,10 @@ fn test_call_constructor() {
     let maturity = date!(2030 - 12 - 31);
     let notional = Money::new(10_000_000.0, Currency::USD);
 
-    let params =
-        CDSOptionParams::call(100.0, expiry, maturity, notional).expect("valid call params");
+    let params = CDSOptionParams::call(Decimal::new(1, 2), expiry, maturity, notional)
+        .expect("valid call params");
 
-    assert_eq!(params.strike_spread_bp, 100.0);
+    assert_eq!(params.strike, Decimal::new(1, 2)); // 0.01 = 100bp
     assert_eq!(params.expiry, expiry);
     assert_eq!(params.cds_maturity, maturity);
     assert_eq!(params.notional.amount(), 10_000_000.0);
@@ -25,7 +26,7 @@ fn test_call_constructor() {
     assert!(matches!(params.option_type, OptionType::Call));
     assert!(!params.underlying_is_index);
     assert_eq!(params.index_factor, None);
-    assert_eq!(params.forward_spread_adjust_bp, 0.0);
+    assert_eq!(params.forward_spread_adjust, Decimal::ZERO);
 }
 
 #[test]
@@ -34,9 +35,10 @@ fn test_put_constructor() {
     let maturity = date!(2030 - 12 - 31);
     let notional = Money::new(5_000_000.0, Currency::EUR);
 
-    let params = CDSOptionParams::put(150.0, expiry, maturity, notional).expect("valid put params");
+    let params = CDSOptionParams::put(Decimal::new(15, 3), expiry, maturity, notional)
+        .expect("valid put params"); // 0.015 = 150bp
 
-    assert_eq!(params.strike_spread_bp, 150.0);
+    assert_eq!(params.strike, Decimal::new(15, 3));
     assert!(matches!(params.option_type, OptionType::Put));
     assert_eq!(params.notional.currency(), Currency::EUR);
 }
@@ -47,7 +49,7 @@ fn test_index_option_builder() {
     let maturity = date!(2030 - 12 - 31);
     let notional = Money::new(10_000_000.0, Currency::USD);
 
-    let params = CDSOptionParams::call(100.0, expiry, maturity, notional)
+    let params = CDSOptionParams::call(Decimal::new(1, 2), expiry, maturity, notional)
         .expect("valid call params")
         .as_index(0.85)
         .expect("valid index factor");
@@ -62,13 +64,13 @@ fn test_forward_spread_adjustment() {
     let maturity = date!(2030 - 12 - 31);
     let notional = Money::new(10_000_000.0, Currency::USD);
 
-    let params = CDSOptionParams::call(100.0, expiry, maturity, notional)
+    let params = CDSOptionParams::call(Decimal::new(1, 2), expiry, maturity, notional)
         .expect("valid call params")
         .as_index(0.90)
         .expect("valid index factor")
-        .with_forward_spread_adjust_bp(25.0);
+        .with_forward_spread_adjust(Decimal::new(25, 4)); // 0.0025 = 25bp
 
-    assert_eq!(params.forward_spread_adjust_bp, 25.0);
+    assert_eq!(params.forward_spread_adjust, Decimal::new(25, 4));
     assert!(params.underlying_is_index);
 }
 
@@ -78,17 +80,17 @@ fn test_chained_builders() {
     let maturity = date!(2028 - 06 - 30);
     let notional = Money::new(20_000_000.0, Currency::GBP);
 
-    let params = CDSOptionParams::put(200.0, expiry, maturity, notional)
+    let params = CDSOptionParams::put(Decimal::new(2, 2), expiry, maturity, notional) // 0.02 = 200bp
         .expect("valid put params")
         .as_index(0.75)
         .expect("valid index factor")
-        .with_forward_spread_adjust_bp(-10.0);
+        .with_forward_spread_adjust(Decimal::new(-10, 4)); // -0.001 = -10bp
 
     assert!(matches!(params.option_type, OptionType::Put));
-    assert_eq!(params.strike_spread_bp, 200.0);
+    assert_eq!(params.strike, Decimal::new(2, 2));
     assert!(params.underlying_is_index);
     assert_eq!(params.index_factor, Some(0.75));
-    assert_eq!(params.forward_spread_adjust_bp, -10.0);
+    assert_eq!(params.forward_spread_adjust, Decimal::new(-10, 4));
 }
 
 #[test]
@@ -97,10 +99,20 @@ fn test_various_strikes() {
     let maturity = date!(2031 - 01 - 01);
     let notional = Money::new(10_000_000.0, Currency::USD);
 
-    for strike in [25.0, 50.0, 100.0, 200.0, 500.0, 1000.0] {
+    // Strikes in bp -> decimal: 25bp=0.0025, 50bp=0.005, 100bp=0.01, etc.
+    let strikes_decimal = [
+        Decimal::new(25, 4), // 0.0025 = 25bp
+        Decimal::new(5, 3),  // 0.005 = 50bp
+        Decimal::new(1, 2),  // 0.01 = 100bp
+        Decimal::new(2, 2),  // 0.02 = 200bp
+        Decimal::new(5, 2),  // 0.05 = 500bp
+        Decimal::new(1, 1),  // 0.1 = 1000bp
+    ];
+
+    for strike in strikes_decimal {
         let params =
             CDSOptionParams::call(strike, expiry, maturity, notional).expect("valid call params");
-        assert_eq!(params.strike_spread_bp, strike);
+        assert_eq!(params.strike, strike);
     }
 }
 
@@ -111,8 +123,8 @@ fn test_various_currencies() {
 
     for currency in [Currency::USD, Currency::EUR, Currency::GBP, Currency::JPY] {
         let notional = Money::new(10_000_000.0, currency);
-        let params =
-            CDSOptionParams::call(100.0, expiry, maturity, notional).expect("valid call params");
+        let params = CDSOptionParams::call(Decimal::new(1, 2), expiry, maturity, notional)
+            .expect("valid call params");
         assert_eq!(params.notional.currency(), currency);
     }
 }

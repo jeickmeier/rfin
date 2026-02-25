@@ -10,10 +10,8 @@ fn requires_fx_matrix_when_reporting_currency_differs() {
     let maturity = d(2026, 1, 2);
     let swap = XccySwap::new(
         "XCCY-TEST",
-        base,
-        maturity,
-        leg_usd_receive(),
-        leg_eur_pay(),
+        leg_usd_receive(base, maturity),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     )
     .with_notional_exchange(NotionalExchange::None);
@@ -29,10 +27,8 @@ fn prices_with_fx_and_curves() {
     let maturity = d(2026, 1, 2);
     let swap = XccySwap::new(
         "XCCY-TEST",
-        base,
-        maturity,
-        leg_usd_receive(),
-        leg_eur_pay(),
+        leg_usd_receive(base, maturity),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     );
 
@@ -48,20 +44,16 @@ fn notional_exchange_changes_pv() {
     let maturity = d(2026, 1, 2);
     let swap_none = XccySwap::new(
         "XCCY-TEST-NONE",
-        base,
-        maturity,
-        leg_usd_receive(),
-        leg_eur_pay(),
+        leg_usd_receive(base, maturity),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     )
     .with_notional_exchange(NotionalExchange::None);
 
     let swap_ex = XccySwap::new(
         "XCCY-TEST-EX",
-        base,
-        maturity,
-        leg_usd_receive(),
-        leg_eur_pay(),
+        leg_usd_receive(base, maturity),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     )
     .with_notional_exchange(NotionalExchange::InitialAndFinal);
@@ -84,13 +76,10 @@ fn short_front_stub_prices_correctly() {
 
     let swap = XccySwap::new(
         "XCCY-SHORT-STUB",
-        base,
-        maturity,
-        leg_usd_receive(),
-        leg_eur_pay(),
+        leg_usd_receive(base, maturity),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     )
-    .with_stub(StubKind::ShortFront)
     .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
@@ -106,16 +95,13 @@ fn long_back_stub_prices_correctly() {
     let base = d(2025, 1, 2);
     let maturity = d(2026, 2, 15); // Creates a long back stub
 
-    let swap = XccySwap::new(
-        "XCCY-LONG-STUB",
-        base,
-        maturity,
-        leg_usd_receive(),
-        leg_eur_pay(),
-        Currency::USD,
-    )
-    .with_stub(StubKind::LongBack)
-    .with_notional_exchange(NotionalExchange::None);
+    let mut usd_leg = leg_usd_receive(base, maturity);
+    usd_leg.stub = StubKind::LongBack;
+    let mut eur_leg = leg_eur_pay(base, maturity);
+    eur_leg.stub = StubKind::LongBack;
+
+    let swap = XccySwap::new("XCCY-LONG-STUB", usd_leg, eur_leg, Currency::USD)
+        .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
     let pv = swap.value(&market, base).unwrap();
@@ -135,33 +121,24 @@ fn payment_lag_affects_pv() {
     let base = d(2025, 1, 2);
     let maturity = d(2026, 1, 2);
 
-    let leg_no_lag = leg_usd_receive();
-    let mut leg_with_lag = leg_usd_receive();
+    let leg_no_lag = leg_usd_receive(base, maturity);
+    let mut leg_with_lag = leg_usd_receive(base, maturity);
     leg_with_lag.payment_lag_days = 2;
-    leg_with_lag.allow_calendar_fallback = true; // Allow fallback for test simplicity
+    leg_with_lag.allow_calendar_fallback = true;
 
     let swap_no_lag = XccySwap::new(
         "XCCY-NO-LAG",
-        base,
-        maturity,
         leg_no_lag.clone(),
-        leg_eur_pay(),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     )
     .with_notional_exchange(NotionalExchange::None);
 
-    let mut leg_eur_lag = leg_eur_pay();
+    let mut leg_eur_lag = leg_eur_pay(base, maturity);
     leg_eur_lag.allow_calendar_fallback = true;
 
-    let swap_with_lag = XccySwap::new(
-        "XCCY-WITH-LAG",
-        base,
-        maturity,
-        leg_with_lag,
-        leg_eur_lag,
-        Currency::USD,
-    )
-    .with_notional_exchange(NotionalExchange::None);
+    let swap_with_lag = XccySwap::new("XCCY-WITH-LAG", leg_with_lag, leg_eur_lag, Currency::USD)
+        .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
     let pv_no_lag = swap_no_lag.value(&market, base).unwrap().amount();
@@ -187,20 +164,13 @@ fn near_expiry_swap_prices_correctly() {
     let start = d(2025, 1, 2);
     let maturity = d(2025, 1, 3); // 1 day maturity
 
-    let mut leg_usd = leg_usd_receive();
+    let mut leg_usd = leg_usd_receive(start, maturity);
     leg_usd.allow_calendar_fallback = true;
-    let mut leg_eur = leg_eur_pay();
+    let mut leg_eur = leg_eur_pay(start, maturity);
     leg_eur.allow_calendar_fallback = true;
 
-    let swap = XccySwap::new(
-        "XCCY-NEAR-EXPIRY",
-        start,
-        maturity,
-        leg_usd,
-        leg_eur,
-        Currency::USD,
-    )
-    .with_notional_exchange(NotionalExchange::InitialAndFinal);
+    let swap = XccySwap::new("XCCY-NEAR-EXPIRY", leg_usd, leg_eur, Currency::USD)
+        .with_notional_exchange(NotionalExchange::InitialAndFinal);
 
     let market = market_with_fx();
     let pv = swap.value(&market, base).unwrap();
@@ -215,20 +185,13 @@ fn expired_swap_returns_zero_pv() {
     let start = d(2024, 1, 2);
     let maturity = d(2025, 1, 1); // Already expired
 
-    let mut leg_usd = leg_usd_receive();
+    let mut leg_usd = leg_usd_receive(start, maturity);
     leg_usd.allow_calendar_fallback = true;
-    let mut leg_eur = leg_eur_pay();
+    let mut leg_eur = leg_eur_pay(start, maturity);
     leg_eur.allow_calendar_fallback = true;
 
-    let swap = XccySwap::new(
-        "XCCY-EXPIRED",
-        start,
-        maturity,
-        leg_usd,
-        leg_eur,
-        Currency::USD,
-    )
-    .with_notional_exchange(NotionalExchange::None);
+    let swap = XccySwap::new("XCCY-EXPIRED", leg_usd, leg_eur, Currency::USD)
+        .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
     let pv = swap.value(&market, base).unwrap();
@@ -250,7 +213,7 @@ fn expired_swap_returns_zero_pv() {
 fn rejects_non_finite_notional() {
     // Money::new panics (via assert!) when given non-finite values
     // This is the correct fail-fast behavior for programming errors
-    let mut leg_usd = leg_usd_receive();
+    let mut leg_usd = leg_usd_receive(d(2025, 1, 2), d(2026, 1, 2));
     leg_usd.notional = Money::new(f64::INFINITY, Currency::USD);
     // This should panic before we even get to construct the swap
     let _ = leg_usd.notional;
@@ -261,15 +224,13 @@ fn rejects_negative_notional() {
     let base = d(2025, 1, 2);
     let maturity = d(2026, 1, 2);
 
-    let mut leg_usd = leg_usd_receive();
+    let mut leg_usd = leg_usd_receive(base, maturity);
     leg_usd.notional = Money::new(-1_000_000.0, Currency::USD);
 
     let swap = XccySwap::new(
         "XCCY-NEG-NOTIONAL",
-        base,
-        maturity,
         leg_usd,
-        leg_eur_pay(),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     );
 
@@ -287,15 +248,13 @@ fn rejects_zero_notional() {
     let base = d(2025, 1, 2);
     let maturity = d(2026, 1, 2);
 
-    let mut leg_usd = leg_usd_receive();
+    let mut leg_usd = leg_usd_receive(base, maturity);
     leg_usd.notional = Money::new(0.0, Currency::USD);
 
     let swap = XccySwap::new(
         "XCCY-ZERO-NOTIONAL",
-        base,
-        maturity,
         leg_usd,
-        leg_eur_pay(),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     );
 
@@ -313,15 +272,13 @@ fn rejects_non_finite_spread() {
     let base = d(2025, 1, 2);
     let maturity = d(2026, 1, 2);
 
-    let mut leg_usd = leg_usd_receive();
-    leg_usd.spread = f64::NAN;
+    let mut leg_usd = leg_usd_receive(base, maturity);
+    leg_usd.spread_bp = f64::NAN;
 
     let swap = XccySwap::new(
         "XCCY-NAN-SPREAD",
-        base,
-        maturity,
         leg_usd,
-        leg_eur_pay(),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     );
 
@@ -343,26 +300,22 @@ fn spread_affects_pv() {
     let base = d(2025, 1, 2);
     let maturity = d(2026, 1, 2);
 
-    let leg_no_spread = leg_usd_receive();
-    let mut leg_with_spread = leg_usd_receive();
-    leg_with_spread.spread = 0.005; // 50bp spread
+    let leg_no_spread = leg_usd_receive(base, maturity);
+    let mut leg_with_spread = leg_usd_receive(base, maturity);
+    leg_with_spread.spread_bp = 50.0; // 50bp spread
 
     let swap_no_spread = XccySwap::new(
         "XCCY-NO-SPREAD",
-        base,
-        maturity,
         leg_no_spread,
-        leg_eur_pay(),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     )
     .with_notional_exchange(NotionalExchange::None);
 
     let swap_with_spread = XccySwap::new(
         "XCCY-WITH-SPREAD",
-        base,
-        maturity,
         leg_with_spread,
-        leg_eur_pay(),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     )
     .with_notional_exchange(NotionalExchange::None);
@@ -385,26 +338,22 @@ fn negative_spread_decreases_pv() {
     let base = d(2025, 1, 2);
     let maturity = d(2026, 1, 2);
 
-    let leg_no_spread = leg_usd_receive();
-    let mut leg_negative_spread = leg_usd_receive();
-    leg_negative_spread.spread = -0.005; // -50bp spread
+    let leg_no_spread = leg_usd_receive(base, maturity);
+    let mut leg_negative_spread = leg_usd_receive(base, maturity);
+    leg_negative_spread.spread_bp = -50.0; // -50bp spread
 
     let swap_no_spread = XccySwap::new(
         "XCCY-NO-SPREAD",
-        base,
-        maturity,
         leg_no_spread,
-        leg_eur_pay(),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     )
     .with_notional_exchange(NotionalExchange::None);
 
     let swap_negative = XccySwap::new(
         "XCCY-NEG-SPREAD",
-        base,
-        maturity,
         leg_negative_spread,
-        leg_eur_pay(),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     )
     .with_notional_exchange(NotionalExchange::None);
@@ -432,12 +381,12 @@ fn long_dated_swap_prices_with_many_periods() {
     let base = d(2025, 1, 2);
     let maturity = d(2035, 1, 2);
 
-    let mut leg_usd = leg_usd_receive();
+    let mut leg_usd = leg_usd_receive(base, maturity);
     leg_usd.allow_calendar_fallback = true;
-    let mut leg_eur = leg_eur_pay();
+    let mut leg_eur = leg_eur_pay(base, maturity);
     leg_eur.allow_calendar_fallback = true;
 
-    let swap = XccySwap::new("XCCY-10Y", base, maturity, leg_usd, leg_eur, Currency::USD)
+    let swap = XccySwap::new("XCCY-10Y", leg_usd, leg_eur, Currency::USD)
         .with_notional_exchange(NotionalExchange::InitialAndFinal);
 
     let market = market_with_extended_curves();
@@ -462,20 +411,16 @@ fn final_only_exchange_differs_from_initial_and_final() {
 
     let swap_final = XccySwap::new(
         "XCCY-FINAL",
-        start_date,
-        maturity,
-        leg_usd_receive(),
-        leg_eur_pay(),
+        leg_usd_receive(start_date, maturity),
+        leg_eur_pay(start_date, maturity),
         Currency::USD,
     )
     .with_notional_exchange(NotionalExchange::Final);
 
     let swap_both = XccySwap::new(
         "XCCY-BOTH",
-        start_date,
-        maturity,
-        leg_usd_receive(),
-        leg_eur_pay(),
+        leg_usd_receive(start_date, maturity),
+        leg_eur_pay(start_date, maturity),
         Currency::USD,
     )
     .with_notional_exchange(NotionalExchange::InitialAndFinal);
@@ -509,29 +454,20 @@ fn receive_vs_pay_legs_have_opposite_signs() {
     // USD receive / EUR pay
     let swap_usd_receive = XccySwap::new(
         "XCCY-USD-RECEIVE",
-        base,
-        maturity,
-        leg_usd_receive(),
-        leg_eur_pay(),
+        leg_usd_receive(base, maturity),
+        leg_eur_pay(base, maturity),
         Currency::USD,
     )
     .with_notional_exchange(NotionalExchange::None);
 
     // USD pay / EUR receive (flip the sides)
-    let mut leg_usd_pay = leg_usd_receive();
+    let mut leg_usd_pay = leg_usd_receive(base, maturity);
     leg_usd_pay.side = LegSide::Pay;
-    let mut leg_eur_receive = leg_eur_pay();
+    let mut leg_eur_receive = leg_eur_pay(base, maturity);
     leg_eur_receive.side = LegSide::Receive;
 
-    let swap_usd_pay = XccySwap::new(
-        "XCCY-USD-PAY",
-        base,
-        maturity,
-        leg_usd_pay,
-        leg_eur_receive,
-        Currency::USD,
-    )
-    .with_notional_exchange(NotionalExchange::None);
+    let swap_usd_pay = XccySwap::new("XCCY-USD-PAY", leg_usd_pay, leg_eur_receive, Currency::USD)
+        .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
     let pv_receive = swap_usd_receive.value(&market, base).unwrap().amount();

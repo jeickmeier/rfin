@@ -64,7 +64,7 @@ fn test_forward_curve_dependencies_complete() {
     let deps =
         MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()))
             .expect("from_instrument_json");
-    let market = build_market_from_deps(&deps, as_of, option.currency);
+    let market = build_market_from_deps(&deps, as_of, option.underlying.currency);
 
     let result = option.value(&market, as_of);
     assert!(
@@ -105,7 +105,7 @@ fn test_missing_forward_curve_with_spot_succeeds() {
     for spot_id in deps.spot_ids.iter() {
         market = market.insert_price(
             spot_id,
-            MarketScalar::Price(Money::new(100.0, option.currency)),
+            MarketScalar::Price(Money::new(100.0, option.underlying.currency)),
         );
     }
 

@@ -786,7 +786,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
 
     // 10. CDS Option (option on CDS spread) - standalone
     let option_params = CDSOptionParams::call(
-        120.0,                                   // Strike at 120bp
+        rust_decimal::Decimal::new(12, 3),       // Strike = 0.012 (120bp)
         date!(2024 - 07 - 01),                   // 6M expiry
         date!(2029 - 01 - 01),                   // 5Y CDS maturity
         Money::new(10_000_000.0, Currency::USD), // $10M

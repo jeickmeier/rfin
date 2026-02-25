@@ -3,7 +3,7 @@
 //! Tests verify that computed par spreads correctly set NPV to zero and
 //! validate the mathematical relationship between par spread, annuity, and PV.
 
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -55,30 +55,36 @@ fn par_spread_zeros_npv() {
     let swap = BasisSwap::new(
         "PAR-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     // Compute par spread
     let res = swap
@@ -90,30 +96,36 @@ fn par_spread_zeros_npv() {
     let swap_at_par = BasisSwap::new(
         "PAR-TEST-APPLIED",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: par_spread_bp,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     let npv = swap_at_par.value(&ctx, as_of).unwrap();
 
@@ -134,30 +146,36 @@ fn par_spread_formula_validation() {
     let swap = BasisSwap::new(
         "FORMULA-TEST",
         Money::new(5_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2027, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2027, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2027, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     let res = swap
         .price_with_metrics(
@@ -200,30 +218,36 @@ fn par_spread_with_existing_spread() {
     let swap = BasisSwap::new(
         "EXISTING-SPREAD-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 10.0, // 10bp existing spread
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
@@ -265,30 +289,36 @@ fn par_spread_inverted_curves() {
     let swap = BasisSwap::new(
         "INVERTED-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     let res = swap
         .price_with_metrics(&ctx, d(2025, 1, 2), &[MetricId::BasisParSpread])
@@ -309,30 +339,36 @@ fn par_spread_long_maturity() {
     let swap = BasisSwap::new(
         "LONG-MAT-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2030, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2030, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2030, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     let res = swap
         .price_with_metrics(
@@ -359,30 +395,36 @@ fn par_spread_different_frequencies() {
     let swap = BasisSwap::new(
         "FREQ-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
@@ -403,30 +445,36 @@ fn par_spread_sign_convention() {
     let swap = BasisSwap::new(
         "SIGN-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     let res = swap
         .price_with_metrics(
@@ -472,30 +520,36 @@ fn incremental_par_spread_sign_convention() {
     let zero_spread_swap = BasisSwap::new(
         "INC-SIGN-ZERO",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     let res = zero_spread_swap
         .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
@@ -508,30 +562,36 @@ fn incremental_par_spread_sign_convention() {
     let swap_below_par = BasisSwap::new(
         "INC-SIGN-BELOW",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: below_par_spread,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     let res_below = swap_below_par
         .price_with_metrics(&ctx, as_of, &[MetricId::IncrementalParSpread])
@@ -556,30 +616,36 @@ fn incremental_par_spread_sign_convention() {
     let swap_above_par = BasisSwap::new(
         "INC-SIGN-ABOVE",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: above_par_spread,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     let res_above = swap_above_par
         .price_with_metrics(&ctx, as_of, &[MetricId::IncrementalParSpread])
@@ -602,30 +668,36 @@ fn incremental_par_spread_sign_convention() {
     let swap_at_par = BasisSwap::new(
         "INC-SIGN-AT-PAR",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: par_spread_bp,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .expect("valid basis swap")
-    .with_calendar(CALENDAR_ID);
+    .expect("valid basis swap");
 
     let res_at_par = swap_at_par
         .price_with_metrics(&ctx, as_of, &[MetricId::IncrementalParSpread])
@@ -649,30 +721,36 @@ fn zero_notional_par_spread_returns_error() {
     let swap = BasisSwap::new(
         "ZERO-NOTIONAL-PAR",
         Money::new(0.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
         BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
-        },
-        BasisSwapLeg {
             payment_lag_days: 0,
             reset_lag_days: 0,
+        },
+        BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start: d(2025, 1, 2),
+            end: d(2026, 1, 2),
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         },
-        CurveId::new("USD-OIS"),
     )
-    .unwrap()
-    .with_calendar(CALENDAR_ID);
+    .unwrap();
 
     // Par spread calculation should return an error, not NaN/Inf
     let result = swap.price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread]);

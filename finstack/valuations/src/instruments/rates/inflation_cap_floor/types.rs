@@ -116,8 +116,9 @@ pub struct InflationCapFloor {
     pub option_type: InflationCapFloorType,
     /// Notional amount in quote currency.
     pub notional: Money,
-    /// Strike rate (annualized, decimal).
-    pub strike_rate: Decimal,
+    /// Strike (annualized, decimal).
+    #[serde(alias = "strike_rate")]
+    pub strike: Decimal,
     /// Start date of the first inflation period.
     pub start_date: Date,
     /// End date of the final inflation period.
@@ -174,8 +175,8 @@ impl InflationCapFloor {
         Ok(())
     }
 
-    pub(crate) fn strike_rate_f64(&self) -> finstack_core::Result<f64> {
-        self.strike_rate
+    pub(crate) fn strike_f64(&self) -> finstack_core::Result<f64> {
+        self.strike
             .to_f64()
             .ok_or(finstack_core::InputError::ConversionOverflow.into())
     }
@@ -333,7 +334,7 @@ impl InflationCapFloor {
         as_of: Date,
         model: ModelKey,
     ) -> finstack_core::Result<Money> {
-        let strike_rate = self.strike_rate_f64()?;
+        let strike = self.strike_f64()?;
         let disc = curves.get_discount(self.discount_curve_id.as_str())?;
         let vol_surface = if self
             .pricing_overrides
@@ -384,7 +385,7 @@ impl InflationCapFloor {
                 if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility {
                     impl_vol
                 } else if let Some(vol) = &vol_surface {
-                    vol.value_clamped(t_fix, strike_rate)
+                    vol.value_clamped(t_fix, strike)
                 } else {
                     return Err(finstack_core::InputError::NotFound {
                         id: "inflation_cap_floor_vol_surface".to_string(),
@@ -401,7 +402,7 @@ impl InflationCapFloor {
                     let premium = bachelier_price(
                         self.option_type.option_type(),
                         forward_rate,
-                        strike_rate,
+                        strike,
                         sigma,
                         t_fix,
                         annuity,
@@ -417,17 +418,17 @@ impl InflationCapFloor {
                             forward_rate * 100.0
                         )));
                     }
-                    if t_fix > 0.0 && strike_rate <= 0.0 {
+                    if t_fix > 0.0 && strike <= 0.0 {
                         return Err(finstack_core::Error::Validation(format!(
                             "Black model requires positive strike (got {:.4}%). \
                              Use ModelKey::Normal for zero/negative strikes.",
-                            strike_rate * 100.0
+                            strike * 100.0
                         )));
                     }
                     black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
                         is_cap: self.option_type.is_cap(),
                         notional: self.notional.amount(),
-                        strike: strike_rate,
+                        strike,
                         forward: forward_rate,
                         discount_factor: df,
                         volatility: sigma,
@@ -446,9 +447,9 @@ impl InflationCapFloor {
 }
 
 impl InflationCapFloorBuilder {
-    /// Set the strike rate using a typed rate.
-    pub fn strike_rate_rate(mut self, rate: Rate) -> Self {
-        self.strike_rate = Decimal::try_from(rate.as_decimal()).ok();
+    /// Set the strike using a typed rate.
+    pub fn strike_rate(mut self, rate: Rate) -> Self {
+        self.strike = Decimal::try_from(rate.as_decimal()).ok();
         self
     }
 }

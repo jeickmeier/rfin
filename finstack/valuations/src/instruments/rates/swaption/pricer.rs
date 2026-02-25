@@ -90,7 +90,7 @@ impl Pricer for SimpleSwaptionBlackPricer {
                         )
                     })?
                 } else {
-                    let strike = swaption.strike_rate_f64().map_err(|e| {
+                    let strike = swaption.strike_f64().map_err(|e| {
                         PricingError::model_failure_with_context(
                             e.to_string(),
                             PricingErrorContext::default(),
@@ -649,7 +649,7 @@ impl BermudanSwaptionPricer {
             OptionType::Call => SwaptionType::Payer,
             OptionType::Put => SwaptionType::Receiver,
         };
-        let strike = swaption.strike_rate_f64().map_err(|e| {
+        let strike = swaption.strike_f64().map_err(|e| {
             PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 

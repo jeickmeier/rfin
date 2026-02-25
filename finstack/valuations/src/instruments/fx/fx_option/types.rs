@@ -85,14 +85,20 @@ pub struct FxOption {
     /// Option type (call or put on base currency)
     pub option_type: OptionType,
     /// Exercise style (European or American)
+    #[serde(default)]
+    #[builder(default)]
     pub exercise_style: ExerciseStyle,
     /// Option expiry date
     pub expiry: Date,
     /// Day count convention
+    #[serde(default = "crate::serde_defaults::day_count_act365f")]
+    #[builder(default = finstack_core::dates::DayCount::Act365F)]
     pub day_count: finstack_core::dates::DayCount,
     /// Notional amount in base currency
     pub notional: Money,
     /// Settlement type (physical or cash)
+    #[serde(default = "crate::serde_defaults::settlement_cash")]
+    #[builder(default = SettlementType::Cash)]
     pub settlement: SettlementType,
     /// Domestic currency discount curve ID
     pub domestic_discount_curve_id: CurveId,

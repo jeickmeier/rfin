@@ -139,7 +139,7 @@ def main() -> None:
     option = (
         CdsOption.builder("ACME-CDSOPT")
         .notional(Money(5_000_000, USD))
-        .strike_spread_bp(150.0)
+        .strike(0.015)
         .expiry(date(2025, 1, 2))
         .cds_maturity(maturity)
         .discount_curve("USD-OIS")

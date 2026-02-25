@@ -111,7 +111,7 @@ pub struct BermudanSwaptionPayoff {
     /// Swap schedule
     pub swap_schedule: SwapSchedule,
     /// Strike rate (fixed rate of the swap)
-    pub strike_rate: f64,
+    pub strike: f64,
     /// Swaption type (payer or receiver)
     pub option_type: SwaptionType,
     /// Notional amount
@@ -137,14 +137,14 @@ impl BermudanSwaptionPayoff {
     ///
     /// * `exercise_dates` - Dates when exercise is allowed (must be sorted)
     /// * `swap_schedule` - Underlying swap schedule
-    /// * `strike_rate` - Fixed rate of the swap (e.g., 0.0325 for 3.25%)
+    /// * `strike` - Fixed rate of the swap (e.g., 0.0325 for 3.25%)
     /// * `option_type` - Payer or receiver
     /// * `notional` - Notional amount
     /// * `currency` - Currency
     pub fn new(
         exercise_dates: Vec<f64>,
         swap_schedule: SwapSchedule,
-        strike_rate: f64,
+        strike: f64,
         option_type: SwaptionType,
         notional: f64,
         currency: Currency,
@@ -160,7 +160,7 @@ impl BermudanSwaptionPayoff {
         Self {
             exercise_dates,
             swap_schedule,
-            strike_rate,
+            strike,
             option_type,
             notional,
             currency,
@@ -182,7 +182,7 @@ impl BermudanSwaptionPayoff {
         // Placeholder: simplified approximation
         // Full implementation requires HW bond price calculation
         // This will be implemented in SwaptionLsmcPricer
-        short_rate - self.strike_rate
+        short_rate - self.strike
     }
 
     /// Set swap value (called by pricer after computing from HW bond prices).
@@ -289,7 +289,7 @@ mod tests {
             Currency::USD,
         );
 
-        assert_eq!(payoff.strike_rate, 0.0325);
+        assert_eq!(payoff.strike, 0.0325);
         assert_eq!(payoff.exercise_dates.len(), 3);
         assert!(!payoff.exercised);
     }

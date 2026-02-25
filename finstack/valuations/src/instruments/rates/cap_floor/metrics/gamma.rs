@@ -10,7 +10,7 @@ pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &InterestRateOption = context.instrument_as()?;
-        let strike = option.strike_rate_f64()?;
+        let strike = option.strike_f64()?;
         super::common::aggregate_over_caplets(option, context, |forward, sigma, t_fix| {
             crate::instruments::rates::cap_floor::pricing::black::gamma(
                 strike, forward, sigma, t_fix,

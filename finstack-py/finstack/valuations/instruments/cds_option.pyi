@@ -11,6 +11,7 @@ class CdsOptionBuilder:
     def __init__(self, instrument_id: str) -> None: ...
     def notional(self, notional: Money) -> "CdsOptionBuilder": ...
     def money(self, money: Money) -> "CdsOptionBuilder": ...
+    def strike(self, strike: float) -> "CdsOptionBuilder": ...
     def strike_spread_bp(self, strike_spread_bp: float) -> "CdsOptionBuilder": ...
     def expiry(self, expiry: date) -> "CdsOptionBuilder": ...
     def cds_maturity(self, cds_maturity: date) -> "CdsOptionBuilder": ...
@@ -21,6 +22,7 @@ class CdsOptionBuilder:
     def recovery_rate(self, recovery_rate: float) -> "CdsOptionBuilder": ...
     def underlying_is_index(self, underlying_is_index: bool) -> "CdsOptionBuilder": ...
     def index_factor(self, index_factor: Optional[float] = ...) -> "CdsOptionBuilder": ...
+    def forward_adjust(self, forward_adjust: float) -> "CdsOptionBuilder": ...
     def forward_adjust_bp(self, forward_adjust_bp: float) -> "CdsOptionBuilder": ...
     def build(self) -> "CdsOption": ...
 
@@ -46,7 +48,7 @@ class CdsOption:
         ...     CdsOption
         ...     .builder("CDS-OPT-CORP-A")
         ...     .money(Money(10_000_000, Currency("USD")))
-        ...     .strike_spread_bp(150.0)  # 150bp strike
+        ...     .strike(0.015)  # 150bp as decimal rate
         ...     .expiry(date(2024, 12, 20))
         ...     .cds_maturity(date(2029, 1, 1))  # 5-year underlying CDS
         ...     .discount_curve("USD")
@@ -59,14 +61,14 @@ class CdsOption:
     Notes
     -----
     - CDS options require discount curve, credit curve, and volatility surface
-    - Strike is the CDS spread in basis points
+    - Strike is a decimal rate (e.g., 0.01 = 100bp)
     - Option type: "call" (right to buy protection) or "put" (right to sell protection)
     - Underlying CDS maturity determines the protection period
     - Forward adjustment accounts for forward spread vs spot spread
 
     Conventions
     -----------
-    - ``strike_spread_bp`` and ``forward_adjust_bp`` are quoted in basis points (bp).
+    - ``strike`` and ``forward_adjust`` are decimal rates (e.g., 0.01 = 100bp).
     - ``recovery_rate`` is a decimal fraction in [0, 1].
     - Required market data is identified by string IDs (``discount_curve``, ``credit_curve``, ``vol_surface``) and
       must be present in ``MarketContext``.
@@ -99,8 +101,8 @@ class CdsOption:
             Unique identifier for the option (e.g., "CDS-OPT-CORP-A").
         notional : Money
             Notional principal amount.
-        strike_spread_bp : float
-            Strike CDS spread in basis points (e.g., 150.0 for 150bp).
+        strike : float
+            Strike CDS spread as a decimal rate (e.g., 0.015 for 150bp).
         expiry : date
             Option expiration date.
         cds_maturity : date
@@ -120,8 +122,8 @@ class CdsOption:
             If True, underlying is a CDS index (default: False, single-name).
         index_factor : float, optional
             Index factor if underlying is an index (default: 1.0).
-        forward_adjust_bp : float, optional
-            Forward spread adjustment in basis points (default: 0.0).
+        forward_adjust : float, optional
+            Forward spread adjustment as decimal rate (default: 0.0).
 
         Returns
         -------
@@ -139,7 +141,7 @@ class CdsOption:
             ...     CdsOption
             ...     .builder("CDS-OPT-CORP-A")
             ...     .notional(Money(10_000_000, Currency("USD")))
-            ...     .strike_spread_bp(150.0)  # 150bp strike
+            ...     .strike(0.015)  # 150bp as decimal rate
             ...     .expiry(date(2024, 12, 20))
             ...     .cds_maturity(date(2029, 1, 1))
             ...     .discount_curve("USD")
@@ -154,6 +156,8 @@ class CdsOption:
     def instrument_id(self) -> str: ...
     @property
     def notional(self) -> Money: ...
+    @property
+    def strike(self) -> float: ...
     @property
     def strike_spread_bp(self) -> float: ...
     @property

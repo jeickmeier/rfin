@@ -94,6 +94,9 @@ pub enum NotionalExchange {
 }
 
 /// One floating leg of an XCCY swap.
+///
+/// Each leg owns its own dates, discount curve, calendar, and stub conventions,
+/// following the IRS leg-centric pattern.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct XccySwapLeg {
@@ -107,6 +110,10 @@ pub struct XccySwapLeg {
     pub forward_curve_id: CurveId,
     /// Discount curve for PV in leg currency.
     pub discount_curve_id: CurveId,
+    /// Start date of the leg.
+    pub start: Date,
+    /// End date of the leg.
+    pub end: Date,
     /// Coupon frequency.
     pub frequency: Tenor,
     /// Accrual day count.
@@ -114,9 +121,15 @@ pub struct XccySwapLeg {
     /// Business day convention for schedule dates.
     #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
-    /// Spread added to the forward rate (decimal, e.g. 0.0001 = 1bp).
-    #[serde(default)]
-    pub spread: f64,
+    /// Stub period handling rule.
+    #[serde(
+        default = "crate::serde_defaults::stub_short_front",
+        alias = "stub_kind"
+    )]
+    pub stub: StubKind,
+    /// Spread in basis points (e.g. 5.0 = 5bp).
+    #[serde(default, alias = "spread")]
+    pub spread_bp: f64,
     /// Payment lag in business days after period end (default: 0).
     #[serde(default)]
     pub payment_lag_days: i32,
@@ -131,6 +144,9 @@ pub struct XccySwapLeg {
 }
 
 /// Cross-currency floating-for-floating swap.
+///
+/// Each leg owns its own dates, stub conventions, and calendar. The parent struct
+/// only holds the instrument identity, notional exchange mode, and reporting currency.
 #[derive(
     Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
 )]
@@ -138,11 +154,6 @@ pub struct XccySwapLeg {
 pub struct XccySwap {
     /// Unique identifier for this instrument.
     pub id: InstrumentId,
-    /// Swap start date (typically spot).
-    pub start_date: Date,
-    /// Swap maturity date.
-    #[serde(alias = "maturity")]
-    pub maturity: Date,
     /// First leg.
     pub leg1: XccySwapLeg,
     /// Second leg.
@@ -152,44 +163,28 @@ pub struct XccySwap {
     pub notional_exchange: NotionalExchange,
     /// PV reporting currency (output currency of `value`/`npv`).
     pub reporting_currency: Currency,
-    /// Stub handling convention for irregular periods.
-    #[builder(default = StubKind::ShortFront)]
-    #[serde(
-        default = "crate::serde_defaults::stub_short_front",
-        alias = "stub_kind"
-    )]
-    pub stub: StubKind,
     /// Attributes for instrument selection and tagging.
     pub attributes: crate::instruments::common_impl::traits::Attributes,
 }
 
 impl XccySwap {
     /// Convenience constructor.
+    ///
+    /// Dates and stub conventions are now owned by each leg.
     pub fn new(
         id: impl Into<String>,
-        start_date: Date,
-        maturity: Date,
         leg1: XccySwapLeg,
         leg2: XccySwapLeg,
         reporting_currency: Currency,
     ) -> Self {
         Self {
             id: InstrumentId::new(id.into()),
-            start_date,
-            maturity,
             leg1,
             leg2,
             notional_exchange: NotionalExchange::InitialAndFinal,
             reporting_currency,
-            stub: StubKind::None,
             attributes: crate::instruments::common_impl::traits::Attributes::default(),
         }
-    }
-
-    /// Set stub handling convention.
-    pub fn with_stub(mut self, stub_kind: StubKind) -> Self {
-        self.stub = stub_kind;
-        self
     }
 
     /// Set notional exchange convention.
@@ -221,7 +216,7 @@ impl XccySwap {
                 "XccySwap payment lag must be non-negative".to_string(),
             ));
         }
-        if !leg.spread.is_finite() {
+        if !leg.spread_bp.is_finite() {
             return Err(finstack_core::Error::Validation(
                 "XccySwap spread must be finite".to_string(),
             ));
@@ -231,10 +226,10 @@ impl XccySwap {
 
     fn leg_schedule(&self, leg: &XccySwapLeg) -> Result<Schedule> {
         let sched = crate::cashflow::builder::build_dates(
-            self.start_date,
-            self.maturity,
+            leg.start,
+            leg.end,
             leg.frequency,
-            self.stub,
+            leg.stub,
             leg.bdc,
             false,
             leg.payment_lag_days,
@@ -333,32 +328,31 @@ impl XccySwap {
 
         // Notional exchanges (principal)
         // Use robust_relative_df for numerical stability (validated against Bloomberg SWPM)
-        if matches!(self.notional_exchange, NotionalExchange::InitialAndFinal)
-            && self.start_date > as_of
+        if matches!(self.notional_exchange, NotionalExchange::InitialAndFinal) && leg.start > as_of
         {
-            let df = robust_relative_df(disc.as_ref(), as_of, self.start_date)?;
+            let df = robust_relative_df(disc.as_ref(), as_of, leg.start)?;
             let cf_leg_ccy = leg.side.initial_principal_sign() * leg.notional.amount() * df;
-            let cf_rep = convert_cf(cf_leg_ccy, self.start_date, &mut fx_approximation_warned)?;
+            let cf_rep = convert_cf(cf_leg_ccy, leg.start, &mut fx_approximation_warned)?;
             pv.add(cf_rep);
         }
 
         if matches!(
             self.notional_exchange,
             NotionalExchange::Final | NotionalExchange::InitialAndFinal
-        ) && self.maturity > as_of
+        ) && leg.end > as_of
         {
-            let df = robust_relative_df(disc.as_ref(), as_of, self.maturity)?;
+            let df = robust_relative_df(disc.as_ref(), as_of, leg.end)?;
             let cf_leg_ccy = leg.side.final_principal_sign() * leg.notional.amount() * df;
-            let cf_rep = convert_cf(cf_leg_ccy, self.maturity, &mut fx_approximation_warned)?;
+            let cf_rep = convert_cf(cf_leg_ccy, leg.end, &mut fx_approximation_warned)?;
             pv.add(cf_rep);
         }
 
         let periods = crate::cashflow::builder::periods::build_periods(
             crate::cashflow::builder::periods::BuildPeriodsParams {
-                start: self.start_date,
-                end: self.maturity,
+                start: leg.start,
+                end: leg.end,
                 frequency: leg.frequency,
-                stub: self.stub,
+                stub: leg.stub,
                 bdc: leg.bdc,
                 calendar_id: leg
                     .calendar_id
@@ -405,7 +399,7 @@ impl XccySwap {
                 );
             }
 
-            let total_rate = forward_rate + leg.spread;
+            let total_rate = forward_rate + leg.spread_bp * 0.0001;
             let coupon = leg.side.coupon_sign()
                 * leg.notional.amount()
                 * total_rate
@@ -450,7 +444,7 @@ impl crate::instruments::common_impl::traits::Instrument for XccySwap {
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
-        Some(self.start_date)
+        Some(self.leg1.start)
     }
 }
 

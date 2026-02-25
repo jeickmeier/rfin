@@ -134,6 +134,54 @@ impl UnderlyingParams for EquityUnderlyingParams {
     }
 }
 
+/// Commodity underlying parameters for forwards, swaps, and options.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommodityUnderlyingParams {
+    /// Commodity type (e.g., "Energy", "Metal", "Agricultural")
+    pub commodity_type: String,
+    /// Ticker/identifier for market data lookup (e.g., "CL", "GC", "NG")
+    pub ticker: String,
+    /// Unit of measurement (e.g., "BBL", "OZ", "MT", "MMBTU")
+    pub unit: String,
+    /// Base currency for pricing
+    pub currency: Currency,
+}
+
+impl CommodityUnderlyingParams {
+    /// Create commodity underlying parameters.
+    pub fn new(
+        commodity_type: impl Into<String>,
+        ticker: impl Into<String>,
+        unit: impl Into<String>,
+        currency: Currency,
+    ) -> Self {
+        Self {
+            commodity_type: commodity_type.into(),
+            ticker: ticker.into(),
+            unit: unit.into(),
+            currency,
+        }
+    }
+}
+
+impl UnderlyingParams for CommodityUnderlyingParams {
+    fn base_currency(&self) -> Currency {
+        self.currency
+    }
+
+    fn primary_curve_id(&self) -> &str {
+        match self.currency {
+            Currency::USD => "USD-OIS",
+            Currency::EUR => "EUR-OIS",
+            Currency::GBP => "GBP-OIS",
+            Currency::JPY => "JPY-OIS",
+            Currency::CAD => "CAD-OIS",
+            Currency::AUD => "AUD-OIS",
+            _ => "USD-OIS",
+        }
+    }
+}
+
 /// Index underlying parameters for total return swaps and index-linked instruments.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexUnderlyingParams {

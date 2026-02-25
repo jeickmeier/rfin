@@ -24,7 +24,7 @@ pub enum CmsType {
 #[derive(Debug, Clone)]
 pub struct CmsPayoff {
     /// Strike rate (e.g., 0.04 for 4%)
-    pub strike_rate: f64,
+    pub strike: f64,
     /// CMS tenor (e.g., 10.0 for 10Y swap)
     pub cms_tenor: f64,
     /// Fixing dates (time in years)
@@ -53,7 +53,7 @@ impl CmsPayoff {
     /// Create a new CMS payoff with explicit type.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        strike_rate: f64,
+        strike: f64,
         cms_tenor: f64,
         fixing_dates: Vec<f64>,
         accrual_fractions: Vec<f64>,
@@ -76,7 +76,7 @@ impl CmsPayoff {
         );
 
         Self {
-            strike_rate,
+            strike,
             cms_tenor,
             fixing_dates,
             accrual_fractions,
@@ -94,7 +94,7 @@ impl CmsPayoff {
     /// Convenience constructor for CMS cap.
     #[allow(clippy::too_many_arguments)]
     pub fn new_cap(
-        strike_rate: f64,
+        strike: f64,
         cms_tenor: f64,
         fixing_dates: Vec<f64>,
         accrual_fractions: Vec<f64>,
@@ -105,7 +105,7 @@ impl CmsPayoff {
         hw_params: HullWhite1FParams,
     ) -> Self {
         Self::new(
-            strike_rate,
+            strike,
             cms_tenor,
             fixing_dates,
             accrual_fractions,
@@ -121,7 +121,7 @@ impl CmsPayoff {
     /// Convenience constructor for CMS floor.
     #[allow(clippy::too_many_arguments)]
     pub fn new_floor(
-        strike_rate: f64,
+        strike: f64,
         cms_tenor: f64,
         fixing_dates: Vec<f64>,
         accrual_fractions: Vec<f64>,
@@ -132,7 +132,7 @@ impl CmsPayoff {
         hw_params: HullWhite1FParams,
     ) -> Self {
         Self::new(
-            strike_rate,
+            strike,
             cms_tenor,
             fixing_dates,
             accrual_fractions,
@@ -204,8 +204,8 @@ impl Payoff for CmsPayoff {
 
                 // Caplet/floorlet payoff: max(±(S_CMS - K), 0) * τ * N * DF
                 let payoff_rate = match self.cms_type {
-                    CmsType::Cap => (cms_rate - self.strike_rate).max(0.0),
-                    CmsType::Floor => (self.strike_rate - cms_rate).max(0.0),
+                    CmsType::Cap => (cms_rate - self.strike).max(0.0),
+                    CmsType::Floor => (self.strike - cms_rate).max(0.0),
                 };
 
                 let leg_value = payoff_rate
@@ -260,7 +260,7 @@ mod tests {
             hw_params,
         );
 
-        assert_eq!(cap.strike_rate, 0.04);
+        assert_eq!(cap.strike, 0.04);
         assert_eq!(cap.cms_tenor, 10.0);
     }
 

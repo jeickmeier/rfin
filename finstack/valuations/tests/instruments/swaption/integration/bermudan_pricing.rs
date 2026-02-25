@@ -49,7 +49,7 @@ fn test_bermudan_swaption(
         id: InstrumentId::new("TEST-BERM"),
         option_type,
         notional: Money::new(10_000_000.0, Currency::USD),
-        strike_rate: rust_decimal::Decimal::try_from(strike).expect("valid decimal"),
+        strike: rust_decimal::Decimal::try_from(strike).expect("valid decimal"),
         swap_start,
         swap_end,
         fixed_freq: Tenor::semi_annual(),
@@ -307,7 +307,7 @@ fn test_bermudan_to_european_conversion() {
     let european = bermudan.to_european().expect("Conversion should succeed");
 
     // Check European parameters match Bermudan
-    assert_eq!(european.strike_rate, bermudan.strike_rate);
+    assert_eq!(european.strike, bermudan.strike);
     assert_eq!(european.notional.amount(), bermudan.notional.amount());
     assert_eq!(european.swap_end, bermudan.swap_end);
 

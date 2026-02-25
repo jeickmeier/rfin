@@ -25,7 +25,7 @@
           "option_type": "Cap",
           "pricing_overrides": {},
           "start_date": "2024-01-15",
-          "strike_rate": 0.03,
+          "strike": 0.03,
           "stub_kind": "None",
           "vol_surface_id": "USD-CPI-VOL"
         },

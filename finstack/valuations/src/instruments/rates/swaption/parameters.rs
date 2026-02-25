@@ -15,7 +15,7 @@ pub struct SwaptionParams {
     /// Notional amount
     pub notional: Money,
     /// Strike rate (fixed rate)
-    pub strike_rate: Decimal,
+    pub strike: Decimal,
     /// Swaption expiry date
     pub expiry: Date,
     /// Underlying swap start date
@@ -38,14 +38,14 @@ impl SwaptionParams {
     /// Create payer swaption parameters
     pub fn payer(
         notional: Money,
-        strike_rate: f64,
+        strike: f64,
         expiry: Date,
         swap_start: Date,
         swap_end: Date,
     ) -> Self {
         Self {
             notional,
-            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
+            strike: Decimal::try_from(strike).unwrap_or_default(),
             expiry,
             swap_start,
             swap_end,
@@ -60,14 +60,14 @@ impl SwaptionParams {
     /// Create payer swaption parameters using a typed strike rate.
     pub fn payer_rate(
         notional: Money,
-        strike_rate: Rate,
+        strike: Rate,
         expiry: Date,
         swap_start: Date,
         swap_end: Date,
     ) -> Self {
         Self {
             notional,
-            strike_rate: Decimal::try_from(strike_rate.as_decimal()).unwrap_or_default(),
+            strike: Decimal::try_from(strike.as_decimal()).unwrap_or_default(),
             expiry,
             swap_start,
             swap_end,
@@ -82,14 +82,14 @@ impl SwaptionParams {
     /// Create receiver swaption parameters
     pub fn receiver(
         notional: Money,
-        strike_rate: f64,
+        strike: f64,
         expiry: Date,
         swap_start: Date,
         swap_end: Date,
     ) -> Self {
         Self {
             notional,
-            strike_rate: Decimal::try_from(strike_rate).unwrap_or_default(),
+            strike: Decimal::try_from(strike).unwrap_or_default(),
             expiry,
             swap_start,
             swap_end,
@@ -104,14 +104,14 @@ impl SwaptionParams {
     /// Create receiver swaption parameters using a typed strike rate.
     pub fn receiver_rate(
         notional: Money,
-        strike_rate: Rate,
+        strike: Rate,
         expiry: Date,
         swap_start: Date,
         swap_end: Date,
     ) -> Self {
         Self {
             notional,
-            strike_rate: Decimal::try_from(strike_rate.as_decimal()).unwrap_or_default(),
+            strike: Decimal::try_from(strike.as_decimal()).unwrap_or_default(),
             expiry,
             swap_start,
             swap_end,

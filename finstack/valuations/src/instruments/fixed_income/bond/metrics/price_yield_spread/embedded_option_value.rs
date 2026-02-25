@@ -273,6 +273,7 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
 mod tests {
     use super::*;
     use crate::instruments::common_impl::traits::Instrument;
+    use crate::instruments::fixed_income::bond::BondSettlementConvention;
     use crate::instruments::fixed_income::bond::CashflowSpec;
     #[cfg(feature = "slow")]
     use crate::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
@@ -326,8 +327,10 @@ mod tests {
             .call_put_opt(Some(call_put))
             .custom_cashflows_opt(None)
             .attributes(Default::default())
-            .settlement_days_opt(Some(2))
-            .ex_coupon_days_opt(Some(0))
+            .settlement_convention_opt(Some(BondSettlementConvention {
+                settlement_days: 2,
+                ..Default::default()
+            }))
             .build()
             .expect("Valid bond")
     }
@@ -362,8 +365,10 @@ mod tests {
             .call_put_opt(Some(call_put))
             .custom_cashflows_opt(None)
             .attributes(Default::default())
-            .settlement_days_opt(Some(2))
-            .ex_coupon_days_opt(Some(0))
+            .settlement_convention_opt(Some(BondSettlementConvention {
+                settlement_days: 2,
+                ..Default::default()
+            }))
             .build()
             .expect("Valid bond")
     }
@@ -388,8 +393,10 @@ mod tests {
             .call_put_opt(None)
             .custom_cashflows_opt(None)
             .attributes(Default::default())
-            .settlement_days_opt(Some(2))
-            .ex_coupon_days_opt(Some(0))
+            .settlement_convention_opt(Some(BondSettlementConvention {
+                settlement_days: 2,
+                ..Default::default()
+            }))
             .build()
             .expect("Valid bond")
     }

@@ -43,7 +43,7 @@
           },
           "sabr_params": null,
           "settlement": "Cash",
-          "strike_rate": 0.03,
+          "strike": 0.03,
           "swap_end": "2030-01-17",
           "swap_start": "2025-01-17",
           "vol_surface_id": "USD-SWPNVOL"
@@ -94,7 +94,7 @@
           },
           "sabr_params": null,
           "settlement": "Cash",
-          "strike_rate": 0.03,
+          "strike": 0.03,
           "swap_end": "2030-01-17",
           "swap_start": "2025-01-17",
           "vol_surface_id": "USD-SWPNVOL"

@@ -9,6 +9,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::legs::PayReceive;
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::CommodityUnderlyingParams;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
@@ -187,10 +188,12 @@ impl JsCommoditySwapBuilder {
 
         let mut builder = CommoditySwap::builder()
             .id(InstrumentId::new(&self.instrument_id))
-            .commodity_type(commodity_type.to_string())
-            .ticker(ticker.to_string())
-            .unit(unit.to_string())
-            .currency(currency)
+            .underlying(CommodityUnderlyingParams::new(
+                commodity_type,
+                ticker,
+                unit,
+                currency,
+            ))
             .quantity(quantity)
             .fixed_price(rust_decimal::Decimal::try_from(fixed_price).unwrap_or_default())
             .floating_index_id(CurveId::new(floating_index_id))
@@ -299,10 +302,12 @@ impl JsCommoditySwap {
 
         let mut builder = CommoditySwap::builder()
             .id(InstrumentId::new(instrument_id))
-            .commodity_type(commodity_type.to_string())
-            .ticker(ticker.to_string())
-            .unit(unit.to_string())
-            .currency(currency.inner())
+            .underlying(CommodityUnderlyingParams::new(
+                commodity_type,
+                ticker,
+                unit,
+                currency.inner(),
+            ))
             .quantity(quantity)
             .fixed_price(rust_decimal::Decimal::try_from(fixed_price).unwrap_or_default())
             .floating_index_id(CurveId::new(floating_index_id))
@@ -335,22 +340,22 @@ impl JsCommoditySwap {
 
     #[wasm_bindgen(getter, js_name = commodityType)]
     pub fn commodity_type(&self) -> String {
-        self.inner.commodity_type.clone()
+        self.inner.underlying.commodity_type.clone()
     }
 
     #[wasm_bindgen(getter)]
     pub fn ticker(&self) -> String {
-        self.inner.ticker.clone()
+        self.inner.underlying.ticker.clone()
     }
 
     #[wasm_bindgen(getter)]
     pub fn unit(&self) -> String {
-        self.inner.unit.clone()
+        self.inner.underlying.unit.clone()
     }
 
     #[wasm_bindgen(getter)]
     pub fn currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.inner.currency)
+        JsCurrency::from_inner(self.inner.underlying.currency)
     }
 
     #[wasm_bindgen(getter, js_name = notionalQuantity)]
@@ -408,7 +413,7 @@ impl JsCommoditySwap {
         format!(
             "CommoditySwap(id='{}', ticker='{}', fixed_price={}, pay_fixed={})",
             self.inner.id.as_str(),
-            self.inner.ticker,
+            self.inner.underlying.ticker,
             self.inner.fixed_price,
             self.inner.side.is_payer()
         )

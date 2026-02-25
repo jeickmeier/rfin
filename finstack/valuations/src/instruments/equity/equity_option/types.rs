@@ -85,14 +85,20 @@ pub struct EquityOption {
     /// Option type (call or put)
     pub option_type: OptionType,
     /// Exercise style (European or American)
+    #[serde(default)]
+    #[builder(default)]
     pub exercise_style: ExerciseStyle,
     /// Option expiry date
     pub expiry: Date,
     /// Notional amount for valuation scaling.
     pub notional: Money,
     /// Day count convention
+    #[serde(default = "crate::serde_defaults::day_count_act365f")]
+    #[builder(default = finstack_core::dates::DayCount::Act365F)]
     pub day_count: finstack_core::dates::DayCount,
     /// Settlement type (physical or cash)
+    #[serde(default = "crate::serde_defaults::settlement_cash")]
+    #[builder(default = SettlementType::Cash)]
     pub settlement: SettlementType,
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,

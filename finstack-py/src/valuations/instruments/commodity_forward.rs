@@ -10,6 +10,7 @@ use finstack_valuations::instruments::commodity::commodity_forward::{
     CommodityForward, Position, SettlementType,
 };
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::CommodityUnderlyingParams;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -324,13 +325,15 @@ impl PyCommodityForwardBuilder {
 
         let mut builder = CommodityForward::builder()
             .id(slf.instrument_id.clone())
-            .commodity_type(commodity_type)
-            .ticker(ticker)
+            .underlying(CommodityUnderlyingParams::new(
+                commodity_type,
+                ticker,
+                unit,
+                currency,
+            ))
             .quantity(quantity)
-            .unit(unit)
             .multiplier(slf.multiplier)
             .maturity(maturity)
-            .currency(currency)
             .forward_curve_id(forward_curve_id)
             .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new());
@@ -392,13 +395,13 @@ impl PyCommodityForward {
     /// Commodity type (e.g., "Energy", "Metal").
     #[getter]
     fn commodity_type(&self) -> &str {
-        &self.inner.commodity_type
+        &self.inner.underlying.commodity_type
     }
 
     /// Ticker symbol.
     #[getter]
     fn ticker(&self) -> &str {
-        &self.inner.ticker
+        &self.inner.underlying.ticker
     }
 
     /// Contract quantity.
@@ -410,7 +413,7 @@ impl PyCommodityForward {
     /// Unit of measurement.
     #[getter]
     fn unit(&self) -> &str {
-        &self.inner.unit
+        &self.inner.underlying.unit
     }
 
     /// Contract multiplier.
@@ -428,7 +431,7 @@ impl PyCommodityForward {
     /// Currency.
     #[getter]
     fn currency(&self) -> PyCurrency {
-        PyCurrency::new(self.inner.currency)
+        PyCurrency::new(self.inner.underlying.currency)
     }
 
     /// Optional quoted forward price.
@@ -487,7 +490,7 @@ impl PyCommodityForward {
         format!(
             "CommodityForward(id='{}', ticker='{}', quantity={}, maturity='{}')",
             self.inner.id.as_str(),
-            self.inner.ticker,
+            self.inner.underlying.ticker,
             self.inner.quantity,
             self.inner.maturity
         )
@@ -500,7 +503,7 @@ impl fmt::Display for PyCommodityForward {
             f,
             "CommodityForward({}, {}, {})",
             self.inner.id.as_str(),
-            self.inner.ticker,
+            self.inner.underlying.ticker,
             self.inner.quantity
         )
     }

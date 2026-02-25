@@ -5,7 +5,7 @@
 //! with optional quoted price override.
 
 use crate::impl_instrument_base;
-use crate::instruments::common_impl::parameters::CommodityConvention;
+use crate::instruments::common_impl::parameters::{CommodityConvention, CommodityUnderlyingParams};
 use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date};
@@ -48,6 +48,7 @@ pub use crate::instruments::common_impl::parameters::Position;
 ///
 /// ```rust
 /// use finstack_valuations::instruments::commodity::commodity_forward::{CommodityForward, Position};
+/// use finstack_valuations::instruments::CommodityUnderlyingParams;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use finstack_core::types::{CurveId, InstrumentId};
@@ -56,13 +57,10 @@ pub use crate::instruments::common_impl::parameters::Position;
 /// // At-market long forward (NPV ≈ 0)
 /// let at_market = CommodityForward::builder()
 ///     .id(InstrumentId::new("WTI-FWD-2025M03"))
-///     .commodity_type("Energy".to_string())
-///     .ticker("CL".to_string())
+///     .underlying(CommodityUnderlyingParams::new("Energy", "CL", "BBL", Currency::USD))
 ///     .quantity(1000.0)
-///     .unit("BBL".to_string())
 ///     .multiplier(1.0)
 ///     .maturity(Date::from_calendar_date(2025, Month::March, 15).unwrap())
-///     .currency(Currency::USD)
 ///     .position(Position::Long)
 ///     .forward_curve_id(CurveId::new("WTI-FORWARD"))
 ///     .discount_curve_id(CurveId::new("USD-OIS"))
@@ -72,13 +70,10 @@ pub use crate::instruments::common_impl::parameters::Position;
 /// // Off-market forward with specific contract price
 /// let off_market = CommodityForward::builder()
 ///     .id(InstrumentId::new("WTI-FWD-2025M03-TRADE"))
-///     .commodity_type("Energy".to_string())
-///     .ticker("CL".to_string())
+///     .underlying(CommodityUnderlyingParams::new("Energy", "CL", "BBL", Currency::USD))
 ///     .quantity(1000.0)
-///     .unit("BBL".to_string())
 ///     .multiplier(1.0)
 ///     .maturity(Date::from_calendar_date(2025, Month::March, 15).unwrap())
-///     .currency(Currency::USD)
 ///     .position(Position::Long)
 ///     .contract_price_opt(Some(72.0)) // Entry price
 ///     .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -89,18 +84,14 @@ pub use crate::instruments::common_impl::parameters::Position;
 #[derive(
     Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
 )]
-#[serde(deny_unknown_fields)]
 pub struct CommodityForward {
     /// Unique instrument identifier.
     pub id: InstrumentId,
-    /// Commodity type (e.g., "Energy", "Metal", "Agricultural").
-    pub commodity_type: String,
-    /// Ticker or symbol (e.g., "CL" for WTI, "GC" for Gold).
-    pub ticker: String,
+    /// Commodity underlying parameters (commodity_type, ticker, unit, currency).
+    #[serde(flatten)]
+    pub underlying: CommodityUnderlyingParams,
     /// Contract quantity in units.
     pub quantity: f64,
-    /// Unit of measurement (e.g., "BBL", "MT", "OZ").
-    pub unit: String,
     /// Contract multiplier (typically 1.0 for OTC forwards).
     pub multiplier: f64,
     /// Settlement/delivery date.
@@ -113,8 +104,6 @@ pub struct CommodityForward {
         alias = "settlement_type"
     )]
     pub settlement: Option<SettlementType>,
-    /// Currency for pricing.
-    pub currency: Currency,
     /// Position direction (long or short).
     ///
     /// - Long: buyer of the commodity at settlement
@@ -211,16 +200,18 @@ impl CommodityForward {
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("WTI-FWD-2025M03"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(
                 Date::from_calendar_date(2025, time::Month::March, 15).expect("Valid example date"),
             )
             .settlement_opt(Some(SettlementType::Cash))
-            .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -436,7 +427,10 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // If settlement has passed, value is zero
         if self.maturity < as_of {
-            return Ok(finstack_core::money::Money::new(0.0, self.currency));
+            return Ok(finstack_core::money::Money::new(
+                0.0,
+                self.underlying.currency,
+            ));
         }
 
         // Get market forward price F from quoted price or curve
@@ -454,7 +448,10 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
         let notional_qty = self.quantity * self.multiplier;
         let pv = self.position.sign() * price_diff * notional_qty * df;
 
-        Ok(finstack_core::money::Money::new(pv, self.currency))
+        Ok(finstack_core::money::Money::new(
+            pv,
+            self.underlying.currency,
+        ))
     }
 
     fn effective_start_date(&self) -> Option<Date> {
@@ -482,6 +479,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common_impl::parameters::CommodityUnderlyingParams;
     use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
     use time::Month;
@@ -511,13 +509,15 @@ mod tests {
     fn test_commodity_forward_creation() {
         let forward = CommodityForward::builder()
             .id(InstrumentId::new("TEST-FWD"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
-            .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("CL-FWD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -526,19 +526,19 @@ mod tests {
             .expect("should build");
 
         assert_eq!(forward.id.as_str(), "TEST-FWD");
-        assert_eq!(forward.ticker, "CL");
+        assert_eq!(forward.underlying.ticker, "CL");
         assert_eq!(forward.quantity, 1000.0);
-        assert_eq!(forward.currency, Currency::USD);
+        assert_eq!(forward.underlying.currency, Currency::USD);
         assert_eq!(forward.position, Position::Long);
-        assert!(forward.is_at_market()); // No contract price set
+        assert!(forward.is_at_market());
     }
 
     #[test]
     fn test_commodity_forward_example() {
         let forward = CommodityForward::example();
         assert_eq!(forward.id.as_str(), "WTI-FWD-2025M03");
-        assert_eq!(forward.commodity_type, "Energy");
-        assert_eq!(forward.ticker, "CL");
+        assert_eq!(forward.underlying.commodity_type, "Energy");
+        assert_eq!(forward.underlying.ticker, "CL");
         assert_eq!(forward.position, Position::Long);
         assert!(forward.attributes.has_tag("energy"));
     }
@@ -547,13 +547,15 @@ mod tests {
     fn test_commodity_forward_with_quoted_price() {
         let forward = CommodityForward::builder()
             .id(InstrumentId::new("GC-FWD"))
-            .commodity_type("Metal".to_string())
-            .ticker("GC".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Metal",
+                "GC",
+                "OZ",
+                Currency::USD,
+            ))
             .quantity(100.0)
-            .unit("OZ".to_string())
             .multiplier(1.0)
             .maturity(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
-            .currency(Currency::USD)
             .quoted_price_opt(Some(2000.0))
             .forward_curve_id(CurveId::new("GC-FWD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -580,13 +582,15 @@ mod tests {
         // At-market forward (no contract_price)
         let forward = CommodityForward::builder()
             .id(InstrumentId::new("WTI-AT-MARKET"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
-            .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -610,13 +614,15 @@ mod tests {
         // Off-market long forward with contract price below current forward
         let forward = CommodityForward::builder()
             .id(InstrumentId::new("WTI-OFF-MARKET-LONG"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
-            .currency(Currency::USD)
             .position(Position::Long)
             .contract_price_opt(Some(72.0)) // Bought at $72, market is ~$76
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -641,13 +647,15 @@ mod tests {
         // Off-market short forward with contract price below current forward
         let forward = CommodityForward::builder()
             .id(InstrumentId::new("WTI-OFF-MARKET-SHORT"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
-            .currency(Currency::USD)
             .position(Position::Short)
             .contract_price_opt(Some(72.0)) // Sold at $72, market is ~$76
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -670,15 +678,13 @@ mod tests {
         let market = test_market(as_of);
         let settlement = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
 
+        let wti = CommodityUnderlyingParams::new("Energy", "CL", "BBL", Currency::USD);
         let long = CommodityForward::builder()
             .id(InstrumentId::new("LONG"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(wti.clone())
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(settlement)
-            .currency(Currency::USD)
             .position(Position::Long)
             .contract_price_opt(Some(72.0))
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -688,13 +694,10 @@ mod tests {
 
         let short = CommodityForward::builder()
             .id(InstrumentId::new("SHORT"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(wti)
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(settlement)
-            .currency(Currency::USD)
             .position(Position::Short)
             .contract_price_opt(Some(72.0))
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -746,13 +749,15 @@ mod tests {
         // Forward with WTI convention
         let forward = CommodityForward::builder()
             .id(InstrumentId::new("WTI-CONV-TEST"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
-            .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -771,13 +776,15 @@ mod tests {
         // Gold convention: T+2, Modified Following, COMEX calendar
         let gold_forward = CommodityForward::builder()
             .id(InstrumentId::new("GOLD-CONV-TEST"))
-            .commodity_type("Metal".to_string())
-            .ticker("GC".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Metal",
+                "GC",
+                "OZ",
+                Currency::USD,
+            ))
             .quantity(100.0)
-            .unit("OZ".to_string())
             .multiplier(1.0)
             .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
-            .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("GC-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -800,13 +807,15 @@ mod tests {
         // Explicit settlement lag overrides convention
         let forward = CommodityForward::builder()
             .id(InstrumentId::new("OVERRIDE-TEST"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
-            .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -833,13 +842,15 @@ mod tests {
         // No convention set - should use hardcoded defaults
         let forward = CommodityForward::builder()
             .id(InstrumentId::new("NO-CONV-TEST"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
-            .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -862,7 +873,7 @@ mod tests {
         let deserialized: CommodityForward = serde_json::from_str(&json).expect("deserialize");
 
         assert_eq!(forward.id.as_str(), deserialized.id.as_str());
-        assert_eq!(forward.ticker, deserialized.ticker);
+        assert_eq!(forward.underlying.ticker, deserialized.underlying.ticker);
         assert_eq!(forward.quantity, deserialized.quantity);
         assert_eq!(forward.position, deserialized.position);
     }

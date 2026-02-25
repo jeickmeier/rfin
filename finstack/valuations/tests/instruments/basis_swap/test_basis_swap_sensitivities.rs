@@ -3,7 +3,7 @@
 //! Tests DV01, bucketed DV01, and other risk sensitivities to ensure accurate
 //! risk measurement and hedge ratio calculations.
 
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -63,38 +63,34 @@ fn market() -> MarketContext {
         .insert_forward(f1m)
 }
 
+fn make_leg(forward_curve: &str, start: Date, end: Date, spread_bp: f64) -> BasisSwapLeg {
+    BasisSwapLeg {
+        forward_curve_id: CurveId::new(forward_curve),
+        discount_curve_id: CurveId::new("USD-OIS"),
+        start,
+        end,
+        frequency: Tenor::quarterly(),
+        day_count: DayCount::Act360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: Some(CALENDAR_ID.to_string()),
+        stub: StubKind::ShortFront,
+        spread_bp,
+        payment_lag_days: 0,
+        reset_lag_days: 0,
+    }
+}
+
 #[test]
 fn dv01_per_curve_breakdown() {
-    // Test that DV01 provides per-curve breakdown via bucketed series
     let ctx = market();
     let as_of = d(2025, 1, 2);
     let swap = BasisSwap::new(
         "DV01-NET-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2027, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
     )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    .expect("swap construction");
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
@@ -102,7 +98,6 @@ fn dv01_per_curve_breakdown() {
 
     let dv01_total = res.measures[MetricId::Dv01.as_str()];
 
-    // Extract per-curve DV01s from measures using composite keys (note: sanitized with underscores)
     let dv01_discount = res
         .measures
         .get("bucketed_dv01::usd_ois")
@@ -119,7 +114,6 @@ fn dv01_per_curve_breakdown() {
         .copied()
         .unwrap_or(0.0);
 
-    // Total DV01 should equal sum of curve sensitivities
     let computed_total = dv01_discount + dv01_primary_fwd + dv01_reference_fwd;
     assert!(
         (dv01_total - computed_total).abs() < 1e-6,
@@ -128,7 +122,6 @@ fn dv01_per_curve_breakdown() {
         computed_total
     );
 
-    // All components should be finite
     assert!(dv01_discount.is_finite());
     assert!(dv01_primary_fwd.is_finite());
     assert!(dv01_reference_fwd.is_finite());
@@ -136,7 +129,6 @@ fn dv01_per_curve_breakdown() {
 
 #[test]
 fn dv01_scales_with_notional() {
-    // Test that DV01 scales linearly with notional
     let ctx = market();
     let as_of = d(2025, 1, 2);
     let notionals = vec![1_000_000.0, 5_000_000.0, 10_000_000.0];
@@ -146,36 +138,15 @@ fn dv01_scales_with_notional() {
         let swap = BasisSwap::new(
             format!("DV01-SCALE-{}", notional),
             Money::new(*notional, USD),
-            d(2025, 1, 2),
-            d(2026, 1, 2),
-            BasisSwapLeg {
-                payment_lag_days: 0,
-                reset_lag_days: 0,
-                forward_curve_id: CurveId::new("USD-SOFR-3M"),
-                frequency: Tenor::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                spread_bp: 0.0,
-            },
-            BasisSwapLeg {
-                payment_lag_days: 0,
-                reset_lag_days: 0,
-                forward_curve_id: CurveId::new("USD-SOFR-1M"),
-                frequency: Tenor::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                spread_bp: 0.0,
-            },
-            CurveId::new("USD-OIS"),
+            make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
+            make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
         )
-        .expect("valid basis swap")
-        .with_calendar(CALENDAR_ID);
+        .expect("valid basis swap");
 
         let res = swap
             .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
             .unwrap();
 
-        // Extract primary forward curve DV01 from measures using composite key
         let dv01 = res
             .measures
             .get("bucketed_dv01::usd_sofr_3m")
@@ -184,7 +155,6 @@ fn dv01_scales_with_notional() {
         dv01s.push(dv01);
     }
 
-    // Check linear scaling (FD-based DV01 has small numerical errors, so allow 1% tolerance)
     let ratio_1_to_5 = dv01s[1] / dv01s[0];
     let ratio_1_to_10 = dv01s[2] / dv01s[0];
 
@@ -202,42 +172,20 @@ fn dv01_scales_with_notional() {
 
 #[test]
 fn dv01_sign_convention() {
-    // Test DV01 sign convention: positive DV01 means profit from rate increase
     let ctx = market();
     let as_of = d(2025, 1, 2);
     let swap = BasisSwap::new(
         "DV01-SIGN-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
     )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    .expect("swap construction");
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
         .unwrap();
 
-    // Extract per-curve DV01s from measures using composite keys
     let dv01_primary = res
         .measures
         .get("bucketed_dv01::usd_sofr_3m")
@@ -249,7 +197,6 @@ fn dv01_sign_convention() {
         .copied()
         .unwrap_or(0.0);
 
-    // Basis swap receives primary leg (positive DV01) and pays reference leg (negative DV01)
     assert!(
         dv01_primary > 0.0,
         "Primary forward DV01 should be positive (receive floating)"
@@ -262,40 +209,17 @@ fn dv01_sign_convention() {
 
 #[test]
 fn dv01_vs_numerical_bump() {
-    // Validate DV01 against numerical rate bump
     let as_of = d(2025, 1, 2);
-    // Base market
     let ctx_base = market();
 
     let swap = BasisSwap::new(
         "DV01-BUMP-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
     )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    .expect("swap construction");
 
-    // Calculate DV01 using metric (use primary forward curve sensitivity)
     let res_base = swap
         .price_with_metrics(&ctx_base, as_of, &[MetricId::Dv01])
         .unwrap();
@@ -305,9 +229,6 @@ fn dv01_vs_numerical_bump() {
         .copied()
         .unwrap_or(0.0);
 
-    // For basis swap with symmetric legs, DV01 measures forward rate sensitivity
-    // The numerical bump changes both discount and forward curves, so comparison
-    // is approximate. Just verify the metric is reasonable.
     assert!(
         dv01_metric > 0.0 && dv01_metric.is_finite(),
         "DV01 should be positive and finite: got {}",
@@ -317,14 +238,9 @@ fn dv01_vs_numerical_bump() {
 
 #[test]
 fn annuity_positive_and_increasing() {
-    // Test that annuity is positive and increases with maturity
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let maturities = vec![
-        d(2026, 1, 2), // 1 year
-        d(2027, 1, 2), // 2 years
-        d(2028, 1, 2), // 3 years
-    ];
+    let maturities = vec![d(2026, 1, 2), d(2027, 1, 2), d(2028, 1, 2)];
 
     let mut annuities = Vec::new();
 
@@ -332,30 +248,10 @@ fn annuity_positive_and_increasing() {
         let swap = BasisSwap::new(
             format!("ANNUITY-{}", maturity),
             Money::new(10_000_000.0, USD),
-            d(2025, 1, 2),
-            *maturity,
-            BasisSwapLeg {
-                payment_lag_days: 0,
-                reset_lag_days: 0,
-                forward_curve_id: CurveId::new("USD-SOFR-3M"),
-                frequency: Tenor::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                spread_bp: 0.0,
-            },
-            BasisSwapLeg {
-                payment_lag_days: 0,
-                reset_lag_days: 0,
-                forward_curve_id: CurveId::new("USD-SOFR-1M"),
-                frequency: Tenor::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                spread_bp: 0.0,
-            },
-            CurveId::new("USD-OIS"),
+            make_leg("USD-SOFR-3M", d(2025, 1, 2), *maturity, 0.0),
+            make_leg("USD-SOFR-1M", d(2025, 1, 2), *maturity, 0.0),
         )
-        .expect("valid basis swap")
-        .with_calendar(CALENDAR_ID);
+        .expect("valid basis swap");
 
         let res = swap
             .price_with_metrics(&ctx, as_of, &[MetricId::AnnuityPrimary])
@@ -363,63 +259,36 @@ fn annuity_positive_and_increasing() {
         annuities.push(res.measures[MetricId::AnnuityPrimary.as_str()]);
     }
 
-    // All annuities should be positive
     for annuity in &annuities {
         assert!(*annuity > 0.0, "Annuity should be positive");
     }
 
-    // Annuities should be increasing
     assert!(annuities[1] > annuities[0], "2Y annuity should exceed 1Y");
     assert!(annuities[2] > annuities[1], "3Y annuity should exceed 2Y");
 }
 
 #[test]
 fn bucketed_dv01_sums_to_total() {
-    // Test that sum of bucketed DV01s approximately equals total DV01
     let ctx = market();
     let as_of = d(2025, 1, 2);
     let swap = BasisSwap::new(
         "BUCKETED-DV01-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2027, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
     )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    .expect("swap construction");
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Dv01, MetricId::BucketedDv01])
         .unwrap();
 
     let dv01_total = res.measures[MetricId::Dv01.as_str()];
-
-    // BucketedDv01 returns a vector serialized as JSON
-    // For this test, we verify the metric is computed without error
     assert!(dv01_total.is_finite(), "Total DV01 should be finite");
 }
 
 #[test]
 fn dv01_leg_components_reasonable() {
-    // Test that individual leg DV01s are reasonable relative to notional
     let ctx = market();
     let as_of = d(2025, 1, 2);
     let notional = 10_000_000.0;
@@ -427,30 +296,10 @@ fn dv01_leg_components_reasonable() {
     let swap = BasisSwap::new(
         "DV01-COMPONENTS-TEST",
         Money::new(notional, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
     )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    .expect("swap construction");
 
     let res = swap
         .price_with_metrics(
@@ -464,7 +313,6 @@ fn dv01_leg_components_reasonable() {
         )
         .unwrap();
 
-    // Extract per-curve DV01s from measures using composite keys
     let dv01_primary = res
         .measures
         .get("bucketed_dv01::usd_sofr_3m")
@@ -476,8 +324,6 @@ fn dv01_leg_components_reasonable() {
         .copied()
         .unwrap_or(0.0);
 
-    // DV01 is now FD-based; check sign, finiteness, and scaling with notional
-    // Basis swap receives primary leg (positive DV01) and pays reference leg (negative DV01)
     assert!(
         dv01_primary > 0.0,
         "Primary forward DV01 should be positive (receive floating)"
@@ -492,8 +338,6 @@ fn dv01_leg_components_reasonable() {
         "Reference DV01 should be finite"
     );
 
-    // DV01s should be reasonable relative to notional (order of magnitude check)
-    // Use absolute value for reference since it's negative
     let dv01_ratio_primary = dv01_primary / notional;
     let dv01_ratio_reference = dv01_reference.abs() / notional;
     assert!(
@@ -510,46 +354,24 @@ fn dv01_leg_components_reasonable() {
 
 #[test]
 fn sensitivity_to_spread() {
-    // Test that PV changes appropriately with spread changes
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let spreads = vec![0.0, 10.0, 20.0]; // 0bp, 10bp, 20bp
+    let spreads = vec![0.0, 10.0, 20.0];
     let mut npvs = Vec::new();
 
     for spread in &spreads {
         let swap = BasisSwap::new(
             format!("SPREAD-SENS-{}", spread),
             Money::new(10_000_000.0, USD),
-            d(2025, 1, 2),
-            d(2026, 1, 2),
-            BasisSwapLeg {
-                payment_lag_days: 0,
-                reset_lag_days: 0,
-                forward_curve_id: CurveId::new("USD-SOFR-3M"),
-                frequency: Tenor::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                spread_bp: *spread,
-            },
-            BasisSwapLeg {
-                payment_lag_days: 0,
-                reset_lag_days: 0,
-                forward_curve_id: CurveId::new("USD-SOFR-1M"),
-                frequency: Tenor::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                spread_bp: 0.0,
-            },
-            CurveId::new("USD-OIS"),
+            make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), *spread),
+            make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
         )
-        .expect("valid basis swap")
-        .with_calendar(CALENDAR_ID);
+        .expect("valid basis swap");
 
         let npv = swap.value(&ctx, as_of).unwrap().amount();
         npvs.push(npv);
     }
 
-    // NPV should increase with positive spread on primary leg
     assert!(
         npvs[1] > npvs[0],
         "NPV should increase with 10bp spread: {} vs {}",
@@ -563,7 +385,6 @@ fn sensitivity_to_spread() {
         npvs[1]
     );
 
-    // Increments should be approximately equal (linear relationship)
     let delta1 = npvs[1] - npvs[0];
     let delta2 = npvs[2] - npvs[1];
     let ratio = delta2 / delta1;
@@ -575,21 +396,11 @@ fn sensitivity_to_spread() {
 }
 
 /// Invariant test: Annuity with payment lag should differ from annuity without lag.
-///
-/// This test verifies that the shared `leg_annuity` function correctly applies
-/// payment delays when computing discount factors. With a steep discount curve,
-/// later payment dates should result in lower discount factors and thus lower annuity.
 #[test]
 fn annuity_with_payment_lag_differs_from_no_lag() {
-    // Use a steep discount curve so payment timing matters
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
-        .knots(vec![
-            (0.0, 1.0),
-            (0.5, 0.92), // Steep discounting
-            (1.0, 0.85),
-            (2.0, 0.72),
-        ])
+        .knots(vec![(0.0, 1.0), (0.5, 0.92), (1.0, 0.85), (2.0, 0.72)])
         .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
@@ -613,65 +424,30 @@ fn annuity_with_payment_lag_differs_from_no_lag() {
 
     let as_of = d(2025, 1, 2);
 
-    // Swap with NO payment lag
     let swap_no_lag = BasisSwap::new(
         "ANNUITY-NO-LAG",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2027, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
     )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    .expect("swap construction");
 
-    // Swap WITH payment lag (10 business days)
+    let primary_with_lag = BasisSwapLeg {
+        payment_lag_days: 10,
+        ..make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), 0.0)
+    };
+    let reference_with_lag = BasisSwapLeg {
+        payment_lag_days: 10,
+        ..make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), 0.0)
+    };
     let swap_with_lag = BasisSwap::new(
         "ANNUITY-WITH-LAG",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2027, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 10,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 10,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
+        primary_with_lag,
+        reference_with_lag,
     )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    .expect("swap construction");
 
-    // Compute annuities
     let res_no_lag = swap_no_lag
         .price_with_metrics(&ctx, as_of, &[MetricId::AnnuityPrimary])
         .unwrap();
@@ -682,8 +458,6 @@ fn annuity_with_payment_lag_differs_from_no_lag() {
     let annuity_no_lag = res_no_lag.measures[MetricId::AnnuityPrimary.as_str()];
     let annuity_with_lag = res_with_lag.measures[MetricId::AnnuityPrimary.as_str()];
 
-    // INVARIANT: With payment lag, payments occur later, so discount factors are lower
-    // Therefore annuity WITH lag should be LOWER than annuity WITHOUT lag
     assert!(
         annuity_with_lag < annuity_no_lag,
         "Annuity with payment lag ({}) should be lower than without lag ({}) \
@@ -692,7 +466,6 @@ fn annuity_with_payment_lag_differs_from_no_lag() {
         annuity_no_lag
     );
 
-    // The difference should be meaningful (not just numerical noise)
     let diff_pct = (annuity_no_lag - annuity_with_lag) / annuity_no_lag * 100.0;
     assert!(
         diff_pct > 0.1,
@@ -700,62 +473,37 @@ fn annuity_with_payment_lag_differs_from_no_lag() {
         diff_pct
     );
 
-    // Also verify both annuities are positive and reasonable
     assert!(annuity_no_lag > 0.0, "Annuity should be positive");
     assert!(annuity_with_lag > 0.0, "Annuity should be positive");
 }
 
 #[test]
 fn test_bucketed_dv01_per_curve() {
-    // Test that bucketed DV01 provides per-curve breakdown for both forward curves
     let ctx = market();
     let as_of = d(2025, 1, 2);
 
     let swap = BasisSwap::new(
         "BUCKETED-DV01-TEST",
         Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2027, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
     )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    .expect("swap construction");
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::BucketedDv01])
         .unwrap();
 
-    // Verify backward-compatible primary discount curve series exists under standard key
     assert!(
         res.measures.contains_key("bucketed_dv01"),
         "Standard BucketedDv01 scalar should be present for BC"
     );
 
-    // Verify per-bucket keys exist for primary discount curve (BC)
     assert!(
         res.measures.contains_key("bucketed_dv01::1y"),
         "Primary discount curve bucketed series should be present under standard key"
     );
 
-    // Count per-curve series buckets
     let mut disc_buckets = 0;
     let mut fwd_3m_buckets = 0;
     let mut fwd_1m_buckets = 0;
@@ -772,7 +520,6 @@ fn test_bucketed_dv01_per_curve() {
         }
     }
 
-    // Should have buckets for all three curves (discount + 2 forward curves)
     assert!(
         disc_buckets > 0,
         "Should have discount curve bucketed DV01s under bucketed_dv01::USD-OIS::*"
@@ -786,7 +533,6 @@ fn test_bucketed_dv01_per_curve() {
         "Should have 1M forward curve bucketed DV01s under bucketed_dv01::USD-SOFR-1M::*"
     );
 
-    // Verify totals: sum of per-curve buckets should equal the total
     let total_dv01 = *res.measures.get("bucketed_dv01").unwrap();
 
     let mut sum_disc = 0.0;
@@ -805,7 +551,6 @@ fn test_bucketed_dv01_per_curve() {
         }
     }
 
-    // Total should approximately equal sum of all curves' contributions
     let sum_all = sum_disc + sum_fwd_3m + sum_fwd_1m;
     assert!(
         (total_dv01 - sum_all).abs() < 1.0,

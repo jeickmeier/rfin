@@ -10,6 +10,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::legs::PayReceive;
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::CommodityUnderlyingParams;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -351,10 +352,12 @@ impl PyCommoditySwapBuilder {
 
         let mut builder = CommoditySwap::builder()
             .id(slf.instrument_id.clone())
-            .commodity_type(commodity_type)
-            .ticker(ticker)
-            .unit(unit)
-            .currency(currency)
+            .underlying(CommodityUnderlyingParams::new(
+                commodity_type,
+                ticker,
+                unit,
+                currency,
+            ))
             .quantity(quantity)
             .fixed_price(rust_decimal::Decimal::try_from(fixed_price).unwrap_or_default())
             .floating_index_id(floating_index_id)
@@ -414,25 +417,25 @@ impl PyCommoditySwap {
     /// Commodity type (e.g., "Energy", "Metal").
     #[getter]
     fn commodity_type(&self) -> &str {
-        &self.inner.commodity_type
+        &self.inner.underlying.commodity_type
     }
 
     /// Ticker symbol.
     #[getter]
     fn ticker(&self) -> &str {
-        &self.inner.ticker
+        &self.inner.underlying.ticker
     }
 
     /// Unit of measurement.
     #[getter]
     fn unit(&self) -> &str {
-        &self.inner.unit
+        &self.inner.underlying.unit
     }
 
     /// Currency.
     #[getter]
     fn currency(&self) -> PyCurrency {
-        PyCurrency::new(self.inner.currency)
+        PyCurrency::new(self.inner.underlying.currency)
     }
 
     /// Quantity per period.
@@ -488,7 +491,7 @@ impl PyCommoditySwap {
         format!(
             "CommoditySwap(id='{}', ticker='{}', fixed_price={}, pay_fixed={})",
             self.inner.id.as_str(),
-            self.inner.ticker,
+            self.inner.underlying.ticker,
             self.inner.fixed_price,
             self.inner.side.is_payer()
         )
@@ -501,7 +504,7 @@ impl fmt::Display for PyCommoditySwap {
             f,
             "CommoditySwap({}, {}, {})",
             self.inner.id.as_str(),
-            self.inner.ticker,
+            self.inner.underlying.ticker,
             self.inner.fixed_price
         )
     }

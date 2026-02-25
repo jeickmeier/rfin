@@ -8,7 +8,7 @@
 
 use crate::core::common::args::{BusinessDayConventionArg, CurrencyArg, DayCountArg, TenorArg};
 use crate::core::currency::PyCurrency;
-use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::dates::utils::py_to_date;
 use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::currency::Currency;
@@ -18,11 +18,10 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::xccy_swap::{
     LegSide, NotionalExchange, XccySwap, XccySwapLeg,
 };
-use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::{Bound, Py, PyRefMut};
+use pyo3::{Bound, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -50,7 +49,7 @@ use std::sync::Arc;
 ///         .leg1_forward_curve("USD-SOFR")
 ///         .leg1_discount_curve("USD-OIS")
 ///         .leg1_frequency("quarterly")
-///         .leg1_spread(0.0010)  # 10bp
+///         .leg1_spread(10.0)  # 10bp
 ///         # Second leg: Receive EUR floating
 ///         .leg2_currency("EUR")
 ///         .leg2_notional(9_000_000, "EUR")
@@ -92,20 +91,20 @@ impl PyCrossCurrencySwap {
 )]
 pub struct PyCrossCurrencySwapBuilder {
     instrument_id: InstrumentId,
-    start_date: Option<time::Date>,
-    maturity_date: Option<time::Date>,
     reporting_currency: Option<Currency>,
     notional_exchange: NotionalExchange,
-    stub_kind: StubKind,
     // Leg 1
     leg1_currency: Option<Currency>,
     leg1_notional_amount: Option<f64>,
     leg1_side: LegSide,
     leg1_forward_curve: Option<CurveId>,
     leg1_discount_curve: Option<CurveId>,
+    leg1_start: Option<time::Date>,
+    leg1_end: Option<time::Date>,
     leg1_frequency: Tenor,
     leg1_day_count: DayCount,
     leg1_bdc: BusinessDayConvention,
+    leg1_stub: StubKind,
     leg1_spread: f64,
     leg1_payment_lag_days: i32,
     leg1_calendar_id: Option<String>,
@@ -115,9 +114,12 @@ pub struct PyCrossCurrencySwapBuilder {
     leg2_side: LegSide,
     leg2_forward_curve: Option<CurveId>,
     leg2_discount_curve: Option<CurveId>,
+    leg2_start: Option<time::Date>,
+    leg2_end: Option<time::Date>,
     leg2_frequency: Tenor,
     leg2_day_count: DayCount,
     leg2_bdc: BusinessDayConvention,
+    leg2_stub: StubKind,
     leg2_spread: f64,
     leg2_payment_lag_days: i32,
     leg2_calendar_id: Option<String>,
@@ -127,19 +129,19 @@ impl PyCrossCurrencySwapBuilder {
     fn new_with_id(id: InstrumentId) -> Self {
         Self {
             instrument_id: id,
-            start_date: None,
-            maturity_date: None,
             reporting_currency: None,
             notional_exchange: NotionalExchange::InitialAndFinal,
-            stub_kind: StubKind::None,
             leg1_currency: None,
             leg1_notional_amount: None,
             leg1_side: LegSide::Pay,
             leg1_forward_curve: None,
             leg1_discount_curve: None,
+            leg1_start: None,
+            leg1_end: None,
             leg1_frequency: Tenor::quarterly(),
             leg1_day_count: DayCount::Act360,
             leg1_bdc: BusinessDayConvention::Following,
+            leg1_stub: StubKind::ShortFront,
             leg1_spread: 0.0,
             leg1_payment_lag_days: 0,
             leg1_calendar_id: None,
@@ -148,9 +150,12 @@ impl PyCrossCurrencySwapBuilder {
             leg2_side: LegSide::Receive,
             leg2_forward_curve: None,
             leg2_discount_curve: None,
+            leg2_start: None,
+            leg2_end: None,
             leg2_frequency: Tenor::quarterly(),
             leg2_day_count: DayCount::Act360,
             leg2_bdc: BusinessDayConvention::Following,
+            leg2_stub: StubKind::ShortFront,
             leg2_spread: 0.0,
             leg2_payment_lag_days: 0,
             leg2_calendar_id: None,
@@ -191,24 +196,6 @@ impl PyCrossCurrencySwapBuilder {
 
     // Common fields
 
-    #[pyo3(text_signature = "($self, date)")]
-    fn start_date<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        date: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.start_date = Some(py_to_date(&date).context("start_date")?);
-        Ok(slf)
-    }
-
-    #[pyo3(text_signature = "($self, date)")]
-    fn maturity_date<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        date: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.maturity_date = Some(py_to_date(&date).context("maturity_date")?);
-        Ok(slf)
-    }
-
     #[pyo3(text_signature = "($self, currency)")]
     fn reporting_currency(
         mut slf: PyRefMut<'_, Self>,
@@ -228,6 +215,30 @@ impl PyCrossCurrencySwapBuilder {
         Ok(slf)
     }
 
+    /// Set start date for both legs.
+    #[pyo3(text_signature = "($self, date)")]
+    fn start_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let d = py_to_date(date).context("start_date")?;
+        slf.leg1_start = Some(d);
+        slf.leg2_start = Some(d);
+        Ok(slf)
+    }
+
+    /// Set maturity (end) date for both legs.
+    #[pyo3(text_signature = "($self, date)")]
+    fn maturity_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let d = py_to_date(date).context("maturity_date")?;
+        slf.leg1_end = Some(d);
+        slf.leg2_end = Some(d);
+        Ok(slf)
+    }
+
     // Leg 1 methods
 
     #[pyo3(text_signature = "($self, currency)")]
@@ -242,7 +253,6 @@ impl PyCrossCurrencySwapBuilder {
         amount: f64,
         currency: CurrencyArg,
     ) -> PyRefMut<'_, Self> {
-        // Let Rust validation handle notional checks
         slf.leg1_notional_amount = Some(amount);
         slf.leg1_currency = Some(currency.0);
         slf
@@ -266,6 +276,24 @@ impl PyCrossCurrencySwapBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, date)")]
+    fn leg1_start<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.leg1_start = Some(py_to_date(&date).context("leg1_start")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, date)")]
+    fn leg1_end<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.leg1_end = Some(py_to_date(&date).context("leg1_end")?);
+        Ok(slf)
+    }
+
     #[pyo3(text_signature = "($self, frequency)")]
     fn leg1_frequency(mut slf: PyRefMut<'_, Self>, frequency: TenorArg) -> PyRefMut<'_, Self> {
         slf.leg1_frequency = frequency.0;
@@ -284,7 +312,13 @@ impl PyCrossCurrencySwapBuilder {
         slf
     }
 
-    /// Set leg 1 spread (decimal, e.g., 0.0001 = 1bp).
+    #[pyo3(text_signature = "($self, stub)")]
+    fn leg1_stub<'py>(mut slf: PyRefMut<'py, Self>, stub: &str) -> PyResult<PyRefMut<'py, Self>> {
+        slf.leg1_stub = crate::valuations::common::parse_stub_kind(Some(stub))?;
+        Ok(slf)
+    }
+
+    /// Set leg 1 spread in basis points (e.g., 10.0 = 10bp).
     #[pyo3(text_signature = "($self, spread)")]
     fn leg1_spread(mut slf: PyRefMut<'_, Self>, spread: f64) -> PyRefMut<'_, Self> {
         slf.leg1_spread = spread;
@@ -306,6 +340,26 @@ impl PyCrossCurrencySwapBuilder {
         slf
     }
 
+    /// Set leg 1 start date (overrides shared start_date).
+    #[pyo3(text_signature = "($self, date)")]
+    fn leg1_start_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.leg1_start = Some(py_to_date(date).context("leg1_start_date")?);
+        Ok(slf)
+    }
+
+    /// Set leg 1 end date (overrides shared maturity_date).
+    #[pyo3(text_signature = "($self, date)")]
+    fn leg1_end_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.leg1_end = Some(py_to_date(date).context("leg1_end_date")?);
+        Ok(slf)
+    }
+
     // Leg 2 methods
 
     #[pyo3(text_signature = "($self, currency)")]
@@ -320,7 +374,6 @@ impl PyCrossCurrencySwapBuilder {
         amount: f64,
         currency: CurrencyArg,
     ) -> PyRefMut<'_, Self> {
-        // Let Rust validation handle notional checks
         slf.leg2_notional_amount = Some(amount);
         slf.leg2_currency = Some(currency.0);
         slf
@@ -344,6 +397,24 @@ impl PyCrossCurrencySwapBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, date)")]
+    fn leg2_start<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.leg2_start = Some(py_to_date(&date).context("leg2_start")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, date)")]
+    fn leg2_end<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.leg2_end = Some(py_to_date(&date).context("leg2_end")?);
+        Ok(slf)
+    }
+
     #[pyo3(text_signature = "($self, frequency)")]
     fn leg2_frequency(mut slf: PyRefMut<'_, Self>, frequency: TenorArg) -> PyRefMut<'_, Self> {
         slf.leg2_frequency = frequency.0;
@@ -362,7 +433,13 @@ impl PyCrossCurrencySwapBuilder {
         slf
     }
 
-    /// Set leg 2 spread (decimal, e.g., 0.0001 = 1bp).
+    #[pyo3(text_signature = "($self, stub)")]
+    fn leg2_stub<'py>(mut slf: PyRefMut<'py, Self>, stub: &str) -> PyResult<PyRefMut<'py, Self>> {
+        slf.leg2_stub = crate::valuations::common::parse_stub_kind(Some(stub))?;
+        Ok(slf)
+    }
+
+    /// Set leg 2 spread in basis points (e.g., 10.0 = 10bp).
     #[pyo3(text_signature = "($self, spread)")]
     fn leg2_spread(mut slf: PyRefMut<'_, Self>, spread: f64) -> PyRefMut<'_, Self> {
         slf.leg2_spread = spread;
@@ -384,17 +461,29 @@ impl PyCrossCurrencySwapBuilder {
         slf
     }
 
+    /// Set leg 2 start date (overrides shared start_date).
+    #[pyo3(text_signature = "($self, date)")]
+    fn leg2_start_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.leg2_start = Some(py_to_date(date).context("leg2_start_date")?);
+        Ok(slf)
+    }
+
+    /// Set leg 2 end date (overrides shared maturity_date).
+    #[pyo3(text_signature = "($self, date)")]
+    fn leg2_end_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.leg2_end = Some(py_to_date(date).context("leg2_end_date")?);
+        Ok(slf)
+    }
+
     /// Build the CrossCurrencySwap instrument.
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCrossCurrencySwap> {
-        let start_date = slf
-            .start_date
-            .ok_or_else(|| PyValueError::new_err("start_date() must be provided"))?;
-
-        let maturity_date = slf
-            .maturity_date
-            .ok_or_else(|| PyValueError::new_err("maturity_date() must be provided"))?;
-
         let reporting_currency = slf
             .reporting_currency
             .ok_or_else(|| PyValueError::new_err("reporting_currency() must be provided"))?;
@@ -414,6 +503,12 @@ impl PyCrossCurrencySwapBuilder {
             .leg1_discount_curve
             .clone()
             .ok_or_else(|| PyValueError::new_err("leg1_discount_curve() must be provided"))?;
+        let leg1_start = slf
+            .leg1_start
+            .ok_or_else(|| PyValueError::new_err("leg1_start() must be provided"))?;
+        let leg1_end = slf
+            .leg1_end
+            .ok_or_else(|| PyValueError::new_err("leg1_end() must be provided"))?;
 
         let leg1 = XccySwapLeg {
             currency: leg1_currency,
@@ -421,10 +516,13 @@ impl PyCrossCurrencySwapBuilder {
             side: slf.leg1_side,
             forward_curve_id: leg1_forward_curve,
             discount_curve_id: leg1_discount_curve,
+            start: leg1_start,
+            end: leg1_end,
             frequency: slf.leg1_frequency,
             day_count: slf.leg1_day_count,
             bdc: slf.leg1_bdc,
-            spread: slf.leg1_spread,
+            stub: slf.leg1_stub,
+            spread_bp: slf.leg1_spread,
             payment_lag_days: slf.leg1_payment_lag_days,
             calendar_id: slf.leg1_calendar_id.clone(),
             allow_calendar_fallback: false,
@@ -445,6 +543,12 @@ impl PyCrossCurrencySwapBuilder {
             .leg2_discount_curve
             .clone()
             .ok_or_else(|| PyValueError::new_err("leg2_discount_curve() must be provided"))?;
+        let leg2_start = slf
+            .leg2_start
+            .ok_or_else(|| PyValueError::new_err("leg2_start() must be provided"))?;
+        let leg2_end = slf
+            .leg2_end
+            .ok_or_else(|| PyValueError::new_err("leg2_end() must be provided"))?;
 
         let leg2 = XccySwapLeg {
             currency: leg2_currency,
@@ -452,26 +556,20 @@ impl PyCrossCurrencySwapBuilder {
             side: slf.leg2_side,
             forward_curve_id: leg2_forward_curve,
             discount_curve_id: leg2_discount_curve,
+            start: leg2_start,
+            end: leg2_end,
             frequency: slf.leg2_frequency,
             day_count: slf.leg2_day_count,
             bdc: slf.leg2_bdc,
-            spread: slf.leg2_spread,
+            stub: slf.leg2_stub,
+            spread_bp: slf.leg2_spread,
             payment_lag_days: slf.leg2_payment_lag_days,
             calendar_id: slf.leg2_calendar_id.clone(),
             allow_calendar_fallback: false,
         };
 
-        let swap = XccySwap {
-            id: slf.instrument_id.clone(),
-            start_date,
-            maturity: maturity_date,
-            leg1,
-            leg2,
-            notional_exchange: slf.notional_exchange,
-            reporting_currency,
-            stub: slf.stub_kind,
-            attributes: Attributes::new(),
-        };
+        let swap = XccySwap::new(slf.instrument_id.as_str(), leg1, leg2, reporting_currency)
+            .with_notional_exchange(slf.notional_exchange);
 
         Ok(PyCrossCurrencySwap::new(swap))
     }
@@ -491,16 +589,6 @@ impl PyCrossCurrencySwap {
     }
 
     #[getter]
-    fn start_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.start_date)
-    }
-
-    #[getter]
-    fn maturity_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.maturity)
-    }
-
-    #[getter]
     fn reporting_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.reporting_currency)
     }
@@ -512,8 +600,8 @@ impl PyCrossCurrencySwap {
 
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
-            "CrossCurrencySwap(id='{}', {}/{}, maturity='{}')",
-            self.inner.id, self.inner.leg1.currency, self.inner.leg2.currency, self.inner.maturity
+            "CrossCurrencySwap(id='{}', {}/{})",
+            self.inner.id, self.inner.leg1.currency, self.inner.leg2.currency
         ))
     }
 }

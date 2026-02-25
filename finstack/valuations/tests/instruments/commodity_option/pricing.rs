@@ -12,6 +12,7 @@ use finstack_core::math::norm_cdf;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::CommodityUnderlyingParams;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{
     ExerciseStyle, OptionType, PricingOverrides, SettlementType,
@@ -61,17 +62,19 @@ fn test_black76_futures_based_pricing() {
 
     let option = CommodityOption::builder()
         .id(InstrumentId::new("CL-CALL-TEST"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .strike(100.0)
         .option_type(OptionType::Call)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
         .quantity(1.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .settlement(SettlementType::Cash)
-        .currency(Currency::USD)
         .forward_curve_id(CurveId::new("CL-FWD"))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .vol_surface_id(CurveId::new("CL-VOL"))
@@ -116,17 +119,19 @@ fn test_futures_based_american_matches_european() {
     let build = |style| {
         CommodityOption::builder()
             .id(InstrumentId::new("CL-CALL-BASE"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .strike(100.0)
             .option_type(OptionType::Call)
             .exercise_style(style)
             .expiry(expiry)
             .quantity(1.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .settlement(SettlementType::Cash)
-            .currency(Currency::USD)
             .forward_curve_id(CurveId::new("CL-FWD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .vol_surface_id(CurveId::new("CL-VOL"))
@@ -172,17 +177,19 @@ fn test_spot_based_american_put_above_european() {
     let build = |style| {
         CommodityOption::builder()
             .id(InstrumentId::new("CL-PUT-BASE"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .strike(100.0)
             .option_type(OptionType::Put)
             .exercise_style(style)
             .expiry(expiry)
             .quantity(1.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .settlement(SettlementType::Cash)
-            .currency(Currency::USD)
             .forward_curve_id(CurveId::new("CL-FWD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .vol_surface_id(CurveId::new("CL-VOL"))
@@ -220,17 +227,19 @@ fn test_post_expiry_returns_zero() {
     // ITM call option (forward 100 > strike 90)
     let itm_call = CommodityOption::builder()
         .id(InstrumentId::new("CL-CALL-EXPIRED"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .strike(90.0) // ITM: forward 100 > strike 90
         .option_type(OptionType::Call)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
         .quantity(1.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .settlement(SettlementType::Cash)
-        .currency(Currency::USD)
         .forward_curve_id(CurveId::new("CL-FWD"))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .vol_surface_id(CurveId::new("CL-VOL"))
@@ -254,17 +263,19 @@ fn test_post_expiry_returns_zero() {
     // ITM put option
     let itm_put = CommodityOption::builder()
         .id(InstrumentId::new("CL-PUT-EXPIRED"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .strike(110.0) // ITM: strike 110 > forward 100
         .option_type(OptionType::Put)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
         .quantity(1.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .settlement(SettlementType::Cash)
-        .currency(Currency::USD)
         .forward_curve_id(CurveId::new("CL-FWD"))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .vol_surface_id(CurveId::new("CL-VOL"))
@@ -302,17 +313,19 @@ fn test_at_expiry_returns_intrinsic() {
     // ITM call: forward 100 > strike 90, intrinsic = 10
     let itm_call = CommodityOption::builder()
         .id(InstrumentId::new("CL-CALL-AT-EXPIRY"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .strike(90.0)
         .option_type(OptionType::Call)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
         .quantity(1.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .settlement(SettlementType::Cash)
-        .currency(Currency::USD)
         .forward_curve_id(CurveId::new("CL-FWD"))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .vol_surface_id(CurveId::new("CL-VOL"))
@@ -335,17 +348,19 @@ fn test_at_expiry_returns_intrinsic() {
     // OTM call: forward 100 < strike 110, intrinsic = 0
     let otm_call = CommodityOption::builder()
         .id(InstrumentId::new("CL-CALL-OTM-AT-EXPIRY"))
-        .commodity_type("Energy".to_string())
-        .ticker("CL".to_string())
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "CL",
+            "BBL",
+            Currency::USD,
+        ))
         .strike(110.0)
         .option_type(OptionType::Call)
         .exercise_style(ExerciseStyle::European)
         .expiry(expiry)
         .quantity(1.0)
-        .unit("BBL".to_string())
         .multiplier(1.0)
         .settlement(SettlementType::Cash)
-        .currency(Currency::USD)
         .forward_curve_id(CurveId::new("CL-FWD"))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .vol_surface_id(CurveId::new("CL-VOL"))
@@ -393,17 +408,19 @@ fn test_put_call_parity_european() {
         let build = |opt_type| {
             CommodityOption::builder()
                 .id(InstrumentId::new("PCP-TEST"))
-                .commodity_type("Energy".to_string())
-                .ticker("CL".to_string())
+                .underlying(CommodityUnderlyingParams::new(
+                    "Energy",
+                    "CL",
+                    "BBL",
+                    Currency::USD,
+                ))
                 .strike(strike)
                 .option_type(opt_type)
                 .exercise_style(ExerciseStyle::European)
                 .expiry(expiry)
                 .quantity(1.0)
-                .unit("BBL".to_string())
                 .multiplier(1.0)
                 .settlement(SettlementType::Cash)
-                .currency(Currency::USD)
                 .forward_curve_id(CurveId::new("CL-FWD"))
                 .discount_curve_id(CurveId::new("USD-OIS"))
                 .vol_surface_id(CurveId::new("CL-VOL"))
@@ -494,17 +511,19 @@ fn test_non_flat_vol_surface_skew() {
     let build_option = |strike, opt_type| {
         CommodityOption::builder()
             .id(InstrumentId::new("SKEW-TEST"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .strike(strike)
             .option_type(opt_type)
             .exercise_style(ExerciseStyle::European)
             .expiry(expiry)
             .quantity(1.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .settlement(SettlementType::Cash)
-            .currency(Currency::USD)
             .forward_curve_id(CurveId::new("CL-FWD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .vol_surface_id(CurveId::new("CL-VOL"))

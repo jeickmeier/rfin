@@ -9,6 +9,7 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
+use finstack_valuations::instruments::CommodityUnderlyingParams;
 use finstack_valuations::instruments::{
     Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
 };
@@ -410,17 +411,19 @@ impl PyCommodityOptionBuilder {
 
         let mut builder = CommodityOption::builder()
             .id(slf.instrument_id.clone())
-            .commodity_type(commodity_type)
-            .ticker(ticker)
+            .underlying(CommodityUnderlyingParams::new(
+                commodity_type,
+                ticker,
+                unit,
+                currency,
+            ))
             .strike(strike)
             .option_type(slf.option_type)
             .exercise_style(slf.exercise_style)
             .expiry(expiry)
             .quantity(quantity)
-            .unit(unit)
             .multiplier(slf.multiplier)
             .settlement(slf.settlement)
-            .currency(currency)
             .forward_curve_id(forward_curve_id)
             .discount_curve_id(discount_curve_id)
             .vol_surface_id(vol_surface_id)
@@ -470,13 +473,13 @@ impl PyCommodityOption {
     /// Commodity type (e.g., "Energy", "Metal").
     #[getter]
     fn commodity_type(&self) -> &str {
-        &self.inner.commodity_type
+        &self.inner.underlying.commodity_type
     }
 
     /// Ticker symbol.
     #[getter]
     fn ticker(&self) -> &str {
-        &self.inner.ticker
+        &self.inner.underlying.ticker
     }
 
     /// Strike price.
@@ -519,7 +522,7 @@ impl PyCommodityOption {
     /// Unit of measurement.
     #[getter]
     fn unit(&self) -> &str {
-        &self.inner.unit
+        &self.inner.underlying.unit
     }
 
     /// Contract multiplier.
@@ -540,7 +543,7 @@ impl PyCommodityOption {
     /// Currency.
     #[getter]
     fn currency(&self) -> PyCurrency {
-        PyCurrency::new(self.inner.currency)
+        PyCurrency::new(self.inner.underlying.currency)
     }
 
     /// Forward curve ID.
@@ -590,7 +593,7 @@ impl PyCommodityOption {
         format!(
             "CommodityOption(id='{}', ticker='{}', strike={}, type='{}', exercise='{}', expiry='{}')",
             self.inner.id.as_str(),
-            self.inner.ticker,
+            self.inner.underlying.ticker,
             self.inner.strike,
             self.option_type(),
             self.exercise_style(),
@@ -605,7 +608,7 @@ impl fmt::Display for PyCommodityOption {
             f,
             "CommodityOption({}, {}, {} {} @ {})",
             self.inner.id.as_str(),
-            self.inner.ticker,
+            self.inner.underlying.ticker,
             self.option_type(),
             self.exercise_style(),
             self.inner.strike

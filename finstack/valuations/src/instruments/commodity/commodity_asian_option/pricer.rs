@@ -66,7 +66,10 @@ pub(crate) fn compute_pv(
             OptionType::Call => (average - inst.strike).max(0.0),
             OptionType::Put => (inst.strike - average).max(0.0),
         };
-        return Ok(Money::new(intrinsic * inst.quantity, inst.currency));
+        return Ok(Money::new(
+            intrinsic * inst.quantity,
+            inst.underlying.currency,
+        ));
     }
 
     // Get discount curve
@@ -109,7 +112,10 @@ pub(crate) fn compute_pv(
             OptionType::Call => (average - inst.strike).max(0.0),
             OptionType::Put => (inst.strike - average).max(0.0),
         };
-        return Ok(Money::new(payoff * df * inst.quantity, inst.currency));
+        return Ok(Money::new(
+            payoff * df * inst.quantity,
+            inst.underlying.currency,
+        ));
     }
 
     // Compute price based on averaging method
@@ -149,7 +155,7 @@ pub(crate) fn compute_pv(
         ),
     };
 
-    Ok(Money::new(price * inst.quantity, inst.currency))
+    Ok(Money::new(price * inst.quantity, inst.underlying.currency))
 }
 
 /// Geometric Asian pricing with commodity forwards (Kemna-Vorst adapted).
@@ -428,6 +434,7 @@ impl Pricer for CommodityAsianOptionAnalyticalPricer {
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common_impl::parameters::CommodityUnderlyingParams;
     use crate::instruments::exotics::asian_option::AveragingMethod;
     use crate::instruments::PricingOverrides;
     use finstack_core::currency::Currency;
@@ -510,15 +517,18 @@ mod tests {
     fn base_option(fixing_dates: Vec<Date>, settlement: Date) -> CommodityAsianOption {
         CommodityAsianOption::builder()
             .id(InstrumentId::new("TEST-ASIAN"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .strike(75.0)
             .option_type(OptionType::Call)
             .averaging_method(AveragingMethod::Arithmetic)
             .fixing_dates(fixing_dates)
             .quantity(1000.0)
             .expiry(settlement)
-            .currency(Currency::USD)
             .forward_curve_id(CurveId::new("CL-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .vol_surface_id(CurveId::new("CL-VOL"))

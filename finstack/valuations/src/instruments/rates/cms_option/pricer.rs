@@ -74,7 +74,7 @@ impl CmsOptionPricer {
         use crate::instruments::common_impl::pricing::time::relative_df_discount_curve;
 
         let mut total_pv = 0.0;
-        let strike = inst.strike_rate_f64()?;
+        let strike = inst.strike_f64()?;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
 
         let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;

@@ -1,5 +1,5 @@
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
@@ -93,34 +93,46 @@ pub fn market_without_fx() -> MarketContext {
         .insert_forward(eur_fwd)
 }
 
-pub fn leg_usd_receive() -> finstack_valuations::instruments::rates::xccy_swap::XccySwapLeg {
+pub fn leg_usd_receive(
+    start: Date,
+    end: Date,
+) -> finstack_valuations::instruments::rates::xccy_swap::XccySwapLeg {
     finstack_valuations::instruments::rates::xccy_swap::XccySwapLeg {
         currency: Currency::USD,
         notional: finstack_core::money::Money::new(1_000_000.0, Currency::USD),
         side: finstack_valuations::instruments::rates::xccy_swap::LegSide::Receive,
         forward_curve_id: finstack_core::types::CurveId::new("USD-SOFR-3M"),
         discount_curve_id: finstack_core::types::CurveId::new("USD-OIS"),
+        start,
+        end,
         frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
-        spread: 0.0,
+        stub: StubKind::ShortFront,
+        spread_bp: 0.0,
         payment_lag_days: 0,
         calendar_id: Some(USD_CAL.to_string()),
         allow_calendar_fallback: false,
     }
 }
 
-pub fn leg_eur_pay() -> finstack_valuations::instruments::rates::xccy_swap::XccySwapLeg {
+pub fn leg_eur_pay(
+    start: Date,
+    end: Date,
+) -> finstack_valuations::instruments::rates::xccy_swap::XccySwapLeg {
     finstack_valuations::instruments::rates::xccy_swap::XccySwapLeg {
         currency: Currency::EUR,
         notional: finstack_core::money::Money::new(900_000.0, Currency::EUR),
         side: finstack_valuations::instruments::rates::xccy_swap::LegSide::Pay,
         forward_curve_id: finstack_core::types::CurveId::new("EUR-EURIBOR-3M"),
         discount_curve_id: finstack_core::types::CurveId::new("EUR-OIS"),
+        start,
+        end,
         frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
-        spread: 0.0,
+        stub: StubKind::ShortFront,
+        spread_bp: 0.0,
         payment_lag_days: 0,
         calendar_id: Some(EUR_CAL.to_string()),
         allow_calendar_fallback: false,

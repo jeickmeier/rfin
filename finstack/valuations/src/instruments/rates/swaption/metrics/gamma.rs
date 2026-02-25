@@ -27,7 +27,7 @@ pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
-        let strike = option.strike_rate_f64()?;
+        let strike = option.strike_f64()?;
 
         // Use consolidated helper to get pre-computed inputs
         let inputs = match option.greek_inputs(&context.curves, context.as_of)? {

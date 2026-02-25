@@ -146,7 +146,7 @@ mod tests {
         let market = test_market(as_of);
 
         let option_params = CDSOptionParams::call(
-            100.0,
+            rust_decimal::Decimal::new(1, 2), // 0.01 = 100bp
             date!(2025 - 01 - 01),
             date!(2029 - 01 - 01),
             Money::new(10_000_000.0, Currency::USD),

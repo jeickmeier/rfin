@@ -951,13 +951,21 @@ mod tests {
 
     #[test]
     fn test_basis_swap_roundtrip() {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+
+        let start = Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date");
+        let end = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         let primary_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start,
+            end,
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("USGS".to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 5.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
@@ -965,9 +973,14 @@ mod tests {
 
         let reference_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start,
+            end,
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("USGS".to_string()),
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
@@ -976,14 +989,10 @@ mod tests {
         let swap = BasisSwap::new(
             "BASIS-TEST",
             Money::new(10_000_000.0, Currency::USD),
-            Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
-            Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
             primary_leg,
             reference_leg,
-            CurveId::new("USD-OIS"),
         )
-        .expect("BasisSwap construction should succeed in test")
-        .with_calendar("USGS");
+        .expect("BasisSwap construction should succeed in test");
 
         let json = InstrumentJson::BasisSwap(swap.clone());
         let serialized =
@@ -994,8 +1003,11 @@ mod tests {
         match deserialized {
             InstrumentJson::BasisSwap(i) => {
                 assert_eq!(i.id, swap.id);
-                assert_eq!(i.discount_curve_id, swap.discount_curve_id);
-                assert_eq!(i.calendar_id.as_deref(), Some("USGS"));
+                assert_eq!(
+                    i.primary_leg.discount_curve_id,
+                    swap.primary_leg.discount_curve_id
+                );
+                assert_eq!(i.primary_leg.calendar_id.as_deref(), Some("USGS"));
             }
             _ => panic!("Expected BasisSwap variant"),
         }
@@ -1044,20 +1056,33 @@ mod tests {
     fn test_basis_swap_defaults_when_optional_fields_omitted() {
         use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 
+        let start = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
+        let end = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
+
         let primary_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start,
+            end,
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
             spread_bp: 5.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
         let reference_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start,
+            end,
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
             spread_bp: 0.0,
             payment_lag_days: 0,
             reset_lag_days: 0,
@@ -1065,16 +1090,12 @@ mod tests {
         let swap = BasisSwap::new(
             "BASIS-DEFAULTS",
             Money::new(10_000_000.0, Currency::USD),
-            Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date"),
-            Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date"),
             primary_leg,
             reference_leg,
-            CurveId::new("USD-OIS"),
         )
         .expect("BasisSwap construction should succeed in test");
         let mut json = serde_json::to_value(InstrumentJson::BasisSwap(swap))
             .expect("BasisSwap JSON serialization should succeed");
-        remove_spec_key(&mut json, "stub");
         remove_spec_key(&mut json, "allow_calendar_fallback");
         remove_spec_key(&mut json, "allow_same_curve");
 
@@ -1082,10 +1103,10 @@ mod tests {
             serde_json::from_value(json).expect("BasisSwap JSON deserialization should succeed");
         match deserialized {
             InstrumentJson::BasisSwap(i) => {
-                assert_eq!(i.stub, StubKind::ShortFront);
                 assert!(!i.allow_calendar_fallback);
                 assert!(!i.allow_same_curve);
                 assert_eq!(i.primary_leg.bdc, BusinessDayConvention::ModifiedFollowing);
+                assert_eq!(i.primary_leg.stub, StubKind::ShortFront);
             }
             _ => panic!("Expected BasisSwap variant"),
         }
@@ -1220,14 +1241,14 @@ mod tests {
         let mut json = serde_json::to_value(InstrumentJson::CDSOption(option))
             .expect("CDSOption JSON serialization should succeed");
         remove_spec_key(&mut json, "underlying_is_index");
-        remove_spec_key(&mut json, "forward_spread_adjust_bp");
+        remove_spec_key(&mut json, "forward_spread_adjust");
 
         let deserialized: InstrumentJson =
             serde_json::from_value(json).expect("CDSOption JSON deserialization should succeed");
         match deserialized {
             InstrumentJson::CDSOption(i) => {
                 assert!(!i.underlying_is_index);
-                assert_eq!(i.forward_spread_adjust_bp, 0.0);
+                assert_eq!(i.forward_spread_adjust, rust_decimal::Decimal::ZERO);
             }
             _ => panic!("Expected CDSOption variant"),
         }

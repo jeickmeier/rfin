@@ -18,8 +18,9 @@ use rust_decimal::Decimal;
 pub struct CmsOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
-    /// Strike rate (fixed rate for CMS option)
-    pub strike_rate: Decimal,
+    /// Strike (fixed rate for CMS option)
+    #[serde(alias = "strike_rate")]
+    pub strike: Decimal,
     /// Tenor of the CMS swap in years (e.g., 10.0 for 10Y)
     pub cms_tenor: f64,
     /// Observation/fixing dates for CMS rate
@@ -60,8 +61,8 @@ pub struct CmsOption {
 }
 
 impl CmsOption {
-    pub(crate) fn strike_rate_f64(&self) -> finstack_core::Result<f64> {
-        self.strike_rate
+    pub(crate) fn strike_f64(&self) -> finstack_core::Result<f64> {
+        self.strike
             .to_f64()
             .ok_or(finstack_core::InputError::ConversionOverflow.into())
     }
@@ -88,7 +89,7 @@ impl CmsOption {
 
         CmsOption::builder()
             .id(InstrumentId::new("CMSOPT-10Y-USD"))
-            .strike_rate(Decimal::try_from(0.025).expect("valid decimal"))
+            .strike(Decimal::try_from(0.025).expect("valid decimal"))
             .cms_tenor(10.0)
             .fixing_dates(fixing_dates)
             .payment_dates(payment_dates)
@@ -111,9 +112,9 @@ impl CmsOption {
 }
 
 impl CmsOptionBuilder {
-    /// Set the strike rate using a typed rate.
-    pub fn strike_rate_rate(mut self, rate: Rate) -> Self {
-        self.strike_rate = Decimal::try_from(rate.as_decimal()).ok();
+    /// Set the strike using a typed rate.
+    pub fn strike_rate(mut self, rate: Rate) -> Self {
+        self.strike = Decimal::try_from(rate.as_decimal()).ok();
         self
     }
 }

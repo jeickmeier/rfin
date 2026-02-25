@@ -291,7 +291,7 @@ fn test_bond_settlement_date_impact() {
             DayCount::Act365F,
         ))
         .discount_curve_id("USD-OIS".into())
-        .settlement_days_opt(None)
+        .settlement_convention_opt(None)
         .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
         .build()
         .unwrap();
@@ -308,7 +308,12 @@ fn test_bond_settlement_date_impact() {
             DayCount::Act365F,
         ))
         .discount_curve_id("USD-OIS".into())
-        .settlement_days_opt(Some(2))
+        .settlement_convention_opt(Some(
+            finstack_valuations::instruments::fixed_income::bond::BondSettlementConvention {
+                settlement_days: 2,
+                ..Default::default()
+            },
+        ))
         .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
         .build()
         .unwrap();

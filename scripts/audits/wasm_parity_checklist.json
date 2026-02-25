@@ -10126,8 +10126,8 @@
     },
     {
       "module": "finstack.valuations.instruments.cds_option",
-      "name": "strike_spread_bp",
-      "js_name": "strikeSpreadBp"
+      "name": "strike",
+      "js_name": "strike"
     },
     {
       "module": "finstack.valuations.instruments.cds_option",
@@ -10241,7 +10241,7 @@
     },
     {
       "module": "finstack.valuations.instruments.cms_option",
-      "name": "strike_rate",
+      "name": "strike",
       "js_name": "strikeRate"
     },
     {

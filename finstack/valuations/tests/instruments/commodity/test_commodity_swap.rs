@@ -8,6 +8,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::rates::irs::PayReceive;
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::CommodityUnderlyingParams;
 use finstack_valuations::instruments::Instrument;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -50,10 +51,12 @@ fn test_commodity_swap_pricing() {
 
     let swap = CommoditySwap::builder()
         .id(InstrumentId::new("NG-TEST"))
-        .commodity_type("Energy".to_string())
-        .ticker("NG".to_string())
-        .unit("MMBTU".to_string())
-        .currency(Currency::USD)
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "NG",
+            "MMBTU",
+            Currency::USD,
+        ))
         .quantity(10000.0)
         .fixed_price(Decimal::try_from(3.50).expect("valid decimal")) // Same as spot
         .floating_index_id(CurveId::new("NG-SPOT-AVG"))
@@ -87,10 +90,12 @@ fn test_commodity_swap_fixed_leg_pv() {
 
     let swap = CommoditySwap::builder()
         .id(InstrumentId::new("FIXED-LEG-TEST"))
-        .commodity_type("Energy".to_string())
-        .ticker("NG".to_string())
-        .unit("MMBTU".to_string())
-        .currency(Currency::USD)
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "NG",
+            "MMBTU",
+            Currency::USD,
+        ))
         .quantity(10000.0)
         .fixed_price(Decimal::try_from(3.50).expect("valid decimal"))
         .floating_index_id(CurveId::new("NG-SPOT-AVG"))
@@ -119,10 +124,12 @@ fn test_commodity_swap_payment_schedule() {
 
     let swap = CommoditySwap::builder()
         .id(InstrumentId::new("SCHEDULE-TEST"))
-        .commodity_type("Energy".to_string())
-        .ticker("NG".to_string())
-        .unit("MMBTU".to_string())
-        .currency(Currency::USD)
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "NG",
+            "MMBTU",
+            Currency::USD,
+        ))
         .quantity(10000.0)
         .fixed_price(Decimal::try_from(3.50).expect("valid decimal"))
         .floating_index_id(CurveId::new("NG-SPOT-AVG"))
@@ -171,10 +178,12 @@ fn test_commodity_swap_receive_fixed() {
 
     let pay_fixed = CommoditySwap::builder()
         .id(InstrumentId::new("PAY-FIXED"))
-        .commodity_type("Energy".to_string())
-        .ticker("NG".to_string())
-        .unit("MMBTU".to_string())
-        .currency(Currency::USD)
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "NG",
+            "MMBTU",
+            Currency::USD,
+        ))
         .quantity(10000.0)
         .fixed_price(Decimal::try_from(3.50).expect("valid decimal"))
         .floating_index_id(CurveId::new("NG-SPOT-AVG"))
@@ -189,10 +198,12 @@ fn test_commodity_swap_receive_fixed() {
 
     let receive_fixed = CommoditySwap::builder()
         .id(InstrumentId::new("RECEIVE-FIXED"))
-        .commodity_type("Energy".to_string())
-        .ticker("NG".to_string())
-        .unit("MMBTU".to_string())
-        .currency(Currency::USD)
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "NG",
+            "MMBTU",
+            Currency::USD,
+        ))
         .quantity(10000.0)
         .fixed_price(Decimal::try_from(3.50).expect("valid decimal"))
         .floating_index_id(CurveId::new("NG-SPOT-AVG"))
@@ -237,10 +248,12 @@ fn test_commodity_swap_par_rate_round_trip() {
     // Step 1: Create a swap with a test fixed price to get the floating leg PV
     let test_swap = CommoditySwap::builder()
         .id(InstrumentId::new("PAR-RATE-TEST"))
-        .commodity_type("Energy".to_string())
-        .ticker("NG".to_string())
-        .unit("MMBTU".to_string())
-        .currency(Currency::USD)
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "NG",
+            "MMBTU",
+            Currency::USD,
+        ))
         .quantity(10000.0)
         .fixed_price(Decimal::try_from(1.0).expect("valid decimal")) // Placeholder
         .floating_index_id(CurveId::new("NG-SPOT-AVG"))
@@ -273,10 +286,12 @@ fn test_commodity_swap_par_rate_round_trip() {
     // Step 2: Create swap at par rate
     let par_swap = CommoditySwap::builder()
         .id(InstrumentId::new("PAR-SWAP"))
-        .commodity_type("Energy".to_string())
-        .ticker("NG".to_string())
-        .unit("MMBTU".to_string())
-        .currency(Currency::USD)
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "NG",
+            "MMBTU",
+            Currency::USD,
+        ))
         .quantity(10000.0)
         .fixed_price(Decimal::try_from(par_fixed_price).expect("valid decimal"))
         .floating_index_id(CurveId::new("NG-SPOT-AVG"))
@@ -312,10 +327,12 @@ fn test_commodity_swap_cashflow_npv_consistency() {
 
     let swap = CommoditySwap::builder()
         .id(InstrumentId::new("CF-NPV-TEST"))
-        .commodity_type("Energy".to_string())
-        .ticker("NG".to_string())
-        .unit("MMBTU".to_string())
-        .currency(Currency::USD)
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "NG",
+            "MMBTU",
+            Currency::USD,
+        ))
         .quantity(10000.0)
         .fixed_price(Decimal::try_from(3.55).expect("valid decimal"))
         .floating_index_id(CurveId::new("NG-SPOT-AVG"))
@@ -370,10 +387,12 @@ fn test_commodity_swap_delta_analytical() {
 
     let swap = CommoditySwap::builder()
         .id(InstrumentId::new("DELTA-TEST"))
-        .commodity_type("Energy".to_string())
-        .ticker("NG".to_string())
-        .unit("MMBTU".to_string())
-        .currency(Currency::USD)
+        .underlying(CommodityUnderlyingParams::new(
+            "Energy",
+            "NG",
+            "MMBTU",
+            Currency::USD,
+        ))
         .quantity(quantity)
         .fixed_price(Decimal::try_from(3.55).expect("valid decimal"))
         .floating_index_id(CurveId::new("NG-SPOT-AVG"))
@@ -432,6 +451,6 @@ fn test_commodity_swap_serialization() {
     let parsed: CommoditySwap = serde_json::from_str(&json).expect("deserialize");
 
     assert_eq!(swap.id.as_str(), parsed.id.as_str());
-    assert_eq!(swap.ticker, parsed.ticker);
+    assert_eq!(swap.underlying.ticker, parsed.underlying.ticker);
     assert_eq!(swap.fixed_price, parsed.fixed_price);
 }

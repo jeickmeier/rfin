@@ -14,7 +14,7 @@ import {
 export interface CmsOptionJsonData {
   id: string;
   cms_tenor: number;
-  strike_rate: number;
+  strike: number;
   fixing_dates: string[];
   payment_dates: string[];
   accrual_fractions: number[];
@@ -104,7 +104,7 @@ const DEFAULT_CMS_OPTIONS: CmsOptionJsonData[] = [
   {
     id: 'cms_call_10y',
     cms_tenor: 10,
-    strike_rate: 0.035,
+    strike: 0.035,
     fixing_dates: ['2025-01-02'],
     payment_dates: ['2025-01-02'],
     accrual_fractions: [1],
@@ -121,7 +121,7 @@ const DEFAULT_CMS_OPTIONS: CmsOptionJsonData[] = [
   {
     id: 'cms_put_5y',
     cms_tenor: 5,
-    strike_rate: 0.03,
+    strike: 0.03,
     fixing_dates: ['2025-01-02'],
     payment_dates: ['2025-01-02'],
     accrual_fractions: [1],

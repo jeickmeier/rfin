@@ -155,7 +155,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
     ];
 
     for (target_z, base_bond) in scenarios {
-        let settlement_days = base_bond.settlement_days.unwrap_or(0) as i64;
+        let settlement_days = base_bond.settlement_days().unwrap_or(0) as i64;
         let quote_date = as_of + time::Duration::days(settlement_days);
 
         // Price the bond at the target Z-spread to obtain a dirty price.

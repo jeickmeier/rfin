@@ -9,6 +9,7 @@ use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::pricer::InstrumentType;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 #[test]
@@ -18,7 +19,7 @@ fn test_cds_option_construction() {
     let maturity = date!(2031 - 01 - 01);
 
     let option_params = CDSOptionParams::call(
-        100.0,
+        Decimal::new(1, 2), // 0.01 = 100bp
         expiry,
         maturity,
         Money::new(10_000_000.0, Currency::USD),
@@ -36,7 +37,7 @@ fn test_cds_option_construction() {
     .expect("valid CDS option");
 
     assert_eq!(option.id(), "TEST-CDSOPT");
-    assert_eq!(option.strike_spread_bp, 100.0);
+    assert_eq!(option.strike, Decimal::new(1, 2));
     assert!(matches!(option.option_type, OptionType::Call));
     assert_eq!(option.expiry, expiry);
     assert_eq!(option.cds_maturity, maturity);
@@ -73,7 +74,7 @@ fn test_single_name_option_defaults() {
 
     assert!(!option.underlying_is_index);
     assert_eq!(option.index_factor, None);
-    assert_eq!(option.forward_spread_adjust_bp, 0.0);
+    assert_eq!(option.forward_spread_adjust, Decimal::ZERO);
 }
 
 #[test]
@@ -86,7 +87,9 @@ fn test_index_option_construction() {
 
     assert!(option.underlying_is_index);
     assert_eq!(option.index_factor, Some(0.88));
-    assert_eq!(option.forward_spread_adjust_bp, 15.0);
+    // 15bp = 0.0015 decimal
+    let expected = Decimal::try_from(15.0 / 10000.0).unwrap();
+    assert_eq!(option.forward_spread_adjust, expected);
 }
 
 #[test]
@@ -109,9 +112,10 @@ fn test_put_option() {
 fn test_various_strikes() {
     let as_of = date!(2025 - 01 - 01);
 
-    for strike in [25.0, 50.0, 100.0, 200.0, 500.0] {
-        let option = CDSOptionBuilder::new().strike(strike).build(as_of);
-        assert_eq!(option.strike_spread_bp, strike);
+    for strike_bp in [25.0, 50.0, 100.0, 200.0, 500.0] {
+        let option = CDSOptionBuilder::new().strike(strike_bp).build(as_of);
+        let expected = Decimal::try_from(strike_bp / 10000.0).unwrap();
+        assert_eq!(option.strike, expected);
     }
 }
 

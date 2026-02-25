@@ -76,7 +76,7 @@ pub fn create_standard_payer_swaption(
         id: "SWAPTION_TEST".into(),
         option_type: OptionType::Call,
         notional: Money::new(1_000_000.0, Currency::USD),
-        strike_rate: Decimal::try_from(strike).expect("valid decimal"),
+        strike: Decimal::try_from(strike).expect("valid decimal"),
         expiry,
         swap_start,
         swap_end,

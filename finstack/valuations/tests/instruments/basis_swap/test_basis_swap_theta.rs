@@ -2,7 +2,7 @@
 //!
 //! Tests validate theta calculations and time decay behavior across various scenarios.
 
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -104,38 +104,48 @@ fn market() -> MarketContext {
         .insert_series(fix_1m)
 }
 
+fn make_swap(id: &str, start: Date, end: Date, spread_bp: f64) -> BasisSwap {
+    BasisSwap::new(
+        id,
+        Money::new(10_000_000.0, USD),
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start,
+            end,
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
+            spread_bp,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start,
+            end,
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some(CALENDAR_ID.to_string()),
+            stub: StubKind::ShortFront,
+            spread_bp: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        },
+    )
+    .expect("swap construction")
+}
+
 #[test]
 fn theta_is_finite() {
     // Basic test that theta calculation produces finite result
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let swap = BasisSwap::new(
-        "THETA-FINITE",
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
-    )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    let swap = make_swap("THETA-FINITE", d(2025, 1, 2), d(2026, 1, 2), 0.0);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -151,33 +161,7 @@ fn theta_matches_pv_change() {
     let ctx = market();
     let as_of = d(2025, 1, 2);
     let next_day = d(2025, 1, 3);
-    let swap = BasisSwap::new(
-        "THETA-PV-MATCH",
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
-    )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    let swap = make_swap("THETA-PV-MATCH", d(2025, 1, 2), d(2026, 1, 2), 0.0);
 
     // Get theta
     let res = swap
@@ -211,33 +195,7 @@ fn theta_sign_convention() {
     // Test theta sign: typically positive (gain value as time passes due to discounting)
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let swap = BasisSwap::new(
-        "THETA-SIGN",
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 10.0, // 10bp spread
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
-    )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    let swap = make_swap("THETA-SIGN", d(2025, 1, 2), d(2026, 1, 2), 10.0);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -257,33 +215,7 @@ fn theta_sign_convention() {
 fn theta_decreases_near_maturity() {
     // Test that theta magnitude decreases as maturity approaches
     let ctx = market();
-    let swap = BasisSwap::new(
-        "THETA-NEAR-MAT",
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
-    )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    let swap = make_swap("THETA-NEAR-MAT", d(2025, 1, 2), d(2026, 1, 2), 0.0);
 
     // Theta early in life
     let res_early = swap
@@ -313,33 +245,7 @@ fn theta_at_par() {
     let ctx = market();
     let as_of = d(2025, 1, 2);
     // First, find the par spread
-    let swap_zero = BasisSwap::new(
-        "THETA-PAR-ZERO",
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
-    )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    let swap_zero = make_swap("THETA-PAR-ZERO", d(2025, 1, 2), d(2026, 1, 2), 0.0);
 
     let res = swap_zero
         .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
@@ -347,33 +253,7 @@ fn theta_at_par() {
     let par_spread = res.measures[MetricId::BasisParSpread.as_str()];
 
     // Create swap at par
-    let swap_at_par = BasisSwap::new(
-        "THETA-PAR",
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: par_spread,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
-    )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    let swap_at_par = make_swap("THETA-PAR", d(2025, 1, 2), d(2026, 1, 2), par_spread);
 
     let res_par = swap_at_par
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -389,33 +269,7 @@ fn theta_with_long_maturity() {
     // Test theta for long-dated swap
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let swap = BasisSwap::new(
-        "THETA-LONG",
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2028, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
-    )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    let swap = make_swap("THETA-LONG", d(2025, 1, 2), d(2028, 1, 2), 0.0);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -429,33 +283,7 @@ fn theta_with_long_maturity() {
 fn theta_consistency_across_dates() {
     // Test that theta remains consistent when valuating at different dates
     let ctx = market();
-    let swap = BasisSwap::new(
-        "THETA-CONSISTENCY",
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
-    )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    let swap = make_swap("THETA-CONSISTENCY", d(2025, 1, 2), d(2026, 1, 2), 0.0);
 
     let dates = vec![d(2025, 1, 2), d(2025, 2, 2), d(2025, 3, 2), d(2025, 4, 2)];
 
@@ -473,7 +301,7 @@ fn theta_multi_year() {
     // Test that theta accurately approximates 1-day PV change at multiple points
     // over a multi-year swap's lifetime.
     //
-    // Note: Annual theta extrapolation (theta × 365) is NOT valid because:
+    // Note: Annual theta extrapolation (theta x 365) is NOT valid because:
     // 1. Theta changes daily as time passes
     // 2. Cashflow events cause PV discontinuities
     // 3. Compounding effects are non-linear
@@ -482,33 +310,7 @@ fn theta_multi_year() {
     // at several points during the swap's life.
 
     let ctx = market();
-    let swap = BasisSwap::new(
-        "THETA-MULTI-YEAR",
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2028, 1, 2),
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 5.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
-    )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    let swap = make_swap("THETA-MULTI-YEAR", d(2025, 1, 2), d(2028, 1, 2), 5.0);
 
     // Test theta accuracy at several dates during the swap's life
     // Avoid dates near coupon payments where PV has discontinuities
@@ -553,33 +355,7 @@ fn theta_zero_at_maturity() {
     // Test that theta approaches zero at maturity
     let ctx = market();
     let maturity = d(2025, 12, 31);
-    let swap = BasisSwap::new(
-        "THETA-AT-MAT",
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        maturity,
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        BasisSwapLeg {
-            payment_lag_days: 0,
-            reset_lag_days: 0,
-            forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            spread_bp: 0.0,
-        },
-        CurveId::new("USD-OIS"),
-    )
-    .expect("swap construction")
-    .with_calendar(CALENDAR_ID);
+    let swap = make_swap("THETA-AT-MAT", d(2025, 1, 2), maturity, 0.0);
 
     let res = swap
         .price_with_metrics(&ctx, maturity, &[MetricId::Theta])

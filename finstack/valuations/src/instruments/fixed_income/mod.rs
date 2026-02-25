@@ -75,7 +75,7 @@ pub mod tba;
 pub mod term_loan;
 
 // Re-export primary types
-pub use bond::Bond;
+pub use bond::{Bond, BondSettlementConvention};
 pub use bond_future::{BondFuture, BondFutureBuilder, BondFutureSpecs, DeliverableBond};
 pub use cmo::{AgencyCmo, CmoTranche, CmoTrancheType, CmoWaterfall};
 pub use convertible::ConvertibleBond;

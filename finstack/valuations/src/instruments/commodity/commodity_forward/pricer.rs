@@ -65,6 +65,7 @@ impl Pricer for CommodityForwardDiscountingPricer {
 mod tests {
     use super::*;
     use crate::instruments::commodity::commodity_forward::Position;
+    use crate::instruments::common_impl::parameters::CommodityUnderlyingParams;
     use crate::pricer::Pricer;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
@@ -74,13 +75,15 @@ mod tests {
     fn create_test_forward() -> CommodityForward {
         CommodityForward::builder()
             .id(InstrumentId::new("TEST-FWD"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
-            .currency(Currency::USD)
             .position(Position::Long)
             .contract_price_opt(Some(72.0)) // Entry price below market for positive MTM
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
@@ -157,13 +160,15 @@ mod tests {
         // At-market forward (no contract_price)
         let at_market = CommodityForward::builder()
             .id(InstrumentId::new("AT-MARKET"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .maturity(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
-            .currency(Currency::USD)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))

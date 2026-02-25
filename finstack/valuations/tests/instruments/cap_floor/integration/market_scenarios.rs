@@ -73,7 +73,7 @@ fn test_realistic_usd_cap_pricing() {
         id: "USD_CAP_5Y_5%".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),
-        strike_rate: Decimal::try_from(0.05).expect("valid decimal"), // 5% ATM
+        strike: Decimal::try_from(0.05).expect("valid decimal"), // 5% ATM
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -121,7 +121,7 @@ fn test_realistic_otm_floor_pricing() {
         id: "USD_FLOOR_3Y_3%".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(5_000_000.0, Currency::USD),
-        strike_rate: Decimal::try_from(0.03).expect("valid decimal"), // 3% OTM floor (forwards ~5%)
+        strike: Decimal::try_from(0.03).expect("valid decimal"), // 3% OTM floor (forwards ~5%)
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -166,7 +166,7 @@ fn test_all_greeks_with_realistic_market() {
         id: "USD_CAP_GREEKS".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),
-        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
+        strike: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -227,7 +227,7 @@ fn test_semi_annual_vs_quarterly_frequency() {
         id: "CAP_QUARTERLY".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),
-        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
+        strike: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::quarterly(),
@@ -250,7 +250,7 @@ fn test_semi_annual_vs_quarterly_frequency() {
         id: "CAP_SEMIANNUAL".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),
-        strike_rate: Decimal::try_from(0.05).expect("valid decimal"),
+        strike: Decimal::try_from(0.05).expect("valid decimal"),
         start_date: start,
         maturity: end,
         frequency: Tenor::semi_annual(),

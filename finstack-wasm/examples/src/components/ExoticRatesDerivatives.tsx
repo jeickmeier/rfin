@@ -108,7 +108,7 @@ export const ExoticRatesDerivativesExample: React.FC<ExoticRatesDerivativesProps
             const cmsJson = JSON.stringify({
               id: opt.id,
               cms_tenor: opt.cms_tenor,
-              strike_rate: opt.strike_rate,
+              strike: opt.strike,
               fixing_dates: opt.fixing_dates,
               payment_dates: opt.payment_dates,
               accrual_fractions: opt.accrual_fractions,
@@ -138,7 +138,7 @@ export const ExoticRatesDerivativesExample: React.FC<ExoticRatesDerivativesProps
               type: 'CmsOption',
               notional: notional.amount,
               presentValue: result.presentValue.amount,
-              details: `Strike: ${(opt.strike_rate * 100).toFixed(1)}%, 1Y expiry`,
+              details: `Strike: ${(opt.strike * 100).toFixed(1)}%, 1Y expiry`,
             });
           } catch (err) {
             console.error(`CMS option ${opt.id} error:`, err);

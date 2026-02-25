@@ -179,7 +179,7 @@ pub struct RatesPayoff {
     /// Type of payoff (cap or floor)
     pub payoff_type: RatesPayoffType,
     /// Strike rate (e.g., 0.03 for 3%)
-    pub strike_rate: f64,
+    pub strike: f64,
     /// Notional amount
     pub notional: f64,
     /// Fixing dates (time in years)
@@ -204,7 +204,7 @@ impl RatesPayoff {
     /// # Arguments
     ///
     /// * `payoff_type` - Type of payoff (Cap or Floor)
-    /// * `strike_rate` - Strike rate (as decimal, e.g., 0.03 for 3%)
+    /// * `strike` - Strike rate (as decimal, e.g., 0.03 for 3%)
     /// * `notional` - Notional amount
     /// * `fixing_dates` - Time points for rate fixings
     /// * `accrual_fractions` - Daycount fractions for each period
@@ -212,7 +212,7 @@ impl RatesPayoff {
     /// * `currency` - Currency for the payoff
     pub fn new(
         payoff_type: RatesPayoffType,
-        strike_rate: f64,
+        strike: f64,
         notional: f64,
         fixing_dates: Vec<f64>,
         accrual_fractions: Vec<f64>,
@@ -232,7 +232,7 @@ impl RatesPayoff {
 
         Self {
             payoff_type,
-            strike_rate,
+            strike,
             notional,
             fixing_dates,
             accrual_fractions,
@@ -253,7 +253,7 @@ impl RatesPayoff {
     /// # Arguments
     ///
     /// * `payoff_type` - Type of payoff (Cap or Floor)
-    /// * `strike_rate` - Strike rate (as decimal, e.g., 0.03 for 3%)
+    /// * `strike` - Strike rate (as decimal, e.g., 0.03 for 3%)
     /// * `notional` - Notional amount
     /// * `fixing_dates` - Time points for rate fixings
     /// * `accrual_fractions` - Daycount fractions for each period
@@ -263,7 +263,7 @@ impl RatesPayoff {
     #[allow(clippy::too_many_arguments)]
     pub fn with_hull_white(
         payoff_type: RatesPayoffType,
-        strike_rate: f64,
+        strike: f64,
         notional: f64,
         fixing_dates: Vec<f64>,
         accrual_fractions: Vec<f64>,
@@ -273,7 +273,7 @@ impl RatesPayoff {
     ) -> Self {
         let mut payoff = Self::new(
             payoff_type,
-            strike_rate,
+            strike,
             notional,
             fixing_dates,
             accrual_fractions,
@@ -317,8 +317,8 @@ impl Payoff for RatesPayoff {
 
                 // Compute payoff based on type
                 let intrinsic_value = match self.payoff_type {
-                    RatesPayoffType::Cap => (forward_rate - self.strike_rate).max(0.0),
-                    RatesPayoffType::Floor => (self.strike_rate - forward_rate).max(0.0),
+                    RatesPayoffType::Cap => (forward_rate - self.strike).max(0.0),
+                    RatesPayoffType::Floor => (self.strike - forward_rate).max(0.0),
                 };
 
                 let period_payoff = intrinsic_value
@@ -357,7 +357,7 @@ pub fn cap_floor_parity_swap_value(
     forward_rates: &[f64],
     accrual_fractions: &[f64],
     discount_factors: &[f64],
-    strike_rate: f64,
+    strike: f64,
     notional: f64,
 ) -> f64 {
     use finstack_core::math::summation::NeumaierAccumulator;
@@ -368,7 +368,7 @@ pub fn cap_floor_parity_swap_value(
 
     let mut pv = NeumaierAccumulator::new();
     for i in 0..fixing_dates.len() {
-        let cashflow = (forward_rates[i] - strike_rate) * accrual_fractions[i] * notional;
+        let cashflow = (forward_rates[i] - strike) * accrual_fractions[i] * notional;
         pv.add(cashflow * discount_factors[i]);
     }
 
@@ -397,7 +397,7 @@ mod tests {
         );
 
         assert_eq!(cap.payoff_type, RatesPayoffType::Cap);
-        assert_eq!(cap.strike_rate, 0.03);
+        assert_eq!(cap.strike, 0.03);
         assert_eq!(cap.notional, 1_000_000.0);
         assert_eq!(cap.fixing_dates.len(), 4);
     }
@@ -419,7 +419,7 @@ mod tests {
         );
 
         assert_eq!(floor.payoff_type, RatesPayoffType::Floor);
-        assert_eq!(floor.strike_rate, 0.02);
+        assert_eq!(floor.strike, 0.02);
         assert_eq!(floor.notional, 500_000.0);
     }
 

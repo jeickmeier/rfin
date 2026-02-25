@@ -2,7 +2,9 @@
 
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::models::trees::binomial_tree::BinomialTree;
-use crate::instruments::common_impl::parameters::{CommodityConvention, OptionMarketParams};
+use crate::instruments::common_impl::parameters::{
+    CommodityConvention, CommodityUnderlyingParams, OptionMarketParams,
+};
 use crate::instruments::common_impl::traits::{
     Attributes, CurveDependencies, Instrument, InstrumentCurves,
 };
@@ -45,35 +47,32 @@ use finstack_core::Result;
 #[derive(
     Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
 )]
-#[serde(deny_unknown_fields)]
 pub struct CommodityOption {
     /// Unique instrument identifier.
     pub id: InstrumentId,
-    /// Commodity type (e.g., "Energy", "Metal", "Agricultural").
-    pub commodity_type: String,
-    /// Ticker or symbol (e.g., "CL" for WTI, "GC" for Gold).
-    pub ticker: String,
+    /// Commodity underlying parameters (commodity_type, ticker, unit, currency).
+    #[serde(flatten)]
+    pub underlying: CommodityUnderlyingParams,
     /// Strike price per unit.
     pub strike: f64,
     /// Option type (call or put).
     pub option_type: OptionType,
     /// Exercise style (European or American).
+    #[serde(default)]
+    #[builder(default)]
     pub exercise_style: ExerciseStyle,
     /// Option expiry date.
     pub expiry: Date,
     /// Contract quantity in units.
     pub quantity: f64,
-    /// Unit of measurement (e.g., "BBL", "MT", "OZ").
-    pub unit: String,
     /// Contract multiplier (typically 1.0 for OTC options).
     pub multiplier: f64,
     /// Settlement type (physical or cash).
     ///
     /// Defaults to cash settlement when omitted in serialized payloads.
-    #[serde(default = "default_settlement_type")]
+    #[serde(default = "crate::serde_defaults::settlement_cash")]
+    #[builder(default = SettlementType::Cash)]
     pub settlement: SettlementType,
-    /// Currency for pricing.
-    pub currency: Currency,
     /// Forward/futures curve ID for price interpolation.
     pub forward_curve_id: CurveId,
     /// Discount curve ID for present value.
@@ -89,6 +88,8 @@ pub struct CommodityOption {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quoted_forward: Option<f64>,
     /// Day count convention for time to expiry.
+    #[serde(default = "crate::serde_defaults::day_count_act365f")]
+    #[builder(default = DayCount::Act365F)]
     pub day_count: DayCount,
     /// Pricing overrides (implied vol, tree steps, etc.).
     pub pricing_overrides: PricingOverrides,
@@ -113,10 +114,6 @@ pub struct CommodityOption {
     pub attributes: Attributes,
 }
 
-fn default_settlement_type() -> SettlementType {
-    SettlementType::Cash
-}
-
 impl CommodityOption {
     /// Create a canonical example commodity option for testing and documentation.
     ///
@@ -125,8 +122,12 @@ impl CommodityOption {
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("WTI-OPT-2025M06"))
-            .commodity_type("Energy".to_string())
-            .ticker("CL".to_string())
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
             .strike(75.0)
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
@@ -134,10 +135,8 @@ impl CommodityOption {
                 Date::from_calendar_date(2025, time::Month::June, 15).expect("valid example date"),
             )
             .quantity(1000.0)
-            .unit("BBL".to_string())
             .multiplier(1.0)
             .settlement(SettlementType::Cash)
-            .currency(Currency::USD)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .vol_surface_id(CurveId::new("WTI-VOL"))
@@ -351,7 +350,7 @@ impl Instrument for CommodityOption {
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         // Post-expiry: option is fully settled, value is 0
         if as_of > self.expiry {
-            return Ok(Money::new(0.0, self.currency));
+            return Ok(Money::new(0.0, self.underlying.currency));
         }
 
         let t = self.time_to_expiry(as_of)?;
@@ -365,7 +364,7 @@ impl Instrument for CommodityOption {
             let intrinsic = self.intrinsic_value(underlying);
             return Ok(Money::new(
                 intrinsic * self.quantity * self.multiplier,
-                self.currency,
+                self.underlying.currency,
             ));
         }
 
@@ -408,7 +407,7 @@ impl Instrument for CommodityOption {
 
         Ok(Money::new(
             unit_price * self.quantity * self.multiplier,
-            self.currency,
+            self.underlying.currency,
         ))
     }
 
@@ -727,7 +726,10 @@ mod tests {
 
     #[test]
     fn test_default_settlement_type_is_cash() {
-        assert_eq!(default_settlement_type(), SettlementType::Cash);
+        assert_eq!(
+            crate::serde_defaults::settlement_cash(),
+            SettlementType::Cash
+        );
     }
 
     #[test]

@@ -496,7 +496,7 @@ impl PyBondBuilder {
             .cashflow_spec(slf.make_cashflow_spec())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
-            .ex_coupon_calendar_id_opt(None);
+            .settlement_convention_opt(None);
 
         if let Some(credit) = slf.credit_curve.clone() {
             builder = builder.credit_curve_id_opt(Some(credit));

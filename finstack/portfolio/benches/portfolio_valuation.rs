@@ -688,7 +688,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let cds_option_id = format!("CDSOPTION_{}", i);
 
         let option_params = CDSOptionParams::call(
-            100.0,                            // strike spread bp
+            rust_decimal::Decimal::new(1, 2), // strike = 0.01 (100bp)
             base + time::Duration::days(180), // expiry
             maturity_5y(),                    // CDS maturity
             Money::new(10_000_000.0, Currency::USD),

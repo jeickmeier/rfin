@@ -2,11 +2,11 @@ use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
 use crate::core::money::PyMoney;
-use crate::errors::{core_to_py, PyContext};
+use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -19,17 +19,23 @@ fn parse_frequency(label: Option<&str>) -> PyResult<Tenor> {
     crate::valuations::common::parse_frequency_label(label)
 }
 
-fn parse_stub(label: Option<&str>) -> PyResult<finstack_core::dates::StubKind> {
+fn parse_stub(label: Option<&str>) -> PyResult<StubKind> {
     crate::valuations::common::parse_stub_kind(label)
 }
 
 /// Basis swap leg helper mirroring ``BasisSwapLeg``.
 ///
+/// Each leg owns its own dates, discount curve, calendar, and stub conventions.
+///
 /// Examples:
+///     >>> from datetime import date
 ///     >>> leg = BasisSwapLeg(
-///     ...     "usd_libor_3m",
+///     ...     "usd_sofr_3m",
+///     ...     discount_curve="usd_ois",
+///     ...     start_date=date(2024, 1, 3),
+///     ...     end_date=date(2025, 1, 3),
 ///     ...     spread_bp=12.5,
-///     ...     frequency="quarterly"
+///     ...     frequency="quarterly",
 ///     ... )
 ///     >>> leg.spread_bp
 ///     12.5
@@ -50,38 +56,58 @@ impl PyBasisSwapLeg {
         signature = (
             forward_curve,
             *,
+            discount_curve,
+            start_date,
+            end_date,
             frequency=None,
             day_count=None,
             business_day_convention=None,
-            spread_bp=0.0
+            calendar_id=None,
+            stub=None,
+            spread_bp=0.0,
+            payment_lag_days=0,
+            reset_lag_days=0,
         ),
-        text_signature = "(forward_curve, /, *, frequency='quarterly', day_count='act_360', business_day_convention='modified_following', spread_bp=0.0)"
+        text_signature = "(forward_curve, /, *, discount_curve, start_date, end_date, frequency='quarterly', day_count='act_360', business_day_convention='modified_following', calendar_id=None, stub='short_front', spread_bp=0.0, payment_lag_days=0, reset_lag_days=0)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a basis swap leg specification.
     ///
     /// Args:
     ///     forward_curve: Identifier for the forward curve.
+    ///     discount_curve: Identifier for the discount curve.
+    ///     start_date: Leg start date.
+    ///     end_date: Leg end date.
     ///     frequency: Optional payment frequency label (e.g., ``"quarterly"``).
     ///     day_count: Optional day-count convention.
     ///     business_day_convention: Optional business-day adjustment rule.
-    ///     spread_bp: Optional spread in basis points.
+    ///     calendar_id: Optional calendar for business day adjustments.
+    ///     stub: Optional stub convention (e.g., ``"short_front"``).
+    ///     spread_bp: Spread in basis points (default 0).
+    ///     payment_lag_days: Payment lag in business days (default 0).
+    ///     reset_lag_days: Reset lag in business days (default 0).
     ///
     /// Returns:
-    ///     BasisSwapLeg: Leg specification describing accrual and spread inputs.
-    ///
-    /// Raises:
-    ///     ValueError: If frequency or stub labels are invalid.
-    ///     TypeError: If curve identifiers or conventions cannot be parsed.
+    ///     BasisSwapLeg: Leg specification describing accrual, curve, and schedule inputs.
     fn new(
         forward_curve: Bound<'_, PyAny>,
+        discount_curve: Bound<'_, PyAny>,
+        start_date: Bound<'_, PyAny>,
+        end_date: Bound<'_, PyAny>,
         frequency: Option<&str>,
         day_count: Option<Bound<'_, PyAny>>,
         business_day_convention: Option<Bound<'_, PyAny>>,
+        calendar_id: Option<String>,
+        stub: Option<&str>,
         spread_bp: Option<f64>,
+        payment_lag_days: Option<i32>,
+        reset_lag_days: Option<i32>,
     ) -> PyResult<Self> {
         use crate::errors::PyContext;
         let forward_id = forward_curve.extract::<&str>().context("forward_curve")?;
+        let discount_id = discount_curve.extract::<&str>().context("discount_curve")?;
+        let start = py_to_date(&start_date).context("start_date")?;
+        let end = py_to_date(&end_date).context("end_date")?;
         let freq = parse_frequency(frequency).context("frequency")?;
         let dc = if let Some(obj) = day_count {
             let DayCountArg(value) = obj.extract().context("day_count")?;
@@ -96,33 +122,39 @@ impl PyBasisSwapLeg {
         } else {
             BusinessDayConvention::ModifiedFollowing
         };
+        let stub_kind = parse_stub(stub).context("stub")?;
 
         Ok(Self {
             inner: BasisSwapLeg {
                 forward_curve_id: forward_id.into(),
+                discount_curve_id: discount_id.into(),
+                start,
+                end,
                 frequency: freq,
                 day_count: dc,
                 bdc,
+                calendar_id,
+                stub: stub_kind,
                 spread_bp: spread_bp.unwrap_or(0.0),
-                payment_lag_days: 0,
-                reset_lag_days: 0,
+                payment_lag_days: payment_lag_days.unwrap_or(0),
+                reset_lag_days: reset_lag_days.unwrap_or(0),
             },
         })
     }
 
     /// Forward curve identifier.
-    ///
-    /// Returns:
-    ///     str: Identifier used to retrieve the forward curve.
     #[getter]
     fn forward_curve(&self) -> String {
         self.inner.forward_curve_id.as_str().to_string()
     }
 
+    /// Discount curve identifier.
+    #[getter]
+    fn discount_curve(&self) -> String {
+        self.inner.discount_curve_id.as_str().to_string()
+    }
+
     /// Spread in basis points.
-    ///
-    /// Returns:
-    ///     float: Leg spread applied to the floating rate.
     #[getter]
     fn spread_bp(&self) -> f64 {
         self.inner.spread_bp
@@ -135,11 +167,8 @@ impl PyBasisSwapLeg {
 ///     >>> swap = (
 ///     ...     BasisSwap.builder("basis_usd")
 ///     ...     .money(Money("USD", 10_000_000))
-///     ...     .start_date(date(2024, 1, 2))
-///     ...     .maturity(date(2027, 1, 2))
 ///     ...     .primary_leg(primary_leg)
 ///     ...     .reference_leg(reference_leg)
-///     ...     .disc_id("usd_discount")
 ///     ...     .build()
 ///     ... )
 ///     >>> swap.notional.amount
@@ -167,13 +196,8 @@ pub struct PyBasisSwapBuilder {
     instrument_id: InstrumentId,
     pending_notional_amount: Option<f64>,
     pending_currency: Option<finstack_core::currency::Currency>,
-    start_date: Option<time::Date>,
-    maturity: Option<time::Date>,
     primary_leg: Option<BasisSwapLeg>,
     reference_leg: Option<BasisSwapLeg>,
-    discount_curve_id: Option<CurveId>,
-    calendar: Option<String>,
-    stub: finstack_core::dates::StubKind,
 }
 
 impl PyBasisSwapBuilder {
@@ -182,13 +206,8 @@ impl PyBasisSwapBuilder {
             instrument_id: id,
             pending_notional_amount: None,
             pending_currency: None,
-            start_date: None,
-            maturity: None,
             primary_leg: None,
             reference_leg: None,
-            discount_curve_id: None,
-            calendar: None,
-            stub: finstack_core::dates::StubKind::None,
         }
     }
 
@@ -205,20 +224,11 @@ impl PyBasisSwapBuilder {
                 "Both notional() and currency() must be provided before build().",
             ));
         }
-        if self.start_date.is_none() {
-            return Err(PyValueError::new_err("start_date() is required."));
-        }
-        if self.maturity.is_none() {
-            return Err(PyValueError::new_err("maturity() is required."));
-        }
         if self.primary_leg.is_none() {
             return Err(PyValueError::new_err("primary_leg() is required."));
         }
         if self.reference_leg.is_none() {
             return Err(PyValueError::new_err("reference_leg() is required."));
-        }
-        if self.discount_curve_id.is_none() {
-            return Err(PyValueError::new_err("disc_id() is required."));
         }
         Ok(())
     }
@@ -268,24 +278,6 @@ impl PyBasisSwapBuilder {
         slf
     }
 
-    #[pyo3(text_signature = "($self, start_date)")]
-    fn start_date<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        start_date: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.start_date = Some(py_to_date(&start_date).context("start_date")?);
-        Ok(slf)
-    }
-
-    #[pyo3(text_signature = "($self, maturity)")]
-    fn maturity<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        maturity: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.maturity = Some(py_to_date(&maturity).context("maturity")?);
-        Ok(slf)
-    }
-
     #[pyo3(text_signature = "($self, primary_leg)")]
     fn primary_leg(mut slf: PyRefMut<'_, Self>, primary_leg: PyBasisSwapLeg) -> PyRefMut<'_, Self> {
         slf.primary_leg = Some(primary_leg.inner);
@@ -301,40 +293,12 @@ impl PyBasisSwapBuilder {
         slf
     }
 
-    #[pyo3(text_signature = "($self, curve_id)")]
-    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
-        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
-        slf
-    }
-
-    #[pyo3(text_signature = "($self, calendar=None)", signature = (calendar=None))]
-    fn calendar(mut slf: PyRefMut<'_, Self>, calendar: Option<String>) -> PyRefMut<'_, Self> {
-        slf.calendar = calendar;
-        slf
-    }
-
-    #[pyo3(text_signature = "($self, stub)")]
-    fn stub(mut slf: PyRefMut<'_, Self>, stub: Option<String>) -> PyResult<PyRefMut<'_, Self>> {
-        slf.stub = parse_stub(stub.as_deref())?;
-        Ok(slf)
-    }
-
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyBasisSwap> {
         slf.ensure_ready()?;
         let notional = slf.notional_money().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
                 "BasisSwapBuilder internal error: missing notional after validation",
-            )
-        })?;
-        let start = slf.start_date.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "BasisSwapBuilder internal error: missing start_date after validation",
-            )
-        })?;
-        let maturity = slf.maturity.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "BasisSwapBuilder internal error: missing maturity after validation",
             )
         })?;
         let primary_leg = slf.primary_leg.clone().ok_or_else(|| {
@@ -347,27 +311,14 @@ impl PyBasisSwapBuilder {
                 "BasisSwapBuilder internal error: missing reference leg after validation",
             )
         })?;
-        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "BasisSwapBuilder internal error: missing discount curve after validation",
-            )
-        })?;
 
-        let swap = BasisSwap::builder()
-            .id(slf.instrument_id.clone())
-            .notional(notional)
-            .start_date(start)
-            .maturity(maturity)
-            .primary_leg(primary_leg)
-            .reference_leg(reference_leg)
-            .discount_curve_id(discount_curve_id)
-            .stub(slf.stub)
-            .calendar_id_opt(slf.calendar.clone())
-            .allow_calendar_fallback(false)
-            .allow_same_curve(false)
-            .attributes(Default::default())
-            .build()
-            .map_err(core_to_py)?;
+        let swap = BasisSwap::new(
+            slf.instrument_id.as_str(),
+            notional,
+            primary_leg,
+            reference_leg,
+        )
+        .map_err(core_to_py)?;
 
         Ok(PyBasisSwap::new(swap))
     }
@@ -407,15 +358,6 @@ impl PyBasisSwap {
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
-    }
-
-    /// Discount curve identifier.
-    ///
-    /// Returns:
-    ///     str: Identifier of the discount curve used for valuation.
-    #[getter]
-    fn discount_curve(&self) -> String {
-        self.inner.discount_curve_id.as_str().to_string()
     }
 
     /// Instrument type enumeration.

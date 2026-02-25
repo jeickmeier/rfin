@@ -37725,7 +37725,7 @@
               "parameters": [
                 "instrument_id: str",
                 "notional: Money",
-                "strike_spread_bp: float",
+                "strike: float",
                 "expiry: date",
                 "cds_maturity: date",
                 "discount_curve: str",
@@ -37752,7 +37752,7 @@
               "parameters": []
             },
             {
-              "name": "strike_spread_bp",
+              "name": "strike",
               "signature": "",
               "is_static": false,
               "is_classmethod": false,
@@ -37825,7 +37825,7 @@
             "cls",
             "instrument_id: str",
             "notional: Money",
-            "strike_spread_bp: float",
+            "strike: float",
             "expiry: date",
             "cds_maturity: date",
             "discount_curve: str",
@@ -37852,7 +37852,7 @@
           ]
         },
         {
-          "name": "strike_spread_bp",
+          "name": "strike",
           "module": "finstack.valuations.instruments.cds_option",
           "signature": "",
           "return_type": "float",
@@ -38277,7 +38277,7 @@
               "return_type": "CmsOption",
               "parameters": [
                 "instrument_id: str",
-                "strike_rate: float",
+                "strike: float",
                 "cms_tenor: float",
                 "fixing_dates: List[date]",
                 "accrual_fractions: List[float]",
@@ -38296,7 +38296,7 @@
               "parameters": []
             },
             {
-              "name": "strike_rate",
+              "name": "strike",
               "signature": "",
               "is_static": false,
               "is_classmethod": false,
@@ -38359,7 +38359,7 @@
           "parameters": [
             "cls",
             "instrument_id: str",
-            "strike_rate: float",
+            "strike: float",
             "cms_tenor: float",
             "fixing_dates: List[date]",
             "accrual_fractions: List[float]",
@@ -38378,7 +38378,7 @@
           ]
         },
         {
-          "name": "strike_rate",
+          "name": "strike",
           "module": "finstack.valuations.instruments.cms_option",
           "signature": "",
           "return_type": "float",

@@ -217,9 +217,9 @@ pub mod rates;
 // Fixed Income
 pub use fixed_income::{
     AgencyCmo, AgencyMbsPassthrough, AgencyProgram, AgencyTba, Bond, BondFuture, BondFutureBuilder,
-    BondFutureSpecs, CmoTranche, CmoTrancheType, CmoWaterfall, ConvertibleBond, DeliverableBond,
-    DollarRoll, FIIndexTotalReturnSwap, InflationLinkedBond, PoolType, RevolvingCredit,
-    StructuredCredit, TbaTerm, TermLoan,
+    BondFutureSpecs, BondSettlementConvention, CmoTranche, CmoTrancheType, CmoWaterfall,
+    ConvertibleBond, DeliverableBond, DollarRoll, FIIndexTotalReturnSwap, InflationLinkedBond,
+    PoolType, RevolvingCredit, StructuredCredit, TbaTerm, TermLoan,
 };
 
 // Rates
@@ -269,9 +269,9 @@ pub use common_impl::traits::{
 
 // === Parameter Types ===
 pub use common_impl::parameters::{
-    BasisSwapLeg, BondConvention, ContractSpec, CreditParams, EquityOptionParams,
-    EquityUnderlyingParams, ExerciseStyle, FinancingLegSpec, FixedLegSpec, FloatLegSpec,
-    FxOptionParams, FxUnderlyingParams, IRSConvention, IndexUnderlyingParams,
+    BasisSwapLeg, BondConvention, CommodityUnderlyingParams, ContractSpec, CreditParams,
+    EquityOptionParams, EquityUnderlyingParams, ExerciseStyle, FinancingLegSpec, FixedLegSpec,
+    FloatLegSpec, FxOptionParams, FxUnderlyingParams, IRSConvention, IndexUnderlyingParams,
     InterestRateOptionParams, OptionMarketParams, OptionType, ParRateMethod, PayReceive,
     PremiumLegSpec, ProtectionLegSpec, ScheduleSpec, SettlementType, TotalReturnLegSpec,
     UnderlyingParams,

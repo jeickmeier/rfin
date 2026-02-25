@@ -17,6 +17,20 @@ use crate::instruments::common_impl::validation;
 pub use super::cashflow_spec::CashflowSpec;
 pub use crate::cashflow::builder::AmortizationSpec;
 
+/// Bond settlement and ex-coupon conventions.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct BondSettlementConvention {
+    /// Number of settlement days after trade date (e.g., 2 for T+2).
+    #[serde(default)]
+    pub settlement_days: u32,
+    /// Number of ex-coupon days before coupon date.
+    #[serde(default)]
+    pub ex_coupon_days: u32,
+    /// Calendar identifier for ex-coupon day counting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ex_coupon_calendar_id: Option<String>,
+}
+
 /// Bond instrument with fixed, floating, or amortizing cashflows.
 ///
 /// Cashflow sign convention (holder view):
@@ -30,7 +44,6 @@ pub use crate::cashflow::builder::AmortizationSpec;
 /// and custom cashflow schedule overrides. Uses a clean `CashflowSpec` that wraps
 /// the canonical builder coupon specs for maximum flexibility and parity.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize)]
-#[serde(deny_unknown_fields)]
 // Note: JsonSchema derive requires finstack-core types to implement JsonSchema
 // #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct Bond {
@@ -71,15 +84,9 @@ pub struct Bond {
     pub accrual_method: crate::cashflow::accrual::AccrualMethod,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
-    /// Settlement convention: number of settlement days after trade date.
-    pub settlement_days: Option<u32>,
-    /// Ex-coupon convention: number of days before coupon date that go ex.
-    pub ex_coupon_days: Option<u32>,
-    /// Ex-coupon calendar identifier.
-    ///
-    /// If provided, ex-coupon days are treated as business days according to this calendar.
-    /// If None, ex-coupon days are treated as calendar days (default).
-    pub ex_coupon_calendar_id: Option<String>,
+    /// Settlement and ex-coupon conventions.
+    #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
+    pub settlement_convention: Option<BondSettlementConvention>,
 }
 
 impl<'de> serde::Deserialize<'de> for Bond {
@@ -127,6 +134,19 @@ impl<'de> serde::Deserialize<'de> for Bond {
             ));
         };
 
+        let settlement_convention = if helper.settlement_days.is_some()
+            || helper.ex_coupon_days.is_some()
+            || helper.ex_coupon_calendar_id.is_some()
+        {
+            Some(BondSettlementConvention {
+                settlement_days: helper.settlement_days.unwrap_or(0),
+                ex_coupon_days: helper.ex_coupon_days.unwrap_or(0),
+                ex_coupon_calendar_id: helper.ex_coupon_calendar_id,
+            })
+        } else {
+            None
+        };
+
         Ok(Bond {
             id: helper.id,
             notional: helper.notional,
@@ -140,9 +160,7 @@ impl<'de> serde::Deserialize<'de> for Bond {
             custom_cashflows: None,
             accrual_method: helper.accrual_method,
             attributes: helper.attributes,
-            settlement_days: helper.settlement_days,
-            ex_coupon_days: helper.ex_coupon_days,
-            ex_coupon_calendar_id: helper.ex_coupon_calendar_id,
+            settlement_convention,
         })
     }
 }
@@ -393,10 +411,10 @@ impl Bond {
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
-            // Bond::fixed follows US corporate defaults: T+2 settlement, no ex-coupon window.
-            .settlement_days_opt(Some(2))
-            .ex_coupon_days_opt(Some(0))
-            .ex_coupon_calendar_id_opt(None)
+            .settlement_convention_opt(Some(BondSettlementConvention {
+                settlement_days: 2,
+                ..Default::default()
+            }))
             .build()?;
 
         // Validate all parameters before returning
@@ -485,9 +503,11 @@ impl Bond {
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
-            .settlement_days_opt(Some(convention.settlement_days()))
-            .ex_coupon_days_opt(convention.ex_coupon_days())
-            .ex_coupon_calendar_id_opt(convention.calendar_id().map(|id| id.to_string()))
+            .settlement_convention_opt(Some(BondSettlementConvention {
+                settlement_days: convention.settlement_days(),
+                ex_coupon_days: convention.ex_coupon_days().unwrap_or(0),
+                ex_coupon_calendar_id: convention.calendar_id().map(|id| id.to_string()),
+            }))
             .build()?;
 
         // Validate all parameters before returning
@@ -576,7 +596,7 @@ impl Bond {
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
-            .ex_coupon_calendar_id_opt(None)
+            .settlement_convention_opt(None)
             .build()?;
 
         // Validate all parameters before returning
@@ -751,7 +771,7 @@ impl Bond {
             .pricing_overrides(pricing_overrides)
             .custom_cashflows_opt(Some(schedule))
             .attributes(Attributes::new())
-            .ex_coupon_calendar_id_opt(None)
+            .settlement_convention_opt(None)
             .build()
     }
 
@@ -788,14 +808,31 @@ impl Bond {
         self
     }
 
+    /// Number of settlement days (e.g., 2 for T+2), or `None` if no convention is set.
+    pub fn settlement_days(&self) -> Option<u32> {
+        self.settlement_convention
+            .as_ref()
+            .map(|c| c.settlement_days)
+    }
+
+    /// Number of ex-coupon days before coupon date, or `None` if zero/unset.
+    pub fn ex_coupon_days(&self) -> Option<u32> {
+        self.settlement_convention
+            .as_ref()
+            .and_then(|c| (c.ex_coupon_days > 0).then_some(c.ex_coupon_days))
+    }
+
+    /// Calendar identifier for ex-coupon day counting, or `None` if unset.
+    pub fn ex_coupon_calendar_id(&self) -> Option<&str> {
+        self.settlement_convention
+            .as_ref()
+            .and_then(|c| c.ex_coupon_calendar_id.as_deref())
+    }
+
     /// Build accrual configuration from bond's accrual method and ex-coupon convention.
     ///
-    /// This helper creates the generic `AccrualConfig` needed by the cashflow
-    /// accrual engine, incorporating both the accrual method and ex-coupon rules.
-    ///
-    /// # Returns
-    ///
-    /// An `AccrualConfig` combining the bond's accrual method and ex-coupon convention.
+    /// Creates the generic `AccrualConfig` needed by the cashflow accrual engine,
+    /// incorporating both the accrual method and ex-coupon rules.
     ///
     /// # Examples
     ///
@@ -804,16 +841,18 @@ impl Bond {
     ///
     /// # let bond = Bond::example();
     /// let accrual_config = bond.accrual_config();
-    /// // Use with accrual engine
     /// ```
     pub fn accrual_config(&self) -> crate::cashflow::accrual::AccrualConfig {
         crate::cashflow::accrual::AccrualConfig {
             method: self.accrual_method.clone(),
             ex_coupon: self
-                .ex_coupon_days
+                .ex_coupon_days()
                 .map(|d| crate::cashflow::accrual::ExCouponRule {
                     days_before_coupon: d,
-                    calendar_id: self.ex_coupon_calendar_id.clone(),
+                    calendar_id: self
+                        .settlement_convention
+                        .as_ref()
+                        .and_then(|c| c.ex_coupon_calendar_id.clone()),
                 }),
             include_pik: true,
         }
@@ -1316,9 +1355,7 @@ mod tests {
             .call_put_opt(None)
             .custom_cashflows_opt(None)
             .attributes(Attributes::new())
-            .settlement_days_opt(None)
-            .ex_coupon_days_opt(None)
-            .ex_coupon_calendar_id_opt(None)
+            .settlement_convention_opt(None)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
 
@@ -1368,9 +1405,7 @@ mod tests {
             .call_put_opt(None)
             .custom_cashflows_opt(None)
             .attributes(Attributes::new())
-            .settlement_days_opt(None)
-            .ex_coupon_days_opt(None)
-            .ex_coupon_calendar_id_opt(None)
+            .settlement_convention_opt(None)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
 
@@ -1499,8 +1534,10 @@ mod tests {
             "USD-OIS",
         )
         .unwrap();
-        // Apply an ex-coupon convention of 5 days
-        bond.ex_coupon_days = Some(5);
+        bond.settlement_convention = Some(BondSettlementConvention {
+            ex_coupon_days: 5,
+            ..Default::default()
+        });
 
         // Use the full schedule to locate the first coupon end date
         let full_schedule = bond
@@ -1588,8 +1625,10 @@ mod tests {
             .build()
             .expect("Amortizing bond construction should succeed in test");
 
-        // Apply an ex-coupon convention of 7 days
-        bond.ex_coupon_days = Some(7);
+        bond.settlement_convention = Some(BondSettlementConvention {
+            ex_coupon_days: 7,
+            ..Default::default()
+        });
 
         // Curves for pricing (levels are not important for accrual)
         let disc_curve = DiscountCurve::builder("USD-OIS")

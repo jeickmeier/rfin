@@ -9,7 +9,7 @@
         "amount": "10000000",
         "currency": "USD"
       },
-      "strike_rate": 0.03,
+      "strike": 0.03,
       "expiry": "2025-01-15",
       "swap_start": "2025-01-17",
       "swap_end": "2030-01-17",

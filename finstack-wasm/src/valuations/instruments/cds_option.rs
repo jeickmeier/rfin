@@ -9,6 +9,8 @@ use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOptionParams;
 use finstack_valuations::instruments::{CreditParams, OptionType};
 use finstack_valuations::pricer::InstrumentType;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CdsOption)]
@@ -32,7 +34,7 @@ impl InstrumentWrapper for JsCDSOption {
 pub struct JsCDSOptionBuilder {
     instrument_id: String,
     notional: Option<finstack_core::money::Money>,
-    strike_spread_bp: Option<f64>,
+    strike: Option<f64>,
     expiry: Option<finstack_core::dates::Date>,
     cds_maturity: Option<finstack_core::dates::Date>,
     discount_curve: Option<String>,
@@ -60,9 +62,17 @@ impl JsCDSOptionBuilder {
         self
     }
 
+    /// Set strike spread as decimal rate (e.g., 0.015 for 150bp).
+    #[wasm_bindgen(js_name = strike)]
+    pub fn strike(mut self, strike: f64) -> JsCDSOptionBuilder {
+        self.strike = Some(strike);
+        self
+    }
+
+    /// Set strike spread in basis points (deprecated, use `strike` with decimal).
     #[wasm_bindgen(js_name = strikeSpreadBp)]
     pub fn strike_spread_bp(mut self, strike_spread_bp: f64) -> JsCDSOptionBuilder {
-        self.strike_spread_bp = Some(strike_spread_bp);
+        self.strike = Some(strike_spread_bp / 10000.0);
         self
     }
 
@@ -125,9 +135,11 @@ impl JsCDSOptionBuilder {
         let notional = self.notional.ok_or_else(|| {
             js_error("CDSOptionBuilder: notional (money) is required".to_string())
         })?;
-        let strike_spread_bp = self
-            .strike_spread_bp
-            .ok_or_else(|| js_error("CDSOptionBuilder: strikeSpreadBp is required".to_string()))?;
+        let strike_f64 = self
+            .strike
+            .ok_or_else(|| js_error("CDSOptionBuilder: strike is required".to_string()))?;
+        let strike = Decimal::try_from(strike_f64)
+            .map_err(|e| js_error(format!("Invalid strike value: {}", e)))?;
         let expiry = self
             .expiry
             .ok_or_else(|| js_error("CDSOptionBuilder: expiry is required".to_string()))?;
@@ -155,14 +167,9 @@ impl JsCDSOptionBuilder {
             ));
         }
 
-        let mut option_params = CDSOptionParams::new(
-            strike_spread_bp,
-            expiry,
-            cds_maturity,
-            notional,
-            option_type_value,
-        )
-        .map_err(|e| js_error(e.to_string()))?;
+        let mut option_params =
+            CDSOptionParams::new(strike, expiry, cds_maturity, notional, option_type_value)
+                .map_err(|e| js_error(e.to_string()))?;
 
         if self.underlying_is_index.unwrap_or(false) {
             let factor = self.index_factor.unwrap_or(1.0);
@@ -197,13 +204,13 @@ impl JsCDSOption {
     /// Create an option on a CDS spread (CDS option).
     ///
     /// Conventions:
-    /// - `strike_spread_bp` is in **basis points**.
+    /// - `strike` is a **decimal rate** (e.g., 0.01 = 100bp).
     /// - `recovery_rate` is in **decimal** (0..1).
     /// - `option_type` defaults to `"call"` if omitted.
     ///
     /// @param instrument_id - Unique identifier
     /// @param notional - Option notional (currency-tagged)
-    /// @param strike_spread_bp - Strike spread in bps
+    /// @param strike - Strike spread as decimal rate
     /// @param expiry - Option expiry date
     /// @param cds_maturity - Underlying CDS maturity date
     /// @param discount_curve - Discount curve ID
@@ -220,7 +227,7 @@ impl JsCDSOption {
     pub fn new(
         instrument_id: &str,
         notional: &JsMoney,
-        strike_spread_bp: f64,
+        strike: f64,
         expiry: &JsDate,
         cds_maturity: &JsDate,
         discount_curve: &str,
@@ -243,8 +250,11 @@ impl JsCDSOption {
             ));
         }
 
+        let strike_decimal = Decimal::try_from(strike)
+            .map_err(|e| js_error(format!("Invalid strike value: {}", e)))?;
+
         let mut option_params = CDSOptionParams::new(
-            strike_spread_bp,
+            strike_decimal,
             expiry.inner(),
             cds_maturity.inner(),
             notional.inner(),
@@ -299,9 +309,16 @@ impl JsCDSOption {
         JsMoney::from_inner(self.inner.notional)
     }
 
+    /// Strike spread as decimal rate.
+    #[wasm_bindgen(getter, js_name = strike)]
+    pub fn strike(&self) -> f64 {
+        self.inner.strike.to_f64().unwrap_or(0.0)
+    }
+
+    /// Strike spread in basis points (backward-compatible alias).
     #[wasm_bindgen(getter, js_name = strikeSpreadBp)]
     pub fn strike_spread_bp(&self) -> f64 {
-        self.inner.strike_spread_bp
+        self.inner.strike.to_f64().unwrap_or(0.0) * 10000.0
     }
 
     #[wasm_bindgen(getter)]
@@ -322,8 +339,8 @@ impl JsCDSOption {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
         format!(
-            "CDSOption(id='{}', strike_bp={:.1})",
-            self.inner.id, self.inner.strike_spread_bp
+            "CDSOption(id='{}', strike={})",
+            self.inner.id, self.inner.strike
         )
     }
 

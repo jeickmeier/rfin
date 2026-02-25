@@ -16,6 +16,7 @@ use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOptionParams;
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::OptionType;
+use rust_decimal::Decimal;
 
 /// Standard flat discount curve for testing
 pub fn flat_discount(id: &str, base: Date, rate: f64) -> DiscountCurve {
@@ -52,7 +53,15 @@ pub fn standard_market(as_of: Date) -> MarketContext {
         .insert_hazard(credit)
 }
 
-/// Builder for single-name CDS option with standard defaults
+/// Convert basis points (f64) to a Decimal rate.
+/// e.g., 100.0 bp -> Decimal 0.01
+fn bp_to_decimal(bp: f64) -> Decimal {
+    Decimal::try_from(bp / 10000.0).expect("valid decimal from bp")
+}
+
+/// Builder for single-name CDS option with standard defaults.
+/// Strike and forward adjustment are accepted in bp for test ergonomics
+/// and converted to decimal internally.
 pub struct CDSOptionBuilder {
     id: String,
     strike_bp: f64,
@@ -144,8 +153,9 @@ impl CDSOptionBuilder {
         let expiry = as_of.add_months(self.expiry_months);
         let cds_maturity = as_of.add_months(self.cds_maturity_months);
 
+        let strike = bp_to_decimal(self.strike_bp);
         let mut option_params = CDSOptionParams::new(
-            self.strike_bp,
+            strike,
             expiry,
             cds_maturity,
             self.notional,
@@ -154,10 +164,11 @@ impl CDSOptionBuilder {
         .expect("valid option params");
 
         if self.is_index {
+            let adjust = bp_to_decimal(self.forward_adjust_bp);
             option_params = option_params
                 .as_index(self.index_factor.unwrap_or(1.0))
                 .expect("valid index factor")
-                .with_forward_spread_adjust_bp(self.forward_adjust_bp);
+                .with_forward_spread_adjust(adjust);
         }
 
         let credit_params = CreditParams::corporate_standard("SN", "HZ-SN");

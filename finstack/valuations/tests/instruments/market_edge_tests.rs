@@ -320,7 +320,12 @@ mod bond_market_edge {
                 DayCount::Thirty360,
             ))
             .discount_curve_id("USD-OIS".into())
-            .settlement_days_opt(Some(0))
+            .settlement_convention_opt(Some(
+                finstack_valuations::instruments::fixed_income::bond::BondSettlementConvention {
+                    settlement_days: 0,
+                    ..Default::default()
+                },
+            ))
             .build()
             .unwrap();
 
@@ -336,7 +341,12 @@ mod bond_market_edge {
                 DayCount::Thirty360,
             ))
             .discount_curve_id("USD-OIS".into())
-            .settlement_days_opt(Some(2))
+            .settlement_convention_opt(Some(
+                finstack_valuations::instruments::fixed_income::bond::BondSettlementConvention {
+                    settlement_days: 2,
+                    ..Default::default()
+                },
+            ))
             .build()
             .unwrap();
 
@@ -389,7 +399,12 @@ mod bond_market_edge {
             "USD-OIS",
         )
         .unwrap();
-        bond.ex_coupon_days = Some(7);
+        bond.settlement_convention = Some(
+            finstack_valuations::instruments::fixed_income::bond::BondSettlementConvention {
+                ex_coupon_days: 7,
+                ..Default::default()
+            },
+        );
 
         let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
         let config = bond.accrual_config();

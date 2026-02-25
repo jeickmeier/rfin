@@ -27,7 +27,7 @@ impl MetricCalculator for VannaCalculator {
         let pricer = CmsOptionPricer::new();
         let curves = &context.curves;
         let as_of = context.as_of;
-        let strike = inst.strike_rate_f64()?;
+        let strike = inst.strike_f64()?;
 
         let mut total_vanna = 0.0;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;

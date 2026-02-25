@@ -163,7 +163,12 @@ fn test_accrued_interest_ex_coupon_period() {
         "USD-OIS",
     )
     .unwrap();
-    bond.ex_coupon_days = Some(7); // Ex-coupon 7 days before payment
+    bond.settlement_convention = Some(
+        finstack_valuations::instruments::fixed_income::bond::BondSettlementConvention {
+            ex_coupon_days: 7,
+            ..Default::default()
+        },
+    );
 
     // 5 days before coupon (within ex-coupon window)
     let coupon_date = make_date(2025, 7, 1);

@@ -10,7 +10,7 @@ pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &InterestRateOption = context.instrument_as()?;
-        let strike = option.strike_rate_f64()?;
+        let strike = option.strike_f64()?;
         super::common::aggregate_over_caplets(option, context, |forward, sigma, t_fix| {
             let is_cap = matches!(
                 option.rate_option_type,

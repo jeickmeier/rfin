@@ -31,15 +31,15 @@ impl PyCmsOption {
 impl PyCmsOption {
     #[classmethod]
     #[pyo3(
-        signature = (instrument_id, strike_rate, cms_tenor, fixing_dates, accrual_fractions, option_type, notional, discount_curve, *, vol_surface=None, payment_dates=None, swap_fixed_freq=None, swap_float_freq=None, swap_day_count=None),
-        text_signature = "(cls, instrument_id, strike_rate, cms_tenor, fixing_dates, accrual_fractions, option_type, notional, discount_curve, *, vol_surface=None, payment_dates=None, swap_fixed_freq=None, swap_float_freq=None, swap_day_count=None)"
+        signature = (instrument_id, strike, cms_tenor, fixing_dates, accrual_fractions, option_type, notional, discount_curve, *, vol_surface=None, payment_dates=None, swap_fixed_freq=None, swap_float_freq=None, swap_day_count=None),
+        text_signature = "(cls, instrument_id, strike, cms_tenor, fixing_dates, accrual_fractions, option_type, notional, discount_curve, *, vol_surface=None, payment_dates=None, swap_fixed_freq=None, swap_float_freq=None, swap_day_count=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a CMS option.
     ///
     /// Args:
     ///     instrument_id: Instrument identifier.
-    ///     strike_rate: Strike rate in decimal form.
+    ///     strike: Strike rate in decimal form.
     ///     cms_tenor: Tenor of the CMS swap (e.g., 10.0 for 10Y).
     ///     fixing_dates: List of fixing dates.
     ///     accrual_fractions: List of accrual fractions for each period.
@@ -57,7 +57,7 @@ impl PyCmsOption {
     fn builder(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
-        strike_rate: f64,
+        strike: f64,
         cms_tenor: f64,
         fixing_dates: Bound<'_, PyList>,
         accrual_fractions: Bound<'_, PyList>,
@@ -133,8 +133,7 @@ impl PyCmsOption {
 
         let mut builder = CmsOption::builder();
         builder = builder.id(id);
-        builder =
-            builder.strike_rate(rust_decimal::Decimal::try_from(strike_rate).unwrap_or_default());
+        builder = builder.strike(rust_decimal::Decimal::try_from(strike).unwrap_or_default());
         builder = builder.cms_tenor(cms_tenor);
         builder = builder.fixing_dates(fixing_dates_vec);
         builder = builder.payment_dates(payment_dates_vec);
@@ -165,8 +164,8 @@ impl PyCmsOption {
 
     /// Strike rate.
     #[getter]
-    fn strike_rate(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike_rate).unwrap_or_default()
+    fn strike(&self) -> f64 {
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike).unwrap_or_default()
     }
 
     /// CMS tenor.
@@ -202,9 +201,9 @@ impl PyCmsOption {
 
     fn __repr__(&self) -> String {
         format!(
-            "CmsOption(id='{}', strike_rate={}, cms_tenor={})",
+            "CmsOption(id='{}', strike={}, cms_tenor={})",
             self.inner.id.as_str(),
-            self.inner.strike_rate,
+            self.inner.strike,
             self.inner.cms_tenor
         )
     }

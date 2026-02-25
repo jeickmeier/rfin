@@ -4,7 +4,7 @@
     "type": "cds_option",
     "spec": {
       "id": "CDSOPT-CALL-CORP-5Y",
-      "strike_spread_bp": 100.0,
+      "strike": "0.01",
       "option_type": "call",
       "exercise_style": "european",
       "expiry": "2025-06-20",
@@ -40,7 +40,7 @@
       },
       "underlying_is_index": false,
       "index_factor": null,
-      "forward_spread_adjust_bp": 0.0
+      "forward_spread_adjust": "0"
     }
   }
 }
