@@ -39,11 +39,15 @@ impl MetricCalculator for OasCalculator {
         let bond: &Bond = context.instrument_as()?;
 
         // Require quoted clean price
-        let clean_price = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "bond.pricing_overrides.quoted_clean_price".to_string(),
-            })
-        })?;
+        let clean_price = bond
+            .pricing_overrides
+            .market_quotes
+            .quoted_clean_price
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
+                    id: "bond.pricing_overrides.market_quotes.quoted_clean_price".to_string(),
+                })
+            })?;
 
         // Use MarketContext directly (no conversion needed)
         let market_context = context.curves.as_ref().clone();

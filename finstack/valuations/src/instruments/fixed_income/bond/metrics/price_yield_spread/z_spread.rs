@@ -205,7 +205,7 @@ impl MetricCalculator for ZSpreadCalculator {
 
         // Determine dirty market value in currency at quote_date
         let target_value_ccy: f64 =
-            if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price {
+            if let Some(clean_px) = bond.pricing_overrides.market_quotes.quoted_clean_price {
                 // Use accrued at quote_date for dirty price calculation
                 quote_ctx.dirty_from_clean_pct(clean_px, bond.notional.amount())
             } else {

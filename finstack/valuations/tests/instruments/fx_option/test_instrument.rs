@@ -331,7 +331,7 @@ fn test_pricing_overrides_applied() {
 
     // Act
     let pv_surface = call.value(&market, as_of).unwrap();
-    call.pricing_overrides.implied_volatility = Some(0.30); // Override to 30%
+    call.pricing_overrides.market_quotes.implied_volatility = Some(0.30); // Override to 30%
     let pv_override = call.value(&market, as_of).unwrap();
 
     // Assert: Higher vol should increase option PV

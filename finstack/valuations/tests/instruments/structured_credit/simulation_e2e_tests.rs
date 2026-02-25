@@ -150,9 +150,9 @@ fn build_simple_clo(
     )
     .with_payment_calendar("nyse");
 
-    clo.prepayment_spec = PrepaymentModelSpec::constant_cpr(cpr);
-    clo.default_spec = DefaultModelSpec::constant_cdr(cdr);
-    clo.recovery_spec = RecoveryModelSpec::with_lag(recovery, recovery_lag);
+    clo.credit_model.prepayment_spec = PrepaymentModelSpec::constant_cpr(cpr);
+    clo.credit_model.default_spec = DefaultModelSpec::constant_cdr(cdr);
+    clo.credit_model.recovery_spec = RecoveryModelSpec::with_lag(recovery, recovery_lag);
     clo
 }
 
@@ -970,9 +970,9 @@ fn e2e_multi_asset_pool_aggregates_correctly() {
     )
     .with_payment_calendar("nyse");
 
-    clo.prepayment_spec = PrepaymentModelSpec::constant_cpr(0.0);
-    clo.default_spec = DefaultModelSpec::constant_cdr(0.0);
-    clo.recovery_spec = RecoveryModelSpec::with_lag(0.0, 0);
+    clo.credit_model.prepayment_spec = PrepaymentModelSpec::constant_cpr(0.0);
+    clo.credit_model.default_spec = DefaultModelSpec::constant_cdr(0.0);
+    clo.credit_model.recovery_spec = RecoveryModelSpec::with_lag(0.0, 0);
 
     let results = run_simulation(&clo, &market, as_of()).unwrap();
 

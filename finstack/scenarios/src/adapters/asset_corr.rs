@@ -84,7 +84,7 @@ pub fn apply_asset_correlation_shock(
     let mut warnings = Vec::new();
 
     for inst in instruments.iter_mut() {
-        if let Some(ref corr_structure) = inst.correlation_structure {
+        if let Some(ref corr_structure) = inst.credit_model.correlation_structure {
             let new_corr_structure = bump_correlation_with_clamp(
                 corr_structure,
                 shock_points,
@@ -102,7 +102,7 @@ pub fn apply_asset_correlation_shock(
                 &mut warnings,
             );
 
-            inst.correlation_structure = Some(new_corr_structure);
+            inst.credit_model.correlation_structure = Some(new_corr_structure);
             modified += 1;
         }
     }
@@ -129,7 +129,7 @@ pub fn apply_prepay_default_correlation_shock(
     let mut warnings = Vec::new();
 
     for inst in instruments.iter_mut() {
-        if let Some(ref corr_structure) = inst.correlation_structure {
+        if let Some(ref corr_structure) = inst.credit_model.correlation_structure {
             let new_corr_structure = bump_correlation_with_clamp(
                 corr_structure,
                 shock_points,
@@ -147,7 +147,7 @@ pub fn apply_prepay_default_correlation_shock(
                 &mut warnings,
             );
 
-            inst.correlation_structure = Some(new_corr_structure);
+            inst.credit_model.correlation_structure = Some(new_corr_structure);
             modified += 1;
         }
     }
@@ -182,7 +182,7 @@ where
             continue;
         }
 
-        if let Some(ref corr_structure) = inst.correlation_structure {
+        if let Some(ref corr_structure) = inst.credit_model.correlation_structure {
             let mut new_structure = corr_structure.clone();
 
             // Apply asset correlation shock
@@ -227,7 +227,7 @@ where
                 );
             }
 
-            inst.correlation_structure = Some(new_structure);
+            inst.credit_model.correlation_structure = Some(new_structure);
             modified += 1;
         }
     }
@@ -272,7 +272,7 @@ pub fn set_correlation_structure(
 ) -> Result<usize> {
     let mut count = 0;
     for inst in instruments.iter_mut() {
-        inst.correlation_structure = Some(structure.clone());
+        inst.credit_model.correlation_structure = Some(structure.clone());
         count += 1;
     }
     Ok(count)
@@ -300,7 +300,7 @@ mod tests {
         let mut inst = StructuredCredit::example();
 
         // Set correlation structure
-        inst.correlation_structure = Some(CorrelationStructure::flat(0.20, -0.30));
+        inst.credit_model.correlation_structure = Some(CorrelationStructure::flat(0.20, -0.30));
         inst
     }
 
@@ -315,6 +315,7 @@ mod tests {
 
         // New correlation should be ~25%
         let new_corr = instruments[0]
+            .credit_model
             .correlation_structure
             .as_ref()
             .expect("should have correlation")
@@ -334,6 +335,7 @@ mod tests {
         assert!(!warnings.is_empty(), "Should have clamping warning");
 
         let new_corr = instruments[0]
+            .credit_model
             .correlation_structure
             .as_ref()
             .expect("should have correlation")
@@ -353,6 +355,7 @@ mod tests {
         assert_eq!(modified, 1);
 
         let new_corr = instruments[0]
+            .credit_model
             .correlation_structure
             .as_ref()
             .expect("should have correlation")

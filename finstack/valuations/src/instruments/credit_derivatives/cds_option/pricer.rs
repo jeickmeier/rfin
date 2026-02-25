@@ -89,7 +89,7 @@ impl CDSOptionPricer {
         // let df_expiry = disc.df(t);
 
         // Volatility (use override if present, else surface)
-        let sigma = if let Some(vol) = option.pricing_overrides.implied_volatility {
+        let sigma = if let Some(vol) = option.pricing_overrides.market_quotes.implied_volatility {
             vol
         } else {
             curves
@@ -544,7 +544,7 @@ impl CDSOptionPricer {
         };
 
         // Initial guess: override vol, else surface vol, else config default
-        let sigma0 = if let Some(v) = option.pricing_overrides.implied_volatility {
+        let sigma0 = if let Some(v) = option.pricing_overrides.market_quotes.implied_volatility {
             v
         } else {
             curves

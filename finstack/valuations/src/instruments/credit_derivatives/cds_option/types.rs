@@ -130,7 +130,7 @@ impl CDSOption {
         }
 
         // Implied volatility override validation
-        if let Some(vol) = self.pricing_overrides.implied_volatility {
+        if let Some(vol) = self.pricing_overrides.market_quotes.implied_volatility {
             if vol <= MIN_IMPLIED_VOL {
                 return Err(finstack_core::Error::Validation(format!(
                     "implied_volatility must be positive, got {}",
@@ -242,7 +242,7 @@ impl CDSOption {
                 vol
             )));
         }
-        self.pricing_overrides.implied_volatility = Some(vol);
+        self.pricing_overrides.market_quotes.implied_volatility = Some(vol);
         Ok(self)
     }
 
@@ -259,7 +259,7 @@ impl CDSOption {
                 vol_decimal
             )));
         }
-        self.pricing_overrides.implied_volatility = Some(vol_decimal);
+        self.pricing_overrides.market_quotes.implied_volatility = Some(vol_decimal);
         Ok(self)
     }
 
@@ -291,7 +291,7 @@ impl CDSOption {
         let fwd_bp = pricer.forward_spread_bp(self, curves, as_of)?;
 
         // Volatility (use override if present, else surface)
-        let sigma = if let Some(v) = self.pricing_overrides.implied_volatility {
+        let sigma = if let Some(v) = self.pricing_overrides.market_quotes.implied_volatility {
             v
         } else {
             curves

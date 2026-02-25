@@ -92,11 +92,15 @@ impl MetricCalculator for YtwCalculator {
 
         // Construct current dirty market price from quoted clean price + accrued at quote_date.
         let bond: &Bond = context.instrument_as()?;
-        let clean_px = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "bond.pricing_overrides.quoted_clean_price".to_string(),
-            })
-        })?;
+        let clean_px = bond
+            .pricing_overrides
+            .market_quotes
+            .quoted_clean_price
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
+                    id: "bond.pricing_overrides.market_quotes.quoted_clean_price".to_string(),
+                })
+            })?;
 
         // Dirty price in currency at quote_date: quoted clean is % of par.
         let dirty_amt = quote_ctx.dirty_from_clean_pct(clean_px, bond.notional.amount());

@@ -739,7 +739,10 @@ impl JsBond {
 
     #[wasm_bindgen(getter, js_name = quotedCleanPrice)]
     pub fn quoted_clean_price(&self) -> Option<f64> {
-        self.inner.pricing_overrides.quoted_clean_price
+        self.inner
+            .pricing_overrides
+            .market_quotes
+            .quoted_clean_price
     }
 
     /// Get the cashflow schedule for this bond.

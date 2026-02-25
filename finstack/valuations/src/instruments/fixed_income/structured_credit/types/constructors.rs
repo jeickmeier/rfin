@@ -4,9 +4,9 @@
 //! appropriate defaults for ABS, CLO, CMBS, and RMBS instruments.
 
 use super::{
-    AssetPool, CreditFactors, DealType, DefaultModelSpec, MarketConditions, Metadata, Overrides,
-    PrepaymentModelSpec, RecoveryModelSpec, StructuredCredit, Tranche, TrancheCoupon,
-    TrancheSeniority, TrancheStructure,
+    AssetPool, CreditFactors, CreditModelConfig, DealType, DefaultModelSpec, MarketConditions,
+    Metadata, Overrides, PrepaymentModelSpec, RecoveryModelSpec, StructuredCredit, Tranche,
+    TrancheCoupon, TrancheSeniority, TrancheStructure,
 };
 use crate::instruments::fixed_income::structured_credit::types::constants::{
     ABS_AUTO_STANDARD_CDR, ABS_AUTO_STANDARD_RECOVERY, ABS_AUTO_STANDARD_SPEED, CLO_STANDARD_CDR,
@@ -180,18 +180,19 @@ impl StructuredCredit {
             discount_curve_id: CurveId::new(params.discount_curve_id.to_string()),
             pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
-            prepayment_spec: config.prepayment_spec,
-            default_spec: config.default_spec,
-            recovery_spec: config.recovery_spec,
+            credit_model: CreditModelConfig {
+                prepayment_spec: config.prepayment_spec,
+                default_spec: config.default_spec,
+                recovery_spec: config.recovery_spec,
+                stochastic_prepay_spec: None,
+                stochastic_default_spec: None,
+                correlation_structure: None,
+            },
             market_conditions: MarketConditions::default(),
             credit_factors: config.credit_factors,
             deal_metadata: config.deal_metadata,
             behavior_overrides: config.behavior_overrides,
             default_assumptions: DefaultAssumptions::default(),
-            // Stochastic specs default to None (deterministic pricing)
-            stochastic_prepay_spec: None,
-            stochastic_default_spec: None,
-            correlation_structure: None,
             // Hedge swaps default to empty
             hedge_swaps: Vec::new(),
             cleanup_call_pct: None,

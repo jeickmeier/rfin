@@ -183,7 +183,7 @@ impl RangeAccrualMcPricer {
         // Derive deterministic seed from instrument ID and scenario
         use crate::instruments::common_impl::models::monte_carlo::seed;
 
-        let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
+        let seed = if let Some(ref scenario) = inst.pricing_overrides.scenario.mc_seed_scenario {
             seed::derive_seed(&inst.id, scenario)
         } else {
             seed::derive_seed(&inst.id, "base")
@@ -273,7 +273,7 @@ pub(crate) fn compute_pv(
 
     // Check if forced MC (future feature? or infer from overrides?)
     // If 'mc_seed_scenario' is set, user likely expects MC.
-    if inst.pricing_overrides.mc_seed_scenario.is_some() {
+    if inst.pricing_overrides.scenario.mc_seed_scenario.is_some() {
         let pricer = RangeAccrualMcPricer::new();
         pricer.price_internal(inst, curves, as_of)
     } else {

@@ -74,7 +74,7 @@ pub(crate) fn compute_pv(
     let df = disc_curve.df_between_dates(as_of, inst.expiry)?;
 
     // Get volatility
-    let sigma = if let Some(impl_vol) = inst.pricing_overrides.implied_volatility {
+    let sigma = if let Some(impl_vol) = inst.pricing_overrides.market_quotes.implied_volatility {
         impl_vol
     } else {
         let vol_surface = market.surface(inst.vol_surface_id.as_str())?;

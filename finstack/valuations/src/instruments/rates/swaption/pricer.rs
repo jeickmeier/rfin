@@ -114,11 +114,16 @@ impl Pricer for SimpleSwaptionBlackPricer {
                                 )
                             })?;
 
-                    let vol = if let Some(impl_vol) = swaption.pricing_overrides.implied_volatility
+                    let vol = if let Some(impl_vol) =
+                        swaption.pricing_overrides.market_quotes.implied_volatility
                     {
                         impl_vol
                     } else {
-                        match swaption.pricing_overrides.vol_surface_extrapolation {
+                        match swaption
+                            .pricing_overrides
+                            .model_config
+                            .vol_surface_extrapolation
+                        {
                             VolSurfaceExtrapolation::Clamp
                             | VolSurfaceExtrapolation::LinearInVariance => {
                                 // LinearInVariance falls back to Clamp until surface impl is ready

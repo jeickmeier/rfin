@@ -18,9 +18,9 @@ impl StructuredCredit {
     ///
     /// Returns true if any stochastic specification is set.
     pub fn is_stochastic(&self) -> bool {
-        self.stochastic_prepay_spec.is_some()
-            || self.stochastic_default_spec.is_some()
-            || self.correlation_structure.is_some()
+        self.credit_model.stochastic_prepay_spec.is_some()
+            || self.credit_model.stochastic_default_spec.is_some()
+            || self.credit_model.correlation_structure.is_some()
     }
 
     /// Enable stochastic prepayment modeling.
@@ -37,7 +37,7 @@ impl StructuredCredit {
     /// clo.with_stochastic_prepay(StochasticPrepaySpec::clo_standard());
     /// ```
     pub fn with_stochastic_prepay(&mut self, spec: StochasticPrepaySpec) -> &mut Self {
-        self.stochastic_prepay_spec = Some(spec);
+        self.credit_model.stochastic_prepay_spec = Some(spec);
         self
     }
 
@@ -46,7 +46,7 @@ impl StructuredCredit {
     /// # Arguments
     /// * `spec` - Stochastic default specification
     pub fn with_stochastic_default(&mut self, spec: StochasticDefaultSpec) -> &mut Self {
-        self.stochastic_default_spec = Some(spec);
+        self.credit_model.stochastic_default_spec = Some(spec);
         self
     }
 
@@ -55,7 +55,7 @@ impl StructuredCredit {
     /// # Arguments
     /// * `structure` - Correlation structure specification
     pub fn with_correlation(&mut self, structure: CorrelationStructure) -> &mut Self {
-        self.correlation_structure = Some(structure);
+        self.credit_model.correlation_structure = Some(structure);
         self
     }
 
@@ -89,23 +89,27 @@ impl StructuredCredit {
                 CorrelationStructure::cmbs_standard(),
             ),
             DealType::ABS | DealType::Auto | DealType::Card => (
-                StochasticPrepaySpec::factor_correlated(self.prepayment_spec.clone(), 0.30, 0.15),
-                StochasticDefaultSpec::gaussian_copula(self.default_spec.cdr, 0.10),
+                StochasticPrepaySpec::factor_correlated(
+                    self.credit_model.prepayment_spec.clone(),
+                    0.30,
+                    0.15,
+                ),
+                StochasticDefaultSpec::gaussian_copula(self.credit_model.default_spec.cdr, 0.10),
                 CorrelationStructure::abs_auto_standard(),
             ),
         };
 
-        self.stochastic_prepay_spec = Some(prepay);
-        self.stochastic_default_spec = Some(default);
-        self.correlation_structure = Some(corr);
+        self.credit_model.stochastic_prepay_spec = Some(prepay);
+        self.credit_model.stochastic_default_spec = Some(default);
+        self.credit_model.correlation_structure = Some(corr);
         self
     }
 
     /// Clear stochastic specifications, reverting to deterministic pricing.
     pub fn disable_stochastic(&mut self) -> &mut Self {
-        self.stochastic_prepay_spec = None;
-        self.stochastic_default_spec = None;
-        self.correlation_structure = None;
+        self.credit_model.stochastic_prepay_spec = None;
+        self.credit_model.stochastic_default_spec = None;
+        self.credit_model.correlation_structure = None;
         self
     }
 }

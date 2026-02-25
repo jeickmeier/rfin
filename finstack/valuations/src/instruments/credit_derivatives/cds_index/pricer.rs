@@ -108,7 +108,7 @@ impl CDSIndexPricer {
             as_of,
             |pricer, cds, disc, surv, as_of| pricer.npv(cds, disc, surv, as_of),
         )?;
-        if let Some(upfront) = index.pricing_overrides.upfront_payment {
+        if let Some(upfront) = index.pricing_overrides.market_quotes.upfront_payment {
             result.total = result.total.checked_add(upfront)?;
         }
         Ok(result)

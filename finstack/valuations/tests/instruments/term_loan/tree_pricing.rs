@@ -96,21 +96,21 @@ fn friction_cost_increases_callable_value_monotonically() {
         finstack_valuations::instruments::fixed_income::term_loan::TermLoanTreePricer::new();
 
     let mut loan0 = build_callable_loan(as_of);
-    loan0.pricing_overrides.call_friction_cents = Some(0.0);
+    loan0.pricing_overrides.model_config.call_friction_cents = Some(0.0);
     let pv0 = pricer
         .price_callable(&loan0, &market, as_of)
         .unwrap()
         .amount();
 
     let mut loan50 = build_callable_loan(as_of);
-    loan50.pricing_overrides.call_friction_cents = Some(50.0); // 0.50 points
+    loan50.pricing_overrides.model_config.call_friction_cents = Some(50.0); // 0.50 points
     let pv50 = pricer
         .price_callable(&loan50, &market, as_of)
         .unwrap()
         .amount();
 
     let mut loan200 = build_callable_loan(as_of);
-    loan200.pricing_overrides.call_friction_cents = Some(200.0); // 2.00 points
+    loan200.pricing_overrides.model_config.call_friction_cents = Some(200.0); // 2.00 points
     let pv200 = pricer
         .price_callable(&loan200, &market, as_of)
         .unwrap()
@@ -138,7 +138,7 @@ fn huge_friction_matches_straight_loan() {
         finstack_valuations::instruments::fixed_income::term_loan::TermLoanTreePricer::new();
 
     let mut callable = build_callable_loan(as_of);
-    callable.pricing_overrides.call_friction_cents = Some(1_000_000.0);
+    callable.pricing_overrides.model_config.call_friction_cents = Some(1_000_000.0);
     let pv_callable = pricer
         .price_callable(&callable, &market, as_of)
         .unwrap()

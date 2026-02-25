@@ -72,7 +72,7 @@ pub fn apply_instrument_type_price_shock(
         if instrument_types.contains(&inst_type) {
             // Try to apply via scenario_overrides for functional pricing effect
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario_price_shock_pct = Some(shock_decimal);
+                overrides.scenario.scenario_price_shock_pct = Some(shock_decimal);
             } else {
                 // Fallback: store as metadata for downstream processing
                 let shock_str = format!("{:.6}", shock_decimal);
@@ -102,7 +102,7 @@ pub fn apply_instrument_type_spread_shock(
         if instrument_types.contains(&inst_type) {
             // Try to apply via scenario_overrides for functional pricing effect
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario_spread_shock_bp = Some(bp);
+                overrides.scenario.scenario_spread_shock_bp = Some(bp);
             } else {
                 // Fallback: store as metadata for downstream processing
                 let shock_str = format!("{:.2}", bp);
@@ -132,7 +132,7 @@ pub fn apply_instrument_attr_price_shock(
     for instrument in instruments.iter_mut() {
         if matches_attr_filter(instrument.attributes(), &filters) {
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario_price_shock_pct = Some(shock_decimal);
+                overrides.scenario.scenario_price_shock_pct = Some(shock_decimal);
             } else {
                 let shock_str = format!("{:.6}", shock_decimal);
                 instrument
@@ -167,7 +167,7 @@ pub fn apply_instrument_attr_spread_shock(
     for instrument in instruments.iter_mut() {
         if matches_attr_filter(instrument.attributes(), &filters) {
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario_spread_shock_bp = Some(bp);
+                overrides.scenario.scenario_spread_shock_bp = Some(bp);
             } else {
                 let shock_str = format!("{:.2}", bp);
                 instrument

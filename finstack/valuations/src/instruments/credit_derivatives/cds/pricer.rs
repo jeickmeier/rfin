@@ -1904,7 +1904,7 @@ impl CDSPricer {
     ///    - Positive amount = payment by buyer, negative = receipt by buyer
     ///    - Applied with sign convention based on trade side
     ///
-    /// 2. **PV adjustment** (`cds.pricing_overrides.upfront_payment: Option<Money>`):
+    /// 2. **PV adjustment** (`cds.pricing_overrides.market_quotes.upfront_payment: Option<Money>`):
     ///    An already-discounted adjustment to the PV at `as_of`.
     ///    - Added directly without further discounting
     ///    - Positive = increases NPV, negative = decreases NPV (for both sides)
@@ -1933,7 +1933,7 @@ impl CDSPricer {
         }
 
         // 2. Handle PV adjustment upfront (added directly without discounting)
-        if let Some(upfront) = cds.pricing_overrides.upfront_payment {
+        if let Some(upfront) = cds.pricing_overrides.market_quotes.upfront_payment {
             pv = pv.checked_add(upfront)?;
         }
 

@@ -82,6 +82,7 @@ impl PoolAsset {
             recovery_amount: None,
             purchase_price: bond
                 .pricing_overrides
+                .market_quotes
                 .quoted_clean_price
                 .map(|p| Money::new(p * bond.notional.amount(), bond.notional.currency())),
             acquisition_date: Some(bond.issue_date),

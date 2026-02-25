@@ -254,6 +254,7 @@ pub struct Tranche {
     /// Whether reinvestment of principal is permitted
     pub can_reinvest: bool,
     /// Legal final maturity date
+    #[serde(alias = "legal_maturity")]
     pub maturity: Date,
     /// Expected maturity date (may be earlier than legal maturity for CLOs)
     pub expected_maturity: Option<Date>,

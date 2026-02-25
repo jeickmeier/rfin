@@ -255,7 +255,11 @@ fn bench_tree_oas_solver(c: &mut Criterion) {
 
     for tenor in [5, 10, 30] {
         let bond = create_callable_bond(tenor);
-        let clean = bond.pricing_overrides.quoted_clean_price.unwrap_or(99.0);
+        let clean = bond
+            .pricing_overrides
+            .market_quotes
+            .quoted_clean_price
+            .unwrap_or(99.0);
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             &tenor,
@@ -294,7 +298,11 @@ fn bench_tree_step_scaling(c: &mut Criterion) {
 
     // Use a 10Y callable bond for consistent comparison
     let bond = create_callable_bond(10);
-    let clean = bond.pricing_overrides.quoted_clean_price.unwrap_or(99.0);
+    let clean = bond
+        .pricing_overrides
+        .market_quotes
+        .quoted_clean_price
+        .unwrap_or(99.0);
 
     for steps in [50, 100, 200, 500] {
         let config = TreePricerConfig {

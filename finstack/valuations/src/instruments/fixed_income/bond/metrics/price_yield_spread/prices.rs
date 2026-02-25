@@ -38,7 +38,7 @@ impl MetricCalculator for DirtyPriceCalculator {
         let bond: &Bond = context.instrument_as()?;
 
         // If we have a quoted clean price, dirty = clean + accrued
-        if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price {
+        if let Some(clean_px) = bond.pricing_overrides.market_quotes.quoted_clean_price {
             // Get accrued from computed metrics
             let accrued = context
                 .computed
@@ -62,7 +62,7 @@ impl MetricCalculator for DirtyPriceCalculator {
 /// Calculates clean price for bonds (dirty price - accrued interest).
 ///
 /// Clean price is the quoted price excluding accrued interest. It can be:
-/// - Retrieved directly from `bond.pricing_overrides.quoted_clean_price` if set
+/// - Retrieved directly from `bond.pricing_overrides.market_quotes.quoted_clean_price` if set
 /// - Computed from the base value (dirty price) minus accrued interest
 ///
 /// # Dependencies
@@ -94,7 +94,7 @@ impl MetricCalculator for CleanPriceCalculator {
         let bond: &Bond = context.instrument_as()?;
 
         // If we have quoted clean price, return currency value
-        if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price {
+        if let Some(clean_px) = bond.pricing_overrides.market_quotes.quoted_clean_price {
             return Ok(clean_px * bond.notional.amount() / 100.0);
         }
 

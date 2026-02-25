@@ -484,7 +484,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 b.maturity,
                 b.cashflow_spec.day_count(),
                 b.notional.amount(),
-                b.pricing_overrides.quoted_clean_price,
+                b.pricing_overrides.market_quotes.quoted_clean_price,
                 b.custom_cashflows.is_some(),
                 coupon_rate,
             )

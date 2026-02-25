@@ -335,7 +335,12 @@ impl InflationCapFloor {
     ) -> finstack_core::Result<Money> {
         let strike_rate = self.strike_rate_f64()?;
         let disc = curves.get_discount(self.discount_curve_id.as_str())?;
-        let vol_surface = if self.pricing_overrides.implied_volatility.is_none() {
+        let vol_surface = if self
+            .pricing_overrides
+            .market_quotes
+            .implied_volatility
+            .is_none()
+        {
             Some(curves.surface(self.vol_surface_id.as_str())?)
         } else {
             None
@@ -376,7 +381,7 @@ impl InflationCapFloor {
             let df = disc.df(t_pay);
 
             let sigma = if t_fix > 0.0 {
-                if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+                if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility {
                     impl_vol
                 } else if let Some(vol) = &vol_surface {
                     vol.value_clamped(t_fix, strike_rate)

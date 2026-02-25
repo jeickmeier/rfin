@@ -781,7 +781,7 @@ pub trait Instrument: Send + Sync {
     ///
     /// fn apply_price_shock(instrument: &mut dyn Instrument, shock_pct: f64) {
     ///     if let Some(overrides) = instrument.scenario_overrides_mut() {
-    ///         overrides.scenario_price_shock_pct = Some(shock_pct);
+    ///         overrides.scenario.scenario_price_shock_pct = Some(shock_pct);
     ///     }
     /// }
     /// ```

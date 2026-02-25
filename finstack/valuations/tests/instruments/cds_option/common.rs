@@ -171,7 +171,7 @@ impl CDSOptionBuilder {
         .expect("valid CDS option");
 
         if let Some(vol) = self.implied_vol {
-            option.pricing_overrides.implied_volatility = Some(vol);
+            option.pricing_overrides.market_quotes.implied_volatility = Some(vol);
         }
 
         option

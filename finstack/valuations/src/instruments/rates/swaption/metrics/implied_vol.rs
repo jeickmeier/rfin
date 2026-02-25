@@ -42,28 +42,33 @@ impl MetricCalculator for ImpliedVolCalculator {
 
         // Initial guess: overrides -> SABR ATM -> surface -> 20%
         let forward = option.forward_swap_rate(context.curves.as_ref(), context.as_of)?;
-        let initial_sigma = if let Some(ov) = option.pricing_overrides.implied_volatility {
-            ov
-        } else if let Some(sabr) = &option.sabr_params {
-            let model =
-                crate::instruments::common_impl::models::SABRModel::new(sabr.to_internal()?);
-            model.implied_volatility(forward, strike, t).unwrap_or(0.2)
-        } else {
-            context
-                .curves
-                .surface(option.vol_surface_id.as_str())
-                .and_then(
-                    |s| match option.pricing_overrides.vol_surface_extrapolation {
-                        VolSurfaceExtrapolation::Clamp
-                        | VolSurfaceExtrapolation::LinearInVariance => {
-                            // LinearInVariance falls back to Clamp until surface impl is ready
-                            Ok(s.value_clamped(t, strike))
+        let initial_sigma =
+            if let Some(ov) = option.pricing_overrides.market_quotes.implied_volatility {
+                ov
+            } else if let Some(sabr) = &option.sabr_params {
+                let model =
+                    crate::instruments::common_impl::models::SABRModel::new(sabr.to_internal()?);
+                model.implied_volatility(forward, strike, t).unwrap_or(0.2)
+            } else {
+                context
+                    .curves
+                    .surface(option.vol_surface_id.as_str())
+                    .and_then(|s| {
+                        match option
+                            .pricing_overrides
+                            .model_config
+                            .vol_surface_extrapolation
+                        {
+                            VolSurfaceExtrapolation::Clamp
+                            | VolSurfaceExtrapolation::LinearInVariance => {
+                                // LinearInVariance falls back to Clamp until surface impl is ready
+                                Ok(s.value_clamped(t, strike))
+                            }
+                            VolSurfaceExtrapolation::Error => s.value_checked(t, strike),
                         }
-                        VolSurfaceExtrapolation::Error => s.value_checked(t, strike),
-                    },
-                )
-                .unwrap_or(0.2)
-        };
+                    })
+                    .unwrap_or(0.2)
+            };
 
         let eps = 1e-8;
         let x0 = (initial_sigma.max(eps)).ln();

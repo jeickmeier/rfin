@@ -987,7 +987,10 @@ pub fn compute_quotes(
 
     // Stamp the canonical clean price quote into pricing_overrides so that all
     // existing metric calculators interpret this as the market price.
-    bond_for_metrics.pricing_overrides.quoted_clean_price = Some(clean_price_pct);
+    bond_for_metrics
+        .pricing_overrides
+        .market_quotes
+        .quoted_clean_price = Some(clean_price_pct);
 
     // 2) Build metric context and use the standard registry for the rest.
     let base_value = bond_for_metrics.value(curves, as_of)?;

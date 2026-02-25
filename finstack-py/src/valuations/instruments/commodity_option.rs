@@ -402,10 +402,10 @@ impl PyCommodityOptionBuilder {
 
         let mut pricing_overrides = PricingOverrides::default();
         if let Some(vol) = slf.implied_volatility {
-            pricing_overrides.implied_volatility = Some(vol);
+            pricing_overrides.market_quotes.implied_volatility = Some(vol);
         }
         if let Some(steps) = slf.tree_steps {
-            pricing_overrides.tree_steps = Some(steps);
+            pricing_overrides.model_config.tree_steps = Some(steps);
         }
 
         let mut builder = CommodityOption::builder()

@@ -252,9 +252,9 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
     .with_payment_calendar("nyse");
 
     // Set conservative prepayment/default assumptions for better pricing
-    clo.prepayment_spec = PrepaymentModelSpec::constant_cpr(0.10); // 10% CPR (lower)
-    clo.default_spec = DefaultModelSpec::constant_cdr(0.01); // 1% CDR (lower default)
-    clo.recovery_spec = RecoveryModelSpec::with_lag(0.70, 0); // 70% recovery
+    clo.credit_model.prepayment_spec = PrepaymentModelSpec::constant_cpr(0.10); // 10% CPR (lower)
+    clo.credit_model.default_spec = DefaultModelSpec::constant_cdr(0.01); // 1% CDR (lower default)
+    clo.credit_model.recovery_spec = RecoveryModelSpec::with_lag(0.70, 0); // 70% recovery
 
     Ok(clo)
 }

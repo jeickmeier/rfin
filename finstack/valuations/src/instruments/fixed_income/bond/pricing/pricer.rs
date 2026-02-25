@@ -139,9 +139,16 @@ impl Pricer for SimpleBondOasPricer {
             .map_err(|e| PricingError::model_failure_with_context(e.to_string(), ctx.clone()))?;
 
         // OAS calculation requires quoted clean price
-        let clean_pct = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            PricingError::invalid_input_with_context("OAS requires quoted clean price", ctx.clone())
-        })?;
+        let clean_pct = bond
+            .pricing_overrides
+            .market_quotes
+            .quoted_clean_price
+            .ok_or_else(|| {
+                PricingError::invalid_input_with_context(
+                    "OAS requires quoted clean price",
+                    ctx.clone(),
+                )
+            })?;
 
         // Calculate OAS using tree pricer
         let oas_bp = TreePricer::new()

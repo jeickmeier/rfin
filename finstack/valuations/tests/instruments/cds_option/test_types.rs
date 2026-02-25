@@ -138,11 +138,17 @@ fn test_pricing_overrides() {
     let as_of = date!(2025 - 01 - 01);
     let mut option = CDSOptionBuilder::new().implied_vol(0.45).build(as_of);
 
-    assert_eq!(option.pricing_overrides.implied_volatility, Some(0.45));
+    assert_eq!(
+        option.pricing_overrides.market_quotes.implied_volatility,
+        Some(0.45)
+    );
 
     // Test modification
-    option.pricing_overrides.implied_volatility = Some(0.25);
-    assert_eq!(option.pricing_overrides.implied_volatility, Some(0.25));
+    option.pricing_overrides.market_quotes.implied_volatility = Some(0.25);
+    assert_eq!(
+        option.pricing_overrides.market_quotes.implied_volatility,
+        Some(0.25)
+    );
 }
 
 #[test]

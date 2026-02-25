@@ -20,7 +20,7 @@ impl MetricCalculator for ThetaCalculator {
         let period_str = context
             .pricing_overrides
             .as_ref()
-            .and_then(|po| po.theta_period.as_deref())
+            .and_then(|po| po.scenario.theta_period.as_deref())
             .unwrap_or("1D");
 
         // Calculate rolled date (capping at instrument expiry)

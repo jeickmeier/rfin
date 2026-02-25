@@ -133,9 +133,9 @@ fn build_clo(cpr: f64, cdr: f64, recovery: f64, lag: u32) -> StructuredCredit {
     )
     .with_payment_calendar("nyse");
 
-    clo.prepayment_spec = PrepaymentModelSpec::constant_cpr(cpr);
-    clo.default_spec = DefaultModelSpec::constant_cdr(cdr);
-    clo.recovery_spec = RecoveryModelSpec::with_lag(recovery, lag);
+    clo.credit_model.prepayment_spec = PrepaymentModelSpec::constant_cpr(cpr);
+    clo.credit_model.default_spec = DefaultModelSpec::constant_cdr(cdr);
+    clo.credit_model.recovery_spec = RecoveryModelSpec::with_lag(recovery, lag);
     clo
 }
 

@@ -294,7 +294,9 @@ pub mod legs {
 
 /// Pricing overrides module.
 pub mod pricing_overrides;
-pub use pricing_overrides::PricingOverrides;
+pub use pricing_overrides::{
+    BumpConfig, MarketQuoteOverrides, ModelConfig, PricingOverrides, ScenarioConfig,
+};
 
 // === JSON Import/Export ===
 pub mod json_loader;

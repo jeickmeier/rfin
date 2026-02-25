@@ -1065,14 +1065,18 @@ impl Swaption {
         }
 
         // 2. Pricing override
-        if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+        if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility {
             return Ok(impl_vol);
         }
 
         // 3. Volatility surface
         let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
         let strike_rate = self.strike_rate_f64()?;
-        match self.pricing_overrides.vol_surface_extrapolation {
+        match self
+            .pricing_overrides
+            .model_config
+            .vol_surface_extrapolation
+        {
             VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
                 // LinearInVariance falls back to Clamp until surface impl is ready
                 Ok(vol_surface.value_clamped(time_to_expiry, strike_rate))
@@ -1153,10 +1157,14 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
         let time_to_expiry = year_fraction(self.day_count, as_of, self.expiry)?;
         let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
         let strike_rate = self.strike_rate_f64()?;
-        let vol = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+        let vol = if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility {
             impl_vol
         } else {
-            match self.pricing_overrides.vol_surface_extrapolation {
+            match self
+                .pricing_overrides
+                .model_config
+                .vol_surface_extrapolation
+            {
                 VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
                     // LinearInVariance falls back to Clamp until surface impl is ready
                     vol_surface.value_clamped(time_to_expiry, strike_rate)

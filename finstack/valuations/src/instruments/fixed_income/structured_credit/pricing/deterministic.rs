@@ -56,8 +56,8 @@ pub fn run_simulation(
         pool,
         tranches,
         instrument.closing_date,
-        instrument.recovery_spec.recovery_lag,
-        instrument.recovery_spec.rate,
+        instrument.credit_model.recovery_spec.recovery_lag,
+        instrument.credit_model.recovery_spec.rate,
     );
 
     // Create waterfall
@@ -785,7 +785,7 @@ fn calculate_pool_flows(
     // Pre-calculate global rates
     let smm = instrument.calculate_prepayment_rate(pay_date, seasoning_months);
     let mdr = instrument.calculate_default_rate(pay_date, seasoning_months);
-    let recovery_rate = instrument.recovery_spec.rate;
+    let recovery_rate = instrument.credit_model.recovery_spec.rate;
 
     let global_period_smm = 1.0 - (1.0 - smm).powf(months_per_period);
     let global_period_mdr = 1.0 - (1.0 - mdr).powf(months_per_period);

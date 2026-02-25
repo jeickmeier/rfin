@@ -27,11 +27,15 @@ impl MetricCalculator for OasCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let loan: &TermLoan = context.instrument_as()?;
 
-        let clean_price = loan.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "term_loan.pricing_overrides.quoted_clean_price".to_string(),
-            })
-        })?;
+        let clean_price = loan
+            .pricing_overrides
+            .market_quotes
+            .quoted_clean_price
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
+                    id: "term_loan.pricing_overrides.quoted_clean_price".to_string(),
+                })
+            })?;
 
         let market_context = context.curves.as_ref().clone();
         let pricer =

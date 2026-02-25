@@ -76,9 +76,9 @@ pub fn extract_model_params(instrument: &Arc<dyn Instrument>) -> ModelParamsSnap
     // Try downcasting to StructuredCredit
     if let Some(structured) = instrument.as_any().downcast_ref::<StructuredCredit>() {
         return ModelParamsSnapshot::StructuredCredit {
-            prepayment_spec: structured.prepayment_spec.clone(),
-            default_spec: structured.default_spec.clone(),
-            recovery_spec: structured.recovery_spec.clone(),
+            prepayment_spec: structured.credit_model.prepayment_spec.clone(),
+            default_spec: structured.credit_model.default_spec.clone(),
+            recovery_spec: structured.credit_model.recovery_spec.clone(),
         };
     }
 
@@ -143,9 +143,9 @@ pub fn with_model_params(
         } => {
             if let Some(structured) = instrument.as_any().downcast_ref::<StructuredCredit>() {
                 let mut modified = structured.clone();
-                modified.prepayment_spec = prepayment_spec.clone();
-                modified.default_spec = default_spec.clone();
-                modified.recovery_spec = recovery_spec.clone();
+                modified.credit_model.prepayment_spec = prepayment_spec.clone();
+                modified.credit_model.default_spec = default_spec.clone();
+                modified.credit_model.recovery_spec = recovery_spec.clone();
                 Ok(Arc::new(modified) as Arc<dyn Instrument>)
             } else {
                 Err(Error::Validation(

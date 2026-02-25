@@ -54,7 +54,10 @@ fn test_quote_engine_roundtrip_ytm_and_zspread_fixed_bond() {
 
     // Feed the resulting clean price back into the standard metrics pipeline.
     let mut bond_with_price = bond.clone();
-    bond_with_price.pricing_overrides.quoted_clean_price = Some(clean_pct);
+    bond_with_price
+        .pricing_overrides
+        .market_quotes
+        .quoted_clean_price = Some(clean_pct);
     let res = bond_with_price
         .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::ZSpread])
         .unwrap();
@@ -75,7 +78,10 @@ fn test_quote_engine_roundtrip_ytm_and_zspread_fixed_bond() {
     let clean_pct_z = quotes_from_z.clean_price_pct;
 
     let mut bond_with_price_z = bond.clone();
-    bond_with_price_z.pricing_overrides.quoted_clean_price = Some(clean_pct_z);
+    bond_with_price_z
+        .pricing_overrides
+        .market_quotes
+        .quoted_clean_price = Some(clean_pct_z);
     let res_z = bond_with_price_z
         .price_with_metrics(&market, as_of, &[MetricId::ZSpread])
         .unwrap();

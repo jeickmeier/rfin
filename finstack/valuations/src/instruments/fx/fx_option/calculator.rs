@@ -145,7 +145,8 @@ impl FxOptionCalculator {
             .rate;
 
         // Vol either override or surface lookup (clamped)
-        let sigma = if let Some(impl_vol) = inst.pricing_overrides.implied_volatility {
+        let sigma = if let Some(impl_vol) = inst.pricing_overrides.market_quotes.implied_volatility
+        {
             impl_vol
         } else {
             let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
@@ -608,7 +609,7 @@ mod tests {
         approx_eq(sigma, 0.35, 1e-12);
         assert!(t > 0.4);
 
-        option.pricing_overrides.implied_volatility = Some(0.5);
+        option.pricing_overrides.market_quotes.implied_volatility = Some(0.5);
         let (_, _, _, override_sigma, _) = calc
             .collect_inputs(&option, &ctx, as_of)
             .expect("should succeed");

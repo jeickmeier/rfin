@@ -88,7 +88,7 @@ impl MetricCalculator for DiscountMarginCalculator {
         }
 
         // Target price: quoted_clean_price% of par if set, else base PV
-        let target = if let Some(px) = loan.pricing_overrides.quoted_clean_price {
+        let target = if let Some(px) = loan.pricing_overrides.market_quotes.quoted_clean_price {
             // Interpreting as % of notional_limit
             px * loan.notional_limit.amount() / 100.0
         } else {

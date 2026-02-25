@@ -121,8 +121,14 @@ fn test_clo_json_roundtrip() {
     // Assert
     assert_eq!(original.id.as_str(), deserialized.id.as_str());
     assert_eq!(original.deal_type, deserialized.deal_type);
-    assert_eq!(original.prepayment_spec, deserialized.prepayment_spec);
-    assert_eq!(original.default_spec, deserialized.default_spec);
+    assert_eq!(
+        original.credit_model.prepayment_spec,
+        deserialized.credit_model.prepayment_spec
+    );
+    assert_eq!(
+        original.credit_model.default_spec,
+        deserialized.credit_model.default_spec
+    );
 }
 
 #[test]
@@ -359,9 +365,9 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
         .with_tag("full")
         .with_meta("book", "structured_credit");
 
-    deal.prepayment_spec = PrepaymentModelSpec::psa(175.0);
-    deal.default_spec = DefaultModelSpec::sda(125.0);
-    deal.recovery_spec = RecoveryModelSpec::with_lag(0.55, 10);
+    deal.credit_model.prepayment_spec = PrepaymentModelSpec::psa(175.0);
+    deal.credit_model.default_spec = DefaultModelSpec::sda(125.0);
+    deal.credit_model.recovery_spec = RecoveryModelSpec::with_lag(0.55, 10);
 
     deal.market_conditions =
         finstack_valuations::instruments::fixed_income::structured_credit::MarketConditions {
@@ -415,13 +421,15 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
         recovery_by_asset_type: vec![("abs_auto".to_string(), 0.50)].into_iter().collect(),
     };
 
-    deal.stochastic_prepay_spec = Some(StochasticPrepaySpec::factor_correlated(
+    deal.credit_model.stochastic_prepay_spec = Some(StochasticPrepaySpec::factor_correlated(
         PrepaymentModelSpec::psa(1.1),
         0.25,
         0.12,
     ));
-    deal.stochastic_default_spec = Some(StochasticDefaultSpec::gaussian_copula(0.025, 0.35));
-    deal.correlation_structure = Some(CorrelationStructure::sectored(0.28, 0.12, -0.18));
+    deal.credit_model.stochastic_default_spec =
+        Some(StochasticDefaultSpec::gaussian_copula(0.025, 0.35));
+    deal.credit_model.correlation_structure =
+        Some(CorrelationStructure::sectored(0.28, 0.12, -0.18));
 
     let swap = crate::finstack_test_utils::usd_irs_swap(
         InstrumentId::new("HEDGE-SWAP"),
@@ -498,9 +506,18 @@ fn test_structured_credit_full_feature_json_roundtrip() {
     assert_eq!(orig_senior.rating, parsed_senior.rating);
 
     // Behavioral specs and overrides
-    assert_eq!(original.prepayment_spec, parsed.prepayment_spec);
-    assert_eq!(original.default_spec, parsed.default_spec);
-    assert_eq!(original.recovery_spec, parsed.recovery_spec);
+    assert_eq!(
+        original.credit_model.prepayment_spec,
+        parsed.credit_model.prepayment_spec
+    );
+    assert_eq!(
+        original.credit_model.default_spec,
+        parsed.credit_model.default_spec
+    );
+    assert_eq!(
+        original.credit_model.recovery_spec,
+        parsed.credit_model.recovery_spec
+    );
     assert_eq!(
         original.behavior_overrides.cpr_annual,
         parsed.behavior_overrides.cpr_annual
@@ -542,14 +559,17 @@ fn test_structured_credit_full_feature_json_roundtrip() {
 
     // Stochastic specs and correlation
     assert_eq!(
-        original.stochastic_prepay_spec,
-        parsed.stochastic_prepay_spec
+        original.credit_model.stochastic_prepay_spec,
+        parsed.credit_model.stochastic_prepay_spec
     );
     assert_eq!(
-        original.stochastic_default_spec,
-        parsed.stochastic_default_spec
+        original.credit_model.stochastic_default_spec,
+        parsed.credit_model.stochastic_default_spec
     );
-    assert_eq!(original.correlation_structure, parsed.correlation_structure);
+    assert_eq!(
+        original.credit_model.correlation_structure,
+        parsed.credit_model.correlation_structure
+    );
 
     // Hedge swap coverage
     assert_eq!(original.hedge_swaps.len(), parsed.hedge_swaps.len());
@@ -576,7 +596,8 @@ fn test_structured_credit_instrument_envelope_roundtrip() {
                 instrument.tranches.tranches.len()
             );
             assert_eq!(
-                sc.stochastic_default_spec, instrument.stochastic_default_spec,
+                sc.credit_model.stochastic_default_spec,
+                instrument.credit_model.stochastic_default_spec,
                 "Stochastic default spec should survive envelope roundtrip"
             );
         }
@@ -598,9 +619,9 @@ fn test_structured_credit_full_example_json_file_roundtrip() {
             assert!(sc.pool.rep_lines.is_some());
             assert!(sc.behavior_overrides.cpr_annual.is_some());
             assert!(sc.default_assumptions.abs_speed_monthly.is_some());
-            assert!(sc.stochastic_prepay_spec.is_some());
-            assert!(sc.stochastic_default_spec.is_some());
-            assert!(sc.correlation_structure.is_some());
+            assert!(sc.credit_model.stochastic_prepay_spec.is_some());
+            assert!(sc.credit_model.stochastic_default_spec.is_some());
+            assert!(sc.credit_model.correlation_structure.is_some());
             assert_eq!(sc.hedge_swaps.len(), 1);
         }
         other => panic!("Unexpected instrument variant: {:?}", other),

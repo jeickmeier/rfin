@@ -169,12 +169,17 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
         // falling back to calculator's defaults if bond has no overrides
         let bond_config = bond_tree_config(bond);
         let tree_config = ShortRateTreeConfig {
-            steps: if bond.pricing_overrides.tree_steps.is_some() {
+            steps: if bond.pricing_overrides.model_config.tree_steps.is_some() {
                 bond_config.tree_steps
             } else {
                 self.tree_steps
             },
-            volatility: if bond.pricing_overrides.tree_volatility.is_some() {
+            volatility: if bond
+                .pricing_overrides
+                .model_config
+                .tree_volatility
+                .is_some()
+            {
                 bond_config.volatility
             } else {
                 self.volatility

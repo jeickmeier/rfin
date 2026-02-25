@@ -253,8 +253,16 @@ impl Default for TreePricerConfig {
 /// ```
 pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
     TreePricerConfig {
-        tree_steps: bond.pricing_overrides.tree_steps.unwrap_or(100),
-        volatility: bond.pricing_overrides.tree_volatility.unwrap_or(0.01),
+        tree_steps: bond
+            .pricing_overrides
+            .model_config
+            .tree_steps
+            .unwrap_or(100),
+        volatility: bond
+            .pricing_overrides
+            .model_config
+            .tree_volatility
+            .unwrap_or(0.01),
         tolerance: 1e-6,
         max_iterations: 50,
         initial_bracket_size_bp: Some(1000.0),
@@ -736,7 +744,11 @@ impl BondValuator {
         // 3. discount_curve_id with "-CREDIT" suffix
         // This ensures consistency across all credit-aware pricing paths.
         let recovery_rate = Self::resolve_recovery_rate(&bond, market_context);
-        let call_friction_cents = bond.pricing_overrides.call_friction_cents.unwrap_or(0.0);
+        let call_friction_cents = bond
+            .pricing_overrides
+            .model_config
+            .call_friction_cents
+            .unwrap_or(0.0);
 
         Ok(Self {
             bond,

@@ -42,7 +42,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         let market_price = context
             .pricing_overrides
             .as_ref()
-            .and_then(|po| po.quoted_clean_price)
+            .and_then(|po| po.market_quotes.quoted_clean_price)
             .ok_or_else(|| {
                 finstack_core::Error::Input(finstack_core::InputError::NotFound {
                     id: "Market price required for implied vol (set via pricing overrides)"

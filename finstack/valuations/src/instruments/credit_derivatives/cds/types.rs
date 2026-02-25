@@ -716,6 +716,7 @@ impl CreditDefaultSwap {
         // increases seller NPV), matching the economic convention of the dated upfront.
         let upfront_adjustment = self
             .pricing_overrides
+            .market_quotes
             .upfront_payment
             .map(|m| m.amount())
             .unwrap_or(0.0);

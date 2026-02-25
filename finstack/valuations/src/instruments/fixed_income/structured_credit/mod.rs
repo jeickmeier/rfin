@@ -73,6 +73,7 @@ pub mod prelude {
     pub use super::WaterfallTier;
 
     // Behavioral models
+    pub use super::CreditModelConfig;
     pub use super::DefaultModelSpec;
     pub use super::PrepaymentModelSpec;
     pub use super::RecoveryModelSpec;
@@ -118,6 +119,7 @@ pub use types::{
     // Tranche types
     CoverageTrigger,
     CreditEnhancement,
+    CreditModelConfig,
     DealConfig,
     DealDates,
     DealFees,

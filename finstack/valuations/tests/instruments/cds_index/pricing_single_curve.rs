@@ -400,7 +400,7 @@ fn test_single_curve_upfront_payment() {
 
     // Add upfront payment
     let upfront = Money::new(100_000.0, Currency::USD);
-    idx.pricing_overrides.upfront_payment = Some(upfront);
+    idx.pricing_overrides.market_quotes.upfront_payment = Some(upfront);
 
     let npv_with_upfront = idx.value(&ctx, as_of).unwrap();
     let expected = npv_no_upfront.checked_add(upfront).unwrap();

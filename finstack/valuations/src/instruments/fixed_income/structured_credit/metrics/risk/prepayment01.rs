@@ -28,23 +28,23 @@ impl MetricCalculator for Prepayment01Calculator {
 
         // Create bumped prepayment specs
         let prepayment_up = PrepaymentModelSpec {
-            cpr: (instrument.prepayment_spec.cpr + PREPAYMENT_BUMP_CPR).max(0.0),
-            curve: instrument.prepayment_spec.curve.clone(),
+            cpr: (instrument.credit_model.prepayment_spec.cpr + PREPAYMENT_BUMP_CPR).max(0.0),
+            curve: instrument.credit_model.prepayment_spec.curve.clone(),
         };
 
         let prepayment_down = PrepaymentModelSpec {
-            cpr: (instrument.prepayment_spec.cpr - PREPAYMENT_BUMP_CPR).max(0.0),
-            curve: instrument.prepayment_spec.curve.clone(),
+            cpr: (instrument.credit_model.prepayment_spec.cpr - PREPAYMENT_BUMP_CPR).max(0.0),
+            curve: instrument.credit_model.prepayment_spec.curve.clone(),
         };
 
         // Calculate up scenario
         let mut inst_up = instrument.clone();
-        inst_up.prepayment_spec = prepayment_up;
+        inst_up.credit_model.prepayment_spec = prepayment_up;
         let pv_up = inst_up.price(context.curves.as_ref(), as_of)?.amount();
 
         // Calculate down scenario
         let mut inst_down = instrument.clone();
-        inst_down.prepayment_spec = prepayment_down;
+        inst_down.credit_model.prepayment_spec = prepayment_down;
         let pv_down = inst_down.price(context.curves.as_ref(), as_of)?.amount();
 
         // Prepayment01 = (PV_up - PV_down) / (2 * bump_size)

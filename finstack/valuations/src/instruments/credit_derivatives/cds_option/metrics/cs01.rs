@@ -162,7 +162,7 @@ mod tests {
         )
         .expect("Valid CDS option");
         // Set implied vol override since we don't have a vol surface
-        option.pricing_overrides.implied_volatility = Some(0.30);
+        option.pricing_overrides.market_quotes.implied_volatility = Some(0.30);
 
         // Get base value
         let base_value = option

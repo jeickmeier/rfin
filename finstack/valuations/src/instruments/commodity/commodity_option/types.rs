@@ -168,7 +168,8 @@ impl CommodityOption {
         let r = disc.zero(t_rate.max(0.0));
         let t = self.time_to_expiry(as_of)?;
 
-        let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+        let sigma = if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility
+        {
             impl_vol
         } else {
             let surface = market.surface(self.vol_surface_id.as_str())?;
@@ -386,7 +387,11 @@ impl Instrument for CommodityOption {
                 // specific dates only. The difference can be material for options with
                 // infrequent exercise windows. A proper Bermudan implementation would
                 // restrict early exercise in the binomial tree to the specified dates.
-                let steps = self.pricing_overrides.tree_steps.unwrap_or(201);
+                let steps = self
+                    .pricing_overrides
+                    .model_config
+                    .tree_steps
+                    .unwrap_or(201);
                 let tree = BinomialTree::leisen_reimer_odd(steps);
                 let params = OptionMarketParams {
                     spot: inputs.spot,
@@ -453,7 +458,8 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for CommodityO
             return Ok(intrinsic * self.quantity * self.multiplier);
         }
 
-        let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+        let sigma = if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility
+        {
             impl_vol
         } else {
             let surface = market.surface(self.vol_surface_id.as_str())?;
@@ -490,7 +496,8 @@ impl crate::instruments::common_impl::traits::OptionVegaProvider for CommodityOp
             return Ok(0.0);
         }
 
-        let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+        let sigma = if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility
+        {
             impl_vol
         } else {
             let surface = market.surface(self.vol_surface_id.as_str())?;

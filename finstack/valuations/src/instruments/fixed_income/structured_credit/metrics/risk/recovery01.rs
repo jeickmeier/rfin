@@ -22,23 +22,23 @@ impl MetricCalculator for Recovery01Calculator {
 
         // Get current recovery spec and create bumped versions
         let recovery_up = RecoveryModelSpec {
-            rate: (instrument.recovery_spec.rate + RECOVERY_BUMP).clamp(0.0, 1.0),
-            recovery_lag: instrument.recovery_spec.recovery_lag,
+            rate: (instrument.credit_model.recovery_spec.rate + RECOVERY_BUMP).clamp(0.0, 1.0),
+            recovery_lag: instrument.credit_model.recovery_spec.recovery_lag,
         };
 
         let recovery_down = RecoveryModelSpec {
-            rate: (instrument.recovery_spec.rate - RECOVERY_BUMP).clamp(0.0, 1.0),
-            recovery_lag: instrument.recovery_spec.recovery_lag,
+            rate: (instrument.credit_model.recovery_spec.rate - RECOVERY_BUMP).clamp(0.0, 1.0),
+            recovery_lag: instrument.credit_model.recovery_spec.recovery_lag,
         };
 
         // Calculate up scenario
         let mut inst_up = instrument.clone();
-        inst_up.recovery_spec = recovery_up;
+        inst_up.credit_model.recovery_spec = recovery_up;
         let pv_up = inst_up.price(context.curves.as_ref(), as_of)?.amount();
 
         // Calculate down scenario
         let mut inst_down = instrument.clone();
-        inst_down.recovery_spec = recovery_down;
+        inst_down.credit_model.recovery_spec = recovery_down;
         let pv_down = inst_down.price(context.curves.as_ref(), as_of)?.amount();
 
         // RECOVERY01 = (PV_up - PV_down) / (2 * bump)

@@ -74,10 +74,13 @@ fn test_clo_default_prepayment_model() {
     );
 
     // Assert: CLO should use constant CPR
-    assert_eq!(clo.prepayment_spec.cpr, 0.15); // 15% CPR standard
+    assert_eq!(clo.credit_model.prepayment_spec.cpr, 0.15); // 15% CPR standard
     assert!(
-        clo.prepayment_spec.curve.is_none()
-            || matches!(clo.prepayment_spec.curve, Some(PrepaymentCurve::Constant))
+        clo.credit_model.prepayment_spec.curve.is_none()
+            || matches!(
+                clo.credit_model.prepayment_spec.curve,
+                Some(PrepaymentCurve::Constant)
+            )
     );
 }
 
@@ -170,8 +173,8 @@ fn test_rmbs_default_prepayment_model() {
     );
 
     // Assert: RMBS should use PSA model
-    assert_eq!(rmbs.prepayment_spec.cpr, 0.06); // 100% PSA terminal = 6% CPR
-    match rmbs.prepayment_spec.curve {
+    assert_eq!(rmbs.credit_model.prepayment_spec.cpr, 0.06); // 100% PSA terminal = 6% CPR
+    match rmbs.credit_model.prepayment_spec.curve {
         Some(PrepaymentCurve::Psa { speed_multiplier }) => {
             assert_eq!(speed_multiplier, 1.0); // 100% PSA
         }

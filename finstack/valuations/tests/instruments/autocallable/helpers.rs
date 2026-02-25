@@ -101,10 +101,9 @@ pub fn create_quarterly_autocallable(
         spot_id: SPOT_ID.into(),
         vol_surface_id: CurveId::new(VOL_ID),
         div_yield_id: Some(CurveId::new(DIV_ID)),
-        pricing_overrides: PricingOverrides {
-            mc_seed_scenario: seed_scenario.map(String::from),
-            ..PricingOverrides::default()
-        },
+        pricing_overrides: seed_scenario
+            .map(|s| PricingOverrides::default().with_mc_seed_scenario(s))
+            .unwrap_or_default(),
         attributes: Attributes::new(),
     }
 }

@@ -821,10 +821,7 @@ mod tests {
         approx_eq(implied, 0.30, 1e-5);
 
         let mut override_option = base_option(expiry);
-        let overrides = PricingOverrides {
-            implied_volatility: Some(0.45),
-            ..Default::default()
-        };
+        let overrides = PricingOverrides::default().with_implied_vol(0.45);
         override_option.pricing_overrides = overrides;
         let override_price = override_option
             .value(&curves, as_of)

@@ -112,13 +112,18 @@ impl<'de> serde::Deserialize<'de> for Bond {
         let helper = BondHelper::deserialize(deserializer)?;
         let issue_date = if let Some(issue) = helper.issue_date {
             issue
-        } else if helper.pricing_overrides.quoted_clean_price.is_some() {
+        } else if helper
+            .pricing_overrides
+            .market_quotes
+            .quoted_clean_price
+            .is_some()
+        {
             // For seasoned bond inputs sourced from clean-price datasets, allow
             // missing issue date and use a conservative synthetic anchor.
             helper.maturity - time::Duration::days(1)
         } else {
             return Err(serde::de::Error::custom(
-                "Bond requires `issue_date` unless `pricing_overrides.quoted_clean_price` is provided",
+                "Bond requires `issue_date` unless `pricing_overrides.market_quotes.quoted_clean_price` is provided",
             ));
         };
 
@@ -1201,7 +1206,10 @@ mod tests {
         // Verify bond properties
         assert_eq!(bond.id.as_str(), "CUSTOM_STEPUP_BOND");
         assert_eq!(bond.discount_curve_id.as_str(), "USD-OIS");
-        assert_eq!(bond.pricing_overrides.quoted_clean_price, Some(98.5));
+        assert_eq!(
+            bond.pricing_overrides.market_quotes.quoted_clean_price,
+            Some(98.5)
+        );
         assert_eq!(bond.issue_date, issue);
         assert_eq!(bond.maturity, maturity);
         assert!(bond.custom_cashflows.is_some());
@@ -1278,7 +1286,10 @@ mod tests {
 
         assert_eq!(bond.id.as_str(), "PIK_TOGGLE_BOND");
         assert_eq!(bond.discount_curve_id.as_str(), "USD-OIS");
-        assert_eq!(bond.pricing_overrides.quoted_clean_price, Some(99.0));
+        assert_eq!(
+            bond.pricing_overrides.market_quotes.quoted_clean_price,
+            Some(99.0)
+        );
         assert!(bond.custom_cashflows.is_some());
         assert_eq!(bond.notional.currency(), Currency::USD);
     }

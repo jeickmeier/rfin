@@ -294,7 +294,11 @@ impl TermLoanValuator {
             }
         };
 
-        let call_friction_cents = loan.pricing_overrides.call_friction_cents.unwrap_or(0.0);
+        let call_friction_cents = loan
+            .pricing_overrides
+            .model_config
+            .call_friction_cents
+            .unwrap_or(0.0);
 
         Ok(Self {
             loan,
@@ -441,10 +445,12 @@ impl TermLoanTreePricer {
         let cfg = TermLoanTreePricerConfig {
             tree_steps: loan
                 .pricing_overrides
+                .model_config
                 .tree_steps
                 .unwrap_or(self.config.tree_steps),
             volatility: loan
                 .pricing_overrides
+                .model_config
                 .tree_volatility
                 .unwrap_or(self.config.volatility),
             tolerance: self.config.tolerance,
@@ -545,10 +551,12 @@ impl TermLoanTreePricer {
         let cfg = TermLoanTreePricerConfig {
             tree_steps: loan
                 .pricing_overrides
+                .model_config
                 .tree_steps
                 .unwrap_or(self.config.tree_steps),
             volatility: loan
                 .pricing_overrides
+                .model_config
                 .tree_volatility
                 .unwrap_or(self.config.volatility),
             tolerance: self.config.tolerance,

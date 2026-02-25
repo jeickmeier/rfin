@@ -212,7 +212,7 @@ pub trait HasPricingOverrides {
     ///
     /// // Set deterministic MC seed for greek calculation
     /// # let instrument: &mut dyn HasPricingOverrides = todo!("a Monte Carlo priced instrument");
-    /// instrument.pricing_overrides_mut().mc_seed_scenario = Some("delta_up".to_string());
+    /// instrument.pricing_overrides_mut().scenario.mc_seed_scenario = Some("delta_up".to_string());
     /// ```
     fn pricing_overrides_mut(&mut self) -> &mut crate::instruments::PricingOverrides;
 }
@@ -319,10 +319,14 @@ where
         let mut instrument_down = instrument.clone();
 
         // Common Random Numbers: same seed for all scenarios ensures variance reduction
-        instrument_up.pricing_overrides_mut().mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
-        instrument_down.pricing_overrides_mut().mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        instrument_up
+            .pricing_overrides_mut()
+            .scenario
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+        instrument_down
+            .pricing_overrides_mut()
+            .scenario
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
 
         // Bump spot up
         let curves_up = bump_scalar_price(&context.curves, spot_id, bump_pct)?;
@@ -406,21 +410,27 @@ where
 
         // Clone instruments and set CRN seed for variance reduction
         let mut instrument_base = instrument.clone();
-        instrument_base.pricing_overrides_mut().mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        instrument_base
+            .pricing_overrides_mut()
+            .scenario
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let base_pv = instrument_base.value_raw(&context.curves, as_of)?;
 
         let mut instrument_up = instrument.clone();
-        instrument_up.pricing_overrides_mut().mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        instrument_up
+            .pricing_overrides_mut()
+            .scenario
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let pv_up = instrument_up.value_raw(
             &bump_scalar_price(&context.curves, spot_id, bump_pct)?,
             as_of,
         )?;
 
         let mut instrument_down = instrument.clone();
-        instrument_down.pricing_overrides_mut().mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        instrument_down
+            .pricing_overrides_mut()
+            .scenario
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let pv_down = instrument_down.value_raw(
             &bump_scalar_price(&context.curves, spot_id, -bump_pct)?,
             as_of,
@@ -482,8 +492,10 @@ where
 
         // Clone instruments and set CRN seed for variance reduction
         let mut instrument_base = instrument.clone();
-        instrument_base.pricing_overrides_mut().mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        instrument_base
+            .pricing_overrides_mut()
+            .scenario
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let base_pv = instrument_base.value_raw(&context.curves, as_of)?;
 
         // Fixed bump size from `FinstackConfig` (user-facing, reproducible).
@@ -491,7 +503,8 @@ where
         let bump_abs = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
-        inst_up.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+        inst_up.pricing_overrides_mut().scenario.mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
 
         let curves_up =
             bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), bump_abs)?;
@@ -551,17 +564,21 @@ where
 
         // Clone instruments and set CRN seed for variance reduction
         let mut instrument_base = instrument.clone();
-        instrument_base.pricing_overrides_mut().mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        instrument_base
+            .pricing_overrides_mut()
+            .scenario
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let base_pv = instrument_base.value_raw(&context.curves, as_of)?;
 
         // Absolute implied vol bump (vol points).
         let bump_abs = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
-        inst_up.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+        inst_up.pricing_overrides_mut().scenario.mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_down = instrument.clone();
-        inst_down.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+        inst_down.pricing_overrides_mut().scenario.mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
 
         let curves_up =
             bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), bump_abs)?;
@@ -648,7 +665,8 @@ where
         // Prepare evaluators for four combinations using CRN for variance reduction
         let su_vu = {
             let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+            inst.pricing_overrides_mut().scenario.mc_seed_scenario =
+                Some(CRN_SEED_SCENARIO.to_string());
             let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, spot_bump_pct)?,
                 vol_surface_id.as_str(),
@@ -659,7 +677,8 @@ where
 
         let su_vd = {
             let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+            inst.pricing_overrides_mut().scenario.mc_seed_scenario =
+                Some(CRN_SEED_SCENARIO.to_string());
             let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, spot_bump_pct)?,
                 vol_surface_id.as_str(),
@@ -670,7 +689,8 @@ where
 
         let sd_vu = {
             let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+            inst.pricing_overrides_mut().scenario.mc_seed_scenario =
+                Some(CRN_SEED_SCENARIO.to_string());
             let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, -spot_bump_pct)?,
                 vol_surface_id.as_str(),
@@ -681,7 +701,8 @@ where
 
         let sd_vd = {
             let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+            inst.pricing_overrides_mut().scenario.mc_seed_scenario =
+                Some(CRN_SEED_SCENARIO.to_string());
             let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, -spot_bump_pct)?,
                 vol_surface_id.as_str(),

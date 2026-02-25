@@ -367,7 +367,10 @@ fn test_quantlib_iv_round_trip_atm() {
     let pv = option.value(&market, as_of).unwrap().amount();
 
     let mut option_solve = option.clone();
-    option_solve.pricing_overrides.implied_volatility = None;
+    option_solve
+        .pricing_overrides
+        .market_quotes
+        .implied_volatility = None;
     let solved_iv = option_solve.implied_vol(&market, as_of, pv, None).unwrap();
 
     assert_approx_eq(solved_iv, target_vol, 1e-6, "IV round-trip ATM");
@@ -392,7 +395,10 @@ fn test_quantlib_iv_round_trip_moneyness() {
         let pv = option.value(&market, as_of).unwrap().amount();
 
         let mut option_solve = option.clone();
-        option_solve.pricing_overrides.implied_volatility = None;
+        option_solve
+            .pricing_overrides
+            .market_quotes
+            .implied_volatility = None;
         let solved_iv = option_solve.implied_vol(&market, as_of, pv, None).unwrap();
 
         let tolerance = if !(150.0..=250.0).contains(&strike) {
@@ -430,7 +436,10 @@ fn test_quantlib_iv_convergence_from_different_guesses() {
     let mut results = Vec::new();
     for guess in [0.10, 0.25, 0.50, 0.75] {
         let mut option_solve = option.clone();
-        option_solve.pricing_overrides.implied_volatility = None;
+        option_solve
+            .pricing_overrides
+            .market_quotes
+            .implied_volatility = None;
         let solved = option_solve
             .implied_vol(&market, as_of, pv, Some(guess))
             .unwrap();

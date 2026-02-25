@@ -291,8 +291,14 @@ mod tests {
             .build()
             .expect("should succeed");
 
-        assert_eq!(bond.pricing_overrides.quoted_clean_price, Some(98.5));
-        assert_eq!(bond.pricing_overrides.ytm_bump_decimal, Some(1e-4));
+        assert_eq!(
+            bond.pricing_overrides.market_quotes.quoted_clean_price,
+            Some(98.5)
+        );
+        assert_eq!(
+            bond.pricing_overrides.bump_config.ytm_bump_decimal,
+            Some(1e-4)
+        );
     }
 
     #[test]
@@ -618,7 +624,10 @@ mod tests {
             .build()
             .expect("should succeed");
 
-        assert_eq!(premium.pricing_overrides.quoted_clean_price, Some(105.0));
+        assert_eq!(
+            premium.pricing_overrides.market_quotes.quoted_clean_price,
+            Some(105.0)
+        );
 
         // Discount bond (price < 100)
         let discount = Bond::builder()
@@ -637,7 +646,10 @@ mod tests {
             .build()
             .expect("should succeed");
 
-        assert_eq!(discount.pricing_overrides.quoted_clean_price, Some(95.0));
+        assert_eq!(
+            discount.pricing_overrides.market_quotes.quoted_clean_price,
+            Some(95.0)
+        );
 
         // Par bond (price = 100)
         let par = Bond::builder()
@@ -656,7 +668,10 @@ mod tests {
             .build()
             .expect("should succeed");
 
-        assert_eq!(par.pricing_overrides.quoted_clean_price, Some(100.0));
+        assert_eq!(
+            par.pricing_overrides.market_quotes.quoted_clean_price,
+            Some(100.0)
+        );
     }
 }
 

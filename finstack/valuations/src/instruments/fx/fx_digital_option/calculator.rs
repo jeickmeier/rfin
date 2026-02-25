@@ -152,7 +152,8 @@ impl FxDigitalOptionCalculator {
             .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
             .rate;
 
-        let sigma = if let Some(impl_vol) = inst.pricing_overrides.implied_volatility {
+        let sigma = if let Some(impl_vol) = inst.pricing_overrides.market_quotes.implied_volatility
+        {
             impl_vol
         } else {
             let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;

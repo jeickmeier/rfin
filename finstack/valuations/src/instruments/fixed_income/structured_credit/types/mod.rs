@@ -201,6 +201,69 @@ pub struct Overrides {
 }
 
 // ============================================================================
+// CREDIT MODEL CONFIGURATION
+// ============================================================================
+
+/// Configuration for deterministic + optional stochastic credit behavior models.
+///
+/// This groups the "credit model" knobs that were previously exposed as many
+/// top-level fields on [`StructuredCredit`]. The struct is intended to be
+/// embedded via `#[serde(flatten)]` to preserve the existing JSON shape.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreditModelConfig {
+    /// Prepayment model specification.
+    #[serde(default = "CreditModelConfig::default_prepayment_spec")]
+    pub prepayment_spec: PrepaymentModelSpec,
+
+    /// Default model specification.
+    #[serde(default = "CreditModelConfig::default_default_spec")]
+    pub default_spec: DefaultModelSpec,
+
+    /// Recovery model specification.
+    #[serde(default = "CreditModelConfig::default_recovery_spec")]
+    pub recovery_spec: RecoveryModelSpec,
+
+    /// Optional stochastic prepayment model specification.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stochastic_prepay_spec: Option<StochasticPrepaySpec>,
+
+    /// Optional stochastic default model specification.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stochastic_default_spec: Option<StochasticDefaultSpec>,
+
+    /// Optional correlation structure for stochastic modeling.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correlation_structure: Option<CorrelationStructure>,
+}
+
+impl Default for CreditModelConfig {
+    fn default() -> Self {
+        Self {
+            prepayment_spec: Self::default_prepayment_spec(),
+            default_spec: Self::default_default_spec(),
+            recovery_spec: Self::default_recovery_spec(),
+            stochastic_prepay_spec: None,
+            stochastic_default_spec: None,
+            correlation_structure: None,
+        }
+    }
+}
+
+impl CreditModelConfig {
+    fn default_prepayment_spec() -> PrepaymentModelSpec {
+        PrepaymentModelSpec::constant_cpr(0.10)
+    }
+
+    fn default_default_spec() -> DefaultModelSpec {
+        DefaultModelSpec::constant_cdr(0.02)
+    }
+
+    fn default_recovery_spec() -> RecoveryModelSpec {
+        RecoveryModelSpec::with_lag(0.40, 12)
+    }
+}
+
+// ============================================================================
 // STRUCTURED CREDIT INSTRUMENT
 // ============================================================================
 
@@ -231,6 +294,7 @@ pub struct StructuredCredit {
     /// End of reinvestment period (if applicable).
     pub reinvestment_end_date: Option<Date>,
     /// Legal final maturity date.
+    #[serde(alias = "legal_maturity")]
     pub maturity: Date,
 
     /// Payment frequency for the structure.
@@ -258,17 +322,12 @@ pub struct StructuredCredit {
     /// Attributes for scenario selection.
     pub attributes: Attributes,
 
-    /// Prepayment model specification.
-    #[serde(default = "StructuredCredit::default_prepayment_spec")]
-    pub prepayment_spec: PrepaymentModelSpec,
-
-    /// Default model specification.
-    #[serde(default = "StructuredCredit::default_default_spec")]
-    pub default_spec: DefaultModelSpec,
-
-    /// Recovery model specification.
-    #[serde(default = "StructuredCredit::default_recovery_spec")]
-    pub recovery_spec: RecoveryModelSpec,
+    /// Credit model configuration (prepayment/default/recovery + optional stochastic specs).
+    ///
+    /// Serialized keys are flattened for backward-compatible JSON.
+    #[builder(default)]
+    #[serde(default, flatten)]
+    pub credit_model: CreditModelConfig,
 
     /// Market conditions impacting behavior.
     pub market_conditions: MarketConditions,
@@ -287,18 +346,6 @@ pub struct StructuredCredit {
     /// Default behavioral assumptions for the deal.
     #[serde(default)]
     pub default_assumptions: DefaultAssumptions,
-
-    /// Optional stochastic prepayment model specification.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stochastic_prepay_spec: Option<StochasticPrepaySpec>,
-
-    /// Optional stochastic default model specification.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stochastic_default_spec: Option<StochasticDefaultSpec>,
-
-    /// Optional correlation structure for stochastic modeling.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub correlation_structure: Option<CorrelationStructure>,
 
     /// Interest rate swaps used to hedge basis or interest rate risk.
     #[serde(default)]
@@ -421,7 +468,10 @@ impl StructuredCredit {
         if let Some(override_rate) = self.prepayment_rate_override(pay_date, seasoning_months) {
             return override_rate;
         }
-        self.prepayment_spec.smm(seasoning_months).max(0.0)
+        self.credit_model
+            .prepayment_spec
+            .smm(seasoning_months)
+            .max(0.0)
     }
 
     /// Calculate default rate (MDR) for a given period.
@@ -429,7 +479,10 @@ impl StructuredCredit {
         if let Some(override_rate) = self.default_rate_override(pay_date, seasoning_months) {
             return override_rate;
         }
-        self.default_spec.mdr(seasoning_months).max(0.0)
+        self.credit_model
+            .default_spec
+            .mdr(seasoning_months)
+            .max(0.0)
     }
 
     /// Stochastic pricing convenience that defaults to the tree-based engine.
@@ -550,24 +603,31 @@ impl StructuredCredit {
         CorrelationStructure,
     ) {
         let prepay = self
+            .credit_model
             .stochastic_prepay_spec
             .clone()
-            .unwrap_or_else(|| StochasticPrepaySpec::deterministic(self.prepayment_spec.clone()));
+            .unwrap_or_else(|| {
+                StochasticPrepaySpec::deterministic(self.credit_model.prepayment_spec.clone())
+            });
 
         let default = self
+            .credit_model
             .stochastic_default_spec
             .clone()
-            .unwrap_or_else(|| StochasticDefaultSpec::deterministic(self.default_spec.clone()));
+            .unwrap_or_else(|| {
+                StochasticDefaultSpec::deterministic(self.credit_model.default_spec.clone())
+            });
 
-        let correlation =
-            self.correlation_structure
-                .clone()
-                .unwrap_or_else(|| match self.deal_type {
-                    DealType::RMBS => CorrelationStructure::rmbs_standard(),
-                    DealType::CLO | DealType::CBO => CorrelationStructure::clo_standard(),
-                    DealType::CMBS => CorrelationStructure::cmbs_standard(),
-                    _ => CorrelationStructure::abs_auto_standard(),
-                });
+        let correlation = self
+            .credit_model
+            .correlation_structure
+            .clone()
+            .unwrap_or_else(|| match self.deal_type {
+                DealType::RMBS => CorrelationStructure::rmbs_standard(),
+                DealType::CLO | DealType::CBO => CorrelationStructure::clo_standard(),
+                DealType::CMBS => CorrelationStructure::cmbs_standard(),
+                _ => CorrelationStructure::abs_auto_standard(),
+            });
 
         (prepay, default, correlation)
     }
@@ -695,18 +755,6 @@ impl StructuredCredit {
         }
 
         None
-    }
-
-    fn default_prepayment_spec() -> PrepaymentModelSpec {
-        PrepaymentModelSpec::constant_cpr(0.10)
-    }
-
-    fn default_default_spec() -> DefaultModelSpec {
-        DefaultModelSpec::constant_cdr(0.02)
-    }
-
-    fn default_recovery_spec() -> RecoveryModelSpec {
-        RecoveryModelSpec::with_lag(0.40, 12)
     }
 }
 

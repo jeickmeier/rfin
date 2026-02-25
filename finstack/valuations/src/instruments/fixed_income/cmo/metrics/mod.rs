@@ -16,11 +16,15 @@ pub struct OasCalculator;
 impl MetricCalculator for OasCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let cmo: &AgencyCmo = context.instrument_as()?;
-        let market_price = cmo.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "cmo.pricing_overrides.quoted_clean_price".to_string(),
-            })
-        })?;
+        let market_price = cmo
+            .pricing_overrides
+            .market_quotes
+            .quoted_clean_price
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
+                    id: "cmo.pricing_overrides.quoted_clean_price".to_string(),
+                })
+            })?;
         let result =
             calculate_tranche_oas(cmo, market_price, context.curves.as_ref(), context.as_of)?;
         Ok(result.oas)
