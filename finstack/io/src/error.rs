@@ -36,7 +36,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// - **I/O** — `Io`: filesystem errors (e.g., cannot create directory for database file).
 /// - **Domain** — `Core`, `Portfolio`, `Statements`, `Scenarios`: errors
 ///   propagated from Finstack domain crates during hydration or conversion.
-/// - **Application** — `NotFound`, `PermissionDenied`, `UnsupportedSchema`,
+/// - **Application** — `NotFound`, `UnsupportedSchema`,
 ///   `Invariant`, `InvalidSeriesKind`: semantic errors raised by this crate's
 ///   business logic.
 #[derive(Debug, Clone, Error)]
@@ -113,17 +113,6 @@ pub enum Error {
         entity: &'static str,
         /// Identifier.
         id: String,
-    },
-
-    /// Permission denied for an action.
-    #[error("Permission denied: {action} on {resource_type} '{resource_id}'")]
-    PermissionDenied {
-        /// Action attempted.
-        action: &'static str,
-        /// Resource type.
-        resource_type: String,
-        /// Resource id or identifier.
-        resource_id: String,
     },
 
     /// Storage schema version mismatch.

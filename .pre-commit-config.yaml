@@ -97,25 +97,6 @@ repos:
         pass_filenames: false
 
   # ============================================
-  # TypeScript/JavaScript (UI)
-  # ============================================
-  - repo: local
-    hooks:
-      - id: ui-format
-        name: UI format (prettier)
-        entry: bash -c 'cd finstack-ui && npm run format:fix .'
-        language: system
-        files: ^finstack-ui/.*\.(ts|tsx|js|jsx)$
-        pass_filenames: false
-
-      - id: ui-lint
-        name: UI lint (eslint)
-        entry: bash -c 'cd finstack-ui && npm run lint'
-        language: system
-        files: ^finstack-ui/.*\.(ts|tsx|js|jsx)$
-        pass_filenames: false
-
-  # ============================================
   # Markdown
   # ============================================
   - repo: https://github.com/igorshubovych/markdownlint-cli

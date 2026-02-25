@@ -7,7 +7,6 @@
 #   --rust-only     Format only Rust code
 #   --python-only   Format only Python code
 #   --wasm-only     Format only WASM/TS code
-#   --ui-only       Format only UI/TS code
 #   --markdown-only Format only Markdown files
 #   --verbose       Show detailed output
 #   --help          Show this help message
@@ -19,7 +18,6 @@ CHECK_ONLY=false
 RUST_ONLY=false
 PYTHON_ONLY=false
 WASM_ONLY=false
-UI_ONLY=false
 MARKDOWN_ONLY=false
 VERBOSE=false
 
@@ -66,10 +64,6 @@ while [[ $# -gt 0 ]]; do
             WASM_ONLY=true
             shift
             ;;
-        --ui-only)
-            UI_ONLY=true
-            shift
-            ;;
         --markdown-only)
             MARKDOWN_ONLY=true
             shift
@@ -88,7 +82,6 @@ while [[ $# -gt 0 ]]; do
             echo "  --rust-only     Format only Rust code"
             echo "  --python-only   Format only Python code"
             echo "  --wasm-only     Format only WASM/TS code"
-            echo "  --ui-only       Format only UI/TS code"
             echo "  --markdown-only Format only Markdown files"
             echo "  --verbose       Show detailed output"
             echo "  --help          Show this help message"
@@ -163,7 +156,6 @@ main() {
         echo "RUST_ONLY: $RUST_ONLY"
         echo "PYTHON_ONLY: $PYTHON_ONLY"
         echo "WASM_ONLY: $WASM_ONLY"
-        echo "UI_ONLY: $UI_ONLY"
         echo "MARKDOWN_ONLY: $MARKDOWN_ONLY"
     fi
 
@@ -184,7 +176,7 @@ main() {
     fi
 
     # Format Rust code
-    if [[ "$RUST_ONLY" == "true" || ($PYTHON_ONLY == "false" && $WASM_ONLY == "false" && $UI_ONLY == "false" && $MARKDOWN_ONLY == "false") ]]; then
+    if [[ "$RUST_ONLY" == "true" || ($PYTHON_ONLY == "false" && $WASM_ONLY == "false" && $MARKDOWN_ONLY == "false") ]]; then
         if [[ "$CHECK_ONLY" == "true" ]]; then
             run_formatter "Rust formatting" \
                 "cargo fmt --all -- --check" \
@@ -204,7 +196,7 @@ main() {
     fi
 
     # Format Python code
-    if [[ "$PYTHON_ONLY" == "true" || ($RUST_ONLY == "false" && $WASM_ONLY == "false" && $UI_ONLY == "false" && $MARKDOWN_ONLY == "false") ]]; then
+    if [[ "$PYTHON_ONLY" == "true" || ($RUST_ONLY == "false" && $WASM_ONLY == "false" && $MARKDOWN_ONLY == "false") ]]; then
         run_formatter "Python formatting" \
             "uv run ruff format . --check" \
             "uv run ruff format ." \
@@ -217,7 +209,7 @@ main() {
     fi
 
     # Format WASM/TS code
-    if [[ "$WASM_ONLY" == "true" || ($RUST_ONLY == "false" && $PYTHON_ONLY == "false" && $UI_ONLY == "false" && $MARKDOWN_ONLY == "false") ]]; then
+    if [[ "$WASM_ONLY" == "true" || ($RUST_ONLY == "false" && $PYTHON_ONLY == "false" && $MARKDOWN_ONLY == "false") ]]; then
         if [[ ! -d "finstack-wasm" ]]; then
             print_error "finstack-wasm directory not found"
             exit 1
@@ -240,32 +232,8 @@ main() {
             "finstack-wasm"
     fi
 
-    # Format UI/TS code
-    if [[ "$UI_ONLY" == "true" || ($RUST_ONLY == "false" && $PYTHON_ONLY == "false" && $WASM_ONLY == "false" && $MARKDOWN_ONLY == "false") ]]; then
-        if [[ ! -d "finstack-ui" ]]; then
-            print_error "finstack-ui directory not found"
-            exit 1
-        fi
-
-        # Install dependencies if needed
-        if [[ ! -d "finstack-ui/node_modules" ]]; then
-            print_status "Installing UI dependencies..."
-            cd finstack-ui && npm ci && cd ..
-        fi
-
-        run_formatter "UI/TS formatting" \
-            "npm run format" \
-            "npm run format:fix" \
-            "finstack-ui"
-
-        run_formatter "UI/TS linting" \
-            "npm run lint" \
-            "npm run lint:fix || true" \
-            "finstack-ui"
-    fi
-
     # Format Markdown files
-    if [[ "$MARKDOWN_ONLY" == "true" || ($RUST_ONLY == "false" && $PYTHON_ONLY == "false" && $WASM_ONLY == "false" && $UI_ONLY == "false") ]]; then
+    if [[ "$MARKDOWN_ONLY" == "true" || ($RUST_ONLY == "false" && $PYTHON_ONLY == "false" && $WASM_ONLY == "false") ]]; then
         # Install markdownlint if needed
         if ! command_exists npx; then
             print_error "npx not found. Please install Node.js."

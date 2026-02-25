@@ -69,15 +69,11 @@ jobs:
           uv pip install pre-commit
           make python-dev
 
-      - name: Setup WASM & Build (Required for UI)
+      - name: Setup WASM & Build
         run: |
           cd finstack-wasm && npm ci
           cd ..
           make wasm-build
-
-      - name: Setup UI Environment
-        run: |
-          cd finstack-ui && npm ci
 
       - name: Run Pre-commit Checks (Lint/Format)
         run: |

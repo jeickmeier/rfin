@@ -28,7 +28,7 @@ use super::{
 };
 
 /// Latest schema version.
-pub const LATEST_VERSION: i64 = 4;
+pub const LATEST_VERSION: i64 = 3;
 
 fn build_sql(backend: Backend, stmt: impl SchemaStatementBuilder) -> String {
     match backend {

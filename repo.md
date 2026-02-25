@@ -15,7 +15,6 @@
 - `finstack/io` IO/interop (placeholder crate in this snapshot).
 - `finstack-py/` Python bindings (PyO3) and tests; package name `finstack`.
 - `finstack-wasm/` WASM bindings (wasm‑bindgen), TS types, examples.
-- `finstack-ui/` UI kit (React) that can consume `finstack-wasm`.
 - `docs/` technical and UI kit design docs; golden values and top‑level resources under `finstack/valuations/tests/integration/golden/`.
 - Top‑level: `Cargo.toml` (workspace), `Makefile`, `README.md`, `CHANGELOG.md`, `MIGRATION_GUIDE.md`, `deny.toml`.
 
@@ -60,11 +59,6 @@
   - Build: `make wasm-build` (wasm-pack web target).
   - Lint/Format: `make lint-wasm` / `make lint-wasm-fix` / `make fmt-wasm`.
   - Tests: `make test-wasm` (headless browser via wasm-pack).
-- UI (`finstack-ui`)
-  - Build: `npm run build` in `finstack-ui`.
-  - Lint/Format: `make lint-ui` / `make fmt-ui`.
-  - Tests: `make test-ui`, coverage: `make test-ui-coverage`.
-
 **Profiles & Performance**
 
 - `release` optimized for speed (LTO thin, symbols stripped).
@@ -93,8 +87,8 @@
 
 **Useful Commands**
 
-- Lint everything: `make lint` (Rust, Python, WASM, UI).
-- Run full local test suite: `make test` (Rust + doc + Python + WASM + UI).
+- Lint everything: `make lint` (Rust, Python, WASM).
+- Run full local test suite: `make test` (Rust + doc + Python + WASM).
 - Generate docs: `make doc` (rustdoc; workspace crates only, no deps).
 - Generate Python stubs: `make stubs`.
 

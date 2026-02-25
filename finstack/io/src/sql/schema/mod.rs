@@ -18,7 +18,6 @@
 //!     .with_override("instruments", "my_custom_instruments_table");
 //! ```
 
-mod governance;
 mod instruments;
 mod market_contexts;
 mod metric_registries;
@@ -36,12 +35,6 @@ use sea_query::{Alias, ColumnDef, Expr, Iden, IndexCreateStatement, TableCreateS
 use crate::sql::Backend;
 
 // Re-export table enums for use in statements
-#[allow(unused_imports)]
-pub use governance::{
-    AuthGroups, AuthRoles, AuthUserGroups, AuthUserRoles, AuthUsers, ResourceChanges,
-    ResourceEntities, ResourceShares, WorkflowBindings, WorkflowEvents, WorkflowPolicies,
-    WorkflowStates, WorkflowTransitions,
-};
 pub use instruments::Instruments;
 pub use market_contexts::MarketContexts;
 pub use metric_registries::MetricRegistries;
@@ -248,25 +241,6 @@ pub fn tables_by_version_with_naming(
                 series_points::SeriesPoints::create_table_with_naming(backend, naming),
             ],
         ),
-        // v4: governance + workflow tables
-        (
-            4,
-            vec![
-                governance::AuthUsers::create_table_with_naming(backend, naming),
-                governance::AuthRoles::create_table_with_naming(backend, naming),
-                governance::AuthGroups::create_table_with_naming(backend, naming),
-                governance::AuthUserRoles::create_table_with_naming(backend, naming),
-                governance::AuthUserGroups::create_table_with_naming(backend, naming),
-                governance::ResourceEntities::create_table_with_naming(backend, naming),
-                governance::ResourceShares::create_table_with_naming(backend, naming),
-                governance::WorkflowPolicies::create_table_with_naming(backend, naming),
-                governance::WorkflowStates::create_table_with_naming(backend, naming),
-                governance::WorkflowTransitions::create_table_with_naming(backend, naming),
-                governance::WorkflowBindings::create_table_with_naming(backend, naming),
-                governance::WorkflowEvents::create_table_with_naming(backend, naming),
-                governance::ResourceChanges::create_table_with_naming(backend, naming),
-            ],
-        ),
     ]
 }
 
@@ -309,26 +283,6 @@ pub fn indexes_by_version_with_naming(
             [
                 series_meta::SeriesMeta::indexes_with_naming(backend, naming),
                 series_points::SeriesPoints::indexes_with_naming(backend, naming),
-            ]
-            .concat(),
-        ),
-        // v4: indexes for governance + workflow tables
-        (
-            4,
-            [
-                governance::AuthUsers::indexes_with_naming(backend, naming),
-                governance::AuthRoles::indexes_with_naming(backend, naming),
-                governance::AuthGroups::indexes_with_naming(backend, naming),
-                governance::AuthUserRoles::indexes_with_naming(backend, naming),
-                governance::AuthUserGroups::indexes_with_naming(backend, naming),
-                governance::ResourceEntities::indexes_with_naming(backend, naming),
-                governance::ResourceShares::indexes_with_naming(backend, naming),
-                governance::WorkflowPolicies::indexes_with_naming(backend, naming),
-                governance::WorkflowStates::indexes_with_naming(backend, naming),
-                governance::WorkflowTransitions::indexes_with_naming(backend, naming),
-                governance::WorkflowBindings::indexes_with_naming(backend, naming),
-                governance::WorkflowEvents::indexes_with_naming(backend, naming),
-                governance::ResourceChanges::indexes_with_naming(backend, naming),
             ]
             .concat(),
         ),
@@ -540,7 +494,7 @@ mod tests {
     #[test]
     fn tables_by_version_with_default_naming() {
         let tables = tables_by_version(Backend::Sqlite);
-        assert_eq!(tables.len(), 4); // v1, v2, v3, v4
+        assert_eq!(tables.len(), 3); // v1, v2, v3
 
         // v1 has 5 tables
         assert_eq!(tables[0].0, 1);
@@ -553,10 +507,6 @@ mod tests {
         // v3 has 2 tables
         assert_eq!(tables[2].0, 3);
         assert_eq!(tables[2].1.len(), 2);
-
-        // v4 has governance/workflow tables
-        assert_eq!(tables[3].0, 4);
-        assert_eq!(tables[3].1.len(), 13);
     }
 
     #[test]
@@ -636,7 +586,7 @@ mod tests {
     #[test]
     fn indexes_by_version_collects_all_indexes() {
         let indexes = indexes_by_version(Backend::Sqlite);
-        assert_eq!(indexes.len(), 4); // v1, v2, v3, v4
+        assert_eq!(indexes.len(), 3); // v1, v2, v3
 
         // v1 has indexes for instruments (created_at)
         assert_eq!(indexes[0].0, 1);
@@ -649,9 +599,5 @@ mod tests {
         // v3 has 2 indexes (series_points: namespace_ts, ts)
         assert_eq!(indexes[2].0, 3);
         assert_eq!(indexes[2].1.len(), 2);
-
-        // v4 has indexes for governance/workflow tables
-        assert_eq!(indexes[3].0, 4);
-        assert_eq!(indexes[3].1.len(), 20);
     }
 }

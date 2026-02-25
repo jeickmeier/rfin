@@ -48,8 +48,7 @@ help: ## Display this help message
 	@printf "  \033[36mtest-rust\033[0m           Run Rust tests (cargo-nextest)\n"
 	@printf "  \033[36mtest-python\033[0m         Run Python tests\n"
 	@printf "  \033[36mexamples-python\033[0m     Run all Python examples (scripts & notebooks)\n"
-	@printf "  \033[36mtest-wasm\033[0m           Run WASM package tests\n"
-	@printf "  \033[36mtest-ui\033[0m             Run UI component tests\n\n"
+	@printf "  \033[36mtest-wasm\033[0m           Run WASM package tests\n\n"
 	@printf "Setup & Maintenance:\n"
 	@printf "  \033[36msetup-python\033[0m        Initialize Python environment with uv\n"
 	@printf "  \033[36mpython-dev\033[0m          Install Python deps and build bindings\n"
@@ -59,7 +58,6 @@ help: ## Display this help message
 	@printf "  \033[36mdoc\033[0m                 Generate Rust documentation\n"
 	@printf "  \033[36mbook-serve\033[0m          Serve mdBook with live reload\n\n"
 	@printf "Development & Tooling:\n"
-	@printf "  \033[36mdev-ui\033[0m              Start UI development server (Vite)\n"
 	@printf "  \033[36mgenerate-bindings\033[0m   Export TypeScript types from Rust\n"
 	@printf "  \033[36mexamples-python-scripts\033[0m   Run Python example scripts\n"
 	@printf "  \033[36mexamples-python-notebooks\033[0m Run Python example notebooks\n"
@@ -70,7 +68,6 @@ help: ## Display this help message
 	@printf "  \033[36mcoverage\033[0m            Run coverage for all components\n"
 	@printf "  \033[36mcoverage-rust\033[0m       Run Rust code coverage\n"
 	@printf "  \033[36mcoverage-python\033[0m     Run Python code coverage\n"
-	@printf "  \033[36mcoverage-ui\033[0m         Run UI code coverage\n"
 	@printf "  \033[36mlist\033[0m                Generate API parity report\n"
 	@printf "  \033[36msize-all\033[0m            Analyze binary sizes\n\n"
 	@printf "Run 'make list' for API parity reports or 'make size-all' for binary analysis.\n"
@@ -89,7 +86,7 @@ build-prod: ## Build all crates optimized without debug info
 	CARGO_INCREMENTAL=1 RUSTFLAGS="-C debuginfo=0" cargo build --workspace --exclude finstack-py --exclude finstack-wasm --release
 
 .PHONY: test
-test: test-rust test-rust-doc test-python test-wasm test-ui ## Run all tests across all components
+test: test-rust test-rust-doc test-python test-wasm ## Run all tests across all components
 
 .PHONY: fmt
 fmt: ## Format all code (Rust, Python, WASM, UI, MD)
@@ -197,7 +194,7 @@ examples-python-notebooks: ## Run all Python example notebooks
 	@printf "Running Python example notebooks...\n"
 	@$(call py_run,python finstack-py/examples/notebooks/run_all_notebooks.py)
 
-# --- Component: WASM & UI ---
+# --- Component: WASM ---
 
 .PHONY: wasm-build
 wasm-build: ## Build WASM package
@@ -223,34 +220,10 @@ lint-wasm:
 lint-wasm-fix:
 	./scripts/format-code --wasm-only
 
-.PHONY: test-ui
-test-ui:
-	cd finstack-ui && npm run test -- run
-
-.PHONY: dev-ui
-dev-ui: ## Start UI development server
-	cd finstack-ui && npm run dev
-
 .PHONY: generate-bindings
 generate-bindings: ## Export TypeScript types from Rust
 	@printf "Generating TypeScript bindings...\n"
 	cargo run -p finstack-wasm --bin ts_export --features ts_export
-
-.PHONY: test-ui-coverage
-test-ui-coverage:
-	cd finstack-ui && npm run test:coverage
-
-.PHONY: fmt-ui
-fmt-ui:
-	./scripts/format-code --ui-only
-
-.PHONY: lint-ui
-lint-ui:
-	./scripts/format-code --ui-only --check-only
-
-.PHONY: lint-ui-fix
-lint-ui-fix:
-	./scripts/format-code --ui-only
 
 # --- Documentation ---
 
@@ -286,8 +259,8 @@ list: ## Generate API parity report
 	@$(call py_run,python scripts/audits/compare_apis.py)
 	@printf "Done: PARITY_AUDIT.md\n"
 
-.PHONY: coverage coverage-rust coverage-python coverage-ui coverage-html coverage-open coverage-lcov
-coverage: coverage-rust coverage-python coverage-ui ## Run all coverage reports
+.PHONY: coverage coverage-rust coverage-python coverage-html coverage-open coverage-lcov
+coverage: coverage-rust coverage-python ## Run all coverage reports
 
 coverage-rust:
 	@printf "Running Rust code coverage...\n"
@@ -296,10 +269,6 @@ coverage-rust:
 coverage-python:
 	@printf "Running Python code coverage...\n"
 	@$(call py_run,pytest --cov=finstack --cov-report=html)
-
-coverage-ui:
-	@printf "Running UI code coverage...\n"
-	cd finstack-ui && npm run test:coverage
 
 coverage-html:
 	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --html --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
@@ -324,8 +293,8 @@ sync-schemas: ## Apply local schema override sync
 check-dups:
 	npx jscpd --pattern "**/src/**/*.rs" --ignore "**/target/**,**/node_modules/**,**/tests/**"
 
-.PHONY: audit audit-rust audit-python audit-ui
-audit: audit-rust audit-python audit-ui ## Run security audits on all components
+.PHONY: audit audit-rust audit-python
+audit: audit-rust audit-python ## Run security audits on all components
 audit-rust:
 	@printf "Auditing Rust dependencies...\n"
 	@command -v cargo-audit >/dev/null 2>&1 || { printf "cargo-audit not found. Install with: cargo install cargo-audit\n"; exit 1; }
@@ -333,22 +302,14 @@ audit-rust:
 audit-python:
 	@printf "Auditing Python dependencies...\n"
 	@$(call py_run,bandit -r finstack-py -c pyproject.toml)
-audit-ui:
-	@printf "Auditing UI dependencies...\n"
-	cd finstack-ui && npm audit
-
-.PHONY: update update-rust update-python update-ui
-update: update-rust update-python update-ui ## Update all dependencies
+.PHONY: update update-rust update-python
+update: update-rust update-python ## Update all dependencies
 update-rust:
 	@printf "Updating Rust dependencies...\n"
 	cargo update
 update-python:
 	@printf "Updating Python dependencies...\n"
 	uv lock --upgrade
-update-ui:
-	@printf "Updating UI dependencies...\n"
-	cd finstack-ui && npm update
-
 .PHONY: check-env
 check-env: ## Verify development environment
 	@printf "Checking development environment...\n"
@@ -396,7 +357,7 @@ size-all: size-wasm size-py
 
 # --- Automation & CI ---
 
-.PHONY: test-and-fix test-fix-rust test-fix-python test-fix-wasm test-fix-ui
+.PHONY: test-and-fix test-fix-rust test-fix-python test-fix-wasm
 test-and-fix: ## Run all tests and auto-fix issues
 	./scripts/run-tests-and-fix
 test-fix-rust:
@@ -405,9 +366,6 @@ test-fix-python:
 	./scripts/run-tests-and-fix --python-only
 test-fix-wasm:
 	./scripts/run-tests-and-fix --wasm-only
-test-fix-ui:
-	./scripts/run-tests-and-fix --ui-only
-
 .PHONY: ci-test
 ci-test: ## Run local CI checks
 	./scripts/run-tests-and-fix --skip-slow

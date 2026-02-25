@@ -51,7 +51,6 @@ When running manually, you can specify:
 - `rust_only`: Format only Rust code
 - `python_only`: Format only Python code
 - `wasm_only`: Format only WASM/TS code
-- `ui_only`: Format only UI/TS code
 - `create_pr`: Create PR with fixes
 
 ## Local Setup
@@ -110,8 +109,6 @@ Use the provided script for manual formatting:
 ./scripts/format-code --rust-only
 ./scripts/format-code --python-only
 ./scripts/format-code --wasm-only
-./scripts/format-code --ui-only
-
 # Show help
 ./scripts/format-code --help
 ```

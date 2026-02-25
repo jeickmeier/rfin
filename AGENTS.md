@@ -15,7 +15,6 @@
 - Run Python examples (scripts + notebooks): `make examples-python`
 - WASM build: `make wasm-build`
 - WASM examples dev server: `make wasm-examples-dev`
-- UI dev server: `make dev-ui`
 - Generate TypeScript bindings: `make generate-bindings`
 - Generate rustdoc: `make doc`
 - Serve mdBook docs: `make book-serve`
@@ -23,7 +22,7 @@
 - Generate API parity report: `make list`
 - Analyze binary sizes: `make size-all`
 - Security audits across components: `make audit`
-- Update Rust/Python/UI dependencies: `make update`
+- Update Rust/Python dependencies: `make update`
 - Verify local toolchain setup: `make check-env`
 - Run pre-commit hooks: `make pre-commit-run`
 
@@ -36,16 +35,12 @@
 - Python typecheck: `make typecheck-python`
 - Python stub verification (CI-grade): `make verifytypes-python`
 - WASM tests: `make test-wasm`
-- UI tests: `make test-ui`
-- UI coverage tests: `make test-ui-coverage`
 - Rust formatting: `make fmt-rust`
 - Python formatting: `make fmt-python`
 - WASM formatting: `make fmt-wasm`
-- UI formatting: `make fmt-ui`
 - Rust lints: `make lint-rust`
 - Python lints: `make lint-python`
 - WASM lints: `make lint-wasm`
-- UI lints: `make lint-ui`
 
 ## TODO
 

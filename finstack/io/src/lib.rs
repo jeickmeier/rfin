@@ -35,8 +35,6 @@
 //! ├──────────────────────────────────────────────────────────────────┤
 //! │  Store trait  │  BulkStore  │  LookbackStore  │ TimeSeriesStore  │
 //! ├──────────────────────────────────────────────────────────────────┤
-//! │  GovernedHandle  (optional row-level permissions & workflow)     │
-//! ├──────────────────────────────────────────────────────────────────┤
 //! │                sql/statements.rs  (sea-query builders)           │
 //! ├──────────────────┬──────────────────┬────────────────────────────┤
 //! │   SqliteStore    │  PostgresStore   │       TursoStore           │
@@ -83,9 +81,6 @@
 //!
 //! - [`store`] — Core persistence traits ([`Store`], [`BulkStore`], [`LookbackStore`],
 //!   [`TimeSeriesStore`]) and associated types.
-//! - [`governance`] — Optional enterprise governance layer with row-level
-//!   permissions, change proposals, and configurable approval workflows.
-//!   See [`GovernedHandle`] for the primary API.
 //! - [`config`] — Environment-based configuration for backend selection
 //!   ([`open_store_from_env`], [`FinstackIoConfig`]).
 //! - [`error`] — Error types ([`Error`], [`Result`]).
@@ -95,8 +90,6 @@
 pub mod config;
 /// Error types for persistence operations.
 pub mod error;
-/// Optional governance layer for change control.
-pub mod governance;
 pub(crate) mod helpers;
 pub(crate) mod sql;
 /// Store traits and persistence primitives.
@@ -114,11 +107,6 @@ pub use providers::turso;
 
 pub use config::{open_store_from_env, FinstackIoConfig, IoBackend, StoreHandle};
 pub use error::{Error, Result};
-pub use governance::{
-    ActorContext, ActorKind, ChangeKind, GovernanceConfig, GovernedHandle, ResourceChange,
-    ResourceChangeInsert, ResourceEntity, ResourceShare, SharePermission, ShareType, UserRole,
-    VisibilityScope,
-};
 pub use store::{
     BulkStore, LookbackStore, MarketContextSnapshot, PortfolioSnapshot, SeriesKey, SeriesKind,
     Store, TimeSeriesPoint, TimeSeriesStore, MAX_BATCH_SIZE,

@@ -59,38 +59,37 @@ pub(crate) fn parse_date_key(s: &str) -> Result<Date> {
 
 /// Format a timestamp as a fixed-width ISO 8601 string for use as a database key.
 ///
-/// Uses format: `YYYY-MM-DDTHH:MM:SS.ffffffZ` (always 27 characters)
+/// Uses format: `YYYY-MM-DDTHH:MM:SS.fffffffffZ` (always 30 characters)
 ///
 /// This fixed-width format is critical for correct lexicographic ordering in SQL queries.
-/// Unlike RFC3339, which omits fractional seconds when they are zero, this format always
-/// includes 6 decimal places for microseconds, ensuring consistent string width and
+/// Unlike RFC3339, which may omit fractional seconds when they are zero, this format always
+/// includes 9 decimal places for nanoseconds, ensuring consistent string width and
 /// correct chronological ordering when sorted lexicographically.
 ///
 /// # Examples
 ///
-/// - `2024-01-01T12:00:00.000000Z` (no fractional seconds)
-/// - `2024-01-01T12:00:00.500000Z` (500ms)
-/// - `2024-01-01T12:00:00.123456Z` (with microseconds)
+/// - `2024-01-01T12:00:00.000000000Z` (no fractional seconds)
+/// - `2024-01-01T12:00:00.123456789Z` (with nanoseconds)
 pub(crate) fn format_timestamp_key(ts: OffsetDateTime) -> Result<String> {
     // Convert to UTC for consistent storage
     let ts_utc = ts.to_offset(time::UtcOffset::UTC);
     Ok(format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:06}Z",
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:09}Z",
         ts_utc.year(),
         ts_utc.month() as u8,
         ts_utc.day(),
         ts_utc.hour(),
         ts_utc.minute(),
         ts_utc.second(),
-        ts_utc.microsecond(),
+        ts_utc.nanosecond(),
     ))
 }
 
 /// Parse a timestamp from a fixed-width ISO 8601 string.
 ///
-/// Accepts format: `YYYY-MM-DDTHH:MM:SS.ffffffZ`
+/// Accepts RFC3339 format for backwards compatibility with existing data.
 ///
-/// Also accepts RFC3339 format for backwards compatibility with existing data.
+/// This includes the fixed-width variant used by this crate.
 ///
 /// # Errors
 ///
@@ -135,20 +134,20 @@ mod tests {
         let ts = OffsetDateTime::from_unix_timestamp(1704110400).unwrap();
         let key = format_timestamp_key(ts).unwrap();
         assert!(key.ends_with('Z'));
-        assert_eq!(key.len(), 27); // Fixed width
+        assert_eq!(key.len(), 30); // Fixed width with nanoseconds
 
         let parsed = parse_timestamp_key(&key).unwrap();
         assert_eq!(parsed.unix_timestamp(), ts.unix_timestamp());
     }
 
     #[test]
-    fn timestamp_preserves_microseconds() {
+    fn timestamp_preserves_nanoseconds() {
         let base = OffsetDateTime::from_unix_timestamp(1704110400).unwrap();
-        let ts = base.replace_microsecond(123456).unwrap();
+        let ts = base.replace_nanosecond(123_456_789).unwrap();
         let key = format_timestamp_key(ts).unwrap();
-        assert!(key.contains(".123456Z"));
+        assert!(key.contains(".123456789Z"));
 
         let parsed = parse_timestamp_key(&key).unwrap();
-        assert_eq!(parsed.microsecond(), 123456);
+        assert_eq!(parsed.nanosecond(), 123_456_789);
     }
 }

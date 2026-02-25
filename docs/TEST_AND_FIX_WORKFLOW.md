@@ -1,6 +1,6 @@
 # Test and Fix Workflow
 
-This directory contains a comprehensive test and auto-fix workflow for the RFin project that ensures code quality across all languages (Rust, Python, TypeScript) before committing, merging, or deploying.
+This directory contains a comprehensive test and auto-fix workflow for the RFin project that ensures code quality across Rust, Python, and WASM TypeScript before committing, merging, or deploying.
 
 ## 🚀 Quick Start
 
@@ -16,7 +16,6 @@ This directory contains a comprehensive test and auto-fix workflow for the RFin 
 ./run-tests-and-fix --rust-only      # Rust only
 ./run-tests-and-fix --python-only    # Python only
 ./run-tests-and-fix --wasm-only      # WASM only
-./run-tests-and-fix --ui-only        # UI only
 ```
 
 ### Generate coverage reports
@@ -38,7 +37,6 @@ This directory contains a comprehensive test and auto-fix workflow for the RFin 
 - **Rust**: Formatting (rustfmt), Linting (clippy), Unit tests, Doc tests
 - **Python**: Formatting (ruff), Linting (ruff), Unit tests (pytest)
 - **WASM**: Formatting (prettier), Linting (eslint), Unit tests
-- **UI**: Formatting (prettier), Linting (eslint), Unit tests (vitest)
 - **Schema Validation**: JSON schema parity tests
 - **Pre-commit Hooks**: Full integration with existing hooks
 
@@ -54,7 +52,6 @@ This directory contains a comprehensive test and auto-fix workflow for the RFin 
 
 - Rust: `cargo llvm-cov` with HTML output
 - Python: `pytest-cov` with HTML output
-- UI: Vitest coverage with HTML output
 
 ## 🛠️ Configuration Options
 
@@ -65,7 +62,6 @@ This directory contains a comprehensive test and auto-fix workflow for the RFin 
 | `--rust-only` | Run only Rust tests and checks |
 | `--python-only` | Run only Python tests and checks |
 | `--wasm-only` | Run only WASM tests and checks |
-| `--ui-only` | Run only UI tests and checks |
 | `--no-fix` | Skip automatic fixes |
 | `--coverage` | Generate coverage reports |
 | `--skip-slow` | Skip slow-running tests |
@@ -89,7 +85,6 @@ make test-and-fix      # Run all tests and fixes
 make test-fix-rust     # Rust only
 make test-fix-python   # Python only
 make test-fix-wasm     # WASM only
-make test-fix-ui       # UI only
 ```
 
 ## 🔄 CI/CD Integration
@@ -181,7 +176,6 @@ QUICK_MODE=true ./run-tests-and-fix
     path: |
       target/llvm-cov/html/
       finstack-py/htmlcov/
-      finstack-ui/coverage/
 ```
 
 ## 🔍 Troubleshooting

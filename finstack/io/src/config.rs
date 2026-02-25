@@ -14,8 +14,6 @@
 //! | `FINSTACK_POSTGRES_URL` | — | Postgres connection URL |
 //! | `FINSTACK_TURSO_PATH` | — | Path to Turso database file |
 
-use crate::governance::{ActorContext, GovernedHandle};
-use crate::store::GovernanceStore;
 use crate::{BulkStore, LookbackStore, Store, TimeSeriesStore};
 use crate::{Error, Result};
 use async_trait::async_trait;
@@ -84,11 +82,16 @@ impl FinstackIoConfig {
     ///
     /// Missing path/URL variables are not errors here — they are checked
     /// lazily when [`open_store_from_env`] attempts to open the backend.
+    /// An invalid `FINSTACK_IO_BACKEND` value is rejected immediately.
     pub fn from_env() -> Result<Self> {
-        let backend = std::env::var("FINSTACK_IO_BACKEND")
-            .ok()
-            .and_then(|value| IoBackend::parse(&value))
-            .unwrap_or(IoBackend::Sqlite);
+        let backend = match std::env::var("FINSTACK_IO_BACKEND") {
+            Ok(value) => IoBackend::parse(&value).ok_or_else(|| {
+                Error::Invariant(format!(
+                    "Invalid FINSTACK_IO_BACKEND: {value}. Supported values: sqlite, postgres, postgresql, turso"
+                ))
+            })?,
+            Err(_) => IoBackend::Sqlite,
+        };
 
         let sqlite_path = std::env::var("FINSTACK_SQLITE_PATH")
             .ok()
@@ -102,182 +105,6 @@ impl FinstackIoConfig {
             postgres_url,
             turso_path,
         })
-    }
-}
-
-impl StoreHandle {
-    /// Create a governed handle for the given actor.
-    ///
-    /// This wraps the store with governance checks for the specified actor.
-    /// Governance configuration is read from the environment on the first
-    /// call and cached for the process lifetime.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use finstack_io::{ActorContext, StoreHandle};
-    /// # fn example(store: StoreHandle) {
-    /// let governed = store.as_actor(ActorContext::user("alice"));
-    /// // `governed` now checks permissions on every read
-    /// # }
-    /// ```
-    #[must_use]
-    pub fn as_actor(&self, actor: ActorContext) -> GovernedHandle {
-        GovernedHandle::new(self.clone(), actor)
-    }
-}
-
-#[async_trait]
-impl GovernanceStore for StoreHandle {
-    async fn get_resource_entity(
-        &self,
-        resource_type: &str,
-        resource_id: &str,
-    ) -> Result<Option<crate::ResourceEntity>> {
-        dispatch_store!(self, get_resource_entity, resource_type, resource_id)
-    }
-
-    async fn list_resource_entities(
-        &self,
-        resource_type: &str,
-    ) -> Result<Vec<crate::ResourceEntity>> {
-        dispatch_store!(self, list_resource_entities, resource_type)
-    }
-
-    async fn upsert_resource_entity(&self, entity: &crate::ResourceEntity) -> Result<()> {
-        dispatch_store!(self, upsert_resource_entity, entity)
-    }
-
-    async fn list_resource_shares(
-        &self,
-        resource_type: &str,
-        resource_id: &str,
-    ) -> Result<Vec<crate::ResourceShare>> {
-        dispatch_store!(self, list_resource_shares, resource_type, resource_id)
-    }
-
-    async fn list_all_resource_shares(
-        &self,
-        resource_type: &str,
-    ) -> Result<std::collections::HashMap<String, Vec<crate::ResourceShare>>> {
-        dispatch_store!(self, list_all_resource_shares, resource_type)
-    }
-
-    async fn list_user_roles(&self, user_id: &str) -> Result<Vec<crate::UserRole>> {
-        dispatch_store!(self, list_user_roles, user_id)
-    }
-
-    async fn list_user_groups(&self, user_id: &str) -> Result<Vec<String>> {
-        dispatch_store!(self, list_user_groups, user_id)
-    }
-
-    async fn list_workflow_bindings(
-        &self,
-        resource_type: &str,
-    ) -> Result<Vec<crate::governance::WorkflowBinding>> {
-        dispatch_store!(self, list_workflow_bindings, resource_type)
-    }
-
-    async fn get_workflow_transition(
-        &self,
-        policy_id: &str,
-        from_state: &str,
-        to_state: &str,
-    ) -> Result<Option<crate::governance::WorkflowTransition>> {
-        dispatch_store!(
-            self,
-            get_workflow_transition,
-            policy_id,
-            from_state,
-            to_state
-        )
-    }
-
-    async fn get_workflow_state(
-        &self,
-        policy_id: &str,
-        state_key: &str,
-    ) -> Result<Option<crate::governance::WorkflowState>> {
-        dispatch_store!(self, get_workflow_state, policy_id, state_key)
-    }
-
-    async fn insert_workflow_event(
-        &self,
-        event_id: &str,
-        change_id: &str,
-        resource_type: &str,
-        resource_id: &str,
-        resource_key2: &str,
-        from_state: &str,
-        to_state: &str,
-        actor_kind: crate::ActorKind,
-        actor_id: &str,
-        note: Option<&str>,
-    ) -> Result<()> {
-        dispatch_store!(
-            self,
-            insert_workflow_event,
-            event_id,
-            change_id,
-            resource_type,
-            resource_id,
-            resource_key2,
-            from_state,
-            to_state,
-            actor_kind,
-            actor_id,
-            note
-        )
-    }
-
-    async fn last_workflow_event_actor(&self, change_id: &str) -> Result<Option<String>> {
-        dispatch_store!(self, last_workflow_event_actor, change_id)
-    }
-
-    async fn insert_resource_change(&self, change: &crate::ResourceChangeInsert) -> Result<()> {
-        dispatch_store!(self, insert_resource_change, change)
-    }
-
-    async fn update_resource_change_state(
-        &self,
-        change_id: &str,
-        workflow_state: &str,
-        workflow_policy_id: Option<&str>,
-        submitted_at: Option<&str>,
-        applied_at: Option<&str>,
-    ) -> Result<()> {
-        dispatch_store!(
-            self,
-            update_resource_change_state,
-            change_id,
-            workflow_state,
-            workflow_policy_id,
-            submitted_at,
-            applied_at
-        )
-    }
-
-    async fn get_resource_change(&self, change_id: &str) -> Result<Option<crate::ResourceChange>> {
-        dispatch_store!(self, get_resource_change, change_id)
-    }
-
-    async fn list_resource_changes_for_owner(
-        &self,
-        owner_user_id: &str,
-    ) -> Result<Vec<crate::ResourceChange>> {
-        dispatch_store!(self, list_resource_changes_for_owner, owner_user_id)
-    }
-
-    async fn latest_verified_state(
-        &self,
-        resource_type: &str,
-        resource_id: &str,
-    ) -> Result<Option<String>> {
-        dispatch_store!(self, latest_verified_state, resource_type, resource_id)
-    }
-
-    async fn apply_change_to_verified(&self, change: &crate::ResourceChange) -> Result<()> {
-        dispatch_store!(self, apply_change_to_verified, change)
     }
 }
 

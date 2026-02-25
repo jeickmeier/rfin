@@ -93,18 +93,6 @@ if echo "$STAGED_FILES" | grep -E "^finstack-wasm/.*\.(ts|tsx|js|jsx)$"; then
     cd ..
 fi
 
-# TypeScript/JavaScript files (UI)
-if echo "$STAGED_FILES" | grep -E "^finstack-ui/.*\.(ts|tsx|js|jsx)$"; then
-    echo -e "\n${YELLOW}Checking UI/TS files...${NC}"
-    cd finstack-ui
-    if ! npm run format -- --check "**/*.{js,jsx,ts,tsx}" > /dev/null 2>&1; then
-        echo -e "${RED}UI/TS files need formatting${NC}"
-        echo "Run: cd finstack-ui && npm run format:fix \"**/*.{js,jsx,ts,tsx}\""
-        FAILED=1
-    fi
-    cd ..
-fi
-
 # Markdown files
 if echo "$STAGED_FILES" | grep -E "\.md$"; then
     echo -e "\n${YELLOW}Checking Markdown files...${NC}"

@@ -306,57 +306,6 @@ run_wasm_tests() {
     return 0
 }
 
-# UI functions
-run_ui_fmt() {
-    log_section "UI Formatting Check"
-
-    cd finstack-ui
-
-    if ! npm run format; then
-        handle_error "UI formatting" "npm run format:fix"
-        local result=$?
-        cd ..
-        return $result
-    fi
-
-    cd ..
-    log_success "UI formatting is correct"
-    return 0
-}
-
-run_ui_lint() {
-    log_section "UI Linting (ESLint)"
-
-    cd finstack-ui
-
-    if ! npm run lint; then
-        handle_error "UI linting" "npm run lint:fix"
-        local result=$?
-        cd ..
-        return $result
-    fi
-
-    cd ..
-    log_success "UI passes all ESLint checks"
-    return 0
-}
-
-run_ui_tests() {
-    log_section "UI Tests"
-
-    cd finstack-ui
-
-    if ! npm run test -- run; then
-        log_error "UI tests failed"
-        cd ..
-        return 1
-    fi
-
-    cd ..
-    log_success "All UI tests passed"
-    return 0
-}
-
 # Coverage functions
 run_coverage() {
     log_section "Code Coverage Analysis"
@@ -378,16 +327,6 @@ run_coverage() {
         log_success "Python coverage report generated in finstack-py/htmlcov/"
     else
         log_warning "Python coverage failed"
-    fi
-    cd ..
-
-    # UI coverage
-    log_info "Running UI coverage..."
-    cd finstack-ui
-    if npm run test:coverage; then
-        log_success "UI coverage report generated in finstack-ui/coverage/"
-    else
-        log_warning "UI coverage failed"
     fi
     cd ..
 
@@ -448,7 +387,6 @@ main() {
     local rust_only=false
     local python_only=false
     local wasm_only=false
-    local ui_only=false
     local no_fix=false
 
     while [[ $# -gt 0 ]]; do
@@ -463,10 +401,6 @@ main() {
                 ;;
             --wasm-only)
                 wasm_only=true
-                shift
-                ;;
-            --ui-only)
-                ui_only=true
                 shift
                 ;;
             --no-fix)
@@ -493,7 +427,6 @@ Options:
   --rust-only      Run only Rust tests and checks
   --python-only    Run only Python tests and checks
   --wasm-only      Run only WASM tests and checks
-  --ui-only        Run only UI tests and checks
   --no-fix         Skip automatic fixes
   --coverage       Generate coverage reports
   --skip-slow      Skip slow-running tests
@@ -555,10 +488,6 @@ EOF
         run_wasm_fmt || exit_code=1
         run_wasm_lint || exit_code=1
         run_wasm_tests || exit_code=1
-    elif [[ "$ui_only" == "true" ]]; then
-        run_ui_fmt || exit_code=1
-        run_ui_lint || exit_code=1
-        run_ui_tests || exit_code=1
     else
         # Run all checks
         log_section "Running All Quality Checks"
@@ -579,11 +508,6 @@ EOF
         run_wasm_fmt || exit_code=1
         run_wasm_lint || exit_code=1
         run_wasm_tests || exit_code=1
-
-        # UI
-        run_ui_fmt || exit_code=1
-        run_ui_lint || exit_code=1
-        run_ui_tests || exit_code=1
 
         # Schema validation
         run_schema_check || exit_code=1
