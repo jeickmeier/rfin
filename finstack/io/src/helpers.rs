@@ -6,7 +6,7 @@
 use crate::{Error, Result};
 use crate::{MarketContextSnapshot, PortfolioSnapshot, TimeSeriesPoint};
 #[cfg(feature = "postgres")]
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::{MarketContext, MarketContextState};
 use finstack_portfolio::PortfolioSpec;
@@ -107,11 +107,19 @@ pub(crate) fn time_series_point_from_row(
 }
 
 #[cfg(feature = "postgres")]
+fn naive_date_to_time(d: NaiveDate) -> Result<Date> {
+    let month = time::Month::try_from(d.month() as u8)
+        .map_err(|e| Error::Invariant(format!("Invalid month in database: {e}")))?;
+    Date::from_calendar_date(d.year(), month, d.day() as u8)
+        .map_err(|e| Error::Invariant(format!("Invalid date in database: {e}")))
+}
+
+#[cfg(feature = "postgres")]
 pub(crate) fn market_context_snapshot_from_postgres_row(
     as_of: NaiveDate,
     payload: serde_json::Value,
 ) -> Result<MarketContextSnapshot> {
-    let as_of = parse_date_key(&as_of.to_string())?;
+    let as_of = naive_date_to_time(as_of)?;
     let state: MarketContextState = json_from_value(payload)?;
     let context = MarketContext::try_from(state)?;
     Ok(MarketContextSnapshot { as_of, context })
@@ -122,7 +130,7 @@ pub(crate) fn portfolio_snapshot_from_postgres_row(
     as_of: NaiveDate,
     payload: serde_json::Value,
 ) -> Result<PortfolioSnapshot> {
-    let as_of = parse_date_key(&as_of.to_string())?;
+    let as_of = naive_date_to_time(as_of)?;
     let spec: PortfolioSpec = json_from_value(payload)?;
     Ok(PortfolioSnapshot { as_of, spec })
 }
@@ -222,6 +230,11 @@ pub(crate) fn parse_timestamp_key(s: &str) -> Result<OffsetDateTime> {
     use time::format_description::well_known::Rfc3339;
     OffsetDateTime::parse(s, &Rfc3339)
         .map_err(|e| Error::Invariant(format!("Invalid timestamp format in database: {s} ({e})")))
+}
+
+/// Quote a SQL identifier, escaping embedded double-quotes.
+pub(crate) fn quote_ident(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
 }
 
 #[cfg(test)]

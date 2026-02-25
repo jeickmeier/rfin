@@ -405,9 +405,14 @@ pub fn bs_put_theta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64
     term1 + term2 + term3
 }
 
-/// Black-Scholes call rho.
+/// Black-Scholes call rho (per 1% rate change).
 ///
-/// ρ_call = K * T * exp(-rT) * N(d2)
+/// ```text
+/// ρ_call = K · T · e^(-rT) · N(d₂) · 0.01
+/// ```
+///
+/// Returns the PV change per 1% (100bp) parallel shift in the domestic rate,
+/// consistent with `BsGreeks::rho_r` and `vanilla::bs_greeks`.
 #[must_use]
 pub fn bs_call_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
     if time <= 0.0 {
@@ -415,12 +420,17 @@ pub fn bs_call_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64,
     }
 
     let d2_val = d2(spot, strike, rate, vol, time, div_yield);
-    strike * time * (-rate * time).exp() * norm_cdf(d2_val)
+    strike * time * (-rate * time).exp() * norm_cdf(d2_val) * 0.01
 }
 
-/// Black-Scholes put rho.
+/// Black-Scholes put rho (per 1% rate change).
 ///
-/// ρ_put = -K * T * exp(-rT) * N(-d2)
+/// ```text
+/// ρ_put = -K · T · e^(-rT) · N(-d₂) · 0.01
+/// ```
+///
+/// Returns the PV change per 1% (100bp) parallel shift in the domestic rate,
+/// consistent with `BsGreeks::rho_r` and `vanilla::bs_greeks`.
 #[must_use]
 pub fn bs_put_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
     if time <= 0.0 {
@@ -428,7 +438,7 @@ pub fn bs_put_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, 
     }
 
     let d2_val = d2(spot, strike, rate, vol, time, div_yield);
-    -strike * time * (-rate * time).exp() * norm_cdf(-d2_val)
+    -strike * time * (-rate * time).exp() * norm_cdf(-d2_val) * 0.01
 }
 
 // Re-export the canonical BsGreeks struct from vanilla module

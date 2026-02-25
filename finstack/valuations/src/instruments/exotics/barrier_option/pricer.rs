@@ -434,6 +434,13 @@ impl Pricer for BarrierOptionAnalyticalPricer {
                 PricingError::type_mismatch(InstrumentType::BarrierOption, instrument.key())
             })?;
 
+        if barrier_opt.use_gobet_miri {
+            tracing::warn!(
+                "Analytical barrier pricer uses continuous monitoring; discrete monitoring flag \
+                 is ignored. Use Monte Carlo pricer for discrete barrier monitoring."
+            );
+        }
+
         // Use standardized input collection
         let (spot, r, q, sigma, t) = collect_black_scholes_inputs(
             &barrier_opt.spot_id,

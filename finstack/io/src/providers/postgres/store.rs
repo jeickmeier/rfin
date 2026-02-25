@@ -36,6 +36,15 @@ pub struct PostgresConfig {
     pub pool_size: usize,
     /// Statement timeout for queries.
     pub statement_timeout: Duration,
+    /// Whether to run built-in schema migrations on connect.
+    ///
+    /// Defaults to `true`. Set to `false` when schema is managed externally
+    /// (e.g., Liquibase, Flyway, or a custom migration framework).
+    /// When disabled, you are responsible for ensuring the database schema
+    /// matches the version expected by this crate (see [`LATEST_VERSION`](crate::sql::migrations::LATEST_VERSION)).
+    ///
+    /// You can always run migrations manually via [`PostgresStore::migrate`].
+    pub auto_migrate: bool,
 }
 
 impl Default for PostgresConfig {
@@ -43,6 +52,7 @@ impl Default for PostgresConfig {
         Self {
             pool_size: DEFAULT_POOL_SIZE,
             statement_timeout: DEFAULT_STATEMENT_TIMEOUT,
+            auto_migrate: true,
         }
     }
 }
@@ -62,6 +72,16 @@ impl PostgresConfig {
     /// Set the statement timeout.
     pub fn with_statement_timeout(mut self, timeout: Duration) -> Self {
         self.statement_timeout = timeout;
+        self
+    }
+
+    /// Disable automatic schema migrations on connect.
+    ///
+    /// When disabled, the store assumes the database schema already exists
+    /// and matches the version expected by this crate. Use this when schema
+    /// is managed by an external migration framework (Liquibase, Flyway, etc.).
+    pub fn without_migrations(mut self) -> Self {
+        self.auto_migrate = false;
         self
     }
 }
@@ -191,8 +211,9 @@ impl PostgresStore {
             naming: Arc::new(naming),
         };
 
-        // Run migrations
-        store.migrate().await?;
+        if pg_config.auto_migrate {
+            store.migrate().await?;
+        }
 
         Ok(store)
     }
@@ -212,8 +233,12 @@ impl PostgresStore {
         Ok(self.pool.get().await?)
     }
 
-    /// Run schema migrations.
-    async fn migrate(&self) -> Result<()> {
+    /// Run schema migrations manually.
+    ///
+    /// This is called automatically on connect unless
+    /// [`PostgresConfig::without_migrations`] is used. Safe to call multiple
+    /// times — already-applied versions are skipped.
+    pub async fn migrate(&self) -> Result<()> {
         let mut conn = self.get_conn().await?;
 
         conn.batch_execute(&migrations::schema_migrations_table_sql_with_naming(
@@ -284,9 +309,7 @@ impl PostgresStore {
     }
 }
 
-pub(crate) fn quote_ident(name: &str) -> String {
-    format!("\"{}\"", name.replace('"', "\"\""))
-}
+pub(crate) use crate::helpers::quote_ident;
 
 fn url_with_statement_timeout(url: &str, statement_timeout_ms: u64) -> String {
     // If the user already configured libpq `options=...`, don't override it.

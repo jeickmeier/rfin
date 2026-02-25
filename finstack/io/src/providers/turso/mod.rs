@@ -12,4 +12,4 @@ mod lookback_store;
 mod store;
 mod timeseries_store;
 
-pub use store::TursoStore;
+pub use store::{TursoConfig, TursoStore};

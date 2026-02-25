@@ -9,4 +9,4 @@ mod lookback_store;
 mod store;
 mod timeseries_store;
 
-pub use store::SqliteStore;
+pub use store::{SqliteConfig, SqliteStore};

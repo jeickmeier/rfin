@@ -7,8 +7,14 @@
 //! These are intended as shared utilities used by instrument-specific `implied_vol` methods
 //! (e.g., equity and FX options) to avoid duplicated solvers and inconsistent edge handling.
 
+use finstack_core::Result;
+
 use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
 use crate::instruments::common_impl::parameters::OptionType;
+
+/// Error returned when implied volatility cannot be bracketed (target price may exceed arbitrage bounds).
+const UNBRACKETED_MSG: &str =
+    "Cannot bracket implied volatility: price may exceed arbitrage bounds";
 
 /// Minimum volatility (annualized) used for bracketing.
 const MIN_VOL: f64 = 1e-8;
@@ -24,8 +30,8 @@ const MAX_ITER: usize = 200;
 /// Finds \(\sigma\) such that `bs_price(spot, strike, r, q, sigma, t, option_type) == target_price`.
 ///
 /// - `target_price` is the **per-unit** option price (not contract-scaled).
-/// - Returns `0.0` when `t <= 0`, `target_price <= 0`, or when the target cannot be bracketed.
-#[must_use]
+/// - Returns `Ok(0.0)` when `t <= 0` or `target_price <= 0` (expired or degenerate).
+/// - Returns `Err` when the target cannot be bracketed (price may exceed arbitrage bounds).
 #[allow(clippy::too_many_arguments)]
 pub fn bs_implied_vol(
     spot: f64,
@@ -35,12 +41,12 @@ pub fn bs_implied_vol(
     t: f64,
     option_type: OptionType,
     target_price: f64,
-) -> f64 {
+) -> Result<f64> {
     if !spot.is_finite() || !strike.is_finite() || !r.is_finite() || !q.is_finite() {
-        return 0.0;
+        return Ok(0.0);
     }
     if t <= 0.0 || target_price <= 0.0 || spot <= 0.0 || strike <= 0.0 {
-        return 0.0;
+        return Ok(0.0);
     }
 
     // Intrinsic lower bound (per unit) for continuous compounding.
@@ -49,7 +55,7 @@ pub fn bs_implied_vol(
         OptionType::Put => (strike * (-r * t).exp() - spot * (-q * t).exp()).max(0.0),
     };
     if target_price <= intrinsic {
-        return 0.0;
+        return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
     }
 
     let price_at = |sigma: f64| -> f64 { bs_price(spot, strike, r, q, sigma, t, option_type) };
@@ -67,14 +73,11 @@ pub fn bs_implied_vol(
         f_hi = price_at(hi) - target_price;
         tries += 1;
     }
-    // If we still can't reach the target, return 0 (unbracketed).
     if f_hi < 0.0 || !f_hi.is_finite() {
-        return 0.0;
+        return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
     }
-    // If lower end is already above the target (shouldn't happen unless target < intrinsic),
-    // return 0 for safety.
     if f_lo > 0.0 || !f_lo.is_finite() {
-        return 0.0;
+        return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
     }
 
     // Bisection.
@@ -83,10 +86,10 @@ pub fn bs_implied_vol(
         mid = 0.5 * (lo + hi);
         let f_mid = price_at(mid) - target_price;
         if !f_mid.is_finite() {
-            return 0.0;
+            return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
         }
         if f_mid.abs() < PRICE_TOL || (hi - lo) < 1e-12 {
-            return mid;
+            return Ok(mid);
         }
         if f_mid > 0.0 {
             hi = mid;
@@ -95,7 +98,7 @@ pub fn bs_implied_vol(
         }
     }
 
-    mid
+    Ok(mid)
 }
 
 /// Solve for Black-76 implied volatility (forward-based).
@@ -104,8 +107,8 @@ pub fn bs_implied_vol(
 /// `df * bs_price(forward, strike, 0, 0, sigma, t, option_type) == target_price`.
 ///
 /// - `target_price` is the **per-unit** option price (not contract-scaled).
-/// - Returns `0.0` when `t <= 0`, `target_price <= 0`, or when the target cannot be bracketed.
-#[must_use]
+/// - Returns `Ok(0.0)` when `t <= 0` or `target_price <= 0` (expired or degenerate).
+/// - Returns `Err` when the target cannot be bracketed (price may exceed arbitrage bounds).
 pub fn black76_implied_vol(
     forward: f64,
     strike: f64,
@@ -113,12 +116,12 @@ pub fn black76_implied_vol(
     t: f64,
     option_type: OptionType,
     target_price: f64,
-) -> f64 {
+) -> Result<f64> {
     if !forward.is_finite() || !strike.is_finite() || !df.is_finite() {
-        return 0.0;
+        return Ok(0.0);
     }
     if t <= 0.0 || target_price <= 0.0 || forward <= 0.0 || strike <= 0.0 || df <= 0.0 {
-        return 0.0;
+        return Ok(0.0);
     }
 
     let intrinsic = match option_type {
@@ -126,7 +129,7 @@ pub fn black76_implied_vol(
         OptionType::Put => (strike - forward).max(0.0) * df,
     };
     if target_price <= intrinsic {
-        return 0.0;
+        return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
     }
 
     let price_at =
@@ -144,10 +147,10 @@ pub fn black76_implied_vol(
         tries += 1;
     }
     if f_hi < 0.0 || !f_hi.is_finite() {
-        return 0.0;
+        return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
     }
     if f_lo > 0.0 || !f_lo.is_finite() {
-        return 0.0;
+        return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
     }
 
     let mut mid = 0.5 * (lo + hi);
@@ -155,10 +158,10 @@ pub fn black76_implied_vol(
         mid = 0.5 * (lo + hi);
         let f_mid = price_at(mid) - target_price;
         if !f_mid.is_finite() {
-            return 0.0;
+            return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
         }
         if f_mid.abs() < PRICE_TOL || (hi - lo) < 1e-12 {
-            return mid;
+            return Ok(mid);
         }
         if f_mid > 0.0 {
             hi = mid;
@@ -167,5 +170,5 @@ pub fn black76_implied_vol(
         }
     }
 
-    mid
+    Ok(mid)
 }

@@ -126,6 +126,4 @@ fn migration_v4_sql(backend: Backend, naming: &TableNaming) -> Vec<String> {
     }
 }
 
-fn quote_ident(name: &str) -> String {
-    format!("\"{}\"", name.replace('"', "\"\""))
-}
+use crate::helpers::quote_ident;

@@ -12,6 +12,63 @@ use tokio_rusqlite::Connection;
 
 pub(crate) const SCHEMA_VERSION: i64 = migrations::LATEST_VERSION;
 
+/// Configuration options for [`SqliteStore`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_io::{SqliteConfig, TableNaming};
+///
+/// // Skip internal migrations (schema managed externally)
+/// let config = SqliteConfig::new()
+///     .without_migrations();
+///
+/// // Custom table naming with migrations disabled
+/// let config = SqliteConfig::new()
+///     .with_naming(TableNaming::new().with_prefix("ref_"))
+///     .without_migrations();
+/// ```
+#[derive(Clone, Debug, Default)]
+pub struct SqliteConfig {
+    /// Custom table naming conventions.
+    pub naming: TableNaming,
+    /// Whether to run built-in schema migrations on open.
+    ///
+    /// Defaults to `true`. Set to `false` when schema is managed externally
+    /// (e.g., Liquibase, Flyway, or a custom migration framework).
+    /// When disabled, you are responsible for ensuring the database schema
+    /// matches the version expected by this crate.
+    ///
+    /// You can always run migrations manually via [`SqliteStore::migrate`].
+    pub auto_migrate: bool,
+}
+
+impl SqliteConfig {
+    /// Creates a new configuration with default values (auto-migrate enabled).
+    pub fn new() -> Self {
+        Self {
+            naming: TableNaming::default(),
+            auto_migrate: true,
+        }
+    }
+
+    /// Set custom table naming conventions.
+    pub fn with_naming(mut self, naming: TableNaming) -> Self {
+        self.naming = naming;
+        self
+    }
+
+    /// Disable automatic schema migrations on open.
+    ///
+    /// When disabled, the store assumes the database schema already exists
+    /// and matches the version expected by this crate. Use this when schema
+    /// is managed by an external migration framework (Liquibase, Flyway, etc.).
+    pub fn without_migrations(mut self) -> Self {
+        self.auto_migrate = false;
+        self
+    }
+}
+
 /// A SQLite-backed store using async operations.
 ///
 /// This store wraps a single `tokio-rusqlite` connection which is thread-safe
@@ -76,16 +133,33 @@ impl SqliteStore {
 
     /// Open (or create) a SQLite database at `path`, applying migrations with custom table naming.
     pub async fn open_with_naming(path: impl Into<PathBuf>, naming: TableNaming) -> Result<Self> {
+        Self::open_with_config(path, SqliteConfig::new().with_naming(naming)).await
+    }
+
+    /// Open (or create) a SQLite database at `path` with full configuration.
+    ///
+    /// Use [`SqliteConfig::without_migrations`] to skip the built-in schema
+    /// migrations when your schema is managed by an external tool.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::{SqliteStore, SqliteConfig};
+    /// # async fn example() -> finstack_io::Result<()> {
+    /// // Schema managed by Liquibase — skip internal migrations
+    /// let config = SqliteConfig::new().without_migrations();
+    /// let store = SqliteStore::open_with_config("data/finstack.db", config).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn open_with_config(path: impl Into<PathBuf>, config: SqliteConfig) -> Result<Self> {
         let path = path.into();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
 
-        // Open connection using tokio-rusqlite
         let conn = Connection::open(&path).await?;
 
-        // Configure connection pragmas
-        // WAL mode provides better concurrency and typically better performance for most workloads
         conn.call(|conn| -> tokio_rusqlite::Result<()> {
             conn.busy_timeout(Duration::from_secs(5))?;
             conn.execute_batch(
@@ -100,11 +174,12 @@ impl SqliteStore {
         let store = Self {
             path,
             conn: Arc::new(conn),
-            naming: Arc::new(naming),
+            naming: Arc::new(config.naming),
         };
 
-        // Run migrations
-        store.migrate().await?;
+        if config.auto_migrate {
+            store.migrate().await?;
+        }
 
         Ok(store)
     }
@@ -130,9 +205,13 @@ impl SqliteStore {
 
     /// Open an in-memory SQLite database (useful for testing) with custom table naming.
     pub async fn open_in_memory_with_naming(naming: TableNaming) -> Result<Self> {
+        Self::open_in_memory_with_config(SqliteConfig::new().with_naming(naming)).await
+    }
+
+    /// Open an in-memory SQLite database with full configuration.
+    pub async fn open_in_memory_with_config(config: SqliteConfig) -> Result<Self> {
         let conn = Connection::open_in_memory().await?;
 
-        // Configure connection pragmas
         conn.call(|conn| -> tokio_rusqlite::Result<()> {
             conn.busy_timeout(Duration::from_secs(5))?;
             conn.execute_batch("PRAGMA foreign_keys = ON;")?;
@@ -143,11 +222,12 @@ impl SqliteStore {
         let store = Self {
             path: PathBuf::from(":memory:"),
             conn: Arc::new(conn),
-            naming: Arc::new(naming),
+            naming: Arc::new(config.naming),
         };
 
-        // Run migrations
-        store.migrate().await?;
+        if config.auto_migrate {
+            store.migrate().await?;
+        }
 
         Ok(store)
     }
@@ -162,8 +242,11 @@ impl SqliteStore {
         self.naming.as_ref()
     }
 
-    /// Run schema migrations.
-    async fn migrate(&self) -> Result<()> {
+    /// Run schema migrations manually.
+    ///
+    /// This is called automatically on open unless [`SqliteConfig::without_migrations`]
+    /// is used. Safe to call multiple times — already-applied versions are skipped.
+    pub async fn migrate(&self) -> Result<()> {
         let schema_version = SCHEMA_VERSION;
         let current: i64 = self
             .conn
@@ -195,8 +278,8 @@ impl SqliteStore {
                         tx.execute_batch(&sql)?;
                     }
                 }
+                tx.execute_batch(&format!("PRAGMA user_version = {schema_version}"))?;
                 tx.commit()?;
-                conn.pragma_update(None, "user_version", schema_version)?;
                 Ok(())
             })
             .await?;

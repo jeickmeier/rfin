@@ -54,8 +54,8 @@ impl QeCir {
 
         // Compute ψ = s²/m²
         // When m is near zero, force Case B (exponential/uniform mixture) by
-        // setting psi above the threshold, consistent with QE-Heston implementation.
-        // Setting psi = 0.0 would send Case A into 2/psi = infinity.
+        // setting psi above the threshold (1e-10, matches QeHeston). Setting
+        // psi = 0.0 would send Case A into 2/psi = infinity.
         let psi = if m > 1e-10 {
             s2 / (m * m)
         } else {

@@ -3,9 +3,10 @@
 //! Implements Dupire's formula to construct a local volatility surface $\sigma_{loc}(K, T)$
 //! from an implied volatility surface $\sigma_{imp}(K, T)$.
 //!
-//! $$ \sigma_{loc}^2(K, T) = \frac{\frac{\partial C}{\partial T} + rK\frac{\partial C}{\partial K}}{ \frac{1}{2}K^2 \frac{\partial^2 C}{\partial K^2} } $$
+//! $$ \sigma_{loc}^2(K, T) = \frac{\frac{\partial C}{\partial T} + (r-q)K\frac{\partial C}{\partial K} + qC}{\frac{1}{2}K^2 \frac{\partial^2 C}{\partial K^2}} $$
 //!
-//! where $C(K, T)$ is the call price surface.
+//! where $C(K, T)$ is the call price surface, $r$ is the risk-free rate, and $q$ is the
+//! dividend yield.
 
 use finstack_core::dates::Date;
 use finstack_core::Result;
@@ -209,6 +210,18 @@ impl LocalVolBuilder {
                 let dC_dK = (c_k_plus - c_k_minus) / (2.0 * dk);
                 #[allow(non_snake_case)]
                 let d2C_dK2 = (c_k_plus - 2.0 * c_k + c_k_minus) / (dk * dk);
+
+                // Butterfly spread arbitrage: d²C/dK² must be positive
+                if d2C_dK2 <= 0.0 {
+                    tracing::warn!(
+                        strike = k,
+                        time = t,
+                        "d²C/dK² <= 0 (butterfly spread arbitrage violation): falling back to implied vol"
+                    );
+                    let iv = implied_vol(k, t)?;
+                    local_vols.push(iv);
+                    continue;
+                }
 
                 // Central difference for T (more accurate than forward difference)
                 let c_t_plus = black_scholes_price(&implied_vol, S0, k, t + dt, r, q)?;

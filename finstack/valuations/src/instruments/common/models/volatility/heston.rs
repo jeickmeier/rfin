@@ -15,6 +15,11 @@
 //!
 //! Pricing is performed using semi-analytical Fourier inversion of the characteristic function
 //! with adaptive Gauss-Legendre quadrature for robust numerical integration.
+//!
+//! The characteristic function uses the "Little Heston Trap" formulation (Albrecher et al., 2007),
+//! which replaces the standard Heston characteristic function with an algebraically equivalent
+//! form using `exp(-dT)` instead of `exp(dT)`. This avoids branch-cut discontinuities in the
+//! complex logarithm and prevents overflow, improving numerical stability.
 
 use finstack_core::math::integration::gauss_legendre_integrate_adaptive;
 use finstack_core::Result;
@@ -244,16 +249,19 @@ impl HestonModel {
                 - sigma * sigma * (2.0 * u * phi * i_complex - phi * phi);
             let d = d_sq.sqrt();
 
-            let g =
-                (b - rho * sigma * phi * i_complex + d) / (b - rho * sigma * phi * i_complex - d);
+            // Little Heston Trap (Albrecher et al., 2007): use g_minus = 1/g and exp(-dT)
+            // instead of exp(dT) to avoid branch-cut discontinuities in the complex logarithm
+            // and prevent overflow when Re(d) > 0.
+            let g_minus =
+                (b - rho * sigma * phi * i_complex - d) / (b - rho * sigma * phi * i_complex + d);
 
             let c = (r - q) * phi * i_complex * T
                 + (a / sigma.powi(2))
-                    * ((b - rho * sigma * phi * i_complex + d) * T
-                        - 2.0 * ((1.0 - g * (d * T).exp()) / (1.0 - g)).ln());
+                    * ((b - rho * sigma * phi * i_complex - d) * T
+                        - 2.0 * ((1.0 - g_minus * (-d * T).exp()) / (1.0 - g_minus)).ln());
 
-            let d_term = (b - rho * sigma * phi * i_complex + d) / sigma.powi(2)
-                * ((1.0 - (d * T).exp()) / (1.0 - g * (d * T).exp()));
+            let d_term = (b - rho * sigma * phi * i_complex - d) / sigma.powi(2)
+                * ((1.0 - (-d * T).exp()) / (1.0 - g_minus * (-d * T).exp()));
 
             let psi = (c + d_term * v0 + i_complex * phi * x).exp();
 

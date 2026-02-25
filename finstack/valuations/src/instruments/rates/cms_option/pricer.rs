@@ -18,9 +18,16 @@
 //! where G(S) ≈ swap_tenor / (1 + S * swap_tenor)²
 //! ```
 //!
+//! # Accuracy Limitations
+//!
+//! This pricer uses the simplified Hagan (2003) first-order convexity adjustment. It is
+//! accurate for short-to-medium tenors (< 10Y) and moderate volatility. For long-dated
+//! CMS (> 10Y) or high-volatility environments, consider replication-based pricing.
+//!
 //! # Reference
 //!
-//! - Hagan, P. S. (2003). "Convexity Conundrums: Pricing CMS Swaps, Caps, and Floors."
+//! - Hagan, P. (2003). "Convexity Conundrums: Pricing CMS Swaps, Caps, and Floors."
+//!   Wilmott Magazine, March, 38-44.
 //! - Hull, J. (2018). "Options, Futures, and Other Derivatives."
 
 use crate::instruments::common_impl::models::d1_d2_black76;

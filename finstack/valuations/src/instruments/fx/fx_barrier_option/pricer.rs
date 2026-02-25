@@ -512,6 +512,13 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
                 PricingError::type_mismatch(InstrumentType::FxBarrierOption, instrument.key())
             })?;
 
+        if fx_barrier.use_gobet_miri {
+            tracing::warn!(
+                "Analytical barrier pricer uses continuous monitoring; discrete monitoring flag \
+                 is ignored. Use Monte Carlo pricer for discrete barrier monitoring."
+            );
+        }
+
         let (fx_spot, r_dom, r_for, sigma, t) =
             collect_fx_barrier_inputs(fx_barrier, market, as_of).map_err(|e| {
                 PricingError::model_failure_with_context(
@@ -582,6 +589,13 @@ impl FxBarrierOptionVannaVolgaPricer {
         market: &MarketContext,
         as_of: Date,
     ) -> PricingResult<Money> {
+        if fx_barrier.use_gobet_miri {
+            tracing::warn!(
+                "Analytical barrier pricer uses continuous monitoring; discrete monitoring flag \
+                 is ignored. Use Monte Carlo pricer for discrete barrier monitoring."
+            );
+        }
+
         let (fx_spot, r_dom, r_for, sigma, t) =
             collect_fx_barrier_inputs(fx_barrier, market, as_of).map_err(|e| {
                 PricingError::model_failure_with_context(

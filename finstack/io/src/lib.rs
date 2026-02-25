@@ -77,6 +77,32 @@
 //! finstack-io = { version = "0.4", features = ["postgres", "turso"] }
 //! ```
 //!
+//! # External Schema Management
+//!
+//! By default, stores run built-in migrations automatically on open/connect.
+//! If your schema is managed by an external tool (Liquibase, Flyway, etc.),
+//! disable auto-migration via the per-backend config:
+//!
+//! ```rust,no_run
+//! # use finstack_io::{SqliteStore, SqliteConfig};
+//! # async fn example() -> finstack_io::Result<()> {
+//! let store = SqliteStore::open_with_config(
+//!     "data/finstack.db",
+//!     SqliteConfig::new().without_migrations(),
+//! ).await?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! Or via environment variable when using [`open_store_from_env`]:
+//!
+//! ```bash
+//! FINSTACK_AUTO_MIGRATE=false
+//! ```
+//!
+//! You can always run migrations later via the public `migrate()` method
+//! on any store.
+//!
 //! # Modules
 //!
 //! - [`store`] — Core persistence traits ([`Store`], [`BulkStore`], [`LookbackStore`],
@@ -107,6 +133,7 @@ pub use providers::turso;
 
 pub use config::{open_store_from_env, FinstackIoConfig, IoBackend, StoreHandle};
 pub use error::{Error, Result};
+pub use sql::schema::TableNaming;
 pub use store::{
     BulkStore, LookbackStore, MarketContextSnapshot, PortfolioSnapshot, SeriesKey, SeriesKind,
     Store, TimeSeriesPoint, TimeSeriesStore, MAX_BATCH_SIZE,
@@ -115,6 +142,6 @@ pub use store::{
 #[cfg(feature = "postgres")]
 pub use postgres::{PostgresConfig, PostgresStore, DEFAULT_POOL_SIZE, DEFAULT_STATEMENT_TIMEOUT};
 #[cfg(feature = "sqlite")]
-pub use sqlite::SqliteStore;
+pub use sqlite::{SqliteConfig, SqliteStore};
 #[cfg(feature = "turso")]
-pub use turso::TursoStore;
+pub use turso::{TursoConfig, TursoStore};

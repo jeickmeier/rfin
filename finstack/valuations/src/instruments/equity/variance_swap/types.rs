@@ -307,26 +307,32 @@ impl VarianceSwap {
     }
 
     /// Calculate annualization factor based on observation frequency.
+    ///
+    /// Equity variance swaps use **252 trading days per year** as the market standard
+    /// (Demeterfi et al., 1999). This converts sample variance to annualized variance:
+    /// σ²_annual = (252/N) × Σ [ln(S_i/S_{i-1})]² for N observations.
     pub fn annualization_factor(&self) -> f64 {
+        const TRADING_DAYS_PER_YEAR: f64 = 252.0;
+
         // Check month-based frequencies first
         if let Some(months) = self.observation_freq.months() {
             match months {
-                1 => 12.0,  // Monthly
-                3 => 4.0,   // Quarterly
-                6 => 2.0,   // Semi-annual
-                12 => 1.0,  // Annual
-                _ => 252.0, // Default to daily for other month counts
+                1 => 12.0,                  // Monthly
+                3 => 4.0,                   // Quarterly
+                6 => 2.0,                   // Semi-annual
+                12 => 1.0,                  // Annual
+                _ => TRADING_DAYS_PER_YEAR, // Default to daily for other month counts
             }
         } else if let Some(days) = self.observation_freq.days() {
-            // Handle day-based frequencies
+            // Handle day-based frequencies; use 252 (trading days) for equity convention
             match days {
-                1 => 252.0,               // Daily (trading days)
-                7 => 52.0,                // Weekly
-                14 => 26.0,               // Bi-weekly
-                _ => 365.0 / days as f64, // General day-based approximation
+                1 => TRADING_DAYS_PER_YEAR,               // Daily (trading days)
+                7 => TRADING_DAYS_PER_YEAR / 7.0,         // Weekly (~36)
+                14 => TRADING_DAYS_PER_YEAR / 14.0,       // Bi-weekly (~18)
+                _ => TRADING_DAYS_PER_YEAR / days as f64, // General: 252/days (trading days)
             }
         } else {
-            252.0 // Default to daily
+            TRADING_DAYS_PER_YEAR // Default to daily
         }
     }
 
@@ -364,9 +370,9 @@ impl VarianceSwap {
         if let Some(days) = self.observation_freq.days() {
             return match days {
                 1 => tdy_override,
-                7 => 52.0,
-                14 => 26.0,
-                _ => 365.0 / days as f64,
+                7 => tdy_override / 7.0,
+                14 => tdy_override / 14.0,
+                _ => tdy_override / days as f64, // 252/days for equity (trading days convention)
             };
         }
         tdy_override
@@ -453,6 +459,15 @@ impl VarianceSwap {
     }
 
     /// Calculate implied forward variance for the remaining period.
+    ///
+    /// Uses the Carr-Madan (1998) replication formula when a volatility surface is available:
+    /// ```text
+    /// E[σ²] = (2/T) × e^(rT) × ∫ [V(K)/K²] dK - (1/T) × (F/K₀ - 1)²
+    /// ```
+    /// where V(K) are OTM put/call prices, F is the forward price, and K₀ is the strike at
+    /// or just below the forward. Falls back to ATM vol² or strike variance if no surface.
+    ///
+    /// Reference: Carr, P. & Madan, D. (1998). "Towards a Theory of Volatility Trading."
     pub fn remaining_forward_variance(&self, context: &MarketContext, _as_of: Date) -> Result<f64> {
         // Prefer replication from a vol surface; fallback to ATM surface vol,
         // then scalar implied vol, and finally strike variance.

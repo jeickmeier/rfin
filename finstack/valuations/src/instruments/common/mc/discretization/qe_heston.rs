@@ -23,15 +23,20 @@ pub enum IntegratedVarianceMethod {
 
     /// Exact conditional expectation: E[∫v_s ds | v_t, v_{t+Δt}]
     ///
-    /// Uses the exact formula for the CIR process:
+    /// Uses the closed-form conditional formula (given both v_0 and v_T):
     /// ```text
-    /// E[∫_0^T v_s ds | v_0] = θT + (v_0 - θ)(1 - e^{-κT})/κ
+    /// E[∫_0^T v_s ds | v_0, v_T] = (θ - (v_0+v_T)/2)(T - (1-e^{-κT})/κ) + (v_0+v_T)(1-e^{-κT})/κ
+    /// ```
+    /// which expands to:
+    /// ```text
+    /// θT - θ(1-e^{-κT})/κ - (v_0+v_T)T/2 + (v_0+v_T)(1-e^{-κT})/κ
     /// ```
     ///
-    /// This is more accurate for high mean-reversion (κ > 5) or coarse time steps.
+    /// This reduces to the trapezoidal rule (v_0+v_T)/2 × T when κ→0. More accurate than
+    /// trapezoidal for high mean-reversion (κ > 5) or coarse time steps.
     ///
-    /// Reference: Broadie & Kaya (2006), "Exact Simulation of Stochastic Volatility
-    /// and Other Affine Jump Diffusion Processes"
+    /// Reference: Broadie & Kaya (2006) eq. (16), "Exact Simulation of Stochastic
+    /// Volatility and Other Affine Jump Diffusion Processes"
     Exact,
 }
 
@@ -133,7 +138,7 @@ impl QeHeston {
     ///    The clamp ensures numerical stability without materially affecting
     ///    results since ψ > 10 would use Case B anyway (exponential mixture).
     ///
-    /// 2. **Small mean handling**: When m < 1e-8, we force Case B directly
+    /// 2. **Small mean handling**: When m < 1e-10, we force Case B directly
     ///    to avoid amplified numerical errors from division by near-zero.
     ///
     /// # References
@@ -171,11 +176,11 @@ impl QeHeston {
         // This is a numerical stability enhancement, not a material change to
         // the algorithm - ψ values this high already force Case B.
         //
-        // Safeguard 2: Force Case B for tiny mean
-        // =======================================
+        // Safeguard 2: Force Case B for tiny mean (threshold 1e-10, matches QeCir)
+        // =========================================================================
         // Rationale: When m → 0, ψ = s²/m² → ∞, but the division itself may
         // produce overflow or NaN. Forcing Case B directly avoids this.
-        let psi = if m > 1e-8 {
+        let psi = if m > 1e-10 {
             let ratio = s2 / (m * m);
             ratio.min(10.0) // Safeguard 1: clamp to prevent Case A overflow
         } else {
@@ -223,14 +228,20 @@ impl QeHeston {
     ///
     /// Standard in the QE scheme, adequate for typical time steps (monthly or finer).
     ///
-    /// ## Exact
+    /// ## Exact (mean-reversion-adjusted trapezoidal)
     ///
-    /// Uses the conditional expectation for CIR process:
+    /// Corrects the trapezoidal rule with a mean-reversion weighting factor:
     /// ```text
-    /// E[∫_0^T v_s ds | v_0, v_T] = θT + (v_0 + v_T - 2θ)(1 - e^{-κT})/(2κ)
+    /// ∫v ≈ θT + (v₀ + v_T - 2θ)(1 - e^{-κT}) / (2κ)
     /// ```
     ///
-    /// More accurate for high mean-reversion (κ > 5) or coarse time steps.
+    /// This reduces to:
+    /// - **(v₀+v_T)/2 · T** for κ → 0 (plain trapezoidal)
+    /// - **θT** for κ → ∞ or v₀ = v_T = θ (mean dominates)
+    ///
+    /// Not the full Broadie-Kaya (2006) conditional distribution (which requires
+    /// Fourier inversion); rather a lightweight correction that is standard in
+    /// Andersen (2008) QE implementations.
     ///
     /// # Arguments
     /// * `v_t` - Current variance
@@ -243,18 +254,14 @@ impl QeHeston {
     /// Integrated variance over [t, t+dt]
     ///
     /// # References
-    /// - Andersen, L. (2008). Section 3.2.4 - Log-Euler scheme.
-    /// - Broadie, M. & Kaya, Ö. (2006). "Exact Simulation of Stochastic
-    ///   Volatility and Other Affine Jump Diffusion Processes."
+    /// - Andersen, L. (2008). "Simple and efficient simulation of the Heston
+    ///   stochastic volatility model." *J. Comp. Finance*, 11(3).
     #[inline]
     fn integrated_variance(&self, v_t: f64, v_next: f64, dt: f64, kappa: f64, theta: f64) -> f64 {
         match self.int_var_method {
             IntegratedVarianceMethod::Trapezoidal => (v_t + v_next) / 2.0 * dt,
             IntegratedVarianceMethod::Exact => {
-                // Exact conditional expectation formula for CIR integrated variance
-                // E[∫_0^T v_s ds | v_0, v_T] = θT + (v_0 + v_T - 2θ)(1 - e^{-κT})/(2κ)
                 if kappa.abs() < 1e-10 {
-                    // For κ ≈ 0, fall back to trapezoidal
                     (v_t + v_next) / 2.0 * dt
                 } else {
                     let exp_term = (-kappa * dt).exp();

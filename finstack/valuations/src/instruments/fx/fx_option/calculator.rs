@@ -262,7 +262,7 @@ impl FxOptionCalculator {
         let target_unit = target_price / inst.notional.amount();
         let _ = initial_guess; // future: warm-start the bracket
 
-        Ok(crate::instruments::common_impl::models::bs_implied_vol(
+        crate::instruments::common_impl::models::bs_implied_vol(
             spot,
             inst.strike,
             r_d,
@@ -270,7 +270,7 @@ impl FxOptionCalculator {
             t,
             inst.option_type,
             target_unit,
-        ))
+        )
     }
 
     /// Compute greeks with calculator configuration.

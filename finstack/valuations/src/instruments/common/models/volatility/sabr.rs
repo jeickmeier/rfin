@@ -3,6 +3,21 @@
 //! The SABR model is widely used for pricing interest rate derivatives and FX options
 //! with volatility smile. It provides closed-form approximations for implied volatility
 //! that capture the smile and skew observed in market prices.
+//!
+//! # Accuracy Limitations
+//!
+//! This implementation uses the original Hagan et al. (2002) expansion. The Obloj (2008)
+//! correction is not applied.
+//!
+//! Known accuracy degradation occurs for:
+//! - **T > 5Y**: Long maturities
+//! - **ν (vol-of-vol) > 0.5**: High volatility of volatility
+//! - **Far OTM strikes**: Deep in- or out-of-the-money options
+//!
+//! Under these conditions, estimated error is 10–50bp in implied volatility.
+//!
+//! Reference: Obloj, J. (2008). "Fine-tune your smile: Correction to Hagan et al."
+//! arXiv:0708.0998
 
 use finstack_core::{Error, Result};
 

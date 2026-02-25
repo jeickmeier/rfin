@@ -164,17 +164,8 @@ fn test_realized_variance_matches_series_calculation() {
         .get(MetricId::RealizedVariance.as_str())
         .unwrap();
 
-    // Assert - RealizedVarianceCalculator uses frequency-based annualization
-    let annualization_factor = match swap.observation_freq.days() {
-        Some(1) => 252.0,
-        Some(7) => 52.0,
-        _ => match swap.observation_freq.months() {
-            Some(1) => 12.0,
-            Some(3) => 4.0,
-            Some(12) => 1.0,
-            _ => 252.0,
-        },
-    };
+    // Assert - RealizedVarianceCalculator uses swap's annualization (252 trading days for equity)
+    let annualization_factor = swap.annualization_factor_with_policy(&ctx);
 
     let used_prices: Vec<f64> = prices
         .iter()
@@ -236,14 +227,15 @@ fn test_expected_variance_blends_realized_and_forward_mid_period() {
         .get(MetricId::ExpectedVariance.as_str())
         .unwrap();
 
-    // Assert - should blend realized and forward
+    // Assert - should blend realized and forward (252/7 for weekly, equity convention)
     let obs_dates = swap.observation_dates();
     let used_prices: Vec<f64> = obs_dates
         .iter()
         .filter(|d| **d <= as_of)
         .filter_map(|d| prices.iter().find(|(pd, _)| pd == d).map(|(_, p)| *p))
         .collect();
-    let realized = realized_variance(&used_prices, RealizedVarMethod::CloseToClose, 52.0);
+    let annualization = swap.annualization_factor_with_policy(&ctx);
+    let realized = realized_variance(&used_prices, RealizedVarMethod::CloseToClose, annualization);
     let forward = 0.23_f64.powi(2);
     let w = observation_weight(&swap, as_of);
     let expected = realized * w + forward * (1.0 - w);

@@ -299,8 +299,11 @@ pub fn indexes_by_version(backend: Backend) -> Vec<(i64, Vec<IndexCreateStatemen
 // Common column helpers
 // ---------------------------------------------------------------------------
 
-/// Creates a `created_at` timestamp column with backend-appropriate type and default.
-pub fn created_at_col<T: Iden + 'static>(backend: Backend, col: T) -> ColumnDef {
+/// Creates a NOT NULL timestamp column defaulting to the current time.
+///
+/// Used for both `created_at` and `updated_at` columns — the schema is
+/// identical; only the column name differs.
+fn timestamp_col<T: Iden + 'static>(backend: Backend, col: T) -> ColumnDef {
     let mut col = ColumnDef::new(col);
     match backend {
         Backend::Sqlite => {
@@ -311,8 +314,6 @@ pub fn created_at_col<T: Iden + 'static>(backend: Backend, col: T) -> ColumnDef 
         }
     }
     col.not_null();
-    // Use Expr::cust() to create a raw SQL expression for the default value.
-    // Using a string literal here would result in the expression being quoted.
     match backend {
         Backend::Sqlite => col.default(Expr::cust("(strftime('%Y-%m-%dT%H:%M:%fZ','now'))")),
         Backend::Postgres => col.default(Expr::cust("now()")),
@@ -320,25 +321,14 @@ pub fn created_at_col<T: Iden + 'static>(backend: Backend, col: T) -> ColumnDef 
     col
 }
 
+/// Creates a `created_at` timestamp column with backend-appropriate type and default.
+pub fn created_at_col<T: Iden + 'static>(backend: Backend, col: T) -> ColumnDef {
+    timestamp_col(backend, col)
+}
+
 /// Creates an `updated_at` timestamp column with backend-appropriate type and default.
 pub fn updated_at_col<T: Iden + 'static>(backend: Backend, col: T) -> ColumnDef {
-    let mut col = ColumnDef::new(col);
-    match backend {
-        Backend::Sqlite => {
-            col.string();
-        }
-        Backend::Postgres => {
-            col.timestamp_with_time_zone();
-        }
-    }
-    col.not_null();
-    // Use Expr::cust() to create a raw SQL expression for the default value.
-    // Using a string literal here would result in the expression being quoted.
-    match backend {
-        Backend::Sqlite => col.default(Expr::cust("(strftime('%Y-%m-%dT%H:%M:%fZ','now'))")),
-        Backend::Postgres => col.default(Expr::cust("now()")),
-    };
-    col
+    timestamp_col(backend, col)
 }
 
 /// Creates a binary/JSONB payload column.

@@ -184,6 +184,50 @@ pub enum BarrierType {
     DownOut,
 }
 
+/// Deterministic barrier payoff when volatility is zero.
+///
+/// With zero vol, the asset follows a deterministic drift path:
+/// `S(T) = S * exp((r - q) * T)`. We check whether this path crosses
+/// the barrier and compute the vanilla intrinsic accordingly.
+#[allow(clippy::too_many_arguments)]
+fn barrier_helper_zero_vol(
+    spot: f64,
+    strike: f64,
+    barrier: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    eta: f64, // 1 for call, -1 for put
+    phi: f64, // 1 for up, -1 for down
+) -> f64 {
+    let forward = spot * ((rate - div_yield) * time).exp();
+    let discount = (-rate * time).exp();
+
+    let intrinsic = if eta > 0.0 {
+        (forward - strike).max(0.0) * discount
+    } else {
+        (strike - forward).max(0.0) * discount
+    };
+
+    // With zero vol, the path is monotonic. The barrier is crossed iff
+    // the deterministic endpoint (or any intermediate point) exceeds/falls below it.
+    // For an up barrier (phi > 0): crossed if max(spot, forward) >= barrier.
+    // For a down barrier (phi < 0): crossed if min(spot, forward) <= barrier.
+    let barrier_crossed = if phi > 0.0 {
+        spot.max(forward) >= barrier
+    } else {
+        spot.min(forward) <= barrier
+    };
+
+    // barrier_helper computes the knock-IN value. If the barrier was crossed,
+    // the knock-in option activates and pays the vanilla intrinsic; otherwise 0.
+    if barrier_crossed {
+        intrinsic
+    } else {
+        0.0
+    }
+}
+
 /// Helper function for barrier pricing.
 #[allow(clippy::too_many_arguments)]
 fn barrier_helper(
@@ -197,8 +241,12 @@ fn barrier_helper(
     eta: f64, // 1 for call, -1 for put
     phi: f64, // 1 for up, -1 for down
 ) -> f64 {
-    if time <= 0.0 || vol <= 0.0 {
+    if time <= 0.0 {
         return 0.0;
+    }
+
+    if vol <= 0.0 {
+        return barrier_helper_zero_vol(spot, strike, barrier, time, rate, div_yield, eta, phi);
     }
 
     let mu = (rate - div_yield - 0.5 * vol * vol) / (vol * vol);

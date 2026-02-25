@@ -63,6 +63,8 @@ pub struct AutocallablePayoff {
     // State variables (tracked during path simulation)
     /// Index of observation date when autocalled (None if not autocalled)
     autocalled_at: Option<usize>,
+    /// Index of next observation date to check (ensures each date is only checked once)
+    next_obs_idx: usize,
     /// Minimum spot observed (for knock-in barriers)
     min_spot_observed: f64,
     /// Maximum spot observed (for knock-out barriers)
@@ -144,6 +146,7 @@ impl AutocallablePayoff {
             initial_spot,
             df_ratios,
             autocalled_at: None,
+            next_obs_idx: 0,
             min_spot_observed: f64::INFINITY,
             max_spot_observed: f64::NEG_INFINITY,
             final_spot: 0.0, // Will be set when at maturity
@@ -162,18 +165,19 @@ impl Payoff for AutocallablePayoff {
 
         // Check autocall at observation dates
         if self.autocalled_at.is_none() {
+            const EPS: f64 = 1e-6;
             for (idx, &obs_date) in self.observation_dates.iter().enumerate() {
-                // Check if we're at this observation date (within epsilon)
-                // We strictly check equality, not >=, because state.time advances past dates
-                let is_at_obs_date = (state.time - obs_date).abs() < 1e-6;
-
-                if is_at_obs_date {
+                if idx < self.next_obs_idx {
+                    continue;
+                }
+                // Forward-looking check: we're at or past this observation date
+                // (avoids missing dates when MC time steps don't align exactly)
+                if state.time >= obs_date - EPS {
                     let barrier_level = self.initial_spot * self.autocall_barriers[idx];
                     if spot >= barrier_level {
                         self.autocalled_at = Some(idx);
                     }
-                    // Since we found the matching date, no need to check others
-                    // (Assuming dates are distinct and time steps align)
+                    self.next_obs_idx = idx + 1;
                     break;
                 }
             }
@@ -237,6 +241,7 @@ impl Payoff for AutocallablePayoff {
 
     fn reset(&mut self) {
         self.autocalled_at = None;
+        self.next_obs_idx = 0;
         self.min_spot_observed = f64::INFINITY;
         self.max_spot_observed = f64::NEG_INFINITY;
         self.final_spot = 0.0; // Reset to default

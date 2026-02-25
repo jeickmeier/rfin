@@ -114,16 +114,16 @@ fn test_annualization_factor_daily_equals_252() {
 }
 
 #[test]
-fn test_annualization_factor_weekly_equals_52() {
-    // Arrange
+fn test_annualization_factor_weekly_uses_trading_days() {
+    // Arrange: weekly = 252/7 trading periods per year (equity convention)
     let mut swap = sample_swap(PayReceive::Receive);
     swap.observation_freq = Tenor::weekly();
 
     // Act
     let factor = swap.annualization_factor();
 
-    // Assert
-    assert_eq!(factor, 52.0);
+    // Assert: 252/7 ≈ 36, not 52 (calendar weeks)
+    assert!((factor - 252.0 / 7.0).abs() < 1e-10);
 }
 
 #[test]

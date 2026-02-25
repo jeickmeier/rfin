@@ -13,6 +13,7 @@
 //! | `FINSTACK_SQLITE_PATH` | — | Path to SQLite database file |
 //! | `FINSTACK_POSTGRES_URL` | — | Postgres connection URL |
 //! | `FINSTACK_TURSO_PATH` | — | Path to Turso database file |
+//! | `FINSTACK_AUTO_MIGRATE` | `true` | Set to `false` when schema is managed externally |
 
 use crate::{BulkStore, LookbackStore, Store, TimeSeriesStore};
 use crate::{Error, Result};
@@ -93,6 +94,10 @@ pub struct FinstackIoConfig {
     pub postgres_url: Option<String>,
     /// Turso database path (required when backend is Turso).
     pub turso_path: Option<PathBuf>,
+    /// Whether to run built-in schema migrations on open/connect.
+    ///
+    /// Defaults to `true`. Set `FINSTACK_AUTO_MIGRATE=false` to disable.
+    pub auto_migrate: bool,
 }
 
 impl FinstackIoConfig {
@@ -103,6 +108,8 @@ impl FinstackIoConfig {
     /// - `FINSTACK_SQLITE_PATH` — Path for SQLite database file.
     /// - `FINSTACK_POSTGRES_URL` — Postgres connection URL.
     /// - `FINSTACK_TURSO_PATH` — Path for Turso database file.
+    /// - `FINSTACK_AUTO_MIGRATE` — `"true"` (default) or `"false"`. Set to
+    ///   `"false"` when schema is managed by an external migration framework.
     ///
     /// Missing path/URL variables are not errors here — they are checked
     /// lazily when [`open_store_from_env`] attempts to open the backend.
@@ -122,12 +129,16 @@ impl FinstackIoConfig {
             .map(PathBuf::from);
         let postgres_url = std::env::var("FINSTACK_POSTGRES_URL").ok();
         let turso_path = std::env::var("FINSTACK_TURSO_PATH").ok().map(PathBuf::from);
+        let auto_migrate = std::env::var("FINSTACK_AUTO_MIGRATE")
+            .map(|v| !matches!(v.trim().to_lowercase().as_str(), "false" | "0" | "no"))
+            .unwrap_or(true);
 
         Ok(Self {
             backend,
             sqlite_path,
             postgres_url,
             turso_path,
+            auto_migrate,
         })
     }
 }
@@ -311,45 +322,57 @@ fn require_backend_config<T>(backend: &str, env_var: &str, value: Option<T>) -> 
 }
 
 #[cfg(feature = "sqlite")]
-async fn open_sqlite_store(path: Option<PathBuf>) -> Result<StoreHandle> {
+async fn open_sqlite_store(path: Option<PathBuf>, auto_migrate: bool) -> Result<StoreHandle> {
     let path = require_backend_config("sqlite", "FINSTACK_SQLITE_PATH", path)?;
+    let mut config = crate::sqlite::SqliteConfig::new();
+    if !auto_migrate {
+        config = config.without_migrations();
+    }
     Ok(StoreHandle::Sqlite(
-        crate::sqlite::SqliteStore::open(path).await?,
+        crate::sqlite::SqliteStore::open_with_config(path, config).await?,
     ))
 }
 
 #[cfg(not(feature = "sqlite"))]
-async fn open_sqlite_store(_path: Option<PathBuf>) -> Result<StoreHandle> {
+async fn open_sqlite_store(_path: Option<PathBuf>, _auto_migrate: bool) -> Result<StoreHandle> {
     Err(Error::Invariant(
         "sqlite backend requested but feature is disabled".into(),
     ))
 }
 
 #[cfg(feature = "postgres")]
-async fn open_postgres_store(url: Option<String>) -> Result<StoreHandle> {
+async fn open_postgres_store(url: Option<String>, auto_migrate: bool) -> Result<StoreHandle> {
     let url = require_backend_config("postgres", "FINSTACK_POSTGRES_URL", url)?;
+    let mut pg_config = crate::postgres::PostgresConfig::new();
+    if !auto_migrate {
+        pg_config = pg_config.without_migrations();
+    }
     Ok(StoreHandle::Postgres(
-        crate::postgres::PostgresStore::connect(&url).await?,
+        crate::postgres::PostgresStore::connect_with_config(&url, pg_config).await?,
     ))
 }
 
 #[cfg(not(feature = "postgres"))]
-async fn open_postgres_store(_url: Option<String>) -> Result<StoreHandle> {
+async fn open_postgres_store(_url: Option<String>, _auto_migrate: bool) -> Result<StoreHandle> {
     Err(Error::Invariant(
         "postgres backend requested but feature is disabled".into(),
     ))
 }
 
 #[cfg(feature = "turso")]
-async fn open_turso_store(path: Option<PathBuf>) -> Result<StoreHandle> {
+async fn open_turso_store(path: Option<PathBuf>, auto_migrate: bool) -> Result<StoreHandle> {
     let path = require_backend_config("turso", "FINSTACK_TURSO_PATH", path)?;
+    let mut config = crate::turso::TursoConfig::new();
+    if !auto_migrate {
+        config = config.without_migrations();
+    }
     Ok(StoreHandle::Turso(
-        crate::turso::TursoStore::open(path).await?,
+        crate::turso::TursoStore::open_with_config(path, config).await?,
     ))
 }
 
 #[cfg(not(feature = "turso"))]
-async fn open_turso_store(_path: Option<PathBuf>) -> Result<StoreHandle> {
+async fn open_turso_store(_path: Option<PathBuf>, _auto_migrate: bool) -> Result<StoreHandle> {
     Err(Error::Invariant(
         "turso backend requested but feature is disabled".into(),
     ))
@@ -382,9 +405,10 @@ async fn open_turso_store(_path: Option<PathBuf>) -> Result<StoreHandle> {
 /// ```
 pub async fn open_store_from_env() -> Result<StoreHandle> {
     let config = FinstackIoConfig::from_env()?;
+    let auto_migrate = config.auto_migrate;
     match config.backend {
-        IoBackend::Sqlite => open_sqlite_store(config.sqlite_path).await,
-        IoBackend::Postgres => open_postgres_store(config.postgres_url).await,
-        IoBackend::Turso => open_turso_store(config.turso_path).await,
+        IoBackend::Sqlite => open_sqlite_store(config.sqlite_path, auto_migrate).await,
+        IoBackend::Postgres => open_postgres_store(config.postgres_url, auto_migrate).await,
+        IoBackend::Turso => open_turso_store(config.turso_path, auto_migrate).await,
     }
 }
