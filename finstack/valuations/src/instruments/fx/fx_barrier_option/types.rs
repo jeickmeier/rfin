@@ -42,7 +42,9 @@ pub struct FxBarrierOption {
     /// Quote currency (the pricing/settlement currency, formerly domestic_currency)
     #[serde(alias = "domestic_currency")]
     pub quote_currency: Currency,
-    /// Day count convention
+    /// Day count convention (defaults to ACT/365F, consistent with FxOption)
+    #[serde(default = "crate::serde_defaults::day_count_act365f")]
+    #[builder(default = finstack_core::dates::DayCount::Act365F)]
     pub day_count: finstack_core::dates::DayCount,
     /// Whether to use Gobet-Miri continuous barrier adjustment.
     ///

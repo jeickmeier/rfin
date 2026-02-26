@@ -6,37 +6,57 @@ use rust_decimal::Decimal;
 
 use serde::{Deserialize, Serialize};
 
-/// Direction for instrument legs (universal for IRS, CDS, etc.)
+/// Direction for instrument legs (universal for IRS, CDS, variance swaps, etc.)
 ///
 /// For interest rate swaps: Pay = pay fixed/receive floating, Receive = receive fixed/pay floating
 /// For credit default swaps: Pay = buy protection (pay premium), Receive = sell protection (receive premium)
+/// For variance swaps: Pay = short variance, Receive = long variance
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PayReceive {
-    /// Pay the primary leg (fixed rate in IRS, protection premium in CDS)
-    #[serde(rename = "pay_fixed", alias = "PayFixed")]
-    PayFixed,
-    /// Receive the primary leg (fixed rate in IRS, protection premium in CDS)
-    #[serde(rename = "receive_fixed", alias = "ReceiveFixed")]
-    ReceiveFixed,
+    /// Pay the primary leg (fixed rate in IRS, protection premium in CDS, short variance)
+    #[serde(rename = "pay", alias = "Pay", alias = "pay_fixed", alias = "PayFixed")]
+    Pay,
+    /// Receive the primary leg (fixed rate in IRS, protection premium in CDS, long variance)
+    #[serde(
+        rename = "receive",
+        alias = "Receive",
+        alias = "receive_fixed",
+        alias = "ReceiveFixed"
+    )]
+    Receive,
 }
 
+#[allow(non_upper_case_globals)]
 impl PayReceive {
+    /// Backward-compatible alias for `Pay`.
+    pub const PayFixed: Self = Self::Pay;
+    /// Backward-compatible alias for `Receive`.
+    pub const ReceiveFixed: Self = Self::Receive;
+
     /// Check if this is the payer side
     pub fn is_payer(&self) -> bool {
-        matches!(self, Self::PayFixed)
+        matches!(self, Self::Pay)
     }
 
     /// Check if this is the receiver side
     pub fn is_receiver(&self) -> bool {
-        matches!(self, Self::ReceiveFixed)
+        matches!(self, Self::Receive)
+    }
+
+    /// Returns the sign multiplier (+1.0 for Receive, -1.0 for Pay).
+    pub fn sign(&self) -> f64 {
+        match self {
+            PayReceive::Pay => -1.0,
+            PayReceive::Receive => 1.0,
+        }
     }
 }
 
 impl std::fmt::Display for PayReceive {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PayReceive::PayFixed => write!(f, "pay_fixed"),
-            PayReceive::ReceiveFixed => write!(f, "receive_fixed"),
+            PayReceive::Pay => write!(f, "pay"),
+            PayReceive::Receive => write!(f, "receive"),
         }
     }
 }
@@ -47,10 +67,11 @@ impl std::str::FromStr for PayReceive {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let normalized = s.to_ascii_lowercase().replace('-', "_");
         match normalized.as_str() {
-            "pay_fixed" | "pay_protection" | "pay" | "buyer" | "buy" => Ok(PayReceive::PayFixed),
-            "receive_fixed" | "receive_protection" | "receive" | "recv" | "seller" | "sell" => {
-                Ok(PayReceive::ReceiveFixed)
+            "pay_fixed" | "pay_protection" | "pay" | "payer" | "buyer" | "buy" | "short" => {
+                Ok(PayReceive::Pay)
             }
+            "receive_fixed" | "receive_protection" | "receive" | "recv" | "receiver" | "seller"
+            | "sell" | "long" => Ok(PayReceive::Receive),
             other => Err(format!("Unknown pay/receive: {}", other)),
         }
     }

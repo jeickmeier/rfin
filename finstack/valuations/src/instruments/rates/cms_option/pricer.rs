@@ -181,10 +181,12 @@ impl CmsOptionPricer {
         let disc = market.get_discount(inst.discount_curve_id.as_ref())?;
 
         // Calculate Annuity (Fixed Leg)
+        let swap_fixed_freq = inst.resolved_swap_fixed_freq();
+        let swap_day_count = inst.resolved_swap_day_count();
         let sched_fixed = crate::cashflow::builder::build_dates(
             start,
             end,
-            inst.swap_fixed_freq,
+            swap_fixed_freq,
             StubKind::None,
             BusinessDayConvention::ModifiedFollowing,
             false,
@@ -196,10 +198,7 @@ impl CmsOptionPricer {
         let mut prev_date = start;
         // Skip the first date by index (not value equality) to handle BDC-adjusted dates
         for &d in sched_fixed.dates.iter().skip(1) {
-            // Accrual uses swap_day_count (correct for coupon calculation)
-            let accrual =
-                inst.swap_day_count
-                    .year_fraction(prev_date, d, DayCountCtx::default())?;
+            let accrual = swap_day_count.year_fraction(prev_date, d, DayCountCtx::default())?;
             // DF uses curve-consistent relative DF
             let df = relative_df_discount_curve(disc.as_ref(), as_of, d)?;
             annuity += accrual * df;
@@ -224,11 +223,12 @@ impl CmsOptionPricer {
         } else {
             // Dual Curve: Calculate Float Leg PV
             let fwd_curve = market.get_forward(inst.forward_curve_id.as_ref())?;
-            let float_day_count = inst.swap_float_day_count.unwrap_or(inst.swap_day_count);
+            let float_day_count = inst.resolved_swap_float_day_count();
+            let swap_float_freq = inst.resolved_swap_float_freq();
             let sched_float = crate::cashflow::builder::build_dates(
                 start,
                 end,
-                inst.swap_float_freq,
+                swap_float_freq,
                 StubKind::None,
                 BusinessDayConvention::ModifiedFollowing,
                 false,

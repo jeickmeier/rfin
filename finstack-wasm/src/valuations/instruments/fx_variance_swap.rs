@@ -8,8 +8,9 @@ use crate::utils::json::{from_js_value, to_js_value};
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::fx::fx_variance_swap::{FxVarianceSwap, PayReceive};
+use finstack_valuations::instruments::fx::fx_variance_swap::FxVarianceSwap;
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::PayReceive;
 use finstack_valuations::prelude::Instrument;
 use wasm_bindgen::prelude::*;
 

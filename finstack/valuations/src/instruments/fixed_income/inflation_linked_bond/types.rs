@@ -351,11 +351,12 @@ impl InflationLinkedBond {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{DayCount, Tenor};
     /// use finstack_core::money::Money;
+    /// use rust_decimal::Decimal;
     /// use time::macros::date;
     ///
     /// let params = InflationLinkedBondParams {
     ///     notional: Money::new(1_000_000.0, Currency::GBP),
-    ///     real_coupon: 0.025,  // 2.5% real coupon
+    ///     real_coupon: Decimal::try_from(0.025).unwrap(),
     ///     frequency: Tenor::semi_annual(),
     ///     day_count: DayCount::ActActIsma,
     ///     issue: date!(1999-07-26),  // Pre-2005 issue
@@ -438,11 +439,12 @@ impl InflationLinkedBond {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{DayCount, Tenor};
     /// use finstack_core::money::Money;
+    /// use rust_decimal::Decimal;
     /// use time::macros::date;
     ///
     /// let params = InflationLinkedBondParams {
     ///     notional: Money::new(1_000_000.0, Currency::GBP),
-    ///     real_coupon: 0.00125,  // 0.125% real coupon
+    ///     real_coupon: Decimal::try_from(0.00125).unwrap(),
     ///     frequency: Tenor::semi_annual(),
     ///     day_count: DayCount::ActActIsma,
     ///     issue: date!(2019-11-22),  // Post-2005 issue
@@ -520,11 +522,12 @@ impl InflationLinkedBond {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{DayCount, Tenor};
     /// use finstack_core::money::Money;
+    /// use rust_decimal::Decimal;
     /// use time::macros::date;
     ///
     /// let params = InflationLinkedBondParams {
     ///     notional: Money::new(100_000_000.0, Currency::JPY),
-    ///     real_coupon: 0.001,  // 0.1% real coupon
+    ///     real_coupon: Decimal::try_from(0.001).unwrap(),
     ///     frequency: Tenor::semi_annual(),
     ///     day_count: DayCount::Act365F,
     ///     issue: date!(2024-03-10),

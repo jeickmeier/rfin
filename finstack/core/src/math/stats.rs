@@ -155,9 +155,10 @@ pub fn moment_match(samples: &mut [f64], target_mean: f64, target_std: f64) {
 // ====== Realized Variance Calculations ======
 
 /// Methods for calculating realized variance from price series.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RealizedVarMethod {
-    /// Standard close-to-close returns
+    /// Standard close-to-close returns (market standard default)
+    #[default]
     CloseToClose,
     /// Parkinson (1980) high-low estimator
     Parkinson,

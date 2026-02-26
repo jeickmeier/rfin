@@ -139,9 +139,13 @@ pub struct InterestRateOption {
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar identifier for schedule and roll conventions
     pub calendar_id: Option<CalendarId>,
-    /// Exercise style
+    /// Exercise style (defaults to European; caps/floors are virtually always European)
+    #[serde(default)]
+    #[builder(default)]
     pub exercise_style: ExerciseStyle,
-    /// Settlement type
+    /// Settlement type (defaults to Cash; caps/floors are virtually always cash-settled)
+    #[serde(default = "crate::serde_defaults::settlement_cash")]
+    #[builder(default = SettlementType::Cash)]
     pub settlement: SettlementType,
     /// Discount curve identifier
     pub discount_curve_id: CurveId,

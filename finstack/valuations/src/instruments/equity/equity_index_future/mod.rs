@@ -44,6 +44,7 @@
 //! use finstack_valuations::instruments::rates::ir_future::Position;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::Date;
+//! use finstack_core::money::Money;
 //! use finstack_core::types::{CurveId, InstrumentId};
 //! use time::Month;
 //!
@@ -51,23 +52,22 @@
 //! let es_future = EquityIndexFuture::builder()
 //!     .id(InstrumentId::new("ESH5"))
 //!     .underlying_ticker("SPX".to_string())
-//!     .currency(Currency::USD)
-//!     .quantity(10.0)
-//!     .expiry_date(Date::from_calendar_date(2025, Month::March, 21).unwrap())
+//!     .notional(Money::new(2_250_000.0, Currency::USD))
+//!     .expiry(Date::from_calendar_date(2025, Month::March, 21).unwrap())
 //!     .last_trading_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
 //!     .entry_price_opt(Some(4500.0))
 //!     .quoted_price_opt(Some(4550.0))
 //!     .position(Position::Long)
 //!     .contract_specs(EquityFutureSpecs::sp500_emini())
 //!     .discount_curve_id(CurveId::new("USD-OIS"))
-//!     .spot_id("SPX-SPOT".to_string())
+//!     .spot_id("SPX-SPOT".into())
 //!     .build()
 //!     .expect("Valid future");
 //!
 //! // Using the convenience constructor
 //! let es_future2 = EquityIndexFuture::sp500_emini(
 //!     "ESH5",
-//!     10.0,
+//!     Money::new(2_250_000.0, Currency::USD),
 //!     Date::from_calendar_date(2025, Month::March, 21).unwrap(),
 //!     Date::from_calendar_date(2025, Month::March, 20).unwrap(),
 //!     Some(4500.0),

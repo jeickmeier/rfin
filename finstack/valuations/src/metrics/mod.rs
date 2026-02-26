@@ -86,18 +86,15 @@
 //! let option = EquityOption::builder()
 //!     .id(finstack_core::types::InstrumentId::new("OPT-001"))
 //!     .underlying_ticker("SPX".to_string())
-//!     .strike(finstack_core::money::Money::new(
-//!         4500.0,
-//!         finstack_core::currency::Currency::USD,
-//!     ))
+//!     .strike(4500.0)
 //!     .option_type(finstack_valuations::instruments::OptionType::Call)
 //!     .exercise_style(finstack_valuations::instruments::ExerciseStyle::European)
 //!     .expiry(expiry)
-//!     .contract_size(100.0)
+//!     .notional(finstack_core::money::Money::new(100.0, finstack_core::currency::Currency::USD))
 //!     .day_count(finstack_core::dates::DayCount::Act365F)
 //!     .settlement(finstack_valuations::instruments::SettlementType::Cash)
 //!     .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
-//!     .spot_id("EQUITY-SPOT".to_string())
+//!     .spot_id("EQUITY-SPOT".into())
 //!     .vol_surface_id(finstack_core::types::CurveId::new("EQUITY-VOL"))
 //!     .div_yield_id_opt(Some(finstack_core::types::CurveId::new("EQUITY-DIVYIELD")))
 //!     .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
@@ -130,18 +127,15 @@
 //! let option = EquityOption::builder()
 //!     .id(finstack_core::types::InstrumentId::new("OPT-001"))
 //!     .underlying_ticker("SPX".to_string())
-//!     .strike(finstack_core::money::Money::new(
-//!         4500.0,
-//!         finstack_core::currency::Currency::USD,
-//!     ))
+//!     .strike(4500.0)
 //!     .option_type(finstack_valuations::instruments::OptionType::Call)
 //!     .exercise_style(finstack_valuations::instruments::ExerciseStyle::European)
 //!     .expiry(create_date(2024, Month::July, 1)?)
-//!     .contract_size(100.0)
+//!     .notional(finstack_core::money::Money::new(100.0, finstack_core::currency::Currency::USD))
 //!     .day_count(finstack_core::dates::DayCount::Act365F)
 //!     .settlement(finstack_valuations::instruments::SettlementType::Cash)
 //!     .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
-//!     .spot_id("EQUITY-SPOT".to_string())
+//!     .spot_id("EQUITY-SPOT".into())
 //!     .vol_surface_id(finstack_core::types::CurveId::new("EQUITY-VOL"))
 //!     .div_yield_id_opt(Some(finstack_core::types::CurveId::new("EQUITY-DIVYIELD")))
 //!     .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())

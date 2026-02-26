@@ -25,7 +25,7 @@
 //!
 //! ```rust
 //! use finstack_valuations::instruments::fixed_income::cmo::{
-//!     AgencyCmo, CmoTranche, CmoTrancheType, CmoWaterfall,
+//!     AgencyCmo, CmoTranche, CmoWaterfall,
 //! };
 //! use finstack_valuations::instruments::fixed_income::mbs_passthrough::AgencyProgram;
 //! use finstack_core::currency::Currency;
@@ -43,7 +43,7 @@
 //!
 //! let cmo = AgencyCmo::builder()
 //!     .id(InstrumentId::new("FNR-2024-1-A"))
-//!     .deal_name("FNR 2024-1".to_string())
+//!     .deal_name("FNR 2024-1".into())
 //!     .agency(AgencyProgram::Fnma)
 //!     .issue_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
 //!     .waterfall(CmoWaterfall::new(tranches))

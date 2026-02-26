@@ -49,7 +49,6 @@ impl PyFxPayReceive {
         match self.inner {
             PayReceive::Pay => "FxVarianceDirection.PAY",
             PayReceive::Receive => "FxVarianceDirection.RECEIVE",
-            _ => unreachable!("unknown PayReceive variant"),
         }
     }
 
@@ -57,7 +56,6 @@ impl PyFxPayReceive {
         match self.inner {
             PayReceive::Pay => "pay",
             PayReceive::Receive => "receive",
-            _ => unreachable!("unknown PayReceive variant"),
         }
     }
 }
@@ -619,7 +617,6 @@ impl PyFxVarianceSwap {
             match self.inner.side {
                 PayReceive::Pay => "pay",
                 PayReceive::Receive => "receive",
-                _ => unreachable!("unknown PayReceive variant"),
             },
             self.inner.maturity
         )

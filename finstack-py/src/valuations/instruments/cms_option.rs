@@ -265,14 +265,17 @@ impl PyCmsOption {
             opt_type,
             notional_money,
             option_dc,
-            fixed_freq,
-            float_freq,
-            swap_dc,
+            finstack_valuations::instruments::IRSConvention::USDStandard,
             discount_curve_id,
             forward_curve_id,
             vol_surface_id,
         )
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+
+        let mut option = option;
+        option.swap_fixed_freq = Some(fixed_freq);
+        option.swap_float_freq = Some(float_freq);
+        option.swap_day_count = Some(swap_dc);
 
         Ok(Self::new(option))
     }

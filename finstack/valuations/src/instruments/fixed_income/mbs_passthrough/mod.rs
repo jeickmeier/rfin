@@ -41,7 +41,7 @@
 //! // Create a FNMA 30-year passthrough
 //! let mbs = AgencyMbsPassthrough::builder()
 //!     .id(InstrumentId::new("FN-MA1234"))
-//!     .pool_id("MA1234".to_string())
+//!     .pool_id("MA1234".into())
 //!     .agency(AgencyProgram::Fnma)
 //!     .pool_type(PoolType::Generic)
 //!     .original_face(Money::new(1_000_000.0, Currency::USD))

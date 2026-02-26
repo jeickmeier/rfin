@@ -67,8 +67,8 @@ fn test_builder_with_lag_override() {
 
 #[test]
 fn test_pay_receive_inflation_display() {
-    assert_eq!(PayReceive::PayFixed.to_string(), "pay_fixed");
-    assert_eq!(PayReceive::ReceiveFixed.to_string(), "receive_fixed");
+    assert_eq!(PayReceive::PayFixed.to_string(), "pay");
+    assert_eq!(PayReceive::ReceiveFixed.to_string(), "receive");
 }
 
 #[test]

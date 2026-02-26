@@ -167,13 +167,13 @@ fn test_delta_calculation() {
     let expiry = Date::from_calendar_date(2025, Month::March, 21).unwrap();
     let last_trade = Date::from_calendar_date(2025, Month::March, 20).unwrap();
 
-    // Long 10 ES contracts
+    // Long 10 ES contracts at 4500: notional = 10 × 50 × 4500 = 2,250,000
     let long = EquityIndexFuture::sp500_emini(
         "ES-LONG",
         Money::new(2_250_000.0, Currency::USD),
         expiry,
         last_trade,
-        None,
+        Some(4500.0),
         Position::Long,
         "USD-OIS",
     )
@@ -181,13 +181,13 @@ fn test_delta_calculation() {
     // Delta = 50 × 10 × 1 = 500
     assert_eq!(long.delta(), 500.0);
 
-    // Short 5 NQ contracts
+    // Short 5 NQ contracts at 15000: notional = 5 × 20 × 15000 = 1,500,000
     let short = EquityIndexFuture::nasdaq100_emini(
         "NQ-SHORT",
         Money::new(1_500_000.0, Currency::USD),
         expiry,
         last_trade,
-        None,
+        Some(15000.0),
         Position::Short,
         "USD-OIS",
     )

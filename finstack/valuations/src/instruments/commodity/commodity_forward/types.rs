@@ -92,7 +92,9 @@ pub struct CommodityForward {
     pub underlying: CommodityUnderlyingParams,
     /// Contract quantity in units.
     pub quantity: f64,
-    /// Contract multiplier (typically 1.0 for OTC forwards).
+    /// Contract multiplier (typically 1.0 for OTC forwards, defaults to 1.0).
+    #[serde(default = "crate::serde_defaults::multiplier_one")]
+    #[builder(default = 1.0)]
     pub multiplier: f64,
     /// Settlement/delivery date.
     pub maturity: Date,

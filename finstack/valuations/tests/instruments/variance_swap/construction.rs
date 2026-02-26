@@ -234,5 +234,5 @@ fn test_pay_receive_from_str_rejects_invalid_inputs() {
     // Act & Assert
     assert!(PayReceive::from_str("invalid").is_err());
     assert!(PayReceive::from_str("").is_err());
-    assert!(PayReceive::from_str("buyer").is_err());
+    assert!(PayReceive::from_str("nonsense").is_err());
 }

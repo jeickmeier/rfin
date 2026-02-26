@@ -201,6 +201,7 @@ impl EquityFutureSpecs {
 /// use finstack_valuations::instruments::rates::ir_future::Position;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
+/// use finstack_core::money::Money;
 /// use finstack_core::types::{CurveId, InstrumentId};
 /// use time::Month;
 ///
@@ -396,12 +397,17 @@ impl EquityIndexFuture {
     ///
     /// This represents the USD P&L change for a 1-point move in the index.
     pub fn delta(&self) -> f64 {
-        let px = self
-            .quoted_price
-            .or(self.entry_price)
-            .unwrap_or(1.0)
-            .max(1e-12);
-        self.contract_specs.multiplier * self.num_contracts(px) * self.position_sign()
+        let contracts = self.entry_contracts();
+        self.contract_specs.multiplier * contracts * self.position_sign()
+    }
+
+    /// Number of contracts implied by notional at entry price.
+    ///
+    /// The contract count is fixed at trade inception and does not change
+    /// when the market price moves.
+    fn entry_contracts(&self) -> f64 {
+        let px = self.entry_price.unwrap_or(1.0).max(1e-12);
+        self.num_contracts(px)
     }
 
     /// Calculate the raw present value as f64.
@@ -424,7 +430,7 @@ impl EquityIndexFuture {
     fn price_quoted(&self, quoted_price: f64) -> finstack_core::Result<f64> {
         let entry = self.entry_price.unwrap_or(0.0);
         let price_diff = quoted_price - entry;
-        let contracts = self.num_contracts(quoted_price.max(1e-12));
+        let contracts = self.entry_contracts();
         let pv = price_diff * self.contract_specs.multiplier * contracts * self.position_sign();
         Ok(pv)
     }
@@ -436,10 +442,9 @@ impl EquityIndexFuture {
     fn price_fair_value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         let fair_value = self.fair_forward(context, as_of)?;
 
-        // Calculate PV relative to entry price
         let entry = self.entry_price.unwrap_or(0.0);
         let price_diff = fair_value - entry;
-        let contracts = self.num_contracts(fair_value.max(1e-12));
+        let contracts = self.entry_contracts();
         let pv = price_diff * self.contract_specs.multiplier * contracts * self.position_sign();
 
         Ok(pv)

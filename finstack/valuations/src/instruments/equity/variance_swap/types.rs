@@ -13,45 +13,7 @@ use time::macros::date;
 use crate::impl_instrument_base;
 use crate::{cashflow::traits::CashflowProvider, instruments::common::traits::Attributes};
 
-/// Side of the variance swap (pay or receive variance).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum PayReceive {
-    /// Pay variance (short variance)
-    Pay,
-    /// Receive variance (long variance)
-    Receive,
-}
-
-impl std::fmt::Display for PayReceive {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PayReceive::Pay => write!(f, "pay"),
-            PayReceive::Receive => write!(f, "receive"),
-        }
-    }
-}
-
-impl std::str::FromStr for PayReceive {
-    type Err = String;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().as_str() {
-            "pay" | "payer" | "short" => Ok(PayReceive::Pay),
-            "receive" | "receiver" | "long" => Ok(PayReceive::Receive),
-            other => Err(format!("Unknown variance swap pay/receive: {}", other)),
-        }
-    }
-}
-
-impl PayReceive {
-    /// Get the sign multiplier for PV calculation.
-    pub fn sign(&self) -> f64 {
-        match self {
-            PayReceive::Pay => -1.0,
-            PayReceive::Receive => 1.0,
-        }
-    }
-}
+pub use crate::instruments::common_impl::parameters::PayReceive;
 
 /// Variance swap instrument.
 ///
@@ -117,7 +79,9 @@ pub struct VarianceSwap {
     pub maturity: Date,
     /// Observation frequency
     pub observation_freq: Tenor,
-    /// Method for calculating realized variance
+    /// Method for calculating realized variance (defaults to CloseToClose)
+    #[serde(default)]
+    #[builder(default)]
     pub realized_var_method: RealizedVarMethod,
     /// Pay/receive variance
     pub side: PayReceive,

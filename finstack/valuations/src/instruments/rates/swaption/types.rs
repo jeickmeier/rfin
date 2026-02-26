@@ -270,10 +270,11 @@ impl std::str::FromStr for SwaptionSettlement {
 }
 
 /// Swaption exercise style
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum SwaptionExercise {
     /// European exercise (only at expiry)
+    #[default]
     European,
     /// Bermudan exercise (at discrete dates)
     Bermudan,
@@ -466,8 +467,9 @@ pub struct Swaption {
     pub float_freq: Tenor,
     /// Day count convention
     pub day_count: DayCount,
-    /// Exercise style (European, Bermudan, American)
-    #[serde(alias = "exercise")]
+    /// Exercise style (European, Bermudan, American). Defaults to European.
+    #[serde(default, alias = "exercise")]
+    #[builder(default)]
     pub exercise_style: SwaptionExercise,
     /// Settlement method (physical or cash)
     pub settlement: SwaptionSettlement,

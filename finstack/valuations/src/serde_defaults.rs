@@ -23,3 +23,8 @@ pub(crate) fn day_count_act365f() -> DayCount {
 pub(crate) fn settlement_cash() -> SettlementType {
     SettlementType::Cash
 }
+
+/// Default contract multiplier (1.0).
+pub(crate) fn multiplier_one() -> f64 {
+    1.0
+}
