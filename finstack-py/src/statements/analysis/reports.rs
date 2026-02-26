@@ -97,7 +97,7 @@ impl PyTableBuilder {
         self.inner.add_row(cells);
     }
 
-    #[pyo3(name = "to_string", signature = ())]
+    #[pyo3(signature = ())]
     /// Build ASCII table.
     ///
     /// Returns
@@ -163,7 +163,7 @@ impl PyPLSummaryReport {
         }
     }
 
-    #[pyo3(signature = ())]
+    #[pyo3(name = "to_string", signature = ())]
     /// Convert report to string format.
     ///
     /// Returns

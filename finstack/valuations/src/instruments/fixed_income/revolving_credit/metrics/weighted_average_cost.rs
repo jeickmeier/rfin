@@ -49,8 +49,7 @@ impl MetricCalculator for ApproxWeightedAverageCostCalculator {
                     index_rate = index_rate.min(cap_f64 * 1e-4);
                 }
 
-                // Convert Decimal spread to f64 for rate calculations
-                let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
+                let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or_default();
                 index_rate + (spread_bp_f64 * 1e-4)
             }
         };

@@ -474,7 +474,7 @@ fn test_error_handling_invalid_dates() {
     );
     let err = result.unwrap_err();
     assert!(
-        format!("{}", err).contains("expiry_date") && format!("{}", err).contains("delivery_start"),
+        format!("{}", err).contains("expiry") && format!("{}", err).contains("delivery_start"),
         "Error message should mention date ordering: {}",
         err
     );

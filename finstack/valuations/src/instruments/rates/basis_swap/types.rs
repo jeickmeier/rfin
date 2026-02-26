@@ -33,6 +33,8 @@ use finstack_core::{
 // Import shared swap leg pricing utilities
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::pricing::swap_legs::{FloatingLegParams, LegPeriod};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 // Re-export from common parameters
 pub use crate::instruments::common_impl::parameters::legs::BasisSwapLeg;
@@ -70,7 +72,7 @@ pub use crate::instruments::common_impl::parameters::legs::BasisSwapLeg;
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
 ///     calendar_id: None,
 ///     stub: StubKind::ShortFront,
-///     spread_bp: 5.0,
+///     spread_bp: rust_decimal::Decimal::from(5),
 ///     payment_lag_days: 0,
 ///     reset_lag_days: 0,
 /// };
@@ -85,7 +87,7 @@ pub use crate::instruments::common_impl::parameters::legs::BasisSwapLeg;
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
 ///     calendar_id: None,
 ///     stub: StubKind::ShortFront,
-///     spread_bp: 0.0,
+///     spread_bp: rust_decimal::Decimal::ZERO,
 ///     payment_lag_days: 0,
 ///     reset_lag_days: 0,
 /// };
@@ -128,8 +130,11 @@ pub struct BasisSwap {
     pub allow_same_curve: bool,
     /// Pricing overrides for scenario analysis and model configuration.
     #[builder(default)]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pricing_overrides: Option<crate::instruments::PricingOverrides>,
+    #[serde(
+        default,
+        deserialize_with = "crate::instruments::common::parameters::deserialize_null_default"
+    )]
+    pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Attributes for instrument selection and tagging.
     pub attributes: crate::instruments::common_impl::traits::Attributes,
 }
@@ -189,7 +194,7 @@ impl BasisSwap {
             reference_leg,
             allow_calendar_fallback: false,
             allow_same_curve: false,
-            pricing_overrides: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: crate::instruments::common_impl::traits::Attributes::default(),
         })
     }
@@ -252,7 +257,7 @@ impl BasisSwap {
             reference_leg,
             allow_calendar_fallback: false,
             allow_same_curve: true,
-            pricing_overrides: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: crate::instruments::common_impl::traits::Attributes::default(),
         })
     }
@@ -318,22 +323,22 @@ impl BasisSwap {
             ));
         }
 
-        const MAX_SPREAD_BP: f64 = 5000.0;
-        if leg.spread_bp.abs() > MAX_SPREAD_BP {
+        let max_spread_bp = Decimal::from(5000);
+        if leg.spread_bp.abs() > max_spread_bp {
             return Err(finstack_core::Error::Validation(format!(
-                "BasisSwap leg spread {:.0}bp exceeds maximum threshold of ±{:.0}bp. \
-                 Spread is in basis points (e.g., 5.0 for 5bp). \
+                "BasisSwap leg spread {}bp exceeds maximum threshold of ±{}bp. \
+                 Spread is in basis points (e.g., Decimal::from(5) for 5bp). \
                  If this is intentional for stress testing, consider using a dedicated stress API.",
-                leg.spread_bp, MAX_SPREAD_BP
+                leg.spread_bp, max_spread_bp
             )));
         }
 
-        const TYPICAL_SPREAD_BP: f64 = 500.0;
-        if leg.spread_bp.abs() > TYPICAL_SPREAD_BP {
+        let typical_spread_bp = Decimal::from(500);
+        if leg.spread_bp.abs() > typical_spread_bp {
             tracing::warn!(
                 instrument_id = %self.id.as_str(),
-                spread_bp = leg.spread_bp,
-                "BasisSwap leg spread {:.0}bp is outside typical market range (±500bp). \
+                spread_bp = %leg.spread_bp,
+                "BasisSwap leg spread {}bp is outside typical market range (±500bp). \
                  Verify this is intentional and not a unit conversion error.",
                 leg.spread_bp
             );
@@ -377,7 +382,7 @@ impl BasisSwap {
             .collect();
 
         let params = FloatingLegParams::full(
-            leg.spread_bp,
+            leg.spread_bp.to_f64().unwrap_or_default(),
             1.0,
             true,
             None,
@@ -581,7 +586,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 5.0, // 5bp
+            spread_bp: Decimal::from(5), // 5bp
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -596,7 +601,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -661,7 +666,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -675,7 +680,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -734,7 +739,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 10.0,
+            spread_bp: Decimal::from(10),
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -753,7 +758,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -801,7 +806,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -863,7 +868,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: StubKind::ShortFront,
-            spread_bp: 5.0,
+            spread_bp: Decimal::from(5),
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -873,7 +878,7 @@ mod tests {
             Money::new(1_000_000.0, Currency::USD),
             leg.clone(),
             BasisSwapLeg {
-                spread_bp: 0.0,
+                spread_bp: Decimal::ZERO,
                 ..leg
             },
         )
@@ -914,7 +919,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 10.0, // 10bp spread
+            spread_bp: Decimal::from(10), // 10bp spread
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -925,7 +930,7 @@ mod tests {
             Money::new(1_000_000.0, Currency::USD),
             leg.clone(),
             BasisSwapLeg {
-                spread_bp: 0.0,
+                spread_bp: Decimal::ZERO,
                 ..leg
             },
         )
@@ -987,7 +992,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 0.0, // Start at zero spread
+            spread_bp: Decimal::ZERO, // Start at zero spread
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -1002,7 +1007,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -1031,7 +1036,7 @@ mod tests {
 
         // Create a new swap with the par spread applied
         let primary_leg_at_par = BasisSwapLeg {
-            spread_bp: par_spread_bp,
+            spread_bp: Decimal::try_from(par_spread_bp).unwrap_or_default(),
             ..primary_leg
         };
 
@@ -1069,7 +1074,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };

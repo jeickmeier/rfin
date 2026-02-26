@@ -92,7 +92,7 @@ where
             let idx = IndexId::new(option.forward_curve_id.as_str());
             match registry.require_rate_index(&idx) {
                 Ok(conv) => (
-                    conv.default_payment_delay_days,
+                    conv.default_payment_lag_days,
                     Some(conv.default_reset_lag_days),
                 ),
                 Err(_) => (0, None),

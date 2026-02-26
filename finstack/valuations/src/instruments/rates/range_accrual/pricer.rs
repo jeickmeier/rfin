@@ -44,8 +44,10 @@ use finstack_core::Result;
 /// Falls back to 1.0 if fx_spot_id is not provided (ATM approximation).
 #[cfg(feature = "mc")]
 fn get_fx_spot(inst: &RangeAccrual, curves: &MarketContext) -> f64 {
-    if let Some(ref fx_spot_id) = inst.fx_spot_id {
-        match curves.price(fx_spot_id.as_str()) {
+    let fx_spot_id = inst.quanto.as_ref().and_then(|q| q.fx_spot_id.as_deref());
+
+    if let Some(id) = fx_spot_id {
+        match curves.price(id) {
             Ok(ms) => match ms {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -134,15 +136,13 @@ impl RangeAccrualMcPricer {
         let sigma = vol_surface.value_clamped(t, initial_spot);
 
         // Quanto Adjustment using FX spot for vol lookup
-        if let Some(rho) = inst.quanto_correlation {
-            if let Some(ref fx_vol_id) = inst.fx_vol_surface_id {
-                let fx_vol_surface = curves.surface(fx_vol_id.as_str())?;
-                let fx_spot = get_fx_spot(inst, curves);
-                let sigma_fx = fx_vol_surface.value_clamped(t, fx_spot);
+        if let Some(quanto) = &inst.quanto {
+            let fx_vol_surface = curves.surface(quanto.fx_vol_surface_id.as_str())?;
+            let fx_spot = get_fx_spot(inst, curves);
+            let sigma_fx = fx_vol_surface.value_clamped(t, fx_spot);
 
-                // Drift adjustment: q_param = q_real + rho * sigma_S * sigma_FX
-                q += rho * sigma * sigma_fx;
-            }
+            // Drift adjustment: q_param = q_real + rho * sigma_S * sigma_FX
+            q += quanto.correlation * sigma * sigma_fx;
         }
 
         let gbm_params = GbmParams::new(r, q, sigma);
@@ -354,15 +354,13 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
 
         // Quanto drift adjustment specific to this horizon
         let mut drift_adj = 0.0;
-        if let Some(rho) = inst.quanto_correlation {
-            if let Some(ref fx_vol_id) = inst.fx_vol_surface_id {
-                let fx_vol_surface = curves.surface(fx_vol_id.as_str())?;
-                // Vol of Asset (S) for drift adj: use ATM at current spot
-                let sig_s = vol_surface.value_clamped(t_obs, initial_spot);
-                // Vol of FX for drift adj: use ATM at FX spot
-                let sig_fx = fx_vol_surface.value_clamped(t_obs, fx_spot);
-                drift_adj = rho * sig_s * sig_fx;
-            }
+        if let Some(quanto) = &inst.quanto {
+            let fx_vol_surface = curves.surface(quanto.fx_vol_surface_id.as_str())?;
+            // Vol of Asset (S) for drift adj: use ATM at current spot
+            let sig_s = vol_surface.value_clamped(t_obs, initial_spot);
+            // Vol of FX for drift adj: use ATM at FX spot
+            let sig_fx = fx_vol_surface.value_clamped(t_obs, fx_spot);
+            drift_adj = quanto.correlation * sig_s * sig_fx;
         }
 
         // Forward Price F = S * exp((r - q - drift_adj) * t)

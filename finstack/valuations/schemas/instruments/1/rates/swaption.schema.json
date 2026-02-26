@@ -13,7 +13,7 @@
           },
           "day_count": "Thirty360",
           "discount_curve_id": "USD-OIS",
-          "exercise": "European",
+          "exercise_style": "European",
           "expiry": "2025-01-15",
           "fixed_freq": {
             "Months": 6
@@ -64,7 +64,7 @@
           },
           "day_count": "Thirty360",
           "discount_curve_id": "USD-OIS",
-          "exercise": "European",
+          "exercise_style": "European",
           "expiry": "2025-01-15",
           "fixed_freq": {
             "Months": 6

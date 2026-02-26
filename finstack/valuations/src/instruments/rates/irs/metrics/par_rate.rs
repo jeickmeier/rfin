@@ -68,7 +68,7 @@ fn discount_ratio_allowed(irs: &InterestRateSwap, as_of: Date) -> bool {
     if !float.spread_bp.is_zero() {
         return false;
     }
-    if fixed.payment_delay_days != 0 || float.payment_delay_days != 0 {
+    if fixed.payment_lag_days != 0 || float.payment_lag_days != 0 {
         return false;
     }
     true
@@ -113,7 +113,7 @@ impl MetricCalculator for ParRateCalculator {
                     fixed.stub,
                     fixed.bdc,
                     fixed.end_of_month,
-                    fixed.payment_delay_days,
+                    fixed.payment_lag_days,
                     fixed
                         .calendar_id
                         .as_deref()
@@ -237,7 +237,7 @@ mod tests {
                     end,
                     par_method: Some(ParRateMethod::DiscountRatio),
                     compounding_simple: true,
-                    payment_delay_days: 0,
+                    payment_lag_days: 0,
                     end_of_month: false,
                 },
             )
@@ -256,7 +256,7 @@ mod tests {
                     end,
                     compounding: FloatingLegCompounding::Simple,
                     fixing_calendar_id: None,
-                    payment_delay_days: 0,
+                    payment_lag_days: 0,
                     end_of_month: false,
                 },
             )
@@ -277,7 +277,7 @@ mod tests {
 
         let mut irs3 = irs2.clone();
         irs3.float.spread_bp = rust_decimal::Decimal::ZERO;
-        irs3.float.payment_delay_days = 2;
+        irs3.float.payment_lag_days = 2;
         assert!(
             !discount_ratio_allowed(&irs3, as_of),
             "payment delay disallowed"

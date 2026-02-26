@@ -66,7 +66,7 @@ pub struct RateIndexConventions {
     /// Typical payment frequency for swaps referencing this index.
     pub default_payment_frequency: Tenor,
     /// Business days between accrual end and payment.
-    pub default_payment_delay_days: i32,
+    pub default_payment_lag_days: i32,
     /// Business days between fixing and accrual start.
     pub default_reset_lag_days: i32,
     /// Methodology for compounding overnight rates (OIS only).

@@ -51,9 +51,6 @@
         "tags": [],
         "meta": {}
       },
-      "quanto_correlation": null,
-      "fx_vol_surface_id": null,
-      "fx_spot_id": null,
       "payment_date": null,
       "past_fixings_in_range": null,
       "total_past_observations": null

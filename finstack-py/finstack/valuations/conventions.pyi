@@ -126,7 +126,7 @@ class RateIndexConventions:
         ...
 
     @property
-    def default_payment_delay_days(self) -> int:
+    def default_payment_lag_days(self) -> int:
         """Default payment delay in days."""
         ...
 

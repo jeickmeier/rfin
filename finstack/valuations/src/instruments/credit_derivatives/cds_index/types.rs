@@ -145,6 +145,8 @@ pub struct CDSIndex {
     /// Optional list of constituents when using `IndexPricing::Constituents`
     pub constituents: Vec<CDSIndexConstituent>,
     /// Pricing overrides (including upfront payment)
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Optional OTC margin specification for VM/IM.
     ///
@@ -153,6 +155,8 @@ pub struct CDSIndex {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin_spec: Option<OtcMarginSpec>,
     /// Attributes for tagging and selection
+    #[serde(default)]
+    #[builder(default)]
     pub attributes: Attributes,
 }
 

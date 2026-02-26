@@ -1,6 +1,7 @@
 //! Range accrual instrument definition.
 
 use crate::impl_instrument_base;
+use crate::instruments::common::parameters::QuantoSpec;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use crate::instruments::PricingOverrides;
@@ -74,12 +75,12 @@ pub struct RangeAccrual {
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
-    /// Optional Quanto correlation (Asset vs FX)
-    pub quanto_correlation: Option<f64>,
-    /// Optional FX volatility surface ID (required for Quanto)
-    pub fx_vol_surface_id: Option<CurveId>,
-    /// Optional FX spot price identifier (required for proper Quanto vol lookup)
-    pub fx_spot_id: Option<PriceId>,
+    /// Optional quanto adjustment parameters. When provided, applies a drift
+    /// correction for instruments whose payoff currency differs from the
+    /// underlying asset currency.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quanto: Option<QuantoSpec>,
     /// Optional payment date (defaults to last observation date)
     pub payment_date: Option<Date>,
     /// Number of past observations that were in range (for mid-life valuations).
@@ -130,9 +131,6 @@ impl RangeAccrual {
             .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
-            .quanto_correlation_opt(None)
-            .fx_vol_surface_id_opt(None)
-            .fx_spot_id_opt(None)
             .payment_date_opt(None)
             .past_fixings_in_range_opt(None)
             .total_past_observations_opt(None)
@@ -167,9 +165,6 @@ impl RangeAccrual {
             .div_yield_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
-            .quanto_correlation_opt(None)
-            .fx_vol_surface_id_opt(None)
-            .fx_spot_id_opt(None)
             .payment_date_opt(None)
             .past_fixings_in_range_opt(None)
             .total_past_observations_opt(None)
@@ -213,13 +208,6 @@ impl RangeAccrual {
                 self.coupon_rate
             )
         })?;
-
-        // Check quanto field consistency
-        validation::require_if_some(
-            &self.quanto_correlation,
-            &self.fx_vol_surface_id,
-            "RangeAccrual quanto_correlation requires fx_vol_surface_id to be set",
-        )?;
 
         // Check past fixing field consistency
         match (self.past_fixings_in_range, self.total_past_observations) {

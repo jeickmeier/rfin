@@ -124,7 +124,7 @@ impl TrancheCoupon {
     pub fn current_rate(&self, _date: Date) -> f64 {
         match self {
             TrancheCoupon::Fixed { rate } => *rate,
-            TrancheCoupon::Floating(spec) => spec.spread_bp.to_f64().unwrap_or(0.0) / 10_000.0,
+            TrancheCoupon::Floating(spec) => spec.spread_bp.to_f64().unwrap_or_default() / 10_000.0,
         }
     }
 

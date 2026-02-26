@@ -12,6 +12,7 @@ use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::Month;
 
 fn d(y: i32, m: u8, day: u8) -> Date {
@@ -63,7 +64,7 @@ fn market() -> MarketContext {
         .insert_forward(f1m)
 }
 
-fn make_leg(forward_curve: &str, start: Date, end: Date, spread_bp: f64) -> BasisSwapLeg {
+fn make_leg(forward_curve: &str, start: Date, end: Date, spread_bp: Decimal) -> BasisSwapLeg {
     BasisSwapLeg {
         forward_curve_id: CurveId::new(forward_curve),
         discount_curve_id: CurveId::new("USD-OIS"),
@@ -87,8 +88,8 @@ fn dv01_per_curve_breakdown() {
     let swap = BasisSwap::new(
         "DV01-NET-TEST",
         Money::new(10_000_000.0, USD),
-        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
-        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), Decimal::ZERO),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), Decimal::ZERO),
     )
     .expect("swap construction");
 
@@ -138,8 +139,8 @@ fn dv01_scales_with_notional() {
         let swap = BasisSwap::new(
             format!("DV01-SCALE-{}", notional),
             Money::new(*notional, USD),
-            make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
-            make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
+            make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), Decimal::ZERO),
+            make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), Decimal::ZERO),
         )
         .expect("valid basis swap");
 
@@ -177,8 +178,8 @@ fn dv01_sign_convention() {
     let swap = BasisSwap::new(
         "DV01-SIGN-TEST",
         Money::new(10_000_000.0, USD),
-        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
-        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), Decimal::ZERO),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), Decimal::ZERO),
     )
     .expect("swap construction");
 
@@ -215,8 +216,8 @@ fn dv01_vs_numerical_bump() {
     let swap = BasisSwap::new(
         "DV01-BUMP-TEST",
         Money::new(10_000_000.0, USD),
-        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
-        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), Decimal::ZERO),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), Decimal::ZERO),
     )
     .expect("swap construction");
 
@@ -248,8 +249,8 @@ fn annuity_positive_and_increasing() {
         let swap = BasisSwap::new(
             format!("ANNUITY-{}", maturity),
             Money::new(10_000_000.0, USD),
-            make_leg("USD-SOFR-3M", d(2025, 1, 2), *maturity, 0.0),
-            make_leg("USD-SOFR-1M", d(2025, 1, 2), *maturity, 0.0),
+            make_leg("USD-SOFR-3M", d(2025, 1, 2), *maturity, Decimal::ZERO),
+            make_leg("USD-SOFR-1M", d(2025, 1, 2), *maturity, Decimal::ZERO),
         )
         .expect("valid basis swap");
 
@@ -274,8 +275,8 @@ fn bucketed_dv01_sums_to_total() {
     let swap = BasisSwap::new(
         "BUCKETED-DV01-TEST",
         Money::new(10_000_000.0, USD),
-        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
-        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), Decimal::ZERO),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), Decimal::ZERO),
     )
     .expect("swap construction");
 
@@ -296,8 +297,8 @@ fn dv01_leg_components_reasonable() {
     let swap = BasisSwap::new(
         "DV01-COMPONENTS-TEST",
         Money::new(notional, USD),
-        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
-        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), Decimal::ZERO),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), Decimal::ZERO),
     )
     .expect("swap construction");
 
@@ -356,7 +357,7 @@ fn dv01_leg_components_reasonable() {
 fn sensitivity_to_spread() {
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let spreads = vec![0.0, 10.0, 20.0];
+    let spreads = vec![Decimal::ZERO, Decimal::from(10), Decimal::from(20)];
     let mut npvs = Vec::new();
 
     for spread in &spreads {
@@ -364,7 +365,7 @@ fn sensitivity_to_spread() {
             format!("SPREAD-SENS-{}", spread),
             Money::new(10_000_000.0, USD),
             make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2026, 1, 2), *spread),
-            make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), 0.0),
+            make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2026, 1, 2), Decimal::ZERO),
         )
         .expect("valid basis swap");
 
@@ -427,18 +428,18 @@ fn annuity_with_payment_lag_differs_from_no_lag() {
     let swap_no_lag = BasisSwap::new(
         "ANNUITY-NO-LAG",
         Money::new(10_000_000.0, USD),
-        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
-        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), Decimal::ZERO),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), Decimal::ZERO),
     )
     .expect("swap construction");
 
     let primary_with_lag = BasisSwapLeg {
         payment_lag_days: 10,
-        ..make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), 0.0)
+        ..make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), Decimal::ZERO)
     };
     let reference_with_lag = BasisSwapLeg {
         payment_lag_days: 10,
-        ..make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), 0.0)
+        ..make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), Decimal::ZERO)
     };
     let swap_with_lag = BasisSwap::new(
         "ANNUITY-WITH-LAG",
@@ -485,8 +486,8 @@ fn test_bucketed_dv01_per_curve() {
     let swap = BasisSwap::new(
         "BUCKETED-DV01-TEST",
         Money::new(10_000_000.0, USD),
-        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
-        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), 0.0),
+        make_leg("USD-SOFR-3M", d(2025, 1, 2), d(2027, 1, 2), Decimal::ZERO),
+        make_leg("USD-SOFR-1M", d(2025, 1, 2), d(2027, 1, 2), Decimal::ZERO),
     )
     .expect("swap construction");
 

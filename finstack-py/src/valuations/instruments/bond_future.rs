@@ -454,7 +454,7 @@ impl PyBondFutureBuilder {
         let bond_future = BondFuture {
             id: slf.instrument_id.clone(),
             notional,
-            expiry_date,
+            expiry: expiry_date,
             delivery_start,
             delivery_end,
             quoted_price,
@@ -559,7 +559,7 @@ impl PyBondFuture {
     /// Future expiry date (last trading day).
     #[getter]
     fn expiry_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.expiry_date)
+        date_to_py(py, self.inner.expiry)
     }
 
     /// First delivery date.
@@ -607,7 +607,7 @@ impl PyBondFuture {
             "BondFuture(id='{}', position='{}', expiry='{}')",
             self.inner.id,
             self.position(),
-            self.inner.expiry_date
+            self.inner.expiry
         ))
     }
 }

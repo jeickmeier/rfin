@@ -120,9 +120,10 @@ pub struct VolatilityIndexOption {
     /// Attributes for tagging and selection.
     #[builder(default)]
     #[serde(default)]
-    #[builder(default)]
     pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Attributes for scenario selection and tagging
+    #[serde(default)]
+    #[builder(default)]
     pub attributes: Attributes,
 }
 

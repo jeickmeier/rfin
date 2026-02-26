@@ -75,8 +75,12 @@ pub struct CDSOption {
     /// Volatility surface identifier
     pub vol_surface_id: CurveId,
     /// Pricing overrides (including implied volatility)
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Additional attributes
+    #[serde(default)]
+    #[builder(default)]
     pub attributes: Attributes,
     /// If true, the underlying is a CDS index; else single-name CDS
     #[serde(default)]

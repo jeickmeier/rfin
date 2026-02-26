@@ -97,13 +97,14 @@ pub struct CommodityForward {
     /// Settlement/delivery date.
     pub maturity: Date,
     /// Settlement type (physical or cash).
-    #[builder(default)]
+    ///
+    /// Defaults to cash settlement when omitted in serialized payloads.
     #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
+        default = "crate::serde_defaults::settlement_cash",
         alias = "settlement_type"
     )]
-    pub settlement: Option<SettlementType>,
+    #[builder(default = SettlementType::Cash)]
+    pub settlement: SettlementType,
     /// Position direction (long or short).
     ///
     /// - Long: buyer of the commodity at settlement
@@ -184,11 +185,12 @@ pub struct CommodityForward {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settlement_bdc: Option<BusinessDayConvention>,
     /// Attributes for tagging and selection.
-    #[builder(default)]
     #[serde(default)]
     #[builder(default)]
     pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Attributes for scenario selection and tagging
+    #[serde(default)]
+    #[builder(default)]
     pub attributes: Attributes,
 }
 
@@ -211,7 +213,7 @@ impl CommodityForward {
             .maturity(
                 Date::from_calendar_date(2025, time::Month::March, 15).expect("Valid example date"),
             )
-            .settlement_opt(Some(SettlementType::Cash))
+            .settlement(SettlementType::Cash)
             .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))

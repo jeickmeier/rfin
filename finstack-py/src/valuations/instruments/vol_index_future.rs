@@ -280,7 +280,7 @@ impl PyVolatilityIndexFutureBuilder {
             .id(slf.instrument_id.clone())
             .notional(notional)
             .quoted_price(quoted_price)
-            .expiry_date(expiry)
+            .expiry(expiry)
             .discount_curve_id(discount_curve_id)
             .vol_index_curve_id(vol_index_curve_id)
             .position(slf.position)

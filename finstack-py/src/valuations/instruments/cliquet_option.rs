@@ -31,7 +31,7 @@ impl PyCliquetOption {
 impl PyCliquetOption {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, reset_dates, local_cap, global_cap, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None)"
+        text_signature = "(cls, instrument_id, ticker, reset_dates, local_cap, global_cap, notional, discount_curve, spot_id, vol_surface, *, maturity=None, div_yield_id=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a cliquet option.
@@ -46,6 +46,7 @@ impl PyCliquetOption {
     ///     discount_curve: Discount curve identifier.
     ///     spot_id: Spot price identifier.
     ///     vol_surface: Volatility surface identifier.
+    ///     maturity: Optional explicit maturity/expiry date (defaults to last reset date).
     ///     div_yield_id: Optional dividend yield identifier.
     ///
     /// Returns:
@@ -61,6 +62,7 @@ impl PyCliquetOption {
         discount_curve: Bound<'_, PyAny>,
         spot_id: &str,
         vol_surface: Bound<'_, PyAny>,
+        maturity: Option<Bound<'_, PyAny>>,
         div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
         use crate::core::dates::utils::py_to_date;
@@ -79,10 +81,21 @@ impl PyCliquetOption {
             reset_dates_vec.push(py_to_date(&item).context("reset_dates")?);
         }
 
+        let expiry_date = if let Some(m) = maturity {
+            py_to_date(&m).context("maturity")?
+        } else {
+            *reset_dates_vec.last().ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(
+                    "reset_dates must not be empty (needed to derive maturity)",
+                )
+            })?
+        };
+
         let mut builder = CliquetOption::builder();
         builder = builder.id(id);
         builder = builder.underlying_ticker(ticker.to_string());
         builder = builder.reset_dates(reset_dates_vec);
+        builder = builder.expiry(expiry_date);
         builder = builder.local_cap(local_cap);
         builder = builder.local_floor(0.0);
         builder = builder.global_cap(global_cap);

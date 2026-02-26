@@ -49,6 +49,7 @@ class PrivateMarketsFund:
         ...             "deal_id": None,
         ...         },
         ...     ],
+        ...     "attributes": {"tags": [], "meta": {}},
         ... }
         >>> fund = PrivateMarketsFund.from_json(json.dumps(json_data))
         >>> cashflows = fund.lp_cashflows()

@@ -264,7 +264,7 @@ impl<State> ModelBuilder<State> {
             end: maturity_date,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         };
 
@@ -282,7 +282,7 @@ impl<State> ModelBuilder<State> {
             start: start_date,
             end: maturity_date,
             compounding: FloatingLegCompounding::Simple,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         };
 
@@ -360,7 +360,7 @@ impl<State> ModelBuilder<State> {
             end: maturity_date,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         };
 
@@ -378,7 +378,7 @@ impl<State> ModelBuilder<State> {
             start: start_date,
             end: maturity_date,
             compounding: FloatingLegCompounding::Simple,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         };
 

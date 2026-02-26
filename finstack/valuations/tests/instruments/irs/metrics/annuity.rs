@@ -62,7 +62,7 @@ fn create_standard_swap(as_of: Date, end: Date) -> InterestRateSwap {
             stub: StubKind::None,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: as_of,
             end,
@@ -81,7 +81,7 @@ fn create_standard_swap(as_of: Date, end: Date) -> InterestRateSwap {
             // With reset_lag > 0, the first reset date would be before as_of, requiring fixings.
             reset_lag_days: 0,
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: as_of,
             end,

@@ -380,7 +380,7 @@ impl IRSConvention {
     /// - **2 days**: Most OIS swaps (USD, EUR, JPY)
     /// - **0 days**: GBP SONIA (uses same-day payment)
     /// - **2 days**: EUR EURIBOR
-    pub fn payment_delay_days(&self) -> i32 {
+    pub fn payment_lag_days(&self) -> i32 {
         match self {
             IRSConvention::USDStandard
             | IRSConvention::EURStandard

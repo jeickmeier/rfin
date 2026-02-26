@@ -467,7 +467,8 @@ pub struct Swaption {
     /// Day count convention
     pub day_count: DayCount,
     /// Exercise style (European, Bermudan, American)
-    pub exercise: SwaptionExercise,
+    #[serde(alias = "exercise")]
+    pub exercise_style: SwaptionExercise,
     /// Settlement method (physical or cash)
     pub settlement: SwaptionSettlement,
     /// Cash settlement annuity method (only used when settlement = Cash).
@@ -503,10 +504,14 @@ pub struct Swaption {
     #[serde(default)]
     pub calendar_id: Option<CalendarId>,
     /// Pricing overrides (manual price, yield, spread)
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Optional SABR volatility model parameters
     pub sabr_params: Option<SABRParameters>,
     /// Attributes for scenario selection and grouping
+    #[serde(default)]
+    #[builder(default)]
     pub attributes: Attributes,
 }
 
@@ -536,7 +541,7 @@ impl Swaption {
             fixed_freq: Tenor::semi_annual(),
             float_freq: Tenor::quarterly(),
             day_count: DayCount::Thirty360,
-            exercise: SwaptionExercise::European,
+            exercise_style: SwaptionExercise::European,
             settlement: SwaptionSettlement::Cash,
             cash_settlement_method: CashSettlementMethod::default(),
             vol_model: VolatilityModel::Black,
@@ -569,7 +574,7 @@ impl Swaption {
             fixed_freq: Tenor::semi_annual(),
             float_freq: Tenor::quarterly(),
             day_count: DayCount::Thirty360,
-            exercise: SwaptionExercise::European,
+            exercise_style: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
             cash_settlement_method: CashSettlementMethod::default(),
             discount_curve_id: discount_curve_id.into(),
@@ -615,7 +620,7 @@ impl Swaption {
             fixed_freq: Tenor::semi_annual(),
             float_freq: Tenor::quarterly(),
             day_count: DayCount::Thirty360,
-            exercise: SwaptionExercise::European,
+            exercise_style: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
             cash_settlement_method: CashSettlementMethod::default(),
             discount_curve_id: discount_curve_id.into(),
@@ -1643,7 +1648,7 @@ impl BermudanSwaption {
             fixed_freq: self.fixed_freq,
             float_freq: self.float_freq,
             day_count: self.day_count,
-            exercise: SwaptionExercise::European,
+            exercise_style: SwaptionExercise::European,
             settlement: self.settlement,
             cash_settlement_method: CashSettlementMethod::default(),
             vol_model: VolatilityModel::Black,

@@ -165,7 +165,7 @@ impl PySwaption {
 
     #[getter]
     fn exercise(&self) -> &'static str {
-        match self.inner.exercise {
+        match self.inner.exercise_style {
             SwaptionExercise::European => "european",
             SwaptionExercise::Bermudan => "bermudan",
             SwaptionExercise::American => "american",
@@ -253,7 +253,7 @@ fn construct_swaption(
         Swaption::new_receiver(id, &params, disc, fwd, vol_surface_id)
     };
 
-    swaption.exercise = exercise_style;
+    swaption.exercise_style = exercise_style;
     swaption.settlement = settlement_type;
     if !payer {
         swaption.option_type = OptionType::Put;

@@ -284,8 +284,7 @@ impl TrsEngine {
             // Forward rate for the period
             let fwd_rate = rate_period_on_dates(fwd.as_ref(), period_start, period_end)?;
 
-            // Add spread (convert Decimal to f64 for calculation)
-            let spread_decimal = financing.spread_bp.to_f64().unwrap_or(0.0) / 10000.0;
+            let spread_decimal = financing.spread_bp.to_f64().unwrap_or_default() / 10_000.0;
             let total_rate = fwd_rate + spread_decimal;
 
             // Payment amount

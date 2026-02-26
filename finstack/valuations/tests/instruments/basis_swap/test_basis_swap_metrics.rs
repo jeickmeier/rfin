@@ -7,6 +7,7 @@ use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::Month;
 
 fn d(y: i32, m: u8, day: u8) -> Date {
@@ -70,7 +71,7 @@ fn swap() -> BasisSwap {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some(CALENDAR_ID.to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         },
@@ -84,7 +85,7 @@ fn swap() -> BasisSwap {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some(CALENDAR_ID.to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         },

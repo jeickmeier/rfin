@@ -9,6 +9,8 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = BasisSwapLeg)]
@@ -68,7 +70,7 @@ impl JsBasisSwapLeg {
                 bdc,
                 calendar_id,
                 stub: stub_kind,
-                spread_bp: spread_bp.unwrap_or(0.0),
+                spread_bp: Decimal::try_from(spread_bp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO),
                 payment_lag_days: 0,
                 reset_lag_days: 0,
             },
@@ -87,7 +89,7 @@ impl JsBasisSwapLeg {
 
     #[wasm_bindgen(getter)]
     pub fn spread_bp(&self) -> f64 {
-        self.inner.spread_bp
+        self.inner.spread_bp.to_f64().unwrap_or(0.0)
     }
 }
 
@@ -289,7 +291,7 @@ impl JsBasisSwap {
 
                 let coupon = sign
                     * self.inner.notional.amount()
-                    * (forward_rate + leg.spread_bp / 10_000.0)
+                    * (forward_rate + leg.spread_bp.to_f64().unwrap_or(0.0) / 10_000.0)
                     * accrual;
                 let entry = Array::new();
                 entry.push(&JsDate::from_core(payment_date).into());

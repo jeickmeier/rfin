@@ -83,7 +83,7 @@ pub fn create_standard_payer_swaption(
         fixed_freq: Tenor::semi_annual(),
         float_freq: Tenor::quarterly(),
         day_count: DayCount::Thirty360,
-        exercise: SwaptionExercise::European,
+        exercise_style: SwaptionExercise::European,
         settlement: SwaptionSettlement::Physical,
         cash_settlement_method: Default::default(),
         vol_model: VolatilityModel::Black,

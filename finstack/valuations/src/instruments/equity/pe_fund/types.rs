@@ -14,41 +14,54 @@ use finstack_core::types::{CurveId, InstrumentId};
 use time::macros::date;
 
 /// Private markets fund investment instrument.
+///
+/// Models a private equity, private credit, or alternative fund with a
+/// cashflow waterfall that determines LP/GP allocation. Supports NAV
+/// discounting when a `discount_curve_id` is provided, or falls back to
+/// last-event date for IRR-only workflows.
 #[derive(
     Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
 )]
 #[serde(deny_unknown_fields)]
 pub struct PrivateMarketsFund {
-    /// id.
+    /// Unique instrument identifier.
     pub id: InstrumentId,
-    /// currency.
+    /// Functional currency of the fund.
     pub currency: Currency,
-    /// spec.
-    pub spec: WaterfallSpec,
-    /// events.
+    /// Waterfall specification defining LP/GP allocation tiers.
+    #[serde(alias = "spec")]
+    pub waterfall_spec: WaterfallSpec,
+    /// Time-ordered list of fund events (contributions, proceeds, distributions).
     pub events: Vec<FundEvent>,
-    /// disc id.
+    /// Discount curve identifier for NAV present-value calculations.
+    ///
+    /// When `None`, the pricer falls back to the last event date as the
+    /// valuation date and returns an undiscounted waterfall NAV.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub discount_curve_id: Option<CurveId>,
-    /// Attributes.
+    /// Pricing overrides for scenario analysis and model configuration.
     #[serde(default)]
     #[builder(default)]
     pub pricing_overrides: crate::instruments::PricingOverrides,
-    /// Attributes for scenario selection and tagging
+    /// Attributes for scenario selection and tagging.
+    #[serde(default)]
+    #[builder(default)]
     pub attributes: Attributes,
 }
 
 impl PrivateMarketsFund {
-    /// new.
+    /// Create a new private markets fund instrument.
     pub fn new(
         id: impl Into<InstrumentId>,
         currency: Currency,
-        spec: WaterfallSpec,
+        waterfall_spec: WaterfallSpec,
         events: Vec<FundEvent>,
     ) -> Self {
         Self {
             id: id.into(),
             currency,
-            spec,
+            waterfall_spec,
             events,
             discount_curve_id: None,
             pricing_overrides: crate::instruments::PricingOverrides::default(),
@@ -99,13 +112,13 @@ impl PrivateMarketsFund {
         )
         .with_discount_curve("USD-OIS")
     }
-    /// with discount curve.
+    /// Set the discount curve for NAV present-value calculations.
     pub fn with_discount_curve(mut self, discount_curve_id: impl Into<CurveId>) -> Self {
         self.discount_curve_id = Some(discount_curve_id.into());
         self
     }
 
-    /// run waterfall.
+    /// Run the waterfall allocation engine on all fund events.
     pub fn run_waterfall(&self) -> finstack_core::Result<AllocationLedger> {
         for event in &self.events {
             if event.amount.currency() != self.currency {
@@ -115,11 +128,11 @@ impl PrivateMarketsFund {
                 });
             }
         }
-        let engine = EquityWaterfallEngine::new(&self.spec);
+        let engine = EquityWaterfallEngine::new(&self.waterfall_spec);
         engine.run(&self.events)
     }
 
-    /// lp cashflows.
+    /// Compute LP cashflows from running the waterfall.
     pub fn lp_cashflows(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
         let ledger = self.run_waterfall()?;
         Ok(ledger.lp_cashflows())
@@ -138,7 +151,11 @@ impl Instrument for PrivateMarketsFund {
             use crate::instruments::common_impl::discountable::Discountable;
             let flows = self.lp_cashflows()?;
             let disc = curves.get_discount(discount_curve_id.as_str())?;
-            flows.npv(disc.as_ref(), disc.base_date(), Some(self.spec.irr_basis))
+            flows.npv(
+                disc.as_ref(),
+                disc.base_date(),
+                Some(self.waterfall_spec.irr_basis),
+            )
         } else {
             let ledger = self.run_waterfall()?;
             let residual_value = ledger

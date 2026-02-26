@@ -18,7 +18,7 @@ struct RateIndexConventionsRecord {
     tenor: Option<String>,
     day_count: DayCount,
     default_payment_frequency: String,
-    default_payment_delay_days: i32,
+    default_payment_lag_days: i32,
     default_reset_lag_days: i32,
     #[serde(default)]
     ois_compounding: Option<OisCompoundingSpec>,
@@ -143,7 +143,7 @@ impl RateIndexConventionsRecord {
             tenor,
             day_count: self.day_count,
             default_payment_frequency,
-            default_payment_delay_days: self.default_payment_delay_days,
+            default_payment_lag_days: self.default_payment_lag_days,
             default_reset_lag_days: self.default_reset_lag_days,
             ois_compounding,
             market_calendar_id: self.market_calendar_id,

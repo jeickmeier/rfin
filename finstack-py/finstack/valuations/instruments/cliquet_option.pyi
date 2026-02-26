@@ -33,6 +33,7 @@ class CliquetOption:
         ...     discount_curve="USD",
         ...     spot_id="SPX",
         ...     vol_surface="SPX-VOL",
+        ...     maturity=date(2024, 12, 31),
         ...     div_yield_id=None,
         ... )
 

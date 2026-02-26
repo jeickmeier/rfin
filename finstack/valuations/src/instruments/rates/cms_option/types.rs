@@ -55,8 +55,12 @@ pub struct CmsOption {
     /// Volatility surface ID for CMS rates
     pub vol_surface_id: CurveId,
     /// Pricing overrides (manual price, yield, spread)
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
+    #[serde(default)]
+    #[builder(default)]
     pub attributes: Attributes,
 }
 
@@ -65,6 +69,98 @@ impl CmsOption {
         self.strike
             .to_f64()
             .ok_or(finstack_core::InputError::ConversionOverflow.into())
+    }
+
+    /// Create a CMS option from a schedule specification.
+    ///
+    /// Generates fixing and payment dates from `start_date`, `maturity`, and `frequency`
+    /// using standard market conventions (Modified Following BDC, weekends-only calendar).
+    /// This is the preferred way to construct standard CMS cap/floor instruments.
+    ///
+    /// # Parameters
+    ///
+    /// - `id` – instrument identifier
+    /// - `start_date` – start of the first accrual period
+    /// - `maturity` – end of the last accrual period
+    /// - `frequency` – coupon/observation frequency (e.g. `Tenor::quarterly()`)
+    /// - `cms_tenor` – tenor of the underlying swap in years (e.g. `10.0` for 10Y)
+    /// - `strike` – option strike rate
+    /// - `option_type` – cap (`Call`) or floor (`Put`)
+    /// - `notional` – notional amount
+    /// - `day_count` – day count for accrual fractions and vol interpolation
+    /// - `swap_fixed_freq` – fixed-leg coupon frequency of the underlying CMS swap
+    /// - `swap_float_freq` – floating-leg coupon frequency of the underlying CMS swap
+    /// - `swap_day_count` – day count for the fixed leg of the underlying CMS swap
+    /// - `discount_curve_id` – discount curve identifier
+    /// - `forward_curve_id` – forward/projection curve identifier
+    /// - `vol_surface_id` – volatility surface identifier
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the generated schedule is empty (e.g. `maturity <= start_date`).
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_schedule(
+        id: impl Into<InstrumentId>,
+        start_date: Date,
+        maturity: Date,
+        frequency: Tenor,
+        cms_tenor: f64,
+        strike: Decimal,
+        option_type: OptionType,
+        notional: finstack_core::money::Money,
+        day_count: finstack_core::dates::DayCount,
+        swap_fixed_freq: Tenor,
+        swap_float_freq: Tenor,
+        swap_day_count: finstack_core::dates::DayCount,
+        discount_curve_id: impl Into<CurveId>,
+        forward_curve_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
+    ) -> finstack_core::Result<Self> {
+        use crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID;
+        use crate::cashflow::builder::periods::{build_periods, BuildPeriodsParams};
+        use finstack_core::dates::{BusinessDayConvention, StubKind};
+
+        let periods = build_periods(BuildPeriodsParams {
+            start: start_date,
+            end: maturity,
+            frequency,
+            stub: StubKind::ShortFront,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: WEEKENDS_ONLY_ID,
+            end_of_month: false,
+            day_count,
+            payment_lag_days: 0,
+            reset_lag_days: None,
+        })?;
+
+        if periods.is_empty() {
+            return Err(finstack_core::Error::Input(
+                finstack_core::InputError::Invalid,
+            ));
+        }
+
+        let fixing_dates: Vec<Date> = periods.iter().map(|p| p.accrual_start).collect();
+        let payment_dates: Vec<Date> = periods.iter().map(|p| p.payment_date).collect();
+        let accrual_fractions: Vec<f64> = periods.iter().map(|p| p.accrual_year_fraction).collect();
+
+        CmsOption::builder()
+            .id(id.into())
+            .strike(strike)
+            .cms_tenor(cms_tenor)
+            .fixing_dates(fixing_dates)
+            .payment_dates(payment_dates)
+            .accrual_fractions(accrual_fractions)
+            .option_type(option_type)
+            .notional(notional)
+            .day_count(day_count)
+            .swap_fixed_freq(swap_fixed_freq)
+            .swap_float_freq(swap_float_freq)
+            .swap_day_count(swap_day_count)
+            .discount_curve_id(discount_curve_id.into())
+            .forward_curve_id(forward_curve_id.into())
+            .vol_surface_id(vol_surface_id.into())
+            .build()
+            .map_err(|e| finstack_core::Error::Validation(e.to_string()))
     }
 
     /// Create a canonical example CMS option (10Y CMS caplet style).

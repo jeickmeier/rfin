@@ -65,7 +65,7 @@ fn test_equity_index_future_builder() {
         .id(InstrumentId::new("ES-TEST"))
         .underlying_ticker("SPX".to_string())
         .notional(Money::new(2_250_000.0, Currency::USD))
-        .expiry_date(expiry)
+        .expiry(expiry)
         .last_trading_date(last_trade)
         .entry_price_opt(Some(4500.0))
         .quoted_price_opt(Some(4550.0))

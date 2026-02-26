@@ -22,6 +22,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, PyRefMut};
+use rust_decimal::Decimal;
 use std::fmt;
 use std::sync::Arc;
 
@@ -140,7 +141,7 @@ impl PyCrossCurrencySwapBuilder {
             leg1_end: None,
             leg1_frequency: Tenor::quarterly(),
             leg1_day_count: DayCount::Act360,
-            leg1_bdc: BusinessDayConvention::Following,
+            leg1_bdc: BusinessDayConvention::ModifiedFollowing,
             leg1_stub: StubKind::ShortFront,
             leg1_spread: 0.0,
             leg1_payment_lag_days: 0,
@@ -154,7 +155,7 @@ impl PyCrossCurrencySwapBuilder {
             leg2_end: None,
             leg2_frequency: Tenor::quarterly(),
             leg2_day_count: DayCount::Act360,
-            leg2_bdc: BusinessDayConvention::Following,
+            leg2_bdc: BusinessDayConvention::ModifiedFollowing,
             leg2_stub: StubKind::ShortFront,
             leg2_spread: 0.0,
             leg2_payment_lag_days: 0,
@@ -522,7 +523,7 @@ impl PyCrossCurrencySwapBuilder {
             day_count: slf.leg1_day_count,
             bdc: slf.leg1_bdc,
             stub: slf.leg1_stub,
-            spread_bp: slf.leg1_spread,
+            spread_bp: Decimal::try_from(slf.leg1_spread).unwrap_or(Decimal::ZERO),
             payment_lag_days: slf.leg1_payment_lag_days,
             calendar_id: slf.leg1_calendar_id.clone(),
             allow_calendar_fallback: false,
@@ -562,7 +563,7 @@ impl PyCrossCurrencySwapBuilder {
             day_count: slf.leg2_day_count,
             bdc: slf.leg2_bdc,
             stub: slf.leg2_stub,
-            spread_bp: slf.leg2_spread,
+            spread_bp: Decimal::try_from(slf.leg2_spread).unwrap_or(Decimal::ZERO),
             payment_lag_days: slf.leg2_payment_lag_days,
             calendar_id: slf.leg2_calendar_id.clone(),
             allow_calendar_fallback: false,

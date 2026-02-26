@@ -311,7 +311,7 @@ impl InterestRateOption {
         let idx = IndexId::new(self.forward_curve_id.as_str());
         registry
             .require_rate_index(&idx)
-            .map(|conv| conv.default_payment_delay_days)
+            .map(|conv| conv.default_payment_lag_days)
             .unwrap_or(0)
     }
 

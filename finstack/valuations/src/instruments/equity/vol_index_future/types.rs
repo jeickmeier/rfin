@@ -63,7 +63,7 @@ use time::macros::date;
 /// let future = VolatilityIndexFuture::builder()
 ///     .id(InstrumentId::new("VIX-FUT-2025M03"))
 ///     .notional(Money::new(100_000.0, Currency::USD))
-///     .expiry_date(Date::from_calendar_date(2025, Month::March, 19).unwrap())
+///     .expiry(Date::from_calendar_date(2025, Month::March, 19).unwrap())
 ///     .settlement_date(Date::from_calendar_date(2025, Month::March, 19).unwrap())
 ///     .quoted_price(21.50)
 ///     .position(Position::Long)
@@ -85,7 +85,8 @@ pub struct VolatilityIndexFuture {
     /// the number of contracts.
     pub notional: Money,
     /// Future expiry date (typically 30 days before VIX settlement).
-    pub expiry_date: Date,
+    #[serde(alias = "expiry_date")]
+    pub expiry: Date,
     /// Settlement date (SOQ calculation date).
     pub settlement_date: Date,
     /// Quoted future price (index points, e.g., 21.50).
@@ -103,7 +104,6 @@ pub struct VolatilityIndexFuture {
     /// Attributes for tagging and selection.
     #[builder(default)]
     #[serde(default)]
-    #[builder(default)]
     pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
@@ -175,7 +175,7 @@ impl VolatilityIndexFuture {
         Self::builder()
             .id(InstrumentId::new("VIX-FUT-2025M03"))
             .notional(Money::new(100_000.0, Currency::USD))
-            .expiry_date(date!(2025 - 03 - 19))
+            .expiry(date!(2025 - 03 - 19))
             .settlement_date(date!(2025 - 03 - 19))
             .quoted_price(21.50)
             .position(Position::Long)
@@ -383,7 +383,7 @@ mod tests {
         let future = VolatilityIndexFuture::builder()
             .id(InstrumentId::new("VIX-ATM"))
             .notional(Money::new(20_000.0, Currency::USD)) // 1 contract at 20
-            .expiry_date(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
+            .expiry(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
             .settlement_date(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
             .quoted_price(20.0) // At the 3M forward level
             .position(Position::Long)
@@ -411,7 +411,7 @@ mod tests {
         let future = VolatilityIndexFuture::builder()
             .id(InstrumentId::new("VIX-LONG"))
             .notional(Money::new(22_000.0, Currency::USD)) // ~1 contract
-            .expiry_date(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
+            .expiry(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
             .settlement_date(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
             .quoted_price(22.0) // Above the ~20 forward level
             .position(Position::Long)
@@ -438,7 +438,7 @@ mod tests {
         let future = VolatilityIndexFuture::builder()
             .id(InstrumentId::new("VIX-SHORT"))
             .notional(Money::new(22_000.0, Currency::USD))
-            .expiry_date(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
+            .expiry(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
             .settlement_date(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
             .quoted_price(22.0)
             .position(Position::Short)
@@ -461,7 +461,7 @@ mod tests {
         let future = VolatilityIndexFuture::builder()
             .id(InstrumentId::new("VIX-DELTA"))
             .notional(Money::new(20_000.0, Currency::USD)) // 1 contract at 20
-            .expiry_date(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
+            .expiry(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
             .settlement_date(Date::from_calendar_date(2025, Month::April, 1).expect("valid date"))
             .quoted_price(20.0)
             .position(Position::Long)

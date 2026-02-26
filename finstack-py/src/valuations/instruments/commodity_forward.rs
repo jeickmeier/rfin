@@ -338,9 +338,7 @@ impl PyCommodityForwardBuilder {
             .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new());
 
-        if let Some(st) = slf.settlement {
-            builder = builder.settlement_opt(Some(st));
-        }
+        builder = builder.settlement(slf.settlement.unwrap_or(SettlementType::Cash));
         if let Some(qp) = slf.quoted_price {
             builder = builder.quoted_price_opt(Some(qp));
         }

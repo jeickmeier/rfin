@@ -3,6 +3,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::StubKind;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::xccy_swap::{LegSide, NotionalExchange, XccySwap};
+use rust_decimal::Decimal;
 
 #[test]
 fn requires_fx_matrix_when_reporting_currency_differs() {
@@ -267,28 +268,28 @@ fn rejects_zero_notional() {
     );
 }
 
+// NOTE: NaN/infinite spread values are now rejected at the binding layer (Python/WASM),
+// since BasisSwapLeg::spread_bp is `Decimal` which is always finite by construction.
+// The test below verifies that extreme but valid spreads are accepted.
 #[test]
-fn rejects_non_finite_spread() {
+fn accepts_extreme_but_finite_spread() {
     let base = d(2025, 1, 2);
     let maturity = d(2026, 1, 2);
 
     let mut leg_usd = leg_usd_receive(base, maturity);
-    leg_usd.spread_bp = f64::NAN;
+    leg_usd.spread_bp = Decimal::from(100); // 100bp - large but valid
 
     let swap = XccySwap::new(
-        "XCCY-NAN-SPREAD",
+        "XCCY-EXTREME-SPREAD",
         leg_usd,
         leg_eur_pay(base, maturity),
         Currency::USD,
     );
 
     let market = market_with_fx();
-    let err = swap.value(&market, base).unwrap_err();
-    assert!(
-        err.to_string().contains("spread") && err.to_string().contains("finite"),
-        "Should reject NaN spread: {}",
-        err
-    );
+    // Should succeed - extreme spreads are allowed at the core level
+    let result = swap.value(&market, base);
+    assert!(result.is_ok(), "Should accept valid extreme spread");
 }
 
 // =============================================================================
@@ -302,7 +303,7 @@ fn spread_affects_pv() {
 
     let leg_no_spread = leg_usd_receive(base, maturity);
     let mut leg_with_spread = leg_usd_receive(base, maturity);
-    leg_with_spread.spread_bp = 50.0; // 50bp spread
+    leg_with_spread.spread_bp = Decimal::from(50); // 50bp spread
 
     let swap_no_spread = XccySwap::new(
         "XCCY-NO-SPREAD",
@@ -340,7 +341,7 @@ fn negative_spread_decreases_pv() {
 
     let leg_no_spread = leg_usd_receive(base, maturity);
     let mut leg_negative_spread = leg_usd_receive(base, maturity);
-    leg_negative_spread.spread_bp = -50.0; // -50bp spread
+    leg_negative_spread.spread_bp = Decimal::from(-50); // -50bp spread
 
     let swap_no_spread = XccySwap::new(
         "XCCY-NO-SPREAD",

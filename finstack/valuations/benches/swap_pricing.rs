@@ -83,7 +83,7 @@ fn create_monthly_swap(tenor_years: i32) -> InterestRateSwap {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(FloatLegSpec {
@@ -100,7 +100,7 @@ fn create_monthly_swap(tenor_years: i32) -> InterestRateSwap {
             end,
             compounding: FloatingLegCompounding::Simple,
             fixing_calendar_id: None,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .build()
@@ -131,7 +131,7 @@ fn create_ois_swap(tenor_years: i32) -> InterestRateSwap {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 2,
+            payment_lag_days: 2,
             end_of_month: false,
         })
         .float(FloatLegSpec {
@@ -148,7 +148,7 @@ fn create_ois_swap(tenor_years: i32) -> InterestRateSwap {
             end,
             compounding: FloatingLegCompounding::sofr(), // Compounded in arrears
             fixing_calendar_id: None,
-            payment_delay_days: 2,
+            payment_lag_days: 2,
             end_of_month: false,
         })
         .build()

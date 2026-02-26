@@ -132,7 +132,7 @@ impl InterestRateSwap {
                 .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             end_of_month: float.end_of_month,
             day_count: float.day_count,
-            payment_lag_days: float.payment_delay_days,
+            payment_lag_days: float.payment_lag_days,
             reset_lag_days: None,
         })?;
         if periods.is_empty() {
@@ -390,7 +390,7 @@ impl InterestRateSwap {
         let params = crate::instruments::common_impl::pricing::swap_legs::FixedLegParams {
             rate: decimal_to_f64(self.fixed.rate, "fixed leg rate")?,
             day_count: self.fixed.day_count,
-            payment_delay_days: self.fixed.payment_delay_days,
+            payment_lag_days: self.fixed.payment_lag_days,
             calendar_id: self.fixed.calendar_id.clone(),
         };
 
@@ -464,7 +464,7 @@ impl InterestRateSwap {
                 .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             end_of_month: float.end_of_month,
             day_count: float.day_count,
-            payment_lag_days: float.payment_delay_days,
+            payment_lag_days: float.payment_lag_days,
             reset_lag_days: Some(float.reset_lag_days),
         })?;
         if schedule_periods.is_empty() {
@@ -491,7 +491,7 @@ impl InterestRateSwap {
             None, // index_cap_bp
             None, // all_in_floor_bp
             None, // all_in_cap_bp
-            float.payment_delay_days,
+            float.payment_lag_days,
             float.calendar_id.clone(),
         );
 
@@ -709,7 +709,7 @@ mod tests {
                     end,
                     par_method: None,
                     compounding_simple: true,
-                    payment_delay_days: 0,
+                    payment_lag_days: 0,
                     end_of_month: false,
                 },
             )
@@ -728,7 +728,7 @@ mod tests {
                     start,
                     end,
                     compounding: FloatingLegCompounding::fedfunds(),
-                    payment_delay_days: 0,
+                    payment_lag_days: 0,
                     end_of_month: false,
                 },
             )
@@ -797,7 +797,7 @@ mod tests {
                     end,
                     par_method: None,
                     compounding_simple: true,
-                    payment_delay_days: 0,
+                    payment_lag_days: 0,
                     end_of_month: false,
                 },
             )
@@ -816,7 +816,7 @@ mod tests {
                     end,
                     compounding: FloatingLegCompounding::fedfunds(), // lookback=0
                     fixing_calendar_id: None,
-                    payment_delay_days: 0,
+                    payment_lag_days: 0,
                     end_of_month: false,
                 },
             )
@@ -879,7 +879,7 @@ mod tests {
                     end,
                     par_method: None,
                     compounding_simple: true,
-                    payment_delay_days: 0,
+                    payment_lag_days: 0,
                     end_of_month: false,
                 },
             )
@@ -899,7 +899,7 @@ mod tests {
                     compounding: FloatingLegCompounding::sofr(),
                     // This calendar ID does not exist in the registry
                     fixing_calendar_id: Some("NONEXISTENT-CALENDAR-XYZ".to_string()),
-                    payment_delay_days: 0,
+                    payment_lag_days: 0,
                     end_of_month: false,
                 },
             )
@@ -960,7 +960,7 @@ mod tests {
                     end,
                     par_method: None,
                     compounding_simple: true,
-                    payment_delay_days: 0,
+                    payment_lag_days: 0,
                     end_of_month: false,
                 },
             )
@@ -980,7 +980,7 @@ mod tests {
                     compounding: FloatingLegCompounding::sofr(),
                     // No fixing_calendar_id - intentional weekday stepping
                     fixing_calendar_id: None,
-                    payment_delay_days: 0,
+                    payment_lag_days: 0,
                     end_of_month: false,
                 },
             )
@@ -992,9 +992,9 @@ mod tests {
         // Users wanting convention calendars should set them explicitly.
         assert_eq!(resolved.calendar_id.as_deref(), None);
         assert_eq!(resolved.fixing_calendar_id.as_deref(), None);
-        // payment_delay_days: 0 is explicitly set and stays 0 (not overridden by convention).
+        // payment_lag_days: 0 is explicitly set and stays 0 (not overridden by convention).
         // Use negative value (e.g., -1) to request convention default.
-        assert_eq!(resolved.payment_delay_days, 0);
+        assert_eq!(resolved.payment_lag_days, 0);
 
         // Pricing should succeed when defaults are applied
         let result = swap.value(&ctx, as_of);
@@ -1067,7 +1067,7 @@ mod tests {
                     end,
                     par_method: None,
                     compounding_simple: true,
-                    payment_delay_days: 0, // No payment delay for exact identity
+                    payment_lag_days: 0, // No payment delay for exact identity
                     end_of_month: false,
                 },
             )
@@ -1089,7 +1089,7 @@ mod tests {
                         observation_shift: None, // No observation shift
                     },
                     fixing_calendar_id: None,
-                    payment_delay_days: 0, // No payment delay
+                    payment_lag_days: 0, // No payment delay
                     end_of_month: false,
                 },
             )

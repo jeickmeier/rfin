@@ -50,7 +50,7 @@
 //!         end: date!(2030-01-15),
 //!         par_method: None,
 //!         compounding_simple: true,
-//!         payment_delay_days: 0,
+//!         payment_lag_days: 0,
 //!     })
 //!     .float(FloatLegSpec {
 //!         discount_curve_id: "USD-OIS".into(),
@@ -66,7 +66,7 @@
 //!         start: date!(2025-01-15),
 //!         end: date!(2030-01-15),
 //!         compounding: FloatingLegCompounding::Simple,
-//!         payment_delay_days: 0,
+//!         payment_lag_days: 0,
 //!     })
 //!     .build()?;
 //! swap.validate()?;

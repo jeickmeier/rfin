@@ -633,7 +633,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             end: date!(2029 - 01 - 01),
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(FloatLegSpec {
@@ -651,7 +651,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             // Keep the example curve-only (avoid requiring historical fixings before as_of).
             reset_lag_days: 0,
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .build()

@@ -11,6 +11,7 @@ use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::Month;
 
 fn d(y: i32, m: u8, day: u8) -> Date {
@@ -104,7 +105,7 @@ fn market() -> MarketContext {
         .insert_series(fix_1m)
 }
 
-fn make_swap(id: &str, start: Date, end: Date, spread_bp: f64) -> BasisSwap {
+fn make_swap(id: &str, start: Date, end: Date, spread_bp: Decimal) -> BasisSwap {
     BasisSwap::new(
         id,
         Money::new(10_000_000.0, USD),
@@ -132,7 +133,7 @@ fn make_swap(id: &str, start: Date, end: Date, spread_bp: f64) -> BasisSwap {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some(CALENDAR_ID.to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         },
@@ -145,7 +146,7 @@ fn theta_is_finite() {
     // Basic test that theta calculation produces finite result
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let swap = make_swap("THETA-FINITE", d(2025, 1, 2), d(2026, 1, 2), 0.0);
+    let swap = make_swap("THETA-FINITE", d(2025, 1, 2), d(2026, 1, 2), Decimal::ZERO);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -161,7 +162,12 @@ fn theta_matches_pv_change() {
     let ctx = market();
     let as_of = d(2025, 1, 2);
     let next_day = d(2025, 1, 3);
-    let swap = make_swap("THETA-PV-MATCH", d(2025, 1, 2), d(2026, 1, 2), 0.0);
+    let swap = make_swap(
+        "THETA-PV-MATCH",
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        Decimal::ZERO,
+    );
 
     // Get theta
     let res = swap
@@ -195,7 +201,12 @@ fn theta_sign_convention() {
     // Test theta sign: typically positive (gain value as time passes due to discounting)
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let swap = make_swap("THETA-SIGN", d(2025, 1, 2), d(2026, 1, 2), 10.0);
+    let swap = make_swap(
+        "THETA-SIGN",
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        Decimal::from(10),
+    );
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -215,7 +226,12 @@ fn theta_sign_convention() {
 fn theta_decreases_near_maturity() {
     // Test that theta magnitude decreases as maturity approaches
     let ctx = market();
-    let swap = make_swap("THETA-NEAR-MAT", d(2025, 1, 2), d(2026, 1, 2), 0.0);
+    let swap = make_swap(
+        "THETA-NEAR-MAT",
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        Decimal::ZERO,
+    );
 
     // Theta early in life
     let res_early = swap
@@ -245,7 +261,12 @@ fn theta_at_par() {
     let ctx = market();
     let as_of = d(2025, 1, 2);
     // First, find the par spread
-    let swap_zero = make_swap("THETA-PAR-ZERO", d(2025, 1, 2), d(2026, 1, 2), 0.0);
+    let swap_zero = make_swap(
+        "THETA-PAR-ZERO",
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        Decimal::ZERO,
+    );
 
     let res = swap_zero
         .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
@@ -253,7 +274,12 @@ fn theta_at_par() {
     let par_spread = res.measures[MetricId::BasisParSpread.as_str()];
 
     // Create swap at par
-    let swap_at_par = make_swap("THETA-PAR", d(2025, 1, 2), d(2026, 1, 2), par_spread);
+    let swap_at_par = make_swap(
+        "THETA-PAR",
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        Decimal::try_from(par_spread).unwrap_or_default(),
+    );
 
     let res_par = swap_at_par
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -269,7 +295,7 @@ fn theta_with_long_maturity() {
     // Test theta for long-dated swap
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let swap = make_swap("THETA-LONG", d(2025, 1, 2), d(2028, 1, 2), 0.0);
+    let swap = make_swap("THETA-LONG", d(2025, 1, 2), d(2028, 1, 2), Decimal::ZERO);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -283,7 +309,12 @@ fn theta_with_long_maturity() {
 fn theta_consistency_across_dates() {
     // Test that theta remains consistent when valuating at different dates
     let ctx = market();
-    let swap = make_swap("THETA-CONSISTENCY", d(2025, 1, 2), d(2026, 1, 2), 0.0);
+    let swap = make_swap(
+        "THETA-CONSISTENCY",
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        Decimal::ZERO,
+    );
 
     let dates = vec![d(2025, 1, 2), d(2025, 2, 2), d(2025, 3, 2), d(2025, 4, 2)];
 
@@ -310,7 +341,12 @@ fn theta_multi_year() {
     // at several points during the swap's life.
 
     let ctx = market();
-    let swap = make_swap("THETA-MULTI-YEAR", d(2025, 1, 2), d(2028, 1, 2), 5.0);
+    let swap = make_swap(
+        "THETA-MULTI-YEAR",
+        d(2025, 1, 2),
+        d(2028, 1, 2),
+        Decimal::from(5),
+    );
 
     // Test theta accuracy at several dates during the swap's life
     // Avoid dates near coupon payments where PV has discontinuities
@@ -355,7 +391,7 @@ fn theta_zero_at_maturity() {
     // Test that theta approaches zero at maturity
     let ctx = market();
     let maturity = d(2025, 12, 31);
-    let swap = make_swap("THETA-AT-MAT", d(2025, 1, 2), maturity, 0.0);
+    let swap = make_swap("THETA-AT-MAT", d(2025, 1, 2), maturity, Decimal::ZERO);
 
     let res = swap
         .price_with_metrics(&ctx, maturity, &[MetricId::Theta])

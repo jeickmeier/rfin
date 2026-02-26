@@ -94,11 +94,12 @@ pub struct CommoditySwap {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub index_lag_days: Option<i32>,
     /// Attributes for tagging and selection.
-    #[builder(default)]
     #[serde(default)]
     #[builder(default)]
     pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Attributes for scenario selection and tagging
+    #[serde(default)]
+    #[builder(default)]
     pub attributes: Attributes,
 }
 

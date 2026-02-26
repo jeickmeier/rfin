@@ -37,6 +37,7 @@ class Autocallable:
         ...     discount_curve="USD",
         ...     spot_id="SPX",
         ...     vol_surface="SPX-VOL",
+        ...     expiry=date(2025, 12, 31),
         ...     div_yield_id=None,
         ... )
 
@@ -83,6 +84,7 @@ class Autocallable:
         spot_id: str,
         vol_surface: str,
         *,
+        expiry: Optional[date] = None,
         div_yield_id: Optional[str] = None,
     ) -> "Autocallable":
         """Create an autocallable structured product.
@@ -119,6 +121,8 @@ class Autocallable:
             Spot price identifier in MarketContext.
         vol_surface : str
             Volatility surface identifier in MarketContext.
+        expiry : date, optional
+            Explicit expiry date. Defaults to the last observation date.
         div_yield_id : str, optional
             Dividend yield identifier in MarketContext.
 

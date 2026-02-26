@@ -32,7 +32,7 @@ impl MetricCalculator for LpIrrCalculator {
             return Ok(0.0);
         }
 
-        calculate_irr(&flows, pe.spec.irr_basis)
+        calculate_irr(&flows, pe.waterfall_spec.irr_basis)
     }
 }
 

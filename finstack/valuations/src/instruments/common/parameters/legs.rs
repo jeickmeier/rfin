@@ -96,13 +96,13 @@ pub struct FixedLegSpec {
     pub par_method: Option<ParRateMethod>,
     /// If true, use simple interest on accrual fraction
     pub compounding_simple: bool,
-    /// Payment delay in business days after period end (default: 0).
+    /// Payment lag in business days after period end (default: 0).
     ///
-    /// Bloomberg OIS swaps typically use 2 business days payment delay.
+    /// Bloomberg OIS swaps typically use 2 business days payment lag.
     /// The actual payment date is adjusted from the period end date by
     /// this many business days using the leg's calendar.
-    #[serde(default)]
-    pub payment_delay_days: i32,
+    #[serde(default, alias = "payment_delay_days")]
+    pub payment_lag_days: i32,
     /// End-of-month roll convention (default: false).
     ///
     /// When `true`, if the start date falls on the last business day of a month,
@@ -164,13 +164,13 @@ pub struct FloatLegSpec {
     /// dates prior to `as_of`.
     #[serde(default)]
     pub compounding: crate::instruments::rates::irs::FloatingLegCompounding,
-    /// Payment delay in business days after period end (default: 0).
+    /// Payment lag in business days after period end (default: 0).
     ///
-    /// Bloomberg OIS swaps typically use 2 business days payment delay.
+    /// Bloomberg OIS swaps typically use 2 business days payment lag.
     /// The actual payment date is adjusted from the period end date by
     /// this many business days using the leg's calendar.
-    #[serde(default)]
-    pub payment_delay_days: i32,
+    #[serde(default, alias = "payment_delay_days")]
+    pub payment_lag_days: i32,
     /// End-of-month roll convention (default: false).
     ///
     /// When `true`, if the start date falls on the last business day of a month,
@@ -224,9 +224,9 @@ pub struct BasisSwapLeg {
     ///
     /// # Units
     ///
-    /// - `5.0` represents 5 basis points (5bp)
-    /// - `100.0` represents 100 basis points (1%)
-    /// - `-10.0` represents -10 basis points
+    /// - `Decimal::from(5)` represents 5 basis points (5bp)
+    /// - `Decimal::from(100)` represents 100 basis points (1%)
+    /// - `Decimal::from(-10)` represents -10 basis points
     ///
     /// This is consistent with `FloatLegSpec::spread_bp` and `PremiumLegSpec::spread_bp`.
     ///
@@ -235,7 +235,7 @@ pub struct BasisSwapLeg {
     /// Basis spreads in liquid markets typically range from -50bp to +50bp.
     /// Values outside ±5000bp are considered extreme and
     /// will trigger a validation warning during pricing.
-    pub spread_bp: f64,
+    pub spread_bp: Decimal,
     /// Payment lag in business days after period end (default: 0).
     ///
     /// E.g., `payment_lag_days: 2` means payment occurs 2 business days after the

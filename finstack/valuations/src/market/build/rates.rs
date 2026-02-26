@@ -274,7 +274,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             let future = InterestRateFuture::builder()
                 .id(InstrumentId::new(id.as_str()))
                 .notional(Money::new(ctx.notional(), idx_conv.currency))
-                .expiry_date(expiry_date)
+                .expiry(expiry_date)
                 .fixing_date(fixing_date)
                 .period_start(period_start)
                 .period_end(period_end)
@@ -338,7 +338,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 fixing_calendar_id: Some(conv.market_calendar_id.clone()),
                 stub: finstack_core::dates::StubKind::None, // Default
                 reset_lag_days: conv.default_reset_lag_days,
-                payment_delay_days: conv.default_payment_delay_days,
+                payment_lag_days: conv.default_payment_lag_days,
             };
 
             let rate_decimal = Decimal::try_from(*rate)
@@ -379,7 +379,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 end: maturity,
                 par_method: None,
                 compounding_simple: true,
-                payment_delay_days: leg_conv.payment_delay_days,
+                payment_lag_days: leg_conv.payment_lag_days,
                 end_of_month: false,
             };
 
@@ -397,7 +397,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 start,
                 end: maturity,
                 compounding,
-                payment_delay_days: leg_conv.payment_delay_days,
+                payment_lag_days: leg_conv.payment_lag_days,
                 end_of_month: false,
             };
 

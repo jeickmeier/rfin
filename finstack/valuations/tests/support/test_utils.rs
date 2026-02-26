@@ -66,7 +66,7 @@ pub fn usd_irs_swap(
         end,
         par_method: None,
         compounding_simple: true,
-        payment_delay_days: 0,
+        payment_lag_days: 0,
         end_of_month: false,    };
 
     let float = FloatLegSpec {
@@ -83,7 +83,7 @@ pub fn usd_irs_swap(
         start,
         end,
         compounding: FloatingLegCompounding::Simple,
-        payment_delay_days: 0,
+        payment_lag_days: 0,
         end_of_month: false,    };
 
     let swap = InterestRateSwap::builder()

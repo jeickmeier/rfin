@@ -45,6 +45,7 @@ class Basket:
         ...         },
         ...     ],
         ...     "currency": "USD",
+        ...     "notional": {"amount": 1000000.0, "currency": "USD"},
         ...     "expense_ratio": 0.0025,
         ...     "discount_curve_id": "USD-OIS",
         ...     "attributes": {"meta": {}, "tags": []},

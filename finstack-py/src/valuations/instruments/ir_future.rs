@@ -317,7 +317,7 @@ impl PyInterestRateFutureBuilder {
             .id(slf.instrument_id.clone())
             .notional(notional)
             .quoted_price(quoted_price)
-            .expiry_date(expiry)
+            .expiry(expiry)
             .fixing_date_opt(slf.fixing_date)
             .period_start_opt(slf.period_start)
             .period_end_opt(slf.period_end)

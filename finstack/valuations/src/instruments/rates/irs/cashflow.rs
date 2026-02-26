@@ -14,9 +14,9 @@
 //!
 //! The `CashFlow::date` field represents the end of the accrual period, which is
 //! typically when the coupon "fixes" or finalizes. The actual payment date may differ
-//! due to `payment_delay_days` configured on the leg specification.
+//! due to `payment_lag_days` configured on the leg specification.
 //!
-//! For example, with `payment_delay_days = 2`:
+//! For example, with `payment_lag_days = 2`:
 //! - Accrual period: Jan 1 → Apr 1 (date = Apr 1)
 //! - Actual payment: Apr 3 (2 business days after accrual end)
 //!
@@ -85,7 +85,7 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
                 .unwrap_or_else(|| "weekends_only".to_string()),
             stub: fixed.stub,
             end_of_month: fixed.end_of_month,
-            payment_lag_days: fixed.payment_delay_days,
+            payment_lag_days: fixed.payment_lag_days,
         });
     let mut sched = fixed_b.build_with_curves(None)?;
     // IRS do not exchange notionals; return coupon-only schedule as documented.
@@ -176,7 +176,7 @@ pub fn float_leg_schedule_with_curves(
                     .unwrap_or_else(|| "weekends_only".to_string()),
                 fixing_calendar_id: float.fixing_calendar_id.clone(),
                 end_of_month: float.end_of_month,
-                payment_lag_days: float.payment_delay_days,
+                payment_lag_days: float.payment_lag_days,
                 overnight_compounding: None,
             },
             coupon_type: crate::cashflow::builder::CouponType::Cash,

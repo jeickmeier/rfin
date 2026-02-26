@@ -58,10 +58,11 @@ pub struct InterestRateFuture {
     /// multiples of the standard contract.
     pub notional: Money,
     /// Future expiry/delivery date
-    pub expiry_date: Date,
+    #[serde(alias = "expiry_date")]
+    pub expiry: Date,
     /// Underlying rate fixing date.
     ///
-    /// Defaults to `expiry_date` when omitted.
+    /// Defaults to `expiry` when omitted.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing_date: Option<Date>,
@@ -181,7 +182,7 @@ impl std::str::FromStr for Position {
 
 impl InterestRateFuture {
     fn resolve_dates(&self) -> finstack_core::Result<(Date, Date, Date)> {
-        let fixing = self.fixing_date.unwrap_or(self.expiry_date);
+        let fixing = self.fixing_date.unwrap_or(self.expiry);
         let period_start = self
             .period_start
             .unwrap_or(fixing + time::Duration::days(2));
@@ -208,7 +209,7 @@ impl InterestRateFuture {
         InterestRateFuture::builder()
             .id(InstrumentId::new("IRF-ED-3M-MAR25"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .expiry_date(date!(2025 - 03 - 17))
+            .expiry(date!(2025 - 03 - 17))
             .fixing_date_opt(Some(date!(2025 - 03 - 17)))
             .period_start_opt(Some(date!(2025 - 03 - 19)))
             .period_end_opt(Some(date!(2025 - 06 - 18)))
@@ -432,7 +433,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateFuture 
     }
 
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
-        Some(self.expiry_date)
+        Some(self.expiry)
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
@@ -495,7 +496,7 @@ mod tests {
         let irf = InterestRateFuture::builder()
             .id(InstrumentId::new("IRF-DEFAULT-DATES"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .expiry_date(date!(2025 - 03 - 17))
+            .expiry(date!(2025 - 03 - 17))
             .quoted_price(95.50)
             .day_count(DayCount::Act360)
             .position(Position::Long)
@@ -519,7 +520,7 @@ mod tests {
         let irf = InterestRateFuture::builder()
             .id(InstrumentId::new("IRF-EXPLICIT-DATES"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .expiry_date(date!(2025 - 03 - 17))
+            .expiry(date!(2025 - 03 - 17))
             .fixing_date_opt(Some(date!(2025 - 03 - 18)))
             .period_start_opt(Some(date!(2025 - 03 - 20)))
             .period_end_opt(Some(date!(2025 - 06 - 20)))

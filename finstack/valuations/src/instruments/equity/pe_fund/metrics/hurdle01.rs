@@ -37,7 +37,7 @@ impl MetricCalculator for Hurdle01Calculator {
         use crate::instruments::equity::pe_fund::waterfall::{Hurdle, Tranche};
 
         // Bump hurdle rates up by 1bp
-        let mut spec_up = fund.spec.clone();
+        let mut spec_up = fund.waterfall_spec.clone();
         for tranche in &mut spec_up.tranches {
             match tranche {
                 Tranche::PreferredIrr { irr } => {
@@ -52,11 +52,11 @@ impl MetricCalculator for Hurdle01Calculator {
         }
 
         let mut fund_up = fund.clone();
-        fund_up.spec = spec_up;
+        fund_up.waterfall_spec = spec_up;
         let pv_up = fund_up.value(context.curves.as_ref(), as_of)?.amount();
 
         // Bump hurdle rates down by 1bp
-        let mut spec_down = fund.spec.clone();
+        let mut spec_down = fund.waterfall_spec.clone();
         for tranche in &mut spec_down.tranches {
             match tranche {
                 Tranche::PreferredIrr { irr } => {
@@ -71,7 +71,7 @@ impl MetricCalculator for Hurdle01Calculator {
         }
 
         let mut fund_down = fund.clone();
-        fund_down.spec = spec_down;
+        fund_down.waterfall_spec = spec_down;
         let pv_down = fund_down.value(context.curves.as_ref(), as_of)?.amount();
 
         // Hurdle01 = (PV_up - PV_down) / (2 * bump_size)

@@ -92,6 +92,8 @@ pub struct CommodityOption {
     #[builder(default = DayCount::Act365F)]
     pub day_count: DayCount,
     /// Pricing overrides (implied vol, tree steps, etc.).
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Optional market convention for this commodity.
     ///

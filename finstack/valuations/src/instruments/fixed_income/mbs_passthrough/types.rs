@@ -63,7 +63,7 @@ impl AgencyProgram {
     /// | FHLMC | 75 days | ~15th of following month | Freddie Mac |
     /// | GNMA I | 14 days | 15th of month | Ginnie Mae |
     /// | GNMA II | 45 days | 20th of month | Ginnie Mae |
-    pub fn payment_delay_days(&self) -> u32 {
+    pub fn payment_lag_days(&self) -> u32 {
         match self {
             AgencyProgram::Fnma => 55,
             AgencyProgram::Fhlmc => 75,
@@ -214,7 +214,7 @@ pub struct AgencyMbsPassthrough {
     /// Optional custom payment delay (overrides agency default).
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub payment_delay_days: Option<u32>,
+    pub payment_lag_days: Option<u32>,
     /// Prepayment model specification.
     pub prepayment_model: PrepaymentModelSpec,
     /// Discount curve identifier for pricing.
@@ -271,8 +271,8 @@ impl AgencyMbsPassthrough {
     ///
     /// Uses custom delay if set, otherwise uses agency-standard delay.
     pub fn effective_payment_delay(&self) -> u32 {
-        self.payment_delay_days
-            .unwrap_or_else(|| self.agency.payment_delay_days())
+        self.payment_lag_days
+            .unwrap_or_else(|| self.agency.payment_lag_days())
     }
 
     /// Calculate seasoning in months from issue date to given date.
@@ -362,11 +362,11 @@ mod tests {
 
     #[test]
     fn test_agency_program_payment_delays() {
-        assert_eq!(AgencyProgram::Fnma.payment_delay_days(), 55);
-        assert_eq!(AgencyProgram::Fhlmc.payment_delay_days(), 75);
-        assert_eq!(AgencyProgram::Gnma.payment_delay_days(), 45);
-        assert_eq!(AgencyProgram::GnmaI.payment_delay_days(), 14);
-        assert_eq!(AgencyProgram::GnmaII.payment_delay_days(), 45);
+        assert_eq!(AgencyProgram::Fnma.payment_lag_days(), 55);
+        assert_eq!(AgencyProgram::Fhlmc.payment_lag_days(), 75);
+        assert_eq!(AgencyProgram::Gnma.payment_lag_days(), 45);
+        assert_eq!(AgencyProgram::GnmaI.payment_lag_days(), 14);
+        assert_eq!(AgencyProgram::GnmaII.payment_lag_days(), 45);
     }
 
     #[test]
@@ -405,7 +405,7 @@ mod tests {
 
         // Custom delay should override
         let mut mbs_custom = mbs.clone();
-        mbs_custom.payment_delay_days = Some(55);
+        mbs_custom.payment_lag_days = Some(55);
         assert_eq!(mbs_custom.effective_payment_delay(), 55);
     }
 

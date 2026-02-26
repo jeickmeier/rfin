@@ -30,16 +30,16 @@ use finstack_core::Result;
 /// ```rust
 /// use finstack_valuations::instruments::fixed_income::mbs_passthrough::{
 ///     AgencyProgram,
-///     delay::payment_delay_days,
+///     delay::payment_lag_days,
 /// };
 ///
-/// assert_eq!(payment_delay_days(AgencyProgram::Fnma), 55);
-/// assert_eq!(payment_delay_days(AgencyProgram::Fhlmc), 75);
-/// assert_eq!(payment_delay_days(AgencyProgram::GnmaI), 14);
-/// assert_eq!(payment_delay_days(AgencyProgram::GnmaII), 45);
+/// assert_eq!(payment_lag_days(AgencyProgram::Fnma), 55);
+/// assert_eq!(payment_lag_days(AgencyProgram::Fhlmc), 75);
+/// assert_eq!(payment_lag_days(AgencyProgram::GnmaI), 14);
+/// assert_eq!(payment_lag_days(AgencyProgram::GnmaII), 45);
 /// ```
-pub fn payment_delay_days(agency: AgencyProgram) -> u32 {
-    agency.payment_delay_days()
+pub fn payment_lag_days(agency: AgencyProgram) -> u32 {
+    agency.payment_lag_days()
 }
 
 /// Calculate actual payment date from accrual period end.
@@ -112,7 +112,7 @@ pub fn payment_date_with_calendar(
 ) -> Result<Date> {
     use time::Duration;
 
-    let delay = agency.payment_delay_days();
+    let delay = agency.payment_lag_days();
     let raw_payment = accrual_end + Duration::days(delay as i64);
 
     // Simple business day adjustment without calendar lookup
@@ -163,7 +163,7 @@ pub fn payment_date_with_calendar(
 ///
 /// Vector of (accrual_end, payment_date) pairs
 pub fn payment_schedule(accrual_ends: &[Date], agency: AgencyProgram) -> Result<Vec<(Date, Date)>> {
-    let delay = agency.payment_delay_days();
+    let delay = agency.payment_lag_days();
 
     accrual_ends
         .iter()
@@ -198,12 +198,12 @@ mod tests {
     use time::Month;
 
     #[test]
-    fn test_payment_delay_days() {
-        assert_eq!(payment_delay_days(AgencyProgram::Fnma), 55);
-        assert_eq!(payment_delay_days(AgencyProgram::Fhlmc), 75);
-        assert_eq!(payment_delay_days(AgencyProgram::Gnma), 45);
-        assert_eq!(payment_delay_days(AgencyProgram::GnmaI), 14);
-        assert_eq!(payment_delay_days(AgencyProgram::GnmaII), 45);
+    fn test_payment_lag_days() {
+        assert_eq!(payment_lag_days(AgencyProgram::Fnma), 55);
+        assert_eq!(payment_lag_days(AgencyProgram::Fhlmc), 75);
+        assert_eq!(payment_lag_days(AgencyProgram::Gnma), 45);
+        assert_eq!(payment_lag_days(AgencyProgram::GnmaI), 14);
+        assert_eq!(payment_lag_days(AgencyProgram::GnmaII), 45);
     }
 
     #[test]

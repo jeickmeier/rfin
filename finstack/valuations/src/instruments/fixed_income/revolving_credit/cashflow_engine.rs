@@ -329,8 +329,7 @@ impl<'a> CashflowEngine<'a> {
                         *rate
                     }
                     BaseRateSpec::Floating(spec) => {
-                        // Convert Decimal spread to f64 for rate calculations
-                        let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
+                        let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or_default();
                         let floor_bp_f64 = spec.floor_bp.and_then(|d| d.to_f64());
                         // Forward curve is guaranteed to be present (validated above)
                         let fwd = fwd_curve.as_ref().ok_or_else(|| {
@@ -588,8 +587,7 @@ impl<'a> CashflowEngine<'a> {
             let interest_rate = match &self.facility.base_rate_spec {
                 BaseRateSpec::Fixed { rate } => *rate,
                 BaseRateSpec::Floating(spec) => {
-                    // Convert Decimal spread to f64 for rate calculations
-                    let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
+                    let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or_default();
                     // Floor and cap apply to the index rate (short_rate) BEFORE adding
                     // spread, matching ISDA floating rate convention and the deterministic
                     // engine's use of index_floor_bp / index_cap_bp in project_floating_rate.

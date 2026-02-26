@@ -109,7 +109,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
             end: date!(2025 - 01 - 01),
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
@@ -124,7 +124,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
             stub: StubKind::None,
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: date!(2024 - 01 - 01),
             end: date!(2025 - 01 - 01),
@@ -163,7 +163,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
             end: date!(2026 - 01 - 01),
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
@@ -178,7 +178,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
             stub: StubKind::None,
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: date!(2024 - 01 - 01),
             end: date!(2026 - 01 - 01),
@@ -238,7 +238,7 @@ fn test_irs_stub_front() {
             end: date!(2026 - 01 - 01),
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
@@ -253,7 +253,7 @@ fn test_irs_stub_front() {
             stub: StubKind::ShortFront,
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: date!(2024 - 01 - 15),
             end: date!(2026 - 01 - 01),
@@ -288,7 +288,7 @@ fn test_irs_stub_back() {
             end: date!(2026 - 06 - 15),
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
@@ -303,7 +303,7 @@ fn test_irs_stub_back() {
             stub: StubKind::ShortBack,
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: date!(2024 - 01 - 01),
             end: date!(2026 - 06 - 15),
@@ -420,7 +420,7 @@ fn test_irs_different_frequencies() {
             end: date!(2026 - 01 - 01),
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
@@ -435,7 +435,7 @@ fn test_irs_different_frequencies() {
             stub: StubKind::None,
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: date!(2024 - 01 - 01),
             end: date!(2026 - 01 - 01),
@@ -471,7 +471,7 @@ fn test_irs_calendar_adjustments() {
             end: date!(2026 - 01 - 01),
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
@@ -486,7 +486,7 @@ fn test_irs_calendar_adjustments() {
             stub: StubKind::None,
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: date!(2024 - 01 - 01),
             end: date!(2026 - 01 - 01),
@@ -502,7 +502,7 @@ fn test_irs_calendar_adjustments() {
     assert!(schedule.is_ok(), "Should handle calendar adjustments");
 }
 
-/// Test that explicit payment_delay_days: 0 is NOT overridden by convention defaults.
+/// Test that explicit payment_lag_days: 0 is NOT overridden by convention defaults.
 /// This verifies the fix where 0 means "no delay" rather than "use convention".
 #[test]
 fn test_irs_explicit_zero_payment_delay_preserved() {
@@ -524,7 +524,7 @@ fn test_irs_explicit_zero_payment_delay_preserved() {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0, // Explicit 0 should stay 0
+            payment_lag_days: 0, // Explicit 0 should stay 0
             end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
@@ -542,7 +542,7 @@ fn test_irs_explicit_zero_payment_delay_preserved() {
                 lookback_days: 0,
                 observation_shift: None,
             },
-            payment_delay_days: 0, // Explicit 0 should stay 0
+            payment_lag_days: 0, // Explicit 0 should stay 0
             end_of_month: false,
             start,
             end,
@@ -596,7 +596,7 @@ fn test_irs_explicit_zero_reset_lag_preserved() {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
@@ -611,7 +611,7 @@ fn test_irs_explicit_zero_reset_lag_preserved() {
             stub: StubKind::None,
             reset_lag_days: 0, // Explicit 0 means spot reset (no lag)
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start,
             end,
@@ -747,7 +747,7 @@ fn test_irs_npv_parity_at_par_rate() {
             end: end_date,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
@@ -762,7 +762,7 @@ fn test_irs_npv_parity_at_par_rate() {
             stub: StubKind::None,
             reset_lag_days: 0,
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: as_of,
             end: end_date,

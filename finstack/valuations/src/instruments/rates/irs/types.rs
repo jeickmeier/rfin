@@ -56,7 +56,7 @@ pub struct IrsLegConventions {
     /// Reset lag in business days (start - reset_lag_days).
     pub reset_lag_days: i32,
     /// Payment delay in business days after period end.
-    pub payment_delay_days: i32,
+    pub payment_lag_days: i32,
 }
 
 /// Interest rate swap with fixed and floating legs.
@@ -170,8 +170,8 @@ impl InterestRateSwap {
 
             // Use negative values as sentinel for "apply convention default".
             // Zero is a valid explicit value meaning "no payment delay".
-            if fixed.payment_delay_days < 0 {
-                fixed.payment_delay_days = conv.default_payment_delay_days;
+            if fixed.payment_lag_days < 0 {
+                fixed.payment_lag_days = conv.default_payment_lag_days;
             }
         }
         fixed
@@ -196,9 +196,9 @@ impl InterestRateSwap {
             if float.reset_lag_days < 0 {
                 float.reset_lag_days = conv.default_reset_lag_days;
             }
-            // Same for payment_delay_days: 0 means "no delay", negative means "use default".
-            if float.payment_delay_days < 0 {
-                float.payment_delay_days = conv.default_payment_delay_days;
+            // Same for payment_lag_days: 0 means "no delay", negative means "use default".
+            if float.payment_lag_days < 0 {
+                float.payment_lag_days = conv.default_payment_lag_days;
             }
         }
         float
@@ -246,7 +246,7 @@ impl InterestRateSwap {
         // Payment delay validation: large negative values are rejected (likely unit mistakes).
         // Small negative values (e.g., -1) are allowed as sentinels for "use convention default".
         // Zero and positive values are explicit delays.
-        if self.fixed.payment_delay_days < -31 || self.float.payment_delay_days < -31 {
+        if self.fixed.payment_lag_days < -31 || self.float.payment_lag_days < -31 {
             return Err(finstack_core::Error::Validation(
                 "Invalid payment delay: value too negative (use small negative like -1 for convention default)."
                     .into(),
@@ -368,7 +368,7 @@ impl InterestRateSwap {
                 })?,
                 par_method: None,
                 compounding_simple: true,
-                payment_delay_days: 0,
+                payment_lag_days: 0,
                 end_of_month: false,
             })
             .float(crate::instruments::common_impl::parameters::FloatLegSpec {
@@ -390,7 +390,7 @@ impl InterestRateSwap {
                 })?,
                 compounding: Default::default(),
                 fixing_calendar_id: None,
-                payment_delay_days: 0,
+                payment_lag_days: 0,
                 end_of_month: false,
             })
             .build()?;
@@ -504,7 +504,7 @@ mod tests {
     fn validate_allows_small_negative_as_convention_sentinel() {
         // Small negative values (like -1) are allowed as sentinels for "use convention default"
         let mut swap = InterestRateSwap::example().expect("example swap");
-        swap.fixed.payment_delay_days = -1;
+        swap.fixed.payment_lag_days = -1;
         assert!(
             swap.validate().is_ok(),
             "small negative payment delay (-1) should be allowed as convention sentinel"
@@ -515,7 +515,7 @@ mod tests {
     fn validate_rejects_large_negative_payment_delay() {
         // Large negative values are rejected as likely unit mistakes
         let mut swap = InterestRateSwap::example().expect("example swap");
-        swap.fixed.payment_delay_days = -100;
+        swap.fixed.payment_lag_days = -100;
         assert!(
             swap.validate().is_err(),
             "large negative payment delay must be rejected"

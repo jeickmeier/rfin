@@ -63,8 +63,7 @@ pub fn tranche_all_in_rate(coupon: &TrancheCoupon, date: Date, market: &MarketCo
     match coupon {
         TrancheCoupon::Fixed { rate } => *rate,
         TrancheCoupon::Floating(spec) => {
-            // Convert Decimal values to f64 for calculations
-            let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
+            let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or_default();
             let gearing_f64 = spec.gearing.to_f64().unwrap_or(1.0);
             let floor_bp_f64 = spec.floor_bp.and_then(|d| d.to_f64());
             let cap_bp_f64 = spec.cap_bp.and_then(|d| d.to_f64());

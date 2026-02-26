@@ -128,7 +128,7 @@ fn calculate_accrued_premium(
             .year_fraction(last_coupon, as_of, DayCountCtx::default())?;
 
     // Spread in decimal (convert from basis points)
-    let spread = cds.premium.spread_bp.to_f64().unwrap_or(0.0) / BASIS_POINTS_PER_UNIT;
+    let spread = cds.premium.spread_bp.to_f64().unwrap_or_default() / BASIS_POINTS_PER_UNIT;
 
     // Accrued premium = Notional × Spread × Accrual Fraction
     let accrued = cds.notional.amount() * spread * accrual_fraction;

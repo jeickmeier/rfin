@@ -51,7 +51,7 @@ pub fn create_standard_future(start: Date, end: Date) -> InterestRateFuture {
     InterestRateFuture {
         id: "IRF_TEST".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        expiry_date: start,
+        expiry: start,
         fixing_date: Some(start),
         period_start: Some(start),
         period_end: Some(end),
@@ -83,7 +83,7 @@ pub fn create_custom_future(
     InterestRateFuture {
         id: id.into(),
         notional: Money::new(notional, Currency::USD),
-        expiry_date: expiry,
+        expiry,
         fixing_date: Some(expiry),
         period_start: Some(period_start),
         period_end: Some(period_end),

@@ -248,7 +248,7 @@ def print_bbg_df_debug(
     base_date: date,
     curve: object,
     points: Sequence[BloombergZeroPoint],
-    swap_payment_delay_days: int,
+    swap_payment_lag_days: int,
     swap_payment_calendar_id: str,
 ) -> None:
     """Debug DF mismatches by comparing maturity-date vs pillar-date discount factors."""
@@ -270,7 +270,7 @@ def print_bbg_df_debug(
         df_maturity = float(curve.df_on_date(pt.maturity))
         pillar = _add_payment_delay_business_days(
             pt.maturity,
-            swap_payment_delay_days,
+            swap_payment_lag_days,
             swap_payment_calendar_id,
         )
         df_pillar = float(curve.df_on_date(pillar))
@@ -489,7 +489,7 @@ def main() -> None:
             base_date=base_date,
             curve=curve,
             points=list(bloomberg_zero_points()),
-            swap_payment_delay_days=2,
+            swap_payment_lag_days=2,
             swap_payment_calendar_id="usny",
         )
 

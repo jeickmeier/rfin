@@ -33,7 +33,7 @@ use std::collections::BTreeMap;
 pub(super) fn margin_bp_at(loan: &TermLoan, d: Date) -> f64 {
     let base_margin = match &loan.rate {
         super::types::RateSpec::Fixed { .. } => 0.0,
-        super::types::RateSpec::Floating(spec) => spec.spread_bp.to_f64().unwrap_or(0.0),
+        super::types::RateSpec::Floating(spec) => spec.spread_bp.to_f64().unwrap_or_default(),
     };
     let step = loan
         .covenants
@@ -304,8 +304,7 @@ pub fn generate_cashflows(
             let _ = builder.fixed_cf(spec);
         }
         super::types::RateSpec::Floating(spec) => {
-            // Convert Decimal spread_bp to f64 for calculations
-            let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
+            let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or_default();
 
             // Build margin step-up schedule for `float_margin_stepup`.
             //

@@ -16,6 +16,8 @@ use finstack_valuations::instruments::rates::xccy_swap::{
 use finstack_valuations::prelude::Instrument;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use wasm_bindgen::prelude::*;
 
 /// Notional exchange convention for XCCY swaps.
@@ -232,7 +234,7 @@ impl JsXccySwapLegBuilder {
             .ok_or_else(|| js_error("XccySwapLegBuilder: end is required".to_string()))?;
 
         let freq = parse_optional_with_default(self.frequency, Tenor::quarterly())?;
-        let dc = parse_optional_with_default(self.day_count, DayCount::ActAct)?;
+        let dc = parse_optional_with_default(self.day_count, DayCount::Act360)?;
         let bdc_value =
             parse_optional_with_default(self.bdc, BusinessDayConvention::ModifiedFollowing)?;
         let stub_value = parse_optional_with_default(self.stub, StubKind::ShortFront)?;
@@ -250,7 +252,8 @@ impl JsXccySwapLegBuilder {
                 day_count: dc,
                 bdc: bdc_value,
                 stub: stub_value,
-                spread_bp: self.spread_bp.unwrap_or(0.0),
+                spread_bp: Decimal::try_from(self.spread_bp.unwrap_or(0.0))
+                    .unwrap_or(Decimal::ZERO),
                 payment_lag_days: self.payment_lag_days.unwrap_or(0),
                 calendar_id: self.calendar_id,
                 allow_calendar_fallback: true,
@@ -298,7 +301,7 @@ impl JsXccySwapLeg {
                 day_count: dc,
                 bdc: bdc_value,
                 stub: stub_value,
-                spread_bp: spread_bp.unwrap_or(0.0),
+                spread_bp: Decimal::try_from(spread_bp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO),
                 payment_lag_days: payment_lag_days.unwrap_or(0),
                 calendar_id,
                 allow_calendar_fallback: true,
@@ -321,7 +324,7 @@ impl JsXccySwapLeg {
     /// Get the spread in basis points.
     #[wasm_bindgen(getter, js_name = spreadBp)]
     pub fn spread_bp(&self) -> f64 {
-        self.inner.spread_bp
+        self.inner.spread_bp.to_f64().unwrap_or(0.0)
     }
 }
 
@@ -599,7 +602,7 @@ impl JsXccySwap {
 
                 let amount = coupon_sign
                     * leg.notional.amount()
-                    * (forward_rate + leg.spread_bp * 0.0001)
+                    * (forward_rate + leg.spread_bp.to_f64().unwrap_or(0.0) / 10_000.0)
                     * accrual;
 
                 let entry = Array::new();

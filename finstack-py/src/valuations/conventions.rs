@@ -272,8 +272,8 @@ impl PyRateIndexConventions {
     }
 
     #[getter]
-    fn default_payment_delay_days(&self) -> i32 {
-        self.inner.default_payment_delay_days
+    fn default_payment_lag_days(&self) -> i32 {
+        self.inner.default_payment_lag_days
     }
 
     #[getter]

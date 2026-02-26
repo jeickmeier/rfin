@@ -129,21 +129,22 @@ impl PyPoolType {
 /// TBA original loan term.
 #[pyclass(module = "finstack.valuations.instruments", name = "TbaTerm", eq)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(clippy::enum_variant_names)]
 pub enum PyTbaTerm {
     /// 15-year original term.
-    Fifteen,
+    FifteenYear,
     /// 20-year original term.
-    Twenty,
+    TwentyYear,
     /// 30-year original term.
-    Thirty,
+    ThirtyYear,
 }
 
 impl From<PyTbaTerm> for TbaTerm {
     fn from(py: PyTbaTerm) -> Self {
         match py {
-            PyTbaTerm::Fifteen => TbaTerm::FifteenYear,
-            PyTbaTerm::Twenty => TbaTerm::TwentyYear,
-            PyTbaTerm::Thirty => TbaTerm::ThirtyYear,
+            PyTbaTerm::FifteenYear => TbaTerm::FifteenYear,
+            PyTbaTerm::TwentyYear => TbaTerm::TwentyYear,
+            PyTbaTerm::ThirtyYear => TbaTerm::ThirtyYear,
         }
     }
 }
@@ -151,9 +152,9 @@ impl From<PyTbaTerm> for TbaTerm {
 impl From<TbaTerm> for PyTbaTerm {
     fn from(rust: TbaTerm) -> Self {
         match rust {
-            TbaTerm::FifteenYear => PyTbaTerm::Fifteen,
-            TbaTerm::TwentyYear => PyTbaTerm::Twenty,
-            TbaTerm::ThirtyYear => PyTbaTerm::Thirty,
+            TbaTerm::FifteenYear => PyTbaTerm::FifteenYear,
+            TbaTerm::TwentyYear => PyTbaTerm::TwentyYear,
+            TbaTerm::ThirtyYear => PyTbaTerm::ThirtyYear,
             _ => unreachable!("unknown TbaTerm variant"),
         }
     }

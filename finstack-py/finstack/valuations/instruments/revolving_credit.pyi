@@ -29,7 +29,7 @@ class RevolvingCredit:
         ...     "commitment_amount": {"amount": 50000000, "currency": "USD"},
         ...     "drawn_amount": {"amount": 20000000, "currency": "USD"},
         ...     "commitment_date": "2024-01-01",
-        ...     "maturity_date": "2029-01-01",
+        ...     "maturity": "2029-01-01",
         ...     "base_rate_spec": {"Fixed": {"rate": 0.05}},
         ...     "day_count": "Act360",
         ...     "payment_frequency": {"count": 3, "unit": "months"},

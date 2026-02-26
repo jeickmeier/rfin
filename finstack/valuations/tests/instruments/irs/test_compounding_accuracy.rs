@@ -74,7 +74,7 @@ fn test_compounding_lookback_sensitivity() {
             calendar_id: Some("USNY".into()),
             start,
             end: start.add_months(12),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             stub: finstack_core::dates::StubKind::None,
             par_method: None,
@@ -93,7 +93,7 @@ fn test_compounding_lookback_sensitivity() {
                 lookback_days: 0,
                 observation_shift: None,
             },
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             fixing_calendar_id: None,
@@ -176,14 +176,14 @@ fn test_payment_delay_sensitivity() {
     irs.float.compounding = FloatingLegCompounding::Simple; // Standard swap
 
     // NPV with 0 payment delay
-    irs.fixed.payment_delay_days = 0;
-    irs.float.payment_delay_days = 0;
+    irs.fixed.payment_lag_days = 0;
+    irs.float.payment_lag_days = 0;
     let npv0 = irs.value(&ctx, base).unwrap().amount();
 
     // NPV with 2 days payment delay
     // Delaying payments in a positive rate environment should lower the PV of both legs.
-    irs.fixed.payment_delay_days = 2;
-    irs.float.payment_delay_days = 2;
+    irs.fixed.payment_lag_days = 2;
+    irs.float.payment_lag_days = 2;
     let npv2 = irs.value(&ctx, base).unwrap().amount();
 
     // Since it's a par-like swap, the net effect depends on leg durations.
@@ -230,7 +230,7 @@ fn test_seasoned_compounded_swap_requires_fixings() {
             calendar_id: Some("USNY".into()),
             start,
             end: start.add_months(1),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             stub: finstack_core::dates::StubKind::None,
             par_method: None,
@@ -249,7 +249,7 @@ fn test_seasoned_compounded_swap_requires_fixings() {
                 lookback_days: 0,
                 observation_shift: None,
             },
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             fixing_calendar_id: Some("USNY".into()),
@@ -318,7 +318,7 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
             calendar_id: Some("USNY".into()),
             start,
             end: start.add_months(1),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             stub: finstack_core::dates::StubKind::None,
             par_method: None,
@@ -337,7 +337,7 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
                 lookback_days: 0,
                 observation_shift: None,
             },
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             fixing_calendar_id: Some("USNY".into()),
@@ -398,7 +398,7 @@ fn test_compounded_swap_with_spread_near_zero_rates() {
             calendar_id: Some("USNY".into()),
             start,
             end: start.add_months(12),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             stub: finstack_core::dates::StubKind::None,
             par_method: None,
@@ -417,7 +417,7 @@ fn test_compounded_swap_with_spread_near_zero_rates() {
                 lookback_days: 0,
                 observation_shift: None,
             },
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::try_from(50.0).expect("valid"), // 50bp spread
             fixing_calendar_id: None,
@@ -492,7 +492,7 @@ fn test_compounded_swap_with_spread_negative_rates() {
             calendar_id: Some("USNY".into()),
             start,
             end: start.add_months(12),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             stub: finstack_core::dates::StubKind::None,
             par_method: None,
@@ -511,7 +511,7 @@ fn test_compounded_swap_with_spread_negative_rates() {
                 lookback_days: 0,
                 observation_shift: None,
             },
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::try_from(100.0).expect("valid"), // 100bp spread
             fixing_calendar_id: None,
@@ -597,7 +597,7 @@ fn test_observation_shift_before_curve_base_date() {
             calendar_id: Some("USNY".into()),
             start,
             end: start.add_months(1),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             stub: finstack_core::dates::StubKind::None,
             par_method: None,
@@ -616,7 +616,7 @@ fn test_observation_shift_before_curve_base_date() {
                 lookback_days: 0,
                 observation_shift: None, // No shift needed, as_of is after start
             },
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::ZERO,
             fixing_calendar_id: Some("USNY".into()),

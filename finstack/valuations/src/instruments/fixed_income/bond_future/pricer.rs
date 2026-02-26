@@ -352,9 +352,7 @@ impl BondFuturePricer {
                     CalendarRegistry::global().available_ids()
                 ))
             })?;
-        let settlement_date = future
-            .expiry_date
-            .add_business_days(settlement_days, calendar)?;
+        let settlement_date = future.expiry.add_business_days(settlement_days, calendar)?;
 
         // Get discount factor to settlement
         // First, calculate year fraction from base date to settlement using curve's day count
@@ -774,7 +772,7 @@ mod tests {
         BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(notional, Currency::USD))
-            .expiry_date(expiry)
+            .expiry(expiry)
             .delivery_start(expiry + time::Duration::days(1))
             .delivery_end(expiry + time::Duration::days(10))
             .quoted_price(quoted_price)
@@ -1069,7 +1067,7 @@ mod tests {
         let future = BondFuture::builder()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .expiry_date(expiry)
+            .expiry(expiry)
             .delivery_start(delivery_start)
             .delivery_end(delivery_end)
             .quoted_price(125.50)

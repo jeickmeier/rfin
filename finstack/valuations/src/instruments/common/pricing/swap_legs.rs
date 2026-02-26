@@ -356,7 +356,7 @@ pub struct FloatingLegParams {
     /// Core rate parameters (spread, gearing, floors, caps).
     pub rate_params: FloatingRateParams,
     /// Payment delay in business days after period end.
-    pub payment_delay_days: i32,
+    pub payment_lag_days: i32,
     /// Optional calendar ID for payment date adjustments.
     pub calendar_id: Option<String>,
     /// Compounding method for calculating the period rate.
@@ -398,31 +398,31 @@ impl FloatingLegParams {
     }
 
     /// Create params with spread and payment delay.
-    pub fn with_spread_and_delay(spread_bp: f64, payment_delay_days: i32) -> Self {
+    pub fn with_spread_and_delay(spread_bp: f64, payment_lag_days: i32) -> Self {
         Self {
             rate_params: FloatingRateParams::with_spread(spread_bp),
-            payment_delay_days,
+            payment_lag_days,
             ..Default::default()
         }
     }
 
     /// Create params with spread in basis points and payment delay.
-    pub fn with_spread_and_delay_bps(spread_bp: Bps, payment_delay_days: i32) -> Self {
+    pub fn with_spread_and_delay_bps(spread_bp: Bps, payment_lag_days: i32) -> Self {
         Self {
             rate_params: FloatingRateParams {
                 spread_bp: spread_bp.as_bps() as f64,
                 ..Default::default()
             },
-            payment_delay_days,
+            payment_lag_days,
             ..Default::default()
         }
     }
 
     /// Create params from rate params with payment delay.
-    pub fn from_rate_params(rate_params: FloatingRateParams, payment_delay_days: i32) -> Self {
+    pub fn from_rate_params(rate_params: FloatingRateParams, payment_lag_days: i32) -> Self {
         Self {
             rate_params,
-            payment_delay_days,
+            payment_lag_days,
             ..Default::default()
         }
     }
@@ -436,7 +436,7 @@ impl FloatingLegParams {
     ///
     /// * `spread_bp` - Spread in basis points
     /// * `observation_shift_days` - Lookback period in business days (typically 2)
-    /// * `payment_delay_days` - Payment delay in business days (typically 2)
+    /// * `payment_lag_days` - Payment delay in business days (typically 2)
     ///
     /// # Example
     ///
@@ -452,11 +452,11 @@ impl FloatingLegParams {
     pub fn with_ois_compounding(
         spread_bp: f64,
         observation_shift_days: i32,
-        payment_delay_days: i32,
+        payment_lag_days: i32,
     ) -> Self {
         Self {
             rate_params: FloatingRateParams::with_spread(spread_bp),
-            payment_delay_days,
+            payment_lag_days,
             calendar_id: None,
             compounding_method: CompoundingMethod::CompoundedWithShift,
             observation_shift_days,
@@ -467,14 +467,14 @@ impl FloatingLegParams {
     pub fn with_ois_compounding_bps(
         spread_bp: Bps,
         observation_shift_days: i32,
-        payment_delay_days: i32,
+        payment_lag_days: i32,
     ) -> Self {
         Self {
             rate_params: FloatingRateParams {
                 spread_bp: spread_bp.as_bps() as f64,
                 ..Default::default()
             },
-            payment_delay_days,
+            payment_lag_days,
             calendar_id: None,
             compounding_method: CompoundingMethod::CompoundedWithShift,
             observation_shift_days,
@@ -527,7 +527,7 @@ impl FloatingLegParams {
         index_cap_bp: Option<f64>,
         all_in_floor_bp: Option<f64>,
         all_in_cap_bp: Option<f64>,
-        payment_delay_days: i32,
+        payment_lag_days: i32,
         calendar_id: Option<String>,
     ) -> Self {
         Self {
@@ -540,7 +540,7 @@ impl FloatingLegParams {
                 all_in_floor_bp,
                 all_in_cap_bp,
             },
-            payment_delay_days,
+            payment_lag_days,
             calendar_id,
             compounding_method: CompoundingMethod::Simple,
             observation_shift_days: 0,
@@ -557,7 +557,7 @@ impl FloatingLegParams {
         index_cap_bp: Option<f64>,
         all_in_floor_bp: Option<f64>,
         all_in_cap_bp: Option<f64>,
-        payment_delay_days: i32,
+        payment_lag_days: i32,
         calendar_id: Option<String>,
         compounding_method: CompoundingMethod,
         observation_shift_days: i32,
@@ -572,7 +572,7 @@ impl FloatingLegParams {
                 all_in_floor_bp,
                 all_in_cap_bp,
             },
-            payment_delay_days,
+            payment_lag_days,
             calendar_id,
             compounding_method,
             observation_shift_days,
@@ -589,7 +589,7 @@ impl FloatingLegParams {
         index_cap_bp: Option<Bps>,
         all_in_floor_bp: Option<Bps>,
         all_in_cap_bp: Option<Bps>,
-        payment_delay_days: i32,
+        payment_lag_days: i32,
         calendar_id: Option<String>,
     ) -> Self {
         Self {
@@ -602,7 +602,7 @@ impl FloatingLegParams {
                 all_in_floor_bp: all_in_floor_bp.map(|v| v.as_bps() as f64),
                 all_in_cap_bp: all_in_cap_bp.map(|v| v.as_bps() as f64),
             },
-            payment_delay_days,
+            payment_lag_days,
             calendar_id,
             compounding_method: CompoundingMethod::Simple,
             observation_shift_days: 0,
@@ -729,7 +729,7 @@ where
         // Apply payment delay to determine the actual payment date
         let payment_date = add_payment_delay(
             period.accrual_end,
-            params.payment_delay_days,
+            params.payment_lag_days,
             params.calendar_id.as_deref(),
         )?;
 
@@ -799,7 +799,7 @@ pub struct FixedLegParams {
     /// Day count convention for accrual.
     pub day_count: DayCount,
     /// Payment delay in business days after period end.
-    pub payment_delay_days: i32,
+    pub payment_lag_days: i32,
     /// Optional calendar ID for payment date adjustments.
     pub calendar_id: Option<String>,
 }
@@ -810,7 +810,7 @@ impl FixedLegParams {
         Self {
             rate,
             day_count,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             calendar_id: None,
         }
     }
@@ -821,18 +821,18 @@ impl FixedLegParams {
     }
 
     /// Create params with rate, day count, and payment delay.
-    pub fn with_delay(rate: f64, day_count: DayCount, payment_delay_days: i32) -> Self {
+    pub fn with_delay(rate: f64, day_count: DayCount, payment_lag_days: i32) -> Self {
         Self {
             rate,
             day_count,
-            payment_delay_days,
+            payment_lag_days,
             calendar_id: None,
         }
     }
 
     /// Create params with a typed rate, day count, and payment delay.
-    pub fn with_delay_rate(rate: Rate, day_count: DayCount, payment_delay_days: i32) -> Self {
-        Self::with_delay(rate.as_decimal(), day_count, payment_delay_days)
+    pub fn with_delay_rate(rate: Rate, day_count: DayCount, payment_lag_days: i32) -> Self {
+        Self::with_delay(rate.as_decimal(), day_count, payment_lag_days)
     }
 
     /// Validate fixed leg parameters.
@@ -896,7 +896,7 @@ where
         // Apply payment delay to determine the actual payment date
         let payment_date = add_payment_delay(
             period.accrual_end,
-            params.payment_delay_days,
+            params.payment_lag_days,
             params.calendar_id.as_deref(),
         )?;
 
@@ -926,7 +926,7 @@ where
 /// * `periods` - Iterator over the leg periods
 /// * `disc` - Discount curve for PV calculation
 /// * `as_of` - Valuation date
-/// * `payment_delay_days` - Payment delay in business days
+/// * `payment_lag_days` - Payment delay in business days
 /// * `calendar_id` - Optional calendar ID for payment date adjustments
 ///
 /// # Returns
@@ -941,7 +941,7 @@ pub fn leg_annuity<I>(
     periods: I,
     disc: &DiscountCurve,
     as_of: Date,
-    payment_delay_days: i32,
+    payment_lag_days: i32,
     calendar_id: Option<&str>,
 ) -> Result<f64>
 where
@@ -951,7 +951,7 @@ where
 
     for period in periods {
         // Apply payment delay (strict: calendar must resolve if specified)
-        let payment_date = add_payment_delay(period.accrual_end, payment_delay_days, calendar_id)?;
+        let payment_date = add_payment_delay(period.accrual_end, payment_lag_days, calendar_id)?;
 
         // Only include future payments
         if payment_date > as_of {
@@ -1167,7 +1167,7 @@ mod tests {
             None,        // index_cap_bp
             Some(500.0), // all_in_floor_bp (5%)
             Some(300.0), // all_in_cap_bp (3%) - less than floor!
-            0,           // payment_delay_days
+            0,           // payment_lag_days
             None,        // calendar_id
         );
 
@@ -1208,7 +1208,7 @@ mod tests {
             None,  // index_cap_bp
             None,  // all_in_floor_bp
             None,  // all_in_cap_bp
-            0,     // payment_delay_days
+            0,     // payment_lag_days
             None,  // calendar_id
         );
 
@@ -1539,7 +1539,7 @@ mod tests {
 
         assert_eq!(leg_params.rate_params.spread_bp, 200.0);
         assert_eq!(leg_params.rate_params.index_floor_bp, Some(100.0));
-        assert_eq!(leg_params.payment_delay_days, 2);
+        assert_eq!(leg_params.payment_lag_days, 2);
     }
 
     // ==================== robust_relative_df EDGE CASE TESTS ====================

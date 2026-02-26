@@ -640,6 +640,8 @@ impl InstrumentEnvelope {
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    use rust_decimal::Decimal;
+
     #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
     mod test_utils {
         include!(concat!(
@@ -966,7 +968,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("USGS".to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 5.0,
+            spread_bp: Decimal::from(5),
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -981,7 +983,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("USGS".to_string()),
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -1069,7 +1071,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: StubKind::ShortFront,
-            spread_bp: 5.0,
+            spread_bp: Decimal::from(5),
             payment_lag_days: 0,
             reset_lag_days: 0,
         };
@@ -1083,7 +1085,7 @@ mod tests {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: StubKind::ShortFront,
-            spread_bp: 0.0,
+            spread_bp: Decimal::ZERO,
             payment_lag_days: 0,
             reset_lag_days: 0,
         };

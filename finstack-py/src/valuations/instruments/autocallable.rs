@@ -31,7 +31,7 @@ impl PyAutocallable {
 impl PyAutocallable {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, observation_dates, autocall_barriers, coupons, final_barrier, final_payoff_type, participation_rate, cap_level, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None)"
+        text_signature = "(cls, instrument_id, ticker, observation_dates, autocall_barriers, coupons, final_barrier, final_payoff_type, participation_rate, cap_level, notional, discount_curve, spot_id, vol_surface, *, expiry=None, div_yield_id=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create an autocallable structured product.
@@ -50,6 +50,7 @@ impl PyAutocallable {
     ///     discount_curve: Discount curve identifier.
     ///     spot_id: Spot price identifier.
     ///     vol_surface: Volatility surface identifier.
+    ///     expiry: Optional explicit expiry date (defaults to last observation date).
     ///     div_yield_id: Optional dividend yield identifier.
     ///
     /// Returns:
@@ -72,6 +73,7 @@ impl PyAutocallable {
         discount_curve: Bound<'_, PyAny>,
         spot_id: &str,
         vol_surface: Bound<'_, PyAny>,
+        expiry: Option<Bound<'_, PyAny>>,
         div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
         use crate::errors::PyContext;
@@ -172,10 +174,21 @@ impl PyAutocallable {
             ));
         };
 
+        let expiry_date = if let Some(exp) = expiry {
+            py_to_date(&exp).context("expiry")?
+        } else {
+            *obs_dates.last().ok_or_else(|| {
+                PyValueError::new_err(
+                    "observation_dates must not be empty (needed to derive expiry)",
+                )
+            })?
+        };
+
         let mut builder = Autocallable::builder();
         builder = builder.id(id);
         builder = builder.underlying_ticker(ticker.to_string());
         builder = builder.observation_dates(obs_dates);
+        builder = builder.expiry(expiry_date);
         builder = builder.autocall_barriers(barriers);
         builder = builder.coupons(coupon_rates);
         builder = builder.final_barrier(final_barrier);

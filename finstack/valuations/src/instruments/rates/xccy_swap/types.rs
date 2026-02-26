@@ -20,6 +20,8 @@ use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 /// Threshold for extremely negative forward rates that warrant a warning.
 /// Even JPY/CHF/EUR rarely go below -1%, so -5% indicates potential curve issues.
@@ -127,9 +129,9 @@ pub struct XccySwapLeg {
         alias = "stub_kind"
     )]
     pub stub: StubKind,
-    /// Spread in basis points (e.g. 5.0 = 5bp).
+    /// Spread in basis points (e.g. `Decimal::from(5)` = 5bp).
     #[serde(default, alias = "spread")]
-    pub spread_bp: f64,
+    pub spread_bp: Decimal,
     /// Payment lag in business days after period end (default: 0).
     #[serde(default)]
     pub payment_lag_days: i32,
@@ -216,11 +218,7 @@ impl XccySwap {
                 "XccySwap payment lag must be non-negative".to_string(),
             ));
         }
-        if !leg.spread_bp.is_finite() {
-            return Err(finstack_core::Error::Validation(
-                "XccySwap spread must be finite".to_string(),
-            ));
-        }
+        // Decimal is always finite; no NaN/infinity check required.
         Ok(())
     }
 
@@ -399,7 +397,7 @@ impl XccySwap {
                 );
             }
 
-            let total_rate = forward_rate + leg.spread_bp * 0.0001;
+            let total_rate = forward_rate + leg.spread_bp.to_f64().unwrap_or_default() / 10_000.0;
             let coupon = leg.side.coupon_sign()
                 * leg.notional.amount()
                 * total_rate

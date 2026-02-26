@@ -170,7 +170,7 @@ pub fn prepare_rate_quote(
         if policy.swap_use_payment_delay {
             crate::instruments::rates::irs::dates::add_payment_delay(
                 end,
-                swp.fixed.payment_delay_days,
+                swp.fixed.payment_lag_days,
                 swp.fixed.calendar_id.as_deref(),
             )?
         } else {
@@ -180,7 +180,7 @@ pub fn prepare_rate_quote(
         .as_any()
         .downcast_ref::<crate::instruments::rates::ir_future::InterestRateFuture>(
     ) {
-        fut.expiry_date
+        fut.expiry
     } else {
         base_date
     };

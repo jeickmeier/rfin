@@ -33,6 +33,8 @@ class CmsOption:
         ...     option_type="call",  # Cap (call on rate)
         ...     notional=Money(10_000_000, Currency("USD")),
         ...     discount_curve="USD",
+        ...     forward_curve="USD-SOFR-3M",
+        ...     vol_surface="USD-CMS10Y-VOL",
         ... )
 
     Notes
@@ -78,8 +80,9 @@ class CmsOption:
         option_type: str,
         notional: Money,
         discount_curve: str,
+        forward_curve: str,
+        vol_surface: str,
         *,
-        vol_surface: Optional[str] = None,
         payment_dates: Optional[List[date]] = None,
         swap_fixed_freq: Optional[Frequency] = None,
         swap_float_freq: Optional[Frequency] = None,
@@ -105,7 +108,9 @@ class CmsOption:
             Notional principal amount.
         discount_curve : str
             Discount curve identifier in MarketContext.
-        vol_surface : str, optional
+        forward_curve : str
+            Forward/projection curve identifier for CMS rate estimation.
+        vol_surface : str
             Volatility surface identifier for CMS option pricing.
         payment_dates : List[date], optional
             Payment dates (default: fixing_dates).
@@ -138,6 +143,100 @@ class CmsOption:
             ...     "call",
             ...     Money(10_000_000, Currency("USD")),
             ...     discount_curve="USD",
+            ...     forward_curve="USD-SOFR-3M",
+            ...     vol_surface="USD-CMS10Y-VOL",
+            ... )
+        """
+        ...
+
+    @classmethod
+    def from_schedule(
+        cls,
+        instrument_id: str,
+        start_date: date,
+        maturity: date,
+        frequency: Frequency,
+        cms_tenor: float,
+        strike: float,
+        option_type: str,
+        notional: Money,
+        discount_curve: str,
+        forward_curve: str,
+        vol_surface: str,
+        *,
+        swap_fixed_freq: Optional[Frequency] = None,
+        swap_float_freq: Optional[Frequency] = None,
+        swap_day_count: Optional[DayCount] = None,
+        day_count: Optional[DayCount] = None,
+    ) -> "CmsOption":
+        """Create a CMS option from a schedule specification.
+
+        Generates fixing and payment dates from ``start_date``, ``maturity``,
+        and ``frequency`` using standard market conventions (Modified Following
+        BDC, weekends-only calendar).
+
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the option.
+        start_date : date
+            Start of the first accrual period.
+        maturity : date
+            End of the last accrual period.
+        frequency : Frequency
+            Coupon/observation frequency (e.g. quarterly).
+        cms_tenor : float
+            Tenor of the underlying CMS swap in years (e.g. ``10.0`` for 10Y).
+        strike : float
+            Strike rate as a decimal (e.g. ``0.035`` for 3.5%).
+        option_type : str
+            ``"call"`` for a CMS cap or ``"put"`` for a CMS floor.
+        notional : Money
+            Notional principal amount.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        forward_curve : str
+            Forward/projection curve identifier for CMS rate estimation.
+        vol_surface : str
+            Volatility surface identifier.
+        swap_fixed_freq : Frequency, optional
+            Fixed-leg coupon frequency of the underlying swap (default: semi-annual).
+        swap_float_freq : Frequency, optional
+            Floating-leg coupon frequency of the underlying swap (default: quarterly).
+        swap_day_count : DayCount, optional
+            Day-count for the underlying swap fixed leg (default: 30/360).
+        day_count : DayCount, optional
+            Day-count for accrual fractions and vol interpolation (default: Act/365F).
+
+        Returns
+        -------
+        CmsOption
+            Configured CMS option ready for pricing.
+
+        Raises
+        ------
+        ValueError
+            If the schedule is empty (e.g. ``maturity <= start_date``) or
+            any parameter is invalid.
+
+        Examples
+        --------
+            >>> from datetime import date
+            >>> from finstack import Money, Currency
+            >>> from finstack.core.dates.schedule import Frequency
+            >>> from finstack.valuations.instruments import CmsOption
+            >>> option = CmsOption.from_schedule(
+            ...     "CMS-CAP-10Y",
+            ...     date(2025, 1, 1),
+            ...     date(2026, 1, 1),
+            ...     Frequency.QUARTERLY,
+            ...     10.0,
+            ...     0.035,
+            ...     "call",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     "USD-OIS",
+            ...     "USD-SOFR-3M",
+            ...     "USD-CMS10Y-VOL",
             ... )
         """
         ...

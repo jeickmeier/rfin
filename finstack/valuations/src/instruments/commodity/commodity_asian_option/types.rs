@@ -89,6 +89,8 @@ pub struct CommodityAsianOption {
     #[builder(default = DayCount::Act365F)]
     pub day_count: DayCount,
     /// Pricing overrides.
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping.
     #[builder(default)]

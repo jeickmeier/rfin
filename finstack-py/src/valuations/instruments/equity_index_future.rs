@@ -310,7 +310,7 @@ impl PyEquityIndexFutureBuilder {
             .id(self.instrument_id.clone())
             .underlying_ticker(index_ticker)
             .notional(notional)
-            .expiry_date(expiry_date)
+            .expiry(expiry_date)
             .last_trading_date(last_trading_date)
             .entry_price_opt(self.entry_price)
             .quoted_price_opt(self.quoted_price)
@@ -552,7 +552,7 @@ impl PyEquityIndexFuture {
     /// Expiry/settlement date.
     #[getter]
     fn expiry_date<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.expiry_date)
+        date_to_py(py, self.inner.expiry)
     }
 
     /// Last trading date.
@@ -625,7 +625,7 @@ impl PyEquityIndexFuture {
                 Position::Short => "short",
                 _ => unreachable!("unknown Position variant"),
             },
-            self.inner.expiry_date
+            self.inner.expiry
         )
     }
 }

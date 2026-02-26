@@ -432,6 +432,8 @@ pub struct CreditDefaultSwap {
     /// Protection leg specification
     pub protection: ProtectionLegSpec,
     /// Pricing overrides (including upfront payment)
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Upfront payment (Date, Money).
     ///
@@ -448,6 +450,8 @@ pub struct CreditDefaultSwap {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin_spec: Option<OtcMarginSpec>,
     /// Additional attributes
+    #[serde(default)]
+    #[builder(default)]
     pub attributes: Attributes,
 }
 

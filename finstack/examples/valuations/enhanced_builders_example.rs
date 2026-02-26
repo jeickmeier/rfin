@@ -55,7 +55,7 @@ fn main() -> finstack_core::Result<()> {
             end: maturity_5y,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(FloatLegSpec {
@@ -72,7 +72,7 @@ fn main() -> finstack_core::Result<()> {
             start: issue,
             end: maturity_5y,
             compounding: FloatingLegCompounding::Simple,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .build()
@@ -184,7 +184,7 @@ fn main() -> finstack_core::Result<()> {
             end: maturity_5y,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(finstack_valuations::instruments::rates::irs::FloatLegSpec {
@@ -201,7 +201,7 @@ fn main() -> finstack_core::Result<()> {
             start: issue,
             end: maturity_5y,
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .build()?;

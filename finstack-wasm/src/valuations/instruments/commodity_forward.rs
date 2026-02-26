@@ -136,9 +136,8 @@ impl JsCommodityForwardBuilder {
         })?;
 
         let settlement_type_enum = match self.settlement.as_deref() {
-            Some("physical") | Some("Physical") => Some(SettlementType::Physical),
-            Some("cash") | Some("Cash") => Some(SettlementType::Cash),
-            None => None,
+            Some("physical") | Some("Physical") => SettlementType::Physical,
+            Some("cash") | Some("Cash") | None => SettlementType::Cash,
             Some(other) => {
                 return Err(JsValue::from_str(&format!(
                     "Invalid settlement_type: '{}'. Must be 'physical' or 'cash'",
@@ -160,11 +159,8 @@ impl JsCommodityForwardBuilder {
             .maturity(maturity)
             .forward_curve_id(CurveId::new(forward_curve_id))
             .discount_curve_id(CurveId::new(discount_curve_id))
+            .settlement(settlement_type_enum)
             .attributes(Attributes::new());
-
-        if let Some(st) = settlement_type_enum {
-            builder = builder.settlement_opt(Some(st));
-        }
         if let Some(qp) = self.quoted_price {
             builder = builder.quoted_price_opt(Some(qp));
         }
@@ -230,9 +226,8 @@ impl JsCommodityForward {
             "CommodityForward constructor is deprecated; use CommodityForwardBuilder instead.",
         ));
         let settlement_type_enum = match settlement_type.as_deref() {
-            Some("physical") | Some("Physical") => Some(SettlementType::Physical),
-            Some("cash") | Some("Cash") => Some(SettlementType::Cash),
-            None => None,
+            Some("physical") | Some("Physical") => SettlementType::Physical,
+            Some("cash") | Some("Cash") | None => SettlementType::Cash,
             Some(other) => {
                 return Err(JsValue::from_str(&format!(
                     "Invalid settlement_type: '{}'. Must be 'physical' or 'cash'",
@@ -254,11 +249,8 @@ impl JsCommodityForward {
             .maturity(settlement_date.inner())
             .forward_curve_id(CurveId::new(forward_curve_id))
             .discount_curve_id(CurveId::new(discount_curve_id))
+            .settlement(settlement_type_enum)
             .attributes(Attributes::new());
-
-        if let Some(st) = settlement_type_enum {
-            builder = builder.settlement_opt(Some(st));
-        }
         if let Some(qp) = quoted_price {
             builder = builder.quoted_price_opt(Some(qp));
         }

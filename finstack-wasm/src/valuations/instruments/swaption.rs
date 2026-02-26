@@ -212,7 +212,7 @@ impl JsSwaptionBuilder {
             _ => unreachable!("validated above"),
         };
 
-        swaption.exercise = exercise_style;
+        swaption.exercise_style = exercise_style;
         swaption.settlement = settlement_type;
         if let Some(f) = self.fixed_frequency {
             swaption.fixed_freq = f;
@@ -373,7 +373,7 @@ impl JsSwaption {
             ),
             _ => unreachable!("validated above"),
         };
-        swaption.exercise = exercise_style;
+        swaption.exercise_style = exercise_style;
         swaption.settlement = settlement_type;
         if let Some(f) = fixed_frequency {
             swaption.fixed_freq = f.inner();

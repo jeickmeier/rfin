@@ -76,7 +76,7 @@ fn test_multiple_contracts() {
     let future = InterestRateFuture {
         id: "IRF_5_CONTRACTS".into(),
         notional: Money::new(5_000_000.0, Currency::USD),
-        expiry_date: start,
+        expiry: start,
         fixing_date: Some(start),
         period_start: Some(start),
         period_end: Some(end),
@@ -108,7 +108,7 @@ fn test_different_day_counts() {
         let future = InterestRateFuture {
             id: "IRF_DC_TEST".into(),
             notional: Money::new(1_000_000.0, Currency::USD),
-            expiry_date: start,
+            expiry: start,
             fixing_date: Some(start),
             period_start: Some(start),
             period_end: Some(end),

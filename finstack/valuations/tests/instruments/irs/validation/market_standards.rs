@@ -347,7 +347,7 @@ fn test_irs_receive_vs_pay_fixed() {
         stub: StubKind::None,
         par_method: None,
         compounding_simple: true,
-        payment_delay_days: 0,
+        payment_lag_days: 0,
         end_of_month: false,
         start: as_of,
         end,
@@ -364,7 +364,7 @@ fn test_irs_receive_vs_pay_fixed() {
         stub: StubKind::None,
         reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
         compounding: Default::default(),
-        payment_delay_days: 0,
+        payment_lag_days: 0,
         end_of_month: false,
         start: as_of,
         end,
@@ -436,7 +436,7 @@ fn test_irs_rate_sensitivity() {
         stub: StubKind::None,
         par_method: None,
         compounding_simple: true,
-        payment_delay_days: 0,
+        payment_lag_days: 0,
         end_of_month: false,
         start: as_of,
         end,
@@ -453,7 +453,7 @@ fn test_irs_rate_sensitivity() {
         stub: StubKind::None,
         reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
         compounding: Default::default(),
-        payment_delay_days: 0,
+        payment_lag_days: 0,
         end_of_month: false,
         start: as_of,
         end,
@@ -538,7 +538,7 @@ fn test_irs_leg_pvs_consistency() {
             stub: StubKind::None,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: as_of,
             end,
@@ -554,7 +554,7 @@ fn test_irs_leg_pvs_consistency() {
             stub: StubKind::None,
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: as_of,
             end,
@@ -611,7 +611,7 @@ fn test_daycount_convention_impact_on_annuity() {
             stub: StubKind::None,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: as_of,
             end,
@@ -628,7 +628,7 @@ fn test_daycount_convention_impact_on_annuity() {
             stub: StubKind::None,
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: as_of,
             end,
@@ -651,7 +651,7 @@ fn test_daycount_convention_impact_on_annuity() {
             stub: StubKind::None,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: as_of,
             end,
@@ -668,7 +668,7 @@ fn test_daycount_convention_impact_on_annuity() {
             stub: StubKind::None,
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start: as_of,
             end,
@@ -782,7 +782,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
             stub: StubKind::None,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start,
             end,
@@ -799,7 +799,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
             stub: StubKind::None,
             reset_lag_days: 2, // T-2 reset lag per ISDA standard
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start,
             end,
@@ -960,7 +960,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             stub: StubKind::None,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start,
             end,
@@ -977,7 +977,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             stub: StubKind::None,
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start,
             end,
@@ -999,7 +999,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             stub: StubKind::None,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start,
             end,
@@ -1016,7 +1016,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             stub: StubKind::None,
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start,
             end,
@@ -1099,7 +1099,7 @@ fn test_sofr_ois_par_rate_matches_quantlib_identity() {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(FloatLegSpec {
@@ -1117,7 +1117,7 @@ fn test_sofr_ois_par_rate_matches_quantlib_identity() {
                 lookback_days: 0,
                 observation_shift: None,
             },
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
             start,
             end,
@@ -1147,7 +1147,7 @@ fn test_sofr_ois_par_rate_matches_quantlib_identity() {
         calendar_id: conv.market_calendar_id.as_str(),
         end_of_month: false,
         day_count: DayCount::Act360,
-        payment_lag_days: conv.default_payment_delay_days,
+        payment_lag_days: conv.default_payment_lag_days,
         reset_lag_days: None,
     })
     .expect("periods");
@@ -1240,7 +1240,7 @@ fn test_eom_pricer_cashflow_consistency() {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: true,
         })
         .float(FloatLegSpec {
@@ -1257,7 +1257,7 @@ fn test_eom_pricer_cashflow_consistency() {
             start,
             end,
             compounding: FloatingLegCompounding::Simple,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: true,
         })
         .build()
@@ -1280,7 +1280,7 @@ fn test_eom_pricer_cashflow_consistency() {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .float(FloatLegSpec {
@@ -1297,7 +1297,7 @@ fn test_eom_pricer_cashflow_consistency() {
             start,
             end,
             compounding: FloatingLegCompounding::Simple,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         })
         .build()
@@ -1400,7 +1400,7 @@ fn test_ois_identity_with_eom() {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: true,
         })
         .float(FloatLegSpec {
@@ -1420,7 +1420,7 @@ fn test_ois_identity_with_eom() {
                 lookback_days: 0,
                 observation_shift: None,
             },
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: true,
         })
         .build()

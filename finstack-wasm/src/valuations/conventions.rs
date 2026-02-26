@@ -249,8 +249,8 @@ impl JsRateIndexConventions {
 
     /// Default payment delay in days.
     #[wasm_bindgen(getter, js_name = defaultPaymentDelayDays)]
-    pub fn default_payment_delay_days(&self) -> i32 {
-        self.inner.default_payment_delay_days
+    pub fn default_payment_lag_days(&self) -> i32 {
+        self.inner.default_payment_lag_days
     }
 
     /// Default reset lag in days.

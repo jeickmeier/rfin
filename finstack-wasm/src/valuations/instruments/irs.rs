@@ -203,7 +203,7 @@ impl JsInterestRateSwapBuilder {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         };
         let float = FloatLegSpec {
@@ -220,7 +220,7 @@ impl JsInterestRateSwapBuilder {
             start,
             end,
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         };
 
@@ -364,7 +364,7 @@ impl JsInterestRateSwap {
             end: end.inner(),
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         };
         let float = FloatLegSpec {
@@ -381,7 +381,7 @@ impl JsInterestRateSwap {
             start: start.inner(),
             end: end.inner(),
             compounding: Default::default(),
-            payment_delay_days: 0,
+            payment_lag_days: 0,
             end_of_month: false,
         };
         let swap = InterestRateSwap::builder()

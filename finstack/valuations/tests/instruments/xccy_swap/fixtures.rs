@@ -6,6 +6,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::FxMatrix;
 use finstack_core::money::fx::SimpleFxProvider;
 pub use finstack_valuations::instruments::Instrument;
+use rust_decimal::Decimal;
 use std::sync::Arc;
 use time::Month;
 
@@ -109,7 +110,7 @@ pub fn leg_usd_receive(
         day_count: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         stub: StubKind::ShortFront,
-        spread_bp: 0.0,
+        spread_bp: Decimal::ZERO,
         payment_lag_days: 0,
         calendar_id: Some(USD_CAL.to_string()),
         allow_calendar_fallback: false,
@@ -132,7 +133,7 @@ pub fn leg_eur_pay(
         day_count: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         stub: StubKind::ShortFront,
-        spread_bp: 0.0,
+        spread_bp: Decimal::ZERO,
         payment_lag_days: 0,
         calendar_id: Some(EUR_CAL.to_string()),
         allow_calendar_fallback: false,

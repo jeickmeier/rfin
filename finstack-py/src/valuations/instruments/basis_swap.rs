@@ -12,6 +12,8 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use std::fmt;
 use std::sync::Arc;
 
@@ -135,7 +137,7 @@ impl PyBasisSwapLeg {
                 bdc,
                 calendar_id,
                 stub: stub_kind,
-                spread_bp: spread_bp.unwrap_or(0.0),
+                spread_bp: Decimal::try_from(spread_bp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO),
                 payment_lag_days: payment_lag_days.unwrap_or(0),
                 reset_lag_days: reset_lag_days.unwrap_or(0),
             },
@@ -157,7 +159,7 @@ impl PyBasisSwapLeg {
     /// Spread in basis points.
     #[getter]
     fn spread_bp(&self) -> f64 {
-        self.inner.spread_bp
+        self.inner.spread_bp.to_f64().unwrap_or(0.0)
     }
 }
 

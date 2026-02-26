@@ -208,7 +208,7 @@ impl EquityFutureSpecs {
 ///     .id(InstrumentId::new("ES-2025M03"))
 ///     .underlying_ticker("SPX".to_string())
 ///     .notional(Money::new(2_250_000.0, Currency::USD))
-///     .expiry_date(Date::from_calendar_date(2025, Month::March, 21).unwrap())
+///     .expiry(Date::from_calendar_date(2025, Month::March, 21).unwrap())
 ///     .last_trading_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
 ///     .position(Position::Long)
 ///     .contract_specs(EquityFutureSpecs::sp500_emini())
@@ -230,7 +230,8 @@ pub struct EquityIndexFuture {
     /// Notional exposure in settlement currency.
     pub notional: Money,
     /// Future expiry/settlement date.
-    pub expiry_date: Date,
+    #[serde(alias = "expiry_date")]
+    pub expiry: Date,
     /// Last trading date (typically one day before expiry).
     pub last_trading_date: Date,
     /// Entry price at trade inception (optional for new trades).
@@ -269,9 +270,10 @@ pub struct EquityIndexFuture {
     /// Attributes for tagging and selection.
     #[builder(default)]
     #[serde(default)]
-    #[builder(default)]
     pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Attributes for scenario selection and tagging
+    #[serde(default)]
+    #[builder(default)]
     pub attributes: Attributes,
 }
 
@@ -282,7 +284,7 @@ impl EquityIndexFuture {
             .id(InstrumentId::new("ES-2025M03"))
             .underlying_ticker("SPX".to_string())
             .notional(Money::new(2_250_000.0, Currency::USD))
-            .expiry_date(date!(2025 - 03 - 21))
+            .expiry(date!(2025 - 03 - 21))
             .last_trading_date(date!(2025 - 03 - 20))
             .entry_price_opt(Some(4500.0))
             .quoted_price_opt(Some(4550.0))
@@ -321,7 +323,7 @@ impl EquityIndexFuture {
             .id(id.into())
             .underlying_ticker("SPX".to_string())
             .notional(notional)
-            .expiry_date(expiry_date)
+            .expiry(expiry_date)
             .last_trading_date(last_trading_date)
             .entry_price_opt(entry_price)
             .position(position)
@@ -356,7 +358,7 @@ impl EquityIndexFuture {
             .id(id.into())
             .underlying_ticker("NDX".to_string())
             .notional(notional)
-            .expiry_date(expiry_date)
+            .expiry(expiry_date)
             .last_trading_date(last_trading_date)
             .entry_price_opt(entry_price)
             .position(position)
@@ -405,7 +407,7 @@ impl EquityIndexFuture {
     /// Calculate the raw present value as f64.
     pub fn npv_raw(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         // If expired, value is zero
-        if self.expiry_date < as_of {
+        if self.expiry < as_of {
             return Ok(0.0);
         }
 
@@ -492,7 +494,7 @@ impl EquityIndexFuture {
         // Get discount curve and calculate time to expiry
         let disc = context.get_discount(&self.discount_curve_id)?;
         let t = DayCount::Act365F
-            .year_fraction(as_of, self.expiry_date, DayCountCtx::default())?
+            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
             .max(0.0);
 
         // Get risk-free rate
@@ -504,7 +506,7 @@ impl EquityIndexFuture {
             let mut future_divs = Vec::new();
             for (div_date, amount) in &self.discrete_dividends {
                 if *div_date <= as_of
-                    || *div_date > self.expiry_date
+                    || *div_date > self.expiry
                     || !amount.is_finite()
                     || *amount <= 0.0
                 {
@@ -665,7 +667,7 @@ mod tests {
             .id(InstrumentId::new("ES-TEST"))
             .underlying_ticker("SPX".to_string())
             .notional(Money::new(2_250_000.0, Currency::USD))
-            .expiry_date(Date::from_calendar_date(2025, Month::March, 21).expect("valid test date"))
+            .expiry(Date::from_calendar_date(2025, Month::March, 21).expect("valid test date"))
             .last_trading_date(
                 Date::from_calendar_date(2025, Month::March, 20).expect("valid test date"),
             )

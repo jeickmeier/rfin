@@ -5,7 +5,7 @@
     "spec": {
       "id": "PMF-EXAMPLE",
       "currency": "USD",
-      "spec": {
+      "waterfall_spec": {
         "style": "european",
         "tranches": [
           "return_of_capital",
