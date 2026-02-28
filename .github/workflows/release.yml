@@ -10,11 +10,19 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: "1.90.0"
+
 jobs:
   # ── Python Wheels ───────────────────────────────────────────────
   build-wheels:
     name: Wheel / ${{ matrix.os }} / py${{ matrix.python }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -74,6 +82,7 @@ jobs:
   build-sdist:
     name: Source dist
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: PyO3/maturin-action@v1
@@ -89,13 +98,14 @@ jobs:
   build-wasm:
     name: WASM / npm
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.90.0
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
           target: wasm32-unknown-unknown
 
       - name: Install wasm-pack
@@ -109,22 +119,22 @@ jobs:
 
       - name: Sync package.json version from tag
         if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: finstack-wasm
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          cd finstack-wasm
           npm version "$VERSION" --no-git-tag-version --allow-same-version
 
       - name: Build WASM targets
+        working-directory: finstack-wasm
         run: |
-          cd finstack-wasm
           wasm-pack build --target web --release --out-dir pkg
           wasm-pack build --target nodejs --release --out-dir pkg-node
           touch pkg/.npmignore pkg-node/.npmignore
 
       - name: Package npm tarball
+        working-directory: finstack-wasm
         run: |
-          mkdir -p dist
-          cd finstack-wasm
+          mkdir -p ../dist
           npm pack --ignore-scripts
           mv finstack-wasm-*.tgz ../dist/
 
@@ -133,16 +143,12 @@ jobs:
           name: npm-package
           path: dist/finstack-wasm-*.tgz
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wasm-pkg
-          path: finstack-wasm/pkg/
-
   # ── Publish ─────────────────────────────────────────────────────
   publish:
     name: Publish Release
     needs: [build-wheels, build-sdist, build-wasm]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish == 'true'
     permissions:
       contents: write
@@ -160,8 +166,9 @@ jobs:
 
   publish-npm:
     name: Publish to npm
-    needs: [build-wasm]
+    needs: [build-wheels, build-sdist, build-wasm]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish == 'true'
     permissions:
       id-token: write
