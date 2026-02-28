@@ -47,7 +47,7 @@ repos:
 
       - id: rust-clippy
         name: Rust lint (cargo clippy)
-        entry: bash -c 'PYO3_PYTHON=python3 CARGO_INCREMENTAL=1 cargo clippy --workspace --all-targets --all-features -- -D warnings'
+        entry: bash -c 'CARGO_INCREMENTAL=1 cargo clippy --all-targets -- -D warnings'
         language: system
         types: [rust]
         pass_filenames: false

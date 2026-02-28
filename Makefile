@@ -42,7 +42,8 @@ help: ## Display this help message
 	@printf "  \033[36mbuild\033[0m               Build all core Rust crates\n"
 	@printf "  \033[36mtest\033[0m                Run all tests across the project\n"
 	@printf "  \033[36mfmt\033[0m                 Format all codebases\n"
-	@printf "  \033[36mlint\033[0m                Check for linting issues (without fixing)\n"
+	@printf "  \033[36mlint\033[0m                Lint all code (fast: core Rust crates only)\n"
+	@printf "  \033[36mlint-full\033[0m           Lint all code including bindings + all features (slow)\n"
 	@printf "  \033[36mci-test\033[0m             Run all checks as they would run in CI\n\n"
 	@printf "Component Specifics:\n"
 	@printf "  \033[36mtest-rust\033[0m           Run Rust tests (cargo-nextest)\n"
@@ -93,8 +94,12 @@ fmt: ## Format all code (Rust, Python, WASM, UI, MD)
 	./scripts/format-code
 
 .PHONY: lint
-lint: ## Check all code for linting issues
+lint: ## Check all code for linting issues (fast: core crates only)
 	./scripts/format-code --check-only
+
+.PHONY: lint-full
+lint-full: ## Check all code including bindings with all features (slow)
+	./scripts/format-code --check-only --full
 
 # --- Component: Rust ---
 
@@ -115,8 +120,12 @@ fmt-rust:
 	./scripts/format-code --rust-only
 
 .PHONY: lint-rust
-lint-rust:
+lint-rust: ## Lint core Rust crates (fast: excludes bindings)
 	./scripts/format-code --rust-only --check-only
+
+.PHONY: lint-rust-full
+lint-rust-full: ## Lint all Rust crates including bindings with all features (slow)
+	./scripts/format-code --rust-only --check-only --full
 
 .PHONY: lint-rust-fix
 lint-rust-fix:

@@ -42,7 +42,6 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::HashSet;
 use finstack_core::Result;
-use rust_decimal::prelude::ToPrimitive;
 
 /// Tree valuator for Bermudan swaption pricing.
 ///
@@ -76,6 +75,8 @@ pub struct BermudanSwaptionTreeValuator<'a> {
     swap_start_time: f64,
     /// Swap end time (year fraction)
     swap_end_time: f64,
+    /// Strike rate as f64, validated at construction
+    strike: f64,
 }
 
 impl<'a> BermudanSwaptionTreeValuator<'a> {
@@ -128,6 +129,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
         let swap_end_time = swaption
             .day_count
             .year_fraction(as_of, swaption.swap_end, ctx)?;
+        let strike = swaption.strike_f64()?;
 
         Ok(Self {
             swaption,
@@ -139,6 +141,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
             accrual_fractions,
             swap_start_time,
             swap_end_time,
+            strike,
         })
     }
 
@@ -217,13 +220,11 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
             self.discount_curve,
         );
 
-        // Intrinsic value
-        let strike = self.swaption.strike.to_f64().unwrap_or(0.0);
         let notional = self.swaption.notional.amount();
 
         let intrinsic = match self.swaption.option_type {
-            OptionType::Call => (swap_rate - strike).max(0.0), // Payer
-            OptionType::Put => (strike - swap_rate).max(0.0),  // Receiver
+            OptionType::Call => (swap_rate - self.strike).max(0.0),
+            OptionType::Put => (self.strike - swap_rate).max(0.0),
         };
 
         intrinsic * annuity * notional

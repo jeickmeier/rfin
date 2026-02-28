@@ -142,7 +142,9 @@ impl PyPeriodId {
 
     fn kind_label(&self) -> &'static str {
         let code = self.inner.to_string();
-        if code.contains('Q') {
+        if code.contains('D') {
+            "day"
+        } else if code.contains('Q') {
             "quarter"
         } else if code.contains('M') {
             "month"
@@ -158,6 +160,18 @@ impl PyPeriodId {
 
 #[pymethods]
 impl PyPeriodId {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, year, ordinal)")]
+    /// Construct a period id for a specific ordinal day of the year (1..=366).
+    fn day(_cls: &Bound<'_, PyType>, year: i32, ordinal: u16) -> PyResult<Self> {
+        if !(1..=366).contains(&ordinal) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Ordinal day must be in 1..=366",
+            ));
+        }
+        Ok(Self::new(PeriodId::day(year, ordinal)))
+    }
+
     #[classmethod]
     #[pyo3(text_signature = "(cls, year, quarter)")]
     /// Construct a period id for a specific calendar quarter.
@@ -231,8 +245,8 @@ impl PyPeriodId {
     }
 
     #[getter]
-    /// Zero-based index within the year (quarter/month/etc.).
-    fn index(&self) -> u8 {
+    /// Ordinal index within the year (day/quarter/month/etc.).
+    fn index(&self) -> u16 {
         self.inner.index
     }
 
@@ -245,8 +259,8 @@ impl PyPeriodId {
     #[pyo3(text_signature = "(self)")]
     /// Number of periods per year implied by this identifier's kind.
     ///
-    /// Returns 4 for quarters, 12 for months, 52 for weeks, 2 for halves, and 1 for annual.
-    fn periods_per_year(&self) -> u8 {
+    /// Returns 252 for daily, 4 for quarters, 12 for months, 52 for weeks, 2 for halves, and 1 for annual.
+    fn periods_per_year(&self) -> u16 {
         self.inner.periods_per_year()
     }
 

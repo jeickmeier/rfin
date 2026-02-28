@@ -25,6 +25,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyModuleMethods};
 use pyo3::Bound;
 
+mod analytics;
 mod core;
 mod errors;
 mod io;
@@ -129,6 +130,9 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     // Portfolio bindings (module registers itself under `portfolio`)
     portfolio::register(py, &m)?;
 
+    // Analytics bindings (module registers itself under `analytics`)
+    analytics::register(py, &m)?;
+
     // IO bindings (module registers itself under `io`)
     io::register(py, &m)?;
 
@@ -207,6 +211,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "statements",
             "scenarios",
             "portfolio",
+            "analytics",
             "io",
             "Currency",
             "Money",

@@ -158,14 +158,16 @@ impl JsPeriodId {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn index(&self) -> u8 {
+    pub fn index(&self) -> u16 {
         self.inner.index
     }
 
     #[wasm_bindgen(getter)]
     pub fn kind(&self) -> String {
         let code = self.inner.to_string();
-        if code.contains('Q') {
+        if code.contains('D') {
+            "day".to_string()
+        } else if code.contains('Q') {
             "quarter".to_string()
         } else if code.contains('M') {
             "month".to_string()

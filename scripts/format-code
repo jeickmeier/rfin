@@ -8,6 +8,7 @@
 #   --python-only   Format only Python code
 #   --wasm-only     Format only WASM/TS code
 #   --markdown-only Format only Markdown files
+#   --full          Lint entire workspace with all features (slow; default is core-only)
 #   --verbose       Show detailed output
 #   --help          Show this help message
 
@@ -19,6 +20,7 @@ RUST_ONLY=false
 PYTHON_ONLY=false
 WASM_ONLY=false
 MARKDOWN_ONLY=false
+FULL=false
 VERBOSE=false
 
 # Colors for output
@@ -68,6 +70,10 @@ while [[ $# -gt 0 ]]; do
             MARKDOWN_ONLY=true
             shift
             ;;
+        --full)
+            FULL=true
+            shift
+            ;;
         --verbose)
             VERBOSE=true
             shift
@@ -83,6 +89,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --python-only   Format only Python code"
             echo "  --wasm-only     Format only WASM/TS code"
             echo "  --markdown-only Format only Markdown files"
+            echo "  --full          Lint entire workspace with all features (slow; default is core-only)"
             echo "  --verbose       Show detailed output"
             echo "  --help          Show this help message"
             echo ""
@@ -157,6 +164,7 @@ main() {
         echo "PYTHON_ONLY: $PYTHON_ONLY"
         echo "WASM_ONLY: $WASM_ONLY"
         echo "MARKDOWN_ONLY: $MARKDOWN_ONLY"
+        echo "FULL: $FULL"
     fi
 
     # Check dependencies
@@ -189,10 +197,17 @@ main() {
                 ""
         fi
 
-        run_formatter "Rust linting" \
-            "cargo clippy --workspace --all-targets --all-features -- -D warnings" \
-            "cargo clippy --workspace --all-targets --all-features --fix --allow-dirty -- -D warnings" \
-            ""
+        if [[ "$FULL" == "true" ]]; then
+            run_formatter "Rust linting (full workspace)" \
+                "cargo clippy --workspace --all-targets --all-features -- -D warnings" \
+                "cargo clippy --workspace --all-targets --all-features --fix --allow-dirty -- -D warnings" \
+                ""
+        else
+            run_formatter "Rust linting" \
+                "cargo clippy --all-targets -- -D warnings" \
+                "cargo clippy --all-targets --fix --allow-dirty -- -D warnings" \
+                ""
+        fi
     fi
 
     # Format Python code

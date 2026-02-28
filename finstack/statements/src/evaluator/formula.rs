@@ -955,6 +955,7 @@ fn evaluate_function(
             // frequency. This keeps semantics consistent across quarterly,
             // monthly, weekly, semi-annual, and annual models.
             let start_of_year = match context.period_kind {
+                PeriodKind::Daily => PeriodId::day(current.year, 1),
                 PeriodKind::Quarterly => PeriodId::quarter(current.year, 1),
                 PeriodKind::Monthly => PeriodId::month(current.year, 1),
                 PeriodKind::Weekly => PeriodId::week(current.year, 1),
@@ -1034,7 +1035,7 @@ fn evaluate_function(
             // If the current month is on/after the fiscal start month, the
             // fiscal year starts in the current calendar year. Otherwise, it
             // started in the prior calendar year.
-            let fiscal_start_year = if current_month >= start_month {
+            let fiscal_start_year = if current_month >= start_month as u16 {
                 current.year
             } else {
                 current.year - 1

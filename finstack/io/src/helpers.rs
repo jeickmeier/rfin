@@ -24,6 +24,7 @@ pub(crate) fn meta_json_string(meta: Option<&serde_json::Value>) -> Result<Strin
 }
 
 /// Convert metadata to optional JSON string (for time-series where null is allowed).
+#[cfg(feature = "turso")]
 pub(crate) fn meta_json_optional_string(
     meta: Option<&serde_json::Value>,
 ) -> Result<Option<String>> {
@@ -57,6 +58,7 @@ where
     bytes.map(|value| json_from_slice::<T>(&value)).transpose()
 }
 
+#[cfg(feature = "postgres")]
 pub(crate) fn json_from_value<T>(value: serde_json::Value) -> Result<T>
 where
     T: DeserializeOwned,
@@ -64,6 +66,7 @@ where
     Ok(serde_json::from_value(value)?)
 }
 
+#[cfg(feature = "postgres")]
 pub(crate) fn optional_json_from_value<T>(value: Option<serde_json::Value>) -> Result<Option<T>>
 where
     T: DeserializeOwned,

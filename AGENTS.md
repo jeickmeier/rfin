@@ -6,7 +6,8 @@
 - Build core Rust crates (release, no debuginfo): `make build-prod`
 - Run the full test suite: `make test`
 - Run CI-like checks locally (skip slow): `make ci-test`
-- Lint all components (no fixes): `make lint`
+- Lint all components (fast, core crates only): `make lint`
+- Lint all components including bindings + all features (slow): `make lint-full`
 - Format all codebases: `make fmt`
 - Run Rust examples: `make examples`
 - Run all tests and auto-fix issues: `make test-and-fix`
@@ -38,7 +39,8 @@
 - Rust formatting: `make fmt-rust`
 - Python formatting: `make fmt-python`
 - WASM formatting: `make fmt-wasm`
-- Rust lints: `make lint-rust`
+- Rust lints (fast, core only): `make lint-rust`
+- Rust lints (full workspace + all features): `make lint-rust-full`
 - Python lints: `make lint-python`
 - WASM lints: `make lint-wasm`
 

@@ -178,6 +178,36 @@ pub fn log_returns(prices: &[f64]) -> Vec<f64> {
     prices.windows(2).map(|w| (w[1] / w[0]).ln()).collect()
 }
 
+/// Empirical quantile via partial sort.
+///
+/// Returns the `p`-th quantile (0 ≤ p ≤ 1) of the data using linear
+/// interpolation between adjacent order statistics (the "R-7" / NumPy default).
+///
+/// The input slice is **mutated** (partially sorted) to avoid allocation.
+/// Returns `NaN` if the slice is empty or `p` is outside `[0, 1]`.
+pub fn quantile(data: &mut [f64], p: f64) -> f64 {
+    let n = data.len();
+    if n == 0 || !(0.0..=1.0).contains(&p) {
+        return f64::NAN;
+    }
+    if n == 1 {
+        return data[0];
+    }
+    let h = (n - 1) as f64 * p;
+    let lo = h.floor() as usize;
+    let hi = lo + 1;
+    let frac = h - lo as f64;
+    data.select_nth_unstable_by(lo, |a, b| {
+        a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal)
+    });
+    let v_lo = data[lo];
+    if hi >= n || frac == 0.0 {
+        return v_lo;
+    }
+    let v_hi = data[hi..].iter().copied().fold(f64::INFINITY, f64::min);
+    v_lo + frac * (v_hi - v_lo)
+}
+
 /// Calculate realized variance from price series.
 ///
 /// # Arguments

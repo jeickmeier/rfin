@@ -32,6 +32,8 @@ use time::Month;
     Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
 )]
 pub enum PeriodKind {
+    /// Daily periods (252 trading days per year by convention)
+    Daily,
     /// Quarterly periods (4 per year)
     Quarterly,
     /// Monthly periods (12 per year)
@@ -48,19 +50,29 @@ impl PeriodKind {
     /// Get the number of periods per year for this frequency.
     ///
     /// # Returns
+    /// - Daily: 252 (trading-day convention)
     /// - Quarterly: 4
     /// - Monthly: 12
     /// - Weekly: 52
     /// - Semi-Annual: 2
     /// - Annual: 1
-    pub fn periods_per_year(self) -> u8 {
+    pub fn periods_per_year(self) -> u16 {
         match self {
+            PeriodKind::Daily => 252,
             PeriodKind::Quarterly => 4,
             PeriodKind::Monthly => 12,
             PeriodKind::Weekly => 52,
             PeriodKind::SemiAnnual => 2,
             PeriodKind::Annual => 1,
         }
+    }
+
+    /// Annualization factor for this frequency.
+    ///
+    /// Used to scale per-period statistics to annual equivalents.
+    /// For all variants this equals `periods_per_year()` cast to `f64`.
+    pub fn annualization_factor(self) -> f64 {
+        self.periods_per_year() as f64
     }
 }
 
@@ -70,23 +82,32 @@ impl PeriodKind {
 pub struct PeriodId {
     /// Gregorian calendar year.
     pub year: i32,
-    /// Ordinal index within the year (depends on `freq`).
+    /// Ordinal index within the year (depends on `kind`).
+    /// - Daily:   1..=366 (ordinal day of the calendar year)
     /// - Quarter: 1..=4
     /// - Month:   1..=12
     /// - Week:    1..=53 (anchored at Jan-01 in 7-day blocks, differs from ISO 8601 week numbering)
     /// - Half:    1..=2
     /// - Annual:  1
-    pub index: u8,
+    pub index: u16,
     /// Kind of the period.
     kind: PeriodKind,
 }
 
 impl PeriodId {
+    /// Build a daily identifier from an ordinal day (1..=366).
+    pub fn day(year: i32, ordinal: u16) -> Self {
+        Self {
+            year,
+            index: ordinal,
+            kind: PeriodKind::Daily,
+        }
+    }
     /// Build a quarterly identifier.
     pub fn quarter(year: i32, q: u8) -> Self {
         Self {
             year,
-            index: q,
+            index: q as u16,
             kind: PeriodKind::Quarterly,
         }
     }
@@ -94,7 +115,7 @@ impl PeriodId {
     pub fn month(year: i32, m: u8) -> Self {
         Self {
             year,
-            index: m,
+            index: m as u16,
             kind: PeriodKind::Monthly,
         }
     }
@@ -102,7 +123,7 @@ impl PeriodId {
     pub fn week(year: i32, w: u8) -> Self {
         Self {
             year,
-            index: w,
+            index: w as u16,
             kind: PeriodKind::Weekly,
         }
     }
@@ -110,7 +131,7 @@ impl PeriodId {
     pub fn half(year: i32, h: u8) -> Self {
         Self {
             year,
-            index: h,
+            index: h as u16,
             kind: PeriodKind::SemiAnnual,
         }
     }
@@ -150,7 +171,7 @@ impl PeriodId {
     /// let m1 = PeriodId::month(2025, 1);
     /// assert_eq!(m1.periods_per_year(), 12);
     /// ```
-    pub fn periods_per_year(&self) -> u8 {
+    pub fn periods_per_year(&self) -> u16 {
         self.kind.periods_per_year()
     }
 
@@ -329,19 +350,20 @@ pub fn build_fiscal_periods(
 
 // Minimal calendar abstraction to unify bounds computation across calendar and fiscal paths.
 trait PeriodCalendar {
-    fn bounds(&self, year: i32, kind: PeriodKind, index: u8) -> crate::Result<(Date, Date)>;
+    fn bounds(&self, year: i32, kind: PeriodKind, index: u16) -> crate::Result<(Date, Date)>;
 }
 
 #[derive(Clone, Copy, Debug)]
 struct Gregorian;
 
 impl PeriodCalendar for Gregorian {
-    fn bounds(&self, year: i32, kind: PeriodKind, index: u8) -> crate::Result<(Date, Date)> {
+    fn bounds(&self, year: i32, kind: PeriodKind, index: u16) -> crate::Result<(Date, Date)> {
         match kind {
-            PeriodKind::Quarterly => quarter_bounds(year, index),
-            PeriodKind::Monthly => month_bounds(year, index),
-            PeriodKind::Weekly => week_bounds(year, index),
-            PeriodKind::SemiAnnual => half_bounds(year, index),
+            PeriodKind::Daily => daily_bounds(year, index),
+            PeriodKind::Quarterly => quarter_bounds(year, index as u8),
+            PeriodKind::Monthly => month_bounds(year, index as u8),
+            PeriodKind::Weekly => week_bounds(year, index as u8),
+            PeriodKind::SemiAnnual => half_bounds(year, index as u8),
             PeriodKind::Annual => annual_bounds(year),
         }
     }
@@ -353,12 +375,13 @@ struct FiscalCalendar {
 }
 
 impl PeriodCalendar for FiscalCalendar {
-    fn bounds(&self, year: i32, kind: PeriodKind, index: u8) -> crate::Result<(Date, Date)> {
+    fn bounds(&self, year: i32, kind: PeriodKind, index: u16) -> crate::Result<(Date, Date)> {
         match kind {
-            PeriodKind::Quarterly => fiscal_quarter_bounds(year, index, self.config),
-            PeriodKind::Monthly => fiscal_month_bounds(year, index, self.config),
-            PeriodKind::Weekly => fiscal_week_bounds(year, index, self.config),
-            PeriodKind::SemiAnnual => fiscal_half_bounds(year, index, self.config),
+            PeriodKind::Daily => daily_bounds(year, index),
+            PeriodKind::Quarterly => fiscal_quarter_bounds(year, index as u8, self.config),
+            PeriodKind::Monthly => fiscal_month_bounds(year, index as u8, self.config),
+            PeriodKind::Weekly => fiscal_week_bounds(year, index as u8, self.config),
+            PeriodKind::SemiAnnual => fiscal_half_bounds(year, index as u8, self.config),
             PeriodKind::Annual => fiscal_annual_bounds(year, self.config),
         }
     }
@@ -399,6 +422,15 @@ fn make_period_with_calendar<C: PeriodCalendar>(
 }
 
 // Period bounds helpers are fallible to avoid sentinel dates and silent corruption.
+
+fn daily_bounds(year: i32, ordinal: u16) -> crate::Result<(Date, Date)> {
+    use time::Duration;
+    let start =
+        Date::from_ordinal_date(year, ordinal).map_err(|_| crate::error::InputError::Invalid)?;
+    let end = start + Duration::days(1);
+    Ok((start, end))
+}
+
 fn quarter_bounds(year: i32, q: u8) -> crate::Result<(Date, Date)> {
     let (sm, em) = match q {
         1 => (Month::January, Month::April),
@@ -581,10 +613,24 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
     {
         parse_id(rhs)?
     } else {
-        // relative form like "..Q4" / "..M12" / "..W52" / "..H2" / "..A"
+        // relative form like "..D100" / "..Q4" / "..M12" / "..W52" / "..H2" / "..A"
         match start.kind {
+            PeriodKind::Daily => {
+                let idx: u16 = rhs
+                    .trim_start_matches('D')
+                    .parse()
+                    .map_err(|_| crate::error::InputError::Invalid)?;
+                if !(1..=366).contains(&idx) {
+                    return Err(crate::error::InputError::Invalid.into());
+                }
+                PeriodId {
+                    year: start.year,
+                    index: idx,
+                    kind: PeriodKind::Daily,
+                }
+            }
             PeriodKind::Quarterly => {
-                let idx: u8 = rhs
+                let idx: u16 = rhs
                     .trim_start_matches('Q')
                     .parse()
                     .map_err(|_| crate::error::InputError::Invalid)?;
@@ -598,7 +644,7 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
                 }
             }
             PeriodKind::Monthly => {
-                let idx: u8 = rhs
+                let idx: u16 = rhs
                     .trim_start_matches('M')
                     .parse()
                     .map_err(|_| crate::error::InputError::Invalid)?;
@@ -612,7 +658,7 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
                 }
             }
             PeriodKind::Weekly => {
-                let idx: u8 = rhs
+                let idx: u16 = rhs
                     .trim_start_matches('W')
                     .parse()
                     .map_err(|_| crate::error::InputError::Invalid)?;
@@ -626,7 +672,7 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
                 }
             }
             PeriodKind::SemiAnnual => {
-                let idx: u8 = rhs
+                let idx: u16 = rhs
                     .trim_start_matches('H')
                     .parse()
                     .map_err(|_| crate::error::InputError::Invalid)?;
@@ -661,6 +707,19 @@ fn parse_id(s: &str) -> crate::Result<PeriodId> {
     // Normalize to uppercase to accept lowercase inputs.
     let s = s.to_ascii_uppercase();
     let s = s.as_str();
+    if let Some(i) = s.find('D') {
+        // daily (must check before other single-char prefixes)
+        let year: i32 = s[..i]
+            .parse()
+            .map_err(|_| crate::error::InputError::Invalid)?;
+        let d: u16 = s[i + 1..]
+            .parse()
+            .map_err(|_| crate::error::InputError::Invalid)?;
+        if !(1..=366).contains(&d) {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        return Ok(PeriodId::day(year, d));
+    }
     if let Some(i) = s.find('Q') {
         // quarterly
         let year: i32 = s[..i]
@@ -730,8 +789,25 @@ fn enumerate_ids(mut cur: PeriodId, end: PeriodId) -> crate::Result<Vec<PeriodId
     Ok(out)
 }
 
+fn days_in_year(year: i32) -> u16 {
+    if time::util::is_leap_year(year) {
+        366
+    } else {
+        365
+    }
+}
+
 fn step(mut id: PeriodId) -> crate::Result<PeriodId> {
     match id.kind {
+        PeriodKind::Daily => {
+            let max = days_in_year(id.year);
+            if id.index >= max {
+                id.year += 1;
+                id.index = 1;
+            } else {
+                id.index += 1;
+            }
+        }
         PeriodKind::Quarterly => {
             if id.index == 4 {
                 id.year += 1;
@@ -775,6 +851,14 @@ fn step(mut id: PeriodId) -> crate::Result<PeriodId> {
 /// Step backward by one period (inverse of step).
 fn step_backward(mut id: PeriodId) -> crate::Result<PeriodId> {
     match id.kind {
+        PeriodKind::Daily => {
+            if id.index == 1 {
+                id.year -= 1;
+                id.index = days_in_year(id.year);
+            } else {
+                id.index -= 1;
+            }
+        }
         PeriodKind::Quarterly => {
             if id.index == 1 {
                 id.year -= 1;
@@ -876,6 +960,7 @@ impl Ord for PeriodId {
 impl fmt::Display for PeriodId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.kind {
+            PeriodKind::Daily => write!(f, "{}D{:03}", self.year, self.index),
             PeriodKind::Quarterly => write!(f, "{}Q{}", self.year, self.index),
             PeriodKind::Monthly => write!(f, "{}M{:02}", self.year, self.index),
             PeriodKind::Weekly => write!(f, "{}W{:02}", self.year, self.index),

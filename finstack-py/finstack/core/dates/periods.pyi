@@ -38,8 +38,10 @@ class FiscalConfig:
     def __repr__(self) -> str: ...
 
 class PeriodId:
-    """Period identifier for quarters, months, weeks, halves, or years."""
+    """Period identifier for days, quarters, months, weeks, halves, or years."""
 
+    @classmethod
+    def day(cls, year: int, ordinal: int) -> "PeriodId": ...
     @classmethod
     def quarter(cls, year: int, quarter: int) -> "PeriodId": ...
     @classmethod

@@ -79,6 +79,8 @@
 // API note: `collections` is intentionally kept as an internal module to avoid
 // committing to a public submodule layout. Downstream crates should import the
 // aliases directly from the crate root (`finstack_core::HashMap`).
+/// Performance analytics: returns, drawdowns, risk metrics, benchmark-relative statistics.
+pub mod analytics;
 /// Foundational cashflow primitives and discounting helpers.
 pub mod cashflow;
 pub(crate) mod collections;
