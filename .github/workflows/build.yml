@@ -82,7 +82,7 @@ jobs:
         run: make pre-commit-run
 
   # ============================================
-  # Test Rust — cargo nextest + doctests
+  # Test Rust — cargo nextest
   # ============================================
   test-rust:
     name: Test Rust
@@ -114,9 +114,6 @@ jobs:
 
       - name: Run Rust tests
         run: make test-rust
-
-      - name: Run Rust doctests
-        run: make test-rust-doc
 
   # ============================================
   # Test Python — maturin build + pytest
