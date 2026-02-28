@@ -91,7 +91,7 @@ cargo nextest run --package finstack-core --run-ignored ignored-only
 make lint-rust
 
 # Auto-fix clippy warnings
-make lint-rust-fix
+make fmt-rust
 ```
 
 ## Architecture

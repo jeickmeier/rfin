@@ -79,6 +79,11 @@ dmypy.json
 
 # Temp files
 concatenated_code.txt
+repo.md
+.test-fix.log
+
+# Build artifacts (should not be committed)
+libverification_test.rlib
 
 # Script Outputs
 finstack-py/examples/outputs/

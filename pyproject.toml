@@ -23,7 +23,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "dotenv>=0.9.9",
     "matplotlib>=3.10.7",
     "numpy>=2.3.5",
     "pandas>=2.3.3",
@@ -42,9 +41,6 @@ dev-dependencies = [
     "ty>=0.0.18",
     "pyright>=1.1.400",
     "ruff>=0.14.8",
-    "flake8>=7.3.0",
-    "flake8-cognitive-complexity>=0.1.0",
-    "flake8-pyproject>=1.2.4",
     "ipython>=9.8.0",
     "jupyter>=1.1.1",
     "bandit>=1.8.2",
@@ -89,10 +85,6 @@ python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
 python_classes = ["Test*"]
 
-# Pytest general options (migrated from pytest.ini)
-# Note: Coverage disabled for Rust extension modules (PyO3) - use Rust coverage tools instead
-addopts = "finstack-py/tests/"
-
 # Custom markers used across the test-suite
 markers = [
     "perf: performance benchmark suite",
@@ -118,21 +110,15 @@ dev = [
     "types-python-dateutil>=2.9.0.20251115",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ["finstack-py"]
-
 #######################
 # Ruff Configuration
 #######################
 
-# Ruff Configuration
 [tool.ruff]
 line-length = 120
-target-version = "py312" # Ensure compatibility with Python 3.12
+target-version = "py312"
 src = ["."]
 exclude = [
-    "concatenate_script.py",
-    # Note: We WANT Ruff to lint examples for public-import guardrails
     ".cursor/**",
     ".ty_cache/**",
     ".pytest_cache/**",
@@ -141,11 +127,6 @@ exclude = [
     ".coverage",
     "dist/**",
     ".venv/**",
-    "noxfile.py",
-    "requirements.txt",
-    # allow Ruff to lint this file itself (don't exclude pyproject.toml)
-    "outputs/**",
-    "examples/**",
     "finstack-py/examples/**",
     "**/*.ipynb",
 ]
@@ -209,14 +190,12 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "**/*.pyi" = ["ALL"]
-"**/test_*.py" = ["S101"]  # Allow assert statements in test files
-"**/*_test.py" = ["S101"]  # Allow assert statements in test files
-"tests/**/*.py" = ["S101"]  # Allow assert statements in test files
-"finstack-py/tests/**/*.py" = ["S101", "S110", "S102", "C901", "PLR0915", "D100", "D101", "D102", "D103"]  # Allow assert, try-except-pass, exec, complexity, missing docstrings in test files
-"finstack-py/finstack/statements/__init__.py" = ["F821"]  # Dynamic imports from Rust
-"benches/**/*.py" = ["PLR0915"]  # Allow too many statements in benchmark files
-"finstack-py/benches/**/*.py" = ["PLR0915"]  # Allow too many statements in benchmark files
-"scripts/**/*.py" = ["T201", "C901", "PLR0915", "PERF401", "ANN", "BLE001", "S112", "PTH", "G004", "TRY401"]  # Allow print, complexity, annotations, etc. in scripts
+"**/test_*.py" = ["S101"]
+"**/*_test.py" = ["S101"]
+"finstack-py/tests/**/*.py" = ["S101", "S110", "S102", "C901", "PLR0915", "D100", "D101", "D102", "D103"]
+"finstack-py/finstack/statements/__init__.py" = ["F821"]
+"finstack-py/benches/**/*.py" = ["PLR0915"]
+"scripts/**/*.py" = ["T201", "C901", "PLR0915", "PERF401", "ANN", "BLE001", "S112", "PTH", "G004", "TRY401"]
 "finstack-py/examples/**/*.py" = [
     "D100", "D101", "D103", "D205",  # Missing docstrings - examples are self-documenting
     "ANN",  # Type annotations - examples prioritize readability
@@ -241,31 +220,10 @@ ignore = [
 [tool.ruff.lint.pydocstyle]
 convention = "google" # Enforce Google-style docstrings
 
-# Configuration for flake8-annotations (ANN rules)
-[tool.ruff.lint.flake8-annotations]
 [tool.ruff.lint.flake8-tidy-imports]
 # Disallow relative imports that reach outside the package structure
 ban-relative-imports = "parents"
 
-# Ban deep/internal imports in examples and tests; encourage stable public surfaces
-[tool.ruff.lint.flake8-tidy-imports.banned-api]
-"fsmodel.models.statement.base" = { msg = "Import from `fsmodel.models` instead of deep internal paths." }
-"fsmodel.models.statement.enums" = { msg = "Import from `fsmodel.models` instead of deep internal paths." }
-"fsmodel.models.statement.financial_model" = { msg = "Import from `fsmodel.models` instead of deep internal paths." }
-"fsmodel.models.line_items.nodes" = { msg = "Import from `fsmodel.models.line_items` or `fsmodel.models` public surfaces." }
-"fsmodel.models.market.rate_curve" = { msg = "Import from `fsmodel.models.market` public surface." }
-"fsmodel.models.market.fx_curve" = { msg = "Import from `fsmodel.models.market` public surface." }
-"fsmodel.models.capital_structure.instruments.term" = { msg = "Import `TermInstrumentSpec` from `fsmodel.models.capital_structure`." }
-"fsmodel.models.capital_structure.structure.core" = { msg = "Import `CapitalStructure` from `fsmodel.models.capital_structure`." }
-"fsmodel.models.capital_structure.terms.rates" = { msg = "Import rate specs from `fsmodel.models.capital_structure` or `.terms`." }
-"fsmodel.models.capital_structure.terms.enums" = { msg = "Import enums from `fsmodel.models.capital_structure` or `.terms`." }
-"fsmodel.services.capital_structure.engine" = { msg = "Import `CapitalStructureEngine` from `fsmodel.services`." }
-"fsmodel.services.capital_structure.cashflows.simulation" = { msg = "Import simulation types from `fsmodel.services`." }
-"fsmodel.services.capital_structure.cashflows.builder" = { msg = "Import `CashflowScheduleBuilder` from `fsmodel.services`." }
-"fsmodel.services.market.fx_policy" = { msg = "Import FX policy types from `fsmodel.services`." }
-"fsmodel.services.market.fx" = { msg = "Import `FxService`/`FxConverter` from `fsmodel.services`." }
-"fsmodel.services.planning.scenarios.engine" = { msg = "Import `ScenarioService` from `fsmodel.services`." }
-"fsmodel.services.registry.registry_service" = { msg = "Import `RegistryService` from `fsmodel.registry`." }
 
 [tool.ruff.format]
 quote-style = "double"
@@ -285,19 +243,6 @@ max-complexity = 15
 known-first-party = ["finstack-py"]   # add your own modules here
 combine-as-imports = true
 force-sort-within-sections = true
-
-#######################
-# Flake8 Configuration
-#######################
-[tool.flake8]
-max-cognitive-complexity = 15
-# Ignore standard flake8 checks that ruff handles (optional, but recommended for speed/noise)
-ignore = ["E", "W", "F", "C901"]
-per-file-ignores = [
-    "finstack-py/examples/**:CCR001",
-    "finstack-py/tests/**:CCR001"
-]
-# recursive = true (not supported in all versions, but good to have if supported)
 
 #######################
 # ty Configuration (Astral type checker)

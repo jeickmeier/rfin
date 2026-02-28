@@ -53,7 +53,6 @@ help: ## Display this help message
 	@printf "Setup & Maintenance:\n"
 	@printf "  \033[36msetup-python\033[0m        Initialize Python environment with uv\n"
 	@printf "  \033[36mpython-dev\033[0m          Install Python deps and build bindings\n"
-	@printf "  \033[36mtest-and-fix\033[0m        Run all tests and attempt auto-fixes\n"
 	@printf "  \033[36mclean\033[0m               Remove build artifacts and virtualenvs\n\n"
 	@printf "Documentation:\n"
 	@printf "  \033[36mdoc\033[0m                 Generate Rust documentation\n"
@@ -96,16 +95,13 @@ build-prod: ## Build all crates optimized without debug info
 test: test-rust test-rust-doc test-python test-wasm ## Run all tests across all components
 
 .PHONY: fmt
-fmt: ## Format all code (Rust, Python, WASM, UI, MD)
-	./scripts/format-code
+fmt: fmt-rust fmt-python fmt-wasm ## Format all code (Rust, Python, WASM)
 
 .PHONY: lint
-lint: ## Check all code for linting issues (fast: core crates only)
-	./scripts/format-code --check-only
+lint: lint-rust lint-python lint-wasm ## Check all code for linting issues (fast: core crates only)
 
 .PHONY: lint-full
-lint-full: ## Check all code including bindings with all features (slow)
-	./scripts/format-code --check-only --full
+lint-full: lint-rust-full lint-python lint-wasm ## Check all code including bindings + all features (slow)
 
 # --- Component: Rust ---
 
@@ -122,20 +118,19 @@ test-rust-doc: check-no-doctest-ignore
 	CARGO_INCREMENTAL=1 cargo test --workspace --exclude finstack-py --doc --features mc
 
 .PHONY: fmt-rust
-fmt-rust:
-	./scripts/format-code --rust-only
+fmt-rust: ## Format and fix Rust code
+	cargo fmt --all
+	CARGO_INCREMENTAL=1 cargo clippy --all-targets --features mc,test-utils --fix --allow-dirty -- -D warnings
 
 .PHONY: lint-rust
 lint-rust: ## Lint core Rust crates (fast: excludes bindings)
-	./scripts/format-code --rust-only --check-only
+	cargo fmt --all -- --check
+	CARGO_INCREMENTAL=1 cargo clippy --all-targets --features mc,test-utils -- -D warnings
 
 .PHONY: lint-rust-full
 lint-rust-full: ## Lint all Rust crates including bindings with all features (slow)
-	./scripts/format-code --rust-only --check-only --full
-
-.PHONY: lint-rust-fix
-lint-rust-fix:
-	./scripts/format-code --rust-only
+	cargo fmt --all -- --check
+	cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 .PHONY: check-no-doctest-ignore
 check-no-doctest-ignore:
@@ -162,7 +157,7 @@ setup-python: ## Initialize Python environment
 python-dev: ## Install dependencies and build bindings
 	@if [ ! -d "$(VENV)" ]; then uv venv; fi
 	@printf "Installing Python dependencies and building extension...\n"
-	@$(call py_run,uv pip install maturin pytest pytest-benchmark black ty ruff ipython jupyter)
+	@$(call py_run,uv pip install maturin pytest pytest-benchmark ty ruff ipython jupyter)
 	@cd finstack-py && $(call py_run,python -m maturin develop --features postgres,turso --profile release-perf)
 
 .PHONY: test-python
@@ -170,16 +165,14 @@ test-python: ## Run Python tests
 	@$(call py_run,pytest -v)
 
 .PHONY: fmt-python
-fmt-python:
-	./scripts/format-code --python-only
+fmt-python: ## Format and fix Python code
+	uv run ruff format .
+	uv run ruff check . --fix --unsafe-fixes
 
 .PHONY: lint-python
-lint-python:
-	./scripts/format-code --python-only --check-only
-
-.PHONY: lint-python-fix
-lint-python-fix:
-	./scripts/format-code --python-only
+lint-python: ## Lint Python code
+	uv run ruff format . --check
+	uv run ruff check . --no-fix
 
 .PHONY: typecheck-python
 typecheck-python:
@@ -189,15 +182,6 @@ typecheck-python:
 .PHONY: verifytypes-python
 verifytypes-python:
 	@$(call py_run,pyright --verifytypes finstack --ignoreexternal)
-
-.PHONY: stubtest-python
-stubtest-python:
-	@printf "Use 'make verifytypes-python' for CI-grade type verification.\n"
-	@printf "Local: uv run ty check finstack-py/finstack\n"
-
-.PHONY: stubs
-stubs:
-	@printf "Python stubs (.pyi) are manually maintained in finstack-py/finstack/.\n"
 
 .PHONY: examples-python examples-python-scripts examples-python-notebooks
 examples-python: examples-python-scripts examples-python-notebooks ## Run all Python examples
@@ -225,16 +209,14 @@ test-wasm:
 	cd finstack-wasm && npm run test
 
 .PHONY: fmt-wasm
-fmt-wasm:
-	./scripts/format-code --wasm-only
+fmt-wasm: ## Format and fix WASM/TS code
+	cd finstack-wasm && npm run format:fix
+	cd finstack-wasm && npm run lint:fix || true
 
 .PHONY: lint-wasm
-lint-wasm:
-	./scripts/format-code --wasm-only --check-only
-
-.PHONY: lint-wasm-fix
-lint-wasm-fix:
-	./scripts/format-code --wasm-only
+lint-wasm: ## Lint WASM/TS code
+	cd finstack-wasm && npm run format
+	cd finstack-wasm && npm run lint
 
 .PHONY: generate-bindings
 generate-bindings: ## Export TypeScript types from Rust
@@ -275,25 +257,25 @@ list: ## Generate API parity report
 	@$(call py_run,python scripts/audits/compare_apis.py)
 	@printf "Done: PARITY_AUDIT.md\n"
 
-.PHONY: coverage coverage-rust coverage-python coverage-html coverage-open coverage-lcov
+COV_IGNORE := '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
+COV_BASE := CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --ignore-filename-regex $(COV_IGNORE)
+
+.PHONY: coverage coverage-rust coverage-python coverage-html coverage-lcov
 coverage: coverage-rust coverage-python ## Run all coverage reports
 
 coverage-rust:
 	@printf "Running Rust code coverage...\n"
-	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
+	$(COV_BASE)
 
 coverage-python:
 	@printf "Running Python code coverage...\n"
 	@$(call py_run,pytest --cov=finstack --cov-report=html)
 
-coverage-html:
-	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --html --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
-
-coverage-open:
-	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --html --open --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
+coverage-html: ## Generate Rust HTML coverage report (pass OPEN=1 to auto-open)
+	$(COV_BASE) --html $(if $(OPEN),--open,)
 
 coverage-lcov:
-	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --lcov --output-path coverage.lcov --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
+	$(COV_BASE) --lcov --output-path coverage.lcov
 
 .PHONY: check-schemas
 check-schemas: ## Verify JSON schemas match Rust types
@@ -380,7 +362,7 @@ size-all: size-wasm size-py
 MATURIN_FEATURES := scenarios,sqlite,postgres
 WHEEL_DIR := target/wheels
 
-.PHONY: wheels wheel-local wheel-docker wheel-all wasm-pkg wasm-publish-dry
+.PHONY: wheel-local wheel-docker wheel-all wasm-pkg wasm-publish-dry
 
 wheel-local: ## Build wheel for current platform + Python
 	@printf "Building wheel for local platform...\n"
@@ -414,8 +396,6 @@ wheel-all: ## Build wheels for all locally-available Python versions
 	@printf "Wheel(s) written to $(WHEEL_DIR)/\n"
 	@ls -lh $(WHEEL_DIR)/finstack-*.whl
 
-wheels: wheel-local ## Alias for wheel-local
-
 wasm-pkg: ## Build WASM package (web + node targets)
 	cd finstack-wasm && wasm-pack build --target web --release --out-dir pkg
 	cd finstack-wasm && wasm-pack build --target nodejs --release --out-dir pkg-node
@@ -426,15 +406,6 @@ wasm-publish-dry: wasm-pkg ## Dry-run npm publish (no upload)
 
 # --- Automation & CI ---
 
-.PHONY: test-and-fix test-fix-rust test-fix-python test-fix-wasm
-test-and-fix: ## Run all tests and auto-fix issues
-	./scripts/run-tests-and-fix
-test-fix-rust:
-	./scripts/run-tests-and-fix --rust-only
-test-fix-python:
-	./scripts/run-tests-and-fix --python-only
-test-fix-wasm:
-	./scripts/run-tests-and-fix --wasm-only
 .PHONY: ci-test
 ci-test: wasm-build pre-commit-run test ## Run all checks exactly as CI does (wasm-build + pre-commit + test)
 

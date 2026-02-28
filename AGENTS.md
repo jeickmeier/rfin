@@ -10,7 +10,6 @@
 - Lint all components including bindings + all features (slow): `make lint-full`
 - Format all codebases: `make fmt`
 - Run Rust examples: `make examples`
-- Run all tests and auto-fix issues: `make test-and-fix`
 - Python dev setup (uv + maturin): `make python-dev`
 - Initialize Python env with uv: `make setup-python`
 - Run Python examples (scripts + notebooks): `make examples-python`
