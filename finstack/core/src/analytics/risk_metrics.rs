@@ -55,6 +55,27 @@ pub fn cagr(returns: &[f64], start: Date, end: Date) -> f64 {
     total.powf(1.0 / years) - 1.0
 }
 
+/// Compound annual growth rate from a return series using a period-based
+/// annualization factor (e.g., 252 for daily, 12 for monthly).
+///
+/// Unlike [`cagr`], which requires start/end dates, this variant derives
+/// the holding period from `returns.len() / ann_factor`.
+///
+/// Returns `f64::NAN` when `returns` has fewer than 2 elements.
+pub fn cagr_from_periods(returns: &[f64], ann_factor: f64) -> f64 {
+    let n = returns.len();
+    if n < 2 {
+        return f64::NAN;
+    }
+    let total = 1.0 + super::returns::comp_total(returns);
+    let years = n as f64 / ann_factor;
+    if years > 0.0 {
+        total.powf(1.0 / years) - 1.0
+    } else {
+        f64::NAN
+    }
+}
+
 /// Mean return, optionally annualized.
 ///
 /// Computes the arithmetic mean of `returns`. When `annualize` is `true`

@@ -1,5 +1,6 @@
 //! Python bindings for the performance analytics module.
 
+mod expr_plugin;
 mod performance;
 
 use pyo3::prelude::*;

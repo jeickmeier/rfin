@@ -19,8 +19,9 @@ finstack-scenarios = { path = "../finstack/scenarios" }
 finstack-portfolio = { path = "../finstack/portfolio", features = ["scenarios"] }
 finstack-io = { path = "../finstack/io", default-features = false }
 pyo3 = { version = "0.26", features = ["extension-module"] }
-pyo3-polars = "0.25"
-polars = { version = "0.52", default-features = false }
+pyo3-polars = { version = "0.25", features = ["derive"] }
+polars = { version = "0.52", default-features = false, features = ["temporal"] }
+serde = { workspace = true }
 serde_json = { workspace = true }
 indexmap = { workspace = true }
 pythonize = "0.26"

@@ -58,6 +58,7 @@ manifest-path = "finstack-py/Cargo.toml"
 python-source = "finstack-py"
 include = [
     { path = "finstack-py/finstack/__init__.py", format = ["wheel"] },
+    { path = "finstack-py/finstack/**/*.py", format = ["wheel"] },
     { path = "finstack-py/finstack/**/*.pyi", format = ["wheel"] },
     { path = "finstack-py/finstack/py.typed", format = ["wheel"] },
 ]
