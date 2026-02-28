@@ -23,7 +23,8 @@ pub use builtins::{
 #[pyclass(
     module = "finstack.statements.extensions",
     name = "ExtensionMetadata",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyExtensionMetadata {
@@ -106,7 +107,8 @@ impl PyExtensionMetadata {
 #[pyclass(
     module = "finstack.statements.extensions",
     name = "ExtensionStatus",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyExtensionStatus {
@@ -159,7 +161,11 @@ impl PyExtensionStatus {
 }
 
 /// Extension execution result.
-#[pyclass(module = "finstack.statements.extensions", name = "ExtensionResult")]
+#[pyclass(
+    module = "finstack.statements.extensions",
+    name = "ExtensionResult",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyExtensionResult {
     pub(crate) inner: ExtensionResult,

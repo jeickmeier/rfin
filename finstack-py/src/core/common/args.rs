@@ -302,7 +302,7 @@ pub fn extract_float_pairs(obj: &Bound<'_, PyAny>) -> PyResult<Vec<(f64, f64)>> 
 }
 
 fn extract_from_dict(obj: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(f64, f64)>>> {
-    if let Ok(dict) = obj.downcast::<PyDict>() {
+    if let Ok(dict) = obj.cast::<PyDict>() {
         let mut results = Vec::new();
         for (k, v) in dict {
             let key = k.extract::<f64>()?;

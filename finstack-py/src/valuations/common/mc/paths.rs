@@ -24,7 +24,7 @@ fn cashflow_type_to_string(cf_type: CashflowType) -> &'static str {
 }
 
 /// Type of cashflow for categorization.
-#[pyclass(module = "finstack.valuations.common.mc", name = "CashflowType")]
+#[pyclass(module = "finstack.valuations.common.mc", name = "CashflowType", from_py_object)]
 #[derive(Clone, Copy)]
 pub enum PyCashflowType {
     /// Principal deployment or repayment
@@ -81,7 +81,7 @@ impl PyCashflowType {
 }
 
 /// A single point along a Monte Carlo path.
-#[pyclass(module = "finstack.valuations.common.mc", name = "PathPoint")]
+#[pyclass(module = "finstack.valuations.common.mc", name = "PathPoint", from_py_object)]
 #[derive(Clone)]
 pub struct PyPathPoint {
     pub(crate) inner: PathPoint,
@@ -270,7 +270,7 @@ impl PyPathPoint {
 }
 
 /// A complete simulated Monte Carlo path.
-#[pyclass(module = "finstack.valuations.common.mc", name = "SimulatedPath")]
+#[pyclass(module = "finstack.valuations.common.mc", name = "SimulatedPath", from_py_object)]
 #[derive(Clone)]
 pub struct PySimulatedPath {
     pub(crate) inner: SimulatedPath,
@@ -461,7 +461,7 @@ impl PySimulatedPath {
 }
 
 /// Collection of simulated paths with metadata.
-#[pyclass(module = "finstack.valuations.common.mc", name = "PathDataset")]
+#[pyclass(module = "finstack.valuations.common.mc", name = "PathDataset", from_py_object)]
 #[derive(Clone)]
 pub struct PyPathDataset {
     pub(crate) inner: PathDataset,

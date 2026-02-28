@@ -29,7 +29,7 @@ use pyo3::Bound;
 ///     >>> put = AmericanPut(strike=100.0)
 ///     >>> put.strike
 ///     100.0
-#[pyclass(module = "finstack.valuations.lsmc", name = "AmericanPut", frozen)]
+#[pyclass(module = "finstack.valuations.lsmc", name = "AmericanPut", frozen, from_py_object)]
 #[derive(Clone)]
 pub struct PyAmericanPut {
     inner: AmericanPut,
@@ -66,7 +66,7 @@ impl PyAmericanPut {
 ///     >>> call = AmericanCall(strike=100.0)
 ///     >>> call.strike
 ///     100.0
-#[pyclass(module = "finstack.valuations.lsmc", name = "AmericanCall", frozen)]
+#[pyclass(module = "finstack.valuations.lsmc", name = "AmericanCall", frozen, from_py_object)]
 #[derive(Clone)]
 pub struct PyAmericanCall {
     inner: AmericanCall,
@@ -110,7 +110,7 @@ impl PyAmericanCall {
 ///     >>> basis = PolynomialBasis(degree=3)
 ///     >>> basis.degree
 ///     3
-#[pyclass(module = "finstack.valuations.lsmc", name = "PolynomialBasis", frozen)]
+#[pyclass(module = "finstack.valuations.lsmc", name = "PolynomialBasis", frozen, from_py_object)]
 #[derive(Clone)]
 pub struct PyPolynomialBasis {
     degree_: usize,
@@ -156,7 +156,7 @@ impl PyPolynomialBasis {
 ///     3
 ///     >>> basis.strike
 ///     100.0
-#[pyclass(module = "finstack.valuations.lsmc", name = "LaguerreBasis", frozen)]
+#[pyclass(module = "finstack.valuations.lsmc", name = "LaguerreBasis", frozen, from_py_object)]
 #[derive(Clone)]
 pub struct PyLaguerreBasis {
     degree_: usize,
@@ -219,7 +219,7 @@ impl PyLaguerreBasis {
 ///     ...     exercise_dates=[25, 50, 75, 100],
 ///     ...     seed=42
 ///     ... )
-#[pyclass(module = "finstack.valuations.lsmc", name = "LsmcConfig", frozen)]
+#[pyclass(module = "finstack.valuations.lsmc", name = "LsmcConfig", frozen, from_py_object)]
 #[derive(Clone)]
 pub struct PyLsmcConfig {
     inner: LsmcConfig,
@@ -273,7 +273,7 @@ impl PyLsmcConfig {
 ///     stderr: Standard error of the estimate.
 ///     ci_95: 95% confidence interval (lower, upper).
 ///     num_paths: Number of paths used.
-#[pyclass(module = "finstack.valuations.lsmc", name = "LsmcResult", frozen)]
+#[pyclass(module = "finstack.valuations.lsmc", name = "LsmcResult", frozen, from_py_object)]
 #[derive(Clone)]
 pub struct PyLsmcResult {
     mean: Money,

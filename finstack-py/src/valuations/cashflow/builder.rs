@@ -18,7 +18,8 @@ use pyo3::Bound;
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
     name = "CouponType",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyCouponType {
@@ -57,7 +58,8 @@ impl PyCouponType {
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
     name = "ScheduleParams",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyScheduleParams {
@@ -168,7 +170,8 @@ impl PyScheduleParams {
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
     name = "FixedCouponSpec",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyFixedCouponSpec {
@@ -207,7 +210,8 @@ impl PyFixedCouponSpec {
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
     name = "FloatCouponParams",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyFloatCouponParams {
@@ -240,7 +244,8 @@ impl PyFloatCouponParams {
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
     name = "FloatingCouponSpec",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyFloatingCouponSpec {
@@ -413,7 +418,8 @@ impl PyCashflowBuilder {
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
     name = "CashFlowSchedule",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyCashFlowSchedule {
@@ -788,7 +794,8 @@ impl PyCashFlowSchedule {
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
     name = "FeeBase",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyFeeBase {
@@ -867,7 +874,8 @@ impl PyFeeBase {
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
     name = "FeeSpec",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyFeeSpec {
@@ -983,7 +991,8 @@ impl PyFeeSpec {
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
     name = "FixedWindow",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyFixedWindow {
@@ -1039,7 +1048,8 @@ impl PyFixedWindow {
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
     name = "FloatWindow",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyFloatWindow {

@@ -58,7 +58,12 @@ use std::sync::Arc;
 /// --------
 /// FxForward : Deliverable FX forward
 /// FxSwap : FX swap
-#[pyclass(module = "finstack.valuations.instruments", name = "Ndf", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "Ndf",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyNdf {
     pub(crate) inner: Arc<Ndf>,

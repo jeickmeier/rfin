@@ -33,7 +33,12 @@ fn default_pricing_date() -> PyResult<finstack_core::dates::Date> {
 ///     >>> registry = create_standard_registry()
 ///     >>> result = registry.price(bond, "discounting", market)
 ///     >>> result.present_value
-#[pyclass(module = "finstack.valuations.pricer", name = "PricerRegistry", frozen)]
+#[pyclass(
+    module = "finstack.valuations.pricer",
+    name = "PricerRegistry",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Default)]
 pub struct PyPricerRegistry {
     pub(crate) inner: Arc<PricerRegistry>,

@@ -44,7 +44,8 @@ use pyo3::Bound;
 #[pyclass(
     module = "finstack.valuations.conventions",
     name = "CdsDocClause",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyCdsDocClause {
@@ -133,7 +134,8 @@ impl PyCdsDocClause {
 #[pyclass(
     module = "finstack.valuations.conventions",
     name = "CdsConventionKey",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCdsConventionKey {
@@ -185,7 +187,8 @@ impl PyCdsConventionKey {
 #[pyclass(
     module = "finstack.valuations.conventions",
     name = "RateIndexKind",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyRateIndexKind {
@@ -237,7 +240,8 @@ impl PyRateIndexKind {
 #[pyclass(
     module = "finstack.valuations.conventions",
     name = "RateIndexConventions",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyRateIndexConventions {
@@ -318,7 +322,8 @@ impl PyRateIndexConventions {
 #[pyclass(
     module = "finstack.valuations.conventions",
     name = "CdsConventions",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyCdsConventions {
@@ -364,7 +369,8 @@ impl PyCdsConventions {
 #[pyclass(
     module = "finstack.valuations.conventions",
     name = "SwaptionConventions",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PySwaptionConventions {
@@ -415,7 +421,8 @@ impl PySwaptionConventions {
 #[pyclass(
     module = "finstack.valuations.conventions",
     name = "InflationSwapConventions",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyInflationSwapConventions {
@@ -461,7 +468,8 @@ impl PyInflationSwapConventions {
 #[pyclass(
     module = "finstack.valuations.conventions",
     name = "OptionConventions",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyOptionConventions {
@@ -497,7 +505,8 @@ impl PyOptionConventions {
 #[pyclass(
     module = "finstack.valuations.conventions",
     name = "IrFutureConventions",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyIrFutureConventions {

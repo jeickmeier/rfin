@@ -44,7 +44,8 @@ fn parse_stub(label: Option<&str>) -> PyResult<StubKind> {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "BasisSwapLeg",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyBasisSwapLeg {
@@ -175,7 +176,12 @@ impl PyBasisSwapLeg {
 ///     ... )
 ///     >>> swap.notional.amount
 ///     10000000
-#[pyclass(module = "finstack.valuations.instruments", name = "BasisSwap", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "BasisSwap",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyBasisSwap {
     pub(crate) inner: Arc<BasisSwap>,

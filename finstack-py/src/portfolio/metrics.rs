@@ -20,7 +20,11 @@ use pyo3::Bound;
 ///     125.0
 ///     >>> metric.by_entity["ENTITY_A"]
 ///     75.0
-#[pyclass(module = "finstack.portfolio", name = "AggregatedMetric")]
+#[pyclass(
+    module = "finstack.portfolio",
+    name = "AggregatedMetric",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyAggregatedMetric {
     pub(crate) inner: AggregatedMetric,
@@ -78,7 +82,11 @@ impl PyAggregatedMetric {
 ///     >>> metrics = aggregate_metrics(valuation)
 ///     >>> dv01 = metrics.get_metric("dv01")
 ///     >>> position_metrics = metrics.get_position_metrics("POS_1")
-#[pyclass(module = "finstack.portfolio", name = "PortfolioMetrics")]
+#[pyclass(
+    module = "finstack.portfolio",
+    name = "PortfolioMetrics",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPortfolioMetrics {
     pub(crate) inner: PortfolioMetrics,

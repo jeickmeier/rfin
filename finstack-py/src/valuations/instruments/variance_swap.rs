@@ -33,7 +33,8 @@ fn method_label(method: RealizedVarMethod) -> &'static str {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "VarianceDirection",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyPayReceive {
@@ -99,7 +100,8 @@ impl PyPayReceive {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "RealizedVarianceMethod",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyRealizedVarMethod {
@@ -144,7 +146,8 @@ impl PyRealizedVarMethod {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "VarianceSwap",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyVarianceSwap {

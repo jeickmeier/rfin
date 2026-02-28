@@ -14,7 +14,12 @@ use pyo3::{Bound, PyRef};
 use std::sync::Arc;
 
 /// CMS option instrument.
-#[pyclass(module = "finstack.valuations.instruments", name = "CmsOption", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CmsOption",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyCmsOption {
     pub(crate) inner: Arc<CmsOption>,

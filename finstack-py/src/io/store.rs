@@ -867,7 +867,7 @@ impl PyStore {
         let key = SeriesKey::new(namespace, series_id, kind);
         let mut batch = Vec::with_capacity(points.len());
         for item in points.iter() {
-            let tuple = item.downcast::<PyTuple>()?;
+            let tuple = item.cast::<PyTuple>()?;
             if tuple.len() < 1 {
                 return Err(PyValueError::new_err(
                     "Point tuples must include a timestamp",
@@ -981,7 +981,7 @@ impl PyStore {
         let mut batch: Vec<(String, InstrumentJson, Option<serde_json::Value>)> = Vec::new();
 
         for item in instruments.iter() {
-            let tuple = item.downcast::<pyo3::types::PyTuple>()?;
+            let tuple = item.cast::<pyo3::types::PyTuple>()?;
             let id: String = tuple.get_item(0)?.extract()?;
             let instr: InstrumentJson = pythonize::depythonize(&tuple.get_item(1)?)
                 .map_err(|e| PyValueError::new_err(format!("Invalid instrument: {}", e)))?;
@@ -1027,7 +1027,7 @@ impl PyStore {
         )> = Vec::new();
 
         for item in contexts.iter() {
-            let tuple = item.downcast::<pyo3::types::PyTuple>()?;
+            let tuple = item.cast::<pyo3::types::PyTuple>()?;
             let id: String = tuple.get_item(0)?.extract()?;
             let date = py_to_date(&tuple.get_item(1)?)?;
             let ctx: PyRef<PyMarketContext> = tuple.get_item(2)?.extract()?;
@@ -1077,7 +1077,7 @@ impl PyStore {
         )> = Vec::new();
 
         for item in portfolios.iter() {
-            let tuple = item.downcast::<pyo3::types::PyTuple>()?;
+            let tuple = item.cast::<pyo3::types::PyTuple>()?;
             let id: String = tuple.get_item(0)?.extract()?;
             let date = py_to_date(&tuple.get_item(1)?)?;
             let spec = extract_portfolio_spec(&tuple.get_item(2)?)?;
@@ -1309,7 +1309,7 @@ fn parse_series_kind(kind: &str) -> PyResult<SeriesKind> {
 }
 
 fn py_to_offset_datetime(obj: &Bound<'_, PyAny>) -> PyResult<OffsetDateTime> {
-    if let Ok(dt) = obj.downcast::<PyDateTime>() {
+    if let Ok(dt) = obj.cast::<PyDateTime>() {
         let date = TimeDate::from_calendar_date(
             dt.get_year(),
             Month::try_from(dt.get_month()).map_err(|_| PyValueError::new_err("Invalid month"))?,
@@ -1347,7 +1347,7 @@ fn py_to_offset_datetime(obj: &Bound<'_, PyAny>) -> PyResult<OffsetDateTime> {
         };
 
         Ok(naive.assume_offset(offset))
-    } else if let Ok(d) = obj.downcast::<PyDate>() {
+    } else if let Ok(d) = obj.cast::<PyDate>() {
         let date = TimeDate::from_calendar_date(
             d.get_year(),
             Month::try_from(d.get_month()).map_err(|_| PyValueError::new_err("Invalid month"))?,
@@ -1372,7 +1372,7 @@ fn offset_datetime_to_py(py: Python<'_>, dt: OffsetDateTime) -> PyResult<Py<PyAn
     // Import datetime.timezone.utc for timezone-aware output
     let datetime_module = py.import("datetime")?;
     let timezone_utc = datetime_module.getattr("timezone")?.getattr("utc")?;
-    let timezone_utc_tzinfo = timezone_utc.downcast::<pyo3::types::PyTzInfo>()?;
+    let timezone_utc_tzinfo = timezone_utc.cast::<pyo3::types::PyTzInfo>()?;
 
     let py_dt = PyDateTime::new(
         py,

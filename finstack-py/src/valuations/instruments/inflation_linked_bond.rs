@@ -51,7 +51,8 @@ fn parse_deflation_protection(label: Option<&str>) -> PyResult<DeflationProtecti
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "InflationLinkedBond",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyInflationLinkedBond {

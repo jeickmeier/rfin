@@ -28,7 +28,12 @@ use std::sync::Arc;
 ///     ... )
 ///     >>> deposit.quote_rate
 ///     None
-#[pyclass(module = "finstack.valuations.instruments", name = "Deposit", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "Deposit",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyDeposit {
     pub(crate) inner: Arc<Deposit>,

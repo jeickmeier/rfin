@@ -50,7 +50,12 @@ fn day_count_label(dc: DayCount) -> &'static str {
 }
 
 /// Total return swap side wrapper.
-#[pyclass(module = "finstack.valuations.instruments", name = "TrsSide", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "TrsSide",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug)]
 pub struct PyTrsSide {
     pub(crate) inner: TrsSide,
@@ -85,7 +90,8 @@ impl PyTrsSide {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "TrsFinancingLegSpec",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyFinancingLegSpec {
@@ -137,7 +143,8 @@ impl PyFinancingLegSpec {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "TrsScheduleSpec",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyTrsScheduleSpec {
@@ -179,7 +186,8 @@ impl PyTrsScheduleSpec {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "EquityUnderlying",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyEquityUnderlyingParams {
@@ -230,7 +238,8 @@ impl PyEquityUnderlyingParams {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "IndexUnderlying",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyIndexUnderlyingParams {
@@ -283,7 +292,8 @@ impl PyIndexUnderlyingParams {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "EquityTotalReturnSwap",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyEquityTotalReturnSwap {
@@ -573,7 +583,8 @@ impl fmt::Display for PyEquityTotalReturnSwap {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "FiIndexTotalReturnSwap",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyFiIndexTotalReturnSwap {

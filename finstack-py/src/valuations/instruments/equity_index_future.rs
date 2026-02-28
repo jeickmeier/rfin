@@ -21,7 +21,8 @@ use std::sync::Arc;
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "FuturePosition",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyPosition {
@@ -109,7 +110,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for PositionArg {
 ///         tick_value=5.0,
 ///         settlement_method="Cash settled"
 ///     )
-#[pyclass(module = "finstack.valuations.instruments", name = "EquityFutureSpecs")]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "EquityFutureSpecs",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyEquityFutureSpecs {
     pub(crate) inner: EquityFutureSpecs,
@@ -223,7 +228,8 @@ impl PyEquityFutureSpecs {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "EquityIndexFuture",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyEquityIndexFuture {

@@ -29,7 +29,11 @@ use std::sync::Arc;
 /// -------
 /// VolSurface
 ///     Surface wrapper with interpolation helpers.
-#[pyclass(module = "finstack.core.market_data.surfaces", name = "VolSurface")]
+#[pyclass(
+    module = "finstack.core.market_data.surfaces",
+    name = "VolSurface",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyVolSurface {
     pub(crate) inner: Arc<VolSurface>,

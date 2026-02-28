@@ -13,7 +13,8 @@ use std::sync::Arc;
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "BarrierType",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyBarrierType {
@@ -80,7 +81,8 @@ impl PyBarrierType {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "BarrierOption",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyBarrierOption {

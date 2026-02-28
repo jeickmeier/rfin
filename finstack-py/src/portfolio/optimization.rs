@@ -107,7 +107,11 @@ fn map_weights(
 /// >>> WeightingScheme.VALUE_WEIGHT  # w_i is share of portfolio PV
 /// >>> WeightingScheme.NOTIONAL_WEIGHT  # w_i is share of notional exposure
 /// >>> WeightingScheme.UNIT_SCALING  # w_i scales current position size
-#[pyclass(name = "WeightingScheme", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "WeightingScheme",
+    module = "finstack.portfolio.optimization",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyWeightingScheme {
     pub inner: WeightingScheme,
@@ -145,7 +149,8 @@ impl PyWeightingScheme {
 /// >>> MissingMetricPolicy.STRICT  # Fail with error if missing
 #[pyclass(
     name = "MissingMetricPolicy",
-    module = "finstack.portfolio.optimization"
+    module = "finstack.portfolio.optimization",
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyMissingMetricPolicy {
@@ -182,7 +187,11 @@ impl PyMissingMetricPolicy {
 /// >>> Inequality.LE  # Less-than or equal: <=
 /// >>> Inequality.GE  # Greater-than or equal: >=
 /// >>> Inequality.EQ  # Equality: ==
-#[pyclass(name = "Inequality", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "Inequality",
+    module = "finstack.portfolio.optimization",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyInequality {
     pub inner: Inequality,
@@ -218,7 +227,8 @@ impl PyInequality {
 /// True
 #[pyclass(
     name = "OptimizationStatus",
-    module = "finstack.portfolio.optimization"
+    module = "finstack.portfolio.optimization",
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyOptimizationStatus {
@@ -241,7 +251,11 @@ impl PyOptimizationStatus {
 }
 
 /// Direction of a trade.
-#[pyclass(name = "TradeDirection", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "TradeDirection",
+    module = "finstack.portfolio.optimization",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyTradeDirection {
     pub inner: TradeDirection,
@@ -270,7 +284,11 @@ impl PyTradeDirection {
 }
 
 /// Whether a trade is for an existing position or a new candidate.
-#[pyclass(name = "TradeType", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "TradeType",
+    module = "finstack.portfolio.optimization",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyTradeType {
     pub inner: TradeType,
@@ -311,7 +329,11 @@ impl PyTradeType {
 /// >>> PerPositionMetric.metric(MetricId.YTM)  # Yield to maturity
 /// >>> PerPositionMetric.pv_base()  # Base currency PV
 /// >>> PerPositionMetric.constant(1.0)  # Constant for all positions
-#[pyclass(name = "PerPositionMetric", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "PerPositionMetric",
+    module = "finstack.portfolio.optimization",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPerPositionMetric {
     pub inner: PerPositionMetric,
@@ -387,7 +409,11 @@ impl PyPerPositionMetric {
 /// >>> MetricExpr.value_weighted_average(PerPositionMetric.metric(MetricId.YTM))
 /// >>> # Tag exposure share (e.g., HY bonds)
 /// >>> MetricExpr.tag_exposure_share("rating", "HY")
-#[pyclass(name = "MetricExpr", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "MetricExpr",
+    module = "finstack.portfolio.optimization",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyMetricExpr {
     pub inner: MetricExpr,
@@ -443,7 +469,11 @@ impl PyMetricExpr {
 /// >>> # Minimize portfolio duration
 /// >>> dur_metric = PerPositionMetric.metric(MetricId.DURATION_MOD)
 /// >>> obj = Objective.minimize(MetricExpr.weighted_sum(dur_metric))
-#[pyclass(name = "Objective", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "Objective",
+    module = "finstack.portfolio.optimization",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyObjective {
     pub inner: Objective,
@@ -485,7 +515,11 @@ impl PyObjective {
 /// >>> PositionFilter.by_entity_id("fund_1")  # Single entity
 /// >>> PositionFilter.by_tag("rating", "HY")  # Tagged positions
 /// >>> PositionFilter.by_position_ids(["pos_1", "pos_2"])  # Specific positions
-#[pyclass(name = "PositionFilter", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "PositionFilter",
+    module = "finstack.portfolio.optimization",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPositionFilter {
     pub inner: PositionFilter,
@@ -558,7 +592,11 @@ impl PyPositionFilter {
 /// >>> c3 = Constraint.tag_exposure_minimum("ig_floor", "rating", "IG", 0.50)
 /// >>> # Max turnover 20%
 /// >>> c4 = Constraint.max_turnover("low_turnover", 0.20)
-#[pyclass(name = "Constraint", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "Constraint",
+    module = "finstack.portfolio.optimization",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyConstraint {
     pub inner: Constraint,
@@ -705,7 +743,11 @@ impl PyConstraint {
 ///     Pre-trade weight.
 /// target_weight : float
 ///     Post-trade weight.
-#[pyclass(name = "TradeSpec", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "TradeSpec",
+    module = "finstack.portfolio.optimization",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyTradeSpec {
     #[pyo3(get)]
@@ -971,7 +1013,11 @@ impl PyCandidatePosition {
 /// >>> # Add candidate positions
 /// >>> universe = universe.with_candidate(candidate1)
 /// >>> universe = universe.with_candidates([candidate2, candidate3])
-#[pyclass(name = "TradeUniverse", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "TradeUniverse",
+    module = "finstack.portfolio.optimization",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyTradeUniverse {
     pub inner: TradeUniverse,

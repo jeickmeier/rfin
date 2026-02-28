@@ -24,7 +24,8 @@ use std::sync::Arc;
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "CDSPayReceive",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyCdsPayReceive {
@@ -131,7 +132,8 @@ pub(crate) fn normalize_cds_side(name: &str) -> PyResult<PayReceive> {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "CreditDefaultSwap",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCreditDefaultSwap {

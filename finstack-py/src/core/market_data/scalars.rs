@@ -81,7 +81,8 @@ fn parse_observations(
 #[pyclass(
     module = "finstack.core.market_data.scalars",
     name = "SeriesInterpolation",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PySeriesInterpolation {
@@ -172,7 +173,8 @@ impl PySeriesInterpolation {
 #[pyclass(
     module = "finstack.core.market_data.scalars",
     name = "MarketScalar",
-    unsendable
+    unsendable,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyMarketScalar {
@@ -288,7 +290,8 @@ impl PyMarketScalar {
 #[pyclass(
     module = "finstack.core.market_data.scalars",
     name = "ScalarTimeSeries",
-    unsendable
+    unsendable,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyScalarTimeSeries {

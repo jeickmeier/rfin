@@ -21,7 +21,7 @@ use pythonize::{depythonize, pythonize};
 ///     >>> entity = Entity("ACME_CORP")
 ///     >>> entity = entity.with_name("Acme Corporation")
 ///     >>> entity = entity.with_tag("sector", "Technology")
-#[pyclass(module = "finstack.portfolio", name = "Entity")]
+#[pyclass(module = "finstack.portfolio", name = "Entity", from_py_object)]
 #[derive(Clone)]
 pub struct PyEntity {
     pub(crate) inner: Entity,
@@ -91,7 +91,7 @@ impl PyEntity {
     #[pyo3(text_signature = "($self, tags)")]
     /// Add multiple tags to the entity.
     fn with_tags(&self, tags: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(dict) = tags.downcast::<PyDict>() {
+        if let Ok(dict) = tags.cast::<PyDict>() {
             let mut collected = Vec::with_capacity(dict.len());
             for (k, v) in dict {
                 collected.push((k.extract::<String>()?, v.extract::<String>()?));
@@ -99,10 +99,10 @@ impl PyEntity {
             return Ok(Self::new(self.inner.clone().with_tags(collected)));
         }
 
-        if let Ok(list) = tags.downcast::<PyList>() {
+        if let Ok(list) = tags.cast::<PyList>() {
             let mut collected = Vec::with_capacity(list.len());
             for item in list.iter() {
-                let tuple = item.downcast::<PyTuple>()?;
+                let tuple = item.cast::<PyTuple>()?;
                 if tuple.len() != 2 {
                     return Err(PyTypeError::new_err(
                         "Expected sequence of (key, value) pairs",
@@ -196,7 +196,7 @@ impl PyEntity {
 ///     >>> unit = PositionUnit.UNITS
 ///     >>> unit = PositionUnit.notional_with_ccy(Currency.USD)
 ///     >>> unit = PositionUnit.FACE_VALUE
-#[pyclass(module = "finstack.portfolio", name = "PositionUnit")]
+#[pyclass(module = "finstack.portfolio", name = "PositionUnit", from_py_object)]
 #[derive(Clone, Copy)]
 pub struct PyPositionUnit {
     pub(crate) inner: PositionUnit,
@@ -387,7 +387,7 @@ impl PyPosition {
     #[pyo3(text_signature = "($self, tags)")]
     /// Add multiple tags to the position.
     fn with_tags(&self, tags: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(dict) = tags.downcast::<PyDict>() {
+        if let Ok(dict) = tags.cast::<PyDict>() {
             let mut collected = Vec::with_capacity(dict.len());
             for (k, v) in dict {
                 collected.push((k.extract::<String>()?, v.extract::<String>()?));
@@ -395,10 +395,10 @@ impl PyPosition {
             return Ok(Self::new(self.inner.clone().with_tags(collected)));
         }
 
-        if let Ok(list) = tags.downcast::<PyList>() {
+        if let Ok(list) = tags.cast::<PyList>() {
             let mut collected = Vec::with_capacity(list.len());
             for item in list.iter() {
-                let tuple = item.downcast::<PyTuple>()?;
+                let tuple = item.cast::<PyTuple>()?;
                 if tuple.len() != 2 {
                     return Err(PyTypeError::new_err(
                         "Expected sequence of (key, value) pairs",

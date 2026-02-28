@@ -42,7 +42,12 @@ fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
 ///     ... )
 ///     >>> opt.strike
 ///     0.015
-#[pyclass(module = "finstack.valuations.instruments", name = "CdsOption", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CdsOption",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyCDSOption {
     pub(crate) inner: Arc<CDSOption>,

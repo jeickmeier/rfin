@@ -9,7 +9,12 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
 
-#[pyclass(name = "Function", module = "finstack.core.expr", frozen)]
+#[pyclass(
+    name = "Function",
+    module = "finstack.core.expr",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyFunction {
     pub(crate) inner: Function,
@@ -146,7 +151,7 @@ impl PyFunction {
     }
 }
 
-#[pyclass(name = "BinOp", module = "finstack.core.expr", frozen)]
+#[pyclass(name = "BinOp", module = "finstack.core.expr", frozen, from_py_object)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyBinOp {
     pub(crate) inner: BinOp,
@@ -192,7 +197,12 @@ impl PyBinOp {
     }
 }
 
-#[pyclass(name = "UnaryOp", module = "finstack.core.expr", frozen)]
+#[pyclass(
+    name = "UnaryOp",
+    module = "finstack.core.expr",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyUnaryOp {
     pub(crate) inner: UnaryOp,
@@ -216,7 +226,7 @@ impl PyUnaryOp {
     }
 }
 
-#[pyclass(name = "Expr", module = "finstack.core.expr")]
+#[pyclass(name = "Expr", module = "finstack.core.expr", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyExpr {
     pub(crate) inner: CoreExpr,
@@ -293,7 +303,8 @@ impl PyExpr {
     name = "ExecutionPlan",
     module = "finstack.core.expr",
     frozen,
-    unsendable
+    unsendable,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyExecutionPlan {
@@ -332,7 +343,12 @@ impl PyExecutionPlan {
     }
 }
 
-#[pyclass(name = "EvaluationResult", module = "finstack.core.expr", frozen)]
+#[pyclass(
+    name = "EvaluationResult",
+    module = "finstack.core.expr",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyEvaluationResult {
     pub(crate) inner: EvaluationResult,
@@ -357,7 +373,7 @@ impl PyEvaluationResult {
     }
 }
 
-#[pyclass(name = "EvalOpts", module = "finstack.core.expr")]
+#[pyclass(name = "EvalOpts", module = "finstack.core.expr", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyEvalOpts {
     pub(crate) inner: EvalOpts,
@@ -398,7 +414,12 @@ impl PyEvalOpts {
     }
 }
 
-#[pyclass(name = "CompiledExpr", module = "finstack.core.expr", unsendable)]
+#[pyclass(
+    name = "CompiledExpr",
+    module = "finstack.core.expr",
+    unsendable,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyCompiledExpr {
     pub(crate) inner: CoreCompiledExpr,

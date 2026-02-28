@@ -25,7 +25,12 @@ use std::str::FromStr;
 /// -------
 /// FiscalConfig
 ///     Configuration token used by :func:`build_fiscal_periods`.
-#[pyclass(name = "FiscalConfig", module = "finstack.core.dates.periods", frozen)]
+#[pyclass(
+    name = "FiscalConfig",
+    module = "finstack.core.dates.periods",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy)]
 pub struct PyFiscalConfig {
     pub(crate) inner: FiscalConfig,
@@ -129,7 +134,12 @@ impl PyFiscalConfig {
 /// -------
 /// PeriodId
 ///     Strongly typed period identifier.
-#[pyclass(name = "PeriodId", module = "finstack.core.dates.periods", frozen)]
+#[pyclass(
+    name = "PeriodId",
+    module = "finstack.core.dates.periods",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy)]
 pub struct PyPeriodId {
     pub(crate) inner: PeriodId,
@@ -302,7 +312,12 @@ impl fmt::Display for PyPeriodId {
 /// -------
 /// Period
 ///     Period record exposing id, start, end, and actual flags.
-#[pyclass(name = "Period", module = "finstack.core.dates.periods", frozen)]
+#[pyclass(
+    name = "Period",
+    module = "finstack.core.dates.periods",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPeriod {
     pub(crate) inner: Period,
@@ -359,7 +374,12 @@ impl PyPeriod {
 /// -------
 /// PeriodPlan
 ///     Container supporting iteration over periods.
-#[pyclass(name = "PeriodPlan", module = "finstack.core.dates.periods", frozen)]
+#[pyclass(
+    name = "PeriodPlan",
+    module = "finstack.core.dates.periods",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPeriodPlan {
     pub(crate) periods: Vec<Period>,

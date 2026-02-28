@@ -97,7 +97,12 @@ type CashFlowTuple = (Py<PyAny>, PyMoney, PyCFKind, f64, Option<Py<PyAny>>);
 /// See Also
 /// --------
 /// CashFlow : Dated cashflow with classification
-#[pyclass(name = "CFKind", module = "finstack.core.cashflow", frozen)]
+#[pyclass(
+    name = "CFKind",
+    module = "finstack.core.cashflow",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyCFKind {
     pub(crate) inner: CFKind,
@@ -339,7 +344,7 @@ impl PyCFKind {
 /// --------
 /// CFKind : Cashflow classification enumeration
 /// Money : Currency-tagged monetary amounts
-#[pyclass(name = "CashFlow", module = "finstack.core.cashflow")]
+#[pyclass(name = "CashFlow", module = "finstack.core.cashflow", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyCashFlow {
     pub(crate) inner: CashFlow,

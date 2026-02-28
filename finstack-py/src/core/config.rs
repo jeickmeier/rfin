@@ -23,7 +23,12 @@ use pyo3::Bound;
 use std::fmt;
 use std::str::FromStr;
 
-#[pyclass(name = "CurrencyScalePolicy", module = "finstack.core.config", frozen)]
+#[pyclass(
+    name = "CurrencyScalePolicy",
+    module = "finstack.core.config",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyCurrencyScalePolicy {
     pub(crate) inner: CurrencyScalePolicy,
@@ -80,7 +85,12 @@ fn extract_scale_policy(value: &Bound<'_, PyAny>) -> PyResult<CurrencyScalePolic
     ))
 }
 
-#[pyclass(name = "RoundingPolicy", module = "finstack.core.config", frozen)]
+#[pyclass(
+    name = "RoundingPolicy",
+    module = "finstack.core.config",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyRoundingPolicy {
     pub(crate) inner: RoundingPolicy,
@@ -143,7 +153,11 @@ impl PyRoundingPolicy {
 /// -------
 /// FinstackConfig
 ///     Configuration handle that can be reused across money formatting operations.
-#[pyclass(name = "FinstackConfig", module = "finstack.core.config")]
+#[pyclass(
+    name = "FinstackConfig",
+    module = "finstack.core.config",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyFinstackConfig {
     pub(crate) inner: FinstackConfig,
@@ -355,7 +369,7 @@ fn py_to_json_value(value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
         Ok(serde_json::json!(f))
     } else if let Ok(s) = value.extract::<String>() {
         Ok(serde_json::json!(s))
-    } else if let Ok(dict) = value.downcast::<PyDict>() {
+    } else if let Ok(dict) = value.cast::<PyDict>() {
         // Handle dictionaries recursively
         let mut map = serde_json::Map::new();
         for (key, val) in dict.iter() {
@@ -364,7 +378,7 @@ fn py_to_json_value(value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
             map.insert(key_str, val_json);
         }
         Ok(serde_json::Value::Object(map))
-    } else if let Ok(list) = value.downcast::<PyList>() {
+    } else if let Ok(list) = value.cast::<PyList>() {
         // Handle lists recursively
         let mut arr = Vec::new();
         for item in list.iter() {
@@ -390,7 +404,12 @@ fn py_to_json_value(value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
 /// -------
 /// RoundingMode
 ///     Enum value describing the rounding strategy.
-#[pyclass(name = "RoundingMode", module = "finstack.core.config", frozen)]
+#[pyclass(
+    name = "RoundingMode",
+    module = "finstack.core.config",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyRoundingMode {
     pub(crate) inner: RoundingMode,
@@ -478,7 +497,12 @@ impl fmt::Display for PyRoundingMode {
     }
 }
 
-#[pyclass(name = "ZeroKind", module = "finstack.core.config", frozen)]
+#[pyclass(
+    name = "ZeroKind",
+    module = "finstack.core.config",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyZeroKind {
     pub(crate) inner: ZeroKind,
@@ -539,7 +563,12 @@ fn extract_zero_kind(value: &Bound<'_, PyAny>) -> PyResult<ZeroKind> {
     ))
 }
 
-#[pyclass(name = "RoundingContext", module = "finstack.core.config", frozen)]
+#[pyclass(
+    name = "RoundingContext",
+    module = "finstack.core.config",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyRoundingContext {
     pub(crate) inner: RoundingContext,
@@ -610,7 +639,12 @@ impl PyRoundingContext {
     }
 }
 
-#[pyclass(name = "NumericMode", module = "finstack.core.config", frozen)]
+#[pyclass(
+    name = "NumericMode",
+    module = "finstack.core.config",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyNumericMode {
     pub(crate) inner: NumericMode,
@@ -634,7 +668,12 @@ impl PyNumericMode {
     }
 }
 
-#[pyclass(name = "ResultsMeta", module = "finstack.core.config", frozen)]
+#[pyclass(
+    name = "ResultsMeta",
+    module = "finstack.core.config",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyResultsMeta {
     pub(crate) inner: ResultsMeta,

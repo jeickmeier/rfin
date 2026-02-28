@@ -20,7 +20,8 @@ use super::variance::PyVarianceReport;
 #[pyclass(
     module = "finstack.statements.analysis",
     name = "ScenarioDefinition",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyScenarioDefinition {
@@ -49,7 +50,7 @@ impl PyScenarioDefinition {
         let mut rust_overrides = IndexMap::new();
 
         if let Some(obj) = overrides {
-            if let Ok(dict) = obj.downcast::<PyDict>() {
+            if let Ok(dict) = obj.cast::<PyDict>() {
                 for (k, v) in dict {
                     rust_overrides.insert(k.extract::<String>()?, v.extract::<f64>()?);
                 }
@@ -364,7 +365,12 @@ impl PyScenarioResults {
 }
 
 /// Python wrapper for [`ScenarioDiff`].
-#[pyclass(module = "finstack.statements.analysis", name = "ScenarioDiff", frozen)]
+#[pyclass(
+    module = "finstack.statements.analysis",
+    name = "ScenarioDiff",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyScenarioDiff {
     pub(crate) inner: ScenarioDiff,

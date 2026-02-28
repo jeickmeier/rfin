@@ -59,7 +59,12 @@ fn parse_index_id(obj: &Bound<'_, PyAny>) -> PyResult<IndexId> {
 }
 
 /// Stable identifier for a market quote.
-#[pyclass(module = "finstack.valuations.market", name = "QuoteId", frozen)]
+#[pyclass(
+    module = "finstack.valuations.market",
+    name = "QuoteId",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyQuoteId {
     pub(crate) inner: QuoteId,
@@ -94,7 +99,12 @@ impl PyQuoteId {
 }
 
 /// Pillar for quote maturity (tenor or date).
-#[pyclass(module = "finstack.valuations.market", name = "Pillar", frozen)]
+#[pyclass(
+    module = "finstack.valuations.market",
+    name = "Pillar",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyPillar {
     pub(crate) inner: Pillar,
@@ -138,7 +148,11 @@ impl PyPillar {
 }
 
 /// Build context for quote-to-instrument construction.
-#[pyclass(module = "finstack.valuations.market", name = "BuildCtx")]
+#[pyclass(
+    module = "finstack.valuations.market",
+    name = "BuildCtx",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyBuildCtx {
     pub(crate) inner: BuildCtx,
@@ -233,7 +247,12 @@ impl PyBuiltInstrument {
 }
 
 /// Rates quote schema.
-#[pyclass(module = "finstack.valuations.market", name = "RateQuote", frozen)]
+#[pyclass(
+    module = "finstack.valuations.market",
+    name = "RateQuote",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyRateQuote {
     pub(crate) inner: RateQuote,
@@ -343,7 +362,12 @@ impl PyRateQuote {
 }
 
 /// CDS quote schema.
-#[pyclass(module = "finstack.valuations.market", name = "CdsQuote", frozen)]
+#[pyclass(
+    module = "finstack.valuations.market",
+    name = "CdsQuote",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyCdsQuote {
     pub(crate) inner: CdsQuote,
@@ -426,7 +450,8 @@ impl PyCdsQuote {
 #[pyclass(
     module = "finstack.valuations.market",
     name = "CdsTrancheQuote",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCDSTrancheQuote {
@@ -483,7 +508,8 @@ impl PyCDSTrancheQuote {
 /// Overrides for CDS tranche schedule and index metadata during build.
 #[pyclass(
     module = "finstack.valuations.market",
-    name = "CDSTrancheBuildOverrides"
+    name = "CDSTrancheBuildOverrides",
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCDSTrancheBuildOverrides {

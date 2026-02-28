@@ -28,7 +28,8 @@ fn parse_repo_type(label: Option<&str>) -> PyResult<RepoType> {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "RepoCollateral",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyRepoCollateral {
@@ -102,7 +103,12 @@ impl PyRepoCollateral {
 }
 
 /// Repo wrapper exposing a convenience constructor.
-#[pyclass(module = "finstack.valuations.instruments", name = "Repo", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "Repo",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyRepo {
     pub(crate) inner: Arc<Repo>,

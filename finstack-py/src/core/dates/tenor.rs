@@ -11,7 +11,12 @@ use pyo3::{Bound, IntoPyObjectExt};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-#[pyclass(name = "TenorUnit", module = "finstack.core.dates.tenor", frozen)]
+#[pyclass(
+    name = "TenorUnit",
+    module = "finstack.core.dates.tenor",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyTenorUnit {
     pub(crate) inner: TenorUnit,
@@ -91,7 +96,7 @@ impl fmt::Display for PyTenorUnit {
     }
 }
 
-#[pyclass(name = "Tenor", module = "finstack.core.dates.tenor")]
+#[pyclass(name = "Tenor", module = "finstack.core.dates.tenor", from_py_object)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyTenor {
     pub(crate) inner: Tenor,

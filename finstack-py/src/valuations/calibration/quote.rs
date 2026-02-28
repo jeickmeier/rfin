@@ -48,7 +48,8 @@ fn parse_doc_clause(text: &str) -> PyResult<CdsDocClause> {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "RatesQuote",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyRatesQuote {
@@ -240,7 +241,8 @@ impl PyRatesQuote {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "CreditQuote",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCreditQuote {
@@ -405,7 +407,12 @@ impl PyCreditQuote {
     }
 }
 
-#[pyclass(module = "finstack.valuations.calibration", name = "VolQuote", frozen)]
+#[pyclass(
+    module = "finstack.valuations.calibration",
+    name = "VolQuote",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyVolQuote {
     pub(crate) inner: VolQuote,
@@ -499,7 +506,8 @@ impl PyVolQuote {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "InflationQuote",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyInflationQuote {
@@ -582,7 +590,8 @@ impl PyInflationQuote {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "MarketQuote",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyMarketQuote {

@@ -24,7 +24,13 @@ use pyo3::prelude::*;
 /// Examples:
 ///     >>> mode = AllocationMode.Sequential
 ///     >>> mode = AllocationMode.ProRata
-#[pyclass(module = "finstack.valuations", name = "AllocationMode", eq, eq_int)]
+#[pyclass(
+    module = "finstack.valuations",
+    name = "AllocationMode",
+    eq,
+    eq_int,
+    from_py_object
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum PyAllocationMode {
     /// Pay recipients sequentially in order
@@ -57,7 +63,13 @@ impl From<RustAllocationMode> for PyAllocationMode {
 /// Examples:
 ///     >>> ptype = PaymentType.Fee
 ///     >>> ptype = PaymentType.Interest
-#[pyclass(module = "finstack.valuations", name = "PaymentType", eq, eq_int)]
+#[pyclass(
+    module = "finstack.valuations",
+    name = "PaymentType",
+    eq,
+    eq_int,
+    from_py_object
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum PyPaymentType {
     /// Fee payment
@@ -110,7 +122,7 @@ impl From<RustPaymentType> for PyPaymentType {
 ///     >>> tier = WaterfallTier("fees", 1, PaymentType.Fee)
 ///     >>> tier.add_recipient(recipient)
 ///     >>> tier.set_allocation_mode(AllocationMode.Sequential)
-#[pyclass(module = "finstack.valuations", name = "WaterfallTier")]
+#[pyclass(module = "finstack.valuations", name = "WaterfallTier", from_py_object)]
 #[derive(Clone)]
 pub struct PyWaterfallTier {
     inner: RustWaterfallTier,

@@ -26,7 +26,12 @@ use std::str::FromStr;
 /// -------
 /// BusinessDayConvention
 ///     Convention token that can be supplied to scheduling helpers.
-#[pyclass(name = "BusinessDayConvention", module = "finstack.core.dates", frozen)]
+#[pyclass(
+    name = "BusinessDayConvention",
+    module = "finstack.core.dates",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyBusinessDayConvention {
     pub(crate) inner: BusinessDayConvention,
@@ -125,7 +130,12 @@ impl fmt::Display for PyBusinessDayConvention {
 /// -------
 /// Calendar
 ///     Calendar object exposing business-day queries and metadata.
-#[pyclass(name = "Calendar", module = "finstack.core.dates", unsendable)]
+#[pyclass(
+    name = "Calendar",
+    module = "finstack.core.dates",
+    unsendable,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyCalendar {
     pub(crate) code: Cow<'static, str>,

@@ -42,7 +42,8 @@ use time::Date;
 #[pyclass(
     module = "finstack.core.market_data.dividends",
     name = "DividendEvent",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyDividendEvent {
@@ -162,7 +163,8 @@ impl PyDividendEvent {
 #[pyclass(
     module = "finstack.core.market_data.dividends",
     name = "DividendSchedule",
-    unsendable
+    unsendable,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyDividendSchedule {

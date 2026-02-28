@@ -11,7 +11,8 @@ use pyo3::Bound;
     module = "finstack.statements.types",
     name = "PaymentPriority",
     eq,
-    eq_int
+    eq_int,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PyPaymentPriority {
@@ -53,7 +54,11 @@ impl From<PaymentPriority> for PyPaymentPriority {
 }
 
 /// Excess Cash Flow (ECF) sweep specification.
-#[pyclass(module = "finstack.statements.types", name = "EcfSweepSpec")]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "EcfSweepSpec",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyEcfSweepSpec {
     pub(crate) inner: EcfSweepSpec,
@@ -133,7 +138,11 @@ impl PyEcfSweepSpec {
 }
 
 /// PIK toggle specification.
-#[pyclass(module = "finstack.statements.types", name = "PikToggleSpec")]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "PikToggleSpec",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyPikToggleSpec {
     pub(crate) inner: PikToggleSpec,
@@ -191,7 +200,11 @@ impl PyPikToggleSpec {
 }
 
 /// Waterfall specification.
-#[pyclass(module = "finstack.statements.types", name = "WaterfallSpec")]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "WaterfallSpec",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyWaterfallSpec {
     pub(crate) inner: WaterfallSpec,

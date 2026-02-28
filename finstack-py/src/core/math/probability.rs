@@ -90,7 +90,8 @@ pub fn correlation_bounds_py(p1: f64, p2: f64) -> (f64, f64) {
 
 #[pyclass(
     name = "CorrelatedBernoulli",
-    module = "finstack.core.math.probability"
+    module = "finstack.core.math.probability",
+    from_py_object
 )]
 /// Correlated Bernoulli distribution for scenario generation.
 ///

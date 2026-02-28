@@ -16,7 +16,8 @@ use time::Month;
 #[pyclass(
     module = "finstack.valuations.covenants",
     name = "CovenantType",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCovenantType {
@@ -101,7 +102,12 @@ impl PyCovenantType {
     }
 }
 
-#[pyclass(module = "finstack.valuations.covenants", name = "Covenant", frozen)]
+#[pyclass(
+    module = "finstack.valuations.covenants",
+    name = "Covenant",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyCovenant {
     pub(crate) inner: Covenant,
@@ -138,7 +144,8 @@ impl PyCovenant {
 #[pyclass(
     module = "finstack.valuations.covenants",
     name = "CovenantSpec",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCovenantSpec {
@@ -162,7 +169,8 @@ impl PyCovenantSpec {
 #[pyclass(
     module = "finstack.valuations.covenants",
     name = "CovenantScope",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCovenantScope {
@@ -196,7 +204,8 @@ impl PyCovenantScope {
 #[pyclass(
     module = "finstack.valuations.covenants",
     name = "SpringingCondition",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PySpringingCondition {
@@ -237,7 +246,8 @@ impl PySpringingCondition {
 #[pyclass(
     module = "finstack.valuations.covenants",
     name = "CovenantForecastConfig",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCovenantForecastConfig {
@@ -281,7 +291,8 @@ impl PyCovenantForecastConfig {
 #[pyclass(
     module = "finstack.valuations.covenants",
     name = "CovenantForecast",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCovenantForecast {
@@ -418,7 +429,8 @@ pub fn py_forecast_covenant(
 #[pyclass(
     module = "finstack.valuations.covenants",
     name = "FutureBreach",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyFutureBreach {

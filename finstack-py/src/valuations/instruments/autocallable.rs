@@ -12,7 +12,8 @@ use std::sync::Arc;
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "Autocallable",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyAutocallable {
@@ -104,7 +105,7 @@ impl PyAutocallable {
         }
 
         // Parse final payoff type from dict or string
-        let payoff_type = if let Ok(dict) = final_payoff_type.downcast::<pyo3::types::PyDict>() {
+        let payoff_type = if let Ok(dict) = final_payoff_type.cast::<pyo3::types::PyDict>() {
             let py_type_val = dict
                 .get_item("type")?
                 .ok_or_else(|| PyValueError::new_err("Missing 'type' key in final_payoff_type"))?;

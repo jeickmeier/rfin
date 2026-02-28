@@ -50,7 +50,8 @@ use std::sync::Arc;
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "RevolvingCredit",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyRevolvingCredit {
@@ -557,7 +558,11 @@ impl PyEnhancedMonteCarloResult {
 ///
 /// Contains the present value, optional 3-factor path data, and cashflow schedule
 /// for a single simulated path.
-#[pyclass(module = "finstack.valuations.instruments", name = "PathResult")]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "PathResult",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPathResult {
     inner: finstack_valuations::instruments::fixed_income::revolving_credit::PathResult,
@@ -618,7 +623,8 @@ impl PyPathResult {
 /// and short rate factors, along with time points and payment dates.
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "ThreeFactorPathData"
+    name = "ThreeFactorPathData",
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyThreeFactorPathData {

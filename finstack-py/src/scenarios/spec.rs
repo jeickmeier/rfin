@@ -12,7 +12,12 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 
 /// Compounding convention for rate conversions.
-#[pyclass(module = "finstack.scenarios", name = "Compounding", frozen)]
+#[pyclass(
+    module = "finstack.scenarios",
+    name = "Compounding",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyCompounding {
     pub(crate) inner: Compounding,
@@ -25,7 +30,12 @@ impl PyCompounding {
 }
 
 /// Roll interpretation mode for time roll-forward operations.
-#[pyclass(module = "finstack.scenarios", name = "TimeRollMode", frozen)]
+#[pyclass(
+    module = "finstack.scenarios",
+    name = "TimeRollMode",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyTimeRollMode {
     pub(crate) inner: TimeRollMode,
@@ -160,7 +170,11 @@ impl PyCompounding {
 }
 
 /// Configuration for rate binding between curves and statement nodes.
-#[pyclass(module = "finstack.scenarios", name = "RateBindingSpec")]
+#[pyclass(
+    module = "finstack.scenarios",
+    name = "RateBindingSpec",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyRateBindingSpec {
     pub(crate) inner: RateBindingSpec,
@@ -309,7 +323,7 @@ impl PyRateBindingSpec {
 /// --------
 /// >>> from finstack.scenarios import OperationSpec, CurveKind
 /// >>> op = OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD_SOFR", 50.0)
-#[pyclass(module = "finstack.scenarios", name = "OperationSpec")]
+#[pyclass(module = "finstack.scenarios", name = "OperationSpec", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyOperationSpec {
     pub(crate) inner: OperationSpec,
@@ -846,7 +860,7 @@ impl PyOperationSpec {
 /// >>> from finstack.scenarios import ScenarioSpec, OperationSpec, CurveKind
 /// >>> ops = [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD_SOFR", 50.0)]
 /// >>> scenario = ScenarioSpec("stress_test", ops, name="Q1 Stress Test")
-#[pyclass(module = "finstack.scenarios", name = "ScenarioSpec")]
+#[pyclass(module = "finstack.scenarios", name = "ScenarioSpec", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyScenarioSpec {
     pub(crate) inner: ScenarioSpec,

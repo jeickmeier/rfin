@@ -31,11 +31,11 @@ use time::{Date, Duration, Month};
 /// TypeError
 ///     If `value` is not a `datetime.date` or `datetime.datetime`.
 pub(crate) fn py_to_date(value: &Bound<'_, PyAny>) -> PyResult<Date> {
-    if let Ok(date) = value.downcast::<PyDate>() {
+    if let Ok(date) = value.cast::<PyDate>() {
         return build_date(date.get_year(), date.get_month(), date.get_day());
     }
 
-    if let Ok(dt) = value.downcast::<PyDateTime>() {
+    if let Ok(dt) = value.cast::<PyDateTime>() {
         return build_date(dt.get_year(), dt.get_month(), dt.get_day());
     }
 

@@ -27,7 +27,12 @@ use std::sync::Arc;
 ///
 /// Examples:
 ///     >>> config = VarConfig(confidence_level=0.95, method=VarMethod.FULL_REVALUATION)
-#[pyclass(module = "finstack.valuations", name = "VarMethod", frozen)]
+#[pyclass(
+    module = "finstack.valuations",
+    name = "VarMethod",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy)]
 pub struct PyVarMethod {
     inner: VarMethod,
@@ -68,7 +73,12 @@ impl PyVarMethod {
 ///     >>> config = VarConfig(confidence_level=0.99)
 ///     >>> config.confidence_level
 ///     0.99
-#[pyclass(module = "finstack.valuations", name = "VarConfig", frozen)]
+#[pyclass(
+    module = "finstack.valuations",
+    name = "VarConfig",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyVarConfig {
     pub(crate) inner: VarConfig,
@@ -146,7 +156,12 @@ impl PyVarConfig {
 ///     -5432.10
 ///     >>> result.expected_shortfall
 ///     -6891.50
-#[pyclass(module = "finstack.valuations", name = "VarResult", frozen)]
+#[pyclass(
+    module = "finstack.valuations",
+    name = "VarResult",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyVarResult {
     inner: VarResult,
@@ -198,7 +213,12 @@ impl PyVarResult {
 ///     ...     factor=RiskFactorType.discount_rate("USD-OIS", 5.0),
 ///     ...     shift=0.01  # 1% increase
 ///     ... )
-#[pyclass(module = "finstack.valuations", name = "RiskFactorType", frozen)]
+#[pyclass(
+    module = "finstack.valuations",
+    name = "RiskFactorType",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyRiskFactorType {
     pub(crate) inner: RiskFactorType,
@@ -250,7 +270,12 @@ impl PyRiskFactorType {
 /// Args:
 ///     factor: Risk factor being shifted
 ///     shift: Absolute change in the factor
-#[pyclass(module = "finstack.valuations", name = "RiskFactorShift", frozen)]
+#[pyclass(
+    module = "finstack.valuations",
+    name = "RiskFactorShift",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyRiskFactorShift {
     pub(crate) inner: RiskFactorShift,
@@ -279,7 +304,12 @@ impl PyRiskFactorShift {
 /// Args:
 ///     date: Scenario date
 ///     shifts: List of risk factor shifts for this date
-#[pyclass(module = "finstack.valuations", name = "MarketScenario", frozen)]
+#[pyclass(
+    module = "finstack.valuations",
+    name = "MarketScenario",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyMarketScenario {
     pub(crate) inner: MarketScenario,
@@ -310,7 +340,12 @@ impl PyMarketScenario {
 ///     base_date: Base date (current market state)
 ///     window_days: Historical window size in days
 ///     scenarios: List of historical scenarios
-#[pyclass(module = "finstack.valuations", name = "MarketHistory", frozen)]
+#[pyclass(
+    module = "finstack.valuations",
+    name = "MarketHistory",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyMarketHistory {
     pub(crate) inner: Arc<MarketHistory>,
@@ -383,7 +418,7 @@ fn py_calculate_var(
     let mut handles = Vec::new();
     if let Ok(handle) = extract_instrument(&instruments) {
         handles.push(handle);
-    } else if let Ok(seq) = instruments.downcast::<PySequence>() {
+    } else if let Ok(seq) = instruments.cast::<PySequence>() {
         let length = seq.len().map_err(|e| {
             PyValueError::new_err(format!("Failed to inspect instruments sequence: {}", e))
         })?;

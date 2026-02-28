@@ -13,7 +13,8 @@ use std::sync::Arc;
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "LookbackType",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyLookbackType {
@@ -72,7 +73,8 @@ impl PyLookbackType {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "LookbackOption",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyLookbackOption {

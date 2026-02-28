@@ -21,7 +21,12 @@ use std::fmt;
 /// -------
 /// DayCount
 ///     Enum-like value describing the convention to apply.
-#[pyclass(name = "DayCount", module = "finstack.core.dates.daycount", frozen)]
+#[pyclass(
+    name = "DayCount",
+    module = "finstack.core.dates.daycount",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyDayCount {
     pub(crate) inner: DayCount,
@@ -184,7 +189,8 @@ impl fmt::Display for PyDayCount {
 #[pyclass(
     name = "DayCountContext",
     module = "finstack.core.dates.daycount",
-    unsendable
+    unsendable,
+    from_py_object
 )]
 #[derive(Clone, Default)]
 pub struct PyDayCountContext {
@@ -264,7 +270,8 @@ impl PyDayCountContext {
 #[pyclass(
     name = "DayCountContextState",
     module = "finstack.core.dates.daycount",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyDayCountContextState {
@@ -373,7 +380,8 @@ impl PyDayCountContextState {
 #[pyclass(
     name = "Thirty360Convention",
     module = "finstack.core.dates.daycount",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyThirty360Convention {

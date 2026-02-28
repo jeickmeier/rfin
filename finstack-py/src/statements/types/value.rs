@@ -13,7 +13,12 @@ use pyo3::Bound;
 /// Used in statement models to represent values that can be either:
 /// - Scalar: Dimensionless numbers (ratios, percentages, counts)
 /// - Amount: Currency-denominated values (Money)
-#[pyclass(module = "finstack.statements.types", name = "AmountOrScalar", frozen)]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "AmountOrScalar",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyAmountOrScalar {
     pub(crate) inner: AmountOrScalar,

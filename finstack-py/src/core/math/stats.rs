@@ -14,7 +14,8 @@ use pyo3::Bound;
 #[pyclass(
     name = "RealizedVarMethod",
     module = "finstack.core.math.stats",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 /// Methods for calculating realized variance from price or OHLC series.

@@ -50,7 +50,8 @@ fn parse_policy_from_str(value: &str) -> PyResult<FxConversionPolicy> {
 #[pyclass(
     module = "finstack.core.market_data.fx",
     name = "FxConversionPolicy",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyFxConversionPolicy {
@@ -147,7 +148,12 @@ impl PyFxConversionPolicy {
 /// -------
 /// FxConfig
 ///     Configuration object consumed by :class:`FxMatrix`.
-#[pyclass(module = "finstack.core.market_data.fx", name = "FxConfig", unsendable)]
+#[pyclass(
+    module = "finstack.core.market_data.fx",
+    name = "FxConfig",
+    unsendable,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyFxConfig {
     pub(crate) inner: FxConfig,
@@ -246,7 +252,12 @@ impl PyFxConfig {
 /// -------
 /// FxRateResult
 ///     Data class capturing the outcome of :py:meth:`FxMatrix.rate`.
-#[pyclass(module = "finstack.core.market_data.fx", name = "FxRateResult", frozen)]
+#[pyclass(
+    module = "finstack.core.market_data.fx",
+    name = "FxRateResult",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyFxRateResult {
     #[pyo3(get)]
@@ -301,7 +312,12 @@ pub(crate) fn parse_policy(
 /// -------
 /// FxMatrix
 ///     FX quote matrix capable of storing direct quotes and evaluating rates.
-#[pyclass(module = "finstack.core.market_data.fx", name = "FxMatrix", unsendable)]
+#[pyclass(
+    module = "finstack.core.market_data.fx",
+    name = "FxMatrix",
+    unsendable,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyFxMatrix {
     provider: Arc<SimpleFxProvider>,

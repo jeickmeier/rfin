@@ -14,7 +14,8 @@ use pyo3::{Bound, IntoPyObjectExt};
 #[pyclass(
     module = "finstack.statements.extensions",
     name = "AccountType",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyAccountType {
@@ -65,7 +66,11 @@ impl PyAccountType {
 /// Configuration for a single corkscrew account.
 ///
 /// Defines balance sheet account to validate roll-forward.
-#[pyclass(module = "finstack.statements.extensions", name = "CorkscrewAccount")]
+#[pyclass(
+    module = "finstack.statements.extensions",
+    name = "CorkscrewAccount",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyCorkscrewAccount {
     pub(crate) inner: CorkscrewAccount,
@@ -153,7 +158,11 @@ impl PyCorkscrewAccount {
 /// Configuration for corkscrew analysis.
 ///
 /// Defines accounts and validation parameters for balance sheet roll-forward.
-#[pyclass(module = "finstack.statements.extensions", name = "CorkscrewConfig")]
+#[pyclass(
+    module = "finstack.statements.extensions",
+    name = "CorkscrewConfig",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyCorkscrewConfig {
     pub(crate) inner: CorkscrewConfig,
@@ -277,7 +286,11 @@ impl PyCorkscrewConfig {
 /// Definition of a scorecard metric.
 ///
 /// Defines metric calculation formula, weight, and rating thresholds.
-#[pyclass(module = "finstack.statements.extensions", name = "ScorecardMetric")]
+#[pyclass(
+    module = "finstack.statements.extensions",
+    name = "ScorecardMetric",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyScorecardMetric {
     pub(crate) inner: ScorecardMetric,
@@ -394,7 +407,11 @@ impl PyScorecardMetric {
 /// Configuration for credit scorecard analysis.
 ///
 /// Defines rating scale, metrics, and thresholds for credit rating assignment.
-#[pyclass(module = "finstack.statements.extensions", name = "ScorecardConfig")]
+#[pyclass(
+    module = "finstack.statements.extensions",
+    name = "ScorecardConfig",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyScorecardConfig {
     pub(crate) inner: ScorecardConfig,

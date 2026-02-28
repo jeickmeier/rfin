@@ -22,7 +22,12 @@ use serde_json;
 ///     Whether explanation tracing is enabled.
 /// max_entries : int, optional
 ///     Maximum number of trace entries (caps memory usage).
-#[pyclass(name = "ExplainOpts", module = "finstack.core.explain", frozen)]
+#[pyclass(
+    name = "ExplainOpts",
+    module = "finstack.core.explain",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyExplainOpts {
     pub(crate) inner: ExplainOpts,
@@ -82,7 +87,11 @@ impl PyExplainOpts {
 ///
 /// Traces are organized by type (calibration, pricing, waterfall) and contain
 /// a sequence of domain-specific entries.
-#[pyclass(name = "ExplanationTrace", module = "finstack.core.explain")]
+#[pyclass(
+    name = "ExplanationTrace",
+    module = "finstack.core.explain",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyExplanationTrace {
     pub(crate) inner: ExplanationTrace,
@@ -163,7 +172,12 @@ impl PyExplanationTrace {
 }
 
 /// Domain-specific trace entry for explainability output.
-#[pyclass(name = "TraceEntry", module = "finstack.core.explain", frozen)]
+#[pyclass(
+    name = "TraceEntry",
+    module = "finstack.core.explain",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyTraceEntry {
     pub(crate) inner: TraceEntry,

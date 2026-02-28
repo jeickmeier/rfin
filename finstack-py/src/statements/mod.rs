@@ -94,7 +94,7 @@ fn promote_exports<'py>(
         return Ok(());
     }
     let submodule_any = parent.getattr(submodule_name)?;
-    let submodule = submodule_any.downcast::<PyModule>()?;
+    let submodule = submodule_any.cast::<PyModule>()?;
     for &name in exports {
         if submodule.hasattr(name)? {
             let attr = submodule.getattr(name)?;

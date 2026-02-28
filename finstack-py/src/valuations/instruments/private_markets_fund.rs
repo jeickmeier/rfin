@@ -16,7 +16,7 @@ fn parse_pmf_json(value: &Bound<'_, PyAny>) -> PyResult<PrivateMarketsFund> {
         return serde_json::from_str(json_str)
             .map_err(|err| PyValueError::new_err(err.to_string()));
     }
-    if let Ok(dict) = value.downcast::<PyDict>() {
+    if let Ok(dict) = value.cast::<PyDict>() {
         use crate::errors::PyContext;
         let py = dict.py();
         let json = pyo3::types::PyModule::import(py, "json")?
@@ -34,7 +34,8 @@ fn parse_pmf_json(value: &Bound<'_, PyAny>) -> PyResult<PrivateMarketsFund> {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "PrivateMarketsFund",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyPrivateMarketsFund {

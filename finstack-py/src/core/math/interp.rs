@@ -22,7 +22,12 @@ use pyo3::types::{PyList, PyModule, PyType};
 /// -------
 /// InterpStyle
 ///     Enum value defining interpolation behaviour.
-#[pyclass(module = "finstack.core.math.interp", name = "InterpStyle", frozen)]
+#[pyclass(
+    module = "finstack.core.math.interp",
+    name = "InterpStyle",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug)]
 pub struct PyInterpStyle {
     pub inner: InterpStyle,
@@ -130,7 +135,8 @@ impl PyInterpStyle {
 #[pyclass(
     module = "finstack.core.math.interp",
     name = "ExtrapolationPolicy",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyExtrapolationPolicy {

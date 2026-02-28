@@ -75,5 +75,4 @@ def open_store_from_env() -> Store:
     return store_cls.from_env()
 
 
-# Define __all__ after all functions are defined to include everything
-__all__ = [name for name in globals() if not name.startswith("_") and name not in ("TYPE_CHECKING",)]
+__all__ = [name for name in globals() if not name.startswith("_") and name not in ("TYPE_CHECKING",)]  # pyright: ignore[reportUnsupportedDunderAll]

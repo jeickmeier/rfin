@@ -19,7 +19,7 @@ use pyo3::Bound;
 use pythonize::depythonize;
 
 /// Identifier for a margin netting set.
-#[pyclass(module = "finstack.portfolio", name = "NettingSetId")]
+#[pyclass(module = "finstack.portfolio", name = "NettingSetId", from_py_object)]
 #[derive(Clone)]
 pub struct PyNettingSetId {
     pub(crate) inner: NettingSetId,
@@ -72,7 +72,11 @@ impl PyNettingSetId {
 }
 
 /// Margin results for a single netting set.
-#[pyclass(module = "finstack.portfolio", name = "NettingSetMargin")]
+#[pyclass(
+    module = "finstack.portfolio",
+    name = "NettingSetMargin",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyNettingSetMargin {
     pub(crate) inner: NettingSetMargin,
@@ -157,7 +161,11 @@ impl PyNettingSetMargin {
 }
 
 /// Portfolio-wide margin calculation results.
-#[pyclass(module = "finstack.portfolio", name = "PortfolioMarginResult")]
+#[pyclass(
+    module = "finstack.portfolio",
+    name = "PortfolioMarginResult",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPortfolioMarginResult {
     pub(crate) inner: PortfolioMarginResult,
@@ -288,7 +296,7 @@ impl PyNettingSetManager {
 }
 
 /// A netting set containing positions for margin aggregation.
-#[pyclass(module = "finstack.portfolio", name = "NettingSet")]
+#[pyclass(module = "finstack.portfolio", name = "NettingSet", from_py_object)]
 #[derive(Clone)]
 pub struct PyNettingSet {
     pub(crate) inner: NettingSet,

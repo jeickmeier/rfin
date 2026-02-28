@@ -13,7 +13,8 @@ use pyo3::Bound;
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "SolverKind",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct PySolverKind {
@@ -95,7 +96,8 @@ impl PySolverKind {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "CalibrationMethod",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PyCalibrationMethod {
@@ -212,7 +214,8 @@ impl PyCalibrationMethod {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "ValidationMode",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PyValidationMode {
@@ -290,7 +293,8 @@ impl PyValidationMode {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "RateBounds",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyRateBounds {
@@ -359,7 +363,8 @@ impl PyRateBounds {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "CalibrationConfig",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCalibrationConfig {

@@ -85,7 +85,8 @@ fn validate_vol_surface(
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "ValidationConfig",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyValidationConfig {

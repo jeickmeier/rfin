@@ -17,7 +17,12 @@ use std::sync::Arc;
 ///     >>> equity = Equity.builder("eq_us_apple").ticker("AAPL").currency("USD").shares(100).price(185.5).build()
 ///     >>> equity.shares
 ///     100.0
-#[pyclass(module = "finstack.valuations.instruments", name = "Equity", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "Equity",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyEquity {
     pub(crate) inner: Arc<Equity>,

@@ -11,7 +11,12 @@ use pyo3::Bound;
 /// Forecast method enumeration.
 ///
 /// Defines how to forecast future values for a node.
-#[pyclass(module = "finstack.statements.types", name = "ForecastMethod", frozen)]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "ForecastMethod",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug)]
 pub struct PyForecastMethod {
     pub(crate) inner: ForecastMethod,
@@ -70,7 +75,12 @@ impl PyForecastMethod {
 /// Seasonal forecast mode.
 ///
 /// Determines how seasonal patterns are applied.
-#[pyclass(module = "finstack.statements.types", name = "SeasonalMode", frozen)]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "SeasonalMode",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug)]
 pub struct PySeasonalMode {
     pub(crate) inner: SeasonalMode,
@@ -103,7 +113,11 @@ impl PySeasonalMode {
 ///
 /// Defines how to forecast future values for a node using a specific method
 /// and parameters.
-#[pyclass(module = "finstack.statements.types", name = "ForecastSpec")]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "ForecastSpec",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyForecastSpec {
     pub(crate) inner: ForecastSpec,

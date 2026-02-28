@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 
-#[pyclass(name = "Rng", module = "finstack.core.math.random")]
+#[pyclass(name = "Rng", module = "finstack.core.math.random", from_py_object)]
 /// Production-grade pseudo-random number generator backed by PCG64.
 ///
 /// PCG64 (Permuted Congruential Generator) provides excellent statistical

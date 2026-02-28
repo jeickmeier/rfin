@@ -18,7 +18,11 @@ use pyo3::Bound;
 ///     Money(USD, 10000000.0)
 ///     >>> results.get_metric("dv01")
 ///     125.0
-#[pyclass(module = "finstack.portfolio", name = "PortfolioResult")]
+#[pyclass(
+    module = "finstack.portfolio",
+    name = "PortfolioResult",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPortfolioResult {
     pub(crate) inner: PortfolioResult,

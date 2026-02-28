@@ -29,7 +29,8 @@ use std::str::FromStr;
 #[pyclass(
     module = "finstack.statements.analysis",
     name = "ParameterSpec",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyParameterSpec {
@@ -132,7 +133,8 @@ impl PyParameterSpec {
 #[pyclass(
     module = "finstack.statements.analysis",
     name = "SensitivityMode",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy)]
 pub struct PySensitivityMode {
@@ -313,7 +315,12 @@ impl PySensitivityResult {
 }
 
 /// Tornado chart entry summarizing downside and upside impacts.
-#[pyclass(module = "finstack.statements.analysis", name = "TornadoEntry", frozen)]
+#[pyclass(
+    module = "finstack.statements.analysis",
+    name = "TornadoEntry",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyTornadoEntry {
     parameter_id: String,

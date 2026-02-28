@@ -31,7 +31,12 @@ use std::sync::Arc;
 ///
 ///     >>> # Key-rate bumps at specific tenors
 ///     >>> bump = BumpRequest.tenors([(2.0, 5.0), (5.0, 10.0), (10.0, 15.0)])
-#[pyclass(module = "finstack.valuations.bumps", name = "BumpRequest", frozen)]
+#[pyclass(
+    module = "finstack.valuations.bumps",
+    name = "BumpRequest",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyBumpRequest {
     pub(crate) inner: BumpRequest,

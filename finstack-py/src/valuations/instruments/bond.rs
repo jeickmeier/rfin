@@ -39,7 +39,12 @@ use finstack_valuations::cashflow::builder::specs::{
 };
 
 /// Fixed-income bond instrument (builder-only API).
-#[pyclass(module = "finstack.valuations.instruments", name = "Bond", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "Bond",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyBond {
     pub(crate) inner: Arc<Bond>,

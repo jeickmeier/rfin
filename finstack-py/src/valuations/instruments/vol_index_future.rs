@@ -54,7 +54,8 @@ fn parse_position(label: Option<&str>) -> PyResult<Position> {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "VolatilityIndexFuture",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyVolatilityIndexFuture {

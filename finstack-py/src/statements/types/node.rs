@@ -15,7 +15,12 @@ use pyo3::Bound;
 /// Node computation type.
 ///
 /// Determines how a node's value is computed.
-#[pyclass(module = "finstack.statements.types", name = "NodeType", frozen)]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "NodeType",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug)]
 pub struct PyNodeType {
     pub(crate) inner: NodeType,
@@ -54,7 +59,11 @@ impl PyNodeType {
 /// Node specification.
 ///
 /// Specifies a single node (metric/line item) in a financial model.
-#[pyclass(module = "finstack.statements.types", name = "NodeSpec")]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "NodeSpec",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyNodeSpec {
     pub(crate) inner: NodeSpec,
@@ -334,14 +343,14 @@ fn parse_period_values(
 ) -> PyResult<IndexMap<PeriodId, finstack_statements::types::AmountOrScalar>> {
     let mut map = IndexMap::new();
 
-    if let Ok(dict) = values.downcast::<PyDict>() {
+    if let Ok(dict) = values.cast::<PyDict>() {
         // Dict format
         for (key, value) in dict.iter() {
             let period_id: PyPeriodId = key.extract()?;
             let amount: PyAmountOrScalar = value.extract()?;
             map.insert(period_id.inner, amount.inner);
         }
-    } else if let Ok(list) = values.downcast::<PyList>() {
+    } else if let Ok(list) = values.cast::<PyList>() {
         // List of tuples format
         for (idx, item) in list.iter().enumerate() {
             let (period, amount) =

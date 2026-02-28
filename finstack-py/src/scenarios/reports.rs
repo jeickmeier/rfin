@@ -20,7 +20,12 @@ use time::macros::date;
 ///     Warnings generated during application (non-fatal).
 /// rounding_context : str | None
 ///     Rounding context stamp (for determinism tracking).
-#[pyclass(module = "finstack.scenarios", name = "ApplicationReport", frozen)]
+#[pyclass(
+    module = "finstack.scenarios",
+    name = "ApplicationReport",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyApplicationReport {
     pub(crate) inner: ApplicationReport,
@@ -97,7 +102,12 @@ impl PyApplicationReport {
 ///     Total P&L from carry by currency (ISO 4217 code -> amount).
 /// total_mv_change : dict[str, float]
 ///     Total P&L from market value changes by currency.
-#[pyclass(module = "finstack.scenarios", name = "RollForwardReport", frozen)]
+#[pyclass(
+    module = "finstack.scenarios",
+    name = "RollForwardReport",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyRollForwardReport {
     pub(crate) inner: RollForwardReport,

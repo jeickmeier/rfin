@@ -138,7 +138,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
 
     // Re-export selected helpers at package root for convenience
     let dates_binding = core_mod.getattr("dates")?;
-    let dates_mod = dates_binding.downcast::<PyModule>()?;
+    let dates_mod = dates_binding.cast::<PyModule>()?;
     let adjust = dates_mod.getattr("adjust")?;
     core_mod.setattr("adjust", &adjust)?;
     m.setattr("adjust", adjust)?;
@@ -170,9 +170,9 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
 
     // Convenience re-exports for covenant forecasting at package root
     if let Ok(valuations_mod) = m.getattr("valuations") {
-        if let Ok(val_mod) = valuations_mod.downcast::<PyModule>() {
+        if let Ok(val_mod) = valuations_mod.cast::<PyModule>() {
             if let Ok(cov_mod) = val_mod.getattr("covenants") {
-                let cov_mod = cov_mod.downcast::<PyModule>()?;
+                let cov_mod = cov_mod.cast::<PyModule>()?;
                 for attr in [
                     "CovenantType",
                     "Covenant",

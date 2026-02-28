@@ -6,7 +6,12 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
 
-#[pyclass(module = "finstack.core.market_data.bumps", name = "BumpMode", frozen)]
+#[pyclass(
+    module = "finstack.core.market_data.bumps",
+    name = "BumpMode",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyBumpMode {
     pub(crate) inner: BumpMode,
@@ -33,7 +38,12 @@ impl PyBumpMode {
     }
 }
 
-#[pyclass(module = "finstack.core.market_data.bumps", name = "BumpUnits", frozen)]
+#[pyclass(
+    module = "finstack.core.market_data.bumps",
+    name = "BumpUnits",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyBumpUnits {
     pub(crate) inner: BumpUnits,
@@ -72,7 +82,12 @@ impl PyBumpUnits {
     }
 }
 
-#[pyclass(module = "finstack.core.market_data.bumps", name = "BumpType", frozen)]
+#[pyclass(
+    module = "finstack.core.market_data.bumps",
+    name = "BumpType",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PyBumpType {
     pub(crate) inner: BumpType,
@@ -141,7 +156,12 @@ impl PyBumpType {
     }
 }
 
-#[pyclass(module = "finstack.core.market_data.bumps", name = "BumpSpec", frozen)]
+#[pyclass(
+    module = "finstack.core.market_data.bumps",
+    name = "BumpSpec",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyBumpSpec {
     pub(crate) inner: BumpSpec,
@@ -273,7 +293,8 @@ impl PyBumpSpec {
 #[pyclass(
     module = "finstack.core.market_data.bumps",
     name = "MarketBump",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyMarketBump {

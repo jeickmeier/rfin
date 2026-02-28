@@ -46,7 +46,8 @@ fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "CdsTranche",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCDSTranche {

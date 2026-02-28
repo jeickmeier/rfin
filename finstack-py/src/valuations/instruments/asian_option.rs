@@ -13,7 +13,8 @@ use std::sync::Arc;
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "AveragingMethod",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyAveragingMethod {
@@ -78,7 +79,8 @@ impl PyAveragingMethod {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "AsianOption",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyAsianOption {

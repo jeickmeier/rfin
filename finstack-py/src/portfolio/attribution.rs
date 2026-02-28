@@ -15,7 +15,11 @@ use pyo3::types::{PyAny, PyDict, PyModule};
 use pyo3::Bound;
 
 /// Portfolio-level P&L attribution result.
-#[pyclass(module = "finstack.portfolio", name = "PortfolioAttribution")]
+#[pyclass(
+    module = "finstack.portfolio",
+    name = "PortfolioAttribution",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPortfolioAttribution {
     pub(crate) inner: PortfolioAttribution,

@@ -44,7 +44,12 @@ use std::sync::Arc;
 ///     ... }''')
 ///     >>> loan.instrument_id
 ///     'loan_001'
-#[pyclass(module = "finstack.valuations.instruments", name = "TermLoan", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "TermLoan",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyTermLoan {
     pub(crate) inner: Arc<TermLoan>,

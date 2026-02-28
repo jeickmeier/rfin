@@ -31,7 +31,8 @@ use pyo3::Bound;
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "SABRModelParams",
-    frozen
+    frozen,
+    from_py_object,
 )]
 #[derive(Clone, Debug)]
 pub struct PySABRModelParams {
@@ -168,7 +169,8 @@ impl PySABRModelParams {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "SABRMarketData",
-    frozen
+    frozen,
+    from_py_object,
 )]
 #[derive(Clone, Debug)]
 pub struct PySABRMarketData {

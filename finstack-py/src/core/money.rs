@@ -31,7 +31,7 @@ use std::fmt;
 /// -------
 /// Money
 ///     Money wrapper supporting arithmetic, formatting, and tuple conversions.
-#[pyclass(name = "Money", module = "finstack.core.money")]
+#[pyclass(name = "Money", module = "finstack.core.money", from_py_object)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PyMoney {
     pub(crate) inner: Money,
@@ -478,7 +478,7 @@ pub(crate) fn extract_money(value: &Bound<'_, PyAny>) -> PyResult<Money> {
         return Ok(mny.inner);
     }
 
-    if let Ok(tuple) = value.downcast::<pyo3::types::PyTuple>() {
+    if let Ok(tuple) = value.cast::<pyo3::types::PyTuple>() {
         if tuple.len() == 2 {
             let amount = tuple.get_item(0)?.extract::<f64>()?;
             let currency_obj = tuple.get_item(1)?;

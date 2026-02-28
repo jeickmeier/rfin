@@ -76,7 +76,8 @@ fn parse_extrap_enum(value: Option<&str>) -> PyResult<ExtrapolationPolicy> {
 ///     Curve object exposing discount factor, zero rate, and forward helpers.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "DiscountCurve"
+    name = "DiscountCurve",
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyDiscountCurve {
@@ -524,7 +525,7 @@ impl PyDiscountCurve {
         for item in flows_iter {
             let item = item?;
             // Expect tuple (date, money_like)
-            if let Ok(tuple) = item.downcast::<pyo3::types::PyTuple>() {
+            if let Ok(tuple) = item.cast::<pyo3::types::PyTuple>() {
                 if tuple.len() == 2 {
                     let date = py_to_date(&tuple.get_item(0).context("date")?)
                         .context("cash_flow_date")?;
@@ -576,7 +577,8 @@ impl PyDiscountCurve {
 ///     Forward curve wrapper with ``rate`` evaluation helpers.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "ForwardCurve"
+    name = "ForwardCurve",
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyForwardCurve {
@@ -774,7 +776,8 @@ impl PyForwardCurve {
 ///     Hazard curve wrapper offering survival and default probability methods.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "HazardCurve"
+    name = "HazardCurve",
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyHazardCurve {
@@ -969,7 +972,8 @@ impl PyHazardCurve {
 ///     Inflation curve wrapper exposing CPI and inflation rate calculations.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "InflationCurve"
+    name = "InflationCurve",
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyInflationCurve {
@@ -1109,7 +1113,8 @@ impl PyInflationCurve {
 ///     Base correlation wrapper capable of interpolating tranche correlations.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "BaseCorrelationCurve"
+    name = "BaseCorrelationCurve",
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyBaseCorrelationCurve {
@@ -1209,7 +1214,8 @@ impl PyBaseCorrelationCurve {
 ///     Bundle of credit index market data.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "CreditIndexData"
+    name = "CreditIndexData",
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyCreditIndexData {
@@ -1364,7 +1370,8 @@ impl PyCreditIndexData {
 ///     Volatility index curve wrapper.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "VolatilityIndexCurve"
+    name = "VolatilityIndexCurve",
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyVolatilityIndexCurve {

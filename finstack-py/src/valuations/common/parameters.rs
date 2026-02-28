@@ -14,7 +14,8 @@ use pyo3::Bound;
 #[pyclass(
     module = "finstack.valuations.common.parameters",
     name = "OptionType",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyOptionType {
@@ -83,7 +84,8 @@ impl From<OptionType> for PyOptionType {
 #[pyclass(
     module = "finstack.valuations.common.parameters",
     name = "ExerciseStyle",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyExerciseStyle {
@@ -142,7 +144,8 @@ impl From<PyExerciseStyle> for ExerciseStyle {
 #[pyclass(
     module = "finstack.valuations.common.parameters",
     name = "SettlementType",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PySettlementType {
@@ -193,7 +196,8 @@ impl PySettlementType {
 #[pyclass(
     module = "finstack.valuations.common.parameters",
     name = "PayReceive",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyPayReceive {
@@ -260,7 +264,8 @@ impl From<PyPayReceive> for PayReceive {
 #[pyclass(
     module = "finstack.valuations.common.parameters",
     name = "BarrierType",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyBarrierType {

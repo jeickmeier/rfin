@@ -14,7 +14,11 @@ use pyo3::Bound;
 /// Capital structure specification.
 ///
 /// Defines debt and equity instruments in a model.
-#[pyclass(module = "finstack.statements.types", name = "CapitalStructureSpec")]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "CapitalStructureSpec",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyCapitalStructureSpec {
     pub(crate) inner: CapitalStructureSpec,
@@ -140,7 +144,11 @@ impl PyCapitalStructureSpec {
 /// Debt instrument specification.
 ///
 /// Represents a debt instrument in a capital structure.
-#[pyclass(module = "finstack.statements.types", name = "DebtInstrumentSpec")]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "DebtInstrumentSpec",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyDebtInstrumentSpec {
     pub(crate) inner: DebtInstrumentSpec,
@@ -251,7 +259,11 @@ impl PyDebtInstrumentSpec {
 /// Financial model specification.
 ///
 /// Top-level specification for a complete financial statement model.
-#[pyclass(module = "finstack.statements.types", name = "FinancialModelSpec")]
+#[pyclass(
+    module = "finstack.statements.types",
+    name = "FinancialModelSpec",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyFinancialModelSpec {
     pub(crate) inner: FinancialModelSpec,

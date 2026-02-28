@@ -55,7 +55,8 @@ use std::sync::Arc;
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "BondFuture",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyBondFuture {
@@ -82,7 +83,11 @@ impl PyBondFuture {
 ///     ust_10y = BondFuture.ust_10y_specs()
 ///     bund = BondFuture.bund_specs()
 ///     gilt = BondFuture.gilt_specs()
-#[pyclass(module = "finstack.valuations.instruments", name = "BondFutureSpecs")]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "BondFutureSpecs",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyBondFutureSpecs {
     pub(crate) inner: BondFutureSpecs,
@@ -367,7 +372,7 @@ impl PyBondFutureBuilder {
     ) -> PyResult<PyRefMut<'py, Self>> {
         let mut bonds = Vec::new();
         for item in basket.iter() {
-            let dict = item.downcast::<pyo3::types::PyDict>()?;
+            let dict = item.cast::<pyo3::types::PyDict>()?;
             let bond_id = dict
                 .get_item("bond_id")?
                 .ok_or_else(|| PyValueError::new_err("Each basket item must have 'bond_id'"))?

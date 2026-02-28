@@ -36,7 +36,12 @@ use std::str::FromStr;
 /// -------
 /// CurveId
 ///     Curve identifier instance.
-#[pyclass(name = "CurveId", module = "finstack.core.types", frozen)]
+#[pyclass(
+    name = "CurveId",
+    module = "finstack.core.types",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyCurveId {
     pub(crate) inner: CurveId,
@@ -91,7 +96,12 @@ impl PyCurveId {
 }
 
 /// Type-safe identifier for financial instruments.
-#[pyclass(name = "InstrumentId", module = "finstack.core.types", frozen)]
+#[pyclass(
+    name = "InstrumentId",
+    module = "finstack.core.types",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyInstrumentId {
     pub(crate) inner: InstrumentId,
@@ -145,7 +155,12 @@ impl PyInstrumentId {
 }
 
 /// Type-safe identifier for market indices.
-#[pyclass(name = "IndexId", module = "finstack.core.types", frozen)]
+#[pyclass(
+    name = "IndexId",
+    module = "finstack.core.types",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyIndexId {
     pub(crate) inner: IndexId,
@@ -199,7 +214,12 @@ impl PyIndexId {
 }
 
 /// Type-safe identifier for market prices/scalars.
-#[pyclass(name = "PriceId", module = "finstack.core.types", frozen)]
+#[pyclass(
+    name = "PriceId",
+    module = "finstack.core.types",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyPriceId {
     pub(crate) inner: PriceId,
@@ -253,7 +273,12 @@ impl PyPriceId {
 }
 
 /// Type-safe identifier for underlying assets.
-#[pyclass(name = "UnderlyingId", module = "finstack.core.types", frozen)]
+#[pyclass(
+    name = "UnderlyingId",
+    module = "finstack.core.types",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyUnderlyingId {
     pub(crate) inner: UnderlyingId,
@@ -321,7 +346,7 @@ impl PyUnderlyingId {
 /// -------
 /// Rate
 ///     Rate instance.
-#[pyclass(name = "Rate", module = "finstack.core.types", frozen)]
+#[pyclass(name = "Rate", module = "finstack.core.types", frozen, from_py_object)]
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct PyRate {
     pub(crate) inner: Rate,
@@ -443,7 +468,7 @@ impl PyRate {
 /// -------
 /// Bps
 ///     Basis points instance.
-#[pyclass(name = "Bps", module = "finstack.core.types", frozen)]
+#[pyclass(name = "Bps", module = "finstack.core.types", frozen, from_py_object)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PyBps {
     pub(crate) inner: Bps,
@@ -555,7 +580,12 @@ impl PyBps {
 /// -------
 /// Percentage
 ///     Percentage instance.
-#[pyclass(name = "Percentage", module = "finstack.core.types", frozen)]
+#[pyclass(
+    name = "Percentage",
+    module = "finstack.core.types",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct PyPercentage {
     pub(crate) inner: finstack_core::types::Percentage,
@@ -661,7 +691,12 @@ impl PyPercentage {
 // Credit ratings
 // ============================================================================
 
-#[pyclass(name = "RatingNotch", module = "finstack.core.types", frozen)]
+#[pyclass(
+    name = "RatingNotch",
+    module = "finstack.core.types",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyRatingNotch {
     pub(crate) inner: RatingNotch,
@@ -743,7 +778,12 @@ impl fmt::Display for PyRatingNotch {
     }
 }
 
-#[pyclass(name = "CreditRating", module = "finstack.core.types", frozen)]
+#[pyclass(
+    name = "CreditRating",
+    module = "finstack.core.types",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyCreditRating {
     pub(crate) inner: CreditRating,
@@ -847,7 +887,12 @@ impl fmt::Display for PyCreditRating {
     }
 }
 
-#[pyclass(name = "NotchedRating", module = "finstack.core.types", frozen)]
+#[pyclass(
+    name = "NotchedRating",
+    module = "finstack.core.types",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyNotchedRating {
     pub(crate) inner: NotchedRating,
@@ -949,7 +994,12 @@ impl fmt::Display for PyNotchedRating {
     }
 }
 
-#[pyclass(name = "RatingLabel", module = "finstack.core.types", frozen)]
+#[pyclass(
+    name = "RatingLabel",
+    module = "finstack.core.types",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyRatingLabel {
     pub(crate) inner: RatingLabel,
@@ -1019,7 +1069,11 @@ impl PyRatingLabel {
     }
 }
 
-#[pyclass(name = "RatingFactorTable", module = "finstack.core.types")]
+#[pyclass(
+    name = "RatingFactorTable",
+    module = "finstack.core.types",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyRatingFactorTable {
     pub(crate) inner: RatingFactorTable,

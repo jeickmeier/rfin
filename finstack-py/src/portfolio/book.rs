@@ -11,7 +11,7 @@ use pythonize::pythonize;
 use finstack_portfolio::{Book, BookId};
 
 /// Book identifier.
-#[pyclass(module = "finstack.portfolio", name = "BookId")]
+#[pyclass(module = "finstack.portfolio", name = "BookId", from_py_object)]
 #[derive(Clone)]
 pub struct PyBookId {
     pub(crate) inner: BookId,
@@ -48,7 +48,7 @@ impl PyBookId {
 }
 
 /// A book in the portfolio hierarchy.
-#[pyclass(module = "finstack.portfolio", name = "Book")]
+#[pyclass(module = "finstack.portfolio", name = "Book", from_py_object)]
 #[derive(Clone)]
 pub struct PyBook {
     pub(crate) inner: Book,

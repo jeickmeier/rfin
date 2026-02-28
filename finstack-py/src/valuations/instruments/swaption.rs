@@ -28,7 +28,12 @@ fn parse_exercise(label: Option<&str>) -> PyResult<SwaptionExercise> {
 }
 
 /// Swaption bindings with payer/receiver constructors.
-#[pyclass(module = "finstack.valuations.instruments", name = "Swaption", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "Swaption",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PySwaption {
     pub(crate) inner: Arc<Swaption>,

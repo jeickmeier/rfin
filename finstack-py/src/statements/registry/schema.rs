@@ -10,7 +10,12 @@ use pyo3::types::{PyAny, PyDict, PyModule, PyType};
 use pyo3::{Bound, IntoPyObjectExt};
 
 /// Unit type for metric values.
-#[pyclass(module = "finstack.statements.registry", name = "UnitType", frozen)]
+#[pyclass(
+    module = "finstack.statements.registry",
+    name = "UnitType",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyUnitType {
     pub(crate) inner: UnitType,
@@ -66,7 +71,11 @@ impl PyUnitType {
 }
 
 /// Individual metric definition.
-#[pyclass(module = "finstack.statements.registry", name = "MetricDefinition")]
+#[pyclass(
+    module = "finstack.statements.registry",
+    name = "MetricDefinition",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyMetricDefinition {
     pub(crate) inner: MetricDefinition,
@@ -231,7 +240,11 @@ impl PyMetricDefinition {
 }
 
 /// Top-level metric registry schema.
-#[pyclass(module = "finstack.statements.registry", name = "MetricRegistry")]
+#[pyclass(
+    module = "finstack.statements.registry",
+    name = "MetricRegistry",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyMetricRegistry {
     pub(crate) inner: MetricRegistry,

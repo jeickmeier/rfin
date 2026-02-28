@@ -15,7 +15,8 @@ use pyo3::Bound;
 #[pyclass(
     module = "finstack.core.market_data.diff",
     name = "TenorSamplingMethod",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct PyTenorSamplingMethod {

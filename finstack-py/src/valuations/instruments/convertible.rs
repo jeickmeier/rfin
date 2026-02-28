@@ -60,7 +60,8 @@ fn describe_policy(policy: &ConversionPolicy) -> String {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "ConversionEvent",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyConversionEvent {
@@ -112,7 +113,8 @@ impl PyConversionEvent {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "ConversionPolicy",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyConversionPolicy {
@@ -211,7 +213,8 @@ impl PyConversionPolicy {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "AntiDilutionPolicy",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyAntiDilutionPolicy {
@@ -250,7 +253,8 @@ impl PyAntiDilutionPolicy {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "DividendAdjustment",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyDividendAdjustment {
@@ -289,7 +293,8 @@ impl PyDividendAdjustment {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "ConversionSpec",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyConversionSpec {
@@ -363,7 +368,8 @@ impl PyConversionSpec {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "ConvertibleBond",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyConvertibleBond {

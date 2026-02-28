@@ -12,7 +12,8 @@ use crate::core::money::extract_money;
 #[pyclass(
     name = "AmortizationSpec",
     module = "finstack.valuations.cashflow.builder",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyAmortizationSpec {

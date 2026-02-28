@@ -16,7 +16,8 @@ use pyo3::Bound;
 #[pyclass(
     module = "finstack.statements.analysis",
     name = "ExplanationStep",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyExplanationStep {
@@ -83,7 +84,12 @@ impl PyExplanationStep {
 }
 
 /// Detailed explanation of a node's calculation.
-#[pyclass(module = "finstack.statements.analysis", name = "Explanation", frozen)]
+#[pyclass(
+    module = "finstack.statements.analysis",
+    name = "Explanation",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyExplanation {
     inner: Explanation,
@@ -235,7 +241,8 @@ impl PyFormulaExplainer {
 #[pyclass(
     module = "finstack.statements.analysis",
     name = "DependencyTree",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyDependencyTree {

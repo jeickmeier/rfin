@@ -39,7 +39,8 @@ fn parse_side(label: Option<&str>) -> PyResult<PayReceive> {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "InflationSwap",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyInflationSwap {

@@ -39,7 +39,12 @@ const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 ///     ... )
 ///     >>> itraxx.fixed_coupon_bp
 ///     100.0
-#[pyclass(module = "finstack.valuations.instruments", name = "CDSIndex", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CDSIndex",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyCdsIndex {
     pub(crate) inner: Arc<CDSIndex>,

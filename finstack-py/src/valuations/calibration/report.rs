@@ -7,7 +7,8 @@ use pythonize::pythonize;
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "CalibrationReport",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCalibrationReport {

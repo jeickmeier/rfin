@@ -13,7 +13,12 @@ use pyo3::{wrap_pyfunction, Bound};
 use std::fmt::Write as FmtWrite;
 
 /// Alignment options for table columns.
-#[pyclass(module = "finstack.statements.analysis", name = "Alignment", frozen)]
+#[pyclass(
+    module = "finstack.statements.analysis",
+    name = "Alignment",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy)]
 pub struct PyAlignment {
     inner: Alignment,
@@ -294,7 +299,11 @@ impl PyCreditAssessmentReport {
 }
 
 /// Debt summary report providing a quick view of capital structure.
-#[pyclass(module = "finstack.statements.analysis", name = "DebtSummaryReport")]
+#[pyclass(
+    module = "finstack.statements.analysis",
+    name = "DebtSummaryReport",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyDebtSummaryReport {
     model: PyFinancialModelSpec,

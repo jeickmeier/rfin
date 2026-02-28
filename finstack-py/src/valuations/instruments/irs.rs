@@ -32,7 +32,8 @@ use std::sync::Arc;
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "PayReceive",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyPayReceive {
@@ -110,7 +111,8 @@ impl fmt::Display for PyPayReceive {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "InterestRateSwap",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyInterestRateSwap {

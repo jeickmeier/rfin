@@ -180,14 +180,14 @@ impl PyModelBuilder {
 
         let mut values_vec = Vec::new();
 
-        if let Ok(dict) = values.downcast::<PyDict>() {
+        if let Ok(dict) = values.cast::<PyDict>() {
             // Dict format
             for (key, value) in dict.iter() {
                 let period_id: PyPeriodId = key.extract()?;
                 let money: PyMoney = value.extract()?;
                 values_vec.push((period_id.inner, money.inner));
             }
-        } else if let Ok(list) = values.downcast::<PyList>() {
+        } else if let Ok(list) = values.cast::<PyList>() {
             // List of tuples format
             for (idx, item) in list.iter().enumerate() {
                 let (period, money) = item.extract::<(PyPeriodId, PyMoney)>().map_err(|err| {
@@ -230,14 +230,14 @@ impl PyModelBuilder {
 
         let mut values_vec = Vec::new();
 
-        if let Ok(dict) = values.downcast::<PyDict>() {
+        if let Ok(dict) = values.cast::<PyDict>() {
             // Dict format
             for (key, value) in dict.iter() {
                 let period_id: PyPeriodId = key.extract()?;
                 let scalar: f64 = value.extract()?;
                 values_vec.push((period_id.inner, scalar));
             }
-        } else if let Ok(list) = values.downcast::<PyList>() {
+        } else if let Ok(list) = values.cast::<PyList>() {
             // List of tuples format
             for (idx, item) in list.iter().enumerate() {
                 let (period, scalar) = item.extract::<(PyPeriodId, f64)>().map_err(|err| {
@@ -770,14 +770,14 @@ impl PyModelBuilder {
 fn parse_period_values(values: &Bound<'_, PyAny>) -> PyResult<Vec<(PeriodId, AmountOrScalar)>> {
     let mut vec = Vec::new();
 
-    if let Ok(dict) = values.downcast::<PyDict>() {
+    if let Ok(dict) = values.cast::<PyDict>() {
         // Dict format
         for (key, value) in dict.iter() {
             let period_id: crate::core::dates::periods::PyPeriodId = key.extract()?;
             let amount: PyAmountOrScalar = value.extract()?;
             vec.push((period_id.inner, amount.inner));
         }
-    } else if let Ok(list) = values.downcast::<PyList>() {
+    } else if let Ok(list) = values.cast::<PyList>() {
         // List of tuples format
         for (idx, item) in list.iter().enumerate() {
             let (period, amount) = item

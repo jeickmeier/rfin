@@ -9,7 +9,11 @@ use pyo3::types::PyModule;
 use pyo3::{Bound, PyResult};
 
 /// Configuration for variance analysis (Python wrapper).
-#[pyclass(module = "finstack.statements.analysis", name = "VarianceConfig")]
+#[pyclass(
+    module = "finstack.statements.analysis",
+    name = "VarianceConfig",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyVarianceConfig {
     pub(crate) inner: VarianceConfig,
@@ -77,7 +81,12 @@ impl PyVarianceConfig {
 }
 
 /// One row of variance output.
-#[pyclass(module = "finstack.statements.analysis", name = "VarianceRow", frozen)]
+#[pyclass(
+    module = "finstack.statements.analysis",
+    name = "VarianceRow",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyVarianceRow {
     pub(crate) inner: finstack_statements::analysis::VarianceRow,
@@ -129,7 +138,8 @@ impl PyVarianceRow {
 #[pyclass(
     module = "finstack.statements.analysis",
     name = "VarianceReport",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyVarianceReport {
@@ -178,7 +188,12 @@ impl PyVarianceReport {
 }
 
 /// Bridge step entry for variance decomposition.
-#[pyclass(module = "finstack.statements.analysis", name = "BridgeStep", frozen)]
+#[pyclass(
+    module = "finstack.statements.analysis",
+    name = "BridgeStep",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyBridgeStep {
     inner: BridgeStep,
@@ -203,7 +218,12 @@ impl PyBridgeStep {
 }
 
 /// Bridge chart for a single metric and period.
-#[pyclass(module = "finstack.statements.analysis", name = "BridgeChart", frozen)]
+#[pyclass(
+    module = "finstack.statements.analysis",
+    name = "BridgeChart",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyBridgeChart {
     inner: BridgeChart,

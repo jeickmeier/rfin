@@ -25,7 +25,12 @@ use std::sync::Arc;
 ///     >>> spot = FxSpot.builder("eurusd_spot").base_currency("EUR").quote_currency("USD").spot_rate(1.095).build()
 ///     >>> spot.pair_name
 ///     'EURUSD'
-#[pyclass(module = "finstack.valuations.instruments", name = "FxSpot", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "FxSpot",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyFxSpot {
     pub(crate) inner: Arc<FxSpot>,
@@ -380,7 +385,12 @@ impl fmt::Display for PyFxSpot {
 ///     >>> option = FxOption.builder("eurusd_call").base_currency("EUR").quote_currency("USD").strike(1.1).expiry(date(2024, 12, 20)).notional(Money("EUR", 1_000_000)).build()
 ///     >>> option.option_type
 ///     'call'
-#[pyclass(module = "finstack.valuations.instruments", name = "FxOption", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "FxOption",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyFxOption {
     pub(crate) inner: Arc<FxOption>,
@@ -804,7 +814,12 @@ impl fmt::Display for PyFxOption {
 }
 
 /// FX swap exchanging notionals on near and far legs.
-#[pyclass(module = "finstack.valuations.instruments", name = "FxSwap", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "FxSwap",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyFxSwap {
     pub(crate) inner: Arc<FxSwap>,

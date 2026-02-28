@@ -49,7 +49,12 @@ fn parse_im_methodology(v: &Bound<'_, PyAny>) -> PyResult<ImMethodology> {
 }
 
 /// Margin call frequency (tenor).
-#[pyclass(name = "MarginTenor", module = "finstack.valuations.margin", frozen)]
+#[pyclass(
+    name = "MarginTenor",
+    module = "finstack.valuations.margin",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyMarginTenor {
     pub(crate) inner: MarginTenor,
@@ -87,7 +92,12 @@ impl PyMarginTenor {
 }
 
 /// Initial margin methodology.
-#[pyclass(name = "ImMethodology", module = "finstack.valuations.margin", frozen)]
+#[pyclass(
+    name = "ImMethodology",
+    module = "finstack.valuations.margin",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyImMethodology {
     pub(crate) inner: ImMethodology,
@@ -127,7 +137,11 @@ impl PyImMethodology {
 }
 
 /// Operational timing parameters for margin calls.
-#[pyclass(name = "MarginCallTiming", module = "finstack.valuations.margin")]
+#[pyclass(
+    name = "MarginCallTiming",
+    module = "finstack.valuations.margin",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyMarginCallTiming {
     pub(crate) inner: MarginCallTiming,
@@ -205,7 +219,11 @@ impl PyMarginCallTiming {
 }
 
 /// Variation margin parameters (threshold, MTA, frequency, etc.).
-#[pyclass(name = "VmParameters", module = "finstack.valuations.margin")]
+#[pyclass(
+    name = "VmParameters",
+    module = "finstack.valuations.margin",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyVmParameters {
     pub(crate) inner: VmParameters,
@@ -303,7 +321,11 @@ impl PyVmParameters {
 }
 
 /// Initial margin parameters (methodology, MPOR, threshold, etc.).
-#[pyclass(name = "ImParameters", module = "finstack.valuations.margin")]
+#[pyclass(
+    name = "ImParameters",
+    module = "finstack.valuations.margin",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyImParameters {
     pub(crate) inner: ImParameters,
@@ -400,7 +422,8 @@ impl PyImParameters {
 /// Eligible collateral schedule.
 #[pyclass(
     name = "EligibleCollateralSchedule",
-    module = "finstack.valuations.margin"
+    module = "finstack.valuations.margin",
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyEligibleCollateralSchedule {
@@ -478,7 +501,11 @@ impl PyEligibleCollateralSchedule {
 }
 
 /// Credit Support Annex (CSA) specification.
-#[pyclass(name = "CsaSpec", module = "finstack.valuations.margin")]
+#[pyclass(
+    name = "CsaSpec",
+    module = "finstack.valuations.margin",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyCsaSpec {
     pub(crate) inner: CsaSpec,

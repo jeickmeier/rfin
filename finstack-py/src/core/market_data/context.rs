@@ -33,7 +33,11 @@ use pyo3::Bound;
 /// -------
 /// MarketContext
 ///     Mutable aggregation container shared across valuation routines.
-#[pyclass(module = "finstack.core.market_data", name = "MarketContext")]
+#[pyclass(
+    module = "finstack.core.market_data",
+    name = "MarketContext",
+    from_py_object
+)]
 #[derive(Clone, Default)]
 pub struct PyMarketContext {
     pub(crate) inner: MarketContext,

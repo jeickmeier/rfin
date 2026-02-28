@@ -15,7 +15,8 @@ use std::fmt;
 #[pyclass(
     module = "finstack.valuations.metrics.registry",
     name = "MetricRegistry",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Default)]
 pub struct PyMetricRegistry {

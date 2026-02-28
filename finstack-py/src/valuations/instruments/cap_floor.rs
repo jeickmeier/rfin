@@ -45,7 +45,8 @@ fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "InterestRateOption",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyInterestRateOption {

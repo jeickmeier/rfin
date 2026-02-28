@@ -13,7 +13,7 @@ use pyo3::Bound;
 use std::str::FromStr;
 
 /// Configuration for normalizing a financial metric.
-#[pyclass(name = "NormalizationConfig")]
+#[pyclass(name = "NormalizationConfig", from_py_object)]
 #[derive(Clone)]
 pub struct PyNormalizationConfig {
     pub inner: RustNormalizationConfig,
@@ -34,7 +34,7 @@ impl PyNormalizationConfig {
 }
 
 /// Specification for a single adjustment.
-#[pyclass(name = "Adjustment")]
+#[pyclass(name = "Adjustment", from_py_object)]
 #[derive(Clone)]
 pub struct PyAdjustment {
     pub inner: RustAdjustment,
@@ -104,7 +104,7 @@ impl PyNormalizationResult {
 }
 
 /// Details of an applied adjustment.
-#[pyclass(name = "AppliedAdjustment")]
+#[pyclass(name = "AppliedAdjustment", from_py_object)]
 #[derive(Clone)]
 pub struct PyAppliedAdjustment {
     inner: finstack_statements::adjustments::types::AppliedAdjustment,
@@ -148,8 +148,8 @@ impl PyNormalizationEngine {
         let results_bound = results.bind(py);
         let config_bound = config.bind(py);
 
-        let results: &Bound<'_, PyStatementResult> = results_bound.downcast()?;
-        let config: &Bound<'_, PyNormalizationConfig> = config_bound.downcast()?;
+        let results: &Bound<'_, PyStatementResult> = results_bound.cast()?;
+        let config: &Bound<'_, PyNormalizationConfig> = config_bound.cast()?;
 
         let results_ref = results.borrow();
         let config_ref = config.borrow();
@@ -170,7 +170,7 @@ impl PyNormalizationEngine {
         output_node_id: String,
     ) -> PyResult<()> {
         let results_bound = results.bind(py);
-        let results: &Bound<'_, PyStatementResult> = results_bound.downcast()?;
+        let results: &Bound<'_, PyStatementResult> = results_bound.cast()?;
 
         let rust_results: Vec<RustNormalizationResult> = normalization_results
             .into_iter()

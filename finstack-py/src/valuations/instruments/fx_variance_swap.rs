@@ -25,7 +25,8 @@ use std::sync::Arc;
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "FxVarianceDirection",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyFxPayReceive {
@@ -94,7 +95,8 @@ impl<'a, 'py> FromPyObject<'a, 'py> for FxPayReceiveArg {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "FxRealizedVarianceMethod",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyFxRealizedVarMethod {
@@ -215,7 +217,8 @@ impl<'a, 'py> FromPyObject<'a, 'py> for FxRealizedVarMethodArg {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "FxVarianceSwap",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyFxVarianceSwap {

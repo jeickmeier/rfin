@@ -12,7 +12,12 @@ use std::fmt;
 /// Examples:
 ///     >>> MetricId.from_name("pv")
 ///     MetricId('pv')
-#[pyclass(module = "finstack.valuations.metrics.ids", name = "MetricId", frozen)]
+#[pyclass(
+    module = "finstack.valuations.metrics.ids",
+    name = "MetricId",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyMetricId {
     pub(crate) inner: MetricId,

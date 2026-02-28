@@ -13,7 +13,12 @@ use std::fmt;
 /// Examples:
 ///     >>> InstrumentType.BOND.name
 ///     'bond'
-#[pyclass(module = "finstack.valuations.common", name = "InstrumentType", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common",
+    name = "InstrumentType",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyInstrumentType {
     pub(crate) inner: InstrumentType,
@@ -175,7 +180,12 @@ impl fmt::Display for PyInstrumentType {
 /// Examples:
 ///     >>> ModelKey.DISCOUNTING.name
 ///     'discounting'
-#[pyclass(module = "finstack.valuations.common", name = "ModelKey", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common",
+    name = "ModelKey",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyModelKey {
     pub(crate) inner: ModelKey,
@@ -289,7 +299,12 @@ impl fmt::Display for PyModelKey {
 /// Examples:
 ///     >>> PricerKey(InstrumentType.BOND, ModelKey.DISCOUNTING)
 ///     PricerKey(instrument='bond', model='discounting')
-#[pyclass(module = "finstack.valuations.common", name = "PricerKey", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common",
+    name = "PricerKey",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyPricerKey {
     pub(crate) inner: PricerKey,

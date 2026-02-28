@@ -15,7 +15,11 @@ use pyo3::types::{PyAny, PyDict, PyModule};
 use pyo3::Bound;
 
 /// Options controlling portfolio valuation behaviour.
-#[pyclass(module = "finstack.portfolio", name = "PortfolioValuationOptions")]
+#[pyclass(
+    module = "finstack.portfolio",
+    name = "PortfolioValuationOptions",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPortfolioValuationOptions {
     pub(crate) inner: PortfolioValuationOptions,
@@ -65,7 +69,7 @@ impl PyPortfolioValuationOptions {
 ///     'POS_1'
 ///     >>> position_value.value_native
 ///     Money(USD, 1000000.0)
-#[pyclass(module = "finstack.portfolio", name = "PositionValue")]
+#[pyclass(module = "finstack.portfolio", name = "PositionValue", from_py_object)]
 #[derive(Clone)]
 pub struct PyPositionValue {
     pub(crate) inner: PositionValue,
@@ -128,7 +132,11 @@ impl PyPositionValue {
 ///     Money(USD, 10000000.0)
 ///     >>> valuation.by_entity["ENTITY_A"]
 ///     Money(USD, 5000000.0)
-#[pyclass(module = "finstack.portfolio", name = "PortfolioValuation")]
+#[pyclass(
+    module = "finstack.portfolio",
+    name = "PortfolioValuation",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPortfolioValuation {
     pub(crate) inner: PortfolioValuation,

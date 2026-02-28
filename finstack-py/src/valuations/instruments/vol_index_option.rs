@@ -76,7 +76,8 @@ fn parse_exercise_style(label: Option<&str>) -> PyResult<ExerciseStyle> {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "VolatilityIndexOption",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyVolatilityIndexOption {

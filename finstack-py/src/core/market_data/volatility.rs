@@ -25,7 +25,8 @@ use pyo3::{Bound, PyRef};
 #[pyclass(
     name = "VolatilityConvention",
     module = "finstack.core.market_data.volatility",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PyVolatilityConvention {

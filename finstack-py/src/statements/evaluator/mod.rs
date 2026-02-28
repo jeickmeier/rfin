@@ -13,7 +13,12 @@ use pyo3::types::{PyAny, PyAnyMethods, PyDict, PyList, PyModule, PyType};
 use pyo3::Bound;
 
 /// Metadata about evaluation results.
-#[pyclass(module = "finstack.statements.evaluator", name = "ResultsMeta", frozen)]
+#[pyclass(
+    module = "finstack.statements.evaluator",
+    name = "ResultsMeta",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyStatementResultMeta {
     pub(crate) inner: ResultsMeta,
@@ -69,7 +74,11 @@ impl PyStatementResultMeta {
 }
 
 /// Results from evaluating a financial model.
-#[pyclass(module = "finstack.statements.evaluator", name = "StatementResult")]
+#[pyclass(
+    module = "finstack.statements.evaluator",
+    name = "StatementResult",
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyStatementResult {
     pub(crate) inner: StatementResult,
@@ -85,7 +94,8 @@ impl PyStatementResult {
 #[pyclass(
     module = "finstack.statements.evaluator",
     name = "MonteCarloResults",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyMonteCarloResults {

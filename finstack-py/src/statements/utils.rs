@@ -57,7 +57,7 @@ pub(crate) fn py_to_json(value: &Bound<'_, PyAny>) -> pyo3::PyResult<serde_json:
         Ok(serde_json::json!(f))
     } else if let Ok(s) = value.extract::<String>() {
         Ok(serde_json::json!(s))
-    } else if let Ok(dict) = value.downcast::<PyDict>() {
+    } else if let Ok(dict) = value.cast::<PyDict>() {
         // Handle dictionaries recursively
         let mut map = serde_json::Map::new();
         for (key, val) in dict.iter() {
@@ -66,7 +66,7 @@ pub(crate) fn py_to_json(value: &Bound<'_, PyAny>) -> pyo3::PyResult<serde_json:
             map.insert(key_str, val_json);
         }
         Ok(serde_json::Value::Object(map))
-    } else if let Ok(list) = value.downcast::<PyList>() {
+    } else if let Ok(list) = value.cast::<PyList>() {
         // Handle lists recursively
         let mut arr = Vec::new();
         for item in list.iter() {

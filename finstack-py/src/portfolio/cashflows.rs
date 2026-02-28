@@ -17,7 +17,11 @@ use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyTuple};
 use pyo3::Bound;
 
 /// Aggregated portfolio cashflows by date and currency.
-#[pyclass(module = "finstack.portfolio", name = "PortfolioCashflows")]
+#[pyclass(
+    module = "finstack.portfolio",
+    name = "PortfolioCashflows",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPortfolioCashflows {
     pub(crate) inner: PortfolioCashflows,
@@ -71,7 +75,11 @@ impl PyPortfolioCashflows {
 }
 
 /// Portfolio cashflows bucketed by reporting period.
-#[pyclass(module = "finstack.portfolio", name = "PortfolioCashflowBuckets")]
+#[pyclass(
+    module = "finstack.portfolio",
+    name = "PortfolioCashflowBuckets",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPortfolioCashflowBuckets {
     pub(crate) inner: PortfolioCashflowBuckets,

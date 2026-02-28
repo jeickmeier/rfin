@@ -13,7 +13,7 @@ use pyo3::Bound;
 /// A parsed statements DSL expression (AST).
 ///
 /// This wraps `finstack_statements::dsl::StmtExpr`.
-#[pyclass(name = "StmtExpr", module = "finstack.statements.dsl")]
+#[pyclass(name = "StmtExpr", module = "finstack.statements.dsl", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyStmtExpr {
     pub(crate) inner: StmtExpr,

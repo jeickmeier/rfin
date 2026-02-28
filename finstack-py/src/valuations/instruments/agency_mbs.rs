@@ -36,7 +36,12 @@ use std::sync::Arc;
 // =============================================================================
 
 /// Agency program (FNMA, FHLMC, GNMA).
-#[pyclass(module = "finstack.valuations.instruments", name = "AgencyProgram", eq)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "AgencyProgram",
+    eq,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PyAgencyProgram {
     /// Federal National Mortgage Association (Fannie Mae).
@@ -88,7 +93,12 @@ impl PyAgencyProgram {
 // =============================================================================
 
 /// Pool type classification.
-#[pyclass(module = "finstack.valuations.instruments", name = "PoolType", eq)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "PoolType",
+    eq,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PyPoolType {
     /// Generic pool (TBA-eligible, standard assumptions).
@@ -127,7 +137,12 @@ impl PyPoolType {
 // =============================================================================
 
 /// TBA original loan term.
-#[pyclass(module = "finstack.valuations.instruments", name = "TbaTerm", eq)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "TbaTerm",
+    eq,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(clippy::enum_variant_names)]
 pub enum PyTbaTerm {
@@ -175,7 +190,8 @@ impl PyTbaTerm {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "CmoTrancheType",
-    eq
+    eq,
+    from_py_object
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PyCmoTrancheType {
@@ -233,7 +249,8 @@ impl PyCmoTrancheType {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "AgencyMbsPassthrough",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyAgencyMbsPassthrough {
@@ -618,7 +635,12 @@ impl PyAgencyMbsPassthrough {
 ///
 /// Examples:
 ///     >>> tba = AgencyTba.builder("FN30-4.0-202403").agency(AgencyProgram.Fnma).coupon(0.04).term(TbaTerm.ThirtyYear).settlement_year(2024).settlement_month(3).notional(10_000_000.0).currency("USD").trade_price(98.5).discount_curve_id("USD-OIS").build()
-#[pyclass(module = "finstack.valuations.instruments", name = "AgencyTba", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "AgencyTba",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyAgencyTba {
     pub(crate) inner: Arc<AgencyTba>,
@@ -895,7 +917,8 @@ impl PyAgencyTba {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "DollarRoll",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyDollarRoll {
@@ -1241,7 +1264,12 @@ impl PyDollarRoll {
 // =============================================================================
 
 /// PAC collar boundaries.
-#[pyclass(module = "finstack.valuations.instruments", name = "PacCollar", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "PacCollar",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyPacCollar {
     pub(crate) inner: PacCollar,
@@ -1297,7 +1325,8 @@ impl PyPacCollar {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "CmoTranche",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCmoTranche {
@@ -1462,7 +1491,8 @@ impl PyCmoTranche {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "CmoWaterfall",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCmoWaterfall {
@@ -1531,7 +1561,12 @@ impl PyCmoWaterfall {
 ///     ... ]
 ///     >>> waterfall = CmoWaterfall(tranches)
 ///     >>> cmo = AgencyCmo.builder("FNR-2024-1-A").deal_name("FNR 2024-1").agency(AgencyProgram.Fnma).issue_date(Date(2024, 1, 1)).waterfall(waterfall).reference_tranche_id("A").discount_curve_id("USD-OIS").build()
-#[pyclass(module = "finstack.valuations.instruments", name = "AgencyCmo", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "AgencyCmo",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyAgencyCmo {
     pub(crate) inner: Arc<AgencyCmo>,

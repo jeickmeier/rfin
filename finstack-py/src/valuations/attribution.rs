@@ -17,7 +17,7 @@ use serde_json::{self, Value};
 use std::sync::Arc;
 
 /// Python wrapper for AttributionMethod.
-#[pyclass(name = "AttributionMethod")]
+#[pyclass(name = "AttributionMethod", from_py_object)]
 #[derive(Clone)]
 pub struct PyAttributionMethod {
     pub(crate) inner: AttributionMethod,
@@ -31,7 +31,7 @@ fn parse_model_params_snapshot(
             return Ok(None);
         }
 
-        if let Ok(text) = obj.downcast::<PyString>() {
+        if let Ok(text) = obj.cast::<PyString>() {
             let snapshot: ModelParamsSnapshot =
                 serde_json::from_str(text.to_str()?).map_err(|err| {
                     pyo3::exceptions::PyValueError::new_err(format!(
@@ -101,7 +101,7 @@ impl PyAttributionMethod {
 }
 
 /// Python wrapper for AttributionMeta.
-#[pyclass(name = "AttributionMeta")]
+#[pyclass(name = "AttributionMeta", from_py_object)]
 #[derive(Clone)]
 pub struct PyAttributionMeta {
     pub(crate) inner: AttributionMeta,
@@ -163,7 +163,7 @@ impl PyAttributionMeta {
 }
 
 /// Python wrapper for RatesCurvesAttribution.
-#[pyclass(name = "RatesCurvesAttribution")]
+#[pyclass(name = "RatesCurvesAttribution", from_py_object)]
 #[derive(Clone)]
 pub struct PyRatesCurvesAttribution {
     pub(crate) inner: RatesCurvesAttribution,
@@ -195,7 +195,7 @@ impl PyRatesCurvesAttribution {
 }
 
 /// Python wrapper for CreditCurvesAttribution.
-#[pyclass(name = "CreditCurvesAttribution")]
+#[pyclass(name = "CreditCurvesAttribution", from_py_object)]
 #[derive(Clone)]
 pub struct PyCreditCurvesAttribution {
     pub(crate) inner: CreditCurvesAttribution,
@@ -213,7 +213,7 @@ impl PyCreditCurvesAttribution {
 }
 
 /// Python wrapper for ModelParamsAttribution.
-#[pyclass(name = "ModelParamsAttribution")]
+#[pyclass(name = "ModelParamsAttribution", from_py_object)]
 #[derive(Clone)]
 pub struct PyModelParamsAttribution {
     pub(crate) inner: ModelParamsAttribution,
@@ -251,7 +251,7 @@ impl PyModelParamsAttribution {
 }
 
 /// Python wrapper for PnlAttribution.
-#[pyclass(name = "PnlAttribution")]
+#[pyclass(name = "PnlAttribution", from_py_object)]
 #[derive(Clone)]
 pub struct PyPnlAttribution {
     pub(crate) inner: PnlAttribution,
@@ -539,7 +539,7 @@ pub fn attribute_pnl(
 }
 
 /// Python wrapper for PortfolioAttribution.
-#[pyclass(name = "PortfolioAttribution")]
+#[pyclass(name = "PortfolioAttribution", from_py_object)]
 #[derive(Clone)]
 pub struct PyPortfolioAttribution {
     pub(crate) inner: finstack_portfolio::PortfolioAttribution,

@@ -19,7 +19,8 @@ use std::fmt;
 #[pyclass(
     module = "finstack.valuations.results",
     name = "CovenantReport",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyCovenantReport {
@@ -108,7 +109,12 @@ impl fmt::Display for PyCovenantReport {
 /// Examples:
 ///     >>> meta.numeric_mode
 ///     'f64'
-#[pyclass(module = "finstack.valuations.results", name = "ResultsMeta", frozen)]
+#[pyclass(
+    module = "finstack.valuations.results",
+    name = "ResultsMeta",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyResultsMeta {
     pub(crate) inner: ResultsMeta,
@@ -244,7 +250,8 @@ impl fmt::Display for PyResultsMeta {
 #[pyclass(
     module = "finstack.valuations.results",
     name = "ValuationResult",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyValuationResult {

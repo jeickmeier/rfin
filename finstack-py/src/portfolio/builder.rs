@@ -149,7 +149,7 @@ impl PyPortfolioBuilder {
         }
 
         // Try as list of entities
-        if let Ok(list) = entity_or_entities.downcast::<PyList>() {
+        if let Ok(list) = entity_or_entities.cast::<PyList>() {
             let mut entities = Vec::new();
             for item in list.iter() {
                 entities.push(extract_entity(&item)?);
@@ -190,7 +190,7 @@ impl PyPortfolioBuilder {
         }
 
         // Try as list of positions
-        if let Ok(list) = position_or_positions.downcast::<PyList>() {
+        if let Ok(list) = position_or_positions.cast::<PyList>() {
             let mut positions = Vec::new();
             for item in list.iter() {
                 positions.push(extract_position(&item)?);
@@ -227,7 +227,7 @@ impl PyPortfolioBuilder {
         }
 
         // Try as list of books
-        if let Ok(list) = book_or_books.downcast::<PyList>() {
+        if let Ok(list) = book_or_books.cast::<PyList>() {
             let mut books = Vec::new();
             for item in list.iter() {
                 books.push(extract_book(&item)?);

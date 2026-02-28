@@ -16,7 +16,12 @@ use pyo3::types::PyModule;
 /// --------
 /// >>> from finstack.scenarios import CurveKind
 /// >>> kind = CurveKind.Discount
-#[pyclass(module = "finstack.scenarios", name = "CurveKind", frozen)]
+#[pyclass(
+    module = "finstack.scenarios",
+    name = "CurveKind",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyCurveKind {
     pub(crate) inner: CurveKind,
@@ -112,7 +117,12 @@ impl PyCurveKind {
 /// --------
 /// >>> from finstack.scenarios import VolSurfaceKind
 /// >>> kind = VolSurfaceKind.Equity
-#[pyclass(module = "finstack.scenarios", name = "VolSurfaceKind", frozen)]
+#[pyclass(
+    module = "finstack.scenarios",
+    name = "VolSurfaceKind",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyVolSurfaceKind {
     pub(crate) inner: VolSurfaceKind,
@@ -184,7 +194,12 @@ impl PyVolSurfaceKind {
 /// --------
 /// >>> from finstack.scenarios import TenorMatchMode
 /// >>> mode = TenorMatchMode.Interpolate
-#[pyclass(module = "finstack.scenarios", name = "TenorMatchMode", frozen)]
+#[pyclass(
+    module = "finstack.scenarios",
+    name = "TenorMatchMode",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyTenorMatchMode {
     pub(crate) inner: TenorMatchMode,

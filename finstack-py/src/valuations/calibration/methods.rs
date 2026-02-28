@@ -125,7 +125,8 @@ fn base_context_from_option(market: Option<PyRef<PyMarketContext>>) -> CoreMarke
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "DiscountCurveCalibrator",
-    frozen
+    frozen,
+    from_py_object,
 )]
 #[derive(Clone)]
 pub struct PyDiscountCurveCalibrator {
@@ -230,7 +231,8 @@ impl PyDiscountCurveCalibrator {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "ForwardCurveCalibrator",
-    frozen
+    frozen,
+    from_py_object,
 )]
 #[derive(Clone)]
 pub struct PyForwardCurveCalibrator {
@@ -308,7 +310,8 @@ impl PyForwardCurveCalibrator {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "HazardCurveCalibrator",
-    frozen
+    frozen,
+    from_py_object,
 )]
 #[derive(Clone)]
 pub struct PyHazardCurveCalibrator {
@@ -405,7 +408,8 @@ impl PyHazardCurveCalibrator {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "InflationCurveCalibrator",
-    frozen
+    frozen,
+    from_py_object,
 )]
 #[derive(Clone)]
 pub struct PyInflationCurveCalibrator {
@@ -541,7 +545,8 @@ impl PyInflationCurveCalibrator {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "VolSurfaceCalibrator",
-    frozen
+    frozen,
+    from_py_object,
 )]
 #[derive(Clone)]
 pub struct PyVolSurfaceCalibrator {
@@ -703,7 +708,8 @@ impl PyVolSurfaceCalibrator {
 #[pyclass(
     module = "finstack.valuations.calibration",
     name = "BaseCorrelationCalibrator",
-    frozen
+    frozen,
+    from_py_object,
 )]
 #[derive(Clone)]
 pub struct PyBaseCorrelationCalibrator {

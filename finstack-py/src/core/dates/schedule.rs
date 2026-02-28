@@ -28,7 +28,12 @@ use time::Date;
 /// -------
 /// Frequency
 ///     Frequency token usable for schedules and day-count contexts.
-#[pyclass(name = "Frequency", module = "finstack.core.dates.schedule", frozen)]
+#[pyclass(
+    name = "Frequency",
+    module = "finstack.core.dates.schedule",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyFrequency {
     pub(crate) inner: Tenor,
@@ -151,7 +156,12 @@ impl fmt::Display for PyFrequency {
 /// -------
 /// StubKind
 ///     Stub rule identifier.
-#[pyclass(name = "StubKind", module = "finstack.core.dates.schedule", frozen)]
+#[pyclass(
+    name = "StubKind",
+    module = "finstack.core.dates.schedule",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyStubKind {
     pub(crate) inner: StubKind,
@@ -230,7 +240,8 @@ impl fmt::Display for PyStubKind {
 #[pyclass(
     name = "ScheduleBuilder",
     module = "finstack.core.dates.schedule",
-    unsendable
+    unsendable,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyScheduleBuilder {
@@ -417,7 +428,12 @@ impl PyScheduleBuilder {
 /// -------
 /// Schedule
 ///     Sequence-like container of schedule anchor dates.
-#[pyclass(name = "Schedule", module = "finstack.core.dates.schedule", frozen)]
+#[pyclass(
+    name = "Schedule",
+    module = "finstack.core.dates.schedule",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PySchedule {
     dates: Vec<Date>,
@@ -452,7 +468,12 @@ impl PySchedule {
     }
 }
 
-#[pyclass(name = "ScheduleSpec", module = "finstack.core.dates.schedule", frozen)]
+#[pyclass(
+    name = "ScheduleSpec",
+    module = "finstack.core.dates.schedule",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyScheduleSpec {
     pub(crate) inner: ScheduleSpec,

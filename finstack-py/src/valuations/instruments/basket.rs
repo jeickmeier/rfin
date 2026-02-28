@@ -11,7 +11,7 @@ fn parse_json(value: &Bound<'_, PyAny>) -> PyResult<Basket> {
         return serde_json::from_str(json_str)
             .map_err(|err| PyValueError::new_err(err.to_string()));
     }
-    if let Ok(dict) = value.downcast::<PyDict>() {
+    if let Ok(dict) = value.cast::<PyDict>() {
         let py = dict.py();
         let json = pyo3::types::PyModule::import(py, "json")?
             .call_method1("dumps", (dict,))?
@@ -29,7 +29,12 @@ fn parse_json(value: &Bound<'_, PyAny>) -> PyResult<Basket> {
 ///     >>> basket = Basket.from_json(json.dumps({...}))
 ///     >>> basket.instrument_type.name
 ///     'basket'
-#[pyclass(module = "finstack.valuations.instruments", name = "Basket", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "Basket",
+    frozen,
+    from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyBasket {
     pub(crate) inner: Arc<Basket>,
