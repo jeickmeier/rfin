@@ -402,7 +402,7 @@ impl ScenarioResults {
             }
         }
 
-        let df = DataFrame::new(columns).map_err(|e| {
+        let df = DataFrame::new_infer_height(columns).map_err(|e| {
             Error::invalid_input(format!(
                 "Failed to create scenario comparison DataFrame: {}",
                 e

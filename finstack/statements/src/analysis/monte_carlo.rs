@@ -353,7 +353,7 @@ pub(crate) fn aggregate_monte_carlo_paths(
         if path_ids.is_empty() {
             None
         } else {
-            let df = DataFrame::new(vec![
+            let df = DataFrame::new_infer_height(vec![
                 Series::new("path_id".into(), path_ids).into(),
                 Series::new("period".into(), periods).into(),
                 Series::new("metric".into(), metrics).into(),

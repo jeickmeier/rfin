@@ -380,7 +380,7 @@ impl VarianceReport {
             }
         }
 
-        let df = DataFrame::new(vec![
+        let df = DataFrame::new_infer_height(vec![
             Series::new("period".into(), periods).into(),
             Series::new("metric".into(), metrics).into(),
             Series::new("baseline".into(), baselines).into(),

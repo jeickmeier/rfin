@@ -25,7 +25,7 @@ fn parse_freq(s: &str) -> PyResult<PeriodKind> {
 }
 
 fn extract_dates_and_prices(df: &DataFrame) -> PyResult<ExtractedData> {
-    let columns = df.get_columns();
+    let columns = df.columns();
     if columns.is_empty() {
         return Err(PyValueError::new_err("DataFrame has no columns"));
     }
@@ -113,7 +113,7 @@ fn rolling_to_df(
 ) -> PyResult<PyDataFrame> {
     let date_col = dates_to_column(dates)?;
     let val_col = vec_to_series(metric_name, values).into_column();
-    let df = DataFrame::new(vec![date_col, val_col])
+    let df = DataFrame::new_infer_height(vec![date_col, val_col])
         .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))?;
     Ok(PyDataFrame(df))
 }
@@ -129,13 +129,14 @@ fn vecs_to_df_with_dates(
     for (name, vals) in tickers.iter().zip(data.iter()) {
         columns.push(vec_to_series(name, vals).into_column());
     }
-    DataFrame::new(columns).map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))
+    DataFrame::new_infer_height(columns)
+        .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))
 }
 
 fn scalars_to_df(tickers: &[String], values: &[f64], metric_name: &str) -> PyResult<DataFrame> {
     let ticker_col = Column::new("ticker".into(), tickers);
     let value_col = vec_to_series(metric_name, values).into_column();
-    DataFrame::new(vec![ticker_col, value_col])
+    DataFrame::new_infer_height(vec![ticker_col, value_col])
         .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))
 }
 
@@ -157,7 +158,7 @@ fn episodes_to_py(py: Python<'_>, episodes: &[DrawdownEpisode]) -> PyResult<Py<P
 fn scalars_i64_to_df(tickers: &[String], values: &[i64], metric_name: &str) -> PyResult<DataFrame> {
     let ticker_col = Column::new("ticker".into(), tickers);
     let value_col = Series::new(metric_name.into(), values).into_column();
-    DataFrame::new(vec![ticker_col, value_col])
+    DataFrame::new_infer_height(vec![ticker_col, value_col])
         .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))
 }
 
@@ -258,7 +259,7 @@ impl PyPerformance {
     #[getter]
     fn dates(&self) -> PyResult<PyDataFrame> {
         let date_col = dates_to_column(self.inner.active_dates())?;
-        let df = DataFrame::new(vec![date_col])
+        let df = DataFrame::new_infer_height(vec![date_col])
             .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))?;
         Ok(PyDataFrame(df))
     }
@@ -740,7 +741,7 @@ impl PyPerformance {
         for (name, vals) in self.tickers().iter().zip(matrix.iter()) {
             columns.push(vec_to_series(name, vals).into_column());
         }
-        let df = DataFrame::new(columns)
+        let df = DataFrame::new_infer_height(columns)
             .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))?;
         Ok(PyDataFrame(df))
     }
@@ -834,7 +835,7 @@ impl PyPerformance {
         let date_col = dates_to_column(&rg.dates)?;
         let alpha_col = vec_to_series("alpha", &rg.alphas).into_column();
         let beta_col = vec_to_series("beta", &rg.betas).into_column();
-        let df = DataFrame::new(vec![date_col, alpha_col, beta_col])
+        let df = DataFrame::new_infer_height(vec![date_col, alpha_col, beta_col])
             .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))?;
         Ok(PyDataFrame(df))
     }
@@ -861,7 +862,7 @@ impl PyPerformance {
         factor_returns: PyDataFrame,
     ) -> PyResult<Py<PyDict>> {
         let idx = self.resolve_ticker(ticker)?;
-        let cols = factor_returns.0.get_columns();
+        let cols = factor_returns.0.columns();
         let factor_vecs: Vec<Vec<f64>> = cols
             .iter()
             .map(|col| {

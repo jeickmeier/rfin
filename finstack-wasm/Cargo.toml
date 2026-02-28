@@ -25,7 +25,7 @@ js-sys = "0.3"
 getrandom = { version = "0.2", features = ["js"] }
 strum = { workspace = true }
 indexmap = { workspace = true }
-ts-rs = { version = "10", optional = true, features = ["serde-compat"] }
+ts-rs = { version = "12", optional = true, features = ["serde-compat"] }
 
 # Month enum required by Date bindings
 time = { workspace = true }

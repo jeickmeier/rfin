@@ -81,11 +81,12 @@
 //! ## Basic statistics
 //!
 //! ```rust
-//! use finstack_core::math::{mean, variance};
+//! use finstack_core::math::{mean, variance, population_variance};
 //!
 //! let data = [1.0, 2.0, 3.0, 4.0];
 //! assert_eq!(mean(&data), 2.5);
-//! assert_eq!(variance(&data), 1.25);
+//! assert_eq!(population_variance(&data), 1.25);
+//! assert!((variance(&data) - 5.0 / 3.0).abs() < 1e-10);
 //! ```
 
 /// Tolerance for checking if a value is effectively zero.

@@ -233,7 +233,7 @@ impl Pcg64Rng {
 impl RandomNumberGenerator for Pcg64Rng {
     #[inline]
     fn uniform(&mut self) -> f64 {
-        self.inner.gen()
+        self.inner.random()
     }
 
     fn normal(&mut self, mean: f64, std_dev: f64) -> f64 {
@@ -270,7 +270,7 @@ impl serde::Serialize for Pcg64Rng {
 
         // PCG64 internal state is 128-bit, but we can capture it via the
         // rand::SeedableRng trait by getting the current state
-        let inner_state: [u8; 32] = self.inner.clone().gen();
+        let inner_state: [u8; 32] = self.inner.clone().random();
         state.serialize_field("state", &inner_state)?;
         state.serialize_field("cached_normal", &self.cached_normal)?;
         state.end()

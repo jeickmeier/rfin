@@ -29,7 +29,7 @@ impl TimeSeriesStore for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let sql = statements::upsert_series_meta_sql_with_naming(Backend::Sqlite, &naming);
                 conn.execute(sql.as_ref(), params![namespace, kind, series_id, meta])?;
                 Ok(())
@@ -46,14 +46,17 @@ impl TimeSeriesStore for SqliteStore {
 
         let meta: Option<String> = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Option<String>> {
-                let sql = statements::select_series_meta_sql_with_naming(Backend::Sqlite, &naming);
-                Ok(optional_row(conn.query_row(
-                    sql.as_ref(),
-                    params![namespace, kind, series_id],
-                    |row| row.get(0),
-                ))?)
-            })
+            .call(
+                move |conn| -> std::result::Result<Option<String>, rusqlite::Error> {
+                    let sql =
+                        statements::select_series_meta_sql_with_naming(Backend::Sqlite, &naming);
+                    optional_row(conn.query_row(
+                        sql.as_ref(),
+                        params![namespace, kind, series_id],
+                        |row| row.get(0),
+                    ))
+                },
+            )
             .await?;
 
         crate::helpers::optional_json_string_to_value(meta)
@@ -66,16 +69,18 @@ impl TimeSeriesStore for SqliteStore {
 
         let ids = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Vec<String>> {
-                let sql = statements::list_series_sql_with_naming(Backend::Sqlite, &naming);
-                let mut stmt = conn.prepare(sql.as_ref())?;
-                let rows = stmt.query_map(params![namespace, kind_str], |row| row.get(0))?;
-                let mut out = Vec::new();
-                for row in rows {
-                    out.push(row?);
-                }
-                Ok(out)
-            })
+            .call(
+                move |conn| -> std::result::Result<Vec<String>, rusqlite::Error> {
+                    let sql = statements::list_series_sql_with_naming(Backend::Sqlite, &naming);
+                    let mut stmt = conn.prepare(sql.as_ref())?;
+                    let rows = stmt.query_map(params![namespace, kind_str], |row| row.get(0))?;
+                    let mut out = Vec::new();
+                    for row in rows {
+                        out.push(row?);
+                    }
+                    Ok(out)
+                },
+            )
             .await?;
         Ok(ids)
     }
@@ -104,7 +109,7 @@ impl TimeSeriesStore for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let tx = conn.unchecked_transaction()?;
                 {
                     let sql =
@@ -139,29 +144,31 @@ impl TimeSeriesStore for SqliteStore {
 
         let rows: Vec<SeriesRow> = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Vec<SeriesRow>> {
-                let base_sql =
-                    statements::select_points_range_sql_with_naming(Backend::Sqlite, &naming);
-                let sql = match limit {
-                    Some(max) => format!("{} LIMIT {max}", base_sql.as_ref()),
-                    None => base_sql.as_ref().to_string(),
-                };
-                let mut stmt = conn.prepare(&sql)?;
-                let rows =
-                    stmt.query_map(params![namespace, kind, series_id, start, end], |row| {
-                        Ok((
-                            row.get::<_, String>(0)?,
-                            row.get::<_, Option<f64>>(1)?,
-                            row.get::<_, Option<String>>(2)?,
-                            row.get::<_, Option<String>>(3)?,
-                        ))
-                    })?;
-                let mut out = Vec::new();
-                for row in rows {
-                    out.push(row?);
-                }
-                Ok(out)
-            })
+            .call(
+                move |conn| -> std::result::Result<Vec<SeriesRow>, rusqlite::Error> {
+                    let base_sql =
+                        statements::select_points_range_sql_with_naming(Backend::Sqlite, &naming);
+                    let sql = match limit {
+                        Some(max) => format!("{} LIMIT {max}", base_sql.as_ref()),
+                        None => base_sql.as_ref().to_string(),
+                    };
+                    let mut stmt = conn.prepare(&sql)?;
+                    let rows =
+                        stmt.query_map(params![namespace, kind, series_id, start, end], |row| {
+                            Ok((
+                                row.get::<_, String>(0)?,
+                                row.get::<_, Option<f64>>(1)?,
+                                row.get::<_, Option<String>>(2)?,
+                                row.get::<_, Option<String>>(3)?,
+                            ))
+                        })?;
+                    let mut out = Vec::new();
+                    for row in rows {
+                        out.push(row?);
+                    }
+                    Ok(out)
+                },
+            )
             .await?;
 
         let mut out = Vec::new();
@@ -186,14 +193,16 @@ impl TimeSeriesStore for SqliteStore {
 
         let row: Option<SeriesRow> = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Option<SeriesRow>> {
-                let sql = statements::latest_point_sql_with_naming(Backend::Sqlite, &naming);
-                Ok(optional_row(conn.query_row(
-                    sql.as_ref(),
-                    params![namespace, kind, series_id, ts],
-                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-                ))?)
-            })
+            .call(
+                move |conn| -> std::result::Result<Option<SeriesRow>, rusqlite::Error> {
+                    let sql = statements::latest_point_sql_with_naming(Backend::Sqlite, &naming);
+                    optional_row(conn.query_row(
+                        sql.as_ref(),
+                        params![namespace, kind, series_id, ts],
+                        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                    ))
+                },
+            )
             .await?;
 
         match row {

@@ -18,9 +18,9 @@ serde_json = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 tracing = "0.1"
 time = { workspace = true, features = ["macros", "serde", "parsing", "formatting"] }
-polars = { version = "0.52", default-features = false, features = ["fmt", "dtype-date"], optional = true }
+polars = { version = "0.53", default-features = false, features = ["fmt", "dtype-date"], optional = true }
 rayon = { version = "1.11", optional = true }
-good_lp = { version = "1.14", default-features = false, features = ["microlp"] }
+good_lp = { version = "1.15", default-features = false, features = ["microlp"] }
 
 [dev-dependencies]
 criterion = { workspace = true }

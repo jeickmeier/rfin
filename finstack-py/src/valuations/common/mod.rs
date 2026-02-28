@@ -431,9 +431,10 @@ pub(crate) fn extract_model_key(value: &Bound<'_, PyAny>) -> PyResult<ModelKey> 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct InstrumentTypeArg(pub InstrumentType);
 
-impl<'py> FromPyObject<'py> for InstrumentTypeArg {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        extract_instrument_type(ob).map(InstrumentTypeArg)
+impl<'a, 'py> FromPyObject<'a, 'py> for InstrumentTypeArg {
+    type Error = PyErr;
+    fn extract(ob: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        extract_instrument_type(&ob).map(InstrumentTypeArg)
     }
 }
 
@@ -441,9 +442,10 @@ impl<'py> FromPyObject<'py> for InstrumentTypeArg {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ModelKeyArg(pub ModelKey);
 
-impl<'py> FromPyObject<'py> for ModelKeyArg {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        extract_model_key(ob).map(ModelKeyArg)
+impl<'a, 'py> FromPyObject<'a, 'py> for ModelKeyArg {
+    type Error = PyErr;
+    fn extract(ob: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        extract_model_key(&ob).map(ModelKeyArg)
     }
 }
 

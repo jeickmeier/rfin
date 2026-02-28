@@ -31,7 +31,7 @@ impl BulkStore for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let tx = conn.unchecked_transaction()?;
                 {
                     let sql =
@@ -67,7 +67,7 @@ impl BulkStore for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let tx = conn.unchecked_transaction()?;
                 {
                     let sql =
@@ -102,7 +102,7 @@ impl BulkStore for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let tx = conn.unchecked_transaction()?;
                 {
                     let sql =

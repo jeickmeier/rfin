@@ -151,6 +151,20 @@ impl From<tokio_rusqlite::Error> for Error {
     }
 }
 
+#[cfg(feature = "sqlite")]
+impl From<tokio_rusqlite::Error<Error>> for Error {
+    fn from(err: tokio_rusqlite::Error<Error>) -> Self {
+        match err {
+            tokio_rusqlite::Error::Error(e) => e,
+            tokio_rusqlite::Error::ConnectionClosed => {
+                Self::Invariant("SQLite connection closed".into())
+            }
+            tokio_rusqlite::Error::Close((_, e)) => Self::Sqlite(Arc::new(e)),
+            _ => Self::Invariant("Unknown tokio-rusqlite error".into()),
+        }
+    }
+}
+
 #[cfg(feature = "postgres")]
 impl From<tokio_postgres::Error> for Error {
     fn from(err: tokio_postgres::Error) -> Self {

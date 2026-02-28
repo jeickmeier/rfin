@@ -49,8 +49,9 @@ impl PyPayReceive {
 #[derive(Clone, Copy, Debug)]
 struct PayReceiveArg(PyPayReceive);
 
-impl<'py> FromPyObject<'py> for PayReceiveArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for PayReceiveArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(existing) = obj.extract::<PyRef<'py, PyPayReceive>>() {
             return Ok(PayReceiveArg(*existing));
         }

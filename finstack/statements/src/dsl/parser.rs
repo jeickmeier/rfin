@@ -9,8 +9,8 @@ use nom::{
     combinator::{map, opt, recognize},
     multi::separated_list0,
     number::complete::double,
-    sequence::{delimited, pair, preceded, tuple},
-    IResult,
+    sequence::{delimited, pair, preceded},
+    IResult, Parser,
 };
 
 /// Parse a formula string into a [`StmtExpr`] AST.
@@ -42,7 +42,8 @@ fn logical_or(input: &str) -> IResult<&str, StmtExpr> {
     let (input, rest) = nom::multi::many0(preceded(
         delimited(multispace0, tag("or"), multispace1),
         logical_and,
-    ))(input)?;
+    ))
+    .parse(input)?;
 
     Ok((
         input,
@@ -57,7 +58,8 @@ fn logical_and(input: &str) -> IResult<&str, StmtExpr> {
     let (input, rest) = nom::multi::many0(preceded(
         delimited(multispace0, tag("and"), multispace1),
         comparison,
-    ))(input)?;
+    ))
+    .parse(input)?;
 
     Ok((
         input,
@@ -70,7 +72,7 @@ fn logical_and(input: &str) -> IResult<&str, StmtExpr> {
 fn comparison(input: &str) -> IResult<&str, StmtExpr> {
     let (input, first) = additive(input)?;
 
-    let (input, opt_op_and_expr) = opt(tuple((
+    let (input, opt_op_and_expr) = opt((
         delimited(
             multispace0,
             alt((
@@ -84,7 +86,8 @@ fn comparison(input: &str) -> IResult<&str, StmtExpr> {
             multispace0,
         ),
         additive,
-    )))(input)?;
+    ))
+    .parse(input)?;
 
     match opt_op_and_expr {
         Some((op, second)) => Ok((input, StmtExpr::bin_op(op, first, second))),
@@ -95,7 +98,7 @@ fn comparison(input: &str) -> IResult<&str, StmtExpr> {
 // Addition and subtraction
 fn additive(input: &str) -> IResult<&str, StmtExpr> {
     let (input, first) = multiplicative(input)?;
-    let (input, rest) = nom::multi::many0(tuple((
+    let (input, rest) = nom::multi::many0((
         delimited(
             multispace0,
             alt((
@@ -105,7 +108,8 @@ fn additive(input: &str) -> IResult<&str, StmtExpr> {
             multispace0,
         ),
         multiplicative,
-    )))(input)?;
+    ))
+    .parse(input)?;
 
     Ok((
         input,
@@ -117,7 +121,7 @@ fn additive(input: &str) -> IResult<&str, StmtExpr> {
 // Multiplication, division, and modulo
 fn multiplicative(input: &str) -> IResult<&str, StmtExpr> {
     let (input, first) = unary(input)?;
-    let (input, rest) = nom::multi::many0(tuple((
+    let (input, rest) = nom::multi::many0((
         delimited(
             multispace0,
             alt((
@@ -128,7 +132,8 @@ fn multiplicative(input: &str) -> IResult<&str, StmtExpr> {
             multispace0,
         ),
         unary,
-    )))(input)?;
+    ))
+    .parse(input)?;
 
     Ok((
         input,
@@ -143,14 +148,15 @@ fn unary(input: &str) -> IResult<&str, StmtExpr> {
         map(preceded(char('!'), unary), |expr| {
             StmtExpr::unary_op(UnaryOp::Not, expr)
         }),
-        map(preceded(tuple((tag("not"), multispace1)), unary), |expr| {
+        map(preceded((tag("not"), multispace1), unary), |expr| {
             StmtExpr::unary_op(UnaryOp::Not, expr)
         }),
         map(preceded(char('-'), unary), |expr| {
             StmtExpr::unary_op(UnaryOp::Neg, expr)
         }),
         primary,
-    ))(input)
+    ))
+    .parse(input)
 }
 
 // Primary expressions (literals, identifiers, function calls, parentheses)
@@ -165,23 +171,24 @@ fn primary(input: &str) -> IResult<&str, StmtExpr> {
             parenthesized,
         )),
         multispace0,
-    )(input)
+    )
+    .parse(input)
 }
 
 // If-then-else expression
 fn if_then_else(input: &str) -> IResult<&str, StmtExpr> {
-    let (input, _) = tag("if")(input)?;
-    let (input, _) = multispace0(input)?;
-    let (input, _) = char('(')(input)?;
+    let (input, _) = tag("if").parse(input)?;
+    let (input, _) = multispace0.parse(input)?;
+    let (input, _) = char('(').parse(input)?;
     let (input, condition) = expression(input)?;
-    let (input, _) = multispace0(input)?;
-    let (input, _) = char(',')(input)?;
+    let (input, _) = multispace0.parse(input)?;
+    let (input, _) = char(',').parse(input)?;
     let (input, then_expr) = expression(input)?;
-    let (input, _) = multispace0(input)?;
-    let (input, _) = char(',')(input)?;
+    let (input, _) = multispace0.parse(input)?;
+    let (input, _) = char(',').parse(input)?;
     let (input, else_expr) = expression(input)?;
-    let (input, _) = multispace0(input)?;
-    let (input, _) = char(')')(input)?;
+    let (input, _) = multispace0.parse(input)?;
+    let (input, _) = char(')').parse(input)?;
 
     Ok((
         input,
@@ -192,18 +199,18 @@ fn if_then_else(input: &str) -> IResult<&str, StmtExpr> {
 // Function call
 fn function_call(input: &str) -> IResult<&str, StmtExpr> {
     let (input, name) = identifier_string(input)?;
-    let (input, _) = multispace0(input)?;
-    let (input, _) = char('(')(input)?;
+    let (input, _) = multispace0.parse(input)?;
+    let (input, _) = char('(').parse(input)?;
     let (input, args) =
-        separated_list0(delimited(multispace0, char(','), multispace0), expression)(input)?;
-    let (input, _) = char(')')(input)?;
+        separated_list0(delimited(multispace0, char(','), multispace0), expression).parse(input)?;
+    let (input, _) = char(')').parse(input)?;
 
     Ok((input, StmtExpr::call(name, args)))
 }
 
 // Literal number
 fn literal(input: &str) -> IResult<&str, StmtExpr> {
-    map(double, StmtExpr::literal)(input)
+    map(double, StmtExpr::literal).parse(input)
 }
 
 // Identifier (node reference)
@@ -238,12 +245,13 @@ fn identifier_string(input: &str) -> IResult<&str, String> {
             }),
         )),
         |s: &str| s.to_string(),
-    )(input)
+    )
+    .parse(input)
 }
 
 // Parenthesized expression
 fn parenthesized(input: &str) -> IResult<&str, StmtExpr> {
-    delimited(char('('), expression, char(')'))(input)
+    delimited(char('('), expression, char(')')).parse(input)
 }
 
 #[cfg(test)]

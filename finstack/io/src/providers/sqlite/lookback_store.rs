@@ -26,7 +26,7 @@ impl LookbackStore for SqliteStore {
         let rows: Vec<(String, Vec<u8>)> = self
             .conn
             .call(
-                move |conn| -> tokio_rusqlite::Result<Vec<(String, Vec<u8>)>> {
+                move |conn| -> std::result::Result<Vec<(String, Vec<u8>)>, rusqlite::Error> {
                     let sql =
                         statements::list_market_contexts_sql_with_naming(Backend::Sqlite, &naming);
                     let mut stmt = conn.prepare(sql.as_ref())?;
@@ -64,14 +64,14 @@ impl LookbackStore for SqliteStore {
         let row: Option<(String, Vec<u8>)> = self
             .conn
             .call(
-                move |conn| -> tokio_rusqlite::Result<Option<(String, Vec<u8>)>> {
+                move |conn| -> std::result::Result<Option<(String, Vec<u8>)>, rusqlite::Error> {
                     let sql =
                         statements::latest_market_context_sql_with_naming(Backend::Sqlite, &naming);
-                    Ok(optional_row(conn.query_row(
-                        sql.as_ref(),
-                        params![market_id, as_of],
-                        |row| Ok((row.get(0)?, row.get(1)?)),
-                    ))?)
+                    optional_row(
+                        conn.query_row(sql.as_ref(), params![market_id, as_of], |row| {
+                            Ok((row.get(0)?, row.get(1)?))
+                        }),
+                    )
                 },
             )
             .await?;
@@ -98,7 +98,7 @@ impl LookbackStore for SqliteStore {
         let rows: Vec<(String, Vec<u8>)> = self
             .conn
             .call(
-                move |conn| -> tokio_rusqlite::Result<Vec<(String, Vec<u8>)>> {
+                move |conn| -> std::result::Result<Vec<(String, Vec<u8>)>, rusqlite::Error> {
                     let sql = statements::list_portfolios_sql_with_naming(Backend::Sqlite, &naming);
                     let mut stmt = conn.prepare(sql.as_ref())?;
                     let rows = stmt.query_map(params![portfolio_id, start, end], |row| {
@@ -135,14 +135,14 @@ impl LookbackStore for SqliteStore {
         let row: Option<(String, Vec<u8>)> = self
             .conn
             .call(
-                move |conn| -> tokio_rusqlite::Result<Option<(String, Vec<u8>)>> {
+                move |conn| -> std::result::Result<Option<(String, Vec<u8>)>, rusqlite::Error> {
                     let sql =
                         statements::latest_portfolio_sql_with_naming(Backend::Sqlite, &naming);
-                    Ok(optional_row(conn.query_row(
+                    optional_row(conn.query_row(
                         sql.as_ref(),
                         params![portfolio_id, as_of],
                         |row| Ok((row.get(0)?, row.get(1)?)),
-                    ))?)
+                    ))
                 },
             )
             .await?;

@@ -14,9 +14,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 thiserror = { workspace = true }
-nom = "7"
+nom = "8"
 tracing = { version = "0.1", default-features = false }
-polars = { version = "0.52", optional = true, default-features = false }
+polars = { version = "0.53", optional = true, default-features = false }
 time = { workspace = true }
 rust_decimal = { workspace = true }
 

@@ -63,7 +63,7 @@ pub fn to_polars_long(results: &StatementResult) -> Result<DataFrame> {
         }
     }
 
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("node_id".into(), node_ids).into(),
         Series::new("period_id".into(), period_ids).into(),
         Series::new("value".into(), values).into(),
@@ -132,7 +132,7 @@ pub fn to_polars_long_filtered(
         }
     }
 
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("node_id".into(), node_ids).into(),
         Series::new("period_id".into(), period_ids).into(),
         Series::new("value".into(), values).into(),
@@ -178,9 +178,11 @@ pub fn to_polars_wide(results: &StatementResult) -> Result<DataFrame> {
     all_periods.dedup();
 
     if all_periods.is_empty() {
-        return DataFrame::new(vec![
-            Series::new("period_id".into(), Vec::<String>::new()).into()
-        ])
+        return DataFrame::new_infer_height(vec![Series::new(
+            "period_id".into(),
+            Vec::<String>::new(),
+        )
+        .into()])
         .map_err(|e| {
             crate::error::Error::invalid_input(format!("Failed to create empty DataFrame: {}", e))
         });
@@ -202,7 +204,7 @@ pub fn to_polars_wide(results: &StatementResult) -> Result<DataFrame> {
         series_list.push(Series::new(node_id.as_str().into(), node_values).into());
     }
 
-    let df = DataFrame::new(series_list).map_err(|e| {
+    let df = DataFrame::new_infer_height(series_list).map_err(|e| {
         crate::error::Error::invalid_input(format!("Failed to create DataFrame: {}", e))
     })?;
 

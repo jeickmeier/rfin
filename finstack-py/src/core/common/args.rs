@@ -28,8 +28,9 @@ use std::str::FromStr;
 
 pub struct CurrencyArg(pub Currency);
 
-impl<'py> FromPyObject<'py> for CurrencyArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for CurrencyArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(ccy) = obj.extract::<PyRef<PyCurrency>>() {
             return Ok(CurrencyArg(ccy.inner));
         }
@@ -46,8 +47,9 @@ impl<'py> FromPyObject<'py> for CurrencyArg {
 
 pub struct RoundingModeArg(pub RoundingMode);
 
-impl<'py> FromPyObject<'py> for RoundingModeArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for RoundingModeArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(mode) = obj.extract::<PyRef<crate::core::config::PyRoundingMode>>() {
             return Ok(RoundingModeArg(mode.inner));
         }
@@ -71,8 +73,9 @@ impl<'py> FromPyObject<'py> for RoundingModeArg {
 
 pub struct BusinessDayConventionArg(pub BusinessDayConvention);
 
-impl<'py> FromPyObject<'py> for BusinessDayConventionArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for BusinessDayConventionArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(conv) =
             obj.extract::<PyRef<crate::core::dates::calendar::PyBusinessDayConvention>>()
         {
@@ -91,8 +94,9 @@ impl<'py> FromPyObject<'py> for BusinessDayConventionArg {
 
 pub struct DayCountArg(pub DayCount);
 
-impl<'py> FromPyObject<'py> for DayCountArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for DayCountArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(dc) = obj.extract::<PyRef<PyDayCount>>() {
             return Ok(DayCountArg(dc.inner));
         }
@@ -123,8 +127,9 @@ impl<'py> FromPyObject<'py> for DayCountArg {
 
 pub struct InterpStyleArg(pub InterpStyle);
 
-impl<'py> FromPyObject<'py> for InterpStyleArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for InterpStyleArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(py) = obj.extract::<PyRef<PyInterpStyle>>() {
             return Ok(InterpStyleArg(py.inner));
         }
@@ -153,8 +158,9 @@ impl<'py> FromPyObject<'py> for InterpStyleArg {
 
 pub struct ExtrapolationPolicyArg(pub ExtrapolationPolicy);
 
-impl<'py> FromPyObject<'py> for ExtrapolationPolicyArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for ExtrapolationPolicyArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(py) = obj.extract::<PyRef<PyExtrapolationPolicy>>() {
             return Ok(ExtrapolationPolicyArg(py.inner));
         }
@@ -186,8 +192,9 @@ impl<'py> FromPyObject<'py> for ExtrapolationPolicyArg {
 /// - Integer payments per year: 1, 2, 4, 12, etc.
 pub struct TenorArg(pub Tenor);
 
-impl<'py> FromPyObject<'py> for TenorArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for TenorArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         // Try Frequency wrapper first
         if let Ok(py_freq) = obj.extract::<PyRef<PyFrequency>>() {
             return Ok(TenorArg(py_freq.inner));
@@ -238,8 +245,9 @@ impl<'py> FromPyObject<'py> for TenorArg {
 /// - String labels: "none", "short_front", "short_back", "long_front", "long_back"
 pub struct StubKindArg(pub StubKind);
 
-impl<'py> FromPyObject<'py> for StubKindArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for StubKindArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         // Try StubKind wrapper first
         if let Ok(py_stub) = obj.extract::<PyRef<PyStubKind>>() {
             return Ok(StubKindArg(py_stub.inner));

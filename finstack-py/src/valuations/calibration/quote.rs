@@ -270,7 +270,7 @@ impl PyCreditQuote {
         currency: Bound<'_, PyAny>,
         doc_clause: Option<&str>,
     ) -> PyResult<Self> {
-        let CurrencyArg(ccy) = CurrencyArg::extract_bound(&currency)?;
+        let CurrencyArg(ccy) = currency.extract::<CurrencyArg>()?;
         let doc = parse_doc_clause(doc_clause.unwrap_or("XR14"))?;
         let pillar = parse_pillar(pillar)?;
         Ok(Self::new(MarketQuote::Cds(CdsQuote::CdsParSpread {
@@ -302,7 +302,7 @@ impl PyCreditQuote {
         currency: Bound<'_, PyAny>,
         doc_clause: Option<&str>,
     ) -> PyResult<Self> {
-        let CurrencyArg(ccy) = CurrencyArg::extract_bound(&currency)?;
+        let CurrencyArg(ccy) = currency.extract::<CurrencyArg>()?;
         let doc = parse_doc_clause(doc_clause.unwrap_or("XR14"))?;
         let pillar = parse_pillar(pillar)?;
         Ok(Self::new(MarketQuote::Cds(CdsQuote::CdsUpfront {
@@ -337,7 +337,7 @@ impl PyCreditQuote {
         doc_clause: Option<&str>,
     ) -> PyResult<Self> {
         let maturity_date = py_to_date(&maturity)?;
-        let CurrencyArg(ccy) = CurrencyArg::extract_bound(&currency)?;
+        let CurrencyArg(ccy) = currency.extract::<CurrencyArg>()?;
         let doc = parse_doc_clause(doc_clause.unwrap_or("XR14"))?;
         Ok(Self::new(MarketQuote::CDSTranche(
             CDSTrancheQuote::CDSTranche {

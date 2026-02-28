@@ -159,8 +159,9 @@ impl fmt::Display for PyMetricId {
 #[derive(Clone, Debug)]
 pub(crate) struct MetricIdArg(pub MetricId);
 
-impl<'py> FromPyObject<'py> for MetricIdArg {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for MetricIdArg {
+    type Error = PyErr;
+    fn extract(ob: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(wrapper) = ob.extract::<PyRef<PyMetricId>>() {
             return Ok(MetricIdArg(wrapper.inner.clone()));
         }

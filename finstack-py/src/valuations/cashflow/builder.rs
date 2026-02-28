@@ -631,7 +631,7 @@ impl PyCashFlowSchedule {
         let reset_dates = Series::new("reset_date".into(), reset_dates)
             .cast(&DataType::Date)
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        let mut df = DataFrame::new(vec![
+        let mut df = DataFrame::new_infer_height(vec![
             start_dates.into(),
             end_dates.into(),
             pay_dates.into(),
@@ -651,7 +651,7 @@ impl PyCashFlowSchedule {
         if let Some(undrawn) = frame.undrawn_notionals {
             let undrawn_f64: Vec<f64> = undrawn.iter().map(|opt| opt.unwrap_or(f64::NAN)).collect();
             let col = Series::new("undrawn_notional".into(), undrawn_f64);
-            df.with_column(col)
+            df.with_column(col.into())
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
         }
 

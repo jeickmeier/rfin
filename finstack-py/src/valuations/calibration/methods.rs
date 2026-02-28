@@ -148,7 +148,7 @@ impl PyDiscountCurveCalibrator {
         currency: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
         let date = py_to_date(&base_date)?;
-        let CurrencyArg(ccy) = CurrencyArg::extract_bound(&currency)?;
+        let CurrencyArg(ccy) = currency.extract::<CurrencyArg>()?;
         Ok(Self::new(DiscountCurveCalibrator::new(curve_id, date, ccy)))
     }
 
@@ -171,7 +171,7 @@ impl PyDiscountCurveCalibrator {
 
     #[pyo3(text_signature = "(self, interp)")]
     fn with_solve_interp(&self, interp: Bound<'_, PyAny>) -> PyResult<Self> {
-        let InterpStyleArg(style) = InterpStyleArg::extract_bound(&interp)?;
+        let InterpStyleArg(style) = interp.extract::<InterpStyleArg>()?;
         let inner = self.inner.clone().with_solve_interp(style);
         Ok(Self::new(inner))
     }
@@ -198,7 +198,7 @@ impl PyDiscountCurveCalibrator {
     ///     New calibrator with updated extrapolation policy.
     #[pyo3(text_signature = "(self, policy)")]
     fn with_extrapolation(&self, policy: Bound<'_, PyAny>) -> PyResult<Self> {
-        let ExtrapolationPolicyArg(extrap) = ExtrapolationPolicyArg::extract_bound(&policy)?;
+        let ExtrapolationPolicyArg(extrap) = policy.extract::<ExtrapolationPolicyArg>()?;
         let inner = self.inner.clone().with_extrapolation(extrap);
         Ok(Self::new(inner))
     }
@@ -255,7 +255,7 @@ impl PyForwardCurveCalibrator {
         discount_curve_id: &str,
     ) -> PyResult<Self> {
         let date = py_to_date(&base_date)?;
-        let CurrencyArg(ccy) = CurrencyArg::extract_bound(&currency)?;
+        let CurrencyArg(ccy) = currency.extract::<CurrencyArg>()?;
         Ok(Self::new(ForwardCurveCalibrator::new(
             curve_id,
             tenor_years,
@@ -277,7 +277,7 @@ impl PyForwardCurveCalibrator {
 
     #[pyo3(text_signature = "(self, interp)")]
     fn with_solve_interp(&self, interp: Bound<'_, PyAny>) -> PyResult<Self> {
-        let InterpStyleArg(style) = InterpStyleArg::extract_bound(&interp)?;
+        let InterpStyleArg(style) = interp.extract::<InterpStyleArg>()?;
         Ok(Self::new(self.inner.clone().with_solve_interp(style)))
     }
 
@@ -335,7 +335,7 @@ impl PyHazardCurveCalibrator {
     ) -> PyResult<Self> {
         let seniority_enum = parse_seniority(seniority)?;
         let date = py_to_date(&base_date)?;
-        let CurrencyArg(ccy) = CurrencyArg::extract_bound(&currency)?;
+        let CurrencyArg(ccy) = currency.extract::<CurrencyArg>()?;
         let inner = if let Some(curve_id) = discount_curve {
             HazardCurveCalibrator::new(entity, seniority_enum, recovery_rate, date, ccy, curve_id)
         } else {
@@ -430,7 +430,7 @@ impl PyInflationCurveCalibrator {
         discount_curve_id: &str,
     ) -> PyResult<Self> {
         let date = py_to_date(&base_date)?;
-        let CurrencyArg(ccy) = CurrencyArg::extract_bound(&currency)?;
+        let CurrencyArg(ccy) = currency.extract::<CurrencyArg>()?;
         Ok(Self::new(InflationCurveCalibrator::new(
             curve_id,
             date,
@@ -452,20 +452,20 @@ impl PyInflationCurveCalibrator {
 
     #[pyo3(text_signature = "(self, interp)")]
     fn with_solve_interp(&self, interp: Bound<'_, PyAny>) -> PyResult<Self> {
-        let InterpStyleArg(style) = InterpStyleArg::extract_bound(&interp)?;
+        let InterpStyleArg(style) = interp.extract::<InterpStyleArg>()?;
         Ok(Self::new(self.inner.clone().with_solve_interp(style)))
     }
 
     #[pyo3(text_signature = "(self, day_count)")]
     #[allow(deprecated)]
     fn with_time_dc(&self, day_count: Bound<'_, PyAny>) -> PyResult<Self> {
-        let DayCountArg(dc) = DayCountArg::extract_bound(&day_count)?;
+        let DayCountArg(dc) = day_count.extract::<DayCountArg>()?;
         Ok(Self::new(self.inner.clone().with_time_dc(dc)))
     }
 
     #[pyo3(text_signature = "(self, day_count)")]
     fn with_accrual_dc(&self, day_count: Bound<'_, PyAny>) -> PyResult<Self> {
-        let DayCountArg(dc) = DayCountArg::extract_bound(&day_count)?;
+        let DayCountArg(dc) = day_count.extract::<DayCountArg>()?;
         Ok(Self::new(self.inner.clone().with_accrual_dc(dc)))
     }
 
@@ -590,14 +590,14 @@ impl PyVolSurfaceCalibrator {
 
     #[pyo3(text_signature = "(self, currency)")]
     fn with_base_currency(&self, currency: Bound<'_, PyAny>) -> PyResult<Self> {
-        let CurrencyArg(ccy) = CurrencyArg::extract_bound(&currency)?;
+        let CurrencyArg(ccy) = currency.extract::<CurrencyArg>()?;
         Ok(Self::new(self.inner.clone().with_base_currency(ccy)))
     }
 
     #[pyo3(text_signature = "(self, day_count)")]
     #[allow(deprecated)]
     fn with_time_dc(&self, day_count: Bound<'_, PyAny>) -> PyResult<Self> {
-        let DayCountArg(dc) = DayCountArg::extract_bound(&day_count)?;
+        let DayCountArg(dc) = day_count.extract::<DayCountArg>()?;
         Ok(Self::new(self.inner.clone().with_time_dc(dc)))
     }
 

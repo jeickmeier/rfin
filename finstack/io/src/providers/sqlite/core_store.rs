@@ -35,7 +35,7 @@ impl Store for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let sql =
                     statements::upsert_market_context_sql_with_naming(Backend::Sqlite, &naming);
                 conn.execute(sql.as_ref(), params![market_id, as_of, payload, meta])?;
@@ -56,15 +56,15 @@ impl Store for SqliteStore {
 
         let payload: Option<Vec<u8>> = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
-                let sql =
-                    statements::select_market_context_sql_with_naming(Backend::Sqlite, &naming);
-                Ok(optional_row(conn.query_row(
-                    sql.as_ref(),
-                    params![market_id, as_of],
-                    |row| row.get(0),
-                ))?)
-            })
+            .call(
+                move |conn| -> std::result::Result<Option<Vec<u8>>, rusqlite::Error> {
+                    let sql =
+                        statements::select_market_context_sql_with_naming(Backend::Sqlite, &naming);
+                    optional_row(
+                        conn.query_row(sql.as_ref(), params![market_id, as_of], |row| row.get(0)),
+                    )
+                },
+            )
             .await?;
 
         let context = crate::helpers::optional_json_from_slice::<MarketContextState>(payload)?
@@ -85,7 +85,7 @@ impl Store for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let sql = statements::upsert_instrument_sql_with_naming(Backend::Sqlite, &naming);
                 conn.execute(sql.as_ref(), params![instrument_id, payload, meta])?;
                 Ok(())
@@ -100,14 +100,15 @@ impl Store for SqliteStore {
 
         let payload: Option<Vec<u8>> = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
-                let sql = statements::select_instrument_sql_with_naming(Backend::Sqlite, &naming);
-                Ok(optional_row(conn.query_row(
-                    sql.as_ref(),
-                    params![instrument_id],
-                    |row| row.get(0),
-                ))?)
-            })
+            .call(
+                move |conn| -> std::result::Result<Option<Vec<u8>>, rusqlite::Error> {
+                    let sql =
+                        statements::select_instrument_sql_with_naming(Backend::Sqlite, &naming);
+                    optional_row(
+                        conn.query_row(sql.as_ref(), params![instrument_id], |row| row.get(0)),
+                    )
+                },
+            )
             .await?;
         crate::helpers::optional_json_from_slice(payload)
     }
@@ -130,7 +131,7 @@ impl Store for SqliteStore {
             let rows: Vec<(String, Vec<u8>)> = self
                 .conn
                 .call(
-                    move |conn| -> tokio_rusqlite::Result<Vec<(String, Vec<u8>)>> {
+                    move |conn| -> std::result::Result<Vec<(String, Vec<u8>)>, rusqlite::Error> {
                         let sql = statements::select_instruments_batch_sql_with_naming(
                             Backend::Sqlite,
                             &naming,
@@ -168,17 +169,20 @@ impl Store for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
         let ids = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Vec<String>> {
-                let sql = statements::list_instruments_sql_with_naming(Backend::Sqlite, &naming);
-                let mut stmt = conn.prepare(sql.as_ref())?;
-                let rows = stmt.query_map([], |row| row.get(0))?;
+            .call(
+                move |conn| -> std::result::Result<Vec<String>, rusqlite::Error> {
+                    let sql =
+                        statements::list_instruments_sql_with_naming(Backend::Sqlite, &naming);
+                    let mut stmt = conn.prepare(sql.as_ref())?;
+                    let rows = stmt.query_map([], |row| row.get(0))?;
 
-                let mut out = Vec::new();
-                for row in rows {
-                    out.push(row?);
-                }
-                Ok(out)
-            })
+                    let mut out = Vec::new();
+                    for row in rows {
+                        out.push(row?);
+                    }
+                    Ok(out)
+                },
+            )
             .await?;
         Ok(ids)
     }
@@ -197,7 +201,7 @@ impl Store for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let sql = statements::upsert_portfolio_sql_with_naming(Backend::Sqlite, &naming);
                 conn.execute(sql.as_ref(), params![portfolio_id, as_of, payload, meta])?;
                 Ok(())
@@ -217,14 +221,17 @@ impl Store for SqliteStore {
 
         let payload: Option<Vec<u8>> = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
-                let sql = statements::select_portfolio_sql_with_naming(Backend::Sqlite, &naming);
-                Ok(optional_row(conn.query_row(
-                    sql.as_ref(),
-                    params![portfolio_id, as_of],
-                    |row| row.get(0),
-                ))?)
-            })
+            .call(
+                move |conn| -> std::result::Result<Option<Vec<u8>>, rusqlite::Error> {
+                    let sql =
+                        statements::select_portfolio_sql_with_naming(Backend::Sqlite, &naming);
+                    optional_row(conn.query_row(
+                        sql.as_ref(),
+                        params![portfolio_id, as_of],
+                        |row| row.get(0),
+                    ))
+                },
+            )
             .await?;
         crate::helpers::optional_json_from_slice(payload)
     }
@@ -241,7 +248,7 @@ impl Store for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let sql = statements::upsert_scenario_sql_with_naming(Backend::Sqlite, &naming);
                 conn.execute(sql.as_ref(), params![scenario_id, payload, meta])?;
                 Ok(())
@@ -256,14 +263,14 @@ impl Store for SqliteStore {
 
         let payload: Option<Vec<u8>> = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
-                let sql = statements::select_scenario_sql_with_naming(Backend::Sqlite, &naming);
-                Ok(optional_row(conn.query_row(
-                    sql.as_ref(),
-                    params![scenario_id],
-                    |row| row.get(0),
-                ))?)
-            })
+            .call(
+                move |conn| -> std::result::Result<Option<Vec<u8>>, rusqlite::Error> {
+                    let sql = statements::select_scenario_sql_with_naming(Backend::Sqlite, &naming);
+                    optional_row(
+                        conn.query_row(sql.as_ref(), params![scenario_id], |row| row.get(0)),
+                    )
+                },
+            )
             .await?;
         crate::helpers::optional_json_from_slice(payload)
     }
@@ -272,17 +279,19 @@ impl Store for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
         let ids = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Vec<String>> {
-                let sql = statements::list_scenarios_sql_with_naming(Backend::Sqlite, &naming);
-                let mut stmt = conn.prepare(sql.as_ref())?;
-                let rows = stmt.query_map([], |row| row.get(0))?;
+            .call(
+                move |conn| -> std::result::Result<Vec<String>, rusqlite::Error> {
+                    let sql = statements::list_scenarios_sql_with_naming(Backend::Sqlite, &naming);
+                    let mut stmt = conn.prepare(sql.as_ref())?;
+                    let rows = stmt.query_map([], |row| row.get(0))?;
 
-                let mut out = Vec::new();
-                for row in rows {
-                    out.push(row?);
-                }
-                Ok(out)
-            })
+                    let mut out = Vec::new();
+                    for row in rows {
+                        out.push(row?);
+                    }
+                    Ok(out)
+                },
+            )
             .await?;
         Ok(ids)
     }
@@ -299,7 +308,7 @@ impl Store for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let sql =
                     statements::upsert_statement_model_sql_with_naming(Backend::Sqlite, &naming);
                 conn.execute(sql.as_ref(), params![model_id, payload, meta])?;
@@ -315,15 +324,15 @@ impl Store for SqliteStore {
 
         let payload: Option<Vec<u8>> = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
-                let sql =
-                    statements::select_statement_model_sql_with_naming(Backend::Sqlite, &naming);
-                Ok(optional_row(conn.query_row(
-                    sql.as_ref(),
-                    params![model_id],
-                    |row| row.get(0),
-                ))?)
-            })
+            .call(
+                move |conn| -> std::result::Result<Option<Vec<u8>>, rusqlite::Error> {
+                    let sql = statements::select_statement_model_sql_with_naming(
+                        Backend::Sqlite,
+                        &naming,
+                    );
+                    optional_row(conn.query_row(sql.as_ref(), params![model_id], |row| row.get(0)))
+                },
+            )
             .await?;
         crate::helpers::optional_json_from_slice(payload)
     }
@@ -332,18 +341,20 @@ impl Store for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
         let ids = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Vec<String>> {
-                let sql =
-                    statements::list_statement_models_sql_with_naming(Backend::Sqlite, &naming);
-                let mut stmt = conn.prepare(sql.as_ref())?;
-                let rows = stmt.query_map([], |row| row.get(0))?;
+            .call(
+                move |conn| -> std::result::Result<Vec<String>, rusqlite::Error> {
+                    let sql =
+                        statements::list_statement_models_sql_with_naming(Backend::Sqlite, &naming);
+                    let mut stmt = conn.prepare(sql.as_ref())?;
+                    let rows = stmt.query_map([], |row| row.get(0))?;
 
-                let mut out = Vec::new();
-                for row in rows {
-                    out.push(row?);
-                }
-                Ok(out)
-            })
+                    let mut out = Vec::new();
+                    for row in rows {
+                        out.push(row?);
+                    }
+                    Ok(out)
+                },
+            )
             .await?;
         Ok(ids)
     }
@@ -360,7 +371,7 @@ impl Store for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let sql =
                     statements::upsert_metric_registry_sql_with_naming(Backend::Sqlite, &naming);
                 conn.execute(sql.as_ref(), params![namespace, payload, meta])?;
@@ -376,15 +387,15 @@ impl Store for SqliteStore {
 
         let payload: Option<Vec<u8>> = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
-                let sql =
-                    statements::select_metric_registry_sql_with_naming(Backend::Sqlite, &naming);
-                Ok(optional_row(conn.query_row(
-                    sql.as_ref(),
-                    params![namespace],
-                    |row| row.get(0),
-                ))?)
-            })
+            .call(
+                move |conn| -> std::result::Result<Option<Vec<u8>>, rusqlite::Error> {
+                    let sql = statements::select_metric_registry_sql_with_naming(
+                        Backend::Sqlite,
+                        &naming,
+                    );
+                    optional_row(conn.query_row(sql.as_ref(), params![namespace], |row| row.get(0)))
+                },
+            )
             .await?;
         crate::helpers::optional_json_from_slice(payload)
     }
@@ -393,18 +404,22 @@ impl Store for SqliteStore {
         let naming = std::sync::Arc::clone(&self.naming);
         let ids = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<Vec<String>> {
-                let sql =
-                    statements::list_metric_registries_sql_with_naming(Backend::Sqlite, &naming);
-                let mut stmt = conn.prepare(sql.as_ref())?;
-                let rows = stmt.query_map([], |row| row.get(0))?;
+            .call(
+                move |conn| -> std::result::Result<Vec<String>, rusqlite::Error> {
+                    let sql = statements::list_metric_registries_sql_with_naming(
+                        Backend::Sqlite,
+                        &naming,
+                    );
+                    let mut stmt = conn.prepare(sql.as_ref())?;
+                    let rows = stmt.query_map([], |row| row.get(0))?;
 
-                let mut out = Vec::new();
-                for row in rows {
-                    out.push(row?);
-                }
-                Ok(out)
-            })
+                    let mut out = Vec::new();
+                    for row in rows {
+                        out.push(row?);
+                    }
+                    Ok(out)
+                },
+            )
             .await?;
         Ok(ids)
     }
@@ -415,10 +430,10 @@ impl Store for SqliteStore {
 
         let rows_affected = self
             .conn
-            .call(move |conn| -> tokio_rusqlite::Result<usize> {
+            .call(move |conn| -> std::result::Result<usize, rusqlite::Error> {
                 let sql =
                     statements::delete_metric_registry_sql_with_naming(Backend::Sqlite, &naming);
-                Ok(conn.execute(sql.as_ref(), params![namespace])?)
+                conn.execute(sql.as_ref(), params![namespace])
             })
             .await?;
         Ok(rows_affected > 0)

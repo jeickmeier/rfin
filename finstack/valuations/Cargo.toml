@@ -22,7 +22,7 @@ tracing = { version = "0.1", default-features = false }
 thiserror = { workspace = true }
 num-complex = "0.4"
 strum = { workspace = true }
-ts-rs = { version = "10", optional = true, features = ["serde-compat", "no-serde-warnings"] }
+ts-rs = { version = "12", optional = true, features = ["serde-compat", "no-serde-warnings"] }
 
 [dev-dependencies]
 time = { workspace = true, features = ["macros"] }

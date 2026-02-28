@@ -160,7 +160,7 @@ impl SqliteStore {
 
         let conn = Connection::open(&path).await?;
 
-        conn.call(|conn| -> tokio_rusqlite::Result<()> {
+        conn.call(|conn| -> std::result::Result<(), rusqlite::Error> {
             conn.busy_timeout(Duration::from_secs(5))?;
             conn.execute_batch(
                 "PRAGMA foreign_keys = ON;\
@@ -212,7 +212,7 @@ impl SqliteStore {
     pub async fn open_in_memory_with_config(config: SqliteConfig) -> Result<Self> {
         let conn = Connection::open_in_memory().await?;
 
-        conn.call(|conn| -> tokio_rusqlite::Result<()> {
+        conn.call(|conn| -> std::result::Result<(), rusqlite::Error> {
             conn.busy_timeout(Duration::from_secs(5))?;
             conn.execute_batch("PRAGMA foreign_keys = ON;")?;
             Ok(())
@@ -250,8 +250,8 @@ impl SqliteStore {
         let schema_version = SCHEMA_VERSION;
         let current: i64 = self
             .conn
-            .call(|conn| -> tokio_rusqlite::Result<i64> {
-                Ok(conn.pragma_query_value(None, "user_version", |row| row.get(0))?)
+            .call(|conn| -> std::result::Result<i64, rusqlite::Error> {
+                conn.pragma_query_value(None, "user_version", |row| row.get(0))
             })
             .await?;
 
@@ -268,7 +268,7 @@ impl SqliteStore {
 
         let migrations = migrations::migrations_for_with_naming(Backend::Sqlite, self.naming());
         self.conn
-            .call(move |conn| -> tokio_rusqlite::Result<()> {
+            .call(move |conn| -> std::result::Result<(), rusqlite::Error> {
                 let tx = conn.unchecked_transaction()?;
                 for (version, statements) in migrations {
                     if version <= current {

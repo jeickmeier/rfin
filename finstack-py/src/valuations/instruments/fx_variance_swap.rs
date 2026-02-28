@@ -63,8 +63,9 @@ impl PyFxPayReceive {
 #[derive(Clone, Copy, Debug)]
 struct FxPayReceiveArg(PyFxPayReceive);
 
-impl<'py> FromPyObject<'py> for FxPayReceiveArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for FxPayReceiveArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(existing) = obj.extract::<PyRef<'py, PyFxPayReceive>>() {
             return Ok(FxPayReceiveArg(*existing));
         }
@@ -137,8 +138,9 @@ impl PyFxRealizedVarMethod {
 #[derive(Clone, Copy, Debug)]
 struct FxRealizedVarMethodArg(PyFxRealizedVarMethod);
 
-impl<'py> FromPyObject<'py> for FxRealizedVarMethodArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for FxRealizedVarMethodArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(existing) = obj.extract::<PyRef<'py, PyFxRealizedVarMethod>>() {
             return Ok(FxRealizedVarMethodArg(*existing));
         }

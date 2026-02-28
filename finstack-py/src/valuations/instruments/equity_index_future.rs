@@ -61,8 +61,9 @@ impl PyPosition {
 #[derive(Clone, Copy, Debug)]
 struct PositionArg(PyPosition);
 
-impl<'py> FromPyObject<'py> for PositionArg {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for PositionArg {
+    type Error = PyErr;
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(existing) = obj.extract::<PyRef<'py, PyPosition>>() {
             return Ok(PositionArg(*existing));
         }
