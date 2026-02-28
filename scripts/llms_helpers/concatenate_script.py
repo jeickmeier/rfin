@@ -58,6 +58,7 @@ def is_excluded(path, patterns) -> bool:
 
 def strip_rust_comments_from_text(content):
     """Remove Rust comments from text content.
+
     Handles single-line (//) and multi-line (/* */) comments.
     Note: This is a simple implementation that may not handle all edge cases
     (e.g., comment markers inside strings), but works well for most code.
@@ -74,18 +75,15 @@ def strip_rust_comments_from_text(content):
     cleaned_lines = []
 
     for line in lines:
-        # Find // that's not in a string (simple check)
+        stripped = line
         comment_pos = line.find("//")
         if comment_pos != -1:
-            # Simple heuristic: count quotes before the comment
             before_comment = line[:comment_pos]
-            # If even number of quotes, likely not in string
             if before_comment.count('"') % 2 == 0 and before_comment.count("'") % 2 == 0:
-                line = line[:comment_pos].rstrip()
+                stripped = line[:comment_pos].rstrip()
 
-        # Only keep non-empty lines or lines with actual content
-        if line.strip():
-            cleaned_lines.append(line)
+        if stripped.strip():
+            cleaned_lines.append(stripped)
 
     return "\n".join(cleaned_lines)
 

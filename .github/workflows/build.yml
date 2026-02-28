@@ -18,18 +18,80 @@ concurrency:
 
 jobs:
   # ============================================
-  # CI Pipeline (matches make pre-commit-run / make test)
+  # Lint — pre-commit checks (runs in parallel with test)
   # ============================================
-  ci:
-    name: CI Pipeline
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 15
 
     env:
-      CARGO_BUILD_JOBS: 1
+      CARGO_BUILD_JOBS: 2
       CARGO_INCREMENTAL: 1
-      # Linker flags scoped to native target only — global RUSTFLAGS would
-      # override finstack-wasm/.cargo/config.toml and break wasm32 builds.
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C debuginfo=0 -C strip=symbols -C linker=cc -C link-arg=-fuse-ld=bfd"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up swap space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
+
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+          rustflags: ""
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Setup Python Environment
+        run: |
+          make setup-python
+          echo "${{ github.workspace }}/.venv/bin" >> $GITHUB_PATH
+          uv pip install pre-commit ruff ty pyright
+
+      - name: Install WASM dependencies
+        run: npm ci --ignore-scripts
+        working-directory: finstack-wasm
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Run Pre-commit Checks (Lint/Format)
+        run: make pre-commit-run
+
+  # ============================================
+  # Test — build and run all tests (runs in parallel with lint)
+  # ============================================
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      CARGO_BUILD_JOBS: 2
+      CARGO_INCREMENTAL: 1
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C debuginfo=0 -C strip=symbols -C linker=cc -C link-arg=-fuse-ld=bfd"
       PYO3_PYTHON: python3
 
@@ -46,9 +108,6 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           cache: true
-          # Disable default RUSTFLAGS="-D warnings" — global RUSTFLAGS overrides
-          # per-target config in .cargo/config.toml (breaks wasm32 getrandom cfg).
-          # Clippy already enforces -D warnings via the pre-commit hook.
           rustflags: ""
 
       - name: Install cargo-nextest
@@ -78,21 +137,20 @@ jobs:
         run: |
           make setup-python
           echo "${{ github.workspace }}/.venv/bin" >> $GITHUB_PATH
-          uv pip install pre-commit
-          make python-dev
+          uv pip install maturin pytest pytest-benchmark
 
       - name: Install WASM dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
         working-directory: finstack-wasm
+
+      - name: Build Python Extension
+        run: cd finstack-py && python -m maturin develop --features postgres,turso
 
       - name: Build WASM
         run: make wasm-build
 
-      - name: Run Pre-commit Checks (Lint/Format)
-        run: make pre-commit-run
-
       - name: Run All Tests
-        run: make test
+        run: make test-rust test-python test-wasm
 
   # ============================================
   # Semver checks for API stability
@@ -102,10 +160,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: github.event_name == 'pull_request'
-    needs: ci
+    needs: [lint, test]
 
     env:
-      CARGO_BUILD_JOBS: 1
+      CARGO_BUILD_JOBS: 2
       RUSTFLAGS: "-C debuginfo=0 -C strip=symbols"
 
     steps:
@@ -140,7 +198,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: ci
+    needs: [lint, test]
 
     env:
       CARGO_BUILD_JOBS: 2
@@ -186,7 +244,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: github.event_name == 'pull_request'
-    needs: ci
+    needs: [lint, test]
 
     env:
       CARGO_BUILD_JOBS: 2
