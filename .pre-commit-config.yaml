@@ -128,6 +128,18 @@ repos:
         name: Detect secrets (gitleaks)
 
   # ============================================
+  # Version sync
+  # ============================================
+  - repo: local
+    hooks:
+      - id: sync-versions
+        name: Sync sub-package versions from Cargo.toml
+        entry: ./scripts/sync-versions
+        language: system
+        files: (Cargo\.toml|package\.json)$
+        pass_filenames: false
+
+  # ============================================
   # Cargo.toml validation
   # ============================================
   - repo: local

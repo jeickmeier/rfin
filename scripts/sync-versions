@@ -1,0 +1,47 @@
+#!/bin/bash
+# Sync sub-package versions from the root Cargo.toml workspace version.
+#
+# Usage:
+#   ./scripts/sync-versions          # sync and fix
+#   ./scripts/sync-versions --check  # check only (exit 1 if out of sync)
+set -e
+
+CHECK_ONLY=false
+if [[ "$1" == "--check" ]]; then
+    CHECK_ONLY=true
+fi
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+CARGO_VERSION=$(grep -m1 '^version' "$REPO_ROOT/Cargo.toml" | sed 's/.*"\(.*\)".*/\1/')
+if [[ -z "$CARGO_VERSION" ]]; then
+    echo "ERROR: Could not read version from Cargo.toml"
+    exit 1
+fi
+
+DIRTY=false
+
+sync_json() {
+    local file="$1"
+    local current
+    current=$(grep -m1 '"version"' "$file" | sed 's/.*: *"\(.*\)".*/\1/')
+
+    if [[ "$current" != "$CARGO_VERSION" ]]; then
+        if [[ "$CHECK_ONLY" == "true" ]]; then
+            echo "MISMATCH: $file has $current, expected $CARGO_VERSION"
+            DIRTY=true
+        else
+            cd "$(dirname "$file")"
+            npm version "$CARGO_VERSION" --no-git-tag-version --allow-same-version >/dev/null 2>&1
+            cd "$REPO_ROOT"
+            echo "Updated $file: $current -> $CARGO_VERSION"
+        fi
+    fi
+}
+
+sync_json "$REPO_ROOT/finstack-wasm/package.json"
+
+if [[ "$CHECK_ONLY" == "true" && "$DIRTY" == "true" ]]; then
+    echo "Run 'make sync-versions' or './scripts/sync-versions' to fix."
+    exit 1
+fi

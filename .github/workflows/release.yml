@@ -115,12 +115,8 @@ jobs:
           node-version-file: '.nvmrc'
           registry-url: "https://registry.npmjs.org"
 
-      - name: Sync package.json version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        working-directory: finstack-wasm
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
+      - name: Sync package.json version from Cargo.toml
+        run: ./scripts/sync-versions
 
       - name: Build WASM targets
         working-directory: finstack-wasm
