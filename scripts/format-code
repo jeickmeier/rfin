@@ -204,8 +204,8 @@ main() {
                 ""
         else
             run_formatter "Rust linting" \
-                "cargo clippy --all-targets -- -D warnings" \
-                "cargo clippy --all-targets --fix --allow-dirty -- -D warnings" \
+                "cargo clippy --all-targets --features mc,test-utils -- -D warnings" \
+                "cargo clippy --all-targets --features mc,test-utils --fix --allow-dirty -- -D warnings" \
                 ""
         fi
     fi

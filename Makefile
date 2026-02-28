@@ -44,7 +44,7 @@ help: ## Display this help message
 	@printf "  \033[36mfmt\033[0m                 Format all codebases\n"
 	@printf "  \033[36mlint\033[0m                Lint all code (fast: core Rust crates only)\n"
 	@printf "  \033[36mlint-full\033[0m           Lint all code including bindings + all features (slow)\n"
-	@printf "  \033[36mci-test\033[0m             Run all checks as they would run in CI\n\n"
+	@printf "  \033[36mci-test\033[0m             Run all checks exactly as CI does (wasm-build + pre-commit + test)\n\n"
 	@printf "Component Specifics:\n"
 	@printf "  \033[36mtest-rust\033[0m           Run Rust tests (cargo-nextest)\n"
 	@printf "  \033[36mtest-python\033[0m         Run Python tests\n"
@@ -432,8 +432,7 @@ test-fix-python:
 test-fix-wasm:
 	./scripts/run-tests-and-fix --wasm-only
 .PHONY: ci-test
-ci-test: ## Run local CI checks
-	./scripts/run-tests-and-fix --skip-slow
+ci-test: wasm-build pre-commit-run test ## Run all checks exactly as CI does (wasm-build + pre-commit + test)
 
 # --- Pre-commit ---
 

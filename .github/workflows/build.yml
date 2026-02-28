@@ -11,8 +11,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  RUST_TOOLCHAIN: "1.90.0"
+# Toolchain versions are pinned in files (single source of truth):
+#   Rust:   rust-toolchain.toml
+#   Python: .python-version
+#   Node:   .nvmrc
 
 jobs:
   # ============================================
@@ -24,10 +26,11 @@ jobs:
     timeout-minutes: 30
 
     env:
-      # Reduce parallelism to avoid OOM during linking
       CARGO_BUILD_JOBS: 1
       CARGO_INCREMENTAL: 1
-      RUSTFLAGS: "-C debuginfo=0 -C strip=symbols -C linker=cc -C link-arg=-fuse-ld=bfd"
+      # Linker flags scoped to native target only — global RUSTFLAGS would
+      # override finstack-wasm/.cargo/config.toml and break wasm32 builds.
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C debuginfo=0 -C strip=symbols -C linker=cc -C link-arg=-fuse-ld=bfd"
       PYO3_PYTHON: python3
 
     steps:
@@ -42,10 +45,11 @@ jobs:
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
-          target: wasm32-unknown-unknown
-          components: rustfmt, clippy
           cache: true
+          # Disable default RUSTFLAGS="-D warnings" — global RUSTFLAGS overrides
+          # per-target config in .cargo/config.toml (breaks wasm32 getrandom cfg).
+          # Clippy already enforces -D warnings via the pre-commit hook.
+          rustflags: ""
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
@@ -53,7 +57,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version-file: '.python-version'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -63,7 +67,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: 'npm'
           cache-dependency-path: '**/package-lock.json'
 
@@ -118,7 +122,6 @@ jobs:
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache: true
 
       - name: Install cargo-semver-checks
@@ -155,7 +158,6 @@ jobs:
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache: true
 
       - name: Download previous benchmark baseline
@@ -202,7 +204,6 @@ jobs:
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache: true
 
       - name: Restore benchmark baseline

@@ -5,7 +5,7 @@
 - Build core Rust crates: `make build`
 - Build core Rust crates (release, no debuginfo): `make build-prod`
 - Run the full test suite: `make test`
-- Run CI-like checks locally (skip slow): `make ci-test`
+- Run all checks exactly as CI does (wasm-build + pre-commit + test): `make ci-test`
 - Lint all components (fast, core crates only): `make lint`
 - Lint all components including bindings + all features (slow): `make lint-full`
 - Format all codebases: `make fmt`
