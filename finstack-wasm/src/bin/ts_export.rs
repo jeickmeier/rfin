@@ -18,29 +18,31 @@ use finstack_wasm::{
 #[cfg(feature = "ts_export")]
 use std::error::Error;
 #[cfg(feature = "ts_export")]
-use ts_rs::TS;
+use ts_rs::{Config, TS};
 
 #[cfg(feature = "ts_export")]
 fn main() -> Result<(), Box<dyn Error>> {
+    let cfg = Config::default();
+
     // Market data types
-    CurvePointWire::export()?;
-    DiscountCurveWire::export()?;
-    MarketContextWire::export()?;
-    BondSpec::export()?;
-    ValuationResultWire::export()?;
+    CurvePointWire::export(&cfg)?;
+    DiscountCurveWire::export(&cfg)?;
+    MarketContextWire::export(&cfg)?;
+    BondSpec::export(&cfg)?;
+    ValuationResultWire::export(&cfg)?;
 
     // Statement types
-    NodeSpecWire::export()?;
-    FinancialModelWire::export()?;
-    StatementResultsWire::export()?;
-    StatementResultsMetaWire::export()?;
+    NodeSpecWire::export(&cfg)?;
+    FinancialModelWire::export(&cfg)?;
+    StatementResultsWire::export(&cfg)?;
+    StatementResultsMetaWire::export(&cfg)?;
 
     // Scenario types
-    ScenarioSpecWire::export()?;
-    ScenarioOperationWire::export()?;
+    ScenarioSpecWire::export(&cfg)?;
+    ScenarioOperationWire::export(&cfg)?;
 
     // Error type
-    ErrorWire::export()?;
+    ErrorWire::export(&cfg)?;
 
     println!("TypeScript types exported successfully!");
     Ok(())
