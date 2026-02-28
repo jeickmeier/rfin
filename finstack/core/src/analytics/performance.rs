@@ -36,8 +36,51 @@ pub struct Performance {
 impl Performance {
     /// Construct from a price matrix (columns = tickers).
     ///
-    /// The first column or the `benchmark_ticker` column is the benchmark.
-    /// Computes returns, drawdowns, and aligns the benchmark automatically.
+    /// Computes simple or log returns for each ticker, builds the drawdown
+    /// series, and designates one ticker as the benchmark. The `dates`
+    /// vector should have one entry per price row; internally the date and
+    /// return series are trimmed by one element to align with the return
+    /// computation (returns have length `n_prices - 1`).
+    ///
+    /// # Arguments
+    ///
+    /// * `dates` - Chronologically sorted date vector, one entry per price
+    ///   observation.
+    /// * `prices` - Price matrix: `prices[i]` is the full price series for
+    ///   ticker `i`.
+    /// * `ticker_names` - Names corresponding to each column of `prices`.
+    /// * `benchmark_ticker` - Name of the benchmark ticker. Falls back to
+    ///   column 0 if `None` or not found.
+    /// * `freq` - Observation frequency, used to derive the annualization factor.
+    /// * `use_log_returns` - If `true`, uses log returns (`ln(p[t]/p[t-1])`);
+    ///   if `false`, uses simple returns (`p[t]/p[t-1] - 1`).
+    ///
+    /// # Returns
+    ///
+    /// A fully initialized [`Performance`] instance, or an error if
+    /// `prices` or `dates` is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::analytics::performance::Performance;
+    /// use finstack_core::dates::PeriodKind;
+    /// use time::{Date, Month};
+    ///
+    /// let dates: Vec<Date> = (1..=10)
+    ///     .map(|d| Date::from_calendar_date(2025, Month::January, d).unwrap())
+    ///     .collect();
+    /// let prices = vec![(0..10).map(|i| 100.0 + i as f64).collect::<Vec<_>>()];
+    /// let perf = Performance::new(
+    ///     dates,
+    ///     prices,
+    ///     vec!["SPY".into()],
+    ///     None,
+    ///     PeriodKind::Daily,
+    ///     false,
+    /// ).unwrap();
+    /// assert_eq!(perf.ticker_names(), &["SPY"]);
+    /// ```
     pub fn new(
         dates: Vec<Date>,
         prices: Vec<Vec<f64>>,
@@ -101,19 +144,45 @@ impl Performance {
         })
     }
 
-    /// Reset the date range for all subsequent analytics.
+    /// Restrict all subsequent analytics to the `[start, end]` date window.
+    ///
+    /// Finds the index boundaries in the internal date vector using binary
+    /// search and stores them as `start_idx`/`end_idx`. All `active_*`
+    /// accessors respect this range until it is changed again.
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - First date to include (inclusive).
+    /// * `end`   - Last date to include (inclusive).
     pub fn reset_date_range(&mut self, start: Date, end: Date) {
         self.start_idx = self.dates.partition_point(|&d| d < start);
         self.end_idx = self.dates.partition_point(|&d| d <= end);
     }
 
-    /// Reset which ticker is the benchmark.
-    pub fn reset_bench_ticker(&mut self, ticker: &str) {
-        if let Some(idx) = self.ticker_names.iter().position(|t| t == ticker) {
-            self.benchmark_idx = idx;
-            self.bench_returns = self.returns.get(idx).cloned().unwrap_or_default();
-            self.bench_drawdown = self.drawdowns.get(idx).cloned().unwrap_or_default();
-        }
+    /// Designate a different ticker as the benchmark for all subsequent analytics.
+    ///
+    /// Updates the internal benchmark return and drawdown caches to point to
+    /// the new ticker's pre-computed series.
+    ///
+    /// # Arguments
+    ///
+    /// * `ticker` - Name of the ticker to use as benchmark. Must match one
+    ///   of the names provided at construction time.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success, or an [`InputError::Invalid`] if `ticker` is
+    /// not found among the loaded tickers.
+    pub fn reset_bench_ticker(&mut self, ticker: &str) -> crate::Result<()> {
+        let idx = self
+            .ticker_names
+            .iter()
+            .position(|t| t == ticker)
+            .ok_or(crate::error::InputError::Invalid)?;
+        self.benchmark_idx = idx;
+        self.bench_returns = self.returns.get(idx).cloned().unwrap_or_default();
+        self.bench_drawdown = self.drawdowns.get(idx).cloned().unwrap_or_default();
+        Ok(())
     }
 
     fn active_range(&self) -> core::ops::Range<usize> {
@@ -124,25 +193,33 @@ impl Performance {
         let range = self.active_range();
         self.returns
             .get(ticker_idx)
-            .map(|r| &r[range.start..range.end.min(r.len())])
+            .map(|r| {
+                let end = range.end.min(r.len());
+                &r[range.start.min(end)..end]
+            })
             .unwrap_or(&[])
     }
 
     fn active_bench(&self) -> &[f64] {
         let range = self.active_range();
-        &self.bench_returns[range.start..range.end.min(self.bench_returns.len())]
+        let end = range.end.min(self.bench_returns.len());
+        &self.bench_returns[range.start.min(end)..end]
     }
 
     fn active_dates(&self) -> &[Date] {
         let range = self.active_range();
-        &self.dates[range.start..range.end.min(self.dates.len())]
+        let end = range.end.min(self.dates.len());
+        &self.dates[range.start.min(end)..end]
     }
 
     fn active_drawdown(&self, ticker_idx: usize) -> &[f64] {
         let range = self.active_range();
         self.drawdowns
             .get(ticker_idx)
-            .map(|d| &d[range.start..range.end.min(d.len())])
+            .map(|d| {
+                let end = range.end.min(d.len());
+                &d[range.start.min(end)..end]
+            })
             .unwrap_or(&[])
     }
 
@@ -166,13 +243,29 @@ impl Performance {
     }
 
     /// Mean return for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `annualize` - If `true`, scales the mean by the annualization factor.
+    ///
+    /// # Returns
+    ///
+    /// One value per ticker in column order.
     pub fn mean_return(&self, annualize: bool) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::mean_return(self.active_returns(i), annualize, self.ann()))
             .collect()
     }
 
-    /// Volatility for each ticker.
+    /// Volatility (population standard deviation) for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `annualize` - If `true`, scales by `sqrt(ann_factor)`.
+    ///
+    /// # Returns
+    ///
+    /// One value per ticker in column order.
     pub fn volatility(&self, annualize: bool) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::volatility(self.active_returns(i), annualize, self.ann()))
@@ -180,14 +273,22 @@ impl Performance {
     }
 
     /// Sharpe ratio for each ticker.
-    pub fn sharpe(&self) -> Vec<f64> {
+    ///
+    /// # Arguments
+    ///
+    /// * `risk_free_rate` - Annualized risk-free rate (e.g. `0.02` for 2%).
+    ///
+    /// # Returns
+    ///
+    /// One Sharpe ratio per ticker. Returns `0.0` for tickers with zero volatility.
+    pub fn sharpe(&self, risk_free_rate: f64) -> Vec<f64> {
         let ann = self.ann();
         (0..self.ticker_names.len())
             .map(|i| {
                 let r = self.active_returns(i);
                 let m = risk_metrics::mean_return(r, true, ann);
                 let v = risk_metrics::volatility(r, true, ann);
-                risk_metrics::sharpe(m, v)
+                risk_metrics::sharpe(m, v, risk_free_rate)
             })
             .collect()
     }
@@ -221,14 +322,30 @@ impl Performance {
             .collect()
     }
 
-    /// Value-at-Risk for each ticker.
+    /// Historical Value-at-Risk for each ticker (not annualized).
+    ///
+    /// # Arguments
+    ///
+    /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95` for 95% VaR.
+    ///
+    /// # Returns
+    ///
+    /// One VaR value per ticker (non-positive).
     pub fn value_at_risk(&self, confidence: f64) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::value_at_risk(self.active_returns(i), confidence, None))
             .collect()
     }
 
-    /// Expected shortfall for each ticker.
+    /// Expected Shortfall (CVaR) for each ticker (not annualized).
+    ///
+    /// # Arguments
+    ///
+    /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
+    ///
+    /// # Returns
+    ///
+    /// One ES value per ticker (non-positive, always ≤ corresponding VaR).
     pub fn expected_shortfall(&self, confidence: f64) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::expected_shortfall(self.active_returns(i), confidence, None))
@@ -236,6 +353,14 @@ impl Performance {
     }
 
     /// Tail ratio for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `confidence` - Quantile level for the upper tail (e.g., `0.95`).
+    ///
+    /// # Returns
+    ///
+    /// One tail ratio per ticker.
     pub fn tail_ratio(&self, confidence: f64) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::tail_ratio(self.active_returns(i), confidence))
@@ -277,7 +402,17 @@ impl Performance {
             .collect()
     }
 
-    /// Drawdown episode details for a specific ticker.
+    /// Top-N drawdown episodes for a specific ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `ticker_idx` - Zero-based column index of the ticker.
+    /// * `n` - Maximum number of episodes to return, sorted by severity
+    ///   (worst first).
+    ///
+    /// # Returns
+    ///
+    /// Up to `n` [`DrawdownEpisode`] structs.
     pub fn drawdown_details(&self, ticker_idx: usize, n: usize) -> Vec<DrawdownEpisode> {
         let dd = self.active_drawdown(ticker_idx);
         let dates = self.active_dates();
@@ -326,7 +461,16 @@ impl Performance {
             .collect()
     }
 
-    /// Rolling greeks for a specific ticker vs benchmark.
+    /// Rolling greeks (alpha, beta) for a specific ticker vs the benchmark.
+    ///
+    /// # Arguments
+    ///
+    /// * `ticker_idx` - Zero-based column index of the portfolio ticker.
+    /// * `window`     - Look-back window length in periods.
+    ///
+    /// # Returns
+    ///
+    /// A [`RollingGreeks`] with parallel date, alpha, and beta vectors.
     pub fn rolling_greeks(&self, ticker_idx: usize, window: usize) -> RollingGreeks {
         rolling_greeks(
             self.active_returns(ticker_idx),
@@ -337,19 +481,45 @@ impl Performance {
         )
     }
 
-    /// Rolling Sharpe for a specific ticker.
-    pub fn rolling_sharpe(&self, ticker_idx: usize, window: usize) -> RollingSharpe {
+    /// Rolling Sharpe ratio for a specific ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `ticker_idx`     - Zero-based column index of the ticker.
+    /// * `window`         - Look-back window length in periods.
+    /// * `risk_free_rate` - Annualized risk-free rate to subtract.
+    ///
+    /// # Returns
+    ///
+    /// A [`RollingSharpe`] with parallel date and Sharpe value vectors.
+    pub fn rolling_sharpe(
+        &self,
+        ticker_idx: usize,
+        window: usize,
+        risk_free_rate: f64,
+    ) -> RollingSharpe {
         rolling_sharpe(
             self.active_returns(ticker_idx),
             self.active_dates(),
             window,
             self.ann(),
+            risk_free_rate,
         )
     }
 
     // ── Lookback selectors ──
 
-    /// Returns for each lookback period (MTD, QTD, YTD, FYTD) at `ref_date`.
+    /// Compounded returns for each lookback period (MTD, QTD, YTD, FYTD) at `ref_date`.
+    ///
+    /// # Arguments
+    ///
+    /// * `ref_date` - Reference date (typically the most recent business day).
+    /// * `fiscal_config` - Optional fiscal year configuration. If `None`,
+    ///   `fytd` in the result will be `None`.
+    ///
+    /// # Returns
+    ///
+    /// A [`LookbackReturns`] with per-ticker compounded returns for each horizon.
     pub fn lookback_returns(
         &self,
         ref_date: Date,
@@ -381,7 +551,22 @@ impl Performance {
 
     // ── Aggregation ──
 
-    /// Group returns by period and compute stats for a specific ticker.
+    /// Period-aggregated statistics for a specific ticker.
+    ///
+    /// Groups daily returns into `agg_freq` buckets, compounds within each
+    /// bucket, then derives win rate, payoff ratio, Kelly criterion, and
+    /// more from the resulting period-level return series.
+    ///
+    /// # Arguments
+    ///
+    /// * `ticker_idx` - Zero-based column index of the ticker.
+    /// * `agg_freq` - Aggregation frequency (e.g., `Monthly`, `Annual`).
+    /// * `fiscal_config` - Fiscal year configuration, used when `agg_freq`
+    ///   is `Annual` and a non-calendar year is needed.
+    ///
+    /// # Returns
+    ///
+    /// A [`PeriodStats`] struct covering all periods in the active date range.
     pub fn period_stats(
         &self,
         ticker_idx: usize,
@@ -397,7 +582,15 @@ impl Performance {
         period_stats(&grouped)
     }
 
-    /// Correlation matrix of all tickers.
+    /// Pearson correlation matrix of all tickers.
+    ///
+    /// Computes pairwise correlations over the active date window.
+    /// The diagonal is always `1.0`.
+    ///
+    /// # Returns
+    ///
+    /// An `n × n` matrix (outer Vec = rows, inner Vec = columns) where
+    /// `n = ticker_names().len()`.
     pub fn correlation_matrix(&self) -> Vec<Vec<f64>> {
         let n = self.ticker_names.len();
         let mut matrix = vec![vec![0.0; n]; n];
@@ -431,8 +624,9 @@ impl Performance {
 
     /// Drawdown outperformance (portfolio drawdown − benchmark drawdown).
     pub fn drawdown_outperformance(&self) -> Vec<Vec<f64>> {
-        let bench_dd = &self.bench_drawdown
-            [self.active_range().start..self.active_range().end.min(self.bench_drawdown.len())];
+        let range = self.active_range();
+        let end = range.end.min(self.bench_drawdown.len());
+        let bench_dd = &self.bench_drawdown[range.start.min(end)..end];
         (0..self.ticker_names.len())
             .map(|i| {
                 let dd = self.active_drawdown(i);
@@ -441,16 +635,39 @@ impl Performance {
             .collect()
     }
 
-    /// Stats of each ticker during benchmark drawdown episodes.
+    /// The top-N benchmark drawdown episodes (for stress-test analysis).
+    ///
+    /// Identifies the `n` worst drawdown episodes in the benchmark series.
+    /// Useful for examining how the portfolio performs during the benchmark's
+    /// worst historical periods.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Maximum number of episodes to return, sorted by severity.
+    ///
+    /// # Returns
+    ///
+    /// Up to `n` [`DrawdownEpisode`] structs from the benchmark series.
     pub fn stats_during_bench_drawdowns(&self, n: usize) -> Vec<DrawdownEpisode> {
-        let bench_dd = &self.bench_drawdown
-            [self.active_range().start..self.active_range().end.min(self.bench_drawdown.len())];
+        let range = self.active_range();
+        let end = range.end.min(self.bench_drawdown.len());
+        let bench_dd = &self.bench_drawdown[range.start.min(end)..end];
         drawdown_details(bench_dd, self.active_dates(), n)
     }
 
     // ── Excess returns ──
 
-    /// Compute excess returns for each ticker given a risk-free rate series.
+    /// Excess returns (portfolio minus risk-free) for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `rf` - Risk-free rate series aligned with the active date window.
+    /// * `nperiods` - If `Some(n)`, de-compounds the risk-free rate from annual
+    ///   to the observation frequency before subtraction.
+    ///
+    /// # Returns
+    ///
+    /// One excess-return series per ticker.
     pub fn excess_returns(&self, rf: &[f64], nperiods: Option<f64>) -> Vec<Vec<f64>> {
         (0..self.ticker_names.len())
             .map(|i| excess_returns(self.active_returns(i), rf, nperiods))
@@ -554,7 +771,7 @@ mod tests {
         )
         .expect("construction");
 
-        let sharpe = perf.sharpe();
+        let sharpe = perf.sharpe(0.0);
         assert_eq!(sharpe.len(), 1);
 
         let sortino = perf.sortino();

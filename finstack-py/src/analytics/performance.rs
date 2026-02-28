@@ -163,8 +163,8 @@ impl PyPerformance {
     }
 
     /// Reset the benchmark ticker.
-    fn reset_bench_ticker(&mut self, ticker: &str) {
-        self.inner.reset_bench_ticker(ticker);
+    fn reset_bench_ticker(&mut self, ticker: &str) -> PyResult<()> {
+        self.inner.reset_bench_ticker(ticker).map_err(core_to_py)
     }
 
     /// CAGR for each ticker.
@@ -191,8 +191,9 @@ impl PyPerformance {
     }
 
     /// Sharpe ratio for each ticker.
-    fn sharpe(&self) -> PyResult<PyDataFrame> {
-        let vals = self.inner.sharpe();
+    #[pyo3(signature = (risk_free_rate=0.0))]
+    fn sharpe(&self, risk_free_rate: f64) -> PyResult<PyDataFrame> {
+        let vals = self.inner.sharpe(risk_free_rate);
         let df = scalars_to_df(&self.tickers, &vals, "sharpe")?;
         Ok(PyDataFrame(df))
     }

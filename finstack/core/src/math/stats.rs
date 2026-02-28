@@ -811,4 +811,59 @@ mod tests {
 
         assert!((cov.optimal_beta() - 0.5).abs() < 1e-10);
     }
+
+    // ── quantile tests ──
+
+    #[test]
+    fn quantile_empty_returns_nan() {
+        let mut data: Vec<f64> = vec![];
+        assert!(super::quantile(&mut data, 0.5).is_nan());
+    }
+
+    #[test]
+    fn quantile_single_element() {
+        let mut data = vec![42.0];
+        assert!((super::quantile(&mut data, 0.0) - 42.0).abs() < 1e-12);
+        assert!((super::quantile(&mut data, 0.5) - 42.0).abs() < 1e-12);
+        assert!((super::quantile(&mut data, 1.0) - 42.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn quantile_p0_returns_min() {
+        let mut data = vec![5.0, 1.0, 3.0, 2.0, 4.0];
+        assert!((super::quantile(&mut data, 0.0) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn quantile_p1_returns_max() {
+        let mut data = vec![5.0, 1.0, 3.0, 2.0, 4.0];
+        assert!((super::quantile(&mut data, 1.0) - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn quantile_median_odd() {
+        let mut data = vec![3.0, 1.0, 2.0, 5.0, 4.0];
+        assert!((super::quantile(&mut data, 0.5) - 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn quantile_median_even_interpolates() {
+        let mut data = vec![1.0, 2.0, 3.0, 4.0];
+        // R-7: h = 3 * 0.5 = 1.5 → lerp(data[1], data[2], 0.5) = 2.5
+        assert!((super::quantile(&mut data, 0.5) - 2.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn quantile_out_of_range_returns_nan() {
+        let mut data = vec![1.0, 2.0, 3.0];
+        assert!(super::quantile(&mut data, -0.1).is_nan());
+        assert!(super::quantile(&mut data, 1.1).is_nan());
+    }
+
+    #[test]
+    fn quantile_all_equal() {
+        let mut data = vec![7.0; 10];
+        assert!((super::quantile(&mut data, 0.25) - 7.0).abs() < 1e-12);
+        assert!((super::quantile(&mut data, 0.75) - 7.0).abs() < 1e-12);
+    }
 }

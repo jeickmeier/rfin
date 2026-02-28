@@ -127,6 +127,52 @@ Widely cited practitioner reference for corporate DCF valuation (WACC discountin
 
 ---
 
+## sharpe1966
+
+William F. Sharpe (1966). *Mutual Fund Performance*. **Journal of Business**, 39(1), 119–138.
+Original paper introducing the reward-to-variability ratio, now known as the Sharpe ratio.
+
+## sortinoVanDerMeer1991
+
+Frank A. Sortino and Robert van der Meer (1991). *Downside Risk*. **Journal of Portfolio Management**, 17(4), 27–31.
+Introduces the Sortino ratio, which penalises only downside volatility below a minimum acceptable return.
+
+## youngCalmar1991
+
+Terry W. Young (1991). *Calmar Ratio: A Smoother Tool*. **Futures**, 20(1), 40.
+Defines the Calmar ratio as CAGR divided by maximum drawdown, used to assess risk-adjusted trend-following performance.
+
+## kelly1956
+
+John L. Kelly Jr. (1956). *A New Interpretation of Information Rate*. **Bell System Technical Journal**, 35(4), 917–926.
+Derives the Kelly criterion: the fraction of capital to wager that maximises long-run wealth growth.
+
+## artzner1999CoherentRisk
+
+Philippe Artzner, Freddy Delbaen, Jean-Marc Eber, and David Heath (1999). *Coherent Measures of Risk*. **Mathematical Finance**, 9(3), 203–228.
+Foundational axiomatization of coherent risk measures; establishes Expected Shortfall (CVaR) as a coherent alternative to VaR.
+
+- DOI: [`10.1111/1467-9965.00068`](https://doi.org/10.1111/1467-9965.00068)
+
+## jpmorgan1996RiskMetrics
+
+J.P. Morgan / Reuters (1996). *RiskMetrics™ — Technical Document* (4th ed.).
+Industry standard reference for historical and parametric Value-at-Risk (VaR) methodology.
+
+- Online: [RiskMetrics Technical Document](https://www.msci.com/documents/10199/5915b101-4206-4ba0-aee2-3449d5c7e95a)
+
+## martinUlcer1987
+
+Peter G. Martin (1987). *The Investor's Guide to Fidelity Funds*.
+Introduces the Ulcer Index as the root-mean-square of drawdown depths, measuring investor distress.
+
+## grinoldKahn1999ActivePortfolio
+
+Richard C. Grinold and Ronald N. Kahn (1999). *Active Portfolio Management* (2nd ed.). McGraw-Hill.
+Standard practitioner reference for information ratio, tracking error, and the fundamental law of active management.
+
+---
+
 ## Notes on use in docstrings
 
 In Python `.pyi` docstrings, prefer:

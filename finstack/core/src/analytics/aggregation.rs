@@ -34,7 +34,7 @@ pub struct PeriodStats {
     pub profit_ratio: f64,
     /// Same as `profit_ratio` (alias).
     pub profit_factor: f64,
-    /// CPC ratio: (profit_per_period * win_rate) / loss_per_period.
+    /// CPC index (Common Sense Ratio): profit_factor × win_rate × payoff_ratio.
     pub cpc_ratio: f64,
     /// Kelly criterion: win_rate − loss_rate / payoff_ratio.
     pub kelly_criterion: f64,
@@ -75,7 +75,43 @@ fn date_to_period_id(
 
 /// Group daily returns by period, compounding within each period.
 ///
-/// Returns `(PeriodId, compounded_return)` pairs in chronological order.
+/// Assigns each observation to a [`PeriodId`] bucket determined by `freq`
+/// and `fiscal_config`, then compounds the intra-period returns using
+/// [`comp_total`]. The result is a time-ordered sequence of
+/// `(period_id, compounded_return)` pairs suitable for period-level
+/// statistics.
+///
+/// # Arguments
+///
+/// * `dates` - Sorted slice of observation dates.
+/// * `returns` - Return series aligned with `dates`. If longer, excess
+///   elements are ignored.
+/// * `freq` - Aggregation frequency (e.g., `Monthly`, `Annual`).
+/// * `fiscal_config` - Fiscal year configuration, required when `freq` is
+///   `Annual` and a non-calendar fiscal year is desired.
+///
+/// # Returns
+///
+/// A `Vec<(PeriodId, f64)>` in chronological order. Returns an empty
+/// vector if either `dates` or `returns` is empty.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::aggregation::group_by_period;
+/// use finstack_core::dates::{PeriodId, PeriodKind};
+/// use time::{Date, Month};
+///
+/// let dates = vec![
+///     Date::from_calendar_date(2025, Month::January, 2).unwrap(),
+///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
+///     Date::from_calendar_date(2025, Month::February, 3).unwrap(),
+/// ];
+/// let returns = vec![0.01, 0.02, -0.01];
+/// let grouped = group_by_period(&dates, &returns, PeriodKind::Monthly, None);
+/// assert_eq!(grouped.len(), 2);
+/// assert_eq!(grouped[0].0, PeriodId::month(2025, 1));
+/// ```
 pub fn group_by_period(
     dates: &[Date],
     returns: &[f64],
@@ -110,6 +146,38 @@ pub fn group_by_period(
 }
 
 /// Compute period-level statistics from grouped returns.
+///
+/// Derives a comprehensive set of trading statistics from a sequence of
+/// per-period compounded returns, including win rate, payoff ratio, Kelly
+/// criterion, and consecutive streak lengths.
+///
+/// # Arguments
+///
+/// * `grouped` - Slice of `(PeriodId, compounded_return)` pairs, typically
+///   produced by [`group_by_period`]. The `PeriodId` values are not used
+///   in the computation; only the returns matter.
+///
+/// # Returns
+///
+/// A [`PeriodStats`] struct. If `grouped` is empty, all fields are `0.0` / `0`.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::aggregation::period_stats;
+/// use finstack_core::dates::PeriodId;
+///
+/// let grouped = vec![
+///     (PeriodId::month(2025, 1),  0.05),
+///     (PeriodId::month(2025, 2), -0.02),
+///     (PeriodId::month(2025, 3),  0.03),
+///     (PeriodId::month(2025, 4),  0.01),
+/// ];
+/// let stats = period_stats(&grouped);
+/// assert!((stats.best  - 0.05).abs() < 1e-12);
+/// assert!((stats.worst - (-0.02)).abs() < 1e-12);
+/// assert!((stats.win_rate - 0.75).abs() < 1e-12);
+/// ```
 pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
     if grouped.is_empty() {
         return PeriodStats {
@@ -167,14 +235,10 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
 
     let profit_factor = profit_ratio;
 
-    let cpc_ratio = if total_loss == 0.0 {
-        0.0
-    } else {
-        (total_profit / total as f64) * win_rate / (total_loss / total as f64)
-    };
+    let cpc_ratio = profit_factor * win_rate * payoff_ratio;
 
     let loss_rate = 1.0 - win_rate;
-    let kelly_criterion = if avg_loss == 0.0 {
+    let kelly_criterion = if payoff_ratio == 0.0 {
         0.0
     } else {
         win_rate - loss_rate / payoff_ratio

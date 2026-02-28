@@ -13,9 +13,37 @@ fn lower_bound(dates: &[Date], target: Date) -> usize {
     dates.partition_point(|&d| d < target)
 }
 
-/// Month-to-date: from the first of the current month through `ref_date`.
+/// Month-to-date index range: from the first calendar day of `ref_date`'s
+/// month through `ref_date` (inclusive).
 ///
-/// `offset_days` shifts the window start backward.
+/// `offset_days` shifts the window start backward by that many days,
+/// which is useful when the first trading day of the month does not fall
+/// on the 1st.
+///
+/// # Arguments
+///
+/// * `dates`       - Sorted slice of observation dates.
+/// * `ref_date`    - Reference date (typically "today").
+/// * `offset_days` - Number of days to subtract from the computed start date.
+///
+/// # Returns
+///
+/// A `Range<usize>` into `dates` covering the MTD window.
+/// The range may be empty if no dates fall within the window.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::lookback::mtd_select;
+/// use time::{Date, Month};
+///
+/// let dates: Vec<Date> = (1..=28)
+///     .map(|d| Date::from_calendar_date(2025, Month::January, d).unwrap())
+///     .collect();
+/// let range = mtd_select(&dates, Date::from_calendar_date(2025, Month::January, 15).unwrap(), 0);
+/// assert_eq!(range.start, 0);
+/// assert_eq!(range.end, 15);
+/// ```
 pub fn mtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usize> {
     let month_start = ref_date.end_of_month();
     let month_start = month_start.replace_day(1).unwrap_or(month_start);
@@ -25,7 +53,37 @@ pub fn mtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
     lo..hi
 }
 
-/// Quarter-to-date: from the first of the current quarter through `ref_date`.
+/// Quarter-to-date index range: from the first calendar day of `ref_date`'s
+/// quarter through `ref_date` (inclusive).
+///
+/// Quarter boundaries follow calendar convention: Q1 = Jan–Mar,
+/// Q2 = Apr–Jun, Q3 = Jul–Sep, Q4 = Oct–Dec.
+///
+/// # Arguments
+///
+/// * `dates`       - Sorted slice of observation dates.
+/// * `ref_date`    - Reference date (typically "today").
+/// * `offset_days` - Number of days to subtract from the computed start date.
+///
+/// # Returns
+///
+/// A `Range<usize>` into `dates` covering the QTD window.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::lookback::qtd_select;
+/// use time::{Date, Month};
+///
+/// let dates: Vec<Date> = (1..=60)
+///     .map(|d| Date::from_calendar_date(2025, Month::January, 1).unwrap()
+///         + time::Duration::days(d - 1))
+///     .collect();
+/// let range = qtd_select(&dates, Date::from_calendar_date(2025, Month::February, 15).unwrap(), 0);
+/// // Q1 starts Jan 1 → range should include all dates up through Feb 15.
+/// assert_eq!(range.start, 0);
+/// assert!(range.end > 30);
+/// ```
 pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usize> {
     let q = ref_date.quarter();
     let quarter_start_month = (q - 1) * 3 + 1;
@@ -42,7 +100,33 @@ pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
     lo..hi
 }
 
-/// Year-to-date: from January 1 of the current calendar year through `ref_date`.
+/// Year-to-date index range: from January 1 of `ref_date`'s calendar year
+/// through `ref_date` (inclusive).
+///
+/// # Arguments
+///
+/// * `dates`       - Sorted slice of observation dates.
+/// * `ref_date`    - Reference date (typically "today").
+/// * `offset_days` - Number of days to subtract from January 1.
+///
+/// # Returns
+///
+/// A `Range<usize>` into `dates` covering the YTD window.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::lookback::ytd_select;
+/// use time::{Date, Month};
+///
+/// let dates: Vec<Date> = (0..60)
+///     .map(|d| Date::from_calendar_date(2025, Month::January, 1).unwrap()
+///         + time::Duration::days(d))
+///     .collect();
+/// let range = ytd_select(&dates, Date::from_calendar_date(2025, Month::February, 15).unwrap(), 0);
+/// assert_eq!(range.start, 0);
+/// assert!(range.end > 30);
+/// ```
 pub fn ytd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usize> {
     let (year, _month, _day) = ref_date.to_calendar_date();
     let year_start = crate::dates::create_date(year, time::Month::January, 1).unwrap_or(ref_date);
@@ -52,9 +136,45 @@ pub fn ytd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
     lo..hi
 }
 
-/// Fiscal-year-to-date: from the start of the fiscal year through `ref_date`.
+/// Fiscal-year-to-date index range: from the start of the fiscal year
+/// containing `ref_date` through `ref_date` (inclusive).
 ///
-/// Uses `DateExt::fiscal_year(config)` to determine the fiscal year boundary.
+/// The fiscal year start is determined by [`FiscalConfig`] (start month and
+/// day). For example, the US federal fiscal year starts October 1.
+///
+/// # Arguments
+///
+/// * `dates`        - Sorted slice of observation dates.
+/// * `ref_date`     - Reference date (typically "today").
+/// * `fiscal_config`- Fiscal year configuration (start month, start day).
+/// * `offset_days`  - Number of days to subtract from the fiscal year start.
+///
+/// # Returns
+///
+/// A `Range<usize>` into `dates` covering the FYTD window.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::lookback::fytd_select;
+/// use finstack_core::dates::FiscalConfig;
+/// use time::{Date, Month};
+///
+/// // US federal fiscal year: Oct 1 → Sep 30.
+/// let dates: Vec<Date> = (0..120)
+///     .map(|d| Date::from_calendar_date(2024, Month::October, 1).unwrap()
+///         + time::Duration::days(d))
+///     .collect();
+/// let config = FiscalConfig::us_federal();
+/// let range = fytd_select(
+///     &dates,
+///     Date::from_calendar_date(2025, Month::January, 15).unwrap(),
+///     config,
+///     0,
+/// );
+/// assert_eq!(range.start, 0);
+/// assert!(range.end > 0);
+/// ```
 pub fn fytd_select(
     dates: &[Date],
     ref_date: Date,

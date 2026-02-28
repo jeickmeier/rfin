@@ -1,32 +1,44 @@
-# PRD: Multi-Platform Wheel Distribution
+# PRD: Multi-Platform Package Distribution
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Jon Eickmeier
 **Created:** 2026-02-27
 
 ## Problem
 
-The `finstack` Python package (PyO3/maturin bindings for rfin) has no pre-built wheel pipeline. Consumers must compile from Rust source, which requires the full Rust toolchain, takes 10-30 minutes, and creates friction for:
+The `finstack` Python package (PyO3/maturin) and `finstack-wasm` npm package have no pre-built distribution pipeline. Consumers must compile from Rust source, which requires the full Rust toolchain, takes 10-30 minutes, and creates friction for:
 
-- **enterprise-finstack analytics-service Docker builds** — currently runs a full Rust compilation inside a multi-stage Dockerfile on every image rebuild
-- **Local development on different machines** — only macOS arm64 wheels exist in `target/wheels/`, and only for CPython 3.12
+- **enterprise-finstack Docker builds** — runs a full Rust compilation inside a multi-stage Dockerfile on every image rebuild
+- **Local development on different machines** — only a single macOS arm64 / CPython 3.12 wheel exists
 - **Windows users** — no path to install without manual Rust setup
-- **CI pipelines** — any downstream project that depends on `finstack` must have Rust in its CI environment
+- **CI pipelines** — any downstream project that depends on `finstack` must have Rust in its CI
+- **Frontend consumers** — `finstack-wasm` requires `wasm-pack` + Rust to build from source
 
 ## Goal
 
-Build and publish pre-built wheels for all supported platforms, Python versions, and feature sets so that consumers can `pip install` or `uv add` without a Rust toolchain.
+Build and publish pre-built Python wheels and npm packages for all supported platforms so that consumers can install without a Rust toolchain.
 
-## Platform Matrix
+## Decisions
 
-### Operating Systems & Architectures
+| Question | Decision |
+|----------|----------|
+| Feature variants | **Single wheel with all features** (`scenarios,sqlite,postgres`). Size delta is minimal; eliminates wrong-variant footgun. |
+| Nightly builds | **No.** Not needed at this stage. Only build on tag push + manual dispatch. |
+| WASM/npm | **Yes.** npm publish of `finstack-wasm` is in scope for this PRD. |
+| Minimum manylinux | **`manylinux_2_28`** (glibc 2.28+: Debian 10+, Ubuntu 20.04+, RHEL 8+). No older targets. |
 
-| Platform | Architecture | Wheel Tag | Priority |
+---
+
+## Part 1: Python Wheels
+
+### Platform Matrix
+
+| Platform | Architecture | Wheel Platform Tag | Priority |
 |----------|-------------|-----------|----------|
 | Linux | x86_64 | `manylinux_2_28_x86_64` | **P0** — Docker, servers, CI |
 | Linux | arm64/aarch64 | `manylinux_2_28_aarch64` | **P0** — Docker on Apple Silicon, ARM servers |
 | macOS | arm64 | `macosx_11_0_arm64` | **P0** — local dev (Apple Silicon) |
-| macOS | x86_64 | `macosx_10_12_x86_64` | **P1** — legacy Intel Macs |
+| macOS | x86_64 | `macosx_10_12_x86_64` | **P1** — Intel Macs |
 | Windows | x86_64 | `win_amd64` | **P1** — Windows dev/analytics users |
 
 ### Python Versions
@@ -37,37 +49,76 @@ Build and publish pre-built wheels for all supported platforms, Python versions,
 | CPython 3.13 | Stable | **P0** |
 | CPython 3.14 | Used by enterprise-finstack | **P0** |
 
-### Feature Variants
+### Build Matrix
 
-The `finstack-py` crate has Cargo features that control which I/O backends are compiled in:
+All wheels built with `--features scenarios,sqlite,postgres` (single variant).
 
-| Variant | Cargo Features | Use Case |
-|---------|---------------|----------|
-| `default` | `scenarios`, `sqlite` | General use, local analytics, notebooks |
-| `postgres` | `scenarios`, `sqlite`, `postgres` | Server-side, enterprise-finstack Docker |
+**Full matrix:** 3 Python versions x 5 platforms = **15 wheels** per release.
 
-**Decision needed:** Ship one wheel with all features compiled in (simplest), or separate wheels per feature set (smaller binaries, but more complex distribution). **Recommendation: single wheel with all features** (`--features scenarios,sqlite,postgres`) — the binary size increase from postgres is minimal (just adds `tokio-postgres` client), and it eliminates the "wrong variant" footgun.
+**P0 subset (ship first):** 3 Python versions x 3 platforms = **9 wheels**.
 
-## Build Matrix Summary
+### Wheel Naming Convention
 
-Full matrix: **3 Python versions x 5 platforms = 15 wheels** per release.
+Per PEP 427:
 
-P0 subset (ship first): **3 Python versions x 3 platforms = 9 wheels**.
+```
+finstack-{version}-{python_tag}-{abi_tag}-{platform_tag}.whl
+```
 
-## Implementation
+Examples:
 
-### 1. GitHub Actions Workflow: `release-wheels.yml`
+```
+finstack-0.4.0-cp312-cp312-manylinux_2_28_x86_64.whl
+finstack-0.4.0-cp314-cp314-manylinux_2_28_aarch64.whl
+finstack-0.4.0-cp312-cp312-macosx_11_0_arm64.whl
+finstack-0.4.0-cp313-cp313-win_amd64.whl
+```
 
-Trigger on:
-- Git tag push matching `v*` (release)
-- Manual `workflow_dispatch` (ad-hoc builds)
-- Nightly schedule (optional, for pre-release testing)
+---
 
-Use the [`PyO3/maturin-action`](https://github.com/PyO3/maturin-action) GitHub Action, which handles cross-compilation and manylinux containers.
+## Part 2: npm / WASM Package
+
+### Package Details
+
+| Field | Value |
+|-------|-------|
+| Package name | `finstack-wasm` |
+| Registry | npm (public) |
+| Build tool | `wasm-pack` |
+| Targets | `web` (ESM, browser/bundler), `nodejs` (CJS, server-side) |
+
+### Build Outputs
+
+`wasm-pack build` produces a self-contained npm package in `pkg/` with:
+- `finstack_wasm_bg.wasm` — compiled WASM binary
+- `finstack_wasm.js` — JS glue code
+- `finstack_wasm.d.ts` — TypeScript type definitions
+- `package.json` — npm package metadata
+
+Two targets are built:
+
+| Target | Output Dir | Use Case |
+|--------|-----------|----------|
+| `--target web` | `pkg/` | Browser apps, bundlers (Vite, webpack, esbuild) |
+| `--target nodejs` | `pkg-node/` | Node.js server-side usage |
+
+The primary distribution is the `web` target (published to npm). The `nodejs` target is available as a secondary build artifact.
+
+### Version Sync
+
+The npm package version is currently `0.1.0` in `finstack-wasm/package.json` but the Rust workspace version is `0.4.0`. These must be synced before first publish. The release workflow will set `package.json` version from the git tag.
+
+---
+
+## Part 3: Implementation
+
+### 1. GitHub Actions Workflow: `release.yml`
+
+Single workflow that builds Python wheels, npm package, and publishes both on tag push.
 
 ```yaml
-# .github/workflows/release-wheels.yml
-name: Build & Publish Wheels
+# .github/workflows/release.yml
+name: Release
 
 on:
   push:
@@ -75,38 +126,39 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: "Publish to GitHub Release"
+        description: "Publish artifacts"
         type: boolean
         default: false
 
 jobs:
+  # ── Python Wheels ───────────────────────────────────────────────
   build-wheels:
-    name: Build ${{ matrix.os }} / ${{ matrix.python }}
+    name: Wheel / ${{ matrix.os }} / py${{ matrix.python }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           # ── Linux x86_64 ──
-          - { os: linux-x64, runner: ubuntu-latest, target: x86_64, python: "3.12" }
-          - { os: linux-x64, runner: ubuntu-latest, target: x86_64, python: "3.13" }
-          - { os: linux-x64, runner: ubuntu-latest, target: x86_64, python: "3.14" }
+          - { os: linux-x64,   runner: ubuntu-latest,  target: x86_64,  python: "3.12" }
+          - { os: linux-x64,   runner: ubuntu-latest,  target: x86_64,  python: "3.13" }
+          - { os: linux-x64,   runner: ubuntu-latest,  target: x86_64,  python: "3.14" }
           # ── Linux arm64 ──
-          - { os: linux-arm64, runner: ubuntu-latest, target: aarch64, python: "3.12" }
-          - { os: linux-arm64, runner: ubuntu-latest, target: aarch64, python: "3.13" }
-          - { os: linux-arm64, runner: ubuntu-latest, target: aarch64, python: "3.14" }
+          - { os: linux-arm64, runner: ubuntu-latest,  target: aarch64, python: "3.12" }
+          - { os: linux-arm64, runner: ubuntu-latest,  target: aarch64, python: "3.13" }
+          - { os: linux-arm64, runner: ubuntu-latest,  target: aarch64, python: "3.14" }
           # ── macOS arm64 (Apple Silicon) ──
-          - { os: macos-arm64, runner: macos-14, target: aarch64, python: "3.12" }
-          - { os: macos-arm64, runner: macos-14, target: aarch64, python: "3.13" }
-          - { os: macos-arm64, runner: macos-14, target: aarch64, python: "3.14" }
-          # ── macOS x86_64 (P1) ──
-          - { os: macos-x64, runner: macos-13, target: x86_64, python: "3.12" }
-          - { os: macos-x64, runner: macos-13, target: x86_64, python: "3.13" }
-          - { os: macos-x64, runner: macos-13, target: x86_64, python: "3.14" }
-          # ── Windows x86_64 (P1) ──
-          - { os: windows-x64, runner: windows-latest, target: x64, python: "3.12" }
-          - { os: windows-x64, runner: windows-latest, target: x64, python: "3.13" }
-          - { os: windows-x64, runner: windows-latest, target: x64, python: "3.14" }
+          - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.12" }
+          - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.13" }
+          - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.14" }
+          # ── macOS x86_64 ──
+          - { os: macos-x64,   runner: macos-13,       target: x86_64,  python: "3.12" }
+          - { os: macos-x64,   runner: macos-13,       target: x86_64,  python: "3.13" }
+          - { os: macos-x64,   runner: macos-13,       target: x86_64,  python: "3.14" }
+          # ── Windows x86_64 ──
+          - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.12" }
+          - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.13" }
+          - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.14" }
 
     steps:
       - uses: actions/checkout@v4
@@ -115,7 +167,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
-      - uses: PyO3/maturin-action@v1
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           args: >-
@@ -124,18 +177,22 @@ jobs:
             --manifest-path finstack-py/Cargo.toml
             --features scenarios,sqlite,postgres
             --interpreter python${{ matrix.python }}
-          manylinux: auto
-          # ARM Linux cross-compilation needs QEMU
-          docker-options: ${{ matrix.target == 'aarch64' && '-e JEMALLOC_SYS_WITH_LG_PAGE=16' || '' }}
+          manylinux: "2_28"
+
+      - name: Smoke test wheel
+        if: matrix.target != 'aarch64' || runner.os != 'Linux'
+        run: |
+          pip install dist/finstack-*.whl
+          python -c "from finstack import Money, Currency; m = Money(100.0, Currency.USD); print(f'OK: {m}')"
 
       - uses: actions/upload-artifact@v4
         with:
           name: wheel-${{ matrix.os }}-py${{ matrix.python }}
           path: dist/*.whl
 
-  # Build source distribution (for fallback pip install from source)
+  # ── Source Distribution ─────────────────────────────────────────
   build-sdist:
-    name: Build sdist
+    name: Source dist
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -148,10 +205,60 @@ jobs:
           name: sdist
           path: dist/*.tar.gz
 
-  # Publish to GitHub Release
+  # ── WASM / npm Package ─────────────────────────────────────────
+  build-wasm:
+    name: WASM / npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.90.0
+          target: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Sync package.json version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd finstack-wasm
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Build web target
+        run: |
+          cd finstack-wasm
+          wasm-pack build --target web --release --out-dir pkg
+          wasm-pack build --target nodejs --release --out-dir pkg-node
+
+      - name: Package npm tarball
+        run: |
+          cd finstack-wasm
+          npm pack
+          mv finstack-wasm-*.tgz ../dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-package
+          path: dist/finstack-wasm-*.tgz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wasm-pkg
+          path: finstack-wasm/pkg/
+
+  # ── Publish ─────────────────────────────────────────────────────
   publish:
     name: Publish Release
-    needs: [build-wheels, build-sdist]
+    needs: [build-wheels, build-sdist, build-wasm]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish == 'true'
     permissions:
@@ -167,19 +274,40 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
+
+  publish-npm:
+    name: Publish to npm
+    needs: [build-wasm]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish == 'true'
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-package
+          path: dist
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish to npm
+        run: npm publish dist/finstack-wasm-*.tgz --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
-### 2. Local Build Targets (Makefile)
-
-Add targets to the existing Makefile for developers to build wheels locally:
+### 2. Local Build Targets (Makefile additions)
 
 ```makefile
-# --- Wheel Building ---
+# --- Package Building ---
 
 MATURIN_FEATURES := scenarios,sqlite,postgres
 WHEEL_DIR := target/wheels
 
-.PHONY: wheels wheel-local wheel-docker wheel-all
+.PHONY: wheels wheel-local wheel-docker wheel-all wasm-publish-dry
 
 wheel-local: ## Build wheel for current platform + Python
  @printf "Building wheel for local platform...\n"
@@ -190,7 +318,7 @@ wheel-local: ## Build wheel for current platform + Python
  @printf "Wheel(s) written to $(WHEEL_DIR)/\n"
  @ls -lh $(WHEEL_DIR)/finstack-*.whl
 
-wheel-docker: ## Build manylinux wheels for Docker (current arch)
+wheel-docker: ## Build manylinux wheel via Docker (current arch)
  @printf "Building manylinux wheel via Docker...\n"
  docker run --rm \
   -v $(CURDIR):/io \
@@ -214,13 +342,20 @@ wheel-all: ## Build wheels for all locally-available Python versions
  @ls -lh $(WHEEL_DIR)/finstack-*.whl
 
 wheels: wheel-local ## Alias for wheel-local
+
+wasm-pack: ## Build WASM package (web + node targets)
+ cd finstack-wasm && wasm-pack build --target web --release --out-dir pkg
+ cd finstack-wasm && wasm-pack build --target nodejs --release --out-dir pkg-node
+
+wasm-publish-dry: wasm-pack ## Dry-run npm publish (no upload)
+ cd finstack-wasm && npm pack --dry-run
 ```
 
-### 3. Wheel Storage & Distribution
+### 3. Distribution
 
-#### Phase 1: GitHub Releases (immediate)
+#### Phase 1: GitHub Releases + npm (immediate)
 
-Wheels are attached to GitHub Releases as assets. Consumers install via:
+**Python wheels** are attached to GitHub Releases. Consumers install via:
 
 ```bash
 # Direct URL install
@@ -231,16 +366,25 @@ gh release download v0.4.0 --pattern "finstack-*cp314*manylinux*aarch64*"
 uv pip install ./finstack-*.whl
 ```
 
-For `pyproject.toml` consumers (like enterprise-finstack), reference via URL source:
+For `pyproject.toml` consumers (like enterprise-finstack analytics-service):
 
 ```toml
+[project]
+dependencies = ["finstack"]
+
 [tool.uv.sources]
 finstack = { url = "https://github.com/rustfin/rfin/releases/download/v0.4.0/finstack-0.4.0-cp314-cp314-manylinux_2_28_aarch64.whl" }
 ```
 
+**npm package** is published to the public npm registry:
+
+```bash
+npm install finstack-wasm
+```
+
 #### Phase 2: Private PyPI Index (future)
 
-When the team needs version resolution, dependency metadata, and multi-version support:
+When the team needs version resolution and multi-version support:
 
 - Host on **GitHub Packages**, **AWS CodeArtifact**, **Cloudsmith**, or **Garage S3 + `dumb-pypi`**
 - Consumers add the index: `uv pip install finstack --extra-index-url https://pypi.internal/simple`
@@ -248,14 +392,12 @@ When the team needs version resolution, dependency metadata, and multi-version s
 
 #### Phase 3: Public PyPI (eventual)
 
-When finstack is ready for public consumption:
-
 - Publish via `maturin publish` in CI
 - Standard `pip install finstack` works everywhere
 
-### 4. enterprise-finstack Docker Integration
+### 4. enterprise-finstack Docker Simplification
 
-With pre-built wheels available from GitHub Releases, the analytics-service Dockerfile simplifies from a multi-stage Rust build to:
+With pre-built wheels on GitHub Releases, the analytics-service Dockerfile drops the multi-stage Rust build entirely:
 
 ```dockerfile
 FROM finstack-python-base:latest
@@ -264,53 +406,34 @@ ARG FINSTACK_WHEEL_URL
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv sync --frozen --no-dev --no-install-project
+# Strip local path source (replaced by pre-built wheel)
+RUN sed -i '/"finstack",/d' pyproject.toml \
+    && sed -i '/^\[tool\.uv\.sources\]/,/^$/d' pyproject.toml
+
+RUN uv sync --no-dev --no-install-project
 
 # Install pre-built finstack wheel (no Rust toolchain needed)
-RUN if [ -n "$FINSTACK_WHEEL_URL" ]; then \
-      uv pip install "$FINSTACK_WHEEL_URL"; \
-    fi
+RUN uv pip install "$FINSTACK_WHEEL_URL"
 
 COPY app/ ./app/
-RUN uv sync --frozen --no-dev
+RUN uv pip install --no-deps .
 
 EXPOSE 8001
 CMD ["uv", "run", "--no-sync", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
 ```
 
-Or with local wheels from `make wheel-docker`:
+Build time drops from ~30 min to ~2 min.
 
-```dockerfile
-COPY wheels/ /tmp/wheels/
-RUN uv pip install /tmp/wheels/finstack-*.whl && rm -rf /tmp/wheels
-```
-
-## Wheel Naming Convention
-
-Maturin produces wheels following PEP 427:
-
-```
-finstack-{version}-{python_tag}-{abi_tag}-{platform_tag}.whl
-```
-
-Examples:
-
-```
-finstack-0.4.0-cp312-cp312-manylinux_2_28_x86_64.whl
-finstack-0.4.0-cp314-cp314-manylinux_2_28_aarch64.whl
-finstack-0.4.0-cp312-cp312-macosx_11_0_arm64.whl
-finstack-0.4.0-cp313-cp313-win_amd64.whl
-```
+---
 
 ## Testing Requirements
 
-### Per-wheel validation (in CI, after build)
+### Per-wheel smoke test (in CI, after build)
 
-Each wheel is installed into a clean virtualenv and smoke-tested:
+Each wheel is installed into a clean environment and validated:
 
 ```bash
-uv venv --python $PYTHON_VERSION
-uv pip install dist/finstack-*.whl
+pip install dist/finstack-*.whl
 python -c "
 from finstack import Money, Currency, DiscountCurve
 m = Money(100.0, Currency.USD)
@@ -318,32 +441,53 @@ print(f'OK: {m}')
 "
 ```
 
+Note: Linux arm64 wheels are cross-compiled via QEMU and cannot be smoke-tested on x86_64 runners. These are validated via the integration test job.
+
+### npm package smoke test (in CI, after build)
+
+```bash
+cd $(mktemp -d)
+npm init -y
+npm install ../dist/finstack-wasm-*.tgz
+node -e "const fs = require('finstack-wasm'); console.log('OK:', Object.keys(fs).length, 'exports')"
+```
+
 ### Cross-platform integration test
 
-After all wheels are built, a separate job installs and runs the Python test suite (`finstack-py/tests/`) against each platform's wheel.
+A separate job installs each platform's wheel/package and runs the full test suite (`finstack-py/tests/`, `finstack-wasm/` npm tests).
+
+---
 
 ## Versioning & Release Flow
 
 1. Bump version in root `Cargo.toml` workspace (`workspace.package.version`)
-2. Tag: `git tag v0.4.1 && git push --tags`
-3. CI builds all wheels, runs tests, creates GitHub Release with assets
-4. Downstream consumers update their version pin
+2. The CI workflow syncs `finstack-wasm/package.json` version from the git tag automatically
+3. Tag: `git tag v0.4.1 && git push --tags`
+4. CI builds all wheels + npm package, runs tests, creates GitHub Release, publishes to npm
+5. Downstream consumers update their version pin
 
-## Open Questions
+---
 
-1. **Feature variants:** Single "all features" wheel vs. separate `finstack` / `finstack[postgres]` extras? Recommendation is single wheel, but worth confirming binary size delta.
+## Secrets & Permissions Required
 
-2. **Nightly builds:** Should `main` branch pushes publish nightly/dev wheels (e.g., `finstack-0.5.0.dev20260227`)? Useful for enterprise-finstack CI but adds storage overhead.
+| Secret | Purpose |
+|--------|---------|
+| `NPM_TOKEN` | npm publish token (create at npmjs.com > Access Tokens > Granular, scoped to `finstack-wasm`) |
 
-3. **WASM distribution:** The `finstack-wasm` package has a similar distribution problem. Should this PRD cover npm publishing, or is that a separate effort?
+GitHub Release publishing uses `permissions: contents: write` (no secret needed for same-repo).
 
-4. **Minimum manylinux version:** `manylinux_2_28` (AlmaLinux 8 / Debian 11+) is the modern default. Any need for older `manylinux_2_17` (CentOS 7)?
+npm provenance (`--provenance`) requires `permissions: id-token: write` for OIDC-based signing.
+
+---
 
 ## Success Criteria
 
 - [ ] `make wheel-local` produces a working wheel in `target/wheels/` in < 5 min
 - [ ] `make wheel-docker` produces a manylinux wheel usable in Docker without Rust
-- [ ] CI workflow builds 9+ wheels (P0 matrix) on tag push, all pass smoke tests
-- [ ] GitHub Release has all wheels attached and is installable via URL
-- [ ] enterprise-finstack Dockerfile builds in < 2 min (vs. ~30 min with Rust compilation)
-- [ ] A developer on a fresh machine can `uv pip install <release-url>` and import finstack
+- [ ] `make wasm-pack` produces a publishable npm package in `finstack-wasm/pkg/`
+- [ ] CI workflow builds 15 wheels + 1 sdist + 1 npm tarball on tag push
+- [ ] All smoke tests pass for every artifact
+- [ ] GitHub Release has all Python wheels + npm tarball attached
+- [ ] `finstack-wasm` is published to npm and installable via `npm install finstack-wasm`
+- [ ] enterprise-finstack Dockerfile builds in < 2 min using a release wheel URL
+- [ ] A developer on a fresh machine can `uv pip install <release-url>` and `import finstack`
