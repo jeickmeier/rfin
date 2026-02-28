@@ -249,6 +249,7 @@ force-sort-within-sections = true
 #######################
 [tool.ty.environment]
 python-version = "3.12"
+root = ["./finstack-py"]
 
 [tool.ty.src]
 include = ["finstack-py/finstack"]
@@ -265,9 +266,13 @@ exclude = [
 allowed-unresolved-imports = [
     "pandas.**",
     "numpy.**",
+    "polars.**",
+    "pyarrow.**",
     "requests.**",
     "asteval.**",
     "pydantic.**",
+    "matplotlib.**",
+    "finstack.finstack",
     "finstack.finstack.**",
 ]
 
@@ -293,6 +298,7 @@ error-on-warning = true
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 include = ["finstack-py/finstack"]
+extraPaths = ["finstack-py"]
 reportMissingModuleSource = "none"
 
 #######################

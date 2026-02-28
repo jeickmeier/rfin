@@ -128,6 +128,19 @@ repos:
         name: Detect secrets (gitleaks)
 
   # ============================================
+  # Supply-chain security (cargo-deny)
+  # ============================================
+  - repo: local
+    hooks:
+      - id: cargo-deny
+        name: Supply-chain security (cargo deny)
+        entry: cargo deny check
+        language: system
+        files: (Cargo\.toml|Cargo\.lock|deny\.toml)$
+        pass_filenames: false
+        stages: [pre-push]
+
+  # ============================================
   # Version sync
   # ============================================
   - repo: local
