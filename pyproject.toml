@@ -39,7 +39,7 @@ dev-dependencies = [
     "pytest>=9.0.2",
     "pytest-benchmark>=5.2.3",
     "hypothesis>=6.122.4",
-    "mypy>=1.19.0",
+    "ty>=0.0.18",
     "pyright>=1.1.400",
     "ruff>=0.14.8",
     "flake8>=7.3.0",
@@ -133,7 +133,7 @@ exclude = [
     "concatenate_script.py",
     # Note: We WANT Ruff to lint examples for public-import guardrails
     ".cursor/**",
-    ".mypy_cache/**",
+    ".ty_cache/**",
     ".pytest_cache/**",
     ".ruff_cache/**",
     "docs/**",
@@ -299,28 +299,45 @@ per-file-ignores = [
 # recursive = true (not supported in all versions, but good to have if supported)
 
 #######################
-# MyPy Configuration
+# ty Configuration (Astral type checker)
 #######################
-[tool.mypy]
-python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-strict = true
-plugins = ['pydantic.mypy']
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.src]
+include = ["finstack-py/finstack"]
 exclude = [
-    "^examples/",
-    "^finstack-py/examples/",
-    "^tests/",
-    "^finstack-py/tests/",
-    "^concatenate_script\\.py$",
-    "^outputs/",
-    "^scripts/",
+    "examples",
+    "finstack-py/examples",
+    "finstack-py/tests",
+    "scripts",
+    "outputs",
+    "concatenate_script.py",
 ]
 
-# Per-package overrides migrated from mypy.ini
-[[tool.mypy.overrides]]
-module = ["pandas.*", "pandas.api.types", "requests.*", "numpy.*", "asteval.*"]
-ignore_missing_imports = true
+[tool.ty.analysis]
+allowed-unresolved-imports = [
+    "pandas.**",
+    "numpy.**",
+    "requests.**",
+    "asteval.**",
+    "pydantic.**",
+    "finstack.finstack.**",
+]
+
+[tool.ty.rules]
+# Pyright also uses `type: ignore` comments; suppress noise from shared suppressions.
+unused-type-ignore-comment = "ignore"
+
+# __init__.py files bridge the native Rust extension (finstack.finstack)
+# whose submodule attributes ty cannot introspect statically.
+[[tool.ty.overrides]]
+include = ["finstack-py/finstack/__init__.py", "finstack-py/finstack/*/__init__.py"]
+[tool.ty.overrides.rules]
+unresolved-attribute = "ignore"
+
+[tool.ty.terminal]
+error-on-warning = true
 
 #######################
 # Pyright (Pylance)

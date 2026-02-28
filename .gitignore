@@ -67,10 +67,11 @@ htmlcov/
 .hypothesis/
 .hypothesis/constants/
 
-# mypy
+# type checkers
 .mypy_cache/
 .dmypy.json
 dmypy.json
+.ty_cache/
 .ruff_cache/
 
 # mdBook

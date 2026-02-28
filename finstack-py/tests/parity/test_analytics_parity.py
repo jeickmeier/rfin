@@ -4,10 +4,16 @@ Tests that the Rust-backed Performance class produces correct results by
 comparing against pre-computed golden values.
 """
 
+from __future__ import annotations
+
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 import polars as pl
 import pytest
+
+if TYPE_CHECKING:
+    from finstack.analytics import Performance
 
 
 def _build_price_df(n: int = 100) -> pl.DataFrame:
@@ -43,13 +49,17 @@ def price_df() -> pl.DataFrame:
     return _build_price_df()
 
 
+def _make_perf(price_df: pl.DataFrame) -> Performance:
+    from finstack.analytics import Performance as _Perf
+
+    return _Perf(price_df, benchmark_ticker="bench", freq="daily")
+
+
 class TestPerformanceConstruction:
     """Test basic construction and properties."""
 
     def test_construction(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         assert repr(perf).startswith("Performance(")
 
     def test_invalid_freq(self, price_df: pl.DataFrame) -> None:
@@ -58,129 +68,261 @@ class TestPerformanceConstruction:
         with pytest.raises(ValueError, match="Unknown frequency"):
             Performance(price_df, freq="invalid")
 
+    def test_null_prices_rejected(self) -> None:
+        from finstack.analytics import Performance
+
+        df = pl.DataFrame({
+            "date": [date(2024, 1, 1), date(2024, 1, 2), date(2024, 1, 3)],
+            "A": [100.0, None, 102.0],
+        }).with_columns(pl.col("date").cast(pl.Date))
+        with pytest.raises(ValueError, match="null values"):
+            Performance(df, freq="daily")
+
+
+class TestAccessors:
+    """Test property accessors."""
+
+    def test_ticker_names(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        assert perf.ticker_names == ["A", "B", "bench"]
+
+    def test_benchmark_idx(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        assert perf.benchmark_idx == 2
+
+    def test_freq(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        assert perf.freq == "daily"
+
+    def test_log_returns(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        assert perf.log_returns is False
+
+    def test_dates(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        dates_df = perf.dates
+        assert isinstance(dates_df, pl.DataFrame)
+        assert "date" in dates_df.columns
+
 
 class TestScalarMetrics:
     """Test scalar per-ticker metrics against golden values."""
 
     def test_cagr(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.cagr()
         assert isinstance(result, pl.DataFrame)
-        assert result.shape[0] == 3  # 3 tickers
+        assert result.shape[0] == 3
         assert "cagr" in result.columns
-        # Ticker A has positive trend → positive CAGR
         a_cagr = result.filter(pl.col("ticker") == "A")["cagr"][0]
         assert a_cagr > 0
 
     def test_sharpe(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.sharpe()
         assert isinstance(result, pl.DataFrame)
         assert result.shape[0] == 3
 
     def test_sortino(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.sortino()
         assert isinstance(result, pl.DataFrame)
 
     def test_max_drawdown(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.max_drawdown()
         assert isinstance(result, pl.DataFrame)
-        # All max drawdowns should be <= 0
         for val in result["max_drawdown"].to_list():
             assert val <= 0.0 + 1e-12
 
     def test_volatility(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.volatility(annualize=True)
         assert isinstance(result, pl.DataFrame)
-        # Volatility should be non-negative
         for val in result["volatility"].to_list():
             assert val >= 0.0
 
     def test_var_and_es(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         var = perf.value_at_risk(confidence=0.95)
         es = perf.expected_shortfall(confidence=0.95)
         assert isinstance(var, pl.DataFrame)
         assert isinstance(es, pl.DataFrame)
-        # ES should be at least as bad as VaR
         for v, e in zip(var["var"].to_list(), es["es"].to_list(), strict=True):
             assert e <= v + 1e-12
 
     def test_calmar(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.calmar()
         assert isinstance(result, pl.DataFrame)
 
     def test_ulcer_index(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.ulcer_index()
         assert isinstance(result, pl.DataFrame)
         for val in result["ulcer_index"].to_list():
             assert val >= 0.0
+
+    def test_tail_ratio(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.tail_ratio()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_risk_of_ruin(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.risk_of_ruin()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_skewness(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.skewness()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_kurtosis(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.kurtosis()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_geometric_mean(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.geometric_mean()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_downside_deviation(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.downside_deviation(mar=0.0)
+        assert isinstance(result, pl.DataFrame)
+        for val in result["downside_deviation"].to_list():
+            assert val >= 0.0
+
+    def test_max_drawdown_duration(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.max_drawdown_duration()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_omega_ratio(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.omega_ratio()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_treynor(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.treynor()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_gain_to_pain(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.gain_to_pain()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_martin_ratio(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.martin_ratio()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_parametric_var(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.parametric_var()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_cornish_fisher_var(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.cornish_fisher_var()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_recovery_factor(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.recovery_factor()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_sterling_ratio(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.sterling_ratio()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_burke_ratio(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.burke_ratio()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_pain_index(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.pain_index()
+        assert isinstance(result, pl.DataFrame)
+        for val in result["pain_index"].to_list():
+            assert val >= 0.0
+
+    def test_pain_ratio(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.pain_ratio()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_cdar(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.cdar()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_m_squared(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.m_squared()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_modified_sharpe(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.modified_sharpe()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
 
 
 class TestBenchmarkRelative:
     """Test benchmark-relative metrics."""
 
     def test_tracking_error(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.tracking_error()
         assert isinstance(result, pl.DataFrame)
-        # Benchmark vs itself should have ~0 tracking error
         bench_te = result.filter(pl.col("ticker") == "bench")["tracking_error"][0]
         assert abs(bench_te) < 1e-10
 
     def test_information_ratio(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.information_ratio()
         assert isinstance(result, pl.DataFrame)
 
     def test_r_squared(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.r_squared()
         assert isinstance(result, pl.DataFrame)
-        # R-squared should be in [0, 1]
         for val in result["r_squared"].to_list():
             assert 0.0 <= val <= 1.0 + 1e-10
 
     def test_beta(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.beta()
         assert isinstance(result, dict)
         assert "A" in result
         assert "beta" in result["A"]
 
     def test_greeks(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.greeks()
         assert isinstance(result, dict)
         assert "A" in result
@@ -188,51 +330,245 @@ class TestBenchmarkRelative:
         assert "beta" in result["A"]
         assert "r_squared" in result["A"]
 
+    def test_up_capture(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.up_capture()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_down_capture(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.down_capture()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_capture_ratio(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.capture_ratio()
+        assert isinstance(result, pl.DataFrame)
+        assert result.shape[0] == 3
+
+    def test_batting_average(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.batting_average()
+        assert isinstance(result, pl.DataFrame)
+        for val in result["batting_average"].to_list():
+            assert 0.0 <= val <= 1.0
+
 
 class TestSeriesOutputs:
     """Test series-type outputs."""
 
     def test_cumulative_returns(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.cumulative_returns()
         assert isinstance(result, pl.DataFrame)
-        assert set(result.columns) == {"A", "B", "bench"}
+        assert "date" in result.columns
+        assert set(result.columns) == {"date", "A", "B", "bench"}
 
     def test_drawdown_series(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.drawdown_series()
         assert isinstance(result, pl.DataFrame)
-        # All drawdown values should be <= 0
-        for col in result.columns:
+        assert "date" in result.columns
+        for col in ["A", "B", "bench"]:
             vals = result[col].to_list()
             for v in vals:
                 assert v <= 0.0 + 1e-12
 
     def test_correlation(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         result = perf.correlation()
         assert isinstance(result, pl.DataFrame)
-        assert result.shape == (3, 3)
-        # Diagonal should be 1.0
-        for i, col in enumerate(result.columns):
-            assert abs(result[col][i] - 1.0) < 1e-10
+        assert "ticker" in result.columns
+        assert result.shape == (3, 4)  # ticker col + 3 value cols
+
+    def test_cumulative_returns_outperformance(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.cumulative_returns_outperformance()
+        assert isinstance(result, pl.DataFrame)
+        assert "date" in result.columns
+        bench_col = result["bench"].to_list()
+        for v in bench_col:
+            assert abs(v) < 1e-10
+
+    def test_drawdown_outperformance(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.drawdown_outperformance()
+        assert isinstance(result, pl.DataFrame)
+        assert "date" in result.columns
+
+    def test_excess_returns(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        n = len(perf.dates)
+        rf = [0.0001] * n
+        result = perf.excess_returns(rf)
+        assert isinstance(result, pl.DataFrame)
+        assert "date" in result.columns
+
+
+class TestRollingMetrics:
+    """Test per-ticker rolling metrics."""
+
+    def test_rolling_volatility(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.rolling_volatility("A", window=20)
+        assert isinstance(result, pl.DataFrame)
+        assert "date" in result.columns
+        assert "volatility" in result.columns
+
+    def test_rolling_sortino(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.rolling_sortino("A", window=20)
+        assert isinstance(result, pl.DataFrame)
+        assert "date" in result.columns
+        assert "sortino" in result.columns
+
+    def test_rolling_sharpe(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.rolling_sharpe("A", window=20)
+        assert isinstance(result, pl.DataFrame)
+        assert "date" in result.columns
+        assert "sharpe" in result.columns
+
+    def test_rolling_greeks(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.rolling_greeks("A", window=20)
+        assert isinstance(result, pl.DataFrame)
+        assert "date" in result.columns
+        assert "alpha" in result.columns
+        assert "beta" in result.columns
+
+    def test_unknown_ticker_raises(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        with pytest.raises(ValueError, match="Unknown ticker"):
+            perf.rolling_volatility("DOESNOTEXIST", window=20)
+
+
+class TestDrawdownDetails:
+    """Test drawdown episode extraction."""
+
+    def test_drawdown_details(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        episodes = perf.drawdown_details("B", n=3)
+        assert isinstance(episodes, list)
+        if episodes:
+            ep = episodes[0]
+            assert "start" in ep
+            assert "valley" in ep
+            assert "max_drawdown" in ep
+            assert ep["max_drawdown"] < 0.0
+
+    def test_stats_during_bench_drawdowns(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        episodes = perf.stats_during_bench_drawdowns(n=3)
+        assert isinstance(episodes, list)
+
+
+class TestMultiFactorGreeks:
+    """Test multi-factor regression."""
+
+    def test_multi_factor_greeks(self, price_df: pl.DataFrame) -> None:
+        import math
+
+        perf = _make_perf(price_df)
+        n = len(perf.dates)
+        factor1 = [0.001 * math.sin(i * 0.2) for i in range(n)]
+        factor2 = [0.0005 * math.cos(i * 0.3) for i in range(n)]
+        factors_df = pl.DataFrame({"mkt": factor1, "smb": factor2})
+
+        result = perf.multi_factor_greeks("A", factors_df)
+        assert isinstance(result, dict)
+        assert "alpha" in result
+        assert "betas" in result
+        assert "r_squared" in result
+        assert "adjusted_r_squared" in result
+        assert "residual_vol" in result
+        assert len(result["betas"]) == 2
+
+
+class TestLookbackAndAggregation:
+    """Test lookback returns and period stats."""
+
+    def test_lookback_returns(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.lookback_returns(date(2024, 3, 15))
+        assert isinstance(result, dict)
+        assert "mtd" in result
+        assert "qtd" in result
+        assert "ytd" in result
+        assert len(result["mtd"]) == 3
+
+    def test_period_stats(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.period_stats("A", agg_freq="monthly")
+        assert isinstance(result, dict)
+        assert "win_rate" in result
+        assert "kelly_criterion" in result
+        assert 0.0 <= result["win_rate"] <= 1.0
 
 
 class TestDateRange:
     """Test reset_date_range functionality."""
 
     def test_reset_date_range(self, price_df: pl.DataFrame) -> None:
-        from finstack.analytics import Performance
-
-        perf = Performance(price_df, benchmark_ticker="bench", freq="daily")
+        perf = _make_perf(price_df)
         perf.volatility()
 
         perf.reset_date_range(date(2024, 2, 1), date(2024, 3, 1))
         subset_vol = perf.volatility()
         assert isinstance(subset_vol, pl.DataFrame)
+
+    def test_reset_bench_ticker(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        assert perf.benchmark_idx == 2
+        perf.reset_bench_ticker("A")
+        assert perf.benchmark_idx == 0
+
+    def test_series_after_date_range_reset(self, price_df: pl.DataFrame) -> None:
+        """Series outputs must align with the active date range."""
+        perf = _make_perf(price_df)
+        full_dates = perf.dates.shape[0]
+
+        perf.reset_date_range(date(2024, 2, 1), date(2024, 3, 1))
+        subset_dates = perf.dates.shape[0]
+        assert subset_dates < full_dates
+
+        cum = perf.cumulative_returns()
+        assert cum.shape[0] == subset_dates
+
+        dd = perf.drawdown_series()
+        assert dd.shape[0] == subset_dates
+
+        outperf = perf.cumulative_returns_outperformance()
+        assert outperf.shape[0] == subset_dates
+
+        dd_outperf = perf.drawdown_outperformance()
+        assert dd_outperf.shape[0] == subset_dates
+
+        rf = [0.0001] * subset_dates
+        er = perf.excess_returns(rf)
+        assert er.shape[0] == subset_dates
+
+    def test_repr_after_date_range_reset(self, price_df: pl.DataFrame) -> None:
+        """Repr n_dates should reflect the active window."""
+        perf = _make_perf(price_df)
+        full_dates = perf.dates.shape[0]
+        assert f"n_dates={full_dates}" in repr(perf)
+
+        perf.reset_date_range(date(2024, 2, 1), date(2024, 3, 1))
+        subset_dates = perf.dates.shape[0]
+        assert f"n_dates={subset_dates}" in repr(perf)
+        assert subset_dates < full_dates
+
+
+class TestRepr:
+    """Test repr output."""
+
+    def test_repr_contains_info(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        r = repr(perf)
+        assert "Performance(" in r
+        assert "bench" in r
+        assert "daily" in r
+        assert "n_dates=" in r

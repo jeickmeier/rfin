@@ -213,7 +213,8 @@ impl Performance {
         &self.bench_returns[range.start.min(end)..end]
     }
 
-    fn active_dates(&self) -> &[Date] {
+    /// Date slice corresponding to the currently active analysis window.
+    pub fn active_dates(&self) -> &[Date] {
         let range = self.active_range();
         let end = range.end.min(self.dates.len());
         &self.dates[range.start.min(end)..end]

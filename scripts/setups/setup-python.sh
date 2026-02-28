@@ -32,7 +32,7 @@ uv venv
 
 # Install development dependencies using uv pip (which works with the venv)
 echo "Installing dependencies..."
-uv pip install maturin pytest pytest-benchmark black mypy ruff ipython jupyter
+uv pip install maturin pytest pytest-benchmark black ty ruff ipython jupyter
 
 echo "Building finstack-py..."
 cd finstack-py

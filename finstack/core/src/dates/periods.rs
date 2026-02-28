@@ -46,6 +46,35 @@ pub enum PeriodKind {
     Annual,
 }
 
+impl fmt::Display for PeriodKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PeriodKind::Daily => f.write_str("daily"),
+            PeriodKind::Weekly => f.write_str("weekly"),
+            PeriodKind::Monthly => f.write_str("monthly"),
+            PeriodKind::Quarterly => f.write_str("quarterly"),
+            PeriodKind::SemiAnnual => f.write_str("semiannual"),
+            PeriodKind::Annual => f.write_str("annual"),
+        }
+    }
+}
+
+impl FromStr for PeriodKind {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "daily" | "d" => Ok(PeriodKind::Daily),
+            "weekly" | "w" => Ok(PeriodKind::Weekly),
+            "monthly" | "m" => Ok(PeriodKind::Monthly),
+            "quarterly" | "q" => Ok(PeriodKind::Quarterly),
+            "semiannual" | "semi_annual" | "h" => Ok(PeriodKind::SemiAnnual),
+            "annual" | "yearly" | "a" | "y" => Ok(PeriodKind::Annual),
+            _ => Err(crate::error::InputError::Invalid.into()),
+        }
+    }
+}
+
 impl PeriodKind {
     /// Get the number of periods per year for this frequency.
     ///
@@ -996,6 +1025,52 @@ impl TryFrom<String> for PeriodId {
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn period_kind_display_from_str_roundtrip() {
+        for kind in [
+            PeriodKind::Daily,
+            PeriodKind::Weekly,
+            PeriodKind::Monthly,
+            PeriodKind::Quarterly,
+            PeriodKind::SemiAnnual,
+            PeriodKind::Annual,
+        ] {
+            let s = kind.to_string();
+            let parsed: PeriodKind = s.parse().expect("roundtrip should succeed");
+            assert_eq!(kind, parsed, "roundtrip failed for {s}");
+        }
+    }
+
+    #[test]
+    fn period_kind_from_str_aliases() {
+        let cases = [
+            ("d", PeriodKind::Daily),
+            ("w", PeriodKind::Weekly),
+            ("m", PeriodKind::Monthly),
+            ("q", PeriodKind::Quarterly),
+            ("h", PeriodKind::SemiAnnual),
+            ("semi_annual", PeriodKind::SemiAnnual),
+            ("a", PeriodKind::Annual),
+            ("y", PeriodKind::Annual),
+            ("yearly", PeriodKind::Annual),
+            ("DAILY", PeriodKind::Daily),
+            ("Monthly", PeriodKind::Monthly),
+        ];
+        for (input, expected) in cases {
+            let parsed: PeriodKind = input.parse().unwrap_or_else(|_| {
+                panic!("FromStr should succeed for '{input}'");
+            });
+            assert_eq!(parsed, expected, "mismatch for '{input}'");
+        }
+    }
+
+    #[test]
+    fn period_kind_from_str_rejects_unknown() {
+        assert!("bogus".parse::<PeriodKind>().is_err());
+        assert!("".parse::<PeriodKind>().is_err());
+    }
+
     #[test]
     fn parse_and_enumerate_quarters() {
         let plan = build_periods("2025Q1..Q3", Some("2025Q2"))

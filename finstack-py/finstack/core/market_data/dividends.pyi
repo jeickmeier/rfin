@@ -4,8 +4,10 @@ Provides dividend event modeling and schedule management
 for equity instruments.
 """
 
-from typing import List, Optional, Union, Tuple
-from datetime import date
+from __future__ import annotations
+
+from datetime import date as _Date
+from typing import List, Optional, Tuple, Union
 from ..currency import Currency
 from ..money import Money
 
@@ -20,8 +22,8 @@ class DividendEvent:
         Dividend kind ("cash", "yield", "stock").
     """
 
-    def __init__(self, date: Union[str, date], kind: str) -> None: ...
-    def date(self) -> date:
+    def __init__(self, date: Union[str, _Date], kind: str) -> None: ...
+    def date(self) -> _Date:
         """Get the dividend date.
 
         Returns
@@ -140,7 +142,7 @@ class DividendSchedule:
         """
         ...
 
-    def cash_events(self) -> List[Tuple[date, Money]]:
+    def cash_events(self) -> List[Tuple[_Date, Money]]:
         """Get cash dividend events.
 
         Returns
@@ -182,7 +184,7 @@ class DividendScheduleBuilder:
         """
         ...
 
-    def cash(self, date: Union[str, date], amount: Money) -> None:
+    def cash(self, date: Union[str, _Date], amount: Money) -> None:
         """Add a cash dividend.
 
         Parameters
@@ -194,7 +196,7 @@ class DividendScheduleBuilder:
         """
         ...
 
-    def yield_div(self, date: Union[str, date], yield_value: float) -> None:
+    def yield_div(self, date: Union[str, _Date], yield_value: float) -> None:
         """Add a yield dividend.
 
         Parameters
@@ -206,7 +208,7 @@ class DividendScheduleBuilder:
         """
         ...
 
-    def stock(self, date: Union[str, date], ratio: float) -> None:
+    def stock(self, date: Union[str, _Date], ratio: float) -> None:
         """Add a stock dividend.
 
         Parameters

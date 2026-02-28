@@ -121,6 +121,10 @@ _rust_io = _finstack.io
 _io = _setup_hybrid_module(_rust_io, "io", _pkg_path / "io")
 globals()["io"] = _io
 
+_rust_analytics = _finstack.analytics  # type: ignore[reportAttributeAccessIssue]
+_analytics = _setup_hybrid_module(_rust_analytics, "analytics", _pkg_path / "analytics")
+globals()["analytics"] = _analytics
+
 del (
     _finstack,
     _name,
@@ -136,6 +140,8 @@ del (
     _portfolio,
     _rust_io,
     _io,
+    _rust_analytics,
+    _analytics,
     _types,
     _setup_hybrid_module,
     _Any,

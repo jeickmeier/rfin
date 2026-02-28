@@ -156,7 +156,7 @@ setup-python: ## Initialize Python environment
 python-dev: ## Install dependencies and build bindings
 	@if [ ! -d "$(VENV)" ]; then uv venv; fi
 	@printf "Installing Python dependencies and building extension...\n"
-	@$(call py_run,uv pip install maturin pytest pytest-benchmark black mypy ruff ipython jupyter)
+	@$(call py_run,uv pip install maturin pytest pytest-benchmark black ty ruff ipython jupyter)
 	@cd finstack-py && $(call py_run,python -m maturin develop --features postgres,turso --profile release-perf)
 
 .PHONY: test-python
@@ -177,6 +177,7 @@ lint-python-fix:
 
 .PHONY: typecheck-python
 typecheck-python:
+	@$(call py_run,ty check finstack-py/finstack)
 	@$(call py_run,pyright)
 
 .PHONY: verifytypes-python
@@ -186,7 +187,7 @@ verifytypes-python:
 .PHONY: stubtest-python
 stubtest-python:
 	@printf "Use 'make verifytypes-python' for CI-grade type verification.\n"
-	@printf "Local: uv run python -m mypy.stubtest finstack --ignore-missing-stub --allowlist finstack-py/tests/stubtest_allowlist.txt\n"
+	@printf "Local: uv run ty check finstack-py/finstack\n"
 
 .PHONY: stubs
 stubs:
@@ -413,7 +414,7 @@ clean: ## Remove build artifacts
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 	find . -name "*.egg-info" -type d -exec rm -rf {} + 2>/dev/null || true
 
-clean-cache: ## Clear tool caches (ruff, mypy, pytest)
-	rm -rf .ruff_cache .mypy_cache .pytest_cache
-	rm -rf finstack-py/.ruff_cache finstack-py/.mypy_cache finstack-py/.pytest_cache
+clean-cache: ## Clear tool caches (ruff, ty, pytest)
+	rm -rf .ruff_cache .ty_cache .mypy_cache .pytest_cache
+	rm -rf finstack-py/.ruff_cache finstack-py/.ty_cache finstack-py/.mypy_cache finstack-py/.pytest_cache
 	@printf "Caches cleared.\n"
