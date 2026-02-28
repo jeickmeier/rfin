@@ -209,9 +209,6 @@ jobs:
         run: npm ci --ignore-scripts
         working-directory: finstack-wasm
 
-      - name: Build WASM
-        run: make wasm-build
-
       - name: Run WASM tests
         run: make test-wasm
 

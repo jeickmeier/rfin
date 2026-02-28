@@ -107,7 +107,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        uses: taiki-e/install-action@wasm-pack
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -157,32 +157,3 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
-
-  publish-npm:
-    name: Publish to npm
-    needs: [build-wheels, build-sdist, build-wasm]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish == 'true'
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: .nvmrc
-          sparse-checkout-cone-mode: false
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: npm-package
-          path: dist
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Publish to npm
-        run: npm publish dist/finstack-wasm-*.tgz --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
