@@ -18,15 +18,15 @@ pub fn mean_js(values: &[f64]) -> f64 {
     mean(values)
 }
 
-/// Calculate the population variance of a slice.
+/// Calculate the sample variance of a slice (unbiased, n-1 denominator).
 ///
 /// @param {Float64Array} values - Array of values
-/// @returns {number} Population variance
+/// @returns {number} Sample variance
 ///
 /// @example
 /// ```javascript
 /// const data = new Float64Array([1.0, 2.0, 3.0, 4.0]);
-/// const v = variance(data); // 1.25
+/// const v = variance(data); // 1.6667
 /// ```
 #[wasm_bindgen(js_name = variance)]
 pub fn variance_js(values: &[f64]) -> f64 {

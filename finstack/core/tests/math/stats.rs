@@ -10,8 +10,8 @@ fn mean_and_variance_basic() {
     let v = variance(&xs);
     let (m2, v2) = mean_var(&xs);
     assert!((m - 2.5).abs() < 1e-12);
-    // Population variance of 1..4 is 1.25
-    assert!((v - 1.25).abs() < 1e-12);
+    // Sample variance of [1,2,3,4]: SS=5, n-1=3, var=5/3
+    assert!((v - 5.0 / 3.0).abs() < 1e-12);
     assert!((m - m2).abs() < 1e-12);
     assert!((v - v2).abs() < 1e-12);
 }

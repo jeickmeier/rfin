@@ -1,12 +1,14 @@
-//! Drawdown computation: series, episode detection, and averaging.
+//! Drawdown computation: series, episode detection, averaging, and CDaR.
 //!
 //! Drawdown measures the peak-to-trough decline in cumulative wealth.
-//! This module provides three levels of granularity:
+//! This module provides four levels of granularity:
 //! - [`to_drawdown_series`]: per-period drawdown depth as a time series.
 //! - [`drawdown_details`]: structured episodes (start, valley, recovery).
 //! - [`avg_drawdown`]: scalar average of the worst N episodes.
+//! - [`cdar`]: Conditional Drawdown at Risk at a given confidence level.
 
 use crate::dates::Date;
+use crate::math::stats::quantile;
 
 /// Drawdown episode with start, valley, optional recovery, and max drawdown.
 #[derive(Debug, Clone, PartialEq)]
@@ -21,10 +23,11 @@ pub struct DrawdownEpisode {
     pub duration_days: i64,
     /// Maximum drawdown depth (negative fraction, e.g. −0.25 for a 25% loss).
     pub max_drawdown: f64,
-    /// 99% recovery threshold: the drawdown level at which 99% of the
-    /// peak-to-trough loss has been recovered (i.e. `max_drawdown * 0.99`,
-    /// a value slightly closer to zero than `max_drawdown`).
-    pub max_drawdown_99: f64,
+    /// Near-recovery threshold: the drawdown level at which 99% of the
+    /// peak-to-trough loss has been recovered (i.e. `max_drawdown * 0.01`,
+    /// a value slightly below zero). Useful for identifying "almost recovered"
+    /// drawdowns where the series is within 1% of the prior peak.
+    pub near_recovery_threshold: f64,
 }
 
 /// Compute a drawdown series from a simple-return series.
@@ -173,7 +176,7 @@ fn make_episode(
         end,
         duration_days,
         max_drawdown: valley_val,
-        max_drawdown_99: valley_val * 0.99,
+        near_recovery_threshold: valley_val * 0.01,
     }
 }
 
@@ -214,6 +217,91 @@ pub fn avg_drawdown(drawdown: &[f64], dates: &[Date], n: usize) -> f64 {
     }
     let sum: f64 = episodes.iter().map(|e| e.max_drawdown).sum();
     sum / episodes.len() as f64
+}
+
+/// Maximum drawdown duration in calendar days across all episodes.
+///
+/// Identifies all drawdown episodes and returns the longest `duration_days`.
+///
+/// # Arguments
+///
+/// * `drawdown` - Pre-computed drawdown series (values ≤ 0).
+/// * `dates`    - Date vector aligned with `drawdown`.
+///
+/// # Returns
+///
+/// Duration in calendar days of the longest drawdown episode. Returns `0`
+/// if no episodes are found.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::drawdown::{to_drawdown_series, max_drawdown_duration};
+/// use time::{Date, Month};
+///
+/// let returns = [0.10, -0.20, 0.05, 0.10, -0.05, -0.03];
+/// let dd = to_drawdown_series(&returns);
+/// let dates: Vec<Date> = (1..=6)
+///     .map(|d| Date::from_calendar_date(2025, Month::January, d).unwrap())
+///     .collect();
+/// let max_dur = max_drawdown_duration(&dd, &dates);
+/// assert!(max_dur > 0);
+/// ```
+pub fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
+    let episodes = drawdown_details(drawdown, dates, usize::MAX);
+    episodes.iter().map(|e| e.duration_days).max().unwrap_or(0)
+}
+
+/// Conditional Drawdown at Risk (CDaR) at the given confidence level.
+///
+/// The expected drawdown depth in the tail beyond the `(1 − α)` quantile
+/// of the drawdown distribution:
+///
+/// ```text
+/// CDaR_α = E[ |dd| | |dd| ≥ q_{1−α}(|dd|) ]
+/// ```
+///
+/// CDaR is the drawdown analogue of Expected Shortfall (CVaR).
+///
+/// # Arguments
+///
+/// * `drawdown`   - Pre-computed drawdown series (values ≤ 0), as produced
+///   by [`to_drawdown_series`].
+/// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
+///
+/// # Returns
+///
+/// The CDaR as a non-negative scalar (expressed as an absolute drawdown
+/// depth). Returns `0.0` for an empty slice.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::drawdown::cdar;
+///
+/// let dd = [-0.01, -0.05, -0.10, -0.15, -0.20, 0.0, -0.03, -0.08, -0.12, -0.18];
+/// let c = cdar(&dd, 0.80);
+/// assert!(c > 0.10);
+/// ```
+///
+/// # References
+///
+/// - Chekhlov, Uryasev & Zabarankin (2005): see docs/REFERENCES.md#chekhlov2005
+pub fn cdar(drawdown: &[f64], confidence: f64) -> f64 {
+    if drawdown.is_empty() {
+        return 0.0;
+    }
+    let mut abs_dd: Vec<f64> = drawdown.iter().map(|&d| d.abs()).collect();
+    let threshold = quantile(&mut abs_dd, confidence);
+    let tail: Vec<f64> = abs_dd
+        .iter()
+        .filter(|&&d| d >= threshold)
+        .copied()
+        .collect();
+    if tail.is_empty() {
+        return threshold;
+    }
+    tail.iter().sum::<f64>() / tail.len() as f64
 }
 
 #[cfg(test)]
@@ -260,5 +348,52 @@ mod tests {
     #[test]
     fn avg_drawdown_empty() {
         assert_eq!(avg_drawdown(&[], &[], 5), 0.0);
+    }
+
+    #[test]
+    fn cdar_hand_calc() {
+        // dd = [−0.10, −0.20, −0.05, −0.15, −0.25, −0.30, −0.02, −0.08, −0.12, −0.18]
+        // abs = [0.10, 0.20, 0.05, 0.15, 0.25, 0.30, 0.02, 0.08, 0.12, 0.18]
+        // sorted: [0.02, 0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30]
+        // quantile(0.80): h = 9*0.8 = 7.2, lo=7 (0.20), hi=8 (0.25), frac=0.2
+        // threshold = 0.20 + 0.2*(0.25−0.20) = 0.21
+        // Tail (abs_dd ≥ 0.21): [0.25, 0.30]
+        // CDaR = (0.25 + 0.30) / 2 = 0.275
+        let dd = [
+            -0.10, -0.20, -0.05, -0.15, -0.25, -0.30, -0.02, -0.08, -0.12, -0.18,
+        ];
+        let c = cdar(&dd, 0.80);
+        assert!((c - 0.275).abs() < 1e-10);
+    }
+
+    #[test]
+    fn cdar_worse_than_max_drawdown_var() {
+        // CDaR at any confidence ≥ the quantile threshold (it's a tail average)
+        let dd = [
+            -0.01, -0.05, -0.10, -0.15, -0.20, 0.0, -0.03, -0.08, -0.12, -0.18,
+        ];
+        let c95 = cdar(&dd, 0.95);
+        let c80 = cdar(&dd, 0.80);
+        // Higher confidence → fewer, more extreme tail observations → larger CDaR
+        assert!(c95 >= c80);
+    }
+
+    #[test]
+    fn cdar_empty() {
+        assert_eq!(cdar(&[], 0.95), 0.0);
+    }
+
+    #[test]
+    fn cdar_no_drawdown() {
+        let dd = [0.0, 0.0, 0.0];
+        assert_eq!(cdar(&dd, 0.95), 0.0);
+    }
+
+    #[test]
+    fn cdar_uniform_drawdown() {
+        // All drawdowns identical at −5% → CDaR = 5% regardless of confidence
+        let dd = [-0.05; 20];
+        let c = cdar(&dd, 0.95);
+        assert!((c - 0.05).abs() < 1e-12);
     }
 }

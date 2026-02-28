@@ -10,8 +10,12 @@ use crate::math::stats::{correlation, covariance, mean, variance, OnlineCovarian
 ///
 /// For each date in `target_dates`, binary-searches `bench_dates` for an
 /// exact match and returns the corresponding benchmark return. Dates present
-/// in `target_dates` but absent from `bench_dates` are filled with `0.0`
-/// (treated as no benchmark return on that day).
+/// in `target_dates` but absent from `bench_dates` are filled with `0.0`.
+///
+/// The zero-fill is correct because this function operates in **return
+/// space**: a missing date means no trading occurred for the benchmark on
+/// that day, so the return is 0.0 (no change in value). For price/index
+/// data, use fill-forward instead before converting to returns.
 ///
 /// # Arguments
 ///
@@ -234,6 +238,12 @@ pub struct BetaResult {
 /// Standard error uses the OLS formula with `(n - 2)` degrees of freedom.
 /// Confidence interval: `β ± 1.96 × SE(β)` (asymptotic 95% CI).
 ///
+/// **Note on CI approximation**: The 1.96 multiplier uses the standard
+/// normal quantile, which is a good approximation for the t-distribution
+/// when `n > 40`. For smaller samples, the CI will be slightly too narrow.
+/// A full t-distribution inverse CDF is not implemented here as it would
+/// require a beta-function special function for marginal accuracy improvement.
+///
 /// Requires at least 3 observations; returns `NaN` for standard error and
 /// CI bounds when `n < 3`.
 ///
@@ -446,6 +456,365 @@ pub fn rolling_greeks(
     }
 }
 
+/// Up-market capture ratio: portfolio performance during benchmark up-periods.
+///
+/// Computes the ratio of the portfolio's compounded return to the benchmark's
+/// compounded return over periods where the benchmark return is non-negative.
+/// A value > 1.0 means the portfolio amplifies benchmark gains.
+///
+/// # Arguments
+///
+/// * `returns`   - Portfolio return series.
+/// * `benchmark` - Benchmark return series.
+///
+/// # Returns
+///
+/// Up capture ratio. Returns `0.0` if there are no up-benchmark periods
+/// or the benchmark's compounded up-period return is negligible.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::benchmark::up_capture;
+///
+/// // Portfolio doubles the benchmark in up periods.
+/// let r = [0.04, -0.01, 0.06];
+/// let b = [0.02, -0.03, 0.03];
+/// let uc = up_capture(&r, &b);
+/// assert!(uc > 1.0);
+/// ```
+pub fn up_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
+    let n = returns.len().min(benchmark.len());
+    if n == 0 {
+        return 0.0;
+    }
+    let mut port_prod = 1.0_f64;
+    let mut bench_prod = 1.0_f64;
+    let mut has_up = false;
+    for i in 0..n {
+        if benchmark[i] >= 0.0 {
+            port_prod *= 1.0 + returns[i];
+            bench_prod *= 1.0 + benchmark[i];
+            has_up = true;
+        }
+    }
+    if !has_up {
+        return 0.0;
+    }
+    let bench_ret = bench_prod - 1.0;
+    if bench_ret.abs() < 1e-18 {
+        return 0.0;
+    }
+    (port_prod - 1.0) / bench_ret
+}
+
+/// Down-market capture ratio: portfolio performance during benchmark down-periods.
+///
+/// Computes the ratio of the portfolio's compounded return to the benchmark's
+/// compounded return over periods where the benchmark return is negative.
+/// A value < 1.0 means the portfolio loses less than the benchmark during
+/// downturns (desirable).
+///
+/// # Arguments
+///
+/// * `returns`   - Portfolio return series.
+/// * `benchmark` - Benchmark return series.
+///
+/// # Returns
+///
+/// Down capture ratio. Returns `0.0` if there are no down-benchmark periods
+/// or the benchmark's compounded down-period return is negligible.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::benchmark::down_capture;
+///
+/// // Portfolio loses less than benchmark in down periods (defensive).
+/// let r = [0.04, -0.01, 0.06];
+/// let b = [0.02, -0.03, 0.03];
+/// let dc = down_capture(&r, &b);
+/// assert!(dc < 1.0);
+/// ```
+pub fn down_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
+    let n = returns.len().min(benchmark.len());
+    if n == 0 {
+        return 0.0;
+    }
+    let mut port_prod = 1.0_f64;
+    let mut bench_prod = 1.0_f64;
+    let mut has_down = false;
+    for i in 0..n {
+        if benchmark[i] < 0.0 {
+            port_prod *= 1.0 + returns[i];
+            bench_prod *= 1.0 + benchmark[i];
+            has_down = true;
+        }
+    }
+    if !has_down {
+        return 0.0;
+    }
+    let bench_ret = bench_prod - 1.0;
+    if bench_ret.abs() < 1e-18 {
+        return 0.0;
+    }
+    (port_prod - 1.0) / bench_ret
+}
+
+/// Capture ratio = up capture / down capture.
+///
+/// A value > 1.0 indicates the portfolio captures more upside than downside
+/// relative to the benchmark -- the hallmark of a skillful active manager.
+///
+/// # Arguments
+///
+/// * `returns`   - Portfolio return series.
+/// * `benchmark` - Benchmark return series.
+///
+/// # Returns
+///
+/// The capture ratio. Returns `0.0` if either capture component is zero.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::benchmark::capture_ratio;
+///
+/// let r = [0.04, -0.01, 0.06];
+/// let b = [0.02, -0.03, 0.03];
+/// let cr = capture_ratio(&r, &b);
+/// assert!(cr > 1.0);
+/// ```
+pub fn capture_ratio(returns: &[f64], benchmark: &[f64]) -> f64 {
+    let dc = down_capture(returns, benchmark);
+    if dc == 0.0 {
+        return 0.0;
+    }
+    up_capture(returns, benchmark) / dc
+}
+
+/// Batting average: fraction of periods where portfolio outperforms benchmark.
+///
+/// ```text
+/// BA = count(r_portfolio > r_benchmark) / n
+/// ```
+///
+/// A value above 0.5 indicates the portfolio beats the benchmark more often
+/// than not, though it says nothing about the magnitude of wins vs losses.
+///
+/// # Arguments
+///
+/// * `returns`   - Portfolio return series.
+/// * `benchmark` - Benchmark return series.
+///
+/// # Returns
+///
+/// Fraction in `[0, 1]`. Returns `0.0` for empty series.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::benchmark::batting_average;
+///
+/// let r = [0.02, 0.01, 0.03, -0.01];
+/// let b = [0.01, 0.02, 0.01, 0.00];
+/// let ba = batting_average(&r, &b);
+/// // Beats benchmark in periods 0, 2 → 2/4 = 0.5
+/// // Period 3: -0.01 < 0.00 → loss
+/// assert!((ba - 0.5).abs() < 1e-12);
+/// ```
+pub fn batting_average(returns: &[f64], benchmark: &[f64]) -> f64 {
+    let n = returns.len().min(benchmark.len());
+    if n == 0 {
+        return 0.0;
+    }
+    let wins = (0..n).filter(|&i| returns[i] > benchmark[i]).count();
+    wins as f64 / n as f64
+}
+
+/// Result of a multi-factor regression.
+#[derive(Debug, Clone)]
+pub struct MultiFactorResult {
+    /// Annualized intercept (alpha).
+    pub alpha: f64,
+    /// Regression coefficients, one per factor.
+    pub betas: Vec<f64>,
+    /// R-squared: fraction of variance explained by the factors.
+    pub r_squared: f64,
+    /// Adjusted R-squared: penalizes additional regressors.
+    ///
+    /// ```text
+    /// adj_R² = 1 − (1 − R²) × (n − 1) / (n − k − 1)
+    /// ```
+    pub adjusted_r_squared: f64,
+    /// Annualized residual volatility.
+    pub residual_vol: f64,
+}
+
+/// Multi-factor OLS regression: regress portfolio returns on multiple factors.
+///
+/// Solves `y = α + β₁f₁ + β₂f₂ + ... + βₖfₖ + ε` via the normal equations
+/// `β = (X'X)⁻¹ X'y`, where `X` has a column of ones for the intercept.
+///
+/// Uses Cholesky decomposition for the (k+1)×(k+1) system. Handles up to
+/// ~10 factors without external linear algebra dependencies.
+///
+/// # Arguments
+///
+/// * `returns`    - Portfolio return series.
+/// * `factors`    - Slice of factor return series (each inner slice is one
+///   factor's return series, all the same length as `returns`).
+/// * `ann_factor` - Number of periods per year for annualization.
+///
+/// # Returns
+///
+/// A [`MultiFactorResult`] with alpha (annualized), betas, R², and
+/// residual volatility. Returns zero-filled result if the system is
+/// degenerate.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::benchmark::multi_factor_greeks;
+///
+/// // y ≈ 2*f1 (single effective factor).
+/// let y = [0.02, 0.04, 0.06, 0.08, 0.10];
+/// let f1 = [0.01, 0.02, 0.03, 0.04, 0.05];
+/// let result = multi_factor_greeks(&y, &[&f1], 252.0);
+/// assert!(result.r_squared > 0.99);
+/// ```
+///
+/// # References
+///
+/// - Fama & French (1993): see docs/REFERENCES.md#famaFrench1993
+pub fn multi_factor_greeks(
+    returns: &[f64],
+    factors: &[&[f64]],
+    ann_factor: f64,
+) -> MultiFactorResult {
+    let n = returns.len();
+    let k = factors.len();
+    let p = k + 1; // intercept + k factors
+
+    let zero_result = MultiFactorResult {
+        alpha: 0.0,
+        betas: vec![0.0; k],
+        r_squared: 0.0,
+        adjusted_r_squared: 0.0,
+        residual_vol: 0.0,
+    };
+
+    if n < p + 1 || k == 0 {
+        return zero_result;
+    }
+
+    // Build X'X and X'y where X[:,0] = 1 (intercept)
+    let mut xtx = vec![0.0_f64; p * p];
+    let mut xty = vec![0.0_f64; p];
+
+    for (t, &y) in returns.iter().enumerate().take(n) {
+        // X'y
+        xty[0] += y;
+        for j in 0..k {
+            let fj = factors[j].get(t).copied().unwrap_or(0.0);
+            xty[j + 1] += fj * y;
+        }
+
+        // X'X
+        xtx[0] += 1.0; // (0,0)
+        for j in 0..k {
+            let fj = factors[j].get(t).copied().unwrap_or(0.0);
+            xtx[j + 1] += fj; // (0, j+1)
+            xtx[(j + 1) * p] += fj; // (j+1, 0)
+            for m in 0..k {
+                let fm = factors[m].get(t).copied().unwrap_or(0.0);
+                xtx[(j + 1) * p + (m + 1)] += fj * fm;
+            }
+        }
+    }
+
+    // Cholesky decomposition: X'X = L L'
+    let mut l = vec![0.0_f64; p * p];
+    for i in 0..p {
+        for j in 0..=i {
+            let mut sum = xtx[i * p + j];
+            for m in 0..j {
+                sum -= l[i * p + m] * l[j * p + m];
+            }
+            if i == j {
+                if sum <= 0.0 {
+                    return zero_result;
+                }
+                l[i * p + j] = sum.sqrt();
+            } else {
+                l[i * p + j] = sum / l[j * p + j];
+            }
+        }
+    }
+
+    // Solve L z = X'y
+    let mut z = vec![0.0_f64; p];
+    for i in 0..p {
+        let mut sum = xty[i];
+        for j in 0..i {
+            sum -= l[i * p + j] * z[j];
+        }
+        z[i] = sum / l[i * p + i];
+    }
+
+    // Solve L' beta = z
+    let mut beta = vec![0.0_f64; p];
+    for i in (0..p).rev() {
+        let mut sum = z[i];
+        for j in (i + 1)..p {
+            sum -= l[j * p + i] * beta[j];
+        }
+        beta[i] = sum / l[i * p + i];
+    }
+
+    let alpha_per_period = beta[0];
+    let factor_betas: Vec<f64> = beta[1..].to_vec();
+
+    // Compute residuals and R²
+    let y_mean = mean(returns);
+    let mut ss_res = 0.0_f64;
+    let mut ss_tot = 0.0_f64;
+    for (t, &r) in returns.iter().enumerate().take(n) {
+        let mut y_hat = alpha_per_period;
+        for j in 0..k {
+            let fj = factors[j].get(t).copied().unwrap_or(0.0);
+            y_hat += factor_betas[j] * fj;
+        }
+        let residual = r - y_hat;
+        ss_res += residual * residual;
+        ss_tot += (r - y_mean) * (r - y_mean);
+    }
+
+    let r_sq = if ss_tot > 0.0 {
+        1.0 - ss_res / ss_tot
+    } else {
+        0.0
+    };
+    let dof = n as f64 - k as f64 - 1.0;
+    let residual_var = if dof > 0.0 { ss_res / dof } else { 0.0 };
+    let residual_vol = residual_var.sqrt() * ann_factor.sqrt();
+    let alpha = alpha_per_period * ann_factor;
+
+    let adjusted_r_squared = if dof > 0.0 {
+        1.0 - (1.0 - r_sq) * (n as f64 - 1.0) / dof
+    } else {
+        0.0
+    };
+
+    MultiFactorResult {
+        alpha,
+        betas: factor_betas,
+        r_squared: r_sq,
+        adjusted_r_squared,
+        residual_vol,
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
@@ -511,5 +880,145 @@ mod tests {
         let td = vec![jan(1), jan(3), jan(5)];
         let aligned = align_benchmark(&br, &bd, &td);
         assert_eq!(aligned, vec![0.01, 0.03, 0.0]);
+    }
+
+    #[test]
+    fn up_capture_hand_calc() {
+        // r = [0.10, −0.05], b = [0.05, −0.10]
+        // Up periods (b≥0): index 0
+        // port_prod = 1.10, bench_prod = 1.05
+        // up_capture = (1.10−1) / (1.05−1) = 0.10/0.05 = 2.0
+        let r = [0.10, -0.05];
+        let b = [0.05, -0.10];
+        let uc = up_capture(&r, &b);
+        assert!((uc - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn down_capture_hand_calc() {
+        // Same data: down periods (b<0): index 1
+        // port_prod = 0.95, bench_prod = 0.90
+        // down_capture = (0.95−1) / (0.90−1) = −0.05/−0.10 = 0.5
+        let r = [0.10, -0.05];
+        let b = [0.05, -0.10];
+        let dc = down_capture(&r, &b);
+        assert!((dc - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn capture_ratio_hand_calc() {
+        // up/down = 2.0/0.5 = 4.0
+        let r = [0.10, -0.05];
+        let b = [0.05, -0.10];
+        let cr = capture_ratio(&r, &b);
+        assert!((cr - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn up_capture_multiple_periods() {
+        // r = [0.04, −0.01, 0.06], b = [0.02, −0.03, 0.03]
+        // Up periods: indices 0, 2 (b[0]=0.02≥0, b[2]=0.03≥0)
+        // port_prod = (1.04)(1.06) = 1.1024
+        // bench_prod = (1.02)(1.03) = 1.0506
+        // up_capture = (1.1024−1)/(1.0506−1) = 0.1024/0.0506
+        let r = [0.04, -0.01, 0.06];
+        let b = [0.02, -0.03, 0.03];
+        let uc = up_capture(&r, &b);
+        let expected = (1.04 * 1.06 - 1.0) / (1.02 * 1.03 - 1.0);
+        assert!((uc - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn down_capture_defensive_portfolio() {
+        // Portfolio loses less than benchmark → dc < 1.0 (desirable)
+        let r = [0.04, -0.01, 0.06];
+        let b = [0.02, -0.03, 0.03];
+        let dc = down_capture(&r, &b);
+        // Down periods: index 1. port_prod=0.99, bench_prod=0.97
+        let expected = (0.99 - 1.0) / (0.97 - 1.0);
+        assert!((dc - expected).abs() < 1e-12);
+        assert!(dc < 1.0);
+    }
+
+    #[test]
+    fn up_capture_no_up_periods() {
+        let r = [0.01, 0.02];
+        let b = [-0.01, -0.02];
+        assert_eq!(up_capture(&r, &b), 0.0);
+    }
+
+    #[test]
+    fn down_capture_no_down_periods() {
+        let r = [0.01, 0.02];
+        let b = [0.01, 0.02];
+        assert_eq!(down_capture(&r, &b), 0.0);
+    }
+
+    #[test]
+    fn capture_ratio_perfect_tracking() {
+        // Portfolio = benchmark → up_capture=1, down_capture=1, ratio=1
+        let r = [0.02, -0.03, 0.01, -0.01];
+        let cr = capture_ratio(&r, &r);
+        assert!((cr - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn multi_factor_single_factor() {
+        // y = 2*x → alpha ≈ 0, beta ≈ 2, R² ≈ 1.
+        let y = [0.02, 0.04, 0.06, 0.08, 0.10];
+        let f1 = [0.01, 0.02, 0.03, 0.04, 0.05];
+        let result = multi_factor_greeks(&y, &[&f1], 252.0);
+        assert!((result.betas[0] - 2.0).abs() < 1e-8);
+        assert!(result.r_squared > 0.999);
+    }
+
+    #[test]
+    fn multi_factor_two_factors() {
+        // y ≈ 1.5*f1 + 0.5*f2 (non-collinear factors).
+        let f1 = [0.01, 0.02, 0.03, 0.04, 0.05];
+        let f2 = [0.03, -0.01, 0.02, 0.01, -0.02];
+        let y: Vec<f64> = (0..5).map(|i| 1.5 * f1[i] + 0.5 * f2[i]).collect();
+        let result = multi_factor_greeks(&y, &[&f1, &f2], 252.0);
+        assert!(result.r_squared > 0.99);
+        assert_eq!(result.betas.len(), 2);
+        assert!((result.betas[0] - 1.5).abs() < 1e-6);
+        assert!((result.betas[1] - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn multi_factor_empty() {
+        let result = multi_factor_greeks(&[], &[&[]], 252.0);
+        assert_eq!(result.alpha, 0.0);
+    }
+
+    #[test]
+    fn multi_factor_adjusted_r_squared() {
+        // y = 2*x → R²≈1, adj_R² should also be close to 1
+        let y = [0.02, 0.04, 0.06, 0.08, 0.10];
+        let f1 = [0.01, 0.02, 0.03, 0.04, 0.05];
+        let result = multi_factor_greeks(&y, &[&f1], 252.0);
+        assert!(result.adjusted_r_squared > 0.99);
+        assert!(result.adjusted_r_squared <= result.r_squared);
+    }
+
+    #[test]
+    fn batting_average_hand_calc() {
+        // r = [0.02, 0.01, 0.03, -0.01], b = [0.01, 0.02, 0.01, 0.00]
+        // Wins: r[0]>b[0] (0.02>0.01), r[2]>b[2] (0.03>0.01) → 2/4 = 0.5
+        let r = [0.02, 0.01, 0.03, -0.01];
+        let b = [0.01, 0.02, 0.01, 0.00];
+        assert!((batting_average(&r, &b) - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn batting_average_all_wins() {
+        let r = [0.05, 0.03, 0.04];
+        let b = [0.01, 0.01, 0.01];
+        assert!((batting_average(&r, &b) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn batting_average_empty() {
+        assert_eq!(batting_average(&[], &[]), 0.0);
     }
 }

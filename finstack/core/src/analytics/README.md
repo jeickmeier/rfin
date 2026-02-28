@@ -2,13 +2,13 @@
 
 The `analytics` module in `finstack-core` provides **portfolio performance and risk analytics** operating directly on numeric slices and `time::Date` values — with no Polars or DataFrame dependency at the core level. It mirrors the Python `Performance` class in capability while exposing every computation as a standalone pure function for composability.
 
-- **Returns**: simple returns, log returns, excess returns, compounded accumulation
-- **Risk metrics**: Sharpe, Sortino, Calmar, VaR, CVaR/ES, Ulcer Index, risk of ruin, tail ratios
-- **Drawdown analysis**: drawdown series, episode detection (peak, valley, recovery), average drawdown
-- **Benchmark-relative**: tracking error, information ratio, R², beta (with SE and CI), alpha/beta/R² greeks, rolling greeks
+- **Returns**: simple returns, log returns, excess returns, compounded accumulation, geometric mean
+- **Risk metrics**: Sharpe, Sortino, Calmar, VaR (historical, parametric, Cornish-Fisher), CVaR/ES, Ulcer Index, risk of ruin, tail ratios, skewness (Fisher-corrected), kurtosis (Fisher-corrected), downside deviation, Omega, Treynor, gain-to-pain, Martin ratio, M-squared, Modified Sharpe
+- **Drawdown analysis**: drawdown series, episode detection, average drawdown, CDaR, max drawdown duration, recovery factor, Sterling/Burke/pain ratios
+- **Benchmark-relative**: tracking error, information ratio, R², beta (with SE and CI), alpha/beta/R² greeks, rolling greeks, up/down capture ratios, batting average, multi-factor regression (with adjusted R²)
 - **Period aggregation**: group-and-compound by any `PeriodKind` (daily → annual), win rate, Kelly criterion, payoff ratio
 - **Lookback selectors**: MTD, QTD, YTD, FYTD index ranges into sorted date arrays
-- **Rolling time series**: rolling Sharpe, rolling alpha/beta
+- **Rolling time series**: rolling Sharpe, rolling Sortino, rolling volatility, rolling alpha/beta
 - **Orchestrator**: `Performance` struct ties all sub-modules together with date-windowing and benchmark state
 
 All functions are `no_std`-compatible, allocation-minimal, and use numerically stable algorithms (Kahan/Neumaier log-space compounding, Welford-style covariance).
@@ -27,13 +27,13 @@ All functions are `no_std`-compatible, allocation-minimal, and use numerically s
   - All methods delegate to the pure-function sub-modules; no analytics logic lives here directly.
 
 - **`risk_metrics.rs`**
-  - Pure scalar and series risk/return functions: `cagr`, `mean_return`, `volatility`, `sharpe`, `sortino`, `calmar`, `ulcer_index`, `risk_of_ruin`, `value_at_risk`, `expected_shortfall`, `tail_ratio`, `outlier_win_ratio`, `outlier_loss_ratio`.
-  - Rolling output: `rolling_sharpe` → `RollingSharpe { values, dates }`.
+  - Pure scalar risk/return functions: `cagr`, `mean_return`, `volatility`, `sharpe`, `sortino`, `calmar`, `ulcer_index`, `risk_of_ruin`, `value_at_risk`, `expected_shortfall`, `tail_ratio`, `outlier_win_ratio`, `outlier_loss_ratio`, `skewness`, `kurtosis`, `geometric_mean`, `downside_deviation`, `omega_ratio`, `treynor`, `gain_to_pain`, `martin_ratio`, `parametric_var`, `cornish_fisher_var`, `recovery_factor`, `sterling_ratio`, `burke_ratio`, `pain_index`, `pain_ratio`, `m_squared`, `modified_sharpe`.
+  - Rolling outputs: `rolling_sharpe` → `RollingSharpe`, `rolling_volatility` → `RollingVolatility`, `rolling_sortino` → `RollingSortino`.
   - All functions take `&[f64]` and return `f64` or a small struct.
 
 - **`benchmark.rs`**
-  - Benchmark alignment and relative statistics: `align_benchmark`, `tracking_error`, `information_ratio`, `r_squared`, `calc_beta`, `greeks`, `rolling_greeks`.
-  - Output types: `BetaResult` (beta, std_err, CI), `GreeksResult` (alpha, beta, r²), `RollingGreeks` (dates, alphas, betas).
+  - Benchmark alignment and relative statistics: `align_benchmark`, `tracking_error`, `information_ratio`, `r_squared`, `calc_beta`, `greeks`, `rolling_greeks`, `up_capture`, `down_capture`, `capture_ratio`, `batting_average`, `multi_factor_greeks`.
+  - Output types: `BetaResult` (beta, std_err, CI), `GreeksResult` (alpha, beta, r²), `RollingGreeks` (dates, alphas, betas), `MultiFactorResult` (alpha, betas, r², adjusted_r², residual_vol).
 
 - **`returns.rs`**
   - Return computation: `simple_returns`, `excess_returns`, `convert_to_prices`, `rebase`.
@@ -45,7 +45,9 @@ All functions are `no_std`-compatible, allocation-minimal, and use numerically s
   - `to_drawdown_series`: per-period drawdown depth `(wealth / peak - 1)`.
   - `drawdown_details`: structured episodes (start/valley/end dates, duration, depth) sorted by severity.
   - `avg_drawdown`: mean of the N worst episodes.
-  - Output type: `DrawdownEpisode { start, valley, end, duration_days, max_drawdown, max_drawdown_99 }`.
+  - `max_drawdown_duration`: longest drawdown duration in calendar days.
+  - `cdar`: Conditional Drawdown at Risk at a given confidence level.
+  - Output type: `DrawdownEpisode { start, valley, end, duration_days, max_drawdown, near_recovery_threshold }`.
 
 - **`aggregation.rs`**
   - `group_by_period`: compounds daily returns into period buckets keyed by `PeriodId`.
@@ -98,12 +100,42 @@ impl Performance {
     pub fn ulcer_index(&self) -> Vec<f64>;
     pub fn risk_of_ruin(&self) -> Vec<f64>;
 
+    // Distribution shape
+    pub fn skewness(&self) -> Vec<f64>;
+    pub fn kurtosis(&self) -> Vec<f64>;
+    pub fn geometric_mean(&self) -> Vec<f64>;
+    pub fn downside_deviation(&self, mar: f64) -> Vec<f64>;
+
+    // Extended risk-adjusted ratios
+    pub fn omega_ratio(&self, threshold: f64) -> Vec<f64>;
+    pub fn treynor(&self, risk_free_rate: f64) -> Vec<f64>;
+    pub fn gain_to_pain(&self) -> Vec<f64>;
+    pub fn martin_ratio(&self) -> Vec<f64>;
+    pub fn parametric_var(&self, confidence: f64) -> Vec<f64>;
+    pub fn cornish_fisher_var(&self, confidence: f64) -> Vec<f64>;
+
+    // Drawdown-family ratios
+    pub fn max_drawdown_duration(&self) -> Vec<i64>;
+    pub fn recovery_factor(&self) -> Vec<f64>;
+    pub fn sterling_ratio(&self, risk_free_rate: f64, n: usize) -> Vec<f64>;
+    pub fn burke_ratio(&self, risk_free_rate: f64, n: usize) -> Vec<f64>;
+    pub fn pain_index(&self) -> Vec<f64>;
+    pub fn pain_ratio(&self, risk_free_rate: f64) -> Vec<f64>;
+    pub fn cdar(&self, confidence: f64) -> Vec<f64>;
+
     // Benchmark-relative (one value per ticker)
     pub fn tracking_error(&self) -> Vec<f64>;
     pub fn information_ratio(&self) -> Vec<f64>;
     pub fn r_squared(&self) -> Vec<f64>;
     pub fn beta(&self) -> Vec<BetaResult>;
     pub fn greeks(&self) -> Vec<GreeksResult>;
+    pub fn up_capture(&self) -> Vec<f64>;
+    pub fn down_capture(&self) -> Vec<f64>;
+    pub fn capture_ratio(&self) -> Vec<f64>;
+    pub fn batting_average(&self) -> Vec<f64>;
+    pub fn m_squared(&self, risk_free_rate: f64) -> Vec<f64>;
+    pub fn modified_sharpe(&self, risk_free_rate: f64, confidence: f64) -> Vec<f64>;
+    pub fn multi_factor_greeks(&self, idx: usize, factors: &[&[f64]]) -> MultiFactorResult;
 
     // Series outputs
     pub fn cumulative_returns(&self) -> Vec<Vec<f64>>;
@@ -113,6 +145,8 @@ impl Performance {
 
     // Per-ticker rolling series
     pub fn rolling_sharpe(&self, idx: usize, window: usize, rf: f64) -> RollingSharpe;
+    pub fn rolling_volatility(&self, idx: usize, window: usize) -> RollingVolatility;
+    pub fn rolling_sortino(&self, idx: usize, window: usize) -> RollingSortino;
     pub fn rolling_greeks(&self, idx: usize, window: usize) -> RollingGreeks;
 
     // Drawdown episodes
@@ -129,12 +163,12 @@ impl Performance {
 
 ```rust
 pub struct DrawdownEpisode {
-    pub start: Date,           // peak date
-    pub valley: Date,          // date of max loss
-    pub end: Option<Date>,     // recovery date (None if still in drawdown)
+    pub start: Date,                    // peak date
+    pub valley: Date,                   // date of max loss
+    pub end: Option<Date>,              // recovery date (None if still in drawdown)
     pub duration_days: i64,
-    pub max_drawdown: f64,     // e.g. −0.25 for a 25% drawdown
-    pub max_drawdown_99: f64,  // 99% of max_drawdown
+    pub max_drawdown: f64,              // e.g. −0.25 for a 25% drawdown
+    pub near_recovery_threshold: f64,   // ~1% of peak-to-trough still remaining
 }
 ```
 
@@ -148,6 +182,20 @@ pub struct BetaResult {
     pub std_err: f64,
     pub ci_lower: f64,   // beta − 1.96 × std_err
     pub ci_upper: f64,   // beta + 1.96 × std_err
+}
+```
+
+### `MultiFactorResult`
+
+Multi-factor OLS regression output:
+
+```rust
+pub struct MultiFactorResult {
+    pub alpha: f64,              // annualized intercept
+    pub betas: Vec<f64>,         // one per factor
+    pub r_squared: f64,
+    pub adjusted_r_squared: f64, // penalizes additional regressors
+    pub residual_vol: f64,       // annualized, uses (n-k-1) DoF
 }
 ```
 
@@ -356,9 +404,11 @@ result = exp(log_sum) - 1
 
 Growth factors below `1e-18` are clamped so that returns ≤ −100% produce a finite near-total-loss rather than NaN.
 
-### Population vs Sample Statistics
+### Sample Statistics (n-1)
 
-All volatility, standard deviation, and variance computations use **population statistics** (divide by `n`) to match the Python reference implementation. If you need sample standard deviation (divide by `n - 1`) for inference, apply the correction `sqrt(n / (n-1))` to the output.
+All volatility, standard deviation, variance, covariance, skewness, and kurtosis computations use **sample statistics** (divide by `n-1`), matching Bloomberg, QuantLib, and the `OnlineStats` / `OnlineCovariance` convention. Skewness and kurtosis use the Fisher bias-corrected formulas (G₁ and G₂), matching Excel `SKEW()` and `KURT()`.
+
+A `population_variance()` function is available in `math::stats` for the rare cases where the population (n) denominator is needed (e.g., moment-matching in Monte Carlo).
 
 ### Annualization
 

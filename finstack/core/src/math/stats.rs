@@ -57,8 +57,34 @@ pub fn mean(xs: &[f64]) -> f64 {
     s / xs.len() as f64
 }
 
-/// Variance (population) using a single-pass Welford algorithm (deterministic order).
+/// Sample variance (unbiased, n-1 denominator) using a single-pass Welford algorithm.
+///
+/// Matches Bloomberg, QuantLib, and the `OnlineStats::variance()` convention.
+/// Returns `0.0` for fewer than 2 observations.
 pub fn variance(xs: &[f64]) -> f64 {
+    let n = xs.len();
+    if n < 2 {
+        return 0.0;
+    }
+    let mut mean = 0.0;
+    let mut m2 = 0.0;
+    let mut k = 0.0;
+    for &x in xs {
+        k += 1.0;
+        let delta = x - mean;
+        mean += delta / k;
+        let delta2 = x - mean;
+        m2 += delta * delta2;
+    }
+    m2 / (n - 1) as f64
+}
+
+/// Population variance (n denominator) using a single-pass Welford algorithm.
+///
+/// Use this when computing moments for the full population rather than
+/// estimating from a sample (e.g., moment-matching for Monte Carlo).
+/// Returns `0.0` for an empty slice.
+pub fn population_variance(xs: &[f64]) -> f64 {
     let n = xs.len();
     if n == 0 {
         return 0.0;
@@ -81,14 +107,16 @@ pub fn mean_var(xs: &[f64]) -> (f64, f64) {
     (mean(xs), variance(xs))
 }
 
-/// Covariance (population) between two equal-length slices.
+/// Sample covariance (unbiased, n-1 denominator) between two equal-length slices.
+///
+/// Matches `OnlineCovariance::covariance()` convention. Returns `0.0` for
+/// fewer than 2 observations.
 pub fn covariance(x: &[f64], y: &[f64]) -> f64 {
     assert_eq!(x.len(), y.len());
     let n = x.len();
-    if n == 0 {
+    if n < 2 {
         return 0.0;
     }
-    // One-pass Chan/Welford style covariance for deterministic, stable accumulation
     let mut mean_x = 0.0;
     let mut mean_y = 0.0;
     let mut co_moment = 0.0;
@@ -101,10 +129,9 @@ pub fn covariance(x: &[f64], y: &[f64]) -> f64 {
         mean_x += dx / k;
         let dy = yi - mean_y;
         mean_y += dy / k;
-        // Use updated mean_y for the second factor per Chan's formulation
         co_moment += dx * (yi - mean_y);
     }
-    co_moment / n as f64
+    co_moment / (n - 1) as f64
 }
 
 /// Pearson correlation.
@@ -133,15 +160,8 @@ pub fn moment_match(samples: &mut [f64], target_mean: f64, target_std: f64) {
         return;
     }
 
-    // Compute current mean and std dev
-    let n = samples.len() as f64;
-    let current_mean = samples.iter().sum::<f64>() / n;
-
-    let current_var = samples
-        .iter()
-        .map(|&x| (x - current_mean).powi(2))
-        .sum::<f64>()
-        / n;
+    let current_mean = mean(samples);
+    let current_var = population_variance(samples);
     let current_std = current_var.sqrt();
 
     // Adjust samples

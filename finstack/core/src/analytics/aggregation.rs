@@ -228,7 +228,11 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
     let total_loss: f64 = losses.iter().map(|l| l.abs()).sum();
 
     let profit_ratio = if total_loss == 0.0 {
-        0.0
+        if total_profit > 0.0 {
+            f64::INFINITY
+        } else {
+            0.0
+        }
     } else {
         total_profit / total_loss
     };

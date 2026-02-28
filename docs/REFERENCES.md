@@ -166,10 +166,71 @@ Industry standard reference for historical and parametric Value-at-Risk (VaR) me
 Peter G. Martin (1987). *The Investor's Guide to Fidelity Funds*.
 Introduces the Ulcer Index as the root-mean-square of drawdown depths, measuring investor distress.
 
+## joanesGill1998
+
+D. N. Joanes and C. A. Gill (1998). *Comparing measures of sample skewness and kurtosis*. **Journal of the Royal Statistical Society: Series D (The Statistician)**, 47(1), 183–189.
+Reference for population vs sample moment estimators (skewness, kurtosis) and their bias properties.
+
+- DOI: [`10.1111/1467-9884.00122`](https://doi.org/10.1111/1467-9884.00122)
+
+## keatingShadwick2002
+
+C. Keating and W. F. Shadwick (2002). *A Universal Performance Measure*. **Journal of Performance Measurement**, 6(3), 59–84.
+Introduces the Omega ratio, which partitions returns above and below a threshold to capture the full distribution.
+
+## treynor1965
+
+J. L. Treynor (1965). *How to Rate Management of Investment Funds*. **Harvard Business Review**, 43(1), 63–75.
+Introduces the Treynor ratio: excess return per unit of systematic (beta) risk.
+
+## schwager2012
+
+J. D. Schwager (2012). *Market Wizards: Interviews with Top Traders*. John Wiley & Sons.
+Source for the Gain-to-Pain ratio as a practitioner metric.
+
+## cornishFisher1937
+
+E. A. Cornish and R. A. Fisher (1937). *Moments and Cumulants in the Specification of Distributions*. **Revue de l'Institut International de Statistique**, 5(4), 307–320.
+Foundation for the Cornish-Fisher expansion used to adjust Gaussian VaR for skewness and kurtosis.
+
+## kestner1996
+
+L. N. Kestner (1996). *Getting a Handle on True Performance*. **Futures Magazine**, 25(1).
+Source for the Sterling ratio using average of worst drawdowns.
+
+## burke1994
+
+G. Burke (1994). *A Sharper Sharpe Ratio*. **Futures Magazine**, 13(3).
+Introduces the Burke ratio using RMS of drawdown depths.
+
+## chekhlov2005
+
+A. Chekhlov, S. Uryasev, and M. Zabarankin (2005). *Drawdown Measure in Portfolio Optimization*. **International Journal of Theoretical and Applied Finance**, 8(1), 13–58.
+Introduces Conditional Drawdown at Risk (CDaR) as the drawdown analogue of CVaR.
+
+- DOI: [`10.1142/S0219024905002767`](https://doi.org/10.1142/S0219024905002767)
+
+## famaFrench1993
+
+E. F. Fama and K. R. French (1993). *Common Risk Factors in the Returns on Stocks and Bonds*. **Journal of Financial Economics**, 33(1), 3–56.
+Foundation for multi-factor regression models in asset pricing.
+
+- DOI: [`10.1016/0304-405X(93)90023-5`](https://doi.org/10.1016/0304-405X(93)90023-5)
+
 ## grinoldKahn1999ActivePortfolio
 
 Richard C. Grinold and Ronald N. Kahn (1999). *Active Portfolio Management* (2nd ed.). McGraw-Hill.
 Standard practitioner reference for information ratio, tracking error, and the fundamental law of active management.
+
+## modiglianiModigliani1997
+
+Franco Modigliani and Leah Modigliani (1997). *Risk-Adjusted Performance*. **Journal of Portfolio Management**, 23(2), 45–54.
+Introduces M-squared (Modigliani-Modigliani measure): a risk-adjusted return that rescales a portfolio's excess return to benchmark volatility, providing a basis-point-comparable performance metric.
+
+## gregoriouGueyie2003
+
+Greg N. Gregoriou and Jean-Pierre Gueyie (2003). *Risk-Adjusted Performance of Funds of Hedge Funds Using a Modified Sharpe Ratio*. **Journal of Wealth Management**, 6(3), 77–83.
+Proposes the Modified Sharpe ratio, replacing volatility with Cornish-Fisher VaR to account for non-normal return distributions (skewness and kurtosis).
 
 ---
 

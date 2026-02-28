@@ -86,6 +86,27 @@ fn vec_to_series(name: &str, data: &[f64]) -> Series {
     Series::new(name.into(), data)
 }
 
+fn rolling_to_df(
+    dates: &[finstack_core::dates::Date],
+    values: &[f64],
+    metric_name: &str,
+) -> PyResult<PyDataFrame> {
+    let epoch = finstack_core::dates::Date::from_calendar_date(1970, time::Month::January, 1)
+        .map_err(|_| PyValueError::new_err("Cannot create epoch"))?;
+    let days: Vec<i32> = dates
+        .iter()
+        .map(|d| (*d - epoch).whole_days() as i32)
+        .collect();
+    let date_col: Column = Series::new("date".into(), &days)
+        .cast(&DataType::Date)
+        .map_err(|e| PyValueError::new_err(format!("Date cast error: {e}")))?
+        .into_column();
+    let val_col = vec_to_series(metric_name, values).into_column();
+    let df = DataFrame::new(vec![date_col, val_col])
+        .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))?;
+    Ok(PyDataFrame(df))
+}
+
 fn vecs_to_df(tickers: &[String], data: &[Vec<f64>]) -> PyResult<DataFrame> {
     let columns: Vec<Column> = tickers
         .iter()
@@ -332,6 +353,249 @@ impl PyPerformance {
             .collect();
         let df = DataFrame::new(columns)
             .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Skewness for each ticker.
+    fn skewness(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.skewness();
+        let df = scalars_to_df(&self.tickers, &vals, "skewness")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Excess kurtosis for each ticker.
+    fn kurtosis(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.kurtosis();
+        let df = scalars_to_df(&self.tickers, &vals, "kurtosis")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Geometric mean return for each ticker.
+    fn geometric_mean(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.geometric_mean();
+        let df = scalars_to_df(&self.tickers, &vals, "geometric_mean")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Downside deviation for each ticker.
+    #[pyo3(signature = (mar=0.0))]
+    fn downside_deviation(&self, mar: f64) -> PyResult<PyDataFrame> {
+        let vals = self.inner.downside_deviation(mar);
+        let df = scalars_to_df(&self.tickers, &vals, "downside_deviation")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Maximum drawdown duration (days) for each ticker.
+    fn max_drawdown_duration(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.max_drawdown_duration();
+        let ticker_col = polars::prelude::Column::new("ticker".into(), &self.tickers);
+        let value_col = Series::new("max_drawdown_duration".into(), &vals).into_column();
+        let df = DataFrame::new(vec![ticker_col, value_col])
+            .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Up-market capture ratio for each ticker vs benchmark.
+    fn up_capture(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.up_capture();
+        let df = scalars_to_df(&self.tickers, &vals, "up_capture")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Down-market capture ratio for each ticker vs benchmark.
+    fn down_capture(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.down_capture();
+        let df = scalars_to_df(&self.tickers, &vals, "down_capture")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Capture ratio (up/down) for each ticker vs benchmark.
+    fn capture_ratio(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.capture_ratio();
+        let df = scalars_to_df(&self.tickers, &vals, "capture_ratio")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Omega ratio for each ticker.
+    #[pyo3(signature = (threshold=0.0))]
+    fn omega_ratio(&self, threshold: f64) -> PyResult<PyDataFrame> {
+        let vals = self.inner.omega_ratio(threshold);
+        let df = scalars_to_df(&self.tickers, &vals, "omega_ratio")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Treynor ratio for each ticker.
+    #[pyo3(signature = (risk_free_rate=0.0))]
+    fn treynor(&self, risk_free_rate: f64) -> PyResult<PyDataFrame> {
+        let vals = self.inner.treynor(risk_free_rate);
+        let df = scalars_to_df(&self.tickers, &vals, "treynor")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Gain-to-pain ratio for each ticker.
+    fn gain_to_pain(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.gain_to_pain();
+        let df = scalars_to_df(&self.tickers, &vals, "gain_to_pain")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Martin ratio (CAGR / Ulcer Index) for each ticker.
+    fn martin_ratio(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.martin_ratio();
+        let df = scalars_to_df(&self.tickers, &vals, "martin_ratio")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Parametric (Gaussian) VaR for each ticker.
+    #[pyo3(signature = (confidence=0.95))]
+    fn parametric_var(&self, confidence: f64) -> PyResult<PyDataFrame> {
+        let vals = self.inner.parametric_var(confidence);
+        let df = scalars_to_df(&self.tickers, &vals, "parametric_var")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Cornish-Fisher adjusted VaR for each ticker.
+    #[pyo3(signature = (confidence=0.95))]
+    fn cornish_fisher_var(&self, confidence: f64) -> PyResult<PyDataFrame> {
+        let vals = self.inner.cornish_fisher_var(confidence);
+        let df = scalars_to_df(&self.tickers, &vals, "cornish_fisher_var")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Recovery factor for each ticker.
+    fn recovery_factor(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.recovery_factor();
+        let df = scalars_to_df(&self.tickers, &vals, "recovery_factor")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Sterling ratio for each ticker.
+    #[pyo3(signature = (risk_free_rate=0.0, n=5))]
+    fn sterling_ratio(&self, risk_free_rate: f64, n: usize) -> PyResult<PyDataFrame> {
+        let vals = self.inner.sterling_ratio(risk_free_rate, n);
+        let df = scalars_to_df(&self.tickers, &vals, "sterling_ratio")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Burke ratio for each ticker.
+    #[pyo3(signature = (risk_free_rate=0.0, n=5))]
+    fn burke_ratio(&self, risk_free_rate: f64, n: usize) -> PyResult<PyDataFrame> {
+        let vals = self.inner.burke_ratio(risk_free_rate, n);
+        let df = scalars_to_df(&self.tickers, &vals, "burke_ratio")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Pain index for each ticker.
+    fn pain_index(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.pain_index();
+        let df = scalars_to_df(&self.tickers, &vals, "pain_index")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Pain ratio for each ticker.
+    #[pyo3(signature = (risk_free_rate=0.0))]
+    fn pain_ratio(&self, risk_free_rate: f64) -> PyResult<PyDataFrame> {
+        let vals = self.inner.pain_ratio(risk_free_rate);
+        let df = scalars_to_df(&self.tickers, &vals, "pain_ratio")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Conditional Drawdown at Risk for each ticker.
+    #[pyo3(signature = (confidence=0.95))]
+    fn cdar(&self, confidence: f64) -> PyResult<PyDataFrame> {
+        let vals = self.inner.cdar(confidence);
+        let df = scalars_to_df(&self.tickers, &vals, "cdar")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Rolling annualized volatility for a specific ticker.
+    ///
+    /// Returns a DataFrame with ``date`` and ``value`` columns.
+    #[pyo3(signature = (ticker_idx, window))]
+    fn rolling_volatility(&self, ticker_idx: usize, window: usize) -> PyResult<PyDataFrame> {
+        let rv = self.inner.rolling_volatility(ticker_idx, window);
+        rolling_to_df(&rv.dates, &rv.values, "volatility")
+    }
+
+    /// Rolling Sortino ratio for a specific ticker.
+    ///
+    /// Returns a DataFrame with ``date`` and ``value`` columns.
+    #[pyo3(signature = (ticker_idx, window))]
+    fn rolling_sortino(&self, ticker_idx: usize, window: usize) -> PyResult<PyDataFrame> {
+        let rs = self.inner.rolling_sortino(ticker_idx, window);
+        rolling_to_df(&rs.dates, &rs.values, "sortino")
+    }
+
+    /// Multi-factor OLS regression for a specific ticker.
+    ///
+    /// Parameters
+    /// ----------
+    /// ticker_idx : int
+    ///     Zero-based column index of the portfolio ticker.
+    /// factor_returns : polars.DataFrame
+    ///     DataFrame where each column is a factor return series (no date column).
+    ///
+    /// Returns
+    /// -------
+    /// dict
+    ///     ``{"alpha": float, "betas": list[float], "r_squared": float, "residual_vol": float}``
+    #[pyo3(signature = (ticker_idx, factor_returns))]
+    fn multi_factor_greeks(
+        &self,
+        py: Python<'_>,
+        ticker_idx: usize,
+        factor_returns: PyDataFrame,
+    ) -> PyResult<Py<PyDict>> {
+        let cols = factor_returns.0.get_columns();
+        let factor_vecs: Vec<Vec<f64>> = cols
+            .iter()
+            .map(|col| {
+                let f64_series = col.cast(&DataType::Float64).map_err(|e| {
+                    PyTypeError::new_err(format!(
+                        "Cannot cast factor column '{}' to Float64: {e}",
+                        col.name()
+                    ))
+                })?;
+                let ca = f64_series.f64().map_err(|e| {
+                    PyTypeError::new_err(format!(
+                        "Cannot read factor column '{}' as f64: {e}",
+                        col.name()
+                    ))
+                })?;
+                Ok(ca.into_iter().map(|opt| opt.unwrap_or(f64::NAN)).collect())
+            })
+            .collect::<PyResult<Vec<Vec<f64>>>>()?;
+        let factor_refs: Vec<&[f64]> = factor_vecs.iter().map(|v| v.as_slice()).collect();
+        let result = self.inner.multi_factor_greeks(ticker_idx, &factor_refs);
+        let dict = PyDict::new(py);
+        dict.set_item("alpha", result.alpha)?;
+        dict.set_item("betas", result.betas)?;
+        dict.set_item("r_squared", result.r_squared)?;
+        dict.set_item("adjusted_r_squared", result.adjusted_r_squared)?;
+        dict.set_item("residual_vol", result.residual_vol)?;
+        Ok(dict.into())
+    }
+
+    /// Batting average for each ticker vs benchmark.
+    fn batting_average(&self) -> PyResult<PyDataFrame> {
+        let vals = self.inner.batting_average();
+        let df = scalars_to_df(&self.tickers, &vals, "batting_average")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// M-squared (Modigliani-Modigliani) for each ticker.
+    #[pyo3(signature = (risk_free_rate=0.0))]
+    fn m_squared(&self, risk_free_rate: f64) -> PyResult<PyDataFrame> {
+        let vals = self.inner.m_squared(risk_free_rate);
+        let df = scalars_to_df(&self.tickers, &vals, "m_squared")?;
+        Ok(PyDataFrame(df))
+    }
+
+    /// Modified Sharpe ratio for each ticker.
+    #[pyo3(signature = (risk_free_rate=0.0, confidence=0.95))]
+    fn modified_sharpe(&self, risk_free_rate: f64, confidence: f64) -> PyResult<PyDataFrame> {
+        let vals = self.inner.modified_sharpe(risk_free_rate, confidence);
+        let df = scalars_to_df(&self.tickers, &vals, "modified_sharpe")?;
         Ok(PyDataFrame(df))
     }
 

@@ -7,13 +7,20 @@ use crate::dates::{Date, FiscalConfig, PeriodKind};
 
 use super::aggregation::{group_by_period, period_stats, PeriodStats};
 use super::benchmark::{
-    calc_beta, greeks, information_ratio, r_squared, rolling_greeks, tracking_error, BetaResult,
-    GreeksResult, RollingGreeks,
+    batting_average, calc_beta, capture_ratio, down_capture, greeks, information_ratio,
+    multi_factor_greeks, r_squared, rolling_greeks, tracking_error, up_capture, BetaResult,
+    GreeksResult, MultiFactorResult, RollingGreeks,
 };
-use super::drawdown::{drawdown_details, to_drawdown_series, DrawdownEpisode};
+use super::drawdown::{
+    cdar, drawdown_details, max_drawdown_duration as dd_max_duration, to_drawdown_series,
+    DrawdownEpisode,
+};
 use super::lookback;
 use super::returns::{clean_returns, comp_sum, comp_total, excess_returns, simple_returns};
-use super::risk_metrics::{self, rolling_sharpe, RollingSharpe};
+use super::risk_metrics::{
+    self, rolling_sharpe, rolling_sortino, rolling_volatility, RollingSharpe, RollingSortino,
+    RollingVolatility,
+};
 
 /// Central performance analytics engine.
 ///
@@ -257,7 +264,7 @@ impl Performance {
             .collect()
     }
 
-    /// Volatility (population standard deviation) for each ticker.
+    /// Volatility (sample standard deviation) for each ticker.
     ///
     /// # Arguments
     ///
@@ -386,6 +393,272 @@ impl Performance {
             .collect()
     }
 
+    /// Skewness for each ticker.
+    pub fn skewness(&self) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| risk_metrics::skewness(self.active_returns(i)))
+            .collect()
+    }
+
+    /// Excess kurtosis for each ticker.
+    pub fn kurtosis(&self) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| risk_metrics::kurtosis(self.active_returns(i)))
+            .collect()
+    }
+
+    /// Geometric mean return for each ticker.
+    pub fn geometric_mean(&self) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| risk_metrics::geometric_mean(self.active_returns(i)))
+            .collect()
+    }
+
+    /// Downside deviation for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `mar` - Minimum acceptable return threshold (e.g., `0.0`).
+    pub fn downside_deviation(&self, mar: f64) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| {
+                risk_metrics::downside_deviation(self.active_returns(i), mar, true, self.ann())
+            })
+            .collect()
+    }
+
+    /// Maximum drawdown duration (calendar days) for each ticker.
+    pub fn max_drawdown_duration(&self) -> Vec<i64> {
+        (0..self.ticker_names.len())
+            .map(|i| dd_max_duration(self.active_drawdown(i), self.active_dates()))
+            .collect()
+    }
+
+    /// Up-market capture ratio for each ticker vs benchmark.
+    pub fn up_capture(&self) -> Vec<f64> {
+        let bench = self.active_bench();
+        (0..self.ticker_names.len())
+            .map(|i| up_capture(self.active_returns(i), bench))
+            .collect()
+    }
+
+    /// Down-market capture ratio for each ticker vs benchmark.
+    pub fn down_capture(&self) -> Vec<f64> {
+        let bench = self.active_bench();
+        (0..self.ticker_names.len())
+            .map(|i| down_capture(self.active_returns(i), bench))
+            .collect()
+    }
+
+    /// Capture ratio (up/down) for each ticker vs benchmark.
+    pub fn capture_ratio(&self) -> Vec<f64> {
+        let bench = self.active_bench();
+        (0..self.ticker_names.len())
+            .map(|i| capture_ratio(self.active_returns(i), bench))
+            .collect()
+    }
+
+    /// Rolling annualized volatility for a specific ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `ticker_idx` - Zero-based column index of the ticker.
+    /// * `window`     - Look-back window length in periods.
+    pub fn rolling_volatility(&self, ticker_idx: usize, window: usize) -> RollingVolatility {
+        rolling_volatility(
+            self.active_returns(ticker_idx),
+            self.active_dates(),
+            window,
+            self.ann(),
+        )
+    }
+
+    // ── Batch 2: Standard ratios and VaR extensions ──
+
+    /// Omega ratio for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `threshold` - Return threshold (typically `0.0`).
+    pub fn omega_ratio(&self, threshold: f64) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| risk_metrics::omega_ratio(self.active_returns(i), threshold))
+            .collect()
+    }
+
+    /// Treynor ratio for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `risk_free_rate` - Annualized risk-free rate.
+    pub fn treynor(&self, risk_free_rate: f64) -> Vec<f64> {
+        let ann = self.ann();
+        let bench = self.active_bench();
+        (0..self.ticker_names.len())
+            .map(|i| {
+                let r = self.active_returns(i);
+                let ann_ret = risk_metrics::mean_return(r, true, ann);
+                let beta = super::benchmark::greeks(r, bench, ann).beta;
+                risk_metrics::treynor(ann_ret, risk_free_rate, beta)
+            })
+            .collect()
+    }
+
+    /// Gain-to-pain ratio for each ticker.
+    pub fn gain_to_pain(&self) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| risk_metrics::gain_to_pain(self.active_returns(i)))
+            .collect()
+    }
+
+    /// Martin ratio (CAGR / Ulcer Index) for each ticker.
+    pub fn martin_ratio(&self) -> Vec<f64> {
+        let cagrs = self.cagr();
+        (0..self.ticker_names.len())
+            .map(|i| {
+                let ulcer = risk_metrics::ulcer_index(self.active_drawdown(i));
+                risk_metrics::martin_ratio(cagrs[i], ulcer)
+            })
+            .collect()
+    }
+
+    /// Parametric (Gaussian) VaR for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
+    pub fn parametric_var(&self, confidence: f64) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| risk_metrics::parametric_var(self.active_returns(i), confidence, None))
+            .collect()
+    }
+
+    /// Cornish-Fisher adjusted VaR for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
+    pub fn cornish_fisher_var(&self, confidence: f64) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| risk_metrics::cornish_fisher_var(self.active_returns(i), confidence, None))
+            .collect()
+    }
+
+    /// Rolling Sortino ratio for a specific ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `ticker_idx` - Zero-based column index of the ticker.
+    /// * `window`     - Look-back window length in periods.
+    pub fn rolling_sortino(&self, ticker_idx: usize, window: usize) -> RollingSortino {
+        rolling_sortino(
+            self.active_returns(ticker_idx),
+            self.active_dates(),
+            window,
+            self.ann(),
+        )
+    }
+
+    // ── Batch 3: Drawdown-family ratios ──
+
+    /// Recovery factor for each ticker.
+    pub fn recovery_factor(&self) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| {
+                let total_ret = comp_total(self.active_returns(i));
+                let dd = self.active_drawdown(i);
+                let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
+                risk_metrics::recovery_factor(total_ret, max_dd)
+            })
+            .collect()
+    }
+
+    /// Sterling ratio for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `risk_free_rate` - Annualized risk-free rate.
+    /// * `n` - Number of worst drawdowns to average.
+    pub fn sterling_ratio(&self, risk_free_rate: f64, n: usize) -> Vec<f64> {
+        let cagrs = self.cagr();
+        (0..self.ticker_names.len())
+            .map(|i| {
+                let dd = self.active_drawdown(i);
+                let dates = self.active_dates();
+                let avg = super::drawdown::avg_drawdown(dd, dates, n);
+                risk_metrics::sterling_ratio(cagrs[i], avg, risk_free_rate)
+            })
+            .collect()
+    }
+
+    /// Burke ratio for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `risk_free_rate` - Annualized risk-free rate.
+    /// * `n` - Number of worst drawdown episodes to use.
+    pub fn burke_ratio(&self, risk_free_rate: f64, n: usize) -> Vec<f64> {
+        let cagrs = self.cagr();
+        (0..self.ticker_names.len())
+            .map(|i| {
+                let dd = self.active_drawdown(i);
+                let dates = self.active_dates();
+                let episodes = super::drawdown::drawdown_details(dd, dates, n);
+                let dd_vals: Vec<f64> = episodes.iter().map(|e| e.max_drawdown).collect();
+                risk_metrics::burke_ratio(cagrs[i], &dd_vals, risk_free_rate)
+            })
+            .collect()
+    }
+
+    /// Pain index for each ticker.
+    pub fn pain_index(&self) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| risk_metrics::pain_index(self.active_drawdown(i)))
+            .collect()
+    }
+
+    /// Pain ratio for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `risk_free_rate` - Annualized risk-free rate.
+    pub fn pain_ratio(&self, risk_free_rate: f64) -> Vec<f64> {
+        let cagrs = self.cagr();
+        (0..self.ticker_names.len())
+            .map(|i| {
+                let pain = risk_metrics::pain_index(self.active_drawdown(i));
+                risk_metrics::pain_ratio(cagrs[i], pain, risk_free_rate)
+            })
+            .collect()
+    }
+
+    // ── Batch 4: Multi-factor and CDaR ──
+
+    /// Multi-factor regression for a specific ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `ticker_idx`     - Zero-based column index of the ticker.
+    /// * `factor_returns` - Slice of factor return series.
+    pub fn multi_factor_greeks(
+        &self,
+        ticker_idx: usize,
+        factor_returns: &[&[f64]],
+    ) -> MultiFactorResult {
+        multi_factor_greeks(self.active_returns(ticker_idx), factor_returns, self.ann())
+    }
+
+    /// Conditional Drawdown at Risk for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
+    pub fn cdar(&self, confidence: f64) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| cdar(self.active_drawdown(i), confidence))
+            .collect()
+    }
+
     // ── Series outputs ──
 
     /// Cumulative returns for each ticker.
@@ -479,6 +752,54 @@ impl Performance {
             window,
             self.ann(),
         )
+    }
+
+    /// Batting average for each ticker vs benchmark.
+    ///
+    /// Fraction of periods where the ticker outperforms the benchmark.
+    pub fn batting_average(&self) -> Vec<f64> {
+        let bench = self.active_bench();
+        (0..self.ticker_names.len())
+            .map(|i| batting_average(self.active_returns(i), bench))
+            .collect()
+    }
+
+    /// M-squared (Modigliani-Modigliani) for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `risk_free_rate` - Annualized risk-free rate.
+    pub fn m_squared(&self, risk_free_rate: f64) -> Vec<f64> {
+        let ann = self.ann();
+        let bench = self.active_bench();
+        let bench_vol = risk_metrics::volatility(bench, true, ann);
+        (0..self.ticker_names.len())
+            .map(|i| {
+                let r = self.active_returns(i);
+                let ann_ret = risk_metrics::mean_return(r, true, ann);
+                let ann_vol = risk_metrics::volatility(r, true, ann);
+                risk_metrics::m_squared(ann_ret, ann_vol, bench_vol, risk_free_rate)
+            })
+            .collect()
+    }
+
+    /// Modified Sharpe ratio for each ticker.
+    ///
+    /// # Arguments
+    ///
+    /// * `risk_free_rate` - Annualized risk-free rate.
+    /// * `confidence`     - VaR confidence level (e.g., `0.95`).
+    pub fn modified_sharpe(&self, risk_free_rate: f64, confidence: f64) -> Vec<f64> {
+        (0..self.ticker_names.len())
+            .map(|i| {
+                risk_metrics::modified_sharpe(
+                    self.active_returns(i),
+                    risk_free_rate,
+                    confidence,
+                    self.ann(),
+                )
+            })
+            .collect()
     }
 
     /// Rolling Sharpe ratio for a specific ticker.
