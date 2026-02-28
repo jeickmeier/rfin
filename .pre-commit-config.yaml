@@ -59,26 +59,26 @@ repos:
     hooks:
       - id: ruff-format
         name: Python format (ruff)
-        entry: uv run ruff format .
+        entry: ruff format .
         language: system
         types: [python]
         pass_filenames: false
       - id: ruff-lint
         name: Python lint (ruff)
-        entry: uv run ruff check . --fix --unsafe-fixes
+        entry: ruff check . --fix --unsafe-fixes
         language: system
         types: [python]
         pass_filenames: false
       - id: ty
         name: Python typecheck (ty)
-        entry: uv run ty check finstack-py/finstack
+        entry: ty check finstack-py/finstack
         language: system
         types: [python]
         pass_filenames: false
         stages: [pre-commit, pre-push]
       - id: pyright
         name: Python typecheck (pyright)
-        entry: uv run pyright
+        entry: pyright
         language: system
         types: [python]
         pass_filenames: false
