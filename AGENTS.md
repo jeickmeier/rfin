@@ -14,7 +14,12 @@
 - Python dev setup (uv + maturin): `make python-dev`
 - Initialize Python env with uv: `make setup-python`
 - Run Python examples (scripts + notebooks): `make examples-python`
-- WASM build: `make wasm-build`
+- Build Python wheel (local platform): `make wheel-local`
+- Build manylinux wheel via Docker: `make wheel-docker`
+- Build wheels for all local Python versions: `make wheel-all`
+- Build WASM npm package (web + node): `make wasm-pkg`
+- Dry-run npm publish: `make wasm-publish-dry`
+- WASM build (dev): `make wasm-build`
 - WASM examples dev server: `make wasm-examples-dev`
 - Generate TypeScript bindings: `make generate-bindings`
 - Generate rustdoc: `make doc`
@@ -44,6 +49,12 @@
 - Python lints: `make lint-python`
 - WASM lints: `make lint-wasm`
 
-## TODO
+## Release
 
-- Add any repo-specific release or deployment workflows not covered by `Makefile` targets.
+- Release workflow: `.github/workflows/release.yml` (triggers on `v*` tag push or manual dispatch)
+- Tag a release: bump version in root `Cargo.toml`, then `git tag v0.X.Y && git push --tags`
+- CI builds 15 Python wheels (5 platforms x 3 Python versions) + sdist + npm tarball
+- Python wheels: attached to GitHub Release; features `scenarios,sqlite,postgres`
+- npm package: `finstack-wasm` published to npm registry (requires `NPM_TOKEN` secret)
+- Wheel features: `scenarios,sqlite,postgres` (no `turso` in distribution)
+- See `docs/RELEASING.md` for full release checklist

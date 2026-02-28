@@ -65,6 +65,12 @@ help: ## Display this help message
 	@printf "  \033[36mcheck-env\033[0m           Verify development environment\n"
 	@printf "  \033[36mupdate\033[0m              Update all dependencies (Rust, Python, JS)\n"
 	@printf "  \033[36maudit\033[0m               Run security audits on all components\n\n"
+	@printf "Packaging & Distribution:\n"
+	@printf "  \033[36mwheel-local\033[0m         Build wheel for current platform + Python\n"
+	@printf "  \033[36mwheel-docker\033[0m        Build manylinux wheel via Docker\n"
+	@printf "  \033[36mwheel-all\033[0m           Build wheels for all local Python versions\n"
+	@printf "  \033[36mwasm-pkg\033[0m            Build WASM package (web + node targets)\n"
+	@printf "  \033[36mwasm-publish-dry\033[0m    Dry-run npm publish\n\n"
 	@printf "Analysis & Coverage:\n"
 	@printf "  \033[36mcoverage\033[0m            Run coverage for all components\n"
 	@printf "  \033[36mcoverage-rust\033[0m       Run Rust code coverage\n"
@@ -364,6 +370,55 @@ size-core: install-bloat
 	@$(MAKE) size-wasm 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || true
 	@$(MAKE) size-py 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || true
 size-all: size-wasm size-py
+
+# --- Package Building ---
+
+MATURIN_FEATURES := scenarios,sqlite,postgres
+WHEEL_DIR := target/wheels
+
+.PHONY: wheels wheel-local wheel-docker wheel-all wasm-pkg wasm-publish-dry
+
+wheel-local: ## Build wheel for current platform + Python
+	@printf "Building wheel for local platform...\n"
+	@$(call py_run,maturin build --release \
+		--manifest-path finstack-py/Cargo.toml \
+		--features $(MATURIN_FEATURES) \
+		-o $(WHEEL_DIR))
+	@printf "Wheel(s) written to $(WHEEL_DIR)/\n"
+	@ls -lh $(WHEEL_DIR)/finstack-*.whl
+
+wheel-docker: ## Build manylinux wheel via Docker (current arch)
+	@printf "Building manylinux wheel via Docker...\n"
+	docker run --rm \
+		-v $(CURDIR):/io \
+		-w /io \
+		ghcr.io/pyo3/maturin:v1.10 \
+		build --release \
+		--manifest-path finstack-py/Cargo.toml \
+		--features $(MATURIN_FEATURES) \
+		-o /io/$(WHEEL_DIR)
+	@printf "Wheel(s) written to $(WHEEL_DIR)/\n"
+	@ls -lh $(WHEEL_DIR)/finstack-*.whl
+
+wheel-all: ## Build wheels for all locally-available Python versions
+	@printf "Building wheels for all available Python interpreters...\n"
+	@$(call py_run,maturin build --release \
+		--manifest-path finstack-py/Cargo.toml \
+		--features $(MATURIN_FEATURES) \
+		--find-interpreter \
+		-o $(WHEEL_DIR))
+	@printf "Wheel(s) written to $(WHEEL_DIR)/\n"
+	@ls -lh $(WHEEL_DIR)/finstack-*.whl
+
+wheels: wheel-local ## Alias for wheel-local
+
+wasm-pkg: ## Build WASM package (web + node targets)
+	cd finstack-wasm && wasm-pack build --target web --release --out-dir pkg
+	cd finstack-wasm && wasm-pack build --target nodejs --release --out-dir pkg-node
+	touch finstack-wasm/pkg/.npmignore finstack-wasm/pkg-node/.npmignore
+
+wasm-publish-dry: wasm-pkg ## Dry-run npm publish (no upload)
+	cd finstack-wasm && npm pack --dry-run --ignore-scripts
 
 # --- Automation & CI ---
 

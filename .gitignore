@@ -50,8 +50,8 @@ venv.bak/
 .DS_Store
 
 # WASM
-/pkg/
-/pkg-node/
+pkg/
+pkg-node/
 node_modules/
 *.log
 
