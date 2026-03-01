@@ -23,9 +23,7 @@ class BookId:
 class Book:
     """A book in the portfolio hierarchy."""
 
-    def __init__(
-        self, id: str | BookId, name: str | None = None, parent_id: str | BookId | None = None
-    ) -> None: ...
+    def __init__(self, id: str | BookId, name: str | None = None, parent_id: str | BookId | None = None) -> None: ...
     @property
     def id(self) -> str: ...
     @property

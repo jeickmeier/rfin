@@ -1,7 +1,7 @@
 """Shared enums, keys, and error helpers used across finstack valuations bindings."""
 
-
 from __future__ import annotations
+
 # Monte Carlo submodule
 from . import mc
 from . import parse

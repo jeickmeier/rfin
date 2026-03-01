@@ -5,6 +5,7 @@ re-exported from finstack.core.market_data.interp for backward compatibility.
 """
 
 from __future__ import annotations
+
 class InterpStyle:
     """Interpolation styles for term structures and curves.
 

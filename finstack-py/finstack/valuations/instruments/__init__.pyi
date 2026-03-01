@@ -1,7 +1,18 @@
 """Instrument wrappers for finstack-valuations (rates, FX, credit, equity)."""
 
 from __future__ import annotations
-from .agency_mbs import (
+
+# Re-export category subpackages
+from . import commodity as commodity
+from . import credit_derivatives as credit_derivatives
+from . import equity as equity
+from . import exotics as exotics
+from . import fixed_income as fixed_income
+from . import fx as fx
+from . import rates as rates
+
+# Fixed Income
+from .fixed_income.agency_mbs import (
     AgencyCmo as AgencyCmo,
     AgencyMbsPassthrough as AgencyMbsPassthrough,
     AgencyProgram as AgencyProgram,
@@ -10,104 +21,98 @@ from .agency_mbs import (
     PoolType as PoolType,
     TbaTerm as TbaTerm,
 )
-from .bond import Bond as Bond, BondBuilder as BondBuilder
-from .bond_future import (
+from .fixed_income.bond import Bond as Bond, BondBuilder as BondBuilder
+from .fixed_income.bond_future import (
     BondFuture as BondFuture,
     BondFutureBuilder as BondFutureBuilder,
     BondFutureSpecs as BondFutureSpecs,
 )
-from .deposit import Deposit as Deposit
-from .basis_swap import BasisSwap as BasisSwap, BasisSwapLeg as BasisSwapLeg
-from .fra import ForwardRateAgreement as ForwardRateAgreement
-from .cap_floor import InterestRateOption as InterestRateOption
-from .ir_future import InterestRateFuture as InterestRateFuture
-from .irs import InterestRateSwap as InterestRateSwap
-from .swaption import Swaption as Swaption
-from .inflation_linked_bond import (
+from .fixed_income.convertible import ConvertibleBond as ConvertibleBond
+from .fixed_income.inflation_linked_bond import (
     InflationLinkedBond as InflationLinkedBond,
     InflationLinkedBondBuilder as InflationLinkedBondBuilder,
 )
-from .inflation_swap import (
-    InflationSwap as InflationSwap,
-    InflationSwapBuilder as InflationSwapBuilder,
-)
-from .inflation_cap_floor import (
-    InflationCapFloor as InflationCapFloor,
-    InflationCapFloorBuilder as InflationCapFloorBuilder,
-)
-from .repo import (
-    Repo as Repo,
-    RepoBuilder as RepoBuilder,
-    RepoCollateral as RepoCollateral,
-)
-from .xccy_swap import (
-    CrossCurrencySwap as CrossCurrencySwap,
-    CrossCurrencySwapBuilder as CrossCurrencySwapBuilder,
-)
-from .fx import FxSpot as FxSpot, FxOption as FxOption, FxSwap as FxSwap
-from .fx_barrier_option import FxBarrierOption as FxBarrierOption
-from .fx_digital_option import FxDigitalOption as FxDigitalOption
-from .fx_forward import (
-    FxForward as FxForward,
-    FxForwardBuilder as FxForwardBuilder,
-)
-from .fx_touch_option import FxTouchOption as FxTouchOption
-from .fx_variance_swap import (
-    FxVarianceSwap as FxVarianceSwap,
-    FxVarianceSwapBuilder as FxVarianceSwapBuilder,
-    FxVarianceDirection as FxVarianceDirection,
-    FxRealizedVarianceMethod as FxRealizedVarianceMethod,
-)
-from .ndf import Ndf as Ndf, NdfBuilder as NdfBuilder
-from .equity import Equity as Equity
-from .equity_option import EquityOption as EquityOption
-from .equity_index_future import (
-    EquityIndexFuture as EquityIndexFuture,
-    EquityIndexFutureBuilder as EquityIndexFutureBuilder,
-    EquityFutureSpecs as EquityFutureSpecs,
-    FuturePosition as FuturePosition,
-)
-from .vol_index_future import VolatilityIndexFuture as VolatilityIndexFuture
-from .vol_index_option import VolatilityIndexOption as VolatilityIndexOption
-from .lookback_option import LookbackOption as LookbackOption, LookbackType as LookbackType
-from .cliquet_option import CliquetOption as CliquetOption
-from .cms_option import CmsOption as CmsOption
-from .convertible import ConvertibleBond as ConvertibleBond
-from .quanto_option import QuantoOption as QuantoOption
-from .range_accrual import RangeAccrual as RangeAccrual
-from .asian_option import AsianOption as AsianOption, AveragingMethod as AveragingMethod
-from .autocallable import Autocallable as Autocallable
-from .basket import Basket as Basket
-from .variance_swap import (
-    VarianceSwap as VarianceSwap,
-    VarianceSwapBuilder as VarianceSwapBuilder,
-    VarianceDirection as VarianceDirection,
-    RealizedVarianceMethod as RealizedVarianceMethod,
-)
-from .commodity_asian_option import (
-    CommodityAsianOption as CommodityAsianOption,
-    CommodityAsianOptionBuilder as CommodityAsianOptionBuilder,
-)
-from .commodity_forward import CommodityForward as CommodityForward
-from .commodity_option import CommodityOption as CommodityOption
-from .commodity_swap import CommoditySwap as CommoditySwap
-from .cds import CreditDefaultSwap as CreditDefaultSwap, CDSPayReceive as CDSPayReceive
-from .cds_index import CDSIndex as CdsIndex
-from .cds_option import CdsOption as CdsOption
-from .cds_tranche import CdsTranche as CdsTranche
-from .barrier_option import BarrierOption as BarrierOption, BarrierType as BarrierType
-from .structured_credit import StructuredCredit as StructuredCredit
-from .private_markets_fund import PrivateMarketsFund as PrivateMarketsFund
-from .term_loan import TermLoan as TermLoan
-from .revolving_credit import (
+from .fixed_income.revolving_credit import (
     RevolvingCredit as RevolvingCredit,
     EnhancedMonteCarloResult as EnhancedMonteCarloResult,
     PathResult as PathResult,
     ThreeFactorPathData as ThreeFactorPathData,
 )
-from .real_estate import RealEstateAsset as RealEstateAsset
-from .levered_real_estate_equity import LeveredRealEstateEquity as LeveredRealEstateEquity
-from .trs import (
+from .fixed_income.structured_credit import StructuredCredit as StructuredCredit
+from .fixed_income.term_loan import TermLoan as TermLoan
+
+# Rates
+from .rates.deposit import Deposit as Deposit
+from .rates.basis_swap import BasisSwap as BasisSwap, BasisSwapLeg as BasisSwapLeg
+from .rates.fra import ForwardRateAgreement as ForwardRateAgreement
+from .rates.cap_floor import InterestRateOption as InterestRateOption
+from .rates.ir_future import InterestRateFuture as InterestRateFuture
+from .rates.irs import InterestRateSwap as InterestRateSwap
+from .rates.swaption import Swaption as Swaption
+from .rates.inflation_swap import (
+    InflationSwap as InflationSwap,
+    InflationSwapBuilder as InflationSwapBuilder,
+)
+from .rates.inflation_cap_floor import (
+    InflationCapFloor as InflationCapFloor,
+    InflationCapFloorBuilder as InflationCapFloorBuilder,
+)
+from .rates.repo import (
+    Repo as Repo,
+    RepoBuilder as RepoBuilder,
+    RepoCollateral as RepoCollateral,
+)
+from .rates.xccy_swap import (
+    CrossCurrencySwap as CrossCurrencySwap,
+    CrossCurrencySwapBuilder as CrossCurrencySwapBuilder,
+)
+from .rates.cms_option import CmsOption as CmsOption
+from .rates.range_accrual import RangeAccrual as RangeAccrual
+
+# Credit Derivatives
+from .credit_derivatives.cds import CreditDefaultSwap as CreditDefaultSwap, CDSPayReceive as CDSPayReceive
+from .credit_derivatives.cds_index import CDSIndex as CdsIndex
+from .credit_derivatives.cds_option import CdsOption as CdsOption
+from .credit_derivatives.cds_tranche import CdsTranche as CdsTranche
+
+# FX
+from .fx.fx import FxSpot as FxSpot, FxOption as FxOption, FxSwap as FxSwap
+from .fx.fx_barrier_option import FxBarrierOption as FxBarrierOption
+from .fx.fx_digital_option import FxDigitalOption as FxDigitalOption
+from .fx.fx_forward import (
+    FxForward as FxForward,
+    FxForwardBuilder as FxForwardBuilder,
+)
+from .fx.fx_touch_option import FxTouchOption as FxTouchOption
+from .fx.fx_variance_swap import (
+    FxVarianceSwap as FxVarianceSwap,
+    FxVarianceSwapBuilder as FxVarianceSwapBuilder,
+    FxVarianceDirection as FxVarianceDirection,
+    FxRealizedVarianceMethod as FxRealizedVarianceMethod,
+)
+from .fx.ndf import Ndf as Ndf, NdfBuilder as NdfBuilder
+from .fx.quanto_option import QuantoOption as QuantoOption
+
+# Equity
+from .equity.equity import Equity as Equity
+from .equity.equity_option import EquityOption as EquityOption
+from .equity.equity_index_future import (
+    EquityIndexFuture as EquityIndexFuture,
+    EquityIndexFutureBuilder as EquityIndexFutureBuilder,
+    EquityFutureSpecs as EquityFutureSpecs,
+    FuturePosition as FuturePosition,
+)
+from .equity.vol_index_future import VolatilityIndexFuture as VolatilityIndexFuture
+from .equity.vol_index_option import VolatilityIndexOption as VolatilityIndexOption
+from .equity.cliquet_option import CliquetOption as CliquetOption
+from .equity.autocallable import Autocallable as Autocallable
+from .equity.variance_swap import (
+    VarianceSwap as VarianceSwap,
+    VarianceSwapBuilder as VarianceSwapBuilder,
+    VarianceDirection as VarianceDirection,
+    RealizedVarianceMethod as RealizedVarianceMethod,
+)
+from .equity.trs import (
     TrsSide as TrsSide,
     TrsFinancingLegSpec as TrsFinancingLegSpec,
     TrsScheduleSpec as TrsScheduleSpec,
@@ -118,7 +123,25 @@ from .trs import (
     FiIndexTotalReturnSwapBuilder as FiIndexTotalReturnSwapBuilder,
     FiIndexTotalReturnSwap as FiIndexTotalReturnSwap,
 )
-from .dcf import evaluate_dcf as evaluate_dcf
+from .equity.private_markets_fund import PrivateMarketsFund as PrivateMarketsFund
+from .equity.real_estate import RealEstateAsset as RealEstateAsset
+from .equity.levered_real_estate_equity import LeveredRealEstateEquity as LeveredRealEstateEquity
+from .equity.dcf import evaluate_dcf as evaluate_dcf
+
+# Commodity
+from .commodity.commodity_asian_option import (
+    CommodityAsianOption as CommodityAsianOption,
+    CommodityAsianOptionBuilder as CommodityAsianOptionBuilder,
+)
+from .commodity.commodity_forward import CommodityForward as CommodityForward
+from .commodity.commodity_option import CommodityOption as CommodityOption
+from .commodity.commodity_swap import CommoditySwap as CommoditySwap
+
+# Exotics
+from .exotics.asian_option import AsianOption as AsianOption, AveragingMethod as AveragingMethod
+from .exotics.barrier_option import BarrierOption as BarrierOption, BarrierType as BarrierType
+from .exotics.basket import Basket as Basket
+from .exotics.lookback_option import LookbackOption as LookbackOption, LookbackType as LookbackType
 
 __all__ = [
     # Agency MBS

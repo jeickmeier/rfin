@@ -39,7 +39,6 @@ from finstack.valuations.calibration.quote import (
 )
 from finstack.valuations.calibration.report import CalibrationReport
 
-
 # ---------------------------------------------------------------------------
 # DiscountCurveCalibrator
 # ---------------------------------------------------------------------------
@@ -184,7 +183,6 @@ class DiscountCurveCalibrator:
         """
         ...
 
-
 # ---------------------------------------------------------------------------
 # ForwardCurveCalibrator
 # ---------------------------------------------------------------------------
@@ -292,7 +290,6 @@ class ForwardCurveCalibrator:
             If calibration fails.
         """
         ...
-
 
 # ---------------------------------------------------------------------------
 # HazardCurveCalibrator
@@ -411,7 +408,6 @@ class HazardCurveCalibrator:
             If calibration fails.
         """
         ...
-
 
 # ---------------------------------------------------------------------------
 # InflationCurveCalibrator
@@ -626,7 +622,6 @@ class InflationCurveCalibrator:
         """
         ...
 
-
 # ---------------------------------------------------------------------------
 # VolSurfaceCalibrator
 # ---------------------------------------------------------------------------
@@ -821,7 +816,6 @@ class VolSurfaceCalibrator:
         """
         ...
 
-
 # ---------------------------------------------------------------------------
 # BaseCorrelationCalibrator
 # ---------------------------------------------------------------------------
@@ -950,7 +944,6 @@ class BaseCorrelationCalibrator:
         ...
 
     def __repr__(self) -> str: ...
-
 
 __all__ = [
     "DiscountCurveCalibrator",

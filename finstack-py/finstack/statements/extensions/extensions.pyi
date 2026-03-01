@@ -8,9 +8,7 @@ from ..evaluator import StatementResult
 class ExtensionMetadata:
     """Extension metadata."""
 
-    def __init__(
-        self, name: str, version: str, description: str | None = None, author: str | None = None
-    ) -> None:
+    def __init__(self, name: str, version: str, description: str | None = None, author: str | None = None) -> None:
         """Create extension metadata.
 
         Args:
@@ -169,7 +167,6 @@ class CorkscrewAccount:
         changes: List[str] | None = None,
         beginning_balance_node: str | None = None,
     ) -> None: ...
-
     @property
     def node_id(self) -> str: ...
     @property
@@ -201,7 +198,6 @@ class CorkscrewConfig:
         tolerance: float | None = None,
         fail_on_error: bool | None = None,
     ) -> None: ...
-
     @property
     def accounts(self) -> List[CorkscrewAccount]: ...
     @property
@@ -240,7 +236,6 @@ class ScorecardMetric:
         thresholds: Dict[str, Tuple[float, float]] | None = None,
         description: str | None = None,
     ) -> None: ...
-
     @property
     def name(self) -> str: ...
     @property
@@ -274,7 +269,6 @@ class ScorecardConfig:
         metrics: List[ScorecardMetric] | None = None,
         min_rating: str | None = None,
     ) -> None: ...
-
     @property
     def rating_scale(self) -> str: ...
     @property

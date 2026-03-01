@@ -7,115 +7,67 @@
 //! or financial calculations belong here. Argument parsing has been centralized in
 //! `crate::core::common::args` to ensure consistent behavior across all instruments.
 
-mod agency_mbs;
-mod asian_option;
-mod autocallable;
-mod barrier_option;
-mod basis_swap;
-mod basket;
-mod bond;
-mod bond_future;
-mod cap_floor;
-mod cds;
-mod cds_index;
-mod cds_option;
-mod cds_tranche;
-mod cliquet_option;
-mod cms_option;
-mod commodity_asian_option;
-mod commodity_forward;
-mod commodity_option;
-mod commodity_swap;
-mod convertible;
-mod dcf;
-mod deposit;
+mod commodity;
+mod credit_derivatives;
 mod equity;
-mod equity_index_future;
-mod equity_option;
-mod fra;
+mod exotics;
+mod fixed_income;
 mod fx;
-mod fx_barrier_option;
-mod fx_digital_option;
-mod fx_forward;
-mod fx_touch_option;
-mod fx_variance_swap;
-mod inflation_cap_floor;
-mod inflation_linked_bond;
-mod inflation_swap;
-mod ir_future;
-mod irs;
-mod levered_real_estate_equity;
-mod lookback_option;
-mod ndf;
-mod private_markets_fund;
-mod quanto_option;
-mod range_accrual;
-mod real_estate;
-mod repo;
-mod revolving_credit;
-mod structured_credit;
-mod swaption;
-mod term_loan;
-mod trs;
-mod variance_swap;
-mod vol_index_future;
-mod vol_index_option;
-mod xccy_swap;
+mod rates;
 
-// Re-export only used wrappers to avoid unused import lints during clippy
-use agency_mbs::{PyAgencyCmo, PyAgencyMbsPassthrough, PyAgencyTba, PyDollarRoll};
-use asian_option::PyAsianOption;
-use autocallable::PyAutocallable;
-use barrier_option::PyBarrierOption;
-use basis_swap::PyBasisSwap;
-use basket::PyBasket;
-use bond::PyBond;
-use bond_future::PyBondFuture;
-use cap_floor::PyInterestRateOption;
-use cds::PyCreditDefaultSwap;
-use cds_index::PyCdsIndex;
-use cds_option::PyCDSOption;
-use cds_tranche::PyCDSTranche;
-use cliquet_option::PyCliquetOption;
-use cms_option::PyCmsOption;
-use commodity_asian_option::PyCommodityAsianOption;
-use commodity_forward::PyCommodityForward;
-use commodity_option::PyCommodityOption;
-use commodity_swap::PyCommoditySwap;
-use convertible::PyConvertibleBond;
-use deposit::PyDeposit;
-use equity::PyEquity;
-use equity_index_future::PyEquityIndexFuture;
-use equity_option::PyEquityOption;
-use fra::PyForwardRateAgreement;
-use fx::{PyFxOption, PyFxSpot, PyFxSwap};
-use fx_barrier_option::PyFxBarrierOption;
-use fx_digital_option::PyFxDigitalOption;
-use fx_forward::PyFxForward;
-use fx_touch_option::PyFxTouchOption;
-use fx_variance_swap::PyFxVarianceSwap;
-use inflation_cap_floor::PyInflationCapFloor;
-use inflation_linked_bond::PyInflationLinkedBond;
-use inflation_swap::PyInflationSwap;
-use ir_future::PyInterestRateFuture;
-use irs::PyInterestRateSwap;
-use levered_real_estate_equity::PyLeveredRealEstateEquity;
-use lookback_option::PyLookbackOption;
-use ndf::PyNdf;
-use private_markets_fund::PyPrivateMarketsFund;
-use quanto_option::PyQuantoOption;
-use range_accrual::PyRangeAccrual;
-use real_estate::PyRealEstateAsset;
-use repo::PyRepo;
-use revolving_credit::PyRevolvingCredit;
-use structured_credit::PyStructuredCredit;
-use swaption::PySwaption;
-use term_loan::PyTermLoan;
-use trs::{PyEquityTotalReturnSwap, PyFiIndexTotalReturnSwap};
-use variance_swap::PyVarianceSwap;
-use vol_index_future::PyVolatilityIndexFuture;
-use vol_index_option::PyVolatilityIndexOption;
-use xccy_swap::PyCrossCurrencySwap;
+use commodity::commodity_asian_option::PyCommodityAsianOption;
+use commodity::commodity_forward::PyCommodityForward;
+use commodity::commodity_option::PyCommodityOption;
+use commodity::commodity_swap::PyCommoditySwap;
+use credit_derivatives::cds::PyCreditDefaultSwap;
+use credit_derivatives::cds_index::PyCdsIndex;
+use credit_derivatives::cds_option::PyCDSOption;
+use credit_derivatives::cds_tranche::PyCDSTranche;
+use equity::autocallable::PyAutocallable;
+use equity::cliquet_option::PyCliquetOption;
+use equity::equity::PyEquity;
+use equity::equity_index_future::PyEquityIndexFuture;
+use equity::equity_option::PyEquityOption;
+use equity::levered_real_estate_equity::PyLeveredRealEstateEquity;
+use equity::private_markets_fund::PyPrivateMarketsFund;
+use equity::real_estate::PyRealEstateAsset;
+use equity::trs::{PyEquityTotalReturnSwap, PyFiIndexTotalReturnSwap};
+use equity::variance_swap::PyVarianceSwap;
+use equity::vol_index_future::PyVolatilityIndexFuture;
+use equity::vol_index_option::PyVolatilityIndexOption;
+use exotics::asian_option::PyAsianOption;
+use exotics::barrier_option::PyBarrierOption;
+use exotics::basket::PyBasket;
+use exotics::lookback_option::PyLookbackOption;
+use fixed_income::agency_mbs::{PyAgencyCmo, PyAgencyMbsPassthrough, PyAgencyTba, PyDollarRoll};
+use fixed_income::bond::PyBond;
+use fixed_income::bond_future::PyBondFuture;
+use fixed_income::convertible::PyConvertibleBond;
+use fixed_income::inflation_linked_bond::PyInflationLinkedBond;
+use fixed_income::revolving_credit::PyRevolvingCredit;
+use fixed_income::structured_credit::PyStructuredCredit;
+use fixed_income::term_loan::PyTermLoan;
+use fx::fx::{PyFxOption, PyFxSpot, PyFxSwap};
+use fx::fx_barrier_option::PyFxBarrierOption;
+use fx::fx_digital_option::PyFxDigitalOption;
+use fx::fx_forward::PyFxForward;
+use fx::fx_touch_option::PyFxTouchOption;
+use fx::fx_variance_swap::PyFxVarianceSwap;
+use fx::ndf::PyNdf;
+use fx::quanto_option::PyQuantoOption;
+use rates::basis_swap::PyBasisSwap;
+use rates::cap_floor::PyInterestRateOption;
+use rates::cms_option::PyCmsOption;
+use rates::deposit::PyDeposit;
+use rates::fra::PyForwardRateAgreement;
+use rates::inflation_cap_floor::PyInflationCapFloor;
+use rates::inflation_swap::PyInflationSwap;
+use rates::ir_future::PyInterestRateFuture;
+use rates::irs::PyInterestRateSwap;
+use rates::range_accrual::PyRangeAccrual;
+use rates::repo::PyRepo;
+use rates::swaption::PySwaption;
+use rates::xccy_swap::PyCrossCurrencySwap;
 
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::pricer::InstrumentType;
@@ -278,170 +230,26 @@ pub(crate) fn register<'py>(
 
     let mut exports: Vec<&str> = Vec::new();
 
-    let agency_mbs_exports = agency_mbs::register(py, &module)?;
-    exports.extend(agency_mbs_exports.iter().copied());
+    let fixed_income_exports = fixed_income::register(py, &module)?;
+    exports.extend(fixed_income_exports.iter().copied());
 
-    let bond_exports = bond::register(py, &module)?;
-    exports.extend(bond_exports.iter().copied());
-
-    let bond_future_exports = bond_future::register(py, &module)?;
-    exports.extend(bond_future_exports.iter().copied());
-
-    let basis_exports = basis_swap::register(py, &module)?;
-    exports.extend(basis_exports.iter().copied());
-
-    let deposit_exports = deposit::register(py, &module)?;
-    exports.extend(deposit_exports.iter().copied());
-
-    let dcf_exports = dcf::register(py, &module)?;
-    exports.extend(dcf_exports.iter().copied());
-
-    let irs_exports = irs::register(py, &module)?;
-    exports.extend(irs_exports.iter().copied());
-
-    let fra_exports = fra::register(py, &module)?;
-    exports.extend(fra_exports.iter().copied());
-
-    let cap_floor_exports = cap_floor::register(py, &module)?;
-    exports.extend(cap_floor_exports.iter().copied());
-
-    let ir_future_exports = ir_future::register(py, &module)?;
-    exports.extend(ir_future_exports.iter().copied());
-
-    let swaption_exports = swaption::register(py, &module)?;
-    exports.extend(swaption_exports.iter().copied());
+    let rates_exports = rates::register(py, &module)?;
+    exports.extend(rates_exports.iter().copied());
 
     let fx_exports = fx::register(py, &module)?;
     exports.extend(fx_exports.iter().copied());
 
-    let fx_forward_exports = fx_forward::register(py, &module)?;
-    exports.extend(fx_forward_exports.iter().copied());
-
-    let ndf_exports = ndf::register(py, &module)?;
-    exports.extend(ndf_exports.iter().copied());
-
-    let fx_digital_option_exports = fx_digital_option::register(py, &module)?;
-    exports.extend(fx_digital_option_exports.iter().copied());
-
-    let fx_touch_option_exports = fx_touch_option::register(py, &module)?;
-    exports.extend(fx_touch_option_exports.iter().copied());
-
-    let fx_variance_swap_exports = fx_variance_swap::register(py, &module)?;
-    exports.extend(fx_variance_swap_exports.iter().copied());
-
     let equity_exports = equity::register(py, &module)?;
     exports.extend(equity_exports.iter().copied());
 
-    let equity_index_future_exports = equity_index_future::register(py, &module)?;
-    exports.extend(equity_index_future_exports.iter().copied());
+    let exotics_exports = exotics::register(py, &module)?;
+    exports.extend(exotics_exports.iter().copied());
 
-    let equity_option_exports = equity_option::register(py, &module)?;
-    exports.extend(equity_option_exports.iter().copied());
+    let commodity_exports = commodity::register(py, &module)?;
+    exports.extend(commodity_exports.iter().copied());
 
-    let convertible_exports = convertible::register(py, &module)?;
-    exports.extend(convertible_exports.iter().copied());
-
-    let cds_exports = cds::register(py, &module)?;
-    exports.extend(cds_exports.iter().copied());
-
-    let cds_index_exports = cds_index::register(py, &module)?;
-    exports.extend(cds_index_exports.iter().copied());
-
-    let cds_option_exports = cds_option::register(py, &module)?;
-    exports.extend(cds_option_exports.iter().copied());
-
-    let cds_tranche_exports = cds_tranche::register(py, &module)?;
-    exports.extend(cds_tranche_exports.iter().copied());
-
-    let repo_exports = repo::register(py, &module)?;
-    exports.extend(repo_exports.iter().copied());
-
-    let trs_exports = trs::register(py, &module)?;
-    exports.extend(trs_exports.iter().copied());
-
-    let variance_exports = variance_swap::register(py, &module)?;
-    exports.extend(variance_exports.iter().copied());
-
-    let ilb_exports = inflation_linked_bond::register(py, &module)?;
-    exports.extend(ilb_exports.iter().copied());
-
-    let inflation_swap_exports = inflation_swap::register(py, &module)?;
-    exports.extend(inflation_swap_exports.iter().copied());
-
-    let inflation_cap_floor_exports = inflation_cap_floor::register(py, &module)?;
-    exports.extend(inflation_cap_floor_exports.iter().copied());
-
-    let xccy_swap_exports = xccy_swap::register(py, &module)?;
-    exports.extend(xccy_swap_exports.iter().copied());
-
-    let basket_exports = basket::register(py, &module)?;
-    exports.extend(basket_exports.iter().copied());
-
-    let structured_credit_exports = structured_credit::register(py, &module)?;
-    exports.extend(structured_credit_exports.iter().copied());
-
-    let pmf_exports = private_markets_fund::register(py, &module)?;
-    exports.extend(pmf_exports.iter().copied());
-
-    let asian_option_exports = asian_option::register(py, &module)?;
-    exports.extend(asian_option_exports.iter().copied());
-
-    let autocallable_exports = autocallable::register(py, &module)?;
-    exports.extend(autocallable_exports.iter().copied());
-
-    let barrier_option_exports = barrier_option::register(py, &module)?;
-    exports.extend(barrier_option_exports.iter().copied());
-
-    let cliquet_option_exports = cliquet_option::register(py, &module)?;
-    exports.extend(cliquet_option_exports.iter().copied());
-
-    let cms_option_exports = cms_option::register(py, &module)?;
-    exports.extend(cms_option_exports.iter().copied());
-
-    commodity_forward::register_module(&module)?;
-    exports.push("CommodityForward");
-    exports.push("CommodityForwardBuilder");
-
-    commodity_option::register_module(&module)?;
-    exports.push("CommodityOption");
-    exports.push("CommodityOptionBuilder");
-
-    commodity_swap::register_module(&module)?;
-    exports.push("CommoditySwap");
-    exports.push("CommoditySwapBuilder");
-
-    let commodity_asian_option_exports = commodity_asian_option::register(py, &module)?;
-    exports.extend(commodity_asian_option_exports.iter().copied());
-
-    real_estate::register_module(&module)?;
-    exports.push("RealEstateAsset");
-
-    levered_real_estate_equity::register_module(&module)?;
-    exports.push("LeveredRealEstateEquity");
-
-    let fx_barrier_option_exports = fx_barrier_option::register(py, &module)?;
-    exports.extend(fx_barrier_option_exports.iter().copied());
-
-    let lookback_option_exports = lookback_option::register(py, &module)?;
-    exports.extend(lookback_option_exports.iter().copied());
-
-    let quanto_option_exports = quanto_option::register(py, &module)?;
-    exports.extend(quanto_option_exports.iter().copied());
-
-    let range_accrual_exports = range_accrual::register(py, &module)?;
-    exports.extend(range_accrual_exports.iter().copied());
-
-    let revolving_credit_exports = revolving_credit::register(py, &module)?;
-    exports.extend(revolving_credit_exports.iter().copied());
-
-    let term_loan_exports = term_loan::register(py, &module)?;
-    exports.extend(term_loan_exports.iter().copied());
-
-    let vol_index_future_exports = vol_index_future::register(py, &module)?;
-    exports.extend(vol_index_future_exports.iter().copied());
-
-    let vol_index_option_exports = vol_index_option::register(py, &module)?;
-    exports.extend(vol_index_option_exports.iter().copied());
+    let credit_exports = credit_derivatives::register(py, &module)?;
+    exports.extend(credit_exports.iter().copied());
 
     exports.sort_unstable();
     exports.dedup();

@@ -78,7 +78,6 @@ class QeHestonScheme:
         psi_c: float = 1.5,
         use_exact_integrated_variance: bool = False,
     ) -> None: ...
-
     @property
     def psi_c(self) -> float:
         """Critical psi value for the QE switch."""
@@ -99,7 +98,6 @@ class QeCirScheme:
     """
 
     def __init__(self, psi_c: float = 1.5) -> None: ...
-
     @property
     def psi_c(self) -> float:
         """Critical psi value."""

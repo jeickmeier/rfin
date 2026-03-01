@@ -7,8 +7,13 @@ minimums, and custom threshold tests.
 Typical workflow::
 
     from finstack.valuations.covenants import (
-        CovenantType, Covenant, CovenantSpec, CovenantScope,
-        CovenantForecastConfig, forecast_covenant, forecast_breaches,
+        CovenantType,
+        Covenant,
+        CovenantSpec,
+        CovenantScope,
+        CovenantForecastConfig,
+        forecast_covenant,
+        forecast_breaches,
     )
 
     ctype = CovenantType.max_debt_to_ebitda(4.0)
@@ -27,7 +32,6 @@ import polars
 from finstack.core.dates.periods import PeriodId
 from finstack.statements.types.model import FinancialModelSpec
 from finstack.statements.evaluator.evaluator import StatementResult
-
 
 # ---------------------------------------------------------------------------
 # CovenantType
@@ -172,7 +176,6 @@ class CovenantType:
         """
         ...
 
-
 # ---------------------------------------------------------------------------
 # Covenant
 # ---------------------------------------------------------------------------
@@ -232,7 +235,6 @@ class Covenant:
         """
         ...
 
-
 # ---------------------------------------------------------------------------
 # CovenantSpec
 # ---------------------------------------------------------------------------
@@ -264,7 +266,6 @@ class CovenantSpec:
             Bound covenant specification.
         """
         ...
-
 
 # ---------------------------------------------------------------------------
 # CovenantScope
@@ -303,7 +304,6 @@ class CovenantScope:
         ...
 
     def __repr__(self) -> str: ...
-
 
 # ---------------------------------------------------------------------------
 # SpringingCondition
@@ -352,7 +352,6 @@ class SpringingCondition:
 
     def __repr__(self) -> str: ...
 
-
 # ---------------------------------------------------------------------------
 # CovenantForecastConfig
 # ---------------------------------------------------------------------------
@@ -387,7 +386,6 @@ class CovenantForecastConfig:
         seed: int | None = None,
         antithetic: bool | None = None,
     ) -> None: ...
-
 
 # ---------------------------------------------------------------------------
 # CovenantForecast
@@ -534,7 +532,6 @@ class CovenantForecast:
         """
         ...
 
-
 # ---------------------------------------------------------------------------
 # FutureBreach
 # ---------------------------------------------------------------------------
@@ -619,7 +616,6 @@ class FutureBreach:
 
     def __repr__(self) -> str: ...
 
-
 # ---------------------------------------------------------------------------
 # Module-level functions
 # ---------------------------------------------------------------------------
@@ -658,7 +654,6 @@ def forecast_covenant(
     """
     ...
 
-
 def forecast_breaches(
     specs: list[CovenantSpec],
     model: FinancialModelSpec,
@@ -689,7 +684,6 @@ def forecast_breaches(
         If breach forecasting fails.
     """
     ...
-
 
 __all__ = [
     "CovenantType",

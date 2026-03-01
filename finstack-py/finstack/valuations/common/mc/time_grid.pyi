@@ -28,7 +28,7 @@ class TimeGrid:
 
                 grid = TimeGrid.uniform(1.0, 252)
                 print(grid.num_steps)  # 252
-                print(grid.t_max)     # 1.0
+                print(grid.t_max)  # 1.0
         """
         ...
 

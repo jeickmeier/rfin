@@ -18,7 +18,6 @@ import polars
 
 from finstack.valuations.results import ValuationResult
 
-
 def results_to_polars(results: list[ValuationResult]) -> polars.DataFrame:
     """Convert valuation results to a Polars DataFrame.
 
@@ -48,7 +47,6 @@ def results_to_polars(results: list[ValuationResult]) -> polars.DataFrame:
     """
     ...
 
-
 def results_to_pandas(results: list[ValuationResult]) -> pandas.DataFrame:
     """Convert valuation results to a Pandas DataFrame.
 
@@ -77,7 +75,6 @@ def results_to_pandas(results: list[ValuationResult]) -> pandas.DataFrame:
     """
     ...
 
-
 def results_to_parquet(results: list[ValuationResult], path: str) -> None:
     """Write valuation results to a Parquet file.
 
@@ -102,7 +99,6 @@ def results_to_parquet(results: list[ValuationResult], path: str) -> None:
         If Parquet writing fails.
     """
     ...
-
 
 __all__ = [
     "results_to_polars",

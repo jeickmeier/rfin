@@ -59,9 +59,7 @@ class DayCount:
         """
         ...
 
-    def year_fraction(
-        self, start: str | date, end: str | date, ctx: "DayCountContext" | None = None
-    ) -> float:
+    def year_fraction(self, start: str | date, end: str | date, ctx: "DayCountContext" | None = None) -> float:
         """Calculate year fraction between two dates.
 
         Parameters

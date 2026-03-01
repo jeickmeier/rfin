@@ -14,7 +14,6 @@ class GbmParams:
     """
 
     def __init__(self, r: float, q: float, sigma: float) -> None: ...
-
     @property
     def r(self) -> float:
         """Risk-free rate."""
@@ -58,7 +57,6 @@ class HestonParams:
         rho: float,
         v0: float,
     ) -> None: ...
-
     @property
     def r(self) -> float: ...
     @property
@@ -73,7 +71,6 @@ class HestonParams:
     def rho(self) -> float: ...
     @property
     def v0(self) -> float: ...
-
     def satisfies_feller(self) -> bool:
         """Check if the Feller condition (2*kappa*theta >= sigma_v^2) is satisfied.
 
@@ -95,14 +92,12 @@ class CirParams:
     """
 
     def __init__(self, kappa: float, theta: float, sigma: float) -> None: ...
-
     @property
     def kappa(self) -> float: ...
     @property
     def theta(self) -> float: ...
     @property
     def sigma(self) -> float: ...
-
     def satisfies_feller(self) -> bool:
         """Check if Feller condition (2*kappa*theta >= sigma^2) is satisfied."""
         ...
@@ -122,7 +117,6 @@ class HullWhite1FParams:
     """
 
     def __init__(self, kappa: float, sigma: float, theta: float) -> None: ...
-
     @staticmethod
     def with_time_dependent_theta(
         kappa: float,
@@ -144,7 +138,6 @@ class HullWhite1FParams:
     def kappa(self) -> float: ...
     @property
     def sigma(self) -> float: ...
-
     def theta_at_time(self, t: float) -> float:
         """Get theta(t) at a given time."""
         ...
@@ -177,7 +170,6 @@ class MertonJumpParams:
         mu_j: float,
         sigma_j: float,
     ) -> None: ...
-
     @property
     def r(self) -> float: ...
     @property
@@ -190,7 +182,6 @@ class MertonJumpParams:
     def mu_j(self) -> float: ...
     @property
     def sigma_j(self) -> float: ...
-
     def jump_compensation(self) -> float:
         """Compute jump compensation term k = E[J - 1]."""
         ...
@@ -224,7 +215,6 @@ class SchwartzSmithParams:
         sigma_y: float,
         rho: float,
     ) -> None: ...
-
     @property
     def kappa_x(self) -> float: ...
     @property
@@ -247,7 +237,6 @@ class BrownianParams:
     """
 
     def __init__(self, mu: float, sigma: float) -> None: ...
-
     @property
     def mu(self) -> float: ...
     @property
@@ -273,7 +262,6 @@ class MultiOuParams:
         sigmas: list[float],
         correlation: list[float] | None = None,
     ) -> None: ...
-
     @property
     def kappas(self) -> list[float]: ...
     @property
@@ -282,7 +270,6 @@ class MultiOuParams:
     def sigmas(self) -> list[float]: ...
     @property
     def correlation(self) -> list[float] | None: ...
-
     def dim(self) -> int:
         """Get the number of dimensions."""
         ...
