@@ -9,7 +9,12 @@ use pyo3::prelude::*;
 /// Defines the discretization points in time from t=0 to t=T.
 /// Supports both uniform grids (equal spacing) and custom grids
 /// (irregular time points for finer resolution near important dates).
-#[pyclass(module = "finstack.valuations.common.mc", name = "TimeGrid", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "TimeGrid",
+    frozen,
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PyTimeGrid {
     pub(crate) inner: TimeGrid,

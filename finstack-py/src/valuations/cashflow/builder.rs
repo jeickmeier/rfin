@@ -70,6 +70,7 @@ pub struct PyScheduleParams {
 impl PyScheduleParams {
     #[classmethod]
     #[pyo3(
+        signature = (freq, day_count, bdc, calendar_id, stub=None, end_of_month=None, payment_lag_days=None),
         text_signature = "(cls, freq, day_count, bdc, calendar_id, stub=None, end_of_month=False, payment_lag_days=0)"
     )]
     #[allow(clippy::too_many_arguments)]

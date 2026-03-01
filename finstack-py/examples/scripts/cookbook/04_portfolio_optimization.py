@@ -49,13 +49,15 @@ def main() -> None:
     positions = []
     for pos_id, coupon, rating in bonds:
         maturity = date(2029, 1, 15) if rating != "CCC" else date(2027, 1, 15)
-        instrument = Bond.fixed_semiannual(
-            pos_id,
-            Money(10_000_000, "USD"),
-            coupon,
-            as_of,
-            maturity,
-            "USD-OIS",
+        instrument = (
+            Bond.builder(pos_id)
+            .money(Money(10_000_000, "USD"))
+            .coupon_rate(coupon)
+            .frequency("semiannual")
+            .issue(as_of)
+            .maturity(maturity)
+            .disc_id("USD-OIS")
+            .build()
         )
         positions.append(
             Position(pos_id, fund.id, pos_id, instrument, 1.0, PositionUnit.UNITS).with_tag("rating", rating)

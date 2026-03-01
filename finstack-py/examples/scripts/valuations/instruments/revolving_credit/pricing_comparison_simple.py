@@ -61,7 +61,7 @@ def create_facility(util=0.5, is_stochastic=False, util_vol=0.0, num_paths=5000)
         "commitment_amount": {"amount": commitment, "currency": "USD"},
         "drawn_amount": {"amount": drawn, "currency": "USD"},
         "commitment_date": "2025-01-01",
-        "maturity_date": "2027-01-01",
+        "maturity": "2027-01-01",
         "base_rate_spec": {
             "Floating": {
                 "index_id": "USD-SOFR-3M",
@@ -71,6 +71,9 @@ def create_facility(util=0.5, is_stochastic=False, util_vol=0.0, num_paths=5000)
                 "floor_bp": 0.0,
                 "dc": "Act360",
                 "bdc": "modified_following",
+                "calendar_id": "weekends_only",
+                "end_of_month": False,
+                "payment_lag_days": 0,
             }
         },
         "day_count": "Act360",

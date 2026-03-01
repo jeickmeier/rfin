@@ -55,8 +55,8 @@ def step2_build_portfolio(as_of: date):
     """Step 2: Construct a small rates + credit portfolio."""
     fund = Entity("FUND-001").with_name("Multi-Asset Fund")
 
-    bond_2y = Bond.fixed_semiannual("BOND.2Y", Money(10_000_000, "USD"), 0.04, as_of, date(2026, 1, 15), "USD-OIS")
-    bond_5y = Bond.fixed_semiannual("BOND.5Y", Money(20_000_000, "USD"), 0.045, as_of, date(2029, 1, 15), "USD-OIS")
+    bond_2y = Bond.builder("BOND.2Y").money(Money(10_000_000, "USD")).coupon_rate(0.04).frequency("semiannual").issue(as_of).maturity(date(2026, 1, 15)).disc_id("USD-OIS").build()
+    bond_5y = Bond.builder("BOND.5Y").money(Money(20_000_000, "USD")).coupon_rate(0.045).frequency("semiannual").issue(as_of).maturity(date(2029, 1, 15)).disc_id("USD-OIS").build()
     cds_5y = CreditDefaultSwap.buy_protection(
         "CDS.5Y",
         Money(10_000_000, "USD"),

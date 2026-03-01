@@ -111,7 +111,7 @@ def create_deterministic_facility(
         "commitment_amount": {"amount": commitment, "currency": "USD"},
         "drawn_amount": {"amount": drawn, "currency": "USD"},
         "commitment_date": "2025-01-01",
-        "maturity_date": "2027-01-01",  # 2-year facility
+        "maturity": "2027-01-01",  # 2-year facility
         "base_rate_spec": {
             "Floating": {
                 "index_id": "USD-SOFR-3M",
@@ -121,6 +121,9 @@ def create_deterministic_facility(
                 "floor_bp": 0.0,
                 "dc": "Act360",
                 "bdc": "modified_following",
+                "calendar_id": "weekends_only",
+                "end_of_month": False,
+                "payment_lag_days": 0,
             }
         },
         "day_count": "Act360",
@@ -162,7 +165,7 @@ def create_stochastic_facility(
         "commitment_amount": {"amount": commitment, "currency": "USD"},
         "drawn_amount": {"amount": drawn, "currency": "USD"},
         "commitment_date": "2025-01-01",
-        "maturity_date": "2027-01-01",
+        "maturity": "2027-01-01",
         "base_rate_spec": {
             "Floating": {
                 "index_id": "USD-SOFR-3M",
@@ -172,6 +175,9 @@ def create_stochastic_facility(
                 "floor_bp": 0.0,
                 "dc": "Act360",
                 "bdc": "modified_following",
+                "calendar_id": "weekends_only",
+                "end_of_month": False,
+                "payment_lag_days": 0,
             }
         },
         "day_count": "Act360",

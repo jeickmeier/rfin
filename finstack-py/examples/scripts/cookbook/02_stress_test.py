@@ -44,13 +44,15 @@ def create_portfolio():
     fund = Entity("FUND-001").with_name("Multi-Strategy Fund").with_tag("strategy", "multi-asset")
 
     # 1. Corporate bonds (interest rate sensitive)
-    bond1 = Bond.fixed_semiannual(
-        "CORP.5Y",
-        Money(10_000_000, "USD"),
-        0.05,
-        date(2024, 1, 15),
-        date(2029, 1, 15),
-        "USD-OIS",
+    bond1 = (
+        Bond.builder("CORP.5Y")
+        .money(Money(10_000_000, "USD"))
+        .coupon_rate(0.05)
+        .frequency("semiannual")
+        .issue(date(2024, 1, 15))
+        .maturity(date(2029, 1, 15))
+        .disc_id("USD-OIS")
+        .build()
     )
     pos_bond = Position("POS-BOND-1", fund.id, "CORP.5Y", bond1, 1.0, PositionUnit.UNITS).with_tag("asset_class", "rates")
 

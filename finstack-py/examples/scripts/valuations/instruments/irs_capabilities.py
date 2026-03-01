@@ -43,15 +43,19 @@ def build_market(as_of: date) -> MarketContext:
 
 
 def build_swap(as_of: date, notional: Money) -> InterestRateSwap:
-    """Create a receive-fixed/pay-float USD SOFR swap using canned helper."""
+    """Create a receive-fixed/pay-float USD SOFR swap."""
     start = as_of + timedelta(days=2)  # standard spot lag
     maturity = date(as_of.year + 5, as_of.month, as_of.day)
-    return InterestRateSwap.usd_receive_fixed(
-        "USD-SOFR-SWAP",
-        notional,
-        0.0325,
-        start,
-        maturity,
+    return (
+        InterestRateSwap.builder("USD-SOFR-SWAP")
+        .money(notional)
+        .side("receive_fixed")
+        .fixed_rate(0.0325)
+        .start(start)
+        .maturity(maturity)
+        .disc_id("USD-OIS")
+        .fwd_id("USD-SOFR-3M")
+        .build()
     )
 
 

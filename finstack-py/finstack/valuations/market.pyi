@@ -111,7 +111,7 @@ class CdsTrancheQuote:
     def id(self) -> QuoteId: ...
     def __repr__(self) -> str: ...
 
-class CdsTrancheBuildOverrides:
+class CDSTrancheBuildOverrides:
     def __init__(
         self,
         series: int,
@@ -133,7 +133,7 @@ def build_cds_instrument(quote: CdsQuote, ctx: BuildCtx) -> BuiltInstrument: ...
 def build_cds_tranche_instrument(
     quote: CdsTrancheQuote,
     ctx: BuildCtx,
-    overrides: CdsTrancheBuildOverrides,
+    overrides: CDSTrancheBuildOverrides,
 ) -> BuiltInstrument: ...
 
 __all__ = [
@@ -144,7 +144,7 @@ __all__ = [
     "RateQuote",
     "CdsQuote",
     "CdsTrancheQuote",
-    "CdsTrancheBuildOverrides",
+    "CDSTrancheBuildOverrides",
     "build_rate_instrument",
     "build_cds_instrument",
     "build_cds_tranche_instrument",

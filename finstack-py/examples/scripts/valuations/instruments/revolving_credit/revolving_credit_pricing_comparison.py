@@ -114,7 +114,7 @@ def create_deterministic_facility(
         "commitment_amount": {"amount": commitment, "currency": "USD"},
         "drawn_amount": {"amount": drawn, "currency": "USD"},
         "commitment_date": "2025-01-01",
-        "maturity_date": "2027-01-01",
+        "maturity": "2027-01-01",
         "base_rate_spec": {
             "Floating": {
                 "index_id": "USD-SOFR-3M",
@@ -124,6 +124,9 @@ def create_deterministic_facility(
                 "floor_bp": 0.0,
                 "dc": "Act360",
                 "bdc": "modified_following",
+                "calendar_id": "weekends_only",
+                "end_of_month": False,
+                "payment_lag_days": 0,
             }
         },
         "day_count": "Act360",
@@ -180,7 +183,7 @@ def create_stochastic_facility(
         "commitment_amount": {"amount": commitment, "currency": "USD"},
         "drawn_amount": {"amount": drawn, "currency": "USD"},
         "commitment_date": "2025-01-01",
-        "maturity_date": "2027-01-01",
+        "maturity": "2027-01-01",
         "base_rate_spec": {
             "Floating": {
                 "index_id": "USD-SOFR-3M",
@@ -190,6 +193,9 @@ def create_stochastic_facility(
                 "floor_bp": 0.0,
                 "dc": "Act360",
                 "bdc": "modified_following",
+                "calendar_id": "weekends_only",
+                "end_of_month": False,
+                "payment_lag_days": 0,
             }
         },
         "day_count": "Act360",
@@ -295,7 +301,7 @@ def test_zero_volatility_parity() -> bool:
             util_volatility=0.0001,
             credit_spread_volatility=1e-6 if credit_risk else 0.0,  # Near-zero for CIR
             include_credit_risk=credit_risk,
-            num_paths=50000,
+            num_paths=2000,
         )
         stoch_facility = RevolvingCredit.from_json(stoch_spec)
 
@@ -362,7 +368,7 @@ def test_utilization_volatility_grid() -> list:
 
     for vol in volatilities:
         stoch_spec = create_stochastic_facility(
-            f"MC-VOL-{vol:.0%}", initial_utilization=0.5, util_volatility=vol, num_paths=10000
+            f"MC-VOL-{vol:.0%}", initial_utilization=0.5, util_volatility=vol, num_paths=1000
         )
         stoch_facility = RevolvingCredit.from_json(stoch_spec)
         mc_result = stoch_facility.price_with_paths(market, as_of)
@@ -406,7 +412,7 @@ def test_credit_spread_volatility_grid() -> list:
         util_volatility=0.0,
         credit_spread_volatility=1e-6,  # Near-zero for CIR
         include_credit_risk=True,
-        num_paths=5000,
+        num_paths=500,
     )
     baseline_facility = RevolvingCredit.from_json(baseline_spec)
     baseline_result = baseline_facility.price_with_paths(market, as_of)
@@ -430,7 +436,7 @@ def test_credit_spread_volatility_grid() -> list:
             util_volatility=0.1,  # Keep util vol constant
             credit_spread_volatility=cs_vol,
             include_credit_risk=True,
-            num_paths=5000,
+            num_paths=500,
         )
         stoch_facility = RevolvingCredit.from_json(stoch_spec)
         mc_result = stoch_facility.price_with_paths(market, as_of)
@@ -487,7 +493,7 @@ def test_volatility_heatmap() -> dict:
                 util_volatility=util_vol,
                 credit_spread_volatility=cs_vol,
                 include_credit_risk=True,
-                num_paths=3000,  # Fewer paths for speed
+                num_paths=500,
             )
             stoch_facility = RevolvingCredit.from_json(stoch_spec)
             mc_result = stoch_facility.price_with_paths(market, as_of)

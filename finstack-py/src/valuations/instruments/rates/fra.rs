@@ -251,7 +251,6 @@ impl PyForwardRateAgreementBuilder {
         slf
     }
 
-    #[deprecated(note = "Use receive_fixed() instead")]
     #[pyo3(text_signature = "($self, pay_fixed)")]
     fn pay_fixed(mut slf: PyRefMut<'_, Self>, pay_fixed: bool) -> PyRefMut<'_, Self> {
         slf.receive_fixed = !pay_fixed;
@@ -382,7 +381,6 @@ impl PyForwardRateAgreement {
         self.inner.side.is_receiver()
     }
 
-    #[deprecated(note = "Use receive_fixed instead")]
     #[getter]
     fn pay_fixed(&self) -> bool {
         !self.inner.side.is_receiver()

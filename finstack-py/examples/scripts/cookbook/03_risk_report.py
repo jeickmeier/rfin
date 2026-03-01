@@ -59,26 +59,30 @@ def create_diversified_portfolio():
     fund = Entity("FUND-001").with_name("Global Macro Fund")
 
     # 1. Short-term bond (low duration)
-    bond_2y = Bond.fixed_semiannual(
-        "BOND.2Y",
-        Money(10_000_000, "USD"),
-        0.04,
-        date(2024, 1, 15),
-        date(2026, 1, 15),
-        "USD-OIS",
+    bond_2y = (
+        Bond.builder("BOND.2Y")
+        .money(Money(10_000_000, "USD"))
+        .coupon_rate(0.04)
+        .frequency("semiannual")
+        .issue(date(2024, 1, 15))
+        .maturity(date(2026, 1, 15))
+        .disc_id("USD-OIS")
+        .build()
     )
     pos_2y = Position("POS-BOND-2Y", fund.id, "BOND.2Y", bond_2y, 1.0, PositionUnit.UNITS).with_tags(
         {"asset_class": "rates", "maturity_bucket": "0-2Y"}
     )
 
     # 2. Medium-term bond
-    bond_5y = Bond.fixed_semiannual(
-        "BOND.5Y",
-        Money(20_000_000, "USD"),
-        0.045,
-        date(2024, 1, 15),
-        date(2029, 1, 15),
-        "USD-OIS",
+    bond_5y = (
+        Bond.builder("BOND.5Y")
+        .money(Money(20_000_000, "USD"))
+        .coupon_rate(0.045)
+        .frequency("semiannual")
+        .issue(date(2024, 1, 15))
+        .maturity(date(2029, 1, 15))
+        .disc_id("USD-OIS")
+        .build()
     )
     pos_5y = Position("POS-BOND-5Y", fund.id, "BOND.5Y", bond_5y, 1.0, PositionUnit.UNITS).with_tags(
         {"asset_class": "rates", "maturity_bucket": "5-7Y"}

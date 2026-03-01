@@ -32,6 +32,7 @@ impl PyAutocallable {
 impl PyAutocallable {
     #[classmethod]
     #[pyo3(
+        signature = (instrument_id, ticker, observation_dates, autocall_barriers, coupons, final_barrier, final_payoff_type, participation_rate, cap_level, notional, discount_curve, spot_id, vol_surface, *, expiry=None, div_yield_id=None),
         text_signature = "(cls, instrument_id, ticker, observation_dates, autocall_barriers, coupons, final_barrier, final_payoff_type, participation_rate, cap_level, notional, discount_curve, spot_id, vol_surface, *, expiry=None, div_yield_id=None)"
     )]
     #[allow(clippy::too_many_arguments)]

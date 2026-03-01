@@ -68,18 +68,16 @@ class CliquetOption:
     def builder(
         cls,
         instrument_id: str,
-        underlying_ticker: str,
+        ticker: str,
         reset_dates: List[date],
-        maturity: date,
+        local_cap: float,
+        global_cap: float,
         notional: Money,
         discount_curve: str,
-        vol_surface: str,
         spot_id: str,
+        vol_surface: str,
         *,
-        local_cap: float = 0.0,
-        local_floor: float = 0.0,
-        global_cap: float = 0.0,
-        global_floor: float = 0.0,
+        maturity: date | None = None,
         div_yield_id: str | None = None,
     ) -> "CliquetOption":
         """Create a cliquet option.
@@ -144,7 +142,7 @@ class CliquetOption:
     @property
     def instrument_id(self) -> str: ...
     @property
-    def underlying_ticker(self) -> str: ...
+    def ticker(self) -> str: ...
     @property
     def notional(self) -> Money: ...
     @property

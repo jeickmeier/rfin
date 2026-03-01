@@ -86,6 +86,7 @@ pub struct PyInflationLinkedBondBuilder {
     day_count: DayCount,
     deflation_protection: DeflationProtection,
     calendar: Option<String>,
+    quoted_clean: Option<f64>,
 }
 
 impl PyInflationLinkedBondBuilder {
@@ -105,6 +106,7 @@ impl PyInflationLinkedBondBuilder {
             day_count: DayCount::ActAct,
             deflation_protection: DeflationProtection::MaturityOnly,
             calendar: None,
+            quoted_clean: None,
         }
     }
 
@@ -236,6 +238,12 @@ impl PyInflationLinkedBondBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, price)")]
+    fn quoted_clean_price(mut slf: PyRefMut<'_, Self>, price: Option<f64>) -> PyRefMut<'_, Self> {
+        slf.quoted_clean = price;
+        slf
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyInflationLinkedBond> {
         slf.ensure_ready()?;
@@ -269,7 +277,8 @@ impl PyInflationLinkedBondBuilder {
         builder = builder.inflation_index_id(slf.inflation_curve.clone().unwrap());
         builder = builder.attributes(Default::default());
 
-        let bond = builder.build().map_err(core_to_py)?;
+        let mut bond = builder.build().map_err(core_to_py)?;
+        bond.quoted_clean = slf.quoted_clean;
         Ok(PyInflationLinkedBond::new(bond))
     }
 

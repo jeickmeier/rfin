@@ -74,32 +74,27 @@ def main() -> None:
     # A) Custom schedule with PIK + amortization; call schedule defined in instrument
     schedule = build_custom_schedule(issue, maturity, notional)
     [(date(2028, 1, 15), 102.0), (date(2029, 1, 15), 101.0)]
-    bond_custom = Bond.fixed_semiannual(
-        "BOND-CUSTOM-PIK-AMORT-CALL",
-        notional,
-        0.05,
-        issue,
-        maturity,
-        "USD-OIS",
-    )
+    bond_custom = Bond.builder("BOND-CUSTOM-PIK-AMORT-CALL").money(notional).coupon_rate(0.05).frequency("semiannual").issue(issue).maturity(maturity).disc_id("USD-OIS").build()
 
     # Or create directly from schedule
-    bond_from_sched = Bond.from_cashflows(
-        instrument_id="BOND-CUSTOM-SCHED",
-        schedule=schedule,
-        discount_curve="USD-OIS",
-        quoted_clean=99.2,
+    bond_from_sched = (
+        Bond.builder("BOND-CUSTOM-SCHED")
+        .cashflows(schedule)
+        .disc_id("USD-OIS")
+        .quoted_clean_price(99.2)
+        .build()
     )
 
-    # B) FRN via helper
-    bond_frn = Bond.floating(
-        "BOND-FRN",
-        notional,
-        issue,
-        maturity,
-        "USD-OIS",
-        "USD-SOFR-3M",
-        150.0,
+    # B) FRN
+    bond_frn = (
+        Bond.builder("BOND-FRN")
+        .money(notional)
+        .issue(issue)
+        .maturity(maturity)
+        .disc_id("USD-OIS")
+        .forward_curve("USD-SOFR-3M")
+        .float_margin_bp(150.0)
+        .build()
     )
 
     # Price examples
@@ -113,23 +108,27 @@ def main() -> None:
     [f.to_tuple()[:3] for f in flows[:3]]
 
     # C) Zero-coupon bond
-    zcb = Bond.zero_coupon(
-        instrument_id="BOND-ZERO",
-        notional=notional,
-        issue=issue,
-        maturity=maturity,
-        discount_curve="USD-OIS",
+    zcb = (
+        Bond.builder("BOND-ZERO")
+        .money(notional)
+        .coupon_rate(0.0)
+        .issue(issue)
+        .maturity(maturity)
+        .disc_id("USD-OIS")
+        .build()
     )
     reg.price(zcb, "discounting", market, as_of=as_of)
 
-    # D) Fixed bond helper priced off USD-OIS
-    fixed = Bond.fixed_semiannual(
-        "BOND-FIXED",
-        notional,
-        0.03,
-        issue,
-        maturity,
-        "USD-OIS",
+    # D) Fixed bond priced off USD-OIS
+    fixed = (
+        Bond.builder("BOND-FIXED")
+        .money(notional)
+        .coupon_rate(0.03)
+        .frequency("semiannual")
+        .issue(issue)
+        .maturity(maturity)
+        .disc_id("USD-OIS")
+        .build()
     )
     reg.price(fixed, "discounting", market, as_of=as_of)
 
@@ -146,11 +145,12 @@ def main() -> None:
         ])
     )
     sched2 = cfb2.build_with_curves(None)
-    bond_split = Bond.from_cashflows(
-        instrument_id="BOND-SPLIT-PIK-CASH",
-        schedule=sched2,
-        discount_curve="USD-OIS",
-        quoted_clean=100.25,
+    bond_split = (
+        Bond.builder("BOND-SPLIT-PIK-CASH")
+        .cashflows(sched2)
+        .disc_id("USD-OIS")
+        .quoted_clean_price(100.25)
+        .build()
     )
     reg.price(bond_split, "discounting", market, as_of=as_of)
 
@@ -173,18 +173,19 @@ def main() -> None:
     MetricRegistry.standard()
 
     # Build a standard fixed bond with a quoted clean price for metrics
-    fixed_for_metrics = Bond.builder(
-        instrument_id="BOND-FIXED-METRICS",
-        notional=notional,
-        issue=issue,
-        maturity=maturity,
-        discount_curve="USD-OIS",
-        coupon_rate=0.05,
-        frequency=Frequency.SEMI_ANNUAL,
-        day_count=DayCount.THIRTY_360,
-        bdc=BusinessDayConvention.FOLLOWING,
-        stub=StubKind.NONE,
-        quoted_clean_price=100.5,
+    fixed_for_metrics = (
+        Bond.builder("BOND-FIXED-METRICS")
+        .money(notional)
+        .issue(issue)
+        .maturity(maturity)
+        .disc_id("USD-OIS")
+        .coupon_rate(0.05)
+        .frequency(Frequency.SEMI_ANNUAL)
+        .day_count(DayCount.THIRTY_360)
+        .bdc(BusinessDayConvention.FOLLOWING)
+        .stub(StubKind.NONE)
+        .quoted_clean_price(100.5)
+        .build()
     )
 
     # Price with metrics for the standard fixed-rate bond

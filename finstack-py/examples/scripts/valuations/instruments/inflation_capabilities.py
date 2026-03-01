@@ -59,6 +59,7 @@ def main() -> None:
         .discount_curve("USD-OIS")
         .inflation_curve("US-CPI")
         .indexation("tips")
+        .quoted_clean_price(100.0)
         .build()
     )
     registry.price_with_metrics(

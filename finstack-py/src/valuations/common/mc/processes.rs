@@ -18,7 +18,12 @@ use pyo3::prelude::*;
 ///     r: Risk-free rate (annual)
 ///     q: Dividend/foreign rate (annual)
 ///     sigma: Volatility (annual)
-#[pyclass(module = "finstack.valuations.common.mc", name = "GbmParams", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "GbmParams",
+    frozen,
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PyGbmParams {
     pub(crate) inner: finstack_valuations::instruments::common::mc::process::gbm::GbmParams,
@@ -82,7 +87,8 @@ impl PyGbmParams {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "HestonParams",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyHestonParams {
@@ -164,7 +170,12 @@ impl PyHestonParams {
 ///     kappa: Mean reversion speed (> 0)
 ///     theta: Long-term mean (>= 0)
 ///     sigma: Volatility of volatility (> 0)
-#[pyclass(module = "finstack.valuations.common.mc", name = "CirParams", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "CirParams",
+    frozen,
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PyCirParams {
     pub(crate) inner: finstack_valuations::instruments::common::mc::process::cir::CirParams,
@@ -227,7 +238,8 @@ impl PyCirParams {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "HullWhite1FParams",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyHullWhite1FParams {
@@ -317,7 +329,8 @@ impl PyHullWhite1FParams {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "MertonJumpParams",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyMertonJumpParams {
@@ -404,7 +417,8 @@ impl PyMertonJumpParams {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "SchwartzSmithParams",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PySchwartzSmithParams {
@@ -469,7 +483,8 @@ impl PySchwartzSmithParams {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "BrownianParams",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyBrownianParams {
@@ -521,7 +536,8 @@ impl PyBrownianParams {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "MultiOuParams",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyMultiOuParams {

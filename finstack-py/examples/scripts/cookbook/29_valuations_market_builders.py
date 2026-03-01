@@ -22,7 +22,7 @@ def main() -> None:
     from finstack.valuations.conventions import CdsConventionKey, CdsDocClause, ConventionRegistry
     from finstack.valuations.market import (
         BuildCtx,
-        CdsTrancheBuildOverrides,
+        CDSTrancheBuildOverrides,
         CdsTrancheQuote,
         RateQuote,
         build_cds_tranche_instrument,
@@ -59,11 +59,11 @@ def main() -> None:
         attachment=0.03,
         detachment=0.07,
         maturity=date(2029, 6, 20),
-        upfront_pct=-2.5,
+        upfront_pct=-0.025,
         running_spread_bp=500.0,
         convention=CdsConventionKey(currency="USD", doc_clause=CdsDocClause.ISDA_NA),
     )
-    overrides = CdsTrancheBuildOverrides(series=42)
+    overrides = CDSTrancheBuildOverrides(series=42)
     tranche = build_cds_tranche_instrument(tranche_quote, tranche_ctx, overrides)
     print("tranche instrument:", tranche.id, tranche.instrument_type.name)
 

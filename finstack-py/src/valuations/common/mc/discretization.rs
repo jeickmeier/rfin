@@ -17,7 +17,8 @@ use pyo3::prelude::*;
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "ExactGbmScheme",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyExactGbmScheme;
@@ -47,7 +48,8 @@ impl PyExactGbmScheme {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "EulerMaruyamaScheme",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyEulerMaruyamaScheme;
@@ -72,7 +74,8 @@ impl PyEulerMaruyamaScheme {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "LogEulerScheme",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyLogEulerScheme;
@@ -103,7 +106,8 @@ impl PyLogEulerScheme {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "MilsteinScheme",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyMilsteinScheme;
@@ -126,7 +130,8 @@ impl PyMilsteinScheme {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "LogMilsteinScheme",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyLogMilsteinScheme;
@@ -157,7 +162,8 @@ impl PyLogMilsteinScheme {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "QeHestonScheme",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyQeHestonScheme {
@@ -203,7 +209,12 @@ impl PyQeHestonScheme {
 ///
 /// Args:
 ///     psi_c: Critical psi value (default 1.5)
-#[pyclass(module = "finstack.valuations.common.mc", name = "QeCirScheme", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "QeCirScheme",
+    frozen,
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PyQeCirScheme {
     psi_c: f64,
@@ -235,7 +246,8 @@ impl PyQeCirScheme {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "ExactHullWhite1FScheme",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyExactHullWhite1FScheme;
@@ -261,7 +273,8 @@ impl PyExactHullWhite1FScheme {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "JumpEulerScheme",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyJumpEulerScheme;
@@ -285,7 +298,8 @@ impl PyJumpEulerScheme {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "ExactSchwartzSmithScheme",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyExactSchwartzSmithScheme;

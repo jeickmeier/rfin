@@ -106,6 +106,7 @@ def main() -> None:
         "discounting",
         market,
         ["index_delta", "financing_annuity"],
+        as_of=as_of,
     )
 
     index_underlying = IndexUnderlying.new(
@@ -131,6 +132,7 @@ def main() -> None:
         "discounting",
         market,
         ["par_spread", "dv01"],
+        as_of=as_of,
     )
 
 

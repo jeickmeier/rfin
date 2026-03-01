@@ -59,13 +59,15 @@ def create_positions(as_of: date, entity_id: str) -> list[Position]:
 
     # 1. Corporate bonds
     # Investment grade bond
-    ig_bond = Bond.fixed_semiannual(
-        "ACME.5Y.IG",
-        Money(5_000_000, "USD"),
-        0.045,
-        date(2024, 1, 15),
-        date(2029, 1, 15),
-        "USD-OIS",
+    ig_bond = (
+        Bond.builder("ACME.5Y.IG")
+        .money(Money(5_000_000, "USD"))
+        .coupon_rate(0.045)
+        .frequency("semiannual")
+        .issue(date(2024, 1, 15))
+        .maturity(date(2029, 1, 15))
+        .disc_id("USD-OIS")
+        .build()
     )
     positions.append(
         Position("POS-IG", entity_id, "ACME.5Y.IG", ig_bond, 1.0, PositionUnit.UNITS).with_tags(
@@ -79,13 +81,15 @@ def create_positions(as_of: date, entity_id: str) -> list[Position]:
     )
 
     # High yield bond
-    hy_bond = Bond.fixed_semiannual(
-        "SPECTRE.3Y.HY",
-        Money(2_000_000, "USD"),
-        0.085,
-        date(2024, 1, 15),
-        date(2027, 1, 15),
-        "USD-OIS",
+    hy_bond = (
+        Bond.builder("SPECTRE.3Y.HY")
+        .money(Money(2_000_000, "USD"))
+        .coupon_rate(0.085)
+        .frequency("semiannual")
+        .issue(date(2024, 1, 15))
+        .maturity(date(2027, 1, 15))
+        .disc_id("USD-OIS")
+        .build()
     )
     positions.append(
         Position("POS-HY", entity_id, "SPECTRE.3Y.HY", hy_bond, 1.0, PositionUnit.UNITS).with_tags(
@@ -99,13 +103,15 @@ def create_positions(as_of: date, entity_id: str) -> list[Position]:
     )
 
     # EUR corporate bond
-    eur_bond = Bond.fixed_semiannual(
-        "EUROTECH.7Y",
-        Money(3_000_000, "EUR"),
-        0.035,
-        date(2024, 1, 15),
-        date(2031, 1, 15),
-        "EUR-OIS",
+    eur_bond = (
+        Bond.builder("EUROTECH.7Y")
+        .money(Money(3_000_000, "EUR"))
+        .coupon_rate(0.035)
+        .frequency("semiannual")
+        .issue(date(2024, 1, 15))
+        .maturity(date(2031, 1, 15))
+        .disc_id("EUR-OIS")
+        .build()
     )
     positions.append(
         Position("POS-EUR-BOND", entity_id, "EUROTECH.7Y", eur_bond, 1.0, PositionUnit.UNITS).with_tags(
@@ -119,14 +125,15 @@ def create_positions(as_of: date, entity_id: str) -> list[Position]:
     )
 
     # 2. Deposits
-    usd_deposit = Deposit(
-        "USD.DEPOSIT.3M",
-        Money(10_000_000, "USD"),
-        as_of,
-        date(2024, 4, 15),
-        DayCount.ACT_360,
-        "USD-OIS",
-        quote_rate=0.0525,
+    usd_deposit = (
+        Deposit.builder("USD.DEPOSIT.3M")
+        .money(Money(10_000_000, "USD"))
+        .start(as_of)
+        .maturity(date(2024, 4, 15))
+        .day_count(DayCount.ACT_360)
+        .disc_id("USD-OIS")
+        .quote_rate(0.0525)
+        .build()
     )
     positions.append(
         Position("POS-DEPOSIT", entity_id, "USD.DEPOSIT.3M", usd_deposit, 1.0, PositionUnit.UNITS).with_tags(

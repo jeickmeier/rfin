@@ -111,29 +111,40 @@ def example_2_portfolio_builder() -> None:
 
     # Create instruments
     # 1. Corporate bond
-    bond = Bond.fixed_semiannual(
-        "BOND_CORP_A",
-        Money(5_000_000, "USD"),
-        0.045,  # 4.5% coupon
-        date(2024, 1, 15),
-        date(2029, 1, 15),
-        "USD-OIS",
+    bond = (
+        Bond.builder("BOND_CORP_A")
+        .money(Money(5_000_000, "USD"))
+        .coupon_rate(0.045)
+        .frequency("semiannual")
+        .issue(date(2024, 1, 15))
+        .maturity(date(2029, 1, 15))
+        .disc_id("USD-OIS")
+        .build()
     )
 
     # 2. Money market deposit
-    deposit = Deposit(
-        "DEPOSIT_MM",
-        Money(2_000_000, "USD"),
-        as_of,
-        date(2024, 7, 2),
-        DayCount.ACT_360,
-        "USD-OIS",
-        quote_rate=0.0525,
+    deposit = (
+        Deposit.builder("DEPOSIT_MM")
+        .money(Money(2_000_000, "USD"))
+        .start(as_of)
+        .maturity(date(2024, 7, 2))
+        .day_count(DayCount.ACT_360)
+        .disc_id("USD-OIS")
+        .quote_rate(0.0525)
+        .build()
     )
 
     # 3. Interest rate swap
-    swap = InterestRateSwap.usd_receive_fixed(
-        "IRS_USD_5Y", Money(10_000_000, "USD"), 0.0425, date(2024, 1, 5), date(2029, 1, 5)
+    swap = (
+        InterestRateSwap.builder("IRS_USD_5Y")
+        .money(Money(10_000_000, "USD"))
+        .side("receive_fixed")
+        .fixed_rate(0.0425)
+        .start(date(2024, 1, 5))
+        .maturity(date(2029, 1, 5))
+        .disc_id("USD-OIS")
+        .fwd_id("USD-SOFR-3M")
+        .build()
     )
 
     # Create positions
@@ -211,33 +222,11 @@ def example_3_portfolio_valuation() -> None:
     market = build_market_data(as_of)
 
     # Create instruments
-    bond1 = Bond.fixed_semiannual(
-        "BOND_001",
-        Money(3_000_000, "USD"),
-        0.050,
-        date(2024, 1, 15),
-        date(2027, 1, 15),
-        "USD-OIS",
-    )
+    bond1 = Bond.builder("BOND_001").money(Money(3_000_000, "USD")).coupon_rate(0.050).frequency("semiannual").issue(date(2024, 1, 15)).maturity(date(2027, 1, 15)).disc_id("USD-OIS").build()
 
-    bond2 = Bond.fixed_semiannual(
-        "BOND_002",
-        Money(2_000_000, "USD"),
-        0.045,
-        date(2024, 2, 1),
-        date(2026, 2, 1),
-        "USD-OIS",
-    )
+    bond2 = Bond.builder("BOND_002").money(Money(2_000_000, "USD")).coupon_rate(0.045).frequency("semiannual").issue(date(2024, 2, 1)).maturity(date(2026, 2, 1)).disc_id("USD-OIS").build()
 
-    deposit = Deposit(
-        "DEPOSIT_001",
-        Money(1_000_000, "USD"),
-        as_of,
-        date(2024, 4, 2),
-        DayCount.ACT_360,
-        "USD-OIS",
-        quote_rate=0.0450,  # 4.50% deposit rate
-    )
+    deposit = Deposit.builder("DEPOSIT_001").money(Money(1_000_000, "USD")).start(as_of).maturity(date(2024, 4, 2)).day_count(DayCount.ACT_360).disc_id("USD-OIS").quote_rate(0.0450).build()
 
     # Build portfolio
     entity = Entity("TREASURY").with_name("Treasury Department")
@@ -278,7 +267,7 @@ def example_3_portfolio_valuation() -> None:
 
     # Aggregate metrics
     print("\nAggregating metrics...")
-    metrics = aggregate_metrics(valuation)
+    metrics = aggregate_metrics(valuation, "USD", market)
 
     print(f"Aggregated metrics: {len(metrics.aggregated)}")
     print(f"Position-level metrics: {len(metrics.by_position)}")
@@ -308,17 +297,11 @@ def example_4_grouping_and_aggregation() -> None:
     market = build_market_data(as_of)
 
     # Create bonds with different attributes
-    corp_bond_aaa = Bond.fixed_semiannual(
-        "CORP_AAA_1", Money(2_000_000, "USD"), 0.040, date(2024, 1, 15), date(2029, 1, 15), "USD-OIS"
-    )
+    corp_bond_aaa = Bond.builder("CORP_AAA_1").money(Money(2_000_000, "USD")).coupon_rate(0.040).frequency("semiannual").issue(date(2024, 1, 15)).maturity(date(2029, 1, 15)).disc_id("USD-OIS").build()
 
-    corp_bond_bbb = Bond.fixed_semiannual(
-        "CORP_BBB_1", Money(3_000_000, "USD"), 0.055, date(2024, 1, 15), date(2029, 1, 15), "USD-OIS"
-    )
+    corp_bond_bbb = Bond.builder("CORP_BBB_1").money(Money(3_000_000, "USD")).coupon_rate(0.055).frequency("semiannual").issue(date(2024, 1, 15)).maturity(date(2029, 1, 15)).disc_id("USD-OIS").build()
 
-    treasury = Bond.fixed_semiannual(
-        "UST_10Y", Money(5_000_000, "USD"), 0.038, date(2024, 1, 15), date(2034, 1, 15), "USD-OIS"
-    )
+    treasury = Bond.builder("UST_10Y").money(Money(5_000_000, "USD")).coupon_rate(0.038).frequency("semiannual").issue(date(2024, 1, 15)).maturity(date(2034, 1, 15)).disc_id("USD-OIS").build()
 
     # Create entity
     entity = Entity("FIXED_INCOME").with_name("Fixed Income Desk")
@@ -391,19 +374,9 @@ def example_5_multi_entity_portfolio() -> None:
     ]
 
     # Create diverse instruments
-    bond = Bond.fixed_semiannual(
-        "CORP_BOND", Money(4_000_000, "USD"), 0.048, date(2024, 1, 15), date(2028, 1, 15), "USD-OIS"
-    )
+    bond = Bond.builder("CORP_BOND").money(Money(4_000_000, "USD")).coupon_rate(0.048).frequency("semiannual").issue(date(2024, 1, 15)).maturity(date(2028, 1, 15)).disc_id("USD-OIS").build()
 
-    deposit = Deposit(
-        "MM_DEPOSIT",
-        Money(1_500_000, "USD"),
-        as_of,
-        date(2024, 3, 2),
-        DayCount.ACT_360,
-        "USD-OIS",
-        quote_rate=0.0475,  # 4.75% deposit rate
-    )
+    deposit = Deposit.builder("MM_DEPOSIT").money(Money(1_500_000, "USD")).start(as_of).maturity(date(2024, 3, 2)).day_count(DayCount.ACT_360).disc_id("USD-OIS").quote_rate(0.0475).build()
 
     equity_aapl = (
         Equity.builder("AAPL_POS")
@@ -423,8 +396,16 @@ def example_5_multi_entity_portfolio() -> None:
         .build()
     )
 
-    swap = InterestRateSwap.usd_pay_fixed(
-        "IRS_PAY_FIXED", Money(8_000_000, "USD"), 0.0450, date(2024, 1, 5), date(2027, 1, 5)
+    swap = (
+        InterestRateSwap.builder("IRS_PAY_FIXED")
+        .money(Money(8_000_000, "USD"))
+        .side("pay_fixed")
+        .fixed_rate(0.0450)
+        .start(date(2024, 1, 5))
+        .maturity(date(2027, 1, 5))
+        .disc_id("USD-OIS")
+        .fwd_id("USD-SOFR-3M")
+        .build()
     )
 
     # Create positions across entities
@@ -474,7 +455,7 @@ def example_5_multi_entity_portfolio() -> None:
         print(f"  {entity_name}: {value.format()}")
 
     # Compute metrics
-    metrics = aggregate_metrics(valuation)
+    metrics = aggregate_metrics(valuation, "USD", market)
 
     # Show portfolio-level metrics if available
     if metrics.aggregated:
@@ -501,14 +482,7 @@ def example_6_portfolio_results() -> None:
     config = FinstackConfig()
 
     # Simple portfolio
-    bond = Bond.fixed_semiannual(
-        "BOND_SIMPLE",
-        Money(10_000_000, "USD"),
-        0.045,
-        date(2024, 1, 15),
-        date(2029, 1, 15),
-        "USD-OIS",
-    )
+    bond = Bond.builder("BOND_SIMPLE").money(Money(10_000_000, "USD")).coupon_rate(0.045).frequency("semiannual").issue(date(2024, 1, 15)).maturity(date(2029, 1, 15)).disc_id("USD-OIS").build()
 
     entity = Entity("TREASURY").with_name("Treasury")
 
@@ -523,7 +497,7 @@ def example_6_portfolio_results() -> None:
 
     # Get valuation and metrics
     valuation = value_portfolio(portfolio, market, config)
-    metrics = aggregate_metrics(valuation)
+    metrics = aggregate_metrics(valuation, "USD", market)
 
     print(f"Portfolio Results for: {portfolio.id}")
     print(f"\nTotal Value: {valuation.total_base_ccy.format()}")
@@ -556,14 +530,7 @@ def example_7_position_units() -> None:
     as_of = date(2024, 1, 2)
 
     # Create instruments
-    bond = Bond.fixed_semiannual(
-        "BOND_FACE",
-        Money(1_000_000, "USD"),
-        0.050,
-        date(2024, 1, 15),
-        date(2029, 1, 15),
-        "USD-OIS",
-    )
+    bond = Bond.builder("BOND_FACE").money(Money(1_000_000, "USD")).coupon_rate(0.050).frequency("semiannual").issue(date(2024, 1, 15)).maturity(date(2029, 1, 15)).disc_id("USD-OIS").build()
 
     equity = (
         Equity.builder("EQUITY_UNITS")
@@ -633,14 +600,7 @@ def example_8_scenario_integration() -> None:
     market = build_market_data(as_of)
 
     # Create portfolio
-    bond = Bond.fixed_semiannual(
-        "BOND_RATE_SENS",
-        Money(10_000_000, "USD"),
-        0.045,
-        date(2024, 1, 15),
-        date(2034, 1, 15),  # 10-year bond
-        "USD-OIS",
-    )
+    bond = Bond.builder("BOND_RATE_SENS").money(Money(10_000_000, "USD")).coupon_rate(0.045).frequency("semiannual").issue(date(2024, 1, 15)).maturity(date(2034, 1, 15)).disc_id("USD-OIS").build()
 
     entity = Entity("TREASURY")
 
@@ -700,9 +660,7 @@ def example_9_long_short_positions() -> None:
 
     as_of = date(2024, 1, 2)
 
-    bond = Bond.fixed_semiannual(
-        "BOND_LS", Money(1_000_000, "USD"), 0.045, date(2024, 1, 15), date(2029, 1, 15), "USD-OIS"
-    )
+    bond = Bond.builder("BOND_LS").money(Money(1_000_000, "USD")).coupon_rate(0.045).frequency("semiannual").issue(date(2024, 1, 15)).maturity(date(2029, 1, 15)).disc_id("USD-OIS").build()
 
     entity = Entity("HEDGE_FUND").with_name("Hedge Fund Desk")
 
@@ -756,19 +714,19 @@ def example_10_dummy_entity() -> None:
     print(f"Dummy entity name: {dummy.name}")
 
     # Standalone instruments
-    swap1 = InterestRateSwap.usd_receive_fixed(
-        "SWAP_STANDALONE_1", Money(5_000_000, "USD"), 0.0425, date(2024, 1, 5), date(2027, 1, 5)
+    swap1 = (
+        InterestRateSwap.builder("SWAP_STANDALONE_1")
+        .money(Money(5_000_000, "USD"))
+        .side("receive_fixed")
+        .fixed_rate(0.0425)
+        .start(date(2024, 1, 5))
+        .maturity(date(2027, 1, 5))
+        .disc_id("USD-OIS")
+        .fwd_id("USD-SOFR-3M")
+        .build()
     )
 
-    deposit1 = Deposit(
-        "DEP_STANDALONE",
-        Money(1_000_000, "USD"),
-        as_of,
-        date(2024, 4, 2),
-        DayCount.ACT_360,
-        "USD-OIS",
-        quote_rate=0.0450,  # 4.50% deposit rate
-    )
+    deposit1 = Deposit.builder("DEP_STANDALONE").money(Money(1_000_000, "USD")).start(as_of).maturity(date(2024, 4, 2)).day_count(DayCount.ACT_360).disc_id("USD-OIS").quote_rate(0.0450).build()
 
     # Positions referencing dummy entity
     positions = [

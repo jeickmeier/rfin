@@ -52,32 +52,35 @@ def build_bond_portfolio(as_of: date):
 
     # All bonds priced off the same curve "USD" with explicit market clean prices.
     # Use par (100.0) for simplicity so coupon ordering drives YTM ordering.
-    bond_aaa = Bond.builder(
-        "BOND_AAA",
-        notional=Money(1_000_000, "USD"),
-        issue=as_of,
-        maturity=maturity,
-        discount_curve="USD",
-        coupon_rate=0.03,
-        quoted_clean_price=100.0,
+    bond_aaa = (
+        Bond.builder("BOND_AAA")
+        .money(Money(1_000_000, "USD"))
+        .issue(as_of)
+        .maturity(maturity)
+        .disc_id("USD")
+        .coupon_rate(0.03)
+        .quoted_clean_price(100.0)
+        .build()
     )
-    bond_bbb = Bond.builder(
-        "BOND_BBB",
-        notional=Money(1_000_000, "USD"),
-        issue=as_of,
-        maturity=maturity,
-        discount_curve="USD",
-        coupon_rate=0.05,
-        quoted_clean_price=100.0,
+    bond_bbb = (
+        Bond.builder("BOND_BBB")
+        .money(Money(1_000_000, "USD"))
+        .issue(as_of)
+        .maturity(maturity)
+        .disc_id("USD")
+        .coupon_rate(0.05)
+        .quoted_clean_price(100.0)
+        .build()
     )
-    bond_ccc = Bond.builder(
-        "BOND_CCC",
-        notional=Money(1_000_000, "USD"),
-        issue=as_of,
-        maturity=maturity,
-        discount_curve="USD",
-        coupon_rate=0.08,
-        quoted_clean_price=100.0,
+    bond_ccc = (
+        Bond.builder("BOND_CCC")
+        .money(Money(1_000_000, "USD"))
+        .issue(as_of)
+        .maturity(maturity)
+        .disc_id("USD")
+        .coupon_rate(0.08)
+        .quoted_clean_price(100.0)
+        .build()
     )
 
     # Positions with rating tags

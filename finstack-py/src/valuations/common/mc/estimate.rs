@@ -7,7 +7,12 @@ use pyo3::prelude::*;
 ///
 /// Contains point estimate, uncertainty quantification, and metadata
 /// about the simulation run.
-#[pyclass(module = "finstack.valuations.common.mc", name = "Estimate", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "Estimate",
+    frozen,
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PyEstimate {
     pub(crate) inner: Estimate,
@@ -137,7 +142,8 @@ impl PyEstimate {
 #[pyclass(
     module = "finstack.valuations.common.mc",
     name = "ConvergenceDiagnostics",
-    frozen
+    frozen,
+    skip_from_py_object
 )]
 #[derive(Clone)]
 pub struct PyConvergenceDiagnostics {

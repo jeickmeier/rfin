@@ -53,23 +53,25 @@ def main() -> None:
 
     fund = Entity("FUND-BOOKS").with_name("Books Demo Fund")
 
-    dep_3m = Deposit(
-        "USD.DEPOSIT.3M",
-        Money(5_000_000, "USD"),
-        as_of,
-        date(2024, 4, 15),
-        DayCount.ACT_360,
-        "USD-OIS",
-        quote_rate=0.05,
+    dep_3m = (
+        Deposit.builder("USD.DEPOSIT.3M")
+        .money(Money(5_000_000, "USD"))
+        .start(as_of)
+        .maturity(date(2024, 4, 15))
+        .day_count(DayCount.ACT_360)
+        .disc_id("USD-OIS")
+        .quote_rate(0.05)
+        .build()
     )
-    dep_6m = Deposit(
-        "USD.DEPOSIT.6M",
-        Money(3_000_000, "USD"),
-        as_of,
-        date(2024, 7, 15),
-        DayCount.ACT_360,
-        "USD-OIS",
-        quote_rate=0.05,
+    dep_6m = (
+        Deposit.builder("USD.DEPOSIT.6M")
+        .money(Money(3_000_000, "USD"))
+        .start(as_of)
+        .maturity(date(2024, 7, 15))
+        .day_count(DayCount.ACT_360)
+        .disc_id("USD-OIS")
+        .quote_rate(0.05)
+        .build()
     )
 
     pos_3m = Position("POS-DEP-3M", fund.id, dep_3m.instrument_id, dep_3m, 1.0, PositionUnit.UNITS).with_book(

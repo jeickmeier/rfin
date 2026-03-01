@@ -158,7 +158,7 @@ python-dev: ## Install dependencies and build bindings
 	@if [ ! -d "$(VENV)" ]; then uv venv; fi
 	@printf "Installing Python dependencies and building extension...\n"
 	@$(call py_run,uv pip install maturin pytest pytest-benchmark ty ruff ipython jupyter)
-	@cd finstack-py && $(call py_run,python -m maturin develop --features postgres,turso $(if $(MATURIN_PROFILE),--profile $(MATURIN_PROFILE)))
+	@cd finstack-py && $(call py_run,python -m maturin develop $(if $(MATURIN_PROFILE),--profile $(MATURIN_PROFILE)))
 
 .PHONY: test-python
 test-python: ## Run Python tests
@@ -359,7 +359,7 @@ size-all: size-wasm size-py
 
 # --- Package Building ---
 
-MATURIN_FEATURES := scenarios,sqlite,postgres
+MATURIN_FEATURES := scenarios
 WHEEL_DIR := target/wheels
 
 .PHONY: wheel-local wheel-docker wheel-all wasm-pkg wasm-publish-dry

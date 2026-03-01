@@ -32,6 +32,7 @@ impl PyCliquetOption {
 impl PyCliquetOption {
     #[classmethod]
     #[pyo3(
+        signature = (instrument_id, ticker, reset_dates, local_cap, global_cap, notional, discount_curve, spot_id, vol_surface, *, maturity=None, div_yield_id=None),
         text_signature = "(cls, instrument_id, ticker, reset_dates, local_cap, global_cap, notional, discount_curve, spot_id, vol_surface, *, maturity=None, div_yield_id=None)"
     )]
     #[allow(clippy::too_many_arguments)]

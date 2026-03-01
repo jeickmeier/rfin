@@ -69,6 +69,7 @@ def example_cms_cap():
         option_type="call",  # Cap = call on rate
         notional=Money(10000000.0, USD),  # $10M notional
         discount_curve="USD.SOFR",
+        forward_curve="USD.SOFR",
         vol_surface="USD.SWAPTION.VOL",
     )
 
@@ -109,6 +110,7 @@ def example_cms_floor():
         option_type="put",  # Floor = put on rate
         notional=Money(25000000.0, USD),  # $25M notional
         discount_curve="USD.SOFR",
+        forward_curve="USD.SOFR",
         vol_surface="USD.SWAPTION.VOL",
     )
 
@@ -143,6 +145,7 @@ def example_cms_spread_option():
         option_type="call",
         notional=Money(50000000.0, USD),
         discount_curve="USD.SOFR",
+        forward_curve="USD.SOFR",
         vol_surface="USD.SWAPTION.VOL",
     )
 
@@ -156,6 +159,7 @@ def example_cms_spread_option():
         option_type="put",
         notional=Money(50000000.0, USD),
         discount_curve="USD.SOFR",
+        forward_curve="USD.SOFR",
         vol_surface="USD.SWAPTION.VOL",
     )
 

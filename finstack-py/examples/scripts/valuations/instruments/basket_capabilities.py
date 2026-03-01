@@ -40,6 +40,7 @@ def build_basket_definition() -> str:
     basket = {
         "id": "MULTI-ASSET-BASKET",
         "currency": "USD",
+        "notional": {"amount": 1_000_000.0, "currency": "USD"},
         "discount_curve_id": "USD-OIS",
         "expense_ratio": 0.0025,
         "constituents": [
@@ -66,6 +67,7 @@ def build_basket_definition() -> str:
             "days_in_year": 365.25,
             "fx_policy": "cashflow_date",
         },
+        "attributes": {"meta": {}, "tags": []},
     }
     return json.dumps(basket)
 
