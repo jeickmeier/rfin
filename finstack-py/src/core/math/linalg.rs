@@ -41,11 +41,22 @@ pub fn cholesky_decomposition_py(matrix: Vec<Vec<f64>>) -> PyResult<Vec<Vec<f64>
 }
 
 #[pyfunction(name = "validate_correlation_matrix")]
-#[pyo3(text_signature = "(matrix, tolerance=1e-10)")]
-pub fn validate_correlation_matrix_py(
-    matrix: Vec<Vec<f64>>,
-    _tolerance: Option<f64>,
-) -> PyResult<bool> {
+#[pyo3(text_signature = "(matrix)")]
+/// Validate that a matrix satisfies correlation matrix properties.
+///
+/// Checks diagonal elements are 1.0, off-diagonal elements are in [-1, 1],
+/// the matrix is symmetric, and the matrix is positive semi-definite.
+///
+/// Parameters
+/// ----------
+/// matrix : list[list[float]]
+///     Square matrix to validate.
+///
+/// Returns
+/// -------
+/// bool
+///     ``True`` if the matrix is a valid correlation matrix.
+pub fn validate_correlation_matrix_py(matrix: Vec<Vec<f64>>) -> PyResult<bool> {
     let n = matrix.len();
     if n == 0 {
         return Ok(true);

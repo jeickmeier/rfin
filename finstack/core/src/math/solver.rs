@@ -537,8 +537,9 @@ impl NewtonSolver {
                 .into());
             }
 
-            // Avoid division by zero with both absolute and relative guards
-            if fpx.abs() < self.min_derivative && fpx.abs() < self.min_derivative_rel * fx.abs() {
+            // Reject when derivative is too small (absolute OR relative to function value)
+            // to prevent divergent Newton steps where f/f' overflows
+            if fpx.abs() < self.min_derivative || fpx.abs() < self.min_derivative_rel * fx.abs() {
                 return Err(InputError::SolverConvergenceFailed {
                     iterations: iteration,
                     residual: fx.abs(),

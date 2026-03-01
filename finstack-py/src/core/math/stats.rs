@@ -165,10 +165,29 @@ pub fn correlation_py(x: Vec<f64>, y: Vec<f64>) -> PyResult<f64> {
 
 #[pyfunction(name = "mean_var")]
 #[pyo3(text_signature = "(data)")]
-/// Return the (mean, variance) pair for a data series.
+/// Return the (mean, sample_variance) pair for a data series.
+///
+/// The variance uses an unbiased estimator with ``n - 1`` denominator
+/// (Bessel's correction), consistent with :func:`variance`. Requires at
+/// least 2 observations; with fewer elements the variance is ``0.0``.
+///
+/// Parameters
+/// ----------
+/// data : list[float]
+///     Numeric data with at least 2 elements.
+///
+/// Returns
+/// -------
+/// tuple[float, float]
+///     ``(mean, sample_variance)`` pair.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If *data* has fewer than 2 elements.
 pub fn mean_var_py(data: Vec<f64>) -> PyResult<(f64, f64)> {
-    if data.is_empty() {
-        return Err(PyValueError::new_err("Data must not be empty"));
+    if data.len() < 2 {
+        return Err(PyValueError::new_err("Data must have at least 2 elements"));
     }
     Ok(core_mean_var(&data))
 }

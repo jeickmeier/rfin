@@ -30,7 +30,7 @@ use pyo3::types::{PyList, PyModule, PyType};
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyInterpStyle {
-    pub inner: InterpStyle,
+    pub(crate) inner: InterpStyle,
 }
 
 impl PyInterpStyle {

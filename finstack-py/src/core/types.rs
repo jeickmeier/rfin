@@ -25,320 +25,105 @@ use std::str::FromStr;
 // ID Types
 // ============================================================================
 
-/// Type-safe identifier for market data curves.
-///
-/// Parameters
-/// ----------
-/// id : str
-///     String identifier for the curve.
-///
-/// Returns
-/// -------
-/// CurveId
-///     Curve identifier instance.
-#[pyclass(
-    name = "CurveId",
-    module = "finstack.core.types",
-    frozen,
-    from_py_object
-)]
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct PyCurveId {
-    pub(crate) inner: CurveId,
+macro_rules! declare_id_type {
+    (
+        $(#[doc = $doc:expr])*
+        $py_name:literal, $rust_wrapper:ident, $core_type:ident
+    ) => {
+        $(#[doc = $doc])*
+        #[pyclass(
+            name = $py_name,
+            module = "finstack.core.types",
+            frozen,
+            from_py_object
+        )]
+        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+        pub struct $rust_wrapper {
+            pub(crate) inner: $core_type,
+        }
+
+        impl $rust_wrapper {
+            pub(crate) fn new(inner: $core_type) -> Self {
+                Self { inner }
+            }
+        }
+
+        #[pymethods]
+        impl $rust_wrapper {
+            #[new]
+            #[pyo3(text_signature = "(id)")]
+            fn ctor(id: &str) -> Self {
+                Self::new($core_type::from(id))
+            }
+
+            #[pyo3(text_signature = "(self)")]
+            fn as_str(&self) -> &str {
+                self.inner.as_str()
+            }
+
+            fn __repr__(&self) -> String {
+                format!(concat!($py_name, "('{}')"), self.inner.as_str())
+            }
+
+            fn __str__(&self) -> String {
+                self.inner.to_string()
+            }
+
+            fn __hash__(&self) -> isize {
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                self.inner.hash(&mut hasher);
+                (hasher.finish() & isize::MAX as u64) as isize
+            }
+
+            /// Deconstruct into ``(id,)`` tuple (used by pickle).
+            fn __getnewargs__(&self) -> (String,) {
+                (self.inner.to_string(),)
+            }
+
+            fn __richcmp__(
+                &self,
+                other: Bound<'_, PyAny>,
+                op: CompareOp,
+                py: Python<'_>,
+            ) -> PyResult<Py<PyAny>> {
+                let rhs = match other.extract::<PyRef<$rust_wrapper>>() {
+                    Ok(id) => Some(id.inner.clone()),
+                    Err(_) => None,
+                };
+                richcmp_eq_ne(py, &self.inner, rhs, op)
+            }
+        }
+    };
 }
 
-impl PyCurveId {
-    pub(crate) fn new(inner: CurveId) -> Self {
-        Self { inner }
-    }
+declare_id_type! {
+    /// Type-safe identifier for market data curves.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     String identifier for the curve.
+    "CurveId", PyCurveId, CurveId
 }
 
-#[pymethods]
-impl PyCurveId {
-    #[new]
-    #[pyo3(text_signature = "(id)")]
-    fn ctor(id: &str) -> Self {
-        Self::new(CurveId::from(id))
-    }
-
-    #[pyo3(text_signature = "(self)")]
-    /// Get the string representation of this ID.
-    fn as_str(&self) -> &str {
-        self.inner.as_str()
-    }
-
-    fn __repr__(&self) -> String {
-        format!("CurveId('{}')", self.inner.as_str())
-    }
-
-    fn __str__(&self) -> String {
-        self.inner.to_string()
-    }
-
-    fn __hash__(&self) -> isize {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        self.inner.hash(&mut hasher);
-        (hasher.finish() & isize::MAX as u64) as isize
-    }
-
-    /// Deconstruct into ``(id,)`` tuple (used by pickle).
-    fn __getnewargs__(&self) -> (String,) {
-        (self.inner.to_string(),)
-    }
-
-    fn __richcmp__(
-        &self,
-        other: Bound<'_, PyAny>,
-        op: CompareOp,
-        py: Python<'_>,
-    ) -> PyResult<Py<PyAny>> {
-        let rhs = match other.extract::<PyRef<PyCurveId>>() {
-            Ok(id) => Some(id.inner.clone()),
-            Err(_) => None,
-        };
-        richcmp_eq_ne(py, &self.inner, rhs, op)
-    }
+declare_id_type! {
+    /// Type-safe identifier for financial instruments.
+    "InstrumentId", PyInstrumentId, InstrumentId
 }
 
-/// Type-safe identifier for financial instruments.
-#[pyclass(
-    name = "InstrumentId",
-    module = "finstack.core.types",
-    frozen,
-    from_py_object
-)]
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct PyInstrumentId {
-    pub(crate) inner: InstrumentId,
+declare_id_type! {
+    /// Type-safe identifier for market indices.
+    "IndexId", PyIndexId, IndexId
 }
 
-impl PyInstrumentId {
-    pub(crate) fn new(inner: InstrumentId) -> Self {
-        Self { inner }
-    }
+declare_id_type! {
+    /// Type-safe identifier for market prices/scalars.
+    "PriceId", PyPriceId, PriceId
 }
 
-#[pymethods]
-impl PyInstrumentId {
-    #[new]
-    #[pyo3(text_signature = "(id)")]
-    fn ctor(id: &str) -> Self {
-        Self::new(InstrumentId::from(id))
-    }
-
-    #[pyo3(text_signature = "(self)")]
-    fn as_str(&self) -> &str {
-        self.inner.as_str()
-    }
-
-    fn __repr__(&self) -> String {
-        format!("InstrumentId('{}')", self.inner.as_str())
-    }
-
-    fn __str__(&self) -> String {
-        self.inner.to_string()
-    }
-
-    fn __hash__(&self) -> isize {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        self.inner.hash(&mut hasher);
-        (hasher.finish() & isize::MAX as u64) as isize
-    }
-
-    /// Deconstruct into ``(id,)`` tuple (used by pickle).
-    fn __getnewargs__(&self) -> (String,) {
-        (self.inner.to_string(),)
-    }
-
-    fn __richcmp__(
-        &self,
-        other: Bound<'_, PyAny>,
-        op: CompareOp,
-        py: Python<'_>,
-    ) -> PyResult<Py<PyAny>> {
-        let rhs = match other.extract::<PyRef<PyInstrumentId>>() {
-            Ok(id) => Some(id.inner.clone()),
-            Err(_) => None,
-        };
-        richcmp_eq_ne(py, &self.inner, rhs, op)
-    }
-}
-
-/// Type-safe identifier for market indices.
-#[pyclass(
-    name = "IndexId",
-    module = "finstack.core.types",
-    frozen,
-    from_py_object
-)]
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct PyIndexId {
-    pub(crate) inner: IndexId,
-}
-
-impl PyIndexId {
-    pub(crate) fn new(inner: IndexId) -> Self {
-        Self { inner }
-    }
-}
-
-#[pymethods]
-impl PyIndexId {
-    #[new]
-    #[pyo3(text_signature = "(id)")]
-    fn ctor(id: &str) -> Self {
-        Self::new(IndexId::from(id))
-    }
-
-    #[pyo3(text_signature = "(self)")]
-    fn as_str(&self) -> &str {
-        self.inner.as_str()
-    }
-
-    fn __repr__(&self) -> String {
-        format!("IndexId('{}')", self.inner.as_str())
-    }
-
-    fn __str__(&self) -> String {
-        self.inner.to_string()
-    }
-
-    fn __hash__(&self) -> isize {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        self.inner.hash(&mut hasher);
-        (hasher.finish() & isize::MAX as u64) as isize
-    }
-
-    fn __richcmp__(
-        &self,
-        other: Bound<'_, PyAny>,
-        op: CompareOp,
-        py: Python<'_>,
-    ) -> PyResult<Py<PyAny>> {
-        let rhs = match other.extract::<PyRef<PyIndexId>>() {
-            Ok(id) => Some(id.inner.clone()),
-            Err(_) => None,
-        };
-        richcmp_eq_ne(py, &self.inner, rhs, op)
-    }
-}
-
-/// Type-safe identifier for market prices/scalars.
-#[pyclass(
-    name = "PriceId",
-    module = "finstack.core.types",
-    frozen,
-    from_py_object
-)]
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct PyPriceId {
-    pub(crate) inner: PriceId,
-}
-
-impl PyPriceId {
-    pub(crate) fn new(inner: PriceId) -> Self {
-        Self { inner }
-    }
-}
-
-#[pymethods]
-impl PyPriceId {
-    #[new]
-    #[pyo3(text_signature = "(id)")]
-    fn ctor(id: &str) -> Self {
-        Self::new(PriceId::from(id))
-    }
-
-    #[pyo3(text_signature = "(self)")]
-    fn as_str(&self) -> &str {
-        self.inner.as_str()
-    }
-
-    fn __repr__(&self) -> String {
-        format!("PriceId('{}')", self.inner.as_str())
-    }
-
-    fn __str__(&self) -> String {
-        self.inner.to_string()
-    }
-
-    fn __hash__(&self) -> isize {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        self.inner.hash(&mut hasher);
-        (hasher.finish() & isize::MAX as u64) as isize
-    }
-
-    fn __richcmp__(
-        &self,
-        other: Bound<'_, PyAny>,
-        op: CompareOp,
-        py: Python<'_>,
-    ) -> PyResult<Py<PyAny>> {
-        let rhs = match other.extract::<PyRef<PyPriceId>>() {
-            Ok(id) => Some(id.inner.clone()),
-            Err(_) => None,
-        };
-        richcmp_eq_ne(py, &self.inner, rhs, op)
-    }
-}
-
-/// Type-safe identifier for underlying assets.
-#[pyclass(
-    name = "UnderlyingId",
-    module = "finstack.core.types",
-    frozen,
-    from_py_object
-)]
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct PyUnderlyingId {
-    pub(crate) inner: UnderlyingId,
-}
-
-impl PyUnderlyingId {
-    pub(crate) fn new(inner: UnderlyingId) -> Self {
-        Self { inner }
-    }
-}
-
-#[pymethods]
-impl PyUnderlyingId {
-    #[new]
-    #[pyo3(text_signature = "(id)")]
-    fn ctor(id: &str) -> Self {
-        Self::new(UnderlyingId::from(id))
-    }
-
-    #[pyo3(text_signature = "(self)")]
-    fn as_str(&self) -> &str {
-        self.inner.as_str()
-    }
-
-    fn __repr__(&self) -> String {
-        format!("UnderlyingId('{}')", self.inner.as_str())
-    }
-
-    fn __str__(&self) -> String {
-        self.inner.to_string()
-    }
-
-    fn __hash__(&self) -> isize {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        self.inner.hash(&mut hasher);
-        (hasher.finish() & isize::MAX as u64) as isize
-    }
-
-    fn __richcmp__(
-        &self,
-        other: Bound<'_, PyAny>,
-        op: CompareOp,
-        py: Python<'_>,
-    ) -> PyResult<Py<PyAny>> {
-        let rhs = match other.extract::<PyRef<PyUnderlyingId>>() {
-            Ok(id) => Some(id.inner.clone()),
-            Err(_) => None,
-        };
-        richcmp_eq_ne(py, &self.inner, rhs, op)
-    }
+declare_id_type! {
+    /// Type-safe identifier for underlying assets.
+    "UnderlyingId", PyUnderlyingId, UnderlyingId
 }
 
 // ============================================================================
@@ -752,6 +537,11 @@ impl PyPercentage {
     fn __neg__(&self) -> Self {
         Self::new(-self.inner)
     }
+
+    /// Deconstruct into ``(percent,)`` tuple (used by pickle).
+    fn __getnewargs__(&self) -> (f64,) {
+        (self.inner.as_percent(),)
+    }
 }
 
 // ============================================================================
@@ -826,16 +616,11 @@ impl PyRatingNotch {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = match other.extract::<PyRef<PyRatingNotch>>() {
-            Ok(v) => Some(v.inner),
-            Err(_) => None,
-        };
-        let result = match op {
-            CompareOp::Eq => rhs.map(|v| v == self.inner).unwrap_or(false),
-            CompareOp::Ne => rhs.map(|v| v != self.inner).unwrap_or(true),
-            _ => return Err(PyTypeError::new_err("Unsupported comparison")),
-        };
-        Ok(result.into_bound_py_any(py)?.into())
+        let rhs = other
+            .extract::<PyRef<PyRatingNotch>>()
+            .ok()
+            .map(|v| v.inner);
+        richcmp_eq_ne(py, &self.inner, rhs, op)
     }
 }
 
@@ -935,16 +720,11 @@ impl PyCreditRating {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = match other.extract::<PyRef<PyCreditRating>>() {
-            Ok(v) => Some(v.inner),
-            Err(_) => None,
-        };
-        let result = match op {
-            CompareOp::Eq => rhs.map(|v| v == self.inner).unwrap_or(false),
-            CompareOp::Ne => rhs.map(|v| v != self.inner).unwrap_or(true),
-            _ => return Err(PyTypeError::new_err("Unsupported comparison")),
-        };
-        Ok(result.into_bound_py_any(py)?.into())
+        let rhs = other
+            .extract::<PyRef<PyCreditRating>>()
+            .ok()
+            .map(|v| v.inner);
+        richcmp_eq_ne(py, &self.inner, rhs, op)
     }
 }
 
@@ -1042,16 +822,11 @@ impl PyNotchedRating {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = match other.extract::<PyRef<PyNotchedRating>>() {
-            Ok(v) => Some(v.inner),
-            Err(_) => None,
-        };
-        let result = match op {
-            CompareOp::Eq => rhs.map(|v| v == self.inner).unwrap_or(false),
-            CompareOp::Ne => rhs.map(|v| v != self.inner).unwrap_or(true),
-            _ => return Err(PyTypeError::new_err("Unsupported comparison")),
-        };
-        Ok(result.into_bound_py_any(py)?.into())
+        let rhs = other
+            .extract::<PyRef<PyNotchedRating>>()
+            .ok()
+            .map(|v| v.inner);
+        richcmp_eq_ne(py, &self.inner, rhs, op)
     }
 }
 
@@ -1117,22 +892,11 @@ impl PyRatingLabel {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = match other.extract::<PyRef<PyRatingLabel>>() {
-            Ok(v) => Some(v.inner.as_str().to_string()),
-            Err(_) => None,
-        };
-        let result = match op {
-            CompareOp::Eq => rhs
-                .as_ref()
-                .map(|v| v == self.inner.as_str())
-                .unwrap_or(false),
-            CompareOp::Ne => rhs
-                .as_ref()
-                .map(|v| v != self.inner.as_str())
-                .unwrap_or(true),
-            _ => return Err(PyTypeError::new_err("Unsupported comparison")),
-        };
-        Ok(result.into_bound_py_any(py)?.into())
+        let rhs = other
+            .extract::<PyRef<PyRatingLabel>>()
+            .ok()
+            .map(|v| v.inner.clone());
+        richcmp_eq_ne(py, &self.inner, rhs, op)
     }
 }
 

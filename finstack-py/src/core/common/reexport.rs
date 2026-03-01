@@ -1,20 +1,26 @@
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 
-/// Re-export symbols from a submodule to the parent module.
+/// Re-export symbols from a named submodule onto the parent module.
 ///
-/// This helper flattens nested module structures, allowing users to import
-/// symbols from either `finstack.core.dates.Calendar` or `finstack.core.dates.calendar.Calendar`.
-#[allow(dead_code)]
-pub(crate) fn reexport_from_submodule(
-    parent: &Bound<'_, PyModule>,
+/// Flattens nested module structures so users can import from either
+/// `finstack.core.dates.Calendar` or `finstack.core.dates.calendar.Calendar`.
+pub(crate) fn promote_exports<'py>(
+    parent: &Bound<'py, PyModule>,
     submodule_name: &str,
     exports: &[&str],
 ) -> PyResult<()> {
-    let submodule = parent.getattr(submodule_name)?;
-    for &export in exports {
-        if let Ok(obj) = submodule.getattr(export) {
-            parent.setattr(export, obj)?;
+    if exports.is_empty() {
+        return Ok(());
+    }
+
+    let submodule = parent
+        .getattr(submodule_name)?
+        .downcast_into::<PyModule>()?;
+    for &name in exports {
+        if submodule.hasattr(name)? {
+            let attr = submodule.getattr(name)?;
+            parent.setattr(name, attr)?;
         }
     }
     Ok(())

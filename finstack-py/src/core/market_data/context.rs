@@ -635,15 +635,19 @@ impl PyMarketContext {
 
     /// Support ``copy.deepcopy(ctx)``.
     ///
+    /// All curves, surfaces, and scalars inside a ``MarketContext`` are
+    /// ``Arc``-shared and immutable, so a deep copy is equivalent to a shallow
+    /// copy—both reference the same underlying data safely.
+    ///
     /// Parameters
     /// ----------
     /// _memo : Any
-    ///     Memo dictionary (unused; all data is Arc-shared).
+    ///     Memo dictionary (unused).
     ///
     /// Returns
     /// -------
     /// MarketContext
-    ///     Deep clone of this context.
+    ///     Clone of this context sharing the same immutable market data.
     fn __deepcopy__(&self, _memo: Bound<'_, PyAny>) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -688,9 +692,5 @@ pub(crate) fn register<'py>(
     let exports = ["MarketContext"];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
-    for name in exports {
-        let attr = module.getattr(name)?;
-        parent.setattr(name, attr)?;
-    }
     Ok(exports.to_vec())
 }

@@ -170,7 +170,7 @@ impl PyLmStats {
             self.inner.iterations,
             self.inner.residual_evals,
             self.inner.jacobian_evals,
-            PyLmTerminationReason::from(self.inner.termination_reason.clone()).__repr__(),
+            self.termination_reason().__repr__(),
             self.inner.final_residual_norm,
             self.inner.final_step_norm,
             self.inner.lambda_final,
@@ -222,7 +222,7 @@ impl PyLmSolution {
         format!(
             "LmSolution(params={:?}, stats={})",
             self.inner.params,
-            PyLmStats::from(self.inner.stats.clone()).__repr__(),
+            self.stats().__repr__(),
         )
     }
 }
