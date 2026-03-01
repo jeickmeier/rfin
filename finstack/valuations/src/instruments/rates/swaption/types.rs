@@ -146,6 +146,22 @@ impl std::fmt::Display for VolatilityModel {
     }
 }
 
+impl std::str::FromStr for VolatilityModel {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "black" | "lognormal" | "black76" => Ok(Self::Black),
+            "normal" | "bachelier" => Ok(Self::Normal),
+            other => Err(format!(
+                "Unknown volatility model: '{}'. Valid: black, normal",
+                other
+            )),
+        }
+    }
+}
+
 /// Swaption settlement method
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
@@ -248,6 +264,23 @@ impl std::fmt::Display for CashSettlementMethod {
     }
 }
 
+impl std::str::FromStr for CashSettlementMethod {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "par_yield" | "paryield" => Ok(Self::ParYield),
+            "isda_par_par" | "isdaparpar" | "par_par" => Ok(Self::IsdaParPar),
+            "zero_coupon" | "zerocoupon" => Ok(Self::ZeroCoupon),
+            other => Err(format!(
+                "Unknown cash settlement method: '{}'. Valid: par_yield, isda_par_par, zero_coupon",
+                other
+            )),
+        }
+    }
+}
+
 impl std::fmt::Display for SwaptionSettlement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -261,7 +294,8 @@ impl std::str::FromStr for SwaptionSettlement {
     type Err = String;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().as_str() {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
             "physical" => Ok(SwaptionSettlement::Physical),
             "cash" => Ok(SwaptionSettlement::Cash),
             other => Err(format!("Unknown swaption settlement: {}", other)),
@@ -296,7 +330,8 @@ impl std::str::FromStr for SwaptionExercise {
     type Err = String;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().as_str() {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
             "european" => Ok(SwaptionExercise::European),
             "bermudan" => Ok(SwaptionExercise::Bermudan),
             "american" => Ok(SwaptionExercise::American),
@@ -434,8 +469,24 @@ pub enum BermudanType {
 impl std::fmt::Display for BermudanType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BermudanType::CoTerminal => write!(f, "co-terminal"),
-            BermudanType::NonCoTerminal => write!(f, "non-co-terminal"),
+            BermudanType::CoTerminal => write!(f, "co_terminal"),
+            BermudanType::NonCoTerminal => write!(f, "non_co_terminal"),
+        }
+    }
+}
+
+impl std::str::FromStr for BermudanType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "co_terminal" | "coterminal" => Ok(Self::CoTerminal),
+            "non_co_terminal" | "noncoterminal" => Ok(Self::NonCoTerminal),
+            other => Err(format!(
+                "Unknown Bermudan type: '{}'. Valid: co_terminal, non_co_terminal",
+                other
+            )),
         }
     }
 }

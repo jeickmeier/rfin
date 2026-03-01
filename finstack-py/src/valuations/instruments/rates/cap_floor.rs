@@ -1,18 +1,22 @@
-use crate::core::common::args::DayCountArg;
-// use crate::errors::core_to_py; // not used in this module currently
+use crate::core::common::args::{BusinessDayConventionArg, DayCountArg, StubKindArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::PyMoney;
 use crate::errors::PyContext;
+use crate::valuations::common::parameters::PyCapFloorVolType;
 use crate::valuations::common::{frequency_from_payments_per_year, PyInstrumentType};
-use finstack_core::dates::DayCount;
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::rates::cap_floor::InterestRateOption;
+use finstack_valuations::instruments::rates::cap_floor::{
+    CapFloorVolType, InterestRateOption, RateOptionType,
+};
+use finstack_valuations::instruments::{Attributes, PricingOverrides};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
+use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
@@ -35,8 +39,8 @@ fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
 ///     ...     .strike(0.035)
 ///     ...     .start_date(date(2024, 1, 1))
 ///     ...     .end_date(date(2027, 1, 1))
-///     ...     .disc_id("usd_discount")
-///     ...     .fwd_id("usd_libor_3m")
+///     ...     .discount_curve("usd_discount")
+///     ...     .forward_curve("usd_libor_3m")
 ///     ...     .vol_surface("usd_cap_vol")
 ///     ...     .build()
 ///     ... )
@@ -68,7 +72,7 @@ impl PyInterestRateOption {
 )]
 pub struct PyInterestRateOptionBuilder {
     instrument_id: InstrumentId,
-    is_cap: bool,
+    rate_option_type: RateOptionType,
     pending_notional_amount: Option<f64>,
     pending_currency: Option<finstack_core::currency::Currency>,
     strike: Option<f64>,
@@ -79,13 +83,20 @@ pub struct PyInterestRateOptionBuilder {
     vol_surface_id: Option<String>,
     payments_per_year: u32,
     day_count: DayCount,
+    vol_type: CapFloorVolType,
+    stub: StubKind,
+    bdc: BusinessDayConvention,
+    calendar: Option<String>,
+    implied_volatility: Option<f64>,
+    tree_steps: Option<usize>,
+    pending_attributes: Option<HashMap<String, String>>,
 }
 
 impl PyInterestRateOptionBuilder {
     fn new_with_id(id: InstrumentId) -> Self {
         Self {
             instrument_id: id,
-            is_cap: true,
+            rate_option_type: RateOptionType::Cap,
             pending_notional_amount: None,
             pending_currency: None,
             strike: None,
@@ -96,6 +107,13 @@ impl PyInterestRateOptionBuilder {
             vol_surface_id: None,
             payments_per_year: 4,
             day_count: DayCount::Act360,
+            vol_type: CapFloorVolType::default(),
+            stub: StubKind::ShortFront,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar: None,
+            implied_volatility: None,
+            tree_steps: None,
+            pending_attributes: None,
         }
     }
 
@@ -122,10 +140,10 @@ impl PyInterestRateOptionBuilder {
             return Err(PyValueError::new_err("end_date() is required."));
         }
         if self.discount_curve_id.is_none() {
-            return Err(PyValueError::new_err("disc_id() is required."));
+            return Err(PyValueError::new_err("discount_curve() is required."));
         }
         if self.forward_curve_id.is_none() {
-            return Err(PyValueError::new_err("fwd_id() is required."));
+            return Err(PyValueError::new_err("forward_curve() is required."));
         }
         if self.vol_surface_id.as_deref().unwrap_or("").is_empty() {
             return Err(PyValueError::new_err("vol_surface() is required."));
@@ -155,15 +173,9 @@ impl PyInterestRateOptionBuilder {
 
     #[pyo3(text_signature = "($self, kind)")]
     fn kind(mut slf: PyRefMut<'_, Self>, kind: String) -> PyResult<PyRefMut<'_, Self>> {
-        match kind.to_lowercase().as_str() {
-            "cap" => slf.is_cap = true,
-            "floor" => slf.is_cap = false,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "kind must be 'cap' or 'floor' (got '{other}')"
-                )))
-            }
-        }
+        slf.rate_option_type = kind
+            .parse::<RateOptionType>()
+            .map_err(|e| PyValueError::new_err(e))?;
         Ok(slf)
     }
 
@@ -217,15 +229,27 @@ impl PyInterestRateOptionBuilder {
     }
 
     #[pyo3(text_signature = "($self, curve_id)")]
-    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+    fn discount_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
         slf
     }
 
+    /// Deprecated: use `discount_curve()` instead.
+    #[pyo3(name = "disc_id", text_signature = "($self, curve_id)")]
+    fn disc_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        Self::discount_curve(slf, curve_id)
+    }
+
     #[pyo3(text_signature = "($self, curve_id)")]
-    fn fwd_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+    fn forward_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.forward_curve_id = Some(CurveId::new(curve_id.as_str()));
         slf
+    }
+
+    /// Deprecated: use `forward_curve()` instead.
+    #[pyo3(name = "fwd_id", text_signature = "($self, curve_id)")]
+    fn fwd_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        Self::forward_curve(slf, curve_id)
     }
 
     #[pyo3(text_signature = "($self, vol_surface)")]
@@ -251,6 +275,80 @@ impl PyInterestRateOptionBuilder {
         let dc = extract_day_count(Some(day_count))?;
         slf.day_count = dc;
         Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, vol_type)")]
+    fn vol_type<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        vol_type: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        if let Ok(py_vt) = vol_type.extract::<PyRef<PyCapFloorVolType>>() {
+            slf.vol_type = py_vt.inner;
+        } else if let Ok(name) = vol_type.extract::<&str>() {
+            slf.vol_type = name.parse().map_err(|e: String| PyValueError::new_err(e))?;
+        } else {
+            return Err(PyTypeError::new_err(
+                "vol_type() expects str or CapFloorVolType",
+            ));
+        }
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, stub)")]
+    fn stub<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        stub: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let StubKindArg(value) = stub
+            .extract()
+            .map_err(|_| PyValueError::new_err("stub() expects StubKind or str"))?;
+        slf.stub = value;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, bdc)")]
+    fn bdc<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        bdc: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let BusinessDayConventionArg(value) = bdc
+            .extract()
+            .map_err(|_| PyValueError::new_err("bdc() expects BusinessDayConvention or str"))?;
+        slf.bdc = value;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, calendar=None)", signature = (calendar=None))]
+    fn calendar(mut slf: PyRefMut<'_, Self>, calendar: Option<String>) -> PyRefMut<'_, Self> {
+        slf.calendar = calendar;
+        slf
+    }
+
+    #[pyo3(
+        text_signature = "($self, implied_volatility=None)",
+        signature = (implied_volatility=None)
+    )]
+    fn implied_volatility(
+        mut slf: PyRefMut<'_, Self>,
+        implied_volatility: Option<f64>,
+    ) -> PyRefMut<'_, Self> {
+        slf.implied_volatility = implied_volatility;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, tree_steps=None)", signature = (tree_steps=None))]
+    fn tree_steps(mut slf: PyRefMut<'_, Self>, tree_steps: Option<usize>) -> PyRefMut<'_, Self> {
+        slf.tree_steps = tree_steps;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, attributes=None)", signature = (attributes=None))]
+    fn attributes(
+        mut slf: PyRefMut<'_, Self>,
+        attributes: Option<HashMap<String, String>>,
+    ) -> PyRefMut<'_, Self> {
+        slf.pending_attributes = attributes;
+        slf
     }
 
     #[pyo3(text_signature = "($self)")]
@@ -294,33 +392,47 @@ impl PyInterestRateOptionBuilder {
         let freq = frequency_from_payments_per_year(Some(slf.payments_per_year))
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
-        let option = if slf.is_cap {
-            InterestRateOption::new_cap(
-                slf.instrument_id.clone(),
-                notional,
-                strike,
-                start,
-                end,
-                freq,
-                slf.day_count,
-                disc,
-                fwd,
-                vol_surface_id.as_str(),
+        let mut pricing_overrides = PricingOverrides::default();
+        if let Some(vol) = slf.implied_volatility {
+            pricing_overrides.market_quotes.implied_volatility = Some(vol);
+        }
+        if let Some(steps) = slf.tree_steps {
+            pricing_overrides.model_config.tree_steps = Some(steps);
+        }
+
+        let mut attrs = Attributes::new();
+        if let Some(ref pending) = slf.pending_attributes {
+            for (k, v) in pending {
+                attrs.meta.insert(k.clone(), v.clone());
+            }
+        }
+
+        let option = InterestRateOption::builder()
+            .id(slf.instrument_id.clone())
+            .rate_option_type(slf.rate_option_type)
+            .notional(notional)
+            .strike(rust_decimal::Decimal::try_from(strike).map_err(|_| {
+                PyValueError::new_err(format!("Cannot convert {} to decimal", strike))
+            })?)
+            .start_date(start)
+            .maturity(end)
+            .frequency(freq)
+            .day_count(slf.day_count)
+            .stub(slf.stub)
+            .bdc(slf.bdc)
+            .calendar_id_opt(
+                slf.calendar
+                    .clone()
+                    .map(finstack_core::types::CalendarId::new),
             )
-        } else {
-            InterestRateOption::new_floor(
-                slf.instrument_id.clone(),
-                notional,
-                strike,
-                start,
-                end,
-                freq,
-                slf.day_count,
-                disc,
-                fwd,
-                vol_surface_id.as_str(),
-            )
-        };
+            .discount_curve_id(disc)
+            .forward_curve_id(fwd)
+            .vol_surface_id(finstack_core::types::CurveId::new(&vol_surface_id))
+            .vol_type(slf.vol_type)
+            .pricing_overrides(pricing_overrides)
+            .attributes(attrs)
+            .build()
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(PyInterestRateOption::new(option))
     }
 
@@ -413,6 +525,26 @@ impl PyInterestRateOption {
     #[getter]
     fn vol_surface(&self) -> &str {
         self.inner.vol_surface_id.as_str()
+    }
+
+    #[getter]
+    fn vol_type(&self) -> PyCapFloorVolType {
+        PyCapFloorVolType::new(self.inner.vol_type)
+    }
+
+    #[getter]
+    fn stub(&self) -> String {
+        format!("{:?}", self.inner.stub)
+    }
+
+    #[getter]
+    fn bdc(&self) -> String {
+        format!("{:?}", self.inner.bdc)
+    }
+
+    #[getter]
+    fn calendar(&self) -> Option<String> {
+        self.inner.calendar_id.as_ref().map(|c| c.to_string())
     }
 
     /// Instrument type enumeration.

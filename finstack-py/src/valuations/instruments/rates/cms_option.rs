@@ -141,7 +141,9 @@ impl PyCmsOption {
 
         let mut builder = CmsOption::builder();
         builder = builder.id(id);
-        builder = builder.strike(rust_decimal::Decimal::try_from(strike).unwrap_or_default());
+        builder = builder.strike(rust_decimal::Decimal::try_from(strike).map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err(format!("Cannot convert {} to decimal", strike))
+        })?);
         builder = builder.cms_tenor(cms_tenor);
         builder = builder.fixing_dates(fixing_dates_vec);
         builder = builder.payment_dates(payment_dates_vec);
@@ -234,25 +236,6 @@ impl PyCmsOption {
             }
         };
 
-        let fixed_freq = if let Some(f) = swap_fixed_freq {
-            f.extract::<PyRef<PyFrequency>>()?.inner
-        } else {
-            Tenor::semi_annual()
-        };
-
-        let float_freq = if let Some(f) = swap_float_freq {
-            f.extract::<PyRef<PyFrequency>>()?.inner
-        } else {
-            Tenor::quarterly()
-        };
-
-        let swap_dc = if let Some(dc) = swap_day_count {
-            let DayCountArg(d) = dc.extract()?;
-            d
-        } else {
-            DayCount::Thirty360
-        };
-
         let option_dc = if let Some(dc) = day_count {
             let DayCountArg(d) = dc.extract()?;
             d
@@ -260,13 +243,18 @@ impl PyCmsOption {
             DayCount::Act365F
         };
 
-        let option = CmsOption::from_schedule(
+        let mut option = CmsOption::from_schedule(
             id,
             start,
             end,
             freq,
             cms_tenor,
-            rust_decimal::Decimal::try_from(strike).unwrap_or_default(),
+            rust_decimal::Decimal::try_from(strike).map_err(|_| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "Cannot convert {} to decimal",
+                    strike
+                ))
+            })?,
             opt_type,
             notional_money,
             option_dc,
@@ -277,10 +265,16 @@ impl PyCmsOption {
         )
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
-        let mut option = option;
-        option.swap_fixed_freq = Some(fixed_freq);
-        option.swap_float_freq = Some(float_freq);
-        option.swap_day_count = Some(swap_dc);
+        if let Some(f) = swap_fixed_freq {
+            option = option.with_swap_fixed_freq(f.extract::<PyRef<PyFrequency>>()?.inner);
+        }
+        if let Some(f) = swap_float_freq {
+            option = option.with_swap_float_freq(f.extract::<PyRef<PyFrequency>>()?.inner);
+        }
+        if let Some(dc) = swap_day_count {
+            let DayCountArg(d) = dc.extract()?;
+            option = option.with_swap_day_count(d);
+        }
 
         Ok(Self::new(option))
     }

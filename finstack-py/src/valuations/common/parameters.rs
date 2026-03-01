@@ -3,6 +3,8 @@
 use finstack_valuations::instruments::{
     legs::PayReceive,
     market::{ExerciseStyle, OptionType, SettlementType},
+    rates::cap_floor::CapFloorVolType,
+    rates::swaption::{CashSettlementMethod, VolatilityModel},
     BarrierType,
 };
 use pyo3::exceptions::PyValueError;
@@ -19,7 +21,7 @@ use pyo3::Bound;
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyOptionType {
-    inner: OptionType,
+    pub(crate) inner: OptionType,
 }
 
 impl PyOptionType {
@@ -89,7 +91,7 @@ impl From<OptionType> for PyOptionType {
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyExerciseStyle {
-    inner: ExerciseStyle,
+    pub(crate) inner: ExerciseStyle,
 }
 
 impl PyExerciseStyle {
@@ -149,7 +151,7 @@ impl From<PyExerciseStyle> for ExerciseStyle {
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PySettlementType {
-    inner: SettlementType,
+    pub(crate) inner: SettlementType,
 }
 
 impl PySettlementType {
@@ -201,7 +203,7 @@ impl PySettlementType {
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyPayReceive {
-    inner: PayReceive,
+    pub(crate) inner: PayReceive,
 }
 
 impl PyPayReceive {
@@ -260,6 +262,199 @@ impl From<PyPayReceive> for PayReceive {
     }
 }
 
+/// Volatility model for option pricing (Black or Normal).
+#[pyclass(
+    module = "finstack.valuations.common.parameters",
+    name = "VolatilityModel",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyVolatilityModel {
+    pub(crate) inner: VolatilityModel,
+}
+
+impl PyVolatilityModel {
+    pub(crate) const fn new(inner: VolatilityModel) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyVolatilityModel {
+    #[classattr]
+    const BLACK: Self = Self::new(VolatilityModel::Black);
+    #[classattr]
+    const NORMAL: Self = Self::new(VolatilityModel::Normal);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("VolatilityModel('{}')", self.inner)
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __hash__(&self) -> isize {
+        self.inner as isize
+    }
+}
+
+impl From<PyVolatilityModel> for VolatilityModel {
+    fn from(value: PyVolatilityModel) -> Self {
+        value.inner
+    }
+}
+
+impl From<VolatilityModel> for PyVolatilityModel {
+    fn from(value: VolatilityModel) -> Self {
+        Self::new(value)
+    }
+}
+
+/// Cash settlement method for cash-settled swaptions.
+#[pyclass(
+    module = "finstack.valuations.common.parameters",
+    name = "CashSettlementMethod",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyCashSettlementMethod {
+    pub(crate) inner: CashSettlementMethod,
+}
+
+impl PyCashSettlementMethod {
+    pub(crate) const fn new(inner: CashSettlementMethod) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyCashSettlementMethod {
+    #[classattr]
+    const PAR_YIELD: Self = Self::new(CashSettlementMethod::ParYield);
+    #[classattr]
+    const ISDA_PAR_PAR: Self = Self::new(CashSettlementMethod::IsdaParPar);
+    #[classattr]
+    const ZERO_COUPON: Self = Self::new(CashSettlementMethod::ZeroCoupon);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("CashSettlementMethod('{}')", self.inner)
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __hash__(&self) -> isize {
+        self.inner as isize
+    }
+}
+
+impl From<PyCashSettlementMethod> for CashSettlementMethod {
+    fn from(value: PyCashSettlementMethod) -> Self {
+        value.inner
+    }
+}
+
+impl From<CashSettlementMethod> for PyCashSettlementMethod {
+    fn from(value: CashSettlementMethod) -> Self {
+        Self::new(value)
+    }
+}
+
+/// Volatility convention for cap/floor pricing.
+#[pyclass(
+    module = "finstack.valuations.common.parameters",
+    name = "CapFloorVolType",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyCapFloorVolType {
+    pub(crate) inner: CapFloorVolType,
+}
+
+impl PyCapFloorVolType {
+    pub(crate) const fn new(inner: CapFloorVolType) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyCapFloorVolType {
+    #[classattr]
+    const LOGNORMAL: Self = Self::new(CapFloorVolType::Lognormal);
+    #[classattr]
+    const SHIFTED_LOGNORMAL: Self = Self::new(CapFloorVolType::ShiftedLognormal);
+    #[classattr]
+    const NORMAL: Self = Self::new(CapFloorVolType::Normal);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("CapFloorVolType('{}')", self.inner)
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __hash__(&self) -> isize {
+        self.inner as isize
+    }
+}
+
+impl From<PyCapFloorVolType> for CapFloorVolType {
+    fn from(value: PyCapFloorVolType) -> Self {
+        value.inner
+    }
+}
+
+impl From<CapFloorVolType> for PyCapFloorVolType {
+    fn from(value: CapFloorVolType) -> Self {
+        Self::new(value)
+    }
+}
+
 /// Barrier type for barrier options.
 #[pyclass(
     module = "finstack.valuations.common.parameters",
@@ -269,7 +464,7 @@ impl From<PyPayReceive> for PayReceive {
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyBarrierType {
-    inner: BarrierType,
+    pub(crate) inner: BarrierType,
 }
 
 impl PyBarrierType {
@@ -330,7 +525,7 @@ pub(crate) fn register<'py>(
     let module = PyModule::new(py, "parameters")?;
     module.setattr(
         "__doc__",
-        "Common parameter types: OptionType, ExerciseStyle, SettlementType, PayReceive, BarrierType",
+        "Common parameter types: OptionType, ExerciseStyle, SettlementType, PayReceive, BarrierType, VolatilityModel, CashSettlementMethod, CapFloorVolType",
     )?;
 
     module.add_class::<PyOptionType>()?;
@@ -338,6 +533,9 @@ pub(crate) fn register<'py>(
     module.add_class::<PySettlementType>()?;
     module.add_class::<PyPayReceive>()?;
     module.add_class::<PyBarrierType>()?;
+    module.add_class::<PyVolatilityModel>()?;
+    module.add_class::<PyCashSettlementMethod>()?;
+    module.add_class::<PyCapFloorVolType>()?;
 
     let exports = vec![
         "OptionType",
@@ -345,6 +543,9 @@ pub(crate) fn register<'py>(
         "SettlementType",
         "PayReceive",
         "BarrierType",
+        "VolatilityModel",
+        "CashSettlementMethod",
+        "CapFloorVolType",
     ];
 
     module.setattr("__all__", PyList::new(py, &exports)?)?;

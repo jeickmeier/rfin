@@ -75,6 +75,10 @@ class CrossCurrencySwapBuilder:
         """Set leg 2 end date (overrides shared maturity_date)."""
         ...
 
+    def allow_calendar_fallback(self, allow: bool) -> CrossCurrencySwapBuilder:
+        """Allow calendar fallback for both legs when calendar is not found."""
+        ...
+
     def build(self) -> CrossCurrencySwap:
         """Build the CrossCurrencySwap instrument."""
         ...

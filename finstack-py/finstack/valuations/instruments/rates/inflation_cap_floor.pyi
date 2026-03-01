@@ -47,11 +47,17 @@ class InflationCapFloorBuilder:
     def inflation_index_id(self, curve_id: str) -> InflationCapFloorBuilder:
         """Set inflation index/curve identifier (e.g., 'US-CPI-U')."""
         ...
-    def disc_id(self, curve_id: str) -> InflationCapFloorBuilder:
+    def discount_curve(self, curve_id: str) -> InflationCapFloorBuilder:
         """Set discount curve identifier."""
+        ...
+    def disc_id(self, curve_id: str) -> InflationCapFloorBuilder:
+        """Deprecated: use :meth:`discount_curve` instead."""
         ...
     def vol_surface_id(self, curve_id: str) -> InflationCapFloorBuilder:
         """Set volatility surface identifier."""
+        ...
+    def lag_override(self, lag_override: str | None = ...) -> InflationCapFloorBuilder:
+        """Set inflation lag override (e.g., '3M')."""
         ...
     def build(self) -> InflationCapFloor:
         """Build the InflationCapFloor instrument."""
@@ -78,7 +84,7 @@ class InflationCapFloor:
         ...     .end_date(date(2029, 1, 1))
         ...     .frequency("annual")
         ...     .inflation_index_id("US-CPI-U")
-        ...     .disc_id("USD-OIS")
+        ...     .discount_curve("USD-OIS")
         ...     .vol_surface_id("USD-INFLATION-VOL")
         ...     .build()
         ... )

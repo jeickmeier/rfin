@@ -175,6 +175,31 @@ pub enum BermudanPricingMethod {
     LSMC,
 }
 
+impl std::fmt::Display for BermudanPricingMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BermudanPricingMethod::HullWhiteTree => write!(f, "hull_white_tree"),
+            BermudanPricingMethod::LSMC => write!(f, "lsmc"),
+        }
+    }
+}
+
+impl std::str::FromStr for BermudanPricingMethod {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "hull_white_tree" | "tree" | "hw" => Ok(Self::HullWhiteTree),
+            "lsmc" | "monte_carlo" | "mc" => Ok(Self::LSMC),
+            other => Err(format!(
+                "Unknown Bermudan pricing method: '{}'. Valid: hull_white_tree, lsmc",
+                other
+            )),
+        }
+    }
+}
+
 /// Hull-White model parameters for Bermudan swaption pricing.
 ///
 /// # Calibration Requirements

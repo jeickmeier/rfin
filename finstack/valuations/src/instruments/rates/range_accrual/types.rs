@@ -22,6 +22,31 @@ pub enum BoundsType {
     RelativeToInitialSpot,
 }
 
+impl std::fmt::Display for BoundsType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BoundsType::Absolute => write!(f, "absolute"),
+            BoundsType::RelativeToInitialSpot => write!(f, "relative_to_initial_spot"),
+        }
+    }
+}
+
+impl std::str::FromStr for BoundsType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "absolute" | "abs" => Ok(Self::Absolute),
+            "relative_to_initial_spot" | "relative" | "pct" => Ok(Self::RelativeToInitialSpot),
+            other => Err(format!(
+                "Unknown bounds type: '{}'. Valid: absolute, relative_to_initial_spot",
+                other
+            )),
+        }
+    }
+}
+
 /// Range accrual instrument.
 ///
 /// Range accrual notes pay coupons that accrue only when a reference rate or asset

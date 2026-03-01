@@ -226,6 +226,41 @@ impl FloatingLegCompounding {
     }
 }
 
+impl std::fmt::Display for FloatingLegCompounding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FloatingLegCompounding::Simple => write!(f, "simple"),
+            FloatingLegCompounding::CompoundedInArrears { .. } => {
+                write!(f, "compounded_in_arrears")
+            }
+        }
+    }
+}
+
+impl std::str::FromStr for FloatingLegCompounding {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "simple" => Ok(Self::Simple),
+            "sofr" => Ok(Self::sofr()),
+            "sonia" => Ok(Self::sonia()),
+            "estr" | "€str" | "ester" => Ok(Self::estr()),
+            "tona" => Ok(Self::tona()),
+            "fedfunds" | "fed_funds" | "effr" => Ok(Self::fedfunds()),
+            "compounded_in_arrears" | "compounded" => Ok(Self::CompoundedInArrears {
+                lookback_days: 0,
+                observation_shift: None,
+            }),
+            other => Err(format!(
+                "Unknown floating leg compounding: '{}'. Valid: simple, sofr, sonia, estr, tona, fedfunds, compounded_in_arrears, compounded",
+                other
+            )),
+        }
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

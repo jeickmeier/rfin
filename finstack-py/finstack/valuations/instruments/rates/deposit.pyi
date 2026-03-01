@@ -5,6 +5,7 @@ from datetime import date
 from ....core.currency import Currency
 from ....core.money import Money
 from ....core.dates.daycount import DayCount
+from ....core.dates.calendar import BusinessDayConvention
 from ...common import InstrumentType
 
 class DepositBuilder:
@@ -17,8 +18,14 @@ class DepositBuilder:
     def start(self, start: date) -> DepositBuilder: ...
     def maturity(self, maturity: date) -> DepositBuilder: ...
     def day_count(self, day_count: DayCount | str) -> DepositBuilder: ...
-    def disc_id(self, curve_id: str) -> DepositBuilder: ...
+    def discount_curve(self, curve_id: str) -> DepositBuilder: ...
+    def disc_id(self, curve_id: str) -> DepositBuilder:
+        """Deprecated: use :meth:`discount_curve` instead."""
+        ...
     def quote_rate(self, quote_rate: float | None = ...) -> DepositBuilder: ...
+    def spot_lag_days(self, spot_lag_days: int | None = ...) -> DepositBuilder: ...
+    def bdc(self, bdc: BusinessDayConvention | str) -> DepositBuilder: ...
+    def calendar(self, calendar: str | None = ...) -> DepositBuilder: ...
     def build(self) -> "Deposit": ...
 
 class Deposit:
@@ -47,7 +54,7 @@ class Deposit:
         ...     .start(date(2024, 1, 1))
         ...     .maturity(date(2024, 4, 1))  # 3-month deposit
         ...     .day_count(DayCount.ACT_360)
-        ...     .disc_id("USD")
+        ...     .discount_curve("USD")
         ...     .quote_rate(0.035)  # 3.5% quoted rate
         ...     .build()
         ... )
@@ -66,7 +73,7 @@ class Deposit:
         ...     .start(date(2024, 1, 1))
         ...     .maturity(date(2024, 7, 1))
         ...     .day_count(DayCount.ACT_360)
-        ...     .disc_id("USD")
+        ...     .discount_curve("USD")
         ...     .quote_rate(None)
         ...     .build()
         ... )
@@ -91,7 +98,7 @@ class Deposit:
         ...     .start(date(2024, 1, 1))
         ...     .maturity(date(2024, 4, 1))
         ...     .day_count(DayCount.ACT_360)
-        ...     .disc_id("USD")
+        ...     .discount_curve("USD")
         ...     .quote_rate(0.035)
         ...     .build()
         ... )

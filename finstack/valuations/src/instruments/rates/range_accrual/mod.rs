@@ -38,4 +38,4 @@ pub(crate) mod pricer;
 pub(crate) mod traits;
 pub(crate) mod types;
 
-pub use types::RangeAccrual;
+pub use types::{BoundsType, RangeAccrual};

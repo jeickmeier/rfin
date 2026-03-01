@@ -86,6 +86,30 @@ impl CmsOption {
             .ok_or(finstack_core::InputError::ConversionOverflow.into())
     }
 
+    /// Override the fixed leg frequency of the underlying swap.
+    pub fn with_swap_fixed_freq(mut self, freq: Tenor) -> Self {
+        self.swap_fixed_freq = Some(freq);
+        self
+    }
+
+    /// Override the floating leg frequency of the underlying swap.
+    pub fn with_swap_float_freq(mut self, freq: Tenor) -> Self {
+        self.swap_float_freq = Some(freq);
+        self
+    }
+
+    /// Override the fixed leg day count of the underlying swap.
+    pub fn with_swap_day_count(mut self, dc: DayCount) -> Self {
+        self.swap_day_count = Some(dc);
+        self
+    }
+
+    /// Override the floating leg day count of the underlying swap.
+    pub fn with_swap_float_day_count(mut self, dc: DayCount) -> Self {
+        self.swap_float_day_count = Some(dc);
+        self
+    }
+
     /// Resolved fixed leg frequency (explicit field > convention > default semi-annual).
     pub fn resolved_swap_fixed_freq(&self) -> Tenor {
         self.swap_fixed_freq

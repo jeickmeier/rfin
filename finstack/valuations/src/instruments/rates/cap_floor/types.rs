@@ -76,6 +76,23 @@ impl std::fmt::Display for CapFloorVolType {
     }
 }
 
+impl std::str::FromStr for CapFloorVolType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "lognormal" | "black" => Ok(Self::Lognormal),
+            "shifted_lognormal" | "shifted" | "displaced" => Ok(Self::ShiftedLognormal),
+            "normal" | "bachelier" => Ok(Self::Normal),
+            other => Err(format!(
+                "Unknown cap/floor vol type: '{}'. Valid: lognormal, shifted_lognormal, normal",
+                other
+            )),
+        }
+    }
+}
+
 /// Minimum time-to-fixing for vol surface lookup (in years).
 ///
 /// When a caplet is at or past its fixing date (`t_fix <= 0`), the vol surface lookup
@@ -100,6 +117,35 @@ pub enum RateOptionType {
     Caplet,
     /// Floorlet (single period floor)
     Floorlet,
+}
+
+impl std::fmt::Display for RateOptionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RateOptionType::Cap => write!(f, "cap"),
+            RateOptionType::Floor => write!(f, "floor"),
+            RateOptionType::Caplet => write!(f, "caplet"),
+            RateOptionType::Floorlet => write!(f, "floorlet"),
+        }
+    }
+}
+
+impl std::str::FromStr for RateOptionType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "cap" => Ok(Self::Cap),
+            "floor" => Ok(Self::Floor),
+            "caplet" => Ok(Self::Caplet),
+            "floorlet" => Ok(Self::Floorlet),
+            other => Err(format!(
+                "Unknown rate option type: '{}'. Valid: cap, floor, caplet, floorlet",
+                other
+            )),
+        }
+    }
 }
 
 /// Interest rate option instrument

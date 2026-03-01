@@ -1,3 +1,4 @@
+use crate::core::common::args::BusinessDayConventionArg;
 use crate::core::common::args::DayCountArg;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -26,8 +27,8 @@ use std::sync::Arc;
 ///     ...     .fixing_date(date(2024, 3, 15))
 ///     ...     .start_date(date(2024, 6, 17))
 ///     ...     .end_date(date(2024, 9, 16))
-///     ...     .disc_id("usd_discount")
-///     ...     .fwd_id("usd_libor_3m")
+///     ...     .discount_curve("usd_discount")
+///     ...     .forward_curve("usd_libor_3m")
 ///     ...     .build()
 ///     ... )
 ///     >>> fra.fixed_rate
@@ -69,6 +70,9 @@ pub struct PyForwardRateAgreementBuilder {
     day_count: finstack_core::dates::DayCount,
     reset_lag: i32,
     receive_fixed: bool,
+    fixing_calendar: Option<String>,
+    fixing_bdc: Option<finstack_core::dates::BusinessDayConvention>,
+    observed_fixing: Option<f64>,
 }
 
 impl PyForwardRateAgreementBuilder {
@@ -86,6 +90,9 @@ impl PyForwardRateAgreementBuilder {
             day_count: finstack_core::dates::DayCount::Act360,
             reset_lag: 2,
             receive_fixed: true,
+            fixing_calendar: None,
+            fixing_bdc: None,
+            observed_fixing: None,
         }
     }
 
@@ -107,11 +114,6 @@ impl PyForwardRateAgreementBuilder {
                 "Fixed rate must be provided via fixed_rate().",
             ));
         }
-        if self.fixing_date.is_none() {
-            return Err(PyValueError::new_err(
-                "Fixing date must be provided via fixing_date().",
-            ));
-        }
         if self.start_date.is_none() {
             return Err(PyValueError::new_err(
                 "Start date must be provided via start_date().",
@@ -124,12 +126,12 @@ impl PyForwardRateAgreementBuilder {
         }
         if self.discount_curve_id.is_none() {
             return Err(PyValueError::new_err(
-                "Discount curve must be provided via disc_id().",
+                "Discount curve must be provided via discount_curve().",
             ));
         }
         if self.forward_curve_id.is_none() {
             return Err(PyValueError::new_err(
-                "Forward curve must be provided via fwd_id().",
+                "Forward curve must be provided via forward_curve().",
             ));
         }
         Ok(())
@@ -217,15 +219,27 @@ impl PyForwardRateAgreementBuilder {
     }
 
     #[pyo3(text_signature = "($self, curve_id)")]
-    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+    fn discount_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
         slf
     }
 
+    /// Deprecated: use `discount_curve()` instead.
+    #[pyo3(name = "disc_id", text_signature = "($self, curve_id)")]
+    fn disc_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        Self::discount_curve(slf, curve_id)
+    }
+
     #[pyo3(text_signature = "($self, curve_id)")]
-    fn fwd_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+    fn forward_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.forward_curve_id = Some(CurveId::new(curve_id.as_str()));
         slf
+    }
+
+    /// Deprecated: use `forward_curve()` instead.
+    #[pyo3(name = "fwd_id", text_signature = "($self, curve_id)")]
+    fn fwd_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        Self::forward_curve(slf, curve_id)
     }
 
     #[pyo3(text_signature = "($self, day_count)")]
@@ -257,6 +271,34 @@ impl PyForwardRateAgreementBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, fixing_calendar=None)", signature = (fixing_calendar=None))]
+    fn fixing_calendar(
+        mut slf: PyRefMut<'_, Self>,
+        fixing_calendar: Option<String>,
+    ) -> PyRefMut<'_, Self> {
+        slf.fixing_calendar = fixing_calendar;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, fixing_bdc)")]
+    fn fixing_bdc<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        fixing_bdc: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let BusinessDayConventionArg(value) = fixing_bdc.extract().context("fixing_bdc")?;
+        slf.fixing_bdc = Some(value);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, observed_fixing=None)", signature = (observed_fixing=None))]
+    fn observed_fixing(
+        mut slf: PyRefMut<'_, Self>,
+        observed_fixing: Option<f64>,
+    ) -> PyRefMut<'_, Self> {
+        slf.observed_fixing = observed_fixing;
+        slf
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyForwardRateAgreement> {
         slf.ensure_ready()?;
@@ -268,11 +310,6 @@ impl PyForwardRateAgreementBuilder {
         let fixed_rate = slf.fixed_rate.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
                 "ForwardRateAgreementBuilder internal error: missing fixed_rate after validation",
-            )
-        })?;
-        let fixing_date = slf.fixing_date.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "ForwardRateAgreementBuilder internal error: missing fixing_date after validation",
             )
         })?;
         let start_date = slf.start_date.ok_or_else(|| {
@@ -299,12 +336,21 @@ impl PyForwardRateAgreementBuilder {
         ForwardRateAgreement::builder()
             .id(slf.instrument_id.clone())
             .notional(notional)
-            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
-            .fixing_date(fixing_date)
+            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).map_err(|_| {
+                PyValueError::new_err(format!("Cannot convert {} to decimal", fixed_rate))
+            })?)
+            .fixing_date_opt(slf.fixing_date)
             .start_date(start_date)
             .maturity(end_date)
             .day_count(slf.day_count)
             .reset_lag(slf.reset_lag)
+            .fixing_calendar_id_opt(
+                slf.fixing_calendar
+                    .clone()
+                    .map(finstack_core::types::CalendarId::new),
+            )
+            .fixing_bdc_opt(slf.fixing_bdc)
+            .observed_fixing_opt(slf.observed_fixing)
             .discount_curve_id(discount)
             .forward_curve_id(forward)
             .side(if slf.receive_fixed {
@@ -415,6 +461,19 @@ impl PyForwardRateAgreement {
             Some(date) => date_to_py(py, date).map(Some),
             None => Ok(None),
         }
+    }
+
+    #[getter]
+    fn fixing_calendar(&self) -> Option<String> {
+        self.inner
+            .fixing_calendar_id
+            .as_ref()
+            .map(|c| c.to_string())
+    }
+
+    #[getter]
+    fn observed_fixing(&self) -> Option<f64> {
+        self.inner.observed_fixing
     }
 
     /// Start date of the accrual period.

@@ -60,11 +60,9 @@ impl PyRepoCollateral {
         special_security_id: Option<&str>,
         special_rate_adjust_bp: Option<f64>,
     ) -> PyResult<Self> {
-        let ctype = match collateral_type
-            .map(crate::core::common::labels::normalize_label)
-            .as_deref()
-        {
-            None | Some("general") => CollateralType::General,
+        let normalized = collateral_type.map(crate::core::common::labels::normalize_label);
+        let ctype = match normalized.as_deref() {
+            None | Some("general") | Some("gc") => CollateralType::General,
             Some("special") => CollateralType::Special {
                 security_id: special_security_id.map(|s| s.to_string()).ok_or_else(|| {
                     PyValueError::new_err("special_security_id required for special collateral")
@@ -73,7 +71,8 @@ impl PyRepoCollateral {
             },
             Some(other) => {
                 return Err(PyValueError::new_err(format!(
-                    "Unknown collateral_type: {other}",
+                    "Unknown collateral type: '{}'. Valid: general, special",
+                    other
                 )))
             }
         };
@@ -190,7 +189,7 @@ impl PyRepoBuilder {
             return Err(PyValueError::new_err("maturity() is required."));
         }
         if self.discount_curve_id.is_none() {
-            return Err(PyValueError::new_err("disc_id() is required."));
+            return Err(PyValueError::new_err("discount_curve() is required."));
         }
         Ok(())
     }
@@ -277,9 +276,15 @@ impl PyRepoBuilder {
     }
 
     #[pyo3(text_signature = "($self, curve_id)")]
-    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+    fn discount_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
         slf
+    }
+
+    /// Deprecated: use `discount_curve()` instead.
+    #[pyo3(name = "disc_id", text_signature = "($self, curve_id)")]
+    fn disc_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        Self::discount_curve(slf, curve_id)
     }
 
     #[pyo3(text_signature = "($self, repo_type)")]
@@ -370,7 +375,9 @@ impl PyRepoBuilder {
             .id(slf.instrument_id.clone())
             .cash_amount(cash)
             .collateral(collateral)
-            .repo_rate(rust_decimal::Decimal::try_from(repo_rate).unwrap_or_default())
+            .repo_rate(rust_decimal::Decimal::try_from(repo_rate).map_err(|_| {
+                PyValueError::new_err(format!("Cannot convert {} to decimal", repo_rate))
+            })?)
             .start_date(start)
             .maturity(maturity)
             .haircut(slf.haircut)
@@ -398,6 +405,36 @@ impl PyRepo {
     fn builder<'py>(cls: &Bound<'py, PyType>, instrument_id: &str) -> PyResult<Py<PyRepoBuilder>> {
         let py = cls.py();
         let builder = PyRepoBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
+    }
+
+    /// Create an overnight repo.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    fn overnight(_cls: &Bound<'_, PyType>, instrument_id: &str) -> PyResult<Py<PyRepoBuilder>> {
+        let py = _cls.py();
+        let mut builder = PyRepoBuilder::new_with_id(InstrumentId::new(instrument_id));
+        builder.repo_type = RepoType::Overnight;
+        Py::new(py, builder)
+    }
+
+    /// Create a term repo builder.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    fn term(_cls: &Bound<'_, PyType>, instrument_id: &str) -> PyResult<Py<PyRepoBuilder>> {
+        let py = _cls.py();
+        let mut builder = PyRepoBuilder::new_with_id(InstrumentId::new(instrument_id));
+        builder.repo_type = RepoType::Term;
+        Py::new(py, builder)
+    }
+
+    /// Create an open repo builder.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    fn open(_cls: &Bound<'_, PyType>, instrument_id: &str) -> PyResult<Py<PyRepoBuilder>> {
+        let py = _cls.py();
+        let mut builder = PyRepoBuilder::new_with_id(InstrumentId::new(instrument_id));
+        builder.repo_type = RepoType::Open;
         Py::new(py, builder)
     }
 
@@ -429,6 +466,27 @@ impl PyRepo {
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.discount_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn effective_rate(&self) -> f64 {
+        self.inner.effective_rate()
+    }
+
+    #[getter]
+    fn interest_amount(&self) -> PyResult<PyMoney> {
+        self.inner
+            .interest_amount()
+            .map(PyMoney::new)
+            .map_err(crate::errors::core_to_py)
+    }
+
+    #[getter]
+    fn total_repayment(&self) -> PyResult<PyMoney> {
+        self.inner
+            .total_repayment()
+            .map(PyMoney::new)
+            .map_err(crate::errors::core_to_py)
     }
 
     #[getter]

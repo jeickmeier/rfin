@@ -17,14 +17,17 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::common::parameters::legs::ParRateMethod;
 use finstack_valuations::instruments::rates::irs::{
-    FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive,
+    FixedLegSpec, FloatLegSpec, FloatingLegCompounding, InterestRateSwap, PayReceive,
 };
+use finstack_valuations::instruments::Attributes;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
+use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
@@ -107,6 +110,146 @@ impl fmt::Display for PyPayReceive {
     }
 }
 
+// ── FloatingLegCompounding wrapper ──────────────────────────────────────
+
+#[pyclass(
+    module = "finstack.valuations.instruments.rates",
+    name = "FloatingLegCompounding",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyFloatingLegCompounding {
+    pub(crate) inner: FloatingLegCompounding,
+}
+
+impl PyFloatingLegCompounding {
+    pub(crate) fn new(inner: FloatingLegCompounding) -> Self {
+        Self { inner }
+    }
+}
+
+#[allow(non_snake_case)]
+#[pymethods]
+impl PyFloatingLegCompounding {
+    #[classattr]
+    fn SIMPLE() -> Self {
+        Self::new(FloatingLegCompounding::Simple)
+    }
+    #[classattr]
+    fn SOFR() -> Self {
+        Self::new(FloatingLegCompounding::sofr())
+    }
+    #[classattr]
+    fn SONIA() -> Self {
+        Self::new(FloatingLegCompounding::sonia())
+    }
+    #[classattr]
+    fn ESTR() -> Self {
+        Self::new(FloatingLegCompounding::estr())
+    }
+    #[classattr]
+    fn TONA() -> Self {
+        Self::new(FloatingLegCompounding::tona())
+    }
+    #[classattr]
+    fn FEDFUNDS() -> Self {
+        Self::new(FloatingLegCompounding::fedfunds())
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
+    }
+
+    #[staticmethod]
+    #[pyo3(text_signature = "(lookback_days, observation_shift=None)")]
+    fn compounded_in_arrears(lookback_days: i32, observation_shift: Option<i32>) -> Self {
+        Self::new(FloatingLegCompounding::CompoundedInArrears {
+            lookback_days,
+            observation_shift,
+        })
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("FloatingLegCompounding('{}')", self.inner)
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+}
+
+impl From<PyFloatingLegCompounding> for FloatingLegCompounding {
+    fn from(value: PyFloatingLegCompounding) -> Self {
+        value.inner
+    }
+}
+
+// ── ParRateMethod wrapper ──────────────────────────────────────────────
+
+#[pyclass(
+    module = "finstack.valuations.instruments.rates",
+    name = "ParRateMethod",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyParRateMethod {
+    pub(crate) inner: ParRateMethod,
+}
+
+impl PyParRateMethod {
+    pub(crate) const fn new(inner: ParRateMethod) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyParRateMethod {
+    #[classattr]
+    const FORWARD_BASED: Self = Self::new(ParRateMethod::ForwardBased);
+    #[classattr]
+    const DISCOUNT_RATIO: Self = Self::new(ParRateMethod::DiscountRatio);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ParRateMethod('{}')", self.inner)
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+}
+
+impl From<PyParRateMethod> for ParRateMethod {
+    fn from(value: PyParRateMethod) -> Self {
+        value.inner
+    }
+}
+
+// ── InterestRateSwap ───────────────────────────────────────────────────
+
 /// Plain-vanilla interest rate swap with fixed-for-floating legs.
 #[pyclass(
     module = "finstack.valuations.instruments",
@@ -151,6 +294,12 @@ pub struct PyInterestRateSwapBuilder {
     calendar_id: Option<String>,
     stub: StubKind,
     reset_lag_days: i32,
+    compounding: Option<FloatingLegCompounding>,
+    par_method: Option<ParRateMethod>,
+    fixing_calendar_id: Option<String>,
+    payment_lag_days: Option<i32>,
+    end_of_month: Option<bool>,
+    pending_attributes: Option<HashMap<String, String>>,
 }
 
 impl PyInterestRateSwapBuilder {
@@ -174,6 +323,12 @@ impl PyInterestRateSwapBuilder {
             calendar_id: None,
             stub: StubKind::None,
             reset_lag_days: 2,
+            compounding: None,
+            par_method: None,
+            fixing_calendar_id: None,
+            payment_lag_days: None,
+            end_of_month: None,
+            pending_attributes: None,
         }
     }
 
@@ -207,12 +362,12 @@ impl PyInterestRateSwapBuilder {
         }
         if self.discount_curve.is_none() {
             return Err(PyValueError::new_err(
-                "Discount curve must be provided via disc_id().",
+                "Discount curve must be provided via discount_curve().",
             ));
         }
         if self.forward_curve.is_none() {
             return Err(PyValueError::new_err(
-                "Forward curve must be provided via fwd_id().",
+                "Forward curve must be provided via forward_curve().",
             ));
         }
         Ok(())
@@ -300,15 +455,27 @@ impl PyInterestRateSwapBuilder {
     }
 
     #[pyo3(text_signature = "($self, curve_id)")]
-    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+    fn discount_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.discount_curve = Some(CurveId::new(curve_id.as_str()));
         slf
     }
 
+    /// Deprecated: use `discount_curve()` instead.
+    #[pyo3(name = "disc_id", text_signature = "($self, curve_id)")]
+    fn disc_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        Self::discount_curve(slf, curve_id)
+    }
+
     #[pyo3(text_signature = "($self, curve_id)")]
-    fn fwd_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+    fn forward_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.forward_curve = Some(CurveId::new(curve_id.as_str()));
         slf
+    }
+
+    /// Deprecated: use `forward_curve()` instead.
+    #[pyo3(name = "fwd_id", text_signature = "($self, curve_id)")]
+    fn fwd_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        Self::forward_curve(slf, curve_id)
     }
 
     #[pyo3(text_signature = "($self, frequency)")]
@@ -369,6 +536,76 @@ impl PyInterestRateSwapBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, compounding)")]
+    fn compounding<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        compounding: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        if let Ok(c) = compounding.extract::<PyRef<PyFloatingLegCompounding>>() {
+            slf.compounding = Some(c.inner.clone());
+        } else if let Ok(s) = compounding.extract::<&str>() {
+            slf.compounding = Some(
+                s.parse::<FloatingLegCompounding>()
+                    .map_err(|e| PyValueError::new_err(e))?,
+            );
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Expected FloatingLegCompounding or string",
+            ));
+        }
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, method)")]
+    fn par_method<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        method: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        if let Ok(m) = method.extract::<PyRef<PyParRateMethod>>() {
+            slf.par_method = Some(m.inner);
+        } else if let Ok(s) = method.extract::<&str>() {
+            slf.par_method = Some(
+                s.parse::<ParRateMethod>()
+                    .map_err(|e| PyValueError::new_err(e))?,
+            );
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Expected ParRateMethod or string",
+            ));
+        }
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, calendar_id)")]
+    fn fixing_calendar<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        calendar_id: &str,
+    ) -> PyRefMut<'py, Self> {
+        slf.fixing_calendar_id = Some(calendar_id.to_string());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, days)")]
+    fn payment_lag_days(mut slf: PyRefMut<'_, Self>, days: i32) -> PyRefMut<'_, Self> {
+        slf.payment_lag_days = Some(days);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, eom)")]
+    fn end_of_month(mut slf: PyRefMut<'_, Self>, eom: bool) -> PyRefMut<'_, Self> {
+        slf.end_of_month = Some(eom);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, attributes=None)", signature = (attributes=None))]
+    fn attributes(
+        mut slf: PyRefMut<'_, Self>,
+        attributes: Option<HashMap<String, String>>,
+    ) -> PyRefMut<'_, Self> {
+        slf.pending_attributes = attributes;
+        slf
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyInterestRateSwap> {
         slf.ensure_ready()?;
@@ -414,7 +651,9 @@ impl PyInterestRateSwapBuilder {
 
         let fixed_leg = FixedLegSpec {
             discount_curve_id: discount.clone(),
-            rate: rust_decimal::Decimal::from_f64_retain(fixed_rate).unwrap_or_default(),
+            rate: rust_decimal::Decimal::from_f64_retain(fixed_rate).ok_or_else(|| {
+                PyValueError::new_err(format!("Cannot convert {} to decimal", fixed_rate))
+            })?,
             frequency: slf.fixed_frequency,
             day_count: slf.fixed_day_count,
             bdc: slf.bdc,
@@ -422,17 +661,23 @@ impl PyInterestRateSwapBuilder {
             stub: slf.stub,
             start,
             end,
-            par_method: None,
+            par_method: slf.par_method,
             compounding_simple: true,
-            payment_lag_days: -1,
-            end_of_month: false,
+            payment_lag_days: slf.payment_lag_days.unwrap_or(-1),
+            end_of_month: slf.end_of_month.unwrap_or(false),
         };
 
         let float_leg = FloatLegSpec {
             discount_curve_id: discount,
             forward_curve_id: forward,
-            spread_bp: rust_decimal::Decimal::from_f64_retain(slf.float_spread_bp)
-                .unwrap_or_default(),
+            spread_bp: rust_decimal::Decimal::from_f64_retain(slf.float_spread_bp).ok_or_else(
+                || {
+                    PyValueError::new_err(format!(
+                        "Cannot convert {} to decimal",
+                        slf.float_spread_bp
+                    ))
+                },
+            )?,
             frequency: slf.float_frequency,
             day_count: slf.float_day_count,
             bdc: slf.bdc,
@@ -441,11 +686,18 @@ impl PyInterestRateSwapBuilder {
             reset_lag_days: slf.reset_lag_days,
             start,
             end,
-            compounding: Default::default(),
-            fixing_calendar_id: calendar,
-            payment_lag_days: -1,
-            end_of_month: false,
+            compounding: slf.compounding.clone().unwrap_or_default(),
+            fixing_calendar_id: slf.fixing_calendar_id.clone().or(calendar),
+            payment_lag_days: slf.payment_lag_days.unwrap_or(-1),
+            end_of_month: slf.end_of_month.unwrap_or(false),
         };
+
+        let mut attrs = Attributes::new();
+        if let Some(ref pending) = slf.pending_attributes {
+            for (k, v) in pending {
+                attrs.meta.insert(k.clone(), v.clone());
+            }
+        }
 
         InterestRateSwap::builder()
             .id(slf.instrument_id.clone())
@@ -453,7 +705,7 @@ impl PyInterestRateSwapBuilder {
             .side(side)
             .fixed(fixed_leg)
             .float(float_leg)
-            .attributes(Default::default())
+            .attributes(attrs)
             .build()
             .map(PyInterestRateSwap::new)
             .map_err(core_to_py)
@@ -570,6 +822,26 @@ impl PyInterestRateSwap {
         self.inner.float.forward_curve_id.as_str().to_string()
     }
 
+    #[getter]
+    fn compounding(&self) -> PyFloatingLegCompounding {
+        PyFloatingLegCompounding::new(self.inner.float.compounding.clone())
+    }
+
+    #[getter]
+    fn payment_lag_days(&self) -> i32 {
+        self.inner.fixed.payment_lag_days
+    }
+
+    #[getter]
+    fn end_of_month(&self) -> bool {
+        self.inner.fixed.end_of_month
+    }
+
+    #[getter]
+    fn fixing_calendar(&self) -> Option<String> {
+        self.inner.float.fixing_calendar_id.clone()
+    }
+
     /// Instrument type enum (``InstrumentType.IRS``).
     ///
     /// Returns:
@@ -606,10 +878,14 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyPayReceive>()?;
+    module.add_class::<PyFloatingLegCompounding>()?;
+    module.add_class::<PyParRateMethod>()?;
     module.add_class::<PyInterestRateSwap>()?;
     module.add_class::<PyInterestRateSwapBuilder>()?;
     Ok(vec![
         "PayReceive",
+        "FloatingLegCompounding",
+        "ParRateMethod",
         "InterestRateSwap",
         "InterestRateSwapBuilder",
     ])

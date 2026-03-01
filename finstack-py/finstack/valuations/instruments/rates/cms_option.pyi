@@ -6,6 +6,7 @@ from datetime import date
 from ....core.money import Money
 from ....core.dates.schedule import Frequency
 from ....core.dates.daycount import DayCount
+from ...common import InstrumentType
 
 class CmsOption:
     """CMS (Constant Maturity Swap) option for interest rate optionality.
@@ -244,6 +245,8 @@ class CmsOption:
 
     @property
     def instrument_id(self) -> str: ...
+    @property
+    def instrument_type(self) -> InstrumentType: ...
     @property
     def strike(self) -> float: ...
     @property

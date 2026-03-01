@@ -1,10 +1,11 @@
-use crate::core::common::args::DayCountArg;
+use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::PyMoney;
 use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::currency::Currency;
+use finstack_core::dates::BusinessDayConvention;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::deposit::Deposit;
@@ -61,6 +62,9 @@ pub struct PyDepositBuilder {
     day_count: finstack_core::dates::DayCount,
     discount_curve_id: Option<CurveId>,
     quote_rate: Option<f64>,
+    spot_lag_days: Option<i32>,
+    bdc: BusinessDayConvention,
+    calendar: Option<String>,
 }
 
 impl PyDepositBuilder {
@@ -74,6 +78,9 @@ impl PyDepositBuilder {
             day_count: finstack_core::dates::DayCount::Act360,
             discount_curve_id: None,
             quote_rate: None,
+            spot_lag_days: None,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar: None,
         }
     }
 
@@ -113,7 +120,7 @@ impl PyDepositBuilder {
         }
         if self.discount_curve_id.is_none() {
             return Err(PyValueError::new_err(
-                "Discount curve must be provided via disc_id().",
+                "Discount curve must be provided via discount_curve().",
             ));
         }
         Ok(())
@@ -182,14 +189,47 @@ impl PyDepositBuilder {
     }
 
     #[pyo3(text_signature = "($self, curve_id)")]
-    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+    fn discount_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
         slf
+    }
+
+    /// Deprecated: use `discount_curve()` instead.
+    #[pyo3(name = "disc_id", text_signature = "($self, curve_id)")]
+    fn disc_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        Self::discount_curve(slf, curve_id)
     }
 
     #[pyo3(text_signature = "($self, quote_rate=None)", signature = (quote_rate=None))]
     fn quote_rate(mut slf: PyRefMut<'_, Self>, quote_rate: Option<f64>) -> PyRefMut<'_, Self> {
         slf.quote_rate = quote_rate;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, spot_lag_days=None)", signature = (spot_lag_days=None))]
+    fn spot_lag_days(
+        mut slf: PyRefMut<'_, Self>,
+        spot_lag_days: Option<i32>,
+    ) -> PyRefMut<'_, Self> {
+        slf.spot_lag_days = spot_lag_days;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, bdc)")]
+    fn bdc<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        bdc: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let BusinessDayConventionArg(value) = bdc.extract().map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err("bdc() expects BusinessDayConvention or str")
+        })?;
+        slf.bdc = value;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, calendar=None)", signature = (calendar=None))]
+    fn calendar(mut slf: PyRefMut<'_, Self>, calendar: Option<String>) -> PyRefMut<'_, Self> {
+        slf.calendar = calendar;
         slf
     }
 
@@ -226,7 +266,19 @@ impl PyDepositBuilder {
             .discount_curve_id(discount)
             .quote_rate_opt(
                 slf.quote_rate
-                    .map(|rate| rust_decimal::Decimal::try_from(rate).unwrap_or_default()),
+                    .map(|rate| {
+                        rust_decimal::Decimal::try_from(rate).map_err(|_| {
+                            PyValueError::new_err(format!("Cannot convert {} to decimal", rate))
+                        })
+                    })
+                    .transpose()?,
+            )
+            .spot_lag_days_opt(slf.spot_lag_days)
+            .bdc(slf.bdc)
+            .calendar_id_opt(
+                slf.calendar
+                    .clone()
+                    .map(finstack_core::types::CalendarId::new),
             )
             .build()
             .map(PyDeposit::new)

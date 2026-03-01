@@ -125,6 +125,7 @@ pub struct PyCrossCurrencySwapBuilder {
     leg2_spread: f64,
     leg2_payment_lag_days: i32,
     leg2_calendar_id: Option<String>,
+    allow_calendar_fallback: bool,
 }
 
 impl PyCrossCurrencySwapBuilder {
@@ -161,6 +162,7 @@ impl PyCrossCurrencySwapBuilder {
             leg2_spread: 0.0,
             leg2_payment_lag_days: 0,
             leg2_calendar_id: None,
+            allow_calendar_fallback: false,
         }
     }
 
@@ -483,6 +485,13 @@ impl PyCrossCurrencySwapBuilder {
         Ok(slf)
     }
 
+    /// Allow calendar fallback for both legs when calendar is not found.
+    #[pyo3(text_signature = "($self, allow)")]
+    fn allow_calendar_fallback(mut slf: PyRefMut<'_, Self>, allow: bool) -> PyRefMut<'_, Self> {
+        slf.allow_calendar_fallback = allow;
+        slf
+    }
+
     /// Build the CrossCurrencySwap instrument.
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCrossCurrencySwap> {
@@ -527,7 +536,7 @@ impl PyCrossCurrencySwapBuilder {
             spread_bp: Decimal::try_from(slf.leg1_spread).unwrap_or(Decimal::ZERO),
             payment_lag_days: slf.leg1_payment_lag_days,
             calendar_id: slf.leg1_calendar_id.clone(),
-            allow_calendar_fallback: false,
+            allow_calendar_fallback: slf.allow_calendar_fallback,
         };
 
         // Build leg 2
@@ -567,7 +576,7 @@ impl PyCrossCurrencySwapBuilder {
             spread_bp: Decimal::try_from(slf.leg2_spread).unwrap_or(Decimal::ZERO),
             payment_lag_days: slf.leg2_payment_lag_days,
             calendar_id: slf.leg2_calendar_id.clone(),
-            allow_calendar_fallback: false,
+            allow_calendar_fallback: slf.allow_calendar_fallback,
         };
 
         let swap = XccySwap::new(slf.instrument_id.as_str(), leg1, leg2, reporting_currency)

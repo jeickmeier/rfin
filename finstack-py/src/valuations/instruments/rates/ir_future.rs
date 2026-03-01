@@ -67,6 +67,7 @@ pub struct PyInterestRateFutureBuilder {
     tick_value: Option<f64>,
     delivery_months: u8,
     convexity_adjustment: Option<f64>,
+    vol_surface: Option<String>,
 }
 
 impl PyInterestRateFutureBuilder {
@@ -89,6 +90,7 @@ impl PyInterestRateFutureBuilder {
             tick_value: None,
             delivery_months: 3,
             convexity_adjustment: None,
+            vol_surface: None,
         }
     }
 
@@ -112,10 +114,10 @@ impl PyInterestRateFutureBuilder {
             return Err(PyValueError::new_err("expiry() is required."));
         }
         if self.discount_curve_id.is_none() {
-            return Err(PyValueError::new_err("disc_id() is required."));
+            return Err(PyValueError::new_err("discount_curve() is required."));
         }
         if self.forward_curve_id.is_none() {
-            return Err(PyValueError::new_err("fwd_id() is required."));
+            return Err(PyValueError::new_err("forward_curve() is required."));
         }
         Ok(())
     }
@@ -208,15 +210,27 @@ impl PyInterestRateFutureBuilder {
     }
 
     #[pyo3(text_signature = "($self, curve_id)")]
-    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+    fn discount_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
         slf
     }
 
+    /// Deprecated: use `discount_curve()` instead.
+    #[pyo3(name = "disc_id", text_signature = "($self, curve_id)")]
+    fn disc_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        Self::discount_curve(slf, curve_id)
+    }
+
     #[pyo3(text_signature = "($self, curve_id)")]
-    fn fwd_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+    fn forward_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.forward_curve_id = Some(CurveId::new(curve_id.as_str()));
         slf
+    }
+
+    /// Deprecated: use `forward_curve()` instead.
+    #[pyo3(name = "fwd_id", text_signature = "($self, curve_id)")]
+    fn fwd_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        Self::forward_curve(slf, curve_id)
     }
 
     #[pyo3(text_signature = "($self, position)")]
@@ -274,6 +288,12 @@ impl PyInterestRateFutureBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, vol_surface=None)", signature = (vol_surface=None))]
+    fn vol_surface(mut slf: PyRefMut<'_, Self>, vol_surface: Option<String>) -> PyRefMut<'_, Self> {
+        slf.vol_surface = vol_surface;
+        slf
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyInterestRateFuture> {
         slf.ensure_ready()?;
@@ -327,6 +347,11 @@ impl PyInterestRateFutureBuilder {
             .day_count(slf.day_count)
             .position(slf.position)
             .contract_specs(specs)
+            .vol_surface_id_opt(
+                slf.vol_surface
+                    .as_deref()
+                    .map(finstack_core::types::CurveId::new),
+            )
             .attributes(Default::default())
             .build()
             .map(PyInterestRateFuture::new)

@@ -3,7 +3,61 @@
 from __future__ import annotations
 from datetime import date
 from ....core.money import Money
+from ....core.dates.schedule import Frequency
+from ....core.dates.daycount import DayCount
 from ...common import InstrumentType
+from ...common.parameters import VolatilityModel, CashSettlementMethod
+
+class BermudanType:
+    """Bermudan swaption exercise schedule type."""
+
+    CO_TERMINAL: BermudanType
+    NON_CO_TERMINAL: BermudanType
+
+    @classmethod
+    def from_name(cls, name: str) -> BermudanType: ...
+    @property
+    def name(self) -> str: ...
+
+class SABRParameters:
+    """SABR stochastic-volatility model parameters."""
+
+    def __init__(self, alpha: float, beta: float, nu: float, rho: float) -> None: ...
+    @staticmethod
+    def with_shift(alpha: float, beta: float, nu: float, rho: float, shift: float) -> SABRParameters: ...
+    @staticmethod
+    def rates_standard(alpha: float, nu: float, rho: float) -> SABRParameters: ...
+    @staticmethod
+    def equity_standard(alpha: float, nu: float, rho: float) -> SABRParameters: ...
+    @staticmethod
+    def normal(alpha: float, nu: float, rho: float) -> SABRParameters: ...
+    @staticmethod
+    def lognormal(alpha: float, nu: float, rho: float) -> SABRParameters: ...
+    @property
+    def alpha(self) -> float: ...
+    @property
+    def beta(self) -> float: ...
+    @property
+    def nu(self) -> float: ...
+    @property
+    def rho(self) -> float: ...
+    @property
+    def shift(self) -> float | None: ...
+
+class BermudanSchedule:
+    """Exercise schedule for Bermudan swaptions."""
+
+    def __init__(self, exercise_dates: list[date]) -> None: ...
+    @staticmethod
+    def co_terminal(first_exercise: date, swap_end: date, fixed_freq: str | Frequency) -> BermudanSchedule: ...
+    def with_lockout(self, lockout_end: date) -> BermudanSchedule: ...
+    def with_notice_days(self, days: int) -> BermudanSchedule: ...
+    @property
+    def exercise_dates(self) -> list[date]: ...
+    @property
+    def effective_dates(self) -> list[date]: ...
+    @property
+    def num_exercises(self) -> int: ...
 
 class Swaption:
     """Interest rate swaption for pricing options on interest rate swaps.
@@ -128,6 +182,16 @@ class Swaption:
         vol_surface: str,
         exercise: str | None = "european",
         settlement: str | None = "physical",
+        *,
+        fixed_freq: str | Frequency | None = None,
+        float_freq: str | Frequency | None = None,
+        day_count: str | DayCount | None = None,
+        vol_model: str | VolatilityModel | None = None,
+        calendar: str | None = None,
+        cash_settlement_method: str | CashSettlementMethod | None = None,
+        sabr_params: SABRParameters | None = None,
+        implied_volatility: float | None = None,
+        attributes: dict[str, str] | None = None,
     ) -> "Swaption":
         """Create a payer swaption (option to pay fixed on underlying swap).
 
@@ -167,6 +231,24 @@ class Swaption:
         settlement : str, optional
             Settlement type: "physical" (enter the swap, default) or "cash"
             (cash settlement based on swap value). Physical is standard.
+        fixed_freq : str | Frequency, optional
+            Fixed leg payment frequency override.
+        float_freq : str | Frequency, optional
+            Float leg payment frequency override.
+        day_count : str | DayCount, optional
+            Day count convention override.
+        vol_model : str | VolatilityModel, optional
+            Volatility model override (e.g., "black76", "normal").
+        calendar : str, optional
+            Business calendar identifier.
+        cash_settlement_method : str | CashSettlementMethod, optional
+            Cash settlement method when settlement is "cash".
+        sabr_params : SABRParameters, optional
+            SABR model parameters for smile-aware pricing.
+        implied_volatility : float, optional
+            Override implied volatility for pricing.
+        attributes : dict[str, str], optional
+            User-defined metadata.
 
         Returns
         -------
@@ -213,6 +295,16 @@ class Swaption:
         vol_surface: str,
         exercise: str | None = "european",
         settlement: str | None = "physical",
+        *,
+        fixed_freq: str | Frequency | None = None,
+        float_freq: str | Frequency | None = None,
+        day_count: str | DayCount | None = None,
+        vol_model: str | VolatilityModel | None = None,
+        calendar: str | None = None,
+        cash_settlement_method: str | CashSettlementMethod | None = None,
+        sabr_params: SABRParameters | None = None,
+        implied_volatility: float | None = None,
+        attributes: dict[str, str] | None = None,
     ) -> "Swaption":
         """Create a receiver swaption (option to receive fixed on underlying swap).
 
@@ -245,6 +337,24 @@ class Swaption:
             Exercise style: "european" (default) or "bermudan".
         settlement : str, optional
             Settlement type: "physical" (default) or "cash".
+        fixed_freq : str | Frequency, optional
+            Fixed leg payment frequency override.
+        float_freq : str | Frequency, optional
+            Float leg payment frequency override.
+        day_count : str | DayCount, optional
+            Day count convention override.
+        vol_model : str | VolatilityModel, optional
+            Volatility model override.
+        calendar : str, optional
+            Business calendar identifier.
+        cash_settlement_method : str | CashSettlementMethod, optional
+            Cash settlement method when settlement is "cash".
+        sabr_params : SABRParameters, optional
+            SABR model parameters for smile-aware pricing.
+        implied_volatility : float, optional
+            Override implied volatility for pricing.
+        attributes : dict[str, str], optional
+            User-defined metadata.
 
         Returns
         -------
@@ -297,6 +407,111 @@ class Swaption:
     @property
     def vol_surface(self) -> str: ...
     @property
+    def fixed_freq(self) -> str: ...
+    @property
+    def float_freq(self) -> str: ...
+    @property
+    def day_count(self) -> DayCount: ...
+    @property
+    def vol_model(self) -> VolatilityModel: ...
+    @property
+    def calendar(self) -> str | None: ...
+    @property
+    def cash_settlement_method(self) -> CashSettlementMethod: ...
+    @property
+    def sabr_params(self) -> SABRParameters | None: ...
+    @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
+
+class BermudanSwaption:
+    """Bermudan swaption with multiple exercise dates.
+
+    A Bermudan swaption gives the holder the right to exercise on any of
+    a set of discrete dates, entering into an underlying interest rate swap.
+    """
+
+    @classmethod
+    def payer(
+        cls,
+        instrument_id: str,
+        notional: Money,
+        strike: float,
+        swap_start: date,
+        swap_end: date,
+        schedule: BermudanSchedule,
+        discount_curve: str,
+        forward_curve: str,
+        vol_surface: str,
+        *,
+        fixed_freq: str | Frequency | None = None,
+        float_freq: str | Frequency | None = None,
+        day_count: str | DayCount | None = None,
+        settlement: str | None = None,
+        bermudan_type: str | BermudanType | None = None,
+        calendar: str | None = None,
+        implied_volatility: float | None = None,
+        attributes: dict[str, str] | None = None,
+    ) -> BermudanSwaption: ...
+    @classmethod
+    def receiver(
+        cls,
+        instrument_id: str,
+        notional: Money,
+        strike: float,
+        swap_start: date,
+        swap_end: date,
+        schedule: BermudanSchedule,
+        discount_curve: str,
+        forward_curve: str,
+        vol_surface: str,
+        *,
+        fixed_freq: str | Frequency | None = None,
+        float_freq: str | Frequency | None = None,
+        day_count: str | DayCount | None = None,
+        settlement: str | None = None,
+        bermudan_type: str | BermudanType | None = None,
+        calendar: str | None = None,
+        implied_volatility: float | None = None,
+        attributes: dict[str, str] | None = None,
+    ) -> BermudanSwaption: ...
+    @property
+    def instrument_id(self) -> str: ...
+    @property
+    def notional(self) -> Money: ...
+    @property
+    def strike(self) -> float: ...
+    @property
+    def swap_start(self) -> date: ...
+    @property
+    def swap_end(self) -> date: ...
+    @property
+    def option_type(self) -> str: ...
+    @property
+    def settlement(self) -> str: ...
+    @property
+    def bermudan_type(self) -> BermudanType: ...
+    @property
+    def exercise_dates(self) -> list[date]: ...
+    @property
+    def first_exercise(self) -> date | None: ...
+    @property
+    def last_exercise(self) -> date | None: ...
+    @property
+    def discount_curve(self) -> str: ...
+    @property
+    def forward_curve(self) -> str: ...
+    @property
+    def vol_surface(self) -> str: ...
+    @property
+    def fixed_freq(self) -> str: ...
+    @property
+    def float_freq(self) -> str: ...
+    @property
+    def day_count(self) -> DayCount: ...
+    @property
+    def calendar(self) -> str | None: ...
+    @property
+    def instrument_type(self) -> InstrumentType: ...
+    def __repr__(self) -> str: ...

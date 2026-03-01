@@ -65,6 +65,25 @@ pub enum CollateralType {
     },
 }
 
+impl std::str::FromStr for CollateralType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "general" | "gc" => Ok(Self::General),
+            "special" => Err(
+                "CollateralType::Special requires security_id; use CollateralSpec::special()"
+                    .to_string(),
+            ),
+            other => Err(format!(
+                "Unknown collateral type: '{}'. Valid: general, special",
+                other
+            )),
+        }
+    }
+}
+
 /// Specification of collateral backing a repo.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CollateralSpec {

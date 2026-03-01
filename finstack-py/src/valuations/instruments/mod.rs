@@ -67,7 +67,7 @@ use rates::ir_future::PyInterestRateFuture;
 use rates::irs::PyInterestRateSwap;
 use rates::range_accrual::PyRangeAccrual;
 use rates::repo::PyRepo;
-use rates::swaption::PySwaption;
+use rates::swaption::{PyBermudanSwaption, PySwaption};
 use rates::xccy_swap::PyCrossCurrencySwap;
 
 use finstack_valuations::instruments::Instrument;
@@ -140,6 +140,7 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract_arc!(value, PyEquityOption, InstrumentType::EquityOption);
     try_extract_arc!(value, PyConvertibleBond, InstrumentType::Convertible);
     try_extract_arc!(value, PySwaption, InstrumentType::Swaption);
+    try_extract_arc!(value, PyBermudanSwaption, InstrumentType::BermudanSwaption);
     try_extract_arc!(
         value,
         PyEquityTotalReturnSwap,

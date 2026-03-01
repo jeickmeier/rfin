@@ -72,7 +72,10 @@ impl std::str::FromStr for PayReceive {
             }
             "receive_fixed" | "receive_protection" | "receive" | "recv" | "receiver" | "seller"
             | "sell" | "long" => Ok(PayReceive::Receive),
-            other => Err(format!("Unknown pay/receive: {}", other)),
+            other => Err(format!(
+                "Unknown pay/receive: '{}'. Valid: pay, receive, pay_fixed, receive_fixed, payer, receiver",
+                other
+            )),
         }
     }
 }
@@ -86,6 +89,31 @@ pub enum ParRateMethod {
     ForwardBased,
     /// Use discount-curve ratio for bootstrapping
     DiscountRatio,
+}
+
+impl std::fmt::Display for ParRateMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParRateMethod::ForwardBased => write!(f, "forward_based"),
+            ParRateMethod::DiscountRatio => write!(f, "discount_ratio"),
+        }
+    }
+}
+
+impl std::str::FromStr for ParRateMethod {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "forward_based" | "forward" => Ok(Self::ForwardBased),
+            "discount_ratio" | "discount" => Ok(Self::DiscountRatio),
+            other => Err(format!(
+                "Unknown par rate method: '{}'. Valid: forward_based, discount_ratio",
+                other
+            )),
+        }
+    }
 }
 
 /// Specification for fixed rate legs in interest rate swaps

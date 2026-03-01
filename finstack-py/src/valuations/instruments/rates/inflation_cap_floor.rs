@@ -42,7 +42,7 @@ use std::sync::Arc;
 ///         .end_date(Date(2029, 1, 1))
 ///         .frequency("annual")
 ///         .inflation_index_id("US-CPI-U")
-///         .disc_id("USD-OIS")
+///         .discount_curve("USD-OIS")
 ///         .vol_surface_id("USD-INFLATION-VOL")
 ///         .build()
 ///     )
@@ -90,6 +90,7 @@ pub struct PyInflationCapFloorBuilder {
     inflation_index_id: Option<CurveId>,
     discount_curve_id: Option<CurveId>,
     vol_surface_id: Option<CurveId>,
+    lag_override: Option<finstack_core::market_data::scalars::InflationLag>,
 }
 
 impl PyInflationCapFloorBuilder {
@@ -109,6 +110,7 @@ impl PyInflationCapFloorBuilder {
             inflation_index_id: None,
             discount_curve_id: None,
             vol_surface_id: None,
+            lag_override: None,
         }
     }
 
@@ -352,9 +354,15 @@ impl PyInflationCapFloorBuilder {
 
     /// Set discount curve identifier.
     #[pyo3(text_signature = "($self, curve_id)")]
-    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+    fn discount_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.discount_curve_id = Some(CurveId::new(&curve_id));
         slf
+    }
+
+    /// Deprecated: use `discount_curve()` instead.
+    #[pyo3(name = "disc_id", text_signature = "($self, curve_id)")]
+    fn disc_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        Self::discount_curve(slf, curve_id)
     }
 
     /// Set volatility surface identifier.
@@ -362,6 +370,30 @@ impl PyInflationCapFloorBuilder {
     fn vol_surface_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.vol_surface_id = Some(CurveId::new(&curve_id));
         slf
+    }
+
+    #[pyo3(text_signature = "($self, lag_override=None)", signature = (lag_override=None))]
+    fn lag_override(
+        mut slf: PyRefMut<'_, Self>,
+        lag_override: Option<String>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        if let Some(lag) = lag_override {
+            use finstack_core::market_data::scalars::InflationLag;
+            let normalized = crate::core::common::labels::normalize_label(&lag);
+            slf.lag_override = Some(match normalized.as_str() {
+                "none" => InflationLag::None,
+                "3m" | "three_months" => InflationLag::Months(3),
+                "8m" | "eight_months" => InflationLag::Months(8),
+                other => {
+                    return Err(PyValueError::new_err(format!(
+                        "Unsupported lag override: {other}",
+                    )))
+                }
+            });
+        } else {
+            slf.lag_override = None;
+        }
+        Ok(slf)
     }
 
     /// Build the InflationCapFloor instrument.
@@ -397,7 +429,7 @@ impl PyInflationCapFloorBuilder {
         let discount_curve_id = slf
             .discount_curve_id
             .clone()
-            .ok_or_else(|| PyValueError::new_err("disc_id() must be provided"))?;
+            .ok_or_else(|| PyValueError::new_err("discount_curve() must be provided"))?;
 
         let vol_surface_id = slf
             .vol_surface_id
@@ -408,7 +440,9 @@ impl PyInflationCapFloorBuilder {
             id: slf.instrument_id.clone(),
             option_type: slf.option_type,
             notional,
-            strike: rust_decimal::Decimal::try_from(slf.strike).unwrap_or_default(),
+            strike: rust_decimal::Decimal::try_from(slf.strike).map_err(|_| {
+                PyValueError::new_err(format!("Cannot convert {} to decimal", slf.strike))
+            })?,
             start_date,
             maturity: end_date,
             frequency: slf.frequency,
@@ -420,7 +454,7 @@ impl PyInflationCapFloorBuilder {
             discount_curve_id,
             vol_surface_id,
             pricing_overrides: PricingOverrides::default(),
-            lag_override: None,
+            lag_override: slf.lag_override,
             attributes: Attributes::new(),
         };
 
