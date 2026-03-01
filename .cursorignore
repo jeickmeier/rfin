@@ -2,5 +2,10 @@ target/*
 .venv/*
 Cargo.lock
 .vscode/*
-.windsurf/*
+.benchmarks/*
+.hypothesis/*
+.mypy_cache/*
+.pytest_cache/*
+.ruff_cache/*
+.ty_cache/*
 .benchmarks/*

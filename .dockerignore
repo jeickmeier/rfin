@@ -12,3 +12,4 @@ htmlcov/
 outputs/
 docs/
 *.egg-info/
+.cursorignore
