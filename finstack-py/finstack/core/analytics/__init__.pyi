@@ -3,7 +3,7 @@
 Provides the :class:`Performance` class for computing returns, drawdowns,
 risk metrics, and benchmark-relative statistics from price data.
 
-The :mod:`finstack.analytics.expr` sub-module exposes the same metrics as
+The :mod:`finstack.core.analytics.expr` sub-module exposes the same metrics as
 native Polars expression plugins for use inside ``.select()``,
 ``.with_columns()``, and other Polars contexts.
 """

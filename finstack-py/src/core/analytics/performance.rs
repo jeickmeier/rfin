@@ -179,7 +179,7 @@ fn scalars_i64_to_df(tickers: &[String], values: &[i64], metric_name: &str) -> P
 ///     ``"quarterly"``, ``"semiannual"``, ``"annual"``.
 /// log_returns : bool
 ///     If True, use log returns; otherwise use simple returns.
-#[pyclass(name = "Performance", module = "finstack.analytics")]
+#[pyclass(name = "Performance", module = "finstack.core.analytics")]
 pub struct PyPerformance {
     inner: Performance,
 }

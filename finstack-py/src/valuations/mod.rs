@@ -7,6 +7,7 @@ pub(crate) mod conventions;
 pub(crate) mod covenants;
 pub(crate) mod dataframe;
 pub(crate) mod instruments;
+pub(crate) mod lsmc;
 pub(crate) mod margin;
 pub(crate) mod market;
 pub(crate) mod metrics;
@@ -14,6 +15,8 @@ pub(crate) mod performance;
 pub(crate) mod pricer;
 pub(crate) mod results;
 pub(crate) mod risk;
+pub(crate) mod schema;
+pub(crate) mod xva;
 
 use finstack_core::HashSet;
 use pyo3::prelude::*;
@@ -100,6 +103,21 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let bumps_exports = bumps::register(py, &module)?;
     exports.extend(bumps_exports.iter().copied());
     promote_exports(&module, "bumps", &bumps_exports)?;
+
+    // Register LSMC (Longstaff-Schwartz Monte Carlo) pricer module
+    let lsmc_exports = lsmc::register(py, &module)?;
+    exports.extend(lsmc_exports.iter().copied());
+    promote_exports(&module, "lsmc", &lsmc_exports)?;
+
+    // Register schema module (JSON Schema helpers)
+    let schema_exports = schema::register(py, &module)?;
+    exports.extend(schema_exports.iter().copied());
+    promote_exports(&module, "schema", &schema_exports)?;
+
+    // Register XVA module (CVA, exposure, netting, collateral)
+    let xva_exports = xva::register(py, &module)?;
+    exports.extend(xva_exports.iter().copied());
+    promote_exports(&module, "xva", &xva_exports)?;
 
     let mut uniq = HashSet::default();
     exports.retain(|item| uniq.insert(*item));

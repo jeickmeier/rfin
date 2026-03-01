@@ -25,7 +25,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyModuleMethods};
 use pyo3::Bound;
 
-mod analytics;
 mod core;
 mod errors;
 mod portfolio;
@@ -70,10 +69,12 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     core::volatility_models::register(py, &core_mod)?;
     core::types::register(py, &core_mod)?;
     core::expr::register(py, &core_mod)?;
+    core::analytics::register(py, &core_mod)?;
 
     let core_exports = PyList::new(
         py,
         [
+            "analytics",
             "cashflow",
             "currency",
             "config",
@@ -94,6 +95,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
 
     // Expose core submodules at package root for convenience and stub generation
     for name in [
+        "analytics",
         "cashflow",
         "currency",
         "config",
@@ -131,9 +133,6 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
 
     // Portfolio bindings (module registers itself under `portfolio`)
     portfolio::register(py, &m)?;
-
-    // Analytics bindings (module registers itself under `analytics`)
-    analytics::register(py, &m)?;
 
     // Re-export selected helpers at package root for convenience
     let dates_binding = core_mod.getattr("dates")?;

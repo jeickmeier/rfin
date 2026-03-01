@@ -1,3 +1,4 @@
+pub mod analytics;
 pub mod cashflow;
 pub mod common;
 pub mod config;

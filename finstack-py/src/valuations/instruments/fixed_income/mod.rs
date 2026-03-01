@@ -2,6 +2,7 @@ pub(crate) mod agency_mbs;
 pub(crate) mod bond;
 pub(crate) mod bond_future;
 pub(crate) mod convertible;
+pub(crate) mod fi_trs;
 pub(crate) mod inflation_linked_bond;
 pub(crate) mod revolving_credit;
 pub(crate) mod structured_credit;
@@ -39,6 +40,9 @@ pub(crate) fn register<'py>(
 
     let term_loan_exports = term_loan::register(py, module)?;
     exports.extend(term_loan_exports.iter().copied());
+
+    let fi_trs_exports = fi_trs::register(py, module)?;
+    exports.extend(fi_trs_exports.iter().copied());
 
     Ok(exports)
 }

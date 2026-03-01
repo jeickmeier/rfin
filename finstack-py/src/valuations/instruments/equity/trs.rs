@@ -1,5 +1,9 @@
 #![allow(clippy::unwrap_used)]
 
+//! Rust source: `finstack/valuations/src/instruments/equity/equity_trs/`
+//! Shared TRS types (TrsSide, FinancingLegSpec, etc.) live here; the
+//! FI index TRS binding has been moved to `fixed_income/fi_trs.rs`.
+
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
@@ -10,7 +14,6 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
-use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::FinancingLegSpec;
 use finstack_valuations::instruments::{EquityUnderlyingParams, IndexUnderlyingParams};
@@ -579,265 +582,6 @@ impl fmt::Display for PyEquityTotalReturnSwap {
     }
 }
 
-/// Fixed income index TRS wrapper.
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "FiIndexTotalReturnSwap",
-    frozen,
-    from_py_object
-)]
-#[derive(Clone, Debug)]
-pub struct PyFiIndexTotalReturnSwap {
-    pub(crate) inner: Arc<FIIndexTotalReturnSwap>,
-}
-
-impl PyFiIndexTotalReturnSwap {
-    pub(crate) fn new(inner: FIIndexTotalReturnSwap) -> Self {
-        Self {
-            inner: Arc::new(inner),
-        }
-    }
-}
-
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "FiIndexTotalReturnSwapBuilder",
-    unsendable
-)]
-pub struct PyFiIndexTotalReturnSwapBuilder {
-    instrument_id: InstrumentId,
-    notional: Option<finstack_core::money::Money>,
-    underlying: Option<IndexUnderlyingParams>,
-    financing: Option<FinancingLegSpec>,
-    schedule: Option<TrsScheduleSpec>,
-    side: Option<TrsSide>,
-    initial_level: Option<f64>,
-}
-
-impl PyFiIndexTotalReturnSwapBuilder {
-    fn new_with_id(id: InstrumentId) -> Self {
-        Self {
-            instrument_id: id,
-            notional: None,
-            underlying: None,
-            financing: None,
-            schedule: None,
-            side: None,
-            initial_level: None,
-        }
-    }
-
-    fn ensure_ready(&self) -> PyResult<()> {
-        if self.notional.is_none() {
-            return Err(PyValueError::new_err("notional() is required."));
-        }
-        if self.underlying.is_none() {
-            return Err(PyValueError::new_err("underlying() is required."));
-        }
-        if self.financing.is_none() {
-            return Err(PyValueError::new_err("financing() is required."));
-        }
-        if self.schedule.is_none() {
-            return Err(PyValueError::new_err("schedule() is required."));
-        }
-        if self.side.is_none() {
-            return Err(PyValueError::new_err("side() is required."));
-        }
-        Ok(())
-    }
-}
-
-#[pymethods]
-impl PyFiIndexTotalReturnSwapBuilder {
-    #[new]
-    #[pyo3(text_signature = "(instrument_id)")]
-    fn new_py(instrument_id: &str) -> Self {
-        Self::new_with_id(InstrumentId::new(instrument_id))
-    }
-
-    #[pyo3(text_signature = "($self, notional)")]
-    fn notional<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        notional: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.notional = Some(extract_money(&notional)?);
-        Ok(slf)
-    }
-
-    #[pyo3(text_signature = "($self, underlying)")]
-    fn underlying<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        underlying: &PyIndexUnderlyingParams,
-    ) -> PyRefMut<'py, Self> {
-        slf.underlying = Some(underlying.inner.clone());
-        slf
-    }
-
-    #[pyo3(text_signature = "($self, financing)")]
-    fn financing<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        financing: &PyFinancingLegSpec,
-    ) -> PyRefMut<'py, Self> {
-        slf.financing = Some(financing.inner.clone());
-        slf
-    }
-
-    #[pyo3(text_signature = "($self, schedule)")]
-    fn schedule<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        schedule: &PyTrsScheduleSpec,
-    ) -> PyRefMut<'py, Self> {
-        slf.schedule = Some(schedule.inner.clone());
-        slf
-    }
-
-    #[pyo3(text_signature = "($self, side)")]
-    fn side(mut slf: PyRefMut<'_, Self>, side: PyTrsSide) -> PyRefMut<'_, Self> {
-        slf.side = Some(side.inner);
-        slf
-    }
-
-    #[pyo3(text_signature = "($self, initial_level=None)", signature = (initial_level=None))]
-    fn initial_level(
-        mut slf: PyRefMut<'_, Self>,
-        initial_level: Option<f64>,
-    ) -> PyRefMut<'_, Self> {
-        slf.initial_level = initial_level;
-        slf
-    }
-
-    #[pyo3(text_signature = "($self)")]
-    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFiIndexTotalReturnSwap> {
-        slf.ensure_ready()?;
-        let inner = FIIndexTotalReturnSwap {
-            id: slf.instrument_id.clone(),
-            notional: slf.notional.unwrap(),
-            underlying: slf.underlying.clone().unwrap(),
-            financing: slf.financing.clone().unwrap(),
-            schedule: slf.schedule.clone().unwrap(),
-            side: slf.side.unwrap(),
-            initial_level: slf.initial_level,
-            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
-            attributes: Attributes::new(),
-            margin_spec: None,
-        };
-        Ok(PyFiIndexTotalReturnSwap::new(inner))
-    }
-
-    fn __repr__(&self) -> String {
-        "FiIndexTotalReturnSwapBuilder(...)".to_string()
-    }
-}
-
-#[pymethods]
-impl PyFiIndexTotalReturnSwap {
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, instrument_id)")]
-    /// Start a fluent builder (builder-only API).
-    fn builder<'py>(
-        cls: &Bound<'py, PyType>,
-        instrument_id: &str,
-    ) -> PyResult<Py<PyFiIndexTotalReturnSwapBuilder>> {
-        let py = cls.py();
-        let builder =
-            PyFiIndexTotalReturnSwapBuilder::new_with_id(InstrumentId::new(instrument_id));
-        Py::new(py, builder)
-    }
-
-    #[getter]
-    fn instrument_id(&self) -> &str {
-        self.inner.id.as_str()
-    }
-
-    #[getter]
-    fn notional(&self) -> PyMoney {
-        PyMoney::new(self.inner.notional)
-    }
-
-    #[getter]
-    fn instrument_type(&self) -> PyInstrumentType {
-        PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::FIIndexTotalReturnSwap)
-    }
-
-    #[getter]
-    fn side(&self) -> &'static str {
-        match self.inner.side {
-            TrsSide::ReceiveTotalReturn => "receive_total_return",
-            TrsSide::PayTotalReturn => "pay_total_return",
-        }
-    }
-
-    fn value(
-        &self,
-        py: Python<'_>,
-        market: &PyMarketContext,
-        as_of: Bound<'_, PyAny>,
-    ) -> PyResult<PyMoney> {
-        let date = py_to_date(&as_of)?;
-        let value = py
-            .detach(|| self.inner.value(&market.inner, date))
-            .map_err(core_to_py)?;
-        Ok(PyMoney::new(value))
-    }
-
-    fn pv_total_return_leg(
-        &self,
-        py: Python<'_>,
-        market: &PyMarketContext,
-        as_of: Bound<'_, PyAny>,
-    ) -> PyResult<PyMoney> {
-        let date = py_to_date(&as_of)?;
-        let value = py
-            .detach(|| self.inner.pv_total_return_leg(&market.inner, date))
-            .map_err(core_to_py)?;
-        Ok(PyMoney::new(value))
-    }
-
-    fn pv_financing_leg(
-        &self,
-        py: Python<'_>,
-        market: &PyMarketContext,
-        as_of: Bound<'_, PyAny>,
-    ) -> PyResult<PyMoney> {
-        let date = py_to_date(&as_of)?;
-        let value = py
-            .detach(|| self.inner.pv_financing_leg(&market.inner, date))
-            .map_err(core_to_py)?;
-        Ok(PyMoney::new(value))
-    }
-
-    fn financing_annuity(
-        &self,
-        market: &PyMarketContext,
-        as_of: Bound<'_, PyAny>,
-    ) -> PyResult<f64> {
-        let date = py_to_date(&as_of)?;
-        self.inner
-            .financing_annuity(&market.inner, date)
-            .map_err(core_to_py)
-    }
-
-    fn __repr__(&self) -> PyResult<String> {
-        Ok(format!(
-            "FiIndexTotalReturnSwap(id='{}', notional={}, side='{}')",
-            self.inner.id,
-            self.inner.notional,
-            self.side()
-        ))
-    }
-}
-
-impl fmt::Display for PyFiIndexTotalReturnSwap {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "FiIndexTotalReturnSwap({}, side={})",
-            self.inner.id,
-            self.side()
-        )
-    }
-}
-
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
@@ -848,9 +592,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyEquityUnderlyingParams>()?;
     module.add_class::<PyIndexUnderlyingParams>()?;
     module.add_class::<PyEquityTotalReturnSwap>()?;
-    module.add_class::<PyFiIndexTotalReturnSwap>()?;
     module.add_class::<PyEquityTotalReturnSwapBuilder>()?;
-    module.add_class::<PyFiIndexTotalReturnSwapBuilder>()?;
     Ok(vec![
         "TrsSide",
         "TrsFinancingLegSpec",
@@ -858,8 +600,6 @@ pub(crate) fn register<'py>(
         "EquityUnderlying",
         "IndexUnderlying",
         "EquityTotalReturnSwap",
-        "FiIndexTotalReturnSwap",
         "EquityTotalReturnSwapBuilder",
-        "FiIndexTotalReturnSwapBuilder",
     ])
 }

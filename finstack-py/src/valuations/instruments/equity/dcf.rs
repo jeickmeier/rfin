@@ -1,3 +1,6 @@
+//! Rust source: `finstack/valuations/src/instruments/equity/dcf_equity/`
+//! Abbreviated to `dcf` for Python ergonomics.
+
 use crate::core::money::PyMoney;
 use crate::statements::error::stmt_to_py;
 use crate::statements::types::model::PyFinancialModelSpec;

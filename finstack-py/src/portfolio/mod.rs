@@ -24,6 +24,33 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 
+/// Register a named submodule on `parent`, populate it via `register_fn`,
+/// and promote all its exports onto the parent module.
+fn register_submodule<'py, F>(
+    py: Python<'py>,
+    parent: &Bound<'py, PyModule>,
+    name: &str,
+    all_exports: &mut Vec<String>,
+    register_fn: F,
+) -> PyResult<()>
+where
+    F: FnOnce(Python<'py>, &Bound<'py, PyModule>) -> PyResult<Vec<String>>,
+{
+    let submod = PyModule::new(py, name)?;
+    let exports = register_fn(py, &submod)?;
+    submod.setattr("__all__", PyList::new(py, &exports)?)?;
+    parent.add_submodule(&submod)?;
+    parent.setattr(name, &submod)?;
+    for export_name in &exports {
+        if submod.hasattr(export_name.as_str())? {
+            let attr = submod.getattr(export_name.as_str())?;
+            parent.setattr(export_name.as_str(), attr)?;
+        }
+    }
+    all_exports.extend(exports);
+    Ok(())
+}
+
 /// Register the portfolio module and all its submodules.
 pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<()> {
     let module = PyModule::new(py, "portfolio")?;
@@ -37,60 +64,71 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
         ),
     )?;
 
-    // Register types
-    let type_exports = types::register(py, &module)?;
+    let mut all_exports: Vec<String> = Vec::new();
 
-    // Register books
-    let book_exports = book::register(py, &module)?;
+    register_submodule(py, &module, "types", &mut all_exports, types::register)?;
+    register_submodule(py, &module, "book", &mut all_exports, book::register)?;
+    register_submodule(
+        py,
+        &module,
+        "portfolio",
+        &mut all_exports,
+        positions::register,
+    )?;
+    register_submodule(py, &module, "builder", &mut all_exports, builder::register)?;
+    register_submodule(
+        py,
+        &module,
+        "valuation",
+        &mut all_exports,
+        valuation::register,
+    )?;
+    register_submodule(py, &module, "metrics", &mut all_exports, metrics::register)?;
+    register_submodule(
+        py,
+        &module,
+        "optimization",
+        &mut all_exports,
+        optimization::register,
+    )?;
+    register_submodule(py, &module, "results", &mut all_exports, results::register)?;
+    register_submodule(
+        py,
+        &module,
+        "grouping",
+        &mut all_exports,
+        grouping::register,
+    )?;
+    register_submodule(
+        py,
+        &module,
+        "attribution",
+        &mut all_exports,
+        attribution::register,
+    )?;
+    register_submodule(
+        py,
+        &module,
+        "cashflows",
+        &mut all_exports,
+        cashflows::register,
+    )?;
+    register_submodule(
+        py,
+        &module,
+        "dataframe",
+        &mut all_exports,
+        dataframe::register,
+    )?;
+    register_submodule(py, &module, "margin", &mut all_exports, margin::register)?;
+    register_submodule(
+        py,
+        &module,
+        "scenarios",
+        &mut all_exports,
+        scenarios::register,
+    )?;
 
-    // Register portfolio and builder
-    let portfolio_exports = positions::register(py, &module)?;
-    let builder_exports = builder::register(py, &module)?;
-
-    // Register valuation and metrics
-    let valuation_exports = valuation::register(py, &module)?;
-    let metrics_exports = metrics::register(py, &module)?;
-
-    // Register optimization helpers
-    let optimization_exports = optimization::register(py, &module)?;
-
-    // Register results
-    let results_exports = results::register(py, &module)?;
-
-    // Register grouping functions
-    let grouping_exports = grouping::register(py, &module)?;
-
-    // Register attribution and cashflows
-    let attribution_exports = attribution::register(py, &module)?;
-    let cashflow_exports = cashflows::register(py, &module)?;
-
-    // Register dataframe exports
-    let dataframe_exports = dataframe::register(py, &module)?;
-
-    // Register margin utilities
-    let margin_exports = margin::register(py, &module)?;
-
-    let scenarios_exports = scenarios::register(py, &module)?;
-
-    // Collect all exports
-    let mut all_exports = Vec::new();
-    all_exports.extend(type_exports);
-    all_exports.extend(book_exports);
-    all_exports.extend(portfolio_exports);
-    all_exports.extend(builder_exports);
-    all_exports.extend(valuation_exports);
-    all_exports.extend(metrics_exports);
-    all_exports.extend(optimization_exports);
-    all_exports.extend(results_exports);
-    all_exports.extend(grouping_exports);
-    all_exports.extend(attribution_exports);
-    all_exports.extend(cashflow_exports);
-    all_exports.extend(dataframe_exports);
-    all_exports.extend(margin_exports);
-
-    all_exports.extend(scenarios_exports);
-
-    // Set __all__ for the module
     let all_list = PyList::new(py, &all_exports)?;
     module.setattr("__all__", all_list)?;
 

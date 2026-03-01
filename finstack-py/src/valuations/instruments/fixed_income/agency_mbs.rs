@@ -2,6 +2,8 @@
 
 //! Python bindings for Agency MBS instruments.
 //!
+//! Rust sources: consolidates 4 Rust modules into one Python module for convenience.
+//!
 //! This module provides Python bindings for:
 //! - `AgencyMbsPassthrough` - Agency mortgage-backed security passthrough
 //! - `AgencyTba` - To-Be-Announced forward contract

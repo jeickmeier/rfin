@@ -1,4 +1,4 @@
-"""Type stubs for finstack.analytics.expr — Polars expression plugins."""
+"""Type stubs for finstack.core.analytics.expr — Polars expression plugins."""
 
 from __future__ import annotations
 from polars._typing import IntoExpr

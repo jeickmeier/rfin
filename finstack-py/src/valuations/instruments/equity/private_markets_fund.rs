@@ -1,3 +1,6 @@
+//! Rust source: `finstack/valuations/src/instruments/equity/pe_fund/`
+//! Full name (`private_markets_fund`) used in Python instead of Rust abbreviation.
+
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::date_to_py;
 use crate::core::money::PyMoney;

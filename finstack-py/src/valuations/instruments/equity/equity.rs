@@ -1,3 +1,6 @@
+//! Rust source: `finstack/valuations/src/instruments/equity/spot/`
+//! Python uses the instrument name (`equity`) instead of the Rust submodule (`spot`).
+
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 // use crate::core::money::PyMoney; // not used in this module

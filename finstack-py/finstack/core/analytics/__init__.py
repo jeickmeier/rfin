@@ -3,7 +3,7 @@
 Provides the :class:`Performance` class for computing returns, drawdowns,
 risk metrics, and benchmark-relative statistics from price data.
 
-The :mod:`finstack.analytics.expr` sub-module exposes the same metrics as
+The :mod:`finstack.core.analytics.expr` sub-module exposes the same metrics as
 native Polars expression plugins for use inside ``.select()``,
 ``.with_columns()``, and other Polars contexts.
 """
@@ -22,9 +22,11 @@ if TYPE_CHECKING:
         PeriodStatsResult as PeriodStatsResult,
     )
 
-from finstack.finstack import analytics as _rust_analytics  # type: ignore[reportAttributeAccessIssue]
+from finstack import finstack as _finstack  # type: ignore[reportAttributeAccessIssue]
 
 from . import expr as expr
+
+_rust_analytics = _finstack.core.analytics  # type: ignore[unresolved-attribute]
 
 Performance = _rust_analytics.Performance
 

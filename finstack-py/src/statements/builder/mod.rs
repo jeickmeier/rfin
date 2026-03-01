@@ -8,7 +8,7 @@ use crate::statements::types::value::PyAmountOrScalar;
 use crate::statements::types::waterfall::PyWaterfallSpec;
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::{ModelBuilder, NeedPeriods, Ready};
-use finstack_statements::templates::{TemplatesExtension, VintageExtension};
+use finstack_statements::templates::{RealEstateExtension, TemplatesExtension, VintageExtension};
 use finstack_statements::types::AmountOrScalar;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyValueError;
@@ -746,6 +746,163 @@ impl PyModelBuilder {
         let builder = self.take_ready_builder()?;
         let builder = builder
             .add_vintage_buildup(&name, &new_volume_node, &decay_curve)
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
+    }
+
+    // ── Real-estate template helpers ────────────────────────────
+
+    /// Add a NOI (Net Operating Income) buildup template.
+    ///
+    /// Parameters
+    /// ----------
+    /// total_revenue_node : str
+    ///     Node that aggregates all revenue line items.
+    /// revenue_nodes : list[str]
+    ///     Revenue line-item node IDs.
+    /// total_expenses_node : str
+    ///     Node that aggregates all expense line items.
+    /// expense_nodes : list[str]
+    ///     Expense line-item node IDs.
+    /// noi_node : str
+    ///     Target NOI node (``total_revenue - total_expenses``).
+    fn add_noi_buildup(
+        &mut self,
+        total_revenue_node: String,
+        revenue_nodes: Vec<String>,
+        total_expenses_node: String,
+        expense_nodes: Vec<String>,
+        noi_node: String,
+    ) -> PyResult<()> {
+        let builder = self.take_ready_builder()?;
+        let rev_refs: Vec<&str> = revenue_nodes.iter().map(|s| s.as_str()).collect();
+        let exp_refs: Vec<&str> = expense_nodes.iter().map(|s| s.as_str()).collect();
+        let builder = builder
+            .add_noi_buildup(
+                &total_revenue_node,
+                &rev_refs,
+                &total_expenses_node,
+                &exp_refs,
+                &noi_node,
+            )
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
+    }
+
+    /// Add a NCF (Net Cash Flow) buildup template.
+    ///
+    /// Parameters
+    /// ----------
+    /// noi_node : str
+    ///     NOI source node.
+    /// capex_nodes : list[str]
+    ///     Capital expenditure node IDs.
+    /// ncf_node : str
+    ///     Target NCF node (``NOI - capex``).
+    fn add_ncf_buildup(
+        &mut self,
+        noi_node: String,
+        capex_nodes: Vec<String>,
+        ncf_node: String,
+    ) -> PyResult<()> {
+        let builder = self.take_ready_builder()?;
+        let capex_refs: Vec<&str> = capex_nodes.iter().map(|s| s.as_str()).collect();
+        let builder = builder
+            .add_ncf_buildup(&noi_node, &capex_refs, &ncf_node)
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
+    }
+
+    /// Add a rent-roll rental revenue projection (v1, simple leases).
+    ///
+    /// Parameters
+    /// ----------
+    /// leases : list[LeaseSpec]
+    ///     Lease specifications.
+    /// total_rent_node : str
+    ///     Target node for aggregated rental revenue.
+    fn add_rent_roll_rental_revenue(
+        &mut self,
+        leases: Vec<crate::statements::templates::PyLeaseSpec>,
+        total_rent_node: String,
+    ) -> PyResult<()> {
+        let builder = self.take_ready_builder()?;
+        let specs: Vec<_> = leases.into_iter().map(|l| l.inner).collect();
+        let builder = builder
+            .add_rent_roll_rental_revenue(&specs, &total_rent_node)
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
+    }
+
+    /// Add a rent-roll rental revenue projection (v2, enhanced leases).
+    ///
+    /// Parameters
+    /// ----------
+    /// leases : list[LeaseSpecV2]
+    ///     Enhanced lease specifications with steps, windows, and renewal.
+    /// nodes : RentRollOutputNodes
+    ///     Output node names for the rent decomposition.
+    fn add_rent_roll_rental_revenue_v2(
+        &mut self,
+        leases: Vec<crate::statements::templates::PyLeaseSpecV2>,
+        nodes: crate::statements::templates::PyRentRollOutputNodes,
+    ) -> PyResult<()> {
+        let builder = self.take_ready_builder()?;
+        let specs: Vec<_> = leases.into_iter().map(|l| l.inner).collect();
+        let builder = builder
+            .add_rent_roll_rental_revenue_v2(&specs, &nodes.inner)
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
+    }
+
+    /// Add a full property operating statement template.
+    ///
+    /// Combines rent roll, other income, expenses, management fees,
+    /// and capex into a complete NOI-to-NCF waterfall.
+    ///
+    /// Parameters
+    /// ----------
+    /// leases : list[LeaseSpecV2]
+    ///     Enhanced lease specifications.
+    /// other_income_nodes : list[str]
+    ///     Other income node IDs.
+    /// opex_nodes : list[str]
+    ///     Operating expense node IDs.
+    /// capex_nodes : list[str]
+    ///     Capital expenditure node IDs.
+    /// management_fee : ManagementFeeSpec or None
+    ///     Optional management fee specification.
+    /// nodes : PropertyTemplateNodes
+    ///     Node names for the property template output.
+    #[pyo3(signature = (leases, other_income_nodes, opex_nodes, capex_nodes, nodes, management_fee=None))]
+    fn add_property_operating_statement(
+        &mut self,
+        leases: Vec<crate::statements::templates::PyLeaseSpecV2>,
+        other_income_nodes: Vec<String>,
+        opex_nodes: Vec<String>,
+        capex_nodes: Vec<String>,
+        nodes: crate::statements::templates::PyPropertyTemplateNodes,
+        management_fee: Option<crate::statements::templates::PyManagementFeeSpec>,
+    ) -> PyResult<()> {
+        let builder = self.take_ready_builder()?;
+        let specs: Vec<_> = leases.into_iter().map(|l| l.inner).collect();
+        let oi_refs: Vec<&str> = other_income_nodes.iter().map(|s| s.as_str()).collect();
+        let opex_refs: Vec<&str> = opex_nodes.iter().map(|s| s.as_str()).collect();
+        let capex_refs: Vec<&str> = capex_nodes.iter().map(|s| s.as_str()).collect();
+        let builder = builder
+            .add_property_operating_statement(
+                &specs,
+                &oi_refs,
+                &opex_refs,
+                &capex_refs,
+                management_fee.map(|m| m.inner),
+                &nodes.inner,
+            )
             .map_err(stmt_to_py)?;
         self.state = BuilderState::Ready(Some(builder));
         Ok(())

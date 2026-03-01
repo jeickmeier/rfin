@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 import math
 
-from finstack.analytics import Performance, expr
+from finstack.core.analytics import Performance, expr
 import polars as pl
 import pytest
 

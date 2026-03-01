@@ -14,6 +14,7 @@ This module provides the fundamental building blocks for financial computations:
 """
 
 from __future__ import annotations
+from . import analytics
 from . import cashflow
 from . import config
 from . import currency
@@ -24,9 +25,11 @@ from . import market_data
 from . import math
 from . import money
 from . import types
+from . import volatility
 from . import volatility_models
 
 __all__ = [
+    "analytics",
     "cashflow",
     "config",
     "currency",
@@ -37,5 +40,6 @@ __all__ = [
     "math",
     "money",
     "types",
+    "volatility",
     "volatility_models",
 ]

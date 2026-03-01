@@ -17,8 +17,8 @@ from datetime import date, timedelta
 
 import polars as pl
 
-from finstack.analytics import Performance
-from finstack.analytics.expr import (
+from finstack.core.analytics import Performance
+from finstack.core.analytics.expr import (
     batting_average,
     beta,
     calmar,

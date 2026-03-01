@@ -31,7 +31,7 @@ use equity::equity_option::PyEquityOption;
 use equity::levered_real_estate_equity::PyLeveredRealEstateEquity;
 use equity::private_markets_fund::PyPrivateMarketsFund;
 use equity::real_estate::PyRealEstateAsset;
-use equity::trs::{PyEquityTotalReturnSwap, PyFiIndexTotalReturnSwap};
+use equity::trs::PyEquityTotalReturnSwap;
 use equity::variance_swap::PyVarianceSwap;
 use equity::vol_index_future::PyVolatilityIndexFuture;
 use equity::vol_index_option::PyVolatilityIndexOption;
@@ -43,6 +43,7 @@ use fixed_income::agency_mbs::{PyAgencyCmo, PyAgencyMbsPassthrough, PyAgencyTba,
 use fixed_income::bond::PyBond;
 use fixed_income::bond_future::PyBondFuture;
 use fixed_income::convertible::PyConvertibleBond;
+use fixed_income::fi_trs::PyFiIndexTotalReturnSwap;
 use fixed_income::inflation_linked_bond::PyInflationLinkedBond;
 use fixed_income::revolving_credit::PyRevolvingCredit;
 use fixed_income::structured_credit::PyStructuredCredit;

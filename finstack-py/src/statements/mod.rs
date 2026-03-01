@@ -16,12 +16,14 @@
 pub(crate) mod adjustments;
 pub(crate) mod analysis;
 pub(crate) mod builder;
+pub(crate) mod capital_structure;
 pub(crate) mod dsl;
 pub(crate) mod error;
 pub(crate) mod evaluator;
 pub(crate) mod extensions;
 pub(crate) mod forecast;
 pub(crate) mod registry;
+pub(crate) mod templates;
 pub(crate) mod types;
 pub(crate) mod utils;
 
@@ -46,6 +48,8 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     // Register submodules (matches Rust structure)
     let adjustments_exports = adjustments::register(py, &module)?;
     promote_exports(&module, "adjustments", &adjustments_exports)?;
+    let cap_struct_exports = capital_structure::register(py, &module)?;
+    promote_exports(&module, "capital_structure", &cap_struct_exports)?;
     let types_exports = types::register(py, &module)?;
     promote_exports(&module, "types", &types_exports)?;
     let builder_exports = builder::register(py, &module)?;
@@ -62,10 +66,13 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     promote_exports(&module, "forecast", &forecast_exports)?;
     let dsl_exports = dsl::register(py, &module)?;
     promote_exports(&module, "dsl", &dsl_exports)?;
+    let templates_exports = templates::register(py, &module)?;
+    promote_exports(&module, "templates", &templates_exports)?;
 
     // Collect all exports
     let mut all_exports = Vec::new();
     all_exports.extend(adjustments_exports);
+    all_exports.extend(cap_struct_exports);
     all_exports.extend(types_exports);
     all_exports.extend(builder_exports);
     all_exports.extend(evaluator_exports);
@@ -74,6 +81,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     all_exports.extend(analysis_exports);
     all_exports.extend(forecast_exports);
     all_exports.extend(dsl_exports);
+    all_exports.extend(templates_exports);
 
     // Set __all__ for the module
     let all_list = PyList::new(py, &all_exports)?;

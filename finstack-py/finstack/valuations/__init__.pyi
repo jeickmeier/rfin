@@ -16,6 +16,8 @@ from . import conventions
 from . import margin
 from . import market
 from . import bumps
+from . import schema
+from . import xva
 
 # Import common types that are re-exported at the valuations level
 from .common import InstrumentType, ModelKey, PricerKey
@@ -89,6 +91,22 @@ from .bumps import (
     bump_hazard_spreads,
     bump_hazard_shift,
     bump_inflation_rates,
+)
+
+# Schema exports
+from .schema import bond_schema, valuation_result_schema
+
+# XVA exports
+from .xva import (
+    XvaConfig,
+    CsaTerms,
+    NettingSet,
+    ExposureProfile,
+    XvaResult,
+    apply_netting,
+    apply_collateral,
+    compute_exposure_profile,
+    compute_cva,
 )
 
 __all__ = [
@@ -167,6 +185,19 @@ __all__ = [
     "bump_hazard_spreads",
     "bump_hazard_shift",
     "bump_inflation_rates",
+    # Schema
+    "bond_schema",
+    "valuation_result_schema",
+    # XVA
+    "XvaConfig",
+    "CsaTerms",
+    "NettingSet",
+    "ExposureProfile",
+    "XvaResult",
+    "apply_netting",
+    "apply_collateral",
+    "compute_exposure_profile",
+    "compute_cva",
     # Risk
     "risk",
     # Attribution

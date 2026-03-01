@@ -7,6 +7,7 @@ re-exports stay discoverable in IDEs.
 """
 
 from collections.abc import MutableMapping as _MutableMapping
+import importlib as _importlib
 from pathlib import Path as _Path
 import sys as _sys
 import types as _types
@@ -117,8 +118,9 @@ _rust_portfolio = _finstack.portfolio
 _portfolio = _setup_hybrid_module(_rust_portfolio, "portfolio", _pkg_path / "portfolio")
 globals()["portfolio"] = _portfolio
 
-_rust_analytics = _finstack.analytics  # type: ignore[reportAttributeAccessIssue]
-_analytics = _setup_hybrid_module(_rust_analytics, "analytics", _pkg_path / "analytics")
+# Analytics lives under core; re-export at root for convenience
+_analytics = _importlib.import_module("finstack.core.analytics")
+_sys.modules[f"{__name__}.analytics"] = _analytics
 globals()["analytics"] = _analytics
 
 del (
@@ -134,7 +136,7 @@ del (
     _statements,
     _rust_portfolio,
     _portfolio,
-    _rust_analytics,
+    _importlib,
     _analytics,
     _types,
     _setup_hybrid_module,

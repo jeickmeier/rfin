@@ -83,6 +83,25 @@ from .analysis import (
 )
 from .forecast import apply_forecast
 from .dsl import StmtExpr, parse_formula, compile_formula, parse_and_compile
+from . import templates
+from . import capital_structure
+from .templates import (
+    LeaseSpec,
+    RentStepSpec,
+    FreeRentWindowSpec,
+    RenewalSpec,
+    LeaseGrowthConvention,
+    ManagementFeeBase,
+    ManagementFeeSpec,
+    LeaseSpecV2,
+    RentRollOutputNodes,
+    PropertyTemplateNodes,
+)
+from .capital_structure import (
+    CashflowBreakdown,
+    CapitalStructureCashflows,
+    aggregate_instrument_cashflows,
+)
 
 __all__ = [
     # Types
@@ -159,4 +178,19 @@ __all__ = [
     "parse_formula",
     "compile_formula",
     "parse_and_compile",
+    # Templates (Real Estate)
+    "LeaseSpec",
+    "RentStepSpec",
+    "FreeRentWindowSpec",
+    "RenewalSpec",
+    "LeaseGrowthConvention",
+    "ManagementFeeBase",
+    "ManagementFeeSpec",
+    "LeaseSpecV2",
+    "RentRollOutputNodes",
+    "PropertyTemplateNodes",
+    # Capital Structure
+    "CashflowBreakdown",
+    "CapitalStructureCashflows",
+    "aggregate_instrument_cashflows",
 ]
