@@ -64,9 +64,11 @@ fn parse_extrap_enum(value: Option<&str>) -> PyResult<ExtrapolationPolicy> {
 /// day_count : DayCount, optional
 ///     Day-count convention for converting dates to year fractions.
 /// interp : str, optional
-///     Interpolation style such as ``"linear"`` or ``"monotone_convex"``.
+///     Interpolation style (defaults to ``"log_linear"`` which guarantees positive
+///     forward rates). Other options: ``"linear"``, ``"monotone_convex"``, etc.
 /// extrapolation : str, optional
-///     Extrapolation policy name (e.g. ``"flat_zero"``).
+///     Extrapolation policy name (defaults to ``"flat_forward"`` for smooth
+///     instantaneous forwards beyond the last knot).
 /// require_monotonic : bool, default True
 ///     Enforce monotonic discount factors across knots (set False to allow non-monotonic DFs).
 ///
@@ -105,9 +107,11 @@ impl PyDiscountCurve {
     /// day_count : DayCount, optional
     ///     Override the default Act/365F convention.
     /// interp : str, optional
-    ///     Interpolation style (``"linear"``, ``"monotone_convex"``, etc.).
+    ///     Interpolation style (defaults to ``"log_linear"`` for positive forwards).
+    ///     Other options: ``"linear"``, ``"monotone_convex"``, ``"cubic_hermite"``.
     /// extrapolation : str, optional
-    ///     Extrapolation policy name (``"flat_zero"``, ``"flat_forward"`` ...).
+    ///     Extrapolation policy (defaults to ``"flat_forward"``).
+    ///     Other option: ``"flat_zero"``.
     /// require_monotonic : bool, default True
     ///     Enforce monotonic discount factors across knots (set False to allow non-monotonic DFs).
     ///
@@ -134,14 +138,14 @@ impl PyDiscountCurve {
         }
         let base = py_to_date(&base_date).context("base_date")?;
         let style = match interp {
-            None => InterpStyle::Linear,
+            None => InterpStyle::LogLinear,
             Some(obj) => {
                 if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
                     v
                 } else if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
                     py_style.inner
                 } else if let Ok(name) = obj.extract::<&str>() {
-                    parse_interp_enum(Some(name), InterpStyle::Linear)?
+                    parse_interp_enum(Some(name), InterpStyle::LogLinear)?
                 } else {
                     return Err(pyo3::exceptions::PyTypeError::new_err(
                         "interp must be InterpStyle or string",
@@ -150,7 +154,7 @@ impl PyDiscountCurve {
             }
         };
         let extra = match extrapolation {
-            None => parse_extrap_enum(None)?,
+            None => ExtrapolationPolicy::FlatForward,
             Some(obj) => {
                 if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
                     v
@@ -426,8 +430,11 @@ impl PyDiscountCurve {
     fn zero_periodic_on_date(&self, date: Bound<'_, PyAny>, n: u32) -> PyResult<f64> {
         use std::num::NonZeroU32;
         let d = py_to_date(&date).context("date")?;
-        // Handle n=0 case gracefully - return 0 to match previous behavior
-        let n = NonZeroU32::new(n).unwrap_or(NonZeroU32::MIN);
+        let n = NonZeroU32::new(n).ok_or_else(|| {
+            PyValueError::new_err(
+                "compounding periods per year (n) must be positive; use zero_on_date() for continuous compounding",
+            )
+        })?;
         self.inner
             .zero_rate_on_date(d, finstack_core::math::Compounding::Periodic(n))
             .map_err(core_to_py)

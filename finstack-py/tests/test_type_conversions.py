@@ -264,7 +264,7 @@ class TestNoneAndOptionalHandling:
         ]
 
         # Execute without initial_market (should use empty context)
-        market, report, _step_reports = cal.execute_calibration_v2(
+        market, report, _step_reports = cal.execute_calibration(
             "plan_discount_optional_market",
             quote_sets,
             steps,

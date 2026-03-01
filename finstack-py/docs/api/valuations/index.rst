@@ -135,7 +135,7 @@ Calibration
 -----------
 
 .. automodule:: finstack.calibration
-   :members: execute_calibration_v2, CalibrationConfig, RatesQuote, CreditQuote, VolQuote, InflationQuote
+   :members: execute_calibration, CalibrationConfig, RatesQuote, CreditQuote, VolQuote, InflationQuote
    :undoc-members:
    :show-inheritance:
 
@@ -145,7 +145,7 @@ Example:
 
 .. code-block:: python
 
-   from finstack import execute_calibration_v2, RatesQuote
+   from finstack import execute_calibration, RatesQuote
 
    quotes = [
        RatesQuote.deposit_rate(tenor="3M", rate=0.045),
@@ -162,7 +162,7 @@ Example:
        }]
    }
 
-   result = execute_calibration_v2(plan, {})
+   result = execute_calibration(plan, {})
    curve = result.curves["USD.OIS"]
 
 Metrics

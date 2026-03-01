@@ -41,11 +41,13 @@ class DiscountCurve:
         Day-count convention for converting dates to year fractions.
         Defaults to ACT/365.25 if not specified.
     interp : InterpStyle or str, optional
-        Interpolation method between knots. Options: "linear", "monotone_convex",
-        "log_linear", "cubic_spline". Defaults to "linear".
+        Interpolation method between knots. Defaults to ``"log_linear"`` which
+        guarantees positive forward rates (the QuantLib standard). Other options:
+        ``"linear"``, ``"monotone_convex"``, ``"cubic_hermite"``.
     extrapolation : ExtrapolationPolicy or str, optional
-        How to handle dates beyond the curve's range. Options: "flat_zero",
-        "flat_last", "linear", "none". Defaults to "flat_zero".
+        How to handle dates beyond the curve's range. Defaults to ``"flat_forward"``
+        for smooth instantaneous forwards beyond the last knot.
+        Other option: ``"flat_zero"``.
     require_monotonic : bool, default True
         If True, enforce that discount factors are monotonically decreasing
         (i.e., longer times have smaller discount factors). Set False only when
@@ -77,7 +79,7 @@ class DiscountCurve:
     - Time is always in years from base_date
     - Discount factors must be positive and typically <= 1.0
     - Use :meth:`from_rates` for convenience when starting from market rates
-    - Interpolation affects smoothness; monotone_convex preserves arbitrage-free properties
+    - Log-linear interpolation (flat forward) is the default and prevents negative implied forwards
     - Extrapolation policy determines behavior beyond the curve's range
 
     See Also

@@ -2,26 +2,18 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from finstack.core.market_data.context import MarketContext
+
 from .config import (
     CalibrationConfig,
     CalibrationMethod,
-    MultiCurveConfig,
     RateBounds,
     SolverKind,
     ValidationMode,
 )
 from .hull_white import HullWhiteParams, SwaptionQuote, calibrate_hull_white
-from .report import CalibrationReport
-from .sabr import SABRCalibrationDerivatives, SABRMarketData, SABRModelParams
-from .validation import (
-    ValidationConfig,
-    ValidationError,
-    validate_discount_curve,
-    validate_forward_curve,
-    validate_hazard_curve,
-    validate_inflation_curve,
-    validate_vol_surface,
-)
 from .quote import (
     CreditQuote,
     InflationQuote,
@@ -29,21 +21,20 @@ from .quote import (
     RatesQuote,
     VolQuote,
 )
-from finstack.core.market_data.context import MarketContext
-from typing import Any
-
-from .methods import (
-    BaseCorrelationCalibrator,
-    DiscountCurveCalibrator,
-    ForwardCurveCalibrator,
-    HazardCurveCalibrator,
-    InflationCurveCalibrator,
-    VolSurfaceCalibrator,
+from .report import CalibrationReport
+from .sabr import SABRCalibrationDerivatives, SABRMarketData, SABRModelParams
+from .validation import (
+    ValidationConfig,
+    validate_discount_curve,
+    validate_forward_curve,
+    validate_hazard_curve,
+    validate_inflation_curve,
+    validate_vol_surface,
 )
 
 CALIBRATION_SCHEMA: str
 
-def execute_calibration_v2(
+def execute_calibration(
     plan_id: str,
     quote_sets: dict[str, list[MarketQuote]],
     steps: list[dict[str, Any]],
@@ -54,12 +45,11 @@ def execute_calibration_v2(
 
 __all__ = [
     "CALIBRATION_SCHEMA",
-    "execute_calibration_v2",
+    "execute_calibration",
     "SolverKind",
     "CalibrationMethod",
     "ValidationMode",
     "RateBounds",
-    "MultiCurveConfig",
     "CalibrationConfig",
     "RatesQuote",
     "CreditQuote",
@@ -67,7 +57,6 @@ __all__ = [
     "InflationQuote",
     "MarketQuote",
     "CalibrationReport",
-    "ValidationError",
     "ValidationConfig",
     "validate_discount_curve",
     "validate_forward_curve",
@@ -80,10 +69,4 @@ __all__ = [
     "SABRModelParams",
     "SABRMarketData",
     "SABRCalibrationDerivatives",
-    "DiscountCurveCalibrator",
-    "ForwardCurveCalibrator",
-    "HazardCurveCalibrator",
-    "InflationCurveCalibrator",
-    "VolSurfaceCalibrator",
-    "BaseCorrelationCalibrator",
 ]

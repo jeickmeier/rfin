@@ -188,7 +188,7 @@ def test_simple_calibration_flow_and_report() -> None:
         }
     ]
 
-    market_ctx, report, step_reports = cal.execute_calibration_v2(
+    market_ctx, report, step_reports = cal.execute_calibration(
         "plan_discount",
         quote_sets,
         steps,
@@ -219,7 +219,7 @@ def test_simple_calibration_flow_and_report() -> None:
     assert isinstance(report_dict["residuals"], dict)
 
 
-def test_execute_calibration_v2_forward_step() -> None:
+def test_calibration_forward_step() -> None:
     """Forward curve step should work when initial market contains discount curve."""
     base_date = dt.date(2024, 1, 2)
     market = MarketContext()
@@ -249,7 +249,7 @@ def test_execute_calibration_v2_forward_step() -> None:
         }
     ]
 
-    market_ctx, report, _step_reports = cal.execute_calibration_v2(
+    market_ctx, report, _step_reports = cal.execute_calibration(
         "plan_forward",
         quote_sets,
         steps,
@@ -260,7 +260,7 @@ def test_execute_calibration_v2_forward_step() -> None:
     assert len(curve.points) > 0
 
 
-def test_execute_calibration_v2_hazard_step() -> None:
+def test_calibration_hazard_step() -> None:
     """Hazard curve step should work when initial market contains discount curve."""
     base_date = dt.date(2024, 1, 2)
     market = MarketContext()
@@ -299,7 +299,7 @@ def test_execute_calibration_v2_hazard_step() -> None:
     # - successful calibration (preferred), or
     # - a deterministic RuntimeError mentioning date/schedule validation.
     try:
-        market_ctx, report, _step_reports = cal.execute_calibration_v2(
+        market_ctx, report, _step_reports = cal.execute_calibration(
             "plan_hazard",
             quote_sets,
             steps,
@@ -342,8 +342,8 @@ def test_validate_discount_curve_helpers() -> None:
         pass
 
 
-def test_execute_calibration_v2_inflation_step() -> None:
-    """Inflation curve calibration via v2 plan-driven API."""
+def test_calibration_inflation_step() -> None:
+    """Inflation curve calibration via plan-driven API."""
     base_date = dt.date(2024, 1, 2)
     market = MarketContext()
     market.insert_discount(_make_discount_curve(base_date))
@@ -384,7 +384,7 @@ def test_execute_calibration_v2_inflation_step() -> None:
         }
     ]
 
-    market_ctx, report, _step_reports = cal.execute_calibration_v2(
+    market_ctx, report, _step_reports = cal.execute_calibration(
         "plan_inflation",
         quote_sets,
         steps,
@@ -401,8 +401,8 @@ def test_execute_calibration_v2_inflation_step() -> None:
     assert cpi_3y > cpi_1y  # Should grow over time
 
 
-def test_execute_calibration_v2_vol_surface_step() -> None:
-    """Volatility surface calibration via v2 plan-driven API (swaption/equity)."""
+def test_calibration_vol_surface_step() -> None:
+    """Volatility surface calibration via plan-driven API (swaption/equity)."""
     base_date = dt.date(2024, 1, 2)
     market = MarketContext()
     market.insert_discount(_make_discount_curve(base_date))
@@ -446,7 +446,7 @@ def test_execute_calibration_v2_vol_surface_step() -> None:
     ]
 
     try:
-        market_ctx, report, _step_reports = cal.execute_calibration_v2(
+        market_ctx, report, _step_reports = cal.execute_calibration(
             "plan_vol_surface",
             quote_sets,
             steps,
@@ -468,12 +468,10 @@ def test_execute_calibration_v2_vol_surface_step() -> None:
         assert len(report.errors) > 0
 
 
-def test_execute_calibration_v2_base_correlation_manual() -> None:
+def test_calibration_base_correlation_manual() -> None:
     """Base correlation curve construction (manual, not via plan).
 
-    Note: As of this implementation, base correlation calibration via v2 plan
-    may not be fully automated. This test demonstrates manual construction
-    using the BaseCorrelationCurve class.
+    This test demonstrates manual construction using the BaseCorrelationCurve class.
     """
     from finstack.core.market_data.term_structures import BaseCorrelationCurve
 

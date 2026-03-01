@@ -98,12 +98,18 @@ impl PyDayCount {
             "act/365l" | "act_365l" | "actual/365l" | "act/365afb" => {
                 Ok(Self::new(DayCount::Act365L))
             }
-            "30/360" | "30_360" | "thirty/360" | "30u/360" => Ok(Self::new(DayCount::Thirty360)),
-            "30e/360" | "30e_360" | "30/360e" => Ok(Self::new(DayCount::ThirtyE360)),
-            "act/act" | "act_act" | "actual/actual" | "act/act isda" => {
+            "30/360" | "30_360" | "thirty/360" | "30u/360" | "bond_basis" | "30/360_bond_basis" => {
+                Ok(Self::new(DayCount::Thirty360))
+            }
+            "30e/360" | "30e_360" | "30/360e" | "eurobond_basis" => {
+                Ok(Self::new(DayCount::ThirtyE360))
+            }
+            "act/act" | "act_act" | "actual/actual" | "act/act isda" | "isda" => {
                 Ok(Self::new(DayCount::ActAct))
             }
-            "act/act isma" | "act_act_isma" | "icma" => Ok(Self::new(DayCount::ActActIsma)),
+            "act/act isma" | "act_act_isma" | "icma" | "act/act icma" => {
+                Ok(Self::new(DayCount::ActActIsma))
+            }
             "bus/252" | "bus_252" | "business/252" => Ok(Self::new(DayCount::Bus252)),
             other => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "Unknown day-count convention: {other}"
@@ -142,11 +148,15 @@ impl PyDayCount {
     }
 
     #[pyo3(text_signature = "(self, start, end, ctx=None)")]
-    /// Compute the day count between two dates.
+    /// Return the number of **calendar** days between two dates.
     ///
-    /// This is a convenience helper for parity with common Python day-count APIs.
-    /// The optional context is currently ignored (it is only relevant for
-    /// business-day-aware year-fraction conventions).
+    /// This always returns ``(end - start)`` in calendar days regardless of the
+    /// day-count convention. For BUS/252 or other business-day-aware conventions,
+    /// use :py:meth:`year_fraction` with a :class:`DayCountContext` that includes
+    /// the appropriate calendar.
+    ///
+    /// The optional ``ctx`` parameter is accepted for API symmetry with
+    /// :py:meth:`year_fraction` but is currently unused.
     fn days(
         &self,
         start: Bound<'_, PyAny>,

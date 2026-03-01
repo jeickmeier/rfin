@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   CalibrationConfig,
-  executeCalibrationV2,
+  executeCalibration,
   FsDate,
   Frequency,
   MarketContext,
@@ -183,7 +183,7 @@ export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> =
         },
       };
 
-      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+      const [marketCtx, report] = executeCalibration(envelope) as [
         MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
         Record<string, unknown>,

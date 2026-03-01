@@ -17,7 +17,7 @@ import {
   CalibrationConfig,
   CreditIndexData,
   DiscountCurve,
-  executeCalibrationV2,
+  executeCalibration,
   FsDate,
   Frequency,
   HazardCurve,
@@ -392,7 +392,7 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
         },
       };
 
-      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+      const [marketCtx, report] = executeCalibration(envelope) as [
         MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
         Record<string, unknown>,
@@ -471,7 +471,7 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
         },
       };
 
-      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+      const [marketCtx, report] = executeCalibration(envelope) as [
         MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
         Record<string, unknown>,

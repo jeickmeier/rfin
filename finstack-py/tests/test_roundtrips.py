@@ -253,7 +253,7 @@ class TestCalibrationRoundtrips:
             }
         ]
 
-        market, report, _step_reports = cal.execute_calibration_v2(
+        market, report, _step_reports = cal.execute_calibration(
             "plan_roundtrip_discount",
             quote_sets,
             steps,

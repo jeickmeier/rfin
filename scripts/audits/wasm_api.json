@@ -6287,8 +6287,8 @@
           "classes": [],
           "functions": [
             {
-              "name": "execute_calibration_v2",
-              "js_name": "executeCalibrationV2"
+              "name": "execute_calibration",
+              "js_name": "executeCalibration"
             }
           ]
         },
@@ -14576,7 +14576,7 @@
         "validateInflationCurve",
         "validateVolSurface",
         "validateMarketContext",
-        "executeCalibrationV2",
+        "executeCalibration",
         "none",
         "linearTo",
         "stepRemaining",

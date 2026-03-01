@@ -176,6 +176,6 @@ Items the audit missed that are included above:
 2. `basket.pyi` and `trs.pyi` not in **init**.pyi re-exports (added to P0-3 scope)
 
 Items the audit listed that are already done:
-- Calibration V2 (`execute_calibration_v2`, `CALIBRATION_SCHEMA`) -- already in `calibration/__init__.pyi`
+- Calibration V2 (`execute_calibration`, `CALIBRATION_SCHEMA`) -- already in `calibration/__init__.pyi`
 - `AmortizationSpec` -- already in `cashflow/__init__.pyi` via builder import
 - `MetricRegistry` -- already in `metrics.pyi`

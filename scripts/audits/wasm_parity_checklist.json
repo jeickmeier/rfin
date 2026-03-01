@@ -8096,8 +8096,8 @@
     },
     {
       "module": "finstack.valuations.calibration",
-      "name": "execute_calibration_v2",
-      "js_name": "executeCalibrationV2"
+      "name": "execute_calibration",
+      "js_name": "executeCalibration"
     },
     {
       "module": "finstack.valuations.calibration.config",

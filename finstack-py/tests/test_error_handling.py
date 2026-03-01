@@ -135,7 +135,7 @@ class TestCalibrationErrors:
         ]
 
         with pytest.raises((finstack.ValidationError, finstack.ParameterError, RuntimeError, ValueError)):
-            cal.execute_calibration_v2("plan_empty_quotes", quote_sets, steps)
+            cal.execute_calibration("plan_empty_quotes", quote_sets, steps)
 
     def test_calibration_with_non_monotonic_knots(self) -> None:
         """Non-monotonic times should raise ParameterError."""
@@ -162,7 +162,7 @@ class TestCalibrationErrors:
 
         # Quotes may be internally sorted/validated. Accept either outcome.
         try:
-            market, report, _ = cal.execute_calibration_v2("plan_non_monotonic", quote_sets, steps)
+            market, report, _ = cal.execute_calibration("plan_non_monotonic", quote_sets, steps)
             assert market.discount("USD-OIS") is not None
             assert report is not None
         except (

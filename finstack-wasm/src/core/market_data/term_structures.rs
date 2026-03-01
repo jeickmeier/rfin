@@ -152,8 +152,16 @@ impl JsDiscountCurve {
         }
 
         let points: Vec<(f64, f64)> = times.into_iter().zip(discount_factors).collect();
-        let style = parse_interp_value(&interp)?;
-        let extrap = parse_extrap_value(&extrapolation)?;
+        let style = if interp.is_undefined() || interp.is_null() {
+            InterpStyle::LogLinear
+        } else {
+            parse_interp_value(&interp)?
+        };
+        let extrap = if extrapolation.is_undefined() || extrapolation.is_null() {
+            ExtrapolationPolicy::FlatForward
+        } else {
+            parse_extrap_value(&extrapolation)?
+        };
         let picked_day_count = parse_day_count_jsvalue(&day_count)?.unwrap_or(DayCount::Act365F);
 
         let mut builder = DiscountCurve::builder(id)

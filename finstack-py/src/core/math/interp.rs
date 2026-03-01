@@ -72,6 +72,9 @@ impl PyInterpStyle {
     const PIECEWISE_QUADRATIC_FORWARD: Self = Self {
         inner: InterpStyle::PiecewiseQuadraticForward,
     };
+    /// Alias for ``LOG_LINEAR``. Log-linear interpolation on discount factors
+    /// is mathematically equivalent to piecewise-constant (flat) forward rates
+    /// between knot points, hence the name.
     #[classattr]
     const FLAT_FWD: Self = Self {
         inner: InterpStyle::LogLinear,

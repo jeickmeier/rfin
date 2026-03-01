@@ -1,4 +1,4 @@
-"""Calibrate a USD OIS discount curve using `execute_calibration_v2`.
+"""Calibrate a USD OIS discount curve using the plan-driven calibration API.
 
 This script is a standalone equivalent of the notebook:
 `finstack-py/examples/notebooks/valuations/18_valuations_calibration.ipynb`.
@@ -126,7 +126,7 @@ def print_conventions_debug(
     strict_step_pricing: bool,
     ois_index_id: str,
 ) -> None:
-    """Print the simplified conventions used in the v2 quote API."""
+    """Print the simplified conventions used in the quote API."""
     build_discount_step_conventions(
         curve_day_count=curve_day_count,
         strict_pricing=strict_step_pricing,
@@ -138,7 +138,7 @@ def build_discount_step_conventions(
     curve_day_count: str | None,
     strict_pricing: bool,
 ) -> dict:
-    """Build the JSON conventions payload for the v2 discount step."""
+    """Build the JSON conventions payload for the discount step."""
 
     def normalize_dc(dc: str) -> str:
         key = dc.strip().lower().replace("_", "").replace("-", "").replace(" ", "")
@@ -166,7 +166,7 @@ def build_discount_step_conventions(
     if curve_day_count is not None:
         out["curve_day_count"] = normalize_dc(curve_day_count)
 
-    # No additional fields are accepted in the v2 rates step conventions; the engine
+    # No additional fields are accepted in the rates step conventions; the engine
     # applies instrument-level conventions internally.
     if strict_pricing:
         # Keep the flag visible in logs for callers but do not surface in payload.
@@ -392,7 +392,7 @@ def calibrate_discount_curve(
     # `verbose=True` increases engine-side diagnostics. `explain=True` enables structured traces.
     settings = cal.CalibrationConfig(tolerance=tolerance, verbose=True, explain=True)
     market = MarketContext()
-    market, plan_report, step_reports = cal.execute_calibration_v2(
+    market, plan_report, step_reports = cal.execute_calibration(
         "example_discount_curve",
         quote_sets,
         steps,
@@ -404,7 +404,7 @@ def calibrate_discount_curve(
 def main() -> None:
     import argparse
 
-    parser = argparse.ArgumentParser(description="USD OIS discount-curve calibration example (execute_calibration_v2).")
+    parser = argparse.ArgumentParser(description="USD OIS discount-curve calibration example.")
     parser.add_argument("--global-solve", action="store_true", help="Use GlobalSolve (otherwise Bootstrap).")
     parser.add_argument(
         "--no-analytical-jacobian",

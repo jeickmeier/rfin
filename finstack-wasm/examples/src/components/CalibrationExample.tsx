@@ -8,7 +8,7 @@ import {
   MarketContext,
   RatesQuote,
   SolverKind,
-  executeCalibrationV2,
+  executeCalibration,
 } from 'finstack-wasm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -210,7 +210,7 @@ export const CalibrationExample: React.FC = () => {
           },
         };
 
-        const [marketCtx] = executeCalibrationV2(envelope) as [
+        const [marketCtx] = executeCalibration(envelope) as [
           MarketContext,
           unknown,
           Record<string, unknown>,
@@ -489,7 +489,7 @@ export const CalibrationExample: React.FC = () => {
         <CardContent className="space-y-4">
           <p className="text-muted-foreground text-sm">
             Calibration is plan-driven in v2 via{' '}
-            <code className="bg-muted px-1.5 py-0.5 rounded text-xs">executeCalibrationV2</code>.
+            <code className="bg-muted px-1.5 py-0.5 rounded text-xs">executeCalibration</code>.
           </p>
           <ul className="space-y-2 text-sm">
             <li className="flex gap-2">

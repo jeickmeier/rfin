@@ -27507,7 +27507,7 @@
       "classes": [],
       "functions": [
         {
-          "name": "execute_calibration_v2",
+          "name": "execute_calibration",
           "module": "finstack.valuations.calibration",
           "signature": "",
           "return_type": "tuple[MarketContext, CalibrationReport, dict[str, CalibrationReport]]",
@@ -27530,7 +27530,7 @@
       ],
       "all_exports": [
         "CALIBRATION_SCHEMA",
-        "execute_calibration_v2",
+        "execute_calibration",
         "SolverKind",
         "CalibrationMethod",
         "ValidationMode",

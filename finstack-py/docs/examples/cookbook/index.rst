@@ -137,7 +137,7 @@ Calibrate Curves
 
 .. code-block:: python
 
-   from finstack import execute_calibration_v2, RatesQuote
+   from finstack import execute_calibration, RatesQuote
 
    quotes = [
        RatesQuote.deposit_rate("3M", 0.045),
@@ -155,7 +155,7 @@ Calibrate Curves
        }]
    }
 
-   result = execute_calibration_v2(plan, {})
+   result = execute_calibration(plan, {})
    curve = result.curves["USD.OIS"]
 
 Optimize Portfolio

@@ -11,7 +11,7 @@ Demonstrates market data calibration workflow:
 - Validate curve construction and extract forward rates
 
 Key Concepts:
-- Calibration plan-driven API (v2)
+- Calibration plan-driven API
 - Multi-curve framework (discount vs forward)
 - CDS curve bootstrapping
 - Quote construction and validation
@@ -41,7 +41,7 @@ def main() -> None:
     market_ctx = MarketContext()
 
     # For cookbook purposes we keep this fast/deterministic by using flat curves.
-    # For a full plan-driven v2 calibration example, see:
+    # For a full plan-driven calibration example, see:
     # `examples/scripts/valuations/calibration/discount_curve_calibration_example.py`.
     market_ctx.insert_discount(DiscountCurve("USD-OIS", base_date, [(0.0, 1.0), (10.0, 0.65)]))
     market_ctx.insert_hazard(HazardCurve("ACME.CDS", base_date, [(0.0, 0.02), (10.0, 0.02)], recovery_rate=0.40))

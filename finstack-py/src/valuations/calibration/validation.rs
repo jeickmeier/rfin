@@ -348,7 +348,6 @@ pub(crate) fn register<'py>(
         "validate_hazard_curve",
         "validate_inflation_curve",
         "validate_vol_surface",
-        "ValidationError",
         "ValidationConfig",
     ];
     module.setattr("__all__", PyList::new(py, exports)?)?;

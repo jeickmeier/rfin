@@ -5,7 +5,7 @@ import {
   FsDate,
   MarketContext,
   RatesQuote,
-  executeCalibrationV2,
+  executeCalibration,
   SolverKind,
 } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -196,7 +196,7 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
         },
       };
 
-      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+      const [marketCtx, report] = executeCalibration(envelope) as [
         MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
         Record<string, unknown>,

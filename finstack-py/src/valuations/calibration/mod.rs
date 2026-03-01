@@ -1,8 +1,9 @@
 pub mod config;
+pub mod engine;
 pub mod hull_white;
 pub mod quote;
 pub mod report;
-pub mod v2;
+pub mod sabr;
 pub mod validation;
 
 use finstack_core::HashSet;
@@ -34,8 +35,11 @@ pub(crate) fn register<'py>(
     let report_exports = report::register(py, &module)?;
     exports.extend(report_exports.iter().copied());
 
-    let v2_exports = v2::register(py, &module)?;
-    exports.extend(v2_exports.iter().copied());
+    let engine_exports = engine::register(py, &module)?;
+    exports.extend(engine_exports.iter().copied());
+
+    let sabr_exports = sabr::register(py, &module)?;
+    exports.extend(sabr_exports.iter().copied());
 
     let validation_exports = validation::register(py, &module)?;
     exports.extend(validation_exports.iter().copied());

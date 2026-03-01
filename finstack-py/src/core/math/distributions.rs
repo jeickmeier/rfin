@@ -138,8 +138,10 @@ pub fn log_factorial_py(value: usize) -> PyResult<f64> {
 /// beta : float
 ///     Second shape parameter (must be positive).
 /// seed : int, optional
-///     Optional RNG seed for deterministic sampling. If omitted, a fixed
-///     default seed is used for reproducible examples.
+///     RNG seed for deterministic sampling. **If omitted, defaults to 42 and
+///     every call without an explicit seed returns the same value.** For
+///     multiple independent samples, supply distinct seeds or use
+///     :class:`finstack.core.math.random.Rng` directly.
 ///
 /// Returns
 /// -------
@@ -225,7 +227,10 @@ pub fn exponential_quantile_py(p: f64, lambda_: f64) -> PyResult<f64> {
 /// lambda_ : float
 ///     Rate parameter (must be positive).
 /// seed : int, optional
-///     Optional RNG seed for deterministic sampling.
+///     RNG seed for deterministic sampling. **If omitted, defaults to 42 and
+///     every call without an explicit seed returns the same value.** For
+///     multiple independent samples, supply distinct seeds or use
+///     :class:`finstack.core.math.random.Rng` directly.
 ///
 /// Returns
 /// -------
@@ -315,7 +320,10 @@ pub fn lognormal_quantile_py(p: f64, mu: f64, sigma: f64) -> PyResult<f64> {
 /// sigma : float
 ///     Standard deviation of the underlying normal (must be positive).
 /// seed : int, optional
-///     Optional RNG seed for deterministic sampling.
+///     RNG seed for deterministic sampling. **If omitted, defaults to 42 and
+///     every call without an explicit seed returns the same value.** For
+///     multiple independent samples, supply distinct seeds or use
+///     :class:`finstack.core.math.random.Rng` directly.
 ///
 /// Returns
 /// -------
@@ -399,7 +407,10 @@ pub fn chi_squared_quantile_py(p: f64, df: f64) -> PyResult<f64> {
 /// df : float
 ///     Degrees of freedom (must be positive).
 /// seed : int, optional
-///     Optional RNG seed for deterministic sampling.
+///     RNG seed for deterministic sampling. **If omitted, defaults to 42 and
+///     every call without an explicit seed returns the same value.** For
+///     multiple independent samples, supply distinct seeds or use
+///     :class:`finstack.core.math.random.Rng` directly.
 ///
 /// Returns
 /// -------
@@ -425,7 +436,10 @@ pub fn sample_chi_squared_py(df: f64, seed: Option<u64>) -> PyResult<f64> {
 /// shape : float
 ///     Shape parameter (must be positive).
 /// seed : int, optional
-///     Optional RNG seed for deterministic sampling.
+///     RNG seed for deterministic sampling. **If omitted, defaults to 42 and
+///     every call without an explicit seed returns the same value.** For
+///     multiple independent samples, supply distinct seeds or use
+///     :class:`finstack.core.math.random.Rng` directly.
 ///
 /// Returns
 /// -------
@@ -450,7 +464,10 @@ pub fn sample_gamma_py(shape: f64, seed: Option<u64>) -> PyResult<f64> {
 /// df : float
 ///     Degrees of freedom (must be positive).
 /// seed : int, optional
-///     Optional RNG seed for deterministic sampling.
+///     RNG seed for deterministic sampling. **If omitted, defaults to 42 and
+///     every call without an explicit seed returns the same value.** For
+///     multiple independent samples, supply distinct seeds or use
+///     :class:`finstack.core.math.random.Rng` directly.
 ///
 /// Returns
 /// -------

@@ -118,9 +118,11 @@ impl PyVolSurface {
     #[pyo3(text_signature = "(self, expiry, strike)")]
     /// Interpolated volatility at `(expiry, strike)` with flat extrapolation.
     ///
-    /// This method clamps coordinates to grid bounds, providing safe evaluation
-    /// that never raises. Use `value_checked` for explicit error handling or
-    /// `value_unchecked` when bounds are guaranteed.
+    /// **Warning:** coordinates outside the grid are silently clamped to the
+    /// nearest edge value (flat extrapolation). This means out-of-bounds queries
+    /// will not raise an error but may return stale boundary volatilities.
+    /// For pricing where extrapolation must be detected, use
+    /// :py:meth:`value_checked` instead.
     fn value(&self, expiry: f64, strike: f64) -> f64 {
         self.inner.value_clamped(expiry, strike)
     }

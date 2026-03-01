@@ -41,7 +41,7 @@ class RatesQuote:
         maturity: Any,
         rate: float,
         *,
-        spread: float | None = ...,
+        spread_decimal: float | None = ...,
     ) -> RatesQuote: ...
     @property
     def kind(self) -> str: ...
@@ -58,7 +58,7 @@ class CreditQuote:
         spread_bp: float,
         recovery_rate: float,
         currency: Any,
-        doc_clause: str,
+        doc_clause: str = "XR14",
     ) -> CreditQuote: ...
     @classmethod
     def cds_tranche(
@@ -71,7 +71,7 @@ class CreditQuote:
         upfront_pct: float,
         running_spread_bp: float,
         currency: Any,
-        doc_clause: str,
+        doc_clause: str = "XR14",
     ) -> CreditQuote: ...
     @classmethod
     def cds_upfront(
@@ -83,7 +83,7 @@ class CreditQuote:
         running_spread_bp: float,
         recovery_rate: float,
         currency: Any,
-        doc_clause: str,
+        doc_clause: str = "XR14",
     ) -> CreditQuote: ...
     @property
     def kind(self) -> str: ...
@@ -105,7 +105,7 @@ class VolQuote:
     def swaption_vol(
         cls,
         expiry: Any,
-        tenor: Any,
+        maturity: Any,
         strike: float,
         vol: float,
         quote_type: str,

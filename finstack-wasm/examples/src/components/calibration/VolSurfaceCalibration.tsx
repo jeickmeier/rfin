@@ -7,7 +7,7 @@ import {
   Money,
   SolverKind,
   VolQuote,
-  executeCalibrationV2,
+  executeCalibration,
 } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
@@ -176,7 +176,7 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
         },
       };
 
-      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+      const [marketCtx, report] = executeCalibration(envelope) as [
         MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
         Record<string, unknown>,

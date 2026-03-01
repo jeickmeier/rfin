@@ -11,7 +11,7 @@ from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.calibration import (
     CalibrationStep,
     RatesQuote,
-    execute_calibration_v2,
+    execute_calibration,
 )
 import pytest
 from pytest_benchmark.fixture import BenchmarkFixture
@@ -149,7 +149,7 @@ class TestCurveCalibrationBenchmarks:
 
         def calibrate_curve() -> DiscountCurve:
             # Execute calibration
-            result = execute_calibration_v2([step])
+            result = execute_calibration([step])
 
             # Extract the calibrated curve
             curve = result.market.getDiscountCurve("USD.OIS")
@@ -189,7 +189,7 @@ class TestCurveCalibrationBenchmarks:
         )
 
         def calibrate_curve() -> DiscountCurve:
-            result = execute_calibration_v2([step])
+            result = execute_calibration([step])
             return result.market.getDiscountCurve("USD.OIS")
 
         # Run benchmark
@@ -225,7 +225,7 @@ class TestCurveCalibrationBenchmarks:
         ]
 
         def calibrate_all() -> MarketContext:
-            result = execute_calibration_v2(steps)
+            result = execute_calibration(steps)
             return result.market
 
         # Run benchmark

@@ -2,25 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
-
-class ValidationError:
-    def __init__(
-        self,
-        constraint: str,
-        location: str,
-        details: str,
-        values: Dict[str, float] | None = None,
-    ) -> None: ...
-    @property
-    def constraint(self) -> str: ...
-    @property
-    def location(self) -> str: ...
-    @property
-    def details(self) -> str: ...
-    @property
-    def values(self) -> Dict[str, float]: ...
-    def __repr__(self) -> str: ...
+from typing import Any
 
 class ValidationConfig:
     def __init__(

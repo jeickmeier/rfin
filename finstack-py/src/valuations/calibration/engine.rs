@@ -5,7 +5,7 @@ use crate::core::market_data::context::PyMarketContext;
 use crate::statements::utils::py_to_json;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::HashMap;
-use finstack_valuations::calibration::api::engine as calib_engine_v2;
+use finstack_valuations::calibration::api::engine as calib_engine;
 use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelope, CalibrationPlan, CalibrationStep, CALIBRATION_SCHEMA,
 };
@@ -20,7 +20,7 @@ fn step_from_py(value: &Bound<'_, PyAny>) -> PyResult<CalibrationStep> {
     let json_value = py_to_json(value)?;
     serde_json::from_value(json_value).map_err(|e| {
         PyValueError::new_err(format!(
-            "Invalid v2 calibration step. Expected a dict matching CalibrationStep schema: {e}"
+            "Invalid calibration step. Expected a dict matching CalibrationStep schema: {e}"
         ))
     })
 }
@@ -50,7 +50,7 @@ fn quote_sets_from_py(
     Ok(out)
 }
 
-/// Execute a v2 (plan-driven) calibration.
+/// Execute a plan-driven calibration.
 ///
 /// Parameters
 /// ----------
@@ -59,7 +59,7 @@ fn quote_sets_from_py(
 /// quote_sets : dict[str, list[MarketQuote]]
 ///     Named collections of quotes; steps reference these by name.
 /// steps : list[dict]
-///     Each step is a JSON-like dict matching the v2 schema for `CalibrationStep`.
+///     Each step is a JSON-like dict matching the calibration schema for `CalibrationStep`.
 /// settings : CalibrationConfig | None
 ///     Optional global calibration settings (tolerances, bounds, etc.).
 /// initial_market : MarketContext | None
@@ -73,7 +73,7 @@ fn quote_sets_from_py(
 ///     The calibrated market context, merged report, and per-step reports.
 #[pyfunction]
 #[pyo3(signature = (plan_id, quote_sets, steps, settings=None, initial_market=None, description=None))]
-fn execute_calibration_v2(
+fn execute_calibration(
     py: Python<'_>,
     plan_id: String,
     quote_sets: HashMap<String, Vec<Py<PyMarketQuote>>>,
@@ -109,7 +109,7 @@ fn execute_calibration_v2(
 
     // Release GIL for compute-heavy calibration work
     let result = py
-        .detach(|| calib_engine_v2::execute(&envelope))
+        .detach(|| calib_engine::execute(&envelope))
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
     let market = MarketContext::try_from(result.result.final_market.clone()).map_err(|e| {
@@ -136,6 +136,6 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add("CALIBRATION_SCHEMA", CALIBRATION_SCHEMA)?;
-    module.add_function(wrap_pyfunction!(execute_calibration_v2, module)?)?;
-    Ok(vec!["CALIBRATION_SCHEMA", "execute_calibration_v2"])
+    module.add_function(wrap_pyfunction!(execute_calibration, module)?)?;
+    Ok(vec!["CALIBRATION_SCHEMA", "execute_calibration"])
 }
