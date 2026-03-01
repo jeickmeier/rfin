@@ -49,7 +49,7 @@ class FxForward:
         ...     .base_currency("EUR")
         ...     .quote_currency("USD")
         ...     .maturity(date(2025, 6, 15))
-        ...     .notional(Money.from_code(1_000_000, "EUR"))
+        ...     .notional(Money(1_000_000, "EUR"))
         ...     .domestic_discount_curve("USD-OIS")
         ...     .foreign_discount_curve("EUR-OIS")
         ...     .contract_rate(1.12)

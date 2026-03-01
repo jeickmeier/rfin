@@ -24,13 +24,7 @@ impl PyEstimate {
     ///     ci_95_upper: Upper bound of 95% confidence interval
     ///     num_paths: Number of paths simulated
     #[new]
-    fn new(
-        mean: f64,
-        stderr: f64,
-        ci_95_lower: f64,
-        ci_95_upper: f64,
-        num_paths: usize,
-    ) -> Self {
+    fn new(mean: f64, stderr: f64, ci_95_lower: f64, ci_95_upper: f64, num_paths: usize) -> Self {
         Self {
             inner: Estimate::new(mean, stderr, (ci_95_lower, ci_95_upper), num_paths),
         }

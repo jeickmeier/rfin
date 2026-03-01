@@ -14,7 +14,11 @@ use pyo3::prelude::*;
 ///   S_{t+dt} = S_t * exp((r - q - 0.5*sigma^2)*dt + sigma*sqrt(dt)*Z)
 ///
 /// This is the recommended scheme for GBM processes.
-#[pyclass(module = "finstack.valuations.common.mc", name = "ExactGbmScheme", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "ExactGbmScheme",
+    frozen
+)]
 #[derive(Clone)]
 pub struct PyExactGbmScheme;
 
@@ -65,7 +69,11 @@ impl PyEulerMaruyamaScheme {
 /// Euler scheme applied in log-space for processes with multiplicative noise.
 /// More stable than standard Euler for GBM-like processes but less accurate
 /// than the exact scheme.
-#[pyclass(module = "finstack.valuations.common.mc", name = "LogEulerScheme", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "LogEulerScheme",
+    frozen
+)]
 #[derive(Clone)]
 pub struct PyLogEulerScheme;
 
@@ -92,7 +100,11 @@ impl PyLogEulerScheme {
 ///
 /// Note: Only exact for processes with proportional volatility (GBM-like).
 /// For CIR or OU processes, use dedicated schemes instead.
-#[pyclass(module = "finstack.valuations.common.mc", name = "MilsteinScheme", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "MilsteinScheme",
+    frozen
+)]
 #[derive(Clone)]
 pub struct PyMilsteinScheme;
 
@@ -142,7 +154,11 @@ impl PyLogMilsteinScheme {
 ///     use_exact_integrated_variance: If True, uses exact conditional expectation
 ///            for integrated variance. More accurate for high mean-reversion
 ///            or coarse time steps. Default: False (uses trapezoidal).
-#[pyclass(module = "finstack.valuations.common.mc", name = "QeHestonScheme", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "QeHestonScheme",
+    frozen
+)]
 #[derive(Clone)]
 pub struct PyQeHestonScheme {
     psi_c: f64,

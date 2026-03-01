@@ -55,7 +55,7 @@ class Ndf:
         ...     .settlement_currency("USD")
         ...     .fixing_date(date(2025, 3, 13))
         ...     .maturity_date(date(2025, 3, 15))
-        ...     .notional(Money.from_code(10_000_000, "CNY"))
+        ...     .notional(Money(10_000_000, "CNY"))
         ...     .contract_rate(7.25)
         ...     .settlement_curve("USD-OIS")
         ...     .quote_convention("base_per_settlement")

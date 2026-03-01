@@ -8,7 +8,11 @@ use finstack_valuations::instruments::common::models::monte_carlo::results::Mont
 use pyo3::prelude::*;
 
 /// Monte Carlo result with optional path data.
-#[pyclass(module = "finstack.valuations.common.mc", name = "MonteCarloResult", from_py_object)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "MonteCarloResult",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyMonteCarloResult {
     pub(crate) inner: MonteCarloResult,

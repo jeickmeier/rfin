@@ -5,7 +5,11 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
 /// Process parameters and metadata for Monte Carlo simulation.
-#[pyclass(module = "finstack.valuations.common.mc", name = "ProcessParams", from_py_object)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "ProcessParams",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyProcessParams {
     pub(crate) inner: ProcessParams,

@@ -79,7 +79,11 @@ impl PyGbmParams {
 ///     sigma_v: Vol-of-vol (> 0)
 ///     rho: Correlation between asset and variance in [-1, 1]
 ///     v0: Initial variance (> 0)
-#[pyclass(module = "finstack.valuations.common.mc", name = "HestonParams", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "HestonParams",
+    frozen
+)]
 #[derive(Clone)]
 pub struct PyHestonParams {
     pub(crate) inner: finstack_valuations::instruments::common::mc::process::heston::HestonParams,
@@ -220,11 +224,14 @@ impl PyCirParams {
 ///     kappa: Mean reversion speed
 ///     sigma: Instantaneous volatility
 ///     theta: Constant mean reversion level (for Vasicek/constant theta)
-#[pyclass(module = "finstack.valuations.common.mc", name = "HullWhite1FParams", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "HullWhite1FParams",
+    frozen
+)]
 #[derive(Clone)]
 pub struct PyHullWhite1FParams {
-    pub(crate) inner:
-        finstack_valuations::instruments::common::mc::process::ou::HullWhite1FParams,
+    pub(crate) inner: finstack_valuations::instruments::common::mc::process::ou::HullWhite1FParams,
 }
 
 #[pymethods]
@@ -459,7 +466,11 @@ impl PySchwartzSmithParams {
 /// Args:
 ///     mu: Constant drift
 ///     sigma: Constant diffusion
-#[pyclass(module = "finstack.valuations.common.mc", name = "BrownianParams", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "BrownianParams",
+    frozen
+)]
 #[derive(Clone)]
 pub struct PyBrownianParams {
     pub(crate) inner:
@@ -507,7 +518,11 @@ impl PyBrownianParams {
 ///     thetas: Long-run means
 ///     sigmas: Volatilities (>= 0)
 ///     correlation: Optional correlation matrix (n x n, row-major flat list)
-#[pyclass(module = "finstack.valuations.common.mc", name = "MultiOuParams", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "MultiOuParams",
+    frozen
+)]
 #[derive(Clone)]
 pub struct PyMultiOuParams {
     pub(crate) inner:

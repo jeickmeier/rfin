@@ -76,7 +76,7 @@ class FxVarianceSwap:
         ...     FxVarianceSwap.builder("FXVAR-EURUSD-1Y")
         ...     .base_currency("EUR")
         ...     .quote_currency("USD")
-        ...     .notional(Money.from_code(1_000_000, "USD"))
+        ...     .notional(Money(1_000_000, "USD"))
         ...     .strike_variance(0.04)
         ...     .start_date(date(2024, 1, 2))
         ...     .maturity(date(2025, 1, 2))

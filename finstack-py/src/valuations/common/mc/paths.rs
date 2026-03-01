@@ -24,7 +24,11 @@ fn cashflow_type_to_string(cf_type: CashflowType) -> &'static str {
 }
 
 /// Type of cashflow for categorization.
-#[pyclass(module = "finstack.valuations.common.mc", name = "CashflowType", from_py_object)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "CashflowType",
+    from_py_object
+)]
 #[derive(Clone, Copy)]
 pub enum PyCashflowType {
     /// Principal deployment or repayment
@@ -81,7 +85,11 @@ impl PyCashflowType {
 }
 
 /// A single point along a Monte Carlo path.
-#[pyclass(module = "finstack.valuations.common.mc", name = "PathPoint", from_py_object)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "PathPoint",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPathPoint {
     pub(crate) inner: PathPoint,
@@ -256,7 +264,9 @@ impl PyPathPoint {
         dict.set_item("amount", amounts)?;
         dict.set_item("cashflow_type", types)?;
 
-        pd.call_method1("DataFrame", (dict,))?.extract()
+        pd.call_method1("DataFrame", (dict,))?
+            .extract()
+            .map_err(Into::into)
     }
 
     fn __repr__(&self) -> String {
@@ -270,7 +280,11 @@ impl PyPathPoint {
 }
 
 /// A complete simulated Monte Carlo path.
-#[pyclass(module = "finstack.valuations.common.mc", name = "SimulatedPath", from_py_object)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "SimulatedPath",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PySimulatedPath {
     pub(crate) inner: SimulatedPath,
@@ -443,7 +457,9 @@ impl PySimulatedPath {
         dict.set_item("amount", amounts)?;
         dict.set_item("cashflow_type", types)?;
 
-        pd.call_method1("DataFrame", (dict,))?.extract()
+        pd.call_method1("DataFrame", (dict,))?
+            .extract()
+            .map_err(Into::into)
     }
 
     fn __repr__(&self) -> String {
@@ -461,7 +477,11 @@ impl PySimulatedPath {
 }
 
 /// Collection of simulated paths with metadata.
-#[pyclass(module = "finstack.valuations.common.mc", name = "PathDataset", from_py_object)]
+#[pyclass(
+    module = "finstack.valuations.common.mc",
+    name = "PathDataset",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyPathDataset {
     pub(crate) inner: PathDataset,
@@ -632,7 +652,9 @@ impl PyPathDataset {
     fn to_dataframe(&self, py: Python) -> PyResult<Py<PyAny>> {
         let pd = py.import("pandas")?;
         let dict = self.to_dict(py)?;
-        pd.call_method1("DataFrame", (dict,))?.extract()
+        pd.call_method1("DataFrame", (dict,))?
+            .extract()
+            .map_err(Into::into)
     }
 
     /// Convert all cashflows from all paths to a pandas DataFrame.
@@ -673,7 +695,9 @@ impl PyPathDataset {
         dict.set_item("amount", amounts)?;
         dict.set_item("cashflow_type", types)?;
 
-        pd.call_method1("DataFrame", (dict,))?.extract()
+        pd.call_method1("DataFrame", (dict,))?
+            .extract()
+            .map_err(Into::into)
     }
 
     fn __repr__(&self) -> String {
@@ -694,9 +718,10 @@ impl PyPathDataset {
         let len = self.inner.paths.len() as isize;
         let actual = if index < 0 { len + index } else { index };
         if actual < 0 || actual >= len {
-            return Err(pyo3::exceptions::PyIndexError::new_err(
-                format!("path index out of range: {}", index),
-            ));
+            return Err(pyo3::exceptions::PyIndexError::new_err(format!(
+                "path index out of range: {}",
+                index
+            )));
         }
         Ok(PySimulatedPath {
             inner: self.inner.paths[actual as usize].clone(),
@@ -706,13 +731,7 @@ impl PyPathDataset {
     /// Return an iterator over the paths in this dataset.
     fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<PyPathDatasetIterator>> {
         let paths: Vec<SimulatedPath> = slf.inner.paths.clone();
-        Py::new(
-            slf.py(),
-            PyPathDatasetIterator {
-                paths,
-                index: 0,
-            },
-        )
+        Py::new(slf.py(), PyPathDatasetIterator { paths, index: 0 })
     }
 }
 

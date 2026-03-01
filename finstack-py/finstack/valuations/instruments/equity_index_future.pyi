@@ -96,7 +96,7 @@ class EquityIndexFuture:
         >>> future = (
         ...     EquityIndexFuture.builder("ES-2025M03")
         ...     .index_ticker("SPX")
-        ...     .notional(Money.from_code(2_250_000.0, "USD"))
+        ...     .notional(Money(2_250_000.0, "USD"))
         ...     .expiry_date(date(2025, 3, 21))
         ...     .last_trading_date(date(2025, 3, 20))
         ...     .entry_price(4500.0)
