@@ -107,6 +107,7 @@ class DiscountCurve:
         """
         ...
 
+    @property
     def base_date(self) -> date:
         """Get the base date.
 
@@ -367,6 +368,7 @@ class ForwardCurve:
         """
         ...
 
+    @property
     def base_date(self) -> date:
         """Get the base date.
 
@@ -553,6 +555,7 @@ class HazardCurve:
         """
         ...
 
+    @property
     def base_date(self) -> date:
         """Get the base date.
 
