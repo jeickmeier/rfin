@@ -1,10 +1,11 @@
 """Calibration Bump Helpers type stubs."""
 
 from __future__ import annotations
-from typing import List, Tuple
+from typing import Any, List, Tuple
 from datetime import date
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve, InflationCurve
+from finstack.valuations.calibration.quote import RatesQuote
 
 class BumpRequest:
     """Request for a curve bump operation.
@@ -69,6 +70,25 @@ class BumpRequest:
     def tenor_bumps(self) -> List[Tuple[float, float]] | None:
         """Get the tenor bumps (if tenors), or None."""
         ...
+
+def bump_discount_curve(
+    quotes: List[RatesQuote],
+    params: dict[str, Any],
+    market: MarketContext,
+    bump: BumpRequest,
+) -> DiscountCurve:
+    """Bump a discount curve by shocking rate quotes and re-calibrating.
+
+    Args:
+        quotes: List of RatesQuote objects used in the original calibration.
+        params: Dict matching the DiscountCurveParams calibration schema.
+        market: Market context providing any required dependencies.
+        bump: The bump request (parallel or tenor-specific).
+
+    Returns:
+        DiscountCurve: A new bumped discount curve.
+    """
+    ...
 
 def bump_discount_curve_synthetic(
     curve: DiscountCurve,
@@ -186,6 +206,7 @@ def bump_inflation_rates(
 
 __all__ = [
     "BumpRequest",
+    "bump_discount_curve",
     "bump_discount_curve_synthetic",
     "bump_hazard_spreads",
     "bump_hazard_shift",

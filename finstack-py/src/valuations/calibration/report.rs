@@ -1,3 +1,4 @@
+use super::config::PySolverKind;
 use finstack_valuations::calibration::CalibrationReport;
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyDict, PyModule};
@@ -105,6 +106,26 @@ impl PyCalibrationReport {
         }
     }
 
+    #[getter]
+    fn validation_passed(&self) -> bool {
+        self.inner.validation_passed
+    }
+
+    #[getter]
+    fn validation_error(&self) -> Option<String> {
+        self.inner.validation_error.clone()
+    }
+
+    #[getter]
+    fn solver_config(&self) -> PySolverKind {
+        PySolverKind::new(self.inner.solver_config.clone())
+    }
+
+    #[getter]
+    fn model_version(&self) -> Option<String> {
+        self.inner.model_version.clone()
+    }
+
     fn explain_json(&self) -> PyResult<Option<String>> {
         match &self.inner.explanation {
             Some(trace) => {
@@ -128,6 +149,14 @@ impl PyCalibrationReport {
         dict.set_item("residuals", self.residuals(py)?)?;
         dict.set_item("metadata", self.metadata(py)?)?;
         dict.set_item("results_meta", self.results_meta(py)?)?;
+        dict.set_item("validation_passed", self.inner.validation_passed)?;
+        dict.set_item("validation_error", &self.inner.validation_error)?;
+        let solver_name = match self.inner.solver_config {
+            finstack_valuations::calibration::SolverConfig::Newton { .. } => "newton",
+            finstack_valuations::calibration::SolverConfig::Brent { .. } => "brent",
+        };
+        dict.set_item("solver_config", solver_name)?;
+        dict.set_item("model_version", &self.inner.model_version)?;
         if let Some(explanation) = self.explanation(py)? {
             dict.set_item("explanation", explanation)?;
         }

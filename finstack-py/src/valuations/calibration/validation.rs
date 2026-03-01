@@ -1,6 +1,6 @@
 use crate::core::market_data::surfaces::PyVolSurface;
 use crate::core::market_data::term_structures::{
-    PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve,
+    PyBaseCorrelationCurve, PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve,
 };
 use crate::errors::core_to_py;
 use finstack_valuations::calibration::{CurveValidator, SurfaceValidator, ValidationConfig};
@@ -62,6 +62,16 @@ fn validate_vol_surface(
     surface.inner.validate(&cfg).map_err(core_to_py)
 }
 
+#[pyfunction]
+#[pyo3(signature = (curve, config=None), text_signature = "(curve, config=None)")]
+fn validate_base_correlation_curve(
+    curve: &PyBaseCorrelationCurve,
+    config: Option<PyRef<'_, PyValidationConfig>>,
+) -> PyResult<()> {
+    let cfg = resolve_validation_config(config);
+    curve.inner.validate(&cfg).map_err(core_to_py)
+}
+
 /// Configuration for curve and surface validation.
 ///
 /// Controls which validation checks are performed and their tolerance levels.
@@ -117,9 +127,11 @@ impl PyValidationConfig {
             max_fwd_inflation=None,
             max_volatility=None,
             allow_negative_rates=None,
-            lenient_arbitrage=None
+            lenient_arbitrage=None,
+            butterfly_upper_ratio=None,
+            butterfly_lower_ratio=None
         ),
-        text_signature = "(check_forward_positivity=True, min_forward_rate=-0.01, max_forward_rate=0.50, check_monotonicity=True, check_arbitrage=True, tolerance=1e-10, max_hazard_rate=0.50, min_cpi_growth=-0.10, max_cpi_growth=0.50, min_fwd_inflation=-0.20, max_fwd_inflation=0.50, max_volatility=5.0, allow_negative_rates=False, lenient_arbitrage=False)"
+        text_signature = "(check_forward_positivity=True, min_forward_rate=-0.01, max_forward_rate=0.50, check_monotonicity=True, check_arbitrage=True, tolerance=1e-10, max_hazard_rate=0.50, min_cpi_growth=-0.10, max_cpi_growth=0.50, min_fwd_inflation=-0.20, max_fwd_inflation=0.50, max_volatility=5.0, allow_negative_rates=False, lenient_arbitrage=False, butterfly_upper_ratio=1.25, butterfly_lower_ratio=0.75)"
     )]
     /// Create validation configuration.
     ///
@@ -130,6 +142,8 @@ impl PyValidationConfig {
     ///     check_monotonicity: Enable monotonicity checks
     ///     check_arbitrage: Enable no-arbitrage constraint checks
     ///     tolerance: Numerical tolerance for comparisons (default: 1e-10)
+    ///     butterfly_upper_ratio: Upper convexity tolerance for butterfly spread validation (default: 1.25)
+    ///     butterfly_lower_ratio: Lower convexity tolerance for butterfly spread validation (default: 0.75)
     ///
     /// Returns:
     ///     ValidationConfig: Configuration object
@@ -152,6 +166,8 @@ impl PyValidationConfig {
         max_volatility: Option<f64>,
         allow_negative_rates: Option<bool>,
         lenient_arbitrage: Option<bool>,
+        butterfly_upper_ratio: Option<f64>,
+        butterfly_lower_ratio: Option<f64>,
     ) -> PyResult<Self> {
         let mut config = ValidationConfig::default();
 
@@ -201,6 +217,12 @@ impl PyValidationConfig {
         if let Some(val) = lenient_arbitrage {
             config.lenient_arbitrage = val;
         }
+        if let Some(val) = butterfly_upper_ratio {
+            config.butterfly_upper_ratio = val;
+        }
+        if let Some(val) = butterfly_lower_ratio {
+            config.butterfly_lower_ratio = val;
+        }
 
         config.validate().map_err(core_to_py)?;
         Ok(Self::new(config))
@@ -214,6 +236,28 @@ impl PyValidationConfig {
     ///     ValidationConfig: Standard validation settings
     fn standard(_cls: &Bound<'_, PyType>) -> Self {
         Self::new(ValidationConfig::default())
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    fn strict(_cls: &Bound<'_, PyType>) -> Self {
+        Self::new(ValidationConfig::strict())
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    fn negative_rates(_cls: &Bound<'_, PyType>) -> Self {
+        Self::new(ValidationConfig::negative_rates())
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    fn lenient(_cls: &Bound<'_, PyType>) -> Self {
+        Self::new(ValidationConfig::lenient())
+    }
+
+    fn with_lenient_arbitrage(&self, lenient: bool) -> Self {
+        Self::new(self.inner.clone().with_lenient_arbitrage(lenient))
     }
 
     /// Whether to check forward rate positivity.
@@ -318,6 +362,18 @@ impl PyValidationConfig {
         self.inner.lenient_arbitrage
     }
 
+    /// Upper convexity tolerance for butterfly spread validation.
+    #[getter]
+    fn butterfly_upper_ratio(&self) -> f64 {
+        self.inner.butterfly_upper_ratio
+    }
+
+    /// Lower convexity tolerance for butterfly spread validation.
+    #[getter]
+    fn butterfly_lower_ratio(&self) -> f64 {
+        self.inner.butterfly_lower_ratio
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "ValidationConfig(min_forward_rate={:.4}, max_forward_rate={:.2}, tolerance={:.2e}, allow_negative_rates={}, lenient_arbitrage={})",
@@ -339,16 +395,21 @@ pub(crate) fn register<'py>(
     module.add_function(pyo3::wrap_pyfunction!(validate_hazard_curve, module)?)?;
     module.add_function(pyo3::wrap_pyfunction!(validate_inflation_curve, module)?)?;
     module.add_function(pyo3::wrap_pyfunction!(validate_vol_surface, module)?)?;
+    module.add_function(pyo3::wrap_pyfunction!(
+        validate_base_correlation_curve,
+        module
+    )?)?;
 
     module.add_class::<PyValidationConfig>()?;
 
     let exports = [
+        "ValidationConfig",
+        "validate_base_correlation_curve",
         "validate_discount_curve",
         "validate_forward_curve",
         "validate_hazard_curve",
         "validate_inflation_curve",
         "validate_vol_surface",
-        "ValidationConfig",
     ];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     Ok(exports.to_vec())

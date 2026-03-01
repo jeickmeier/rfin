@@ -259,9 +259,54 @@ impl PySABRMarketData {
         self.inner.beta
     }
 
+    /// Shift parameter for negative rate support, or None if unshifted.
+    ///
+    /// Returns:
+    ///     float | None: Shift value if shifted SABR, else None
+    #[getter]
+    fn shift(&self) -> Option<f64> {
+        self.inner.shift
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, forward, time_to_expiry, strikes, market_vols, beta, shift)")]
+    /// Create market data for shifted SABR calibration (supports negative rates).
+    ///
+    /// Args:
+    ///     forward: Forward price of the underlying
+    ///     time_to_expiry: Time to expiry in years
+    ///     strikes: List of strike prices
+    ///     market_vols: List of market implied volatilities
+    ///     beta: Fixed beta parameter
+    ///     shift: Positive shift parameter for negative rate support
+    ///
+    /// Returns:
+    ///     SABRMarketData: Market data bundle with shift for calibration
+    ///
+    /// Raises:
+    ///     ValueError: If shift is not positive or other inputs are invalid
+    fn with_shift(
+        _cls: &Bound<'_, PyType>,
+        forward: f64,
+        time_to_expiry: f64,
+        strikes: Vec<f64>,
+        market_vols: Vec<f64>,
+        beta: f64,
+        shift: f64,
+    ) -> PyResult<Self> {
+        SABRMarketData::new_with_shift(forward, time_to_expiry, strikes, market_vols, beta, shift)
+            .map(Self::new)
+            .map_err(core_to_py)
+    }
+
     fn __repr__(&self) -> String {
+        let shift_str = self
+            .inner
+            .shift
+            .map(|s| format!(", shift={s:.4}"))
+            .unwrap_or_default();
         format!(
-            "SABRMarketData(forward={:.2}, time_to_expiry={:.2}, strikes={}, beta={:.2})",
+            "SABRMarketData(forward={:.2}, time_to_expiry={:.2}, strikes={}, beta={:.2}{shift_str})",
             self.inner.forward,
             self.inner.time_to_expiry,
             self.inner.strikes.len(),
@@ -308,7 +353,7 @@ impl PySABRCalibrationDerivatives {
 impl PySABRCalibrationDerivatives {
     #[new]
     #[pyo3(text_signature = "(market_data)")]
-    /// Create a derivatives provider for SABR calibration.
+    /// Create a derivatives provider for SABR calibration (analytical gradients).
     ///
     /// Args:
     ///     market_data: Market data containing forward, strikes, and volatilities
@@ -317,6 +362,23 @@ impl PySABRCalibrationDerivatives {
     ///     SABRCalibrationDerivatives: Provider for analytical derivatives
     fn ctor(market_data: &PySABRMarketData) -> Self {
         Self::new(SABRCalibrationDerivatives::new(market_data.inner.clone()))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, market_data)")]
+    /// Create a derivatives provider using finite-difference gradients.
+    ///
+    /// More accurate than analytical approximations but slower.
+    ///
+    /// Args:
+    ///     market_data: Market data containing forward, strikes, and volatilities
+    ///
+    /// Returns:
+    ///     SABRCalibrationDerivatives: Provider for finite-difference derivatives
+    fn with_fd(_cls: &Bound<'_, PyType>, market_data: &PySABRMarketData) -> Self {
+        Self::new(SABRCalibrationDerivatives::new_with_fd(
+            market_data.inner.clone(),
+        ))
     }
 
     fn __repr__(&self) -> String {

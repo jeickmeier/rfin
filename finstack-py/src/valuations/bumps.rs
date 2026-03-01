@@ -6,10 +6,13 @@ use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::term_structures::{PyDiscountCurve, PyHazardCurve, PyInflationCurve};
 use crate::errors::core_to_py;
+use crate::statements::utils::py_to_json;
+use crate::valuations::calibration::quote::PyRatesQuote;
 use finstack_core::types::CurveId;
+use finstack_valuations::calibration::api::schema::DiscountCurveParams;
 use finstack_valuations::calibration::bumps::{
-    bump_discount_curve_synthetic, bump_hazard_shift, bump_hazard_spreads, bump_inflation_rates,
-    BumpRequest,
+    bump_discount_curve, bump_discount_curve_synthetic, bump_hazard_shift, bump_hazard_spreads,
+    bump_inflation_rates, BumpRequest,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -150,15 +153,21 @@ impl PyBumpRequest {
 #[pyfunction]
 #[pyo3(name = "bump_discount_curve_synthetic", signature = (curve, market, bump, as_of))]
 fn py_bump_discount_curve_synthetic(
+    py: Python<'_>,
     curve: &PyDiscountCurve,
     market: &PyMarketContext,
     bump: &PyBumpRequest,
     as_of: &Bound<'_, PyAny>,
 ) -> PyResult<PyDiscountCurve> {
     let as_of_date = py_to_date(as_of)?;
-    let bumped =
-        bump_discount_curve_synthetic(&curve.inner, &market.inner, &bump.inner, as_of_date)
-            .map_err(core_to_py)?;
+    let curve_inner = curve.inner.clone();
+    let market_inner = market.inner.clone();
+    let bump_inner = bump.inner.clone();
+    let bumped = py
+        .detach(|| {
+            bump_discount_curve_synthetic(&curve_inner, &market_inner, &bump_inner, as_of_date)
+        })
+        .map_err(core_to_py)?;
     Ok(PyDiscountCurve::new_arc(Arc::new(bumped)))
 }
 
@@ -186,19 +195,26 @@ fn py_bump_discount_curve_synthetic(
 #[pyfunction]
 #[pyo3(name = "bump_hazard_spreads", signature = (hazard_curve, market, bump, discount_id))]
 fn py_bump_hazard_spreads(
+    py: Python<'_>,
     hazard_curve: &PyHazardCurve,
     market: &PyMarketContext,
     bump: &PyBumpRequest,
     discount_id: &str,
 ) -> PyResult<PyHazardCurve> {
     let discount_curve_id = CurveId::new(discount_id);
-    let bumped = bump_hazard_spreads(
-        &hazard_curve.inner,
-        &market.inner,
-        &bump.inner,
-        Some(&discount_curve_id),
-    )
-    .map_err(core_to_py)?;
+    let hazard_inner = hazard_curve.inner.clone();
+    let market_inner = market.inner.clone();
+    let bump_inner = bump.inner.clone();
+    let bumped = py
+        .detach(|| {
+            bump_hazard_spreads(
+                &hazard_inner,
+                &market_inner,
+                &bump_inner,
+                Some(&discount_curve_id),
+            )
+        })
+        .map_err(core_to_py)?;
     Ok(PyHazardCurve::new_arc(Arc::new(bumped)))
 }
 
@@ -222,10 +238,15 @@ fn py_bump_hazard_spreads(
 #[pyfunction]
 #[pyo3(name = "bump_hazard_shift", signature = (hazard_curve, bump))]
 fn py_bump_hazard_shift(
+    py: Python<'_>,
     hazard_curve: &PyHazardCurve,
     bump: &PyBumpRequest,
 ) -> PyResult<PyHazardCurve> {
-    let bumped = bump_hazard_shift(&hazard_curve.inner, &bump.inner).map_err(core_to_py)?;
+    let hazard_inner = hazard_curve.inner.clone();
+    let bump_inner = bump.inner.clone();
+    let bumped = py
+        .detach(|| bump_hazard_shift(&hazard_inner, &bump_inner))
+        .map_err(core_to_py)?;
     Ok(PyHazardCurve::new_arc(Arc::new(bumped)))
 }
 
@@ -255,6 +276,7 @@ fn py_bump_hazard_shift(
 #[pyfunction]
 #[pyo3(name = "bump_inflation_rates", signature = (curve, market, bump, discount_id, as_of))]
 fn py_bump_inflation_rates(
+    py: Python<'_>,
     curve: &PyInflationCurve,
     market: &PyMarketContext,
     bump: &PyBumpRequest,
@@ -263,15 +285,62 @@ fn py_bump_inflation_rates(
 ) -> PyResult<PyInflationCurve> {
     let as_of_date = py_to_date(as_of)?;
     let discount_curve_id = CurveId::new(discount_id);
-    let bumped = bump_inflation_rates(
-        &curve.inner,
-        &market.inner,
-        &bump.inner,
-        &discount_curve_id,
-        as_of_date,
-    )
-    .map_err(core_to_py)?;
+    let curve_inner = curve.inner.clone();
+    let market_inner = market.inner.clone();
+    let bump_inner = bump.inner.clone();
+    let bumped = py
+        .detach(|| {
+            bump_inflation_rates(
+                &curve_inner,
+                &market_inner,
+                &bump_inner,
+                &discount_curve_id,
+                as_of_date,
+            )
+        })
+        .map_err(core_to_py)?;
     Ok(PyInflationCurve::new_arc(Arc::new(bumped)))
+}
+
+/// Bump a discount curve by shocking rate quotes and re-calibrating.
+///
+/// This applies the bump to the provided rate quotes, then re-executes
+/// the calibration step to produce a new discount curve.
+///
+/// Args:
+///     quotes: List of RatesQuote objects used in the original calibration.
+///     params: Dict matching the DiscountCurveParams calibration schema.
+///     market: Market context providing any required dependencies.
+///     bump: The bump request (parallel or tenor-specific).
+///
+/// Returns:
+///     DiscountCurve: A new bumped discount curve.
+///
+/// Examples:
+///     >>> bumped = bump_discount_curve(
+///     ...     quotes=rates_quotes,
+///     ...     params={"curve_id": "USD-OIS", "currency": "USD", "base_date": "2025-01-01", "method": "bootstrap"},
+///     ...     market=market_context,
+///     ...     bump=BumpRequest.parallel(10.0)
+///     ... )
+#[pyfunction]
+#[pyo3(name = "bump_discount_curve", signature = (quotes, params, market, bump))]
+fn py_bump_discount_curve(
+    py: Python<'_>,
+    quotes: Vec<PyRatesQuote>,
+    params: &Bound<'_, pyo3::types::PyAny>,
+    market: &PyMarketContext,
+    bump: &PyBumpRequest,
+) -> PyResult<PyDiscountCurve> {
+    let rust_quotes: Vec<_> = quotes.iter().map(|q| q.inner.clone()).collect();
+    let json_value = py_to_json(params)?;
+    let disc_params: DiscountCurveParams = serde_json::from_value(json_value).map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!("Invalid DiscountCurveParams dict: {e}"))
+    })?;
+    let bumped = py
+        .detach(|| bump_discount_curve(&rust_quotes, &disc_params, &market.inner, &bump.inner))
+        .map_err(core_to_py)?;
+    Ok(PyDiscountCurve::new_arc(Arc::new(bumped)))
 }
 
 // =============================================================================
@@ -292,6 +361,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyBumpRequest>()?;
 
     // Add functions
+    module.add_function(wrap_pyfunction!(py_bump_discount_curve, &module)?)?;
     module.add_function(wrap_pyfunction!(py_bump_discount_curve_synthetic, &module)?)?;
     module.add_function(wrap_pyfunction!(py_bump_hazard_spreads, &module)?)?;
     module.add_function(wrap_pyfunction!(py_bump_hazard_shift, &module)?)?;
@@ -299,6 +369,7 @@ pub(crate) fn register<'py>(
 
     let exports = vec![
         "BumpRequest",
+        "bump_discount_curve",
         "bump_discount_curve_synthetic",
         "bump_hazard_spreads",
         "bump_hazard_shift",
