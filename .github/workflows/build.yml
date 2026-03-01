@@ -162,7 +162,7 @@ jobs:
           uv sync --no-install-project
 
       - name: Build Python Extension
-        run: cd finstack-py && python -m maturin develop --features postgres,turso
+        run: cd finstack-py && python -m maturin develop
 
       - name: Run Python tests
         run: make test-python
