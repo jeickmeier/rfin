@@ -1,6 +1,7 @@
 """Builder API for financial models."""
 
-from typing import Any, List, Dict, Optional
+from __future__ import annotations
+from typing import Any, List, Dict
 from ..types.model import FinancialModelSpec
 from ..types.forecast import ForecastSpec
 from ..types.value import AmountOrScalar
@@ -105,7 +106,7 @@ class ModelBuilder:
         """
         ...
 
-    def periods(self, range: str, actuals_until: Optional[str] = None) -> None:
+    def periods(self, range: str, actuals_until: str | None = None) -> None:
         """Define periods using a range expression.
 
         Args:

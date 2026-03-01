@@ -1,5 +1,6 @@
 """Linear algebra utilities."""
 
+from __future__ import annotations
 from typing import List, Sequence, Tuple
 
 def cholesky_decomposition(matrix: List[List[float]]) -> List[List[float]]: ...

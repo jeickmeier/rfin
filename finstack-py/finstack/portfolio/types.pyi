@@ -1,6 +1,7 @@
 """Portfolio core types."""
 
-from typing import Dict, Any, Optional, Mapping, Iterable, Tuple, List
+from __future__ import annotations
+from typing import Dict, Any, Mapping, Iterable, Tuple, List
 from finstack.core.currency import Currency
 from finstack.core.money import Money
 
@@ -23,14 +24,14 @@ class Book:
     """A book in the portfolio hierarchy."""
 
     def __init__(
-        self, id: str | BookId, name: Optional[str] = None, parent_id: Optional[str | BookId] = None
+        self, id: str | BookId, name: str | None = None, parent_id: str | BookId | None = None
     ) -> None: ...
     @property
     def id(self) -> str: ...
     @property
-    def name(self) -> Optional[str]: ...
+    def name(self) -> str | None: ...
     @property
-    def parent_id(self) -> Optional[str]: ...
+    def parent_id(self) -> str | None: ...
     @property
     def position_ids(self) -> List[str]: ...
     @property
@@ -138,7 +139,7 @@ class Entity:
         ...
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """Get the entity name."""
         ...
 
@@ -299,7 +300,7 @@ class Position:
         ...
 
     @property
-    def book_id(self) -> Optional[str]:
+    def book_id(self) -> str | None:
         """Book identifier (None if unassigned)."""
         ...
 

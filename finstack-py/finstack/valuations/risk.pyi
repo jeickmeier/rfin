@@ -1,6 +1,7 @@
 """Value-at-Risk (VaR) calculation and risk metrics."""
 
-from typing import List, Optional, Union, Dict, Any, Tuple, Sequence
+from __future__ import annotations
+from typing import List, Dict, Any, Tuple, Sequence
 from datetime import date
 from ..core.market_data.context import MarketContext
 from .instruments import Bond  # Use a representative instrument for typing if needed
@@ -14,7 +15,7 @@ class VarMethod:
 
 class VarConfig:
     """Configuration for VaR calculation."""
-    def __init__(self, confidence_level: float = 0.95, method: Optional[VarMethod] = None) -> None: ...
+    def __init__(self, confidence_level: float = 0.95, method: VarMethod | None = None) -> None: ...
     @staticmethod
     def var_95() -> VarConfig: ...
     @staticmethod
@@ -63,7 +64,7 @@ class MarketHistory:
     def num_scenarios(self) -> int: ...
 
 def calculate_var(
-    instruments: Union[Any, Sequence[Any]],
+    instruments: Any | Sequence[Any],
     market: MarketContext,
     history: MarketHistory,
     as_of: Tuple[int, int, int],
@@ -72,11 +73,11 @@ def calculate_var(
     """Calculate Historical VaR for one or more instruments."""
     ...
 
-def krd_dv01_ladder(instrument: Any, market: MarketContext, as_of: Union[date, str]) -> Dict[str, Any]:
+def krd_dv01_ladder(instrument: Any, market: MarketContext, as_of: date | str) -> Dict[str, Any]:
     """Compute key-rate DV01 ladder."""
     ...
 
-def cs01_ladder(instrument: Any, market: MarketContext, as_of: Union[date, str]) -> Dict[str, Any]:
+def cs01_ladder(instrument: Any, market: MarketContext, as_of: date | str) -> Dict[str, Any]:
     """Compute key-rate CS01 ladder."""
     ...
 

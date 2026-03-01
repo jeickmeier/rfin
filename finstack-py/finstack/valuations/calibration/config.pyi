@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict
 
 class SolverKind:
     """Solver kind enumeration."""
@@ -87,17 +87,17 @@ class CalibrationConfig:
         tolerance: float = 1e-10,
         max_iterations: int = 100,
         use_parallel: bool = False,
-        random_seed: Optional[int] = 42,
+        random_seed: int | None = 42,
         verbose: bool = False,
-        solver_kind: Optional[SolverKind] = None,
-        multi_curve: Optional[MultiCurveConfig] = None,
-        entity_seniority: Optional[Dict[str, str]] = None,
-        calibration_method: Optional[CalibrationMethod] = None,
-        use_fd_sabr_gradients: Optional[bool] = None,
-        validation_mode: Optional[ValidationMode] = None,
-        validation: Optional["ValidationConfig"] = None,
-        rate_bounds: Optional[RateBounds] = None,
-        explain: Optional[bool] = None,
+        solver_kind: SolverKind | None = None,
+        multi_curve: MultiCurveConfig | None = None,
+        entity_seniority: Dict[str, str] | None = None,
+        calibration_method: CalibrationMethod | None = None,
+        use_fd_sabr_gradients: bool | None = None,
+        validation_mode: ValidationMode | None = None,
+        validation: "ValidationConfig" | None = None,
+        rate_bounds: RateBounds | None = None,
+        explain: bool | None = None,
     ) -> None: ...
     @classmethod
     def multi_curve(cls) -> CalibrationConfig: ...
@@ -108,7 +108,7 @@ class CalibrationConfig:
     @property
     def use_parallel(self) -> bool: ...
     @property
-    def random_seed(self) -> Optional[int]: ...
+    def random_seed(self) -> int | None: ...
     @property
     def verbose(self) -> bool: ...
     @property
@@ -132,7 +132,7 @@ class CalibrationConfig:
     def with_tolerance(self, tolerance: float) -> CalibrationConfig: ...
     def with_max_iterations(self, max_iterations: int) -> CalibrationConfig: ...
     def with_parallel(self, flag: bool) -> CalibrationConfig: ...
-    def with_random_seed(self, seed: Optional[int]) -> CalibrationConfig: ...
+    def with_random_seed(self, seed: int | None) -> CalibrationConfig: ...
     def with_verbose(self, verbose: bool) -> CalibrationConfig: ...
     def with_solver_kind(self, kind: SolverKind) -> CalibrationConfig: ...
     def with_calibration_method(self, method: CalibrationMethod) -> CalibrationConfig: ...

@@ -1,6 +1,7 @@
 """Range accrual instrument."""
 
-from typing import Optional, List
+from __future__ import annotations
+from typing import List
 from datetime import date
 from ...core.money import Money
 
@@ -84,7 +85,7 @@ class RangeAccrual:
         spot_id: str,
         vol_surface: str,
         *,
-        div_yield_id: Optional[str] = None,
+        div_yield_id: str | None = None,
     ) -> "RangeAccrual":
         """Create a range accrual instrument.
 

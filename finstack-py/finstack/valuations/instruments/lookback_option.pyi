@@ -1,6 +1,6 @@
 """Lookback option instrument."""
 
-from typing import Optional
+from __future__ import annotations
 from datetime import date
 from ...core.money import Money
 
@@ -77,7 +77,7 @@ class LookbackOption:
         cls,
         instrument_id: str,
         ticker: str,
-        strike: Optional[float],
+        strike: float | None,
         option_type: str,
         lookback_type: str,
         expiry: date,
@@ -86,7 +86,7 @@ class LookbackOption:
         spot_id: str,
         vol_surface: str,
         *,
-        div_yield_id: Optional[str] = None,
+        div_yield_id: str | None = None,
     ) -> "LookbackOption":
         """Create a lookback option.
 
@@ -147,7 +147,7 @@ class LookbackOption:
     @property
     def ticker(self) -> str: ...
     @property
-    def strike(self) -> Optional[Money]: ...
+    def strike(self) -> Money | None: ...
     @property
     def option_type(self) -> str: ...
     @property

@@ -4,7 +4,8 @@ Provides basic cashflow types and classification enums
 for financial instrument modeling.
 """
 
-from typing import ClassVar, Optional, Tuple, Union
+from __future__ import annotations
+from typing import ClassVar, Tuple
 import datetime
 from datetime import date
 from ..money import Money
@@ -161,7 +162,7 @@ class CashFlow:
         """
         ...
 
-    def reset_date(self) -> Optional[datetime.date]:
+    def reset_date(self) -> datetime.date | None:
         """Get the reset date.
 
         Returns
@@ -203,12 +204,12 @@ class CashFlow:
         """
         ...
 
-    def to_tuple(self) -> Tuple[datetime.date, Money, CFKind, float, Optional[datetime.date]]:
+    def to_tuple(self) -> Tuple[datetime.date, Money, CFKind, float, datetime.date | None]:
         """Convert to tuple representation.
 
         Returns
         -------
-        Tuple[datetime.date, Money, CFKind, float, Optional[datetime.date]]
+        Tuple[datetime.date, Money, CFKind, float, datetime.date | None]
             (payment_date, amount, kind, accrual_factor, reset_date).
         """
         ...

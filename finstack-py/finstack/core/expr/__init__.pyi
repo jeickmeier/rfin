@@ -24,7 +24,7 @@ Examples
     [nan, nan, 2.0, 3.0, 4.0]
 """
 
-from typing import Optional
+from __future__ import annotations
 from ..config import ResultsMeta
 
 class Function:
@@ -347,18 +347,18 @@ class EvalOpts:
     def __init__(
         self,
         *,
-        plan: Optional[ExecutionPlan] = None,
-        cache_budget_mb: Optional[int] = None,
+        plan: ExecutionPlan | None = None,
+        cache_budget_mb: int | None = None,
     ) -> None: ...
     @property
-    def cache_budget_mb(self) -> Optional[int]:
+    def cache_budget_mb(self) -> int | None:
         """Memory budget for caching in MB."""
         ...
 
     @cache_budget_mb.setter
-    def cache_budget_mb(self, value: Optional[int]) -> None: ...
+    def cache_budget_mb(self, value: int | None) -> None: ...
     @property
-    def plan(self) -> Optional[ExecutionPlan]:
+    def plan(self) -> ExecutionPlan | None:
         """Pre-computed execution plan, if any."""
         ...
 
@@ -434,7 +434,7 @@ class CompiledExpr:
         ...
 
     @property
-    def plan(self) -> Optional[ExecutionPlan]:
+    def plan(self) -> ExecutionPlan | None:
         """Execution plan, if computed."""
         ...
 
@@ -442,7 +442,7 @@ class CompiledExpr:
         self,
         columns: list[str],
         data: list[list[float]],
-        opts: Optional[EvalOpts] = None,
+        opts: EvalOpts | None = None,
     ) -> EvaluationResult:
         """Evaluate the expression over tabular data.
 

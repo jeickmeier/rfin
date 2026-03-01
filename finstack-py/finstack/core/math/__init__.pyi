@@ -14,6 +14,7 @@ This module aggregates bindings for:
 - interp: interpolation and extrapolation styles
 """
 
+from __future__ import annotations
 from . import distributions
 from . import integration
 from . import interp

@@ -5,12 +5,13 @@ exist purely for IDE completion and inline help. All calculations are
 performed in Rust; the stubs document the expected shapes and behavior.
 """
 
-from typing import Iterable, List, Optional, Tuple, Union
+from __future__ import annotations
+from typing import Iterable, List, Tuple
 from datetime import date
 
 from ..core.dates.daycount import DayCount
 
-def xirr(cash_flows: Iterable[Tuple[date, float]], guess: Optional[float] = ...) -> float:
+def xirr(cash_flows: Iterable[Tuple[date, float]], guess: float | None = ...) -> float:
     """Calculate XIRR (Extended Internal Rate of Return) for irregular cash flows.
 
     Parameters
@@ -38,8 +39,8 @@ def xirr(cash_flows: Iterable[Tuple[date, float]], guess: Optional[float] = ...)
 def npv(
     cash_flows: Iterable[Tuple[date, float]],
     discount_rate: float,
-    base_date: Optional[date] = ...,
-    day_count: Optional[Union[str, DayCount]] = ...,
+    base_date: date | None = ...,
+    day_count: str | DayCount | None = ...,
 ) -> float:
     """Compute Net Present Value for dated cash flows.
 
@@ -62,7 +63,7 @@ def npv(
     """
     ...
 
-def irr_periodic(amounts: List[float], guess: Optional[float] = ...) -> float:
+def irr_periodic(amounts: List[float], guess: float | None = ...) -> float:
     """Compute IRR for evenly spaced (periodic) cash flows.
 
     Parameters

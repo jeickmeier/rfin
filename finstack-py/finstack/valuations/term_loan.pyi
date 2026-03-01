@@ -6,6 +6,7 @@ and support for both fixed and floating rates. The DDTL variant allows for
 delayed draws during an availability period with commitment fees and usage fees.
 """
 
+from __future__ import annotations
 from datetime import date
 from typing import ClassVar
 

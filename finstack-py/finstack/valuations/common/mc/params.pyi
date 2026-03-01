@@ -1,6 +1,7 @@
 """Monte Carlo process parameters and metadata."""
 
-from typing import Optional, Dict, List, Tuple
+from __future__ import annotations
+from typing import Dict, List, Tuple
 
 class ProcessParams:
     """Process parameters and metadata for Monte Carlo simulation."""
@@ -16,7 +17,7 @@ class ProcessParams:
         ...
 
     @property
-    def correlation(self) -> Optional[List[float]]:
+    def correlation(self) -> List[float] | None:
         """Get correlation matrix as a flat list (row-major)."""
         ...
 
@@ -25,15 +26,15 @@ class ProcessParams:
         """Get factor names."""
         ...
 
-    def get_param(self, key: str) -> Optional[float]:
+    def get_param(self, key: str) -> float | None:
         """Get a specific parameter by name."""
         ...
 
-    def dim(self) -> Optional[int]:
+    def dim(self) -> int | None:
         """Get the dimension (number of factors) from correlation matrix."""
         ...
 
-    def correlation_matrix(self) -> Optional[List[List[float]]]:
+    def correlation_matrix(self) -> List[List[float]] | None:
         """
         Get correlation matrix as a 2D list (nested lists).
 
@@ -41,7 +42,7 @@ class ProcessParams:
         """
         ...
 
-    def correlation_array(self) -> Optional[Tuple[List[float], Tuple[int, int]]]:
+    def correlation_array(self) -> Tuple[List[float], Tuple[int, int]] | None:
         """
         Get correlation matrix as a flat numpy-compatible list with shape info.
 

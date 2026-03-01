@@ -4,7 +4,8 @@ Provides payment schedule generation and frequency handling
 for financial instruments.
 """
 
-from typing import List, Optional, Union
+from __future__ import annotations
+from typing import List
 from datetime import date
 from .calendar import Calendar, BusinessDayConvention
 
@@ -30,12 +31,12 @@ class Frequency:
         ...
 
     @property
-    def months(self) -> Optional[int]:
+    def months(self) -> int | None:
         """Month-based interval represented by this frequency, if any."""
         ...
 
     @property
-    def days(self) -> Optional[int]:
+    def days(self) -> int | None:
         """Day-based interval represented by this frequency, if any."""
         ...
 
@@ -68,7 +69,7 @@ class ScheduleBuilder:
     with various frequency and adjustment options.
     """
 
-    def __init__(self, start: Union[str, date], end: Union[str, date]) -> None: ...
+    def __init__(self, start: str | date, end: str | date) -> None: ...
     def frequency(self, frequency: Frequency) -> "ScheduleBuilder": ...
     def stub_rule(self, stub: StubKind) -> "ScheduleBuilder": ...
     def adjust_with(self, convention: BusinessDayConvention, calendar: Calendar) -> "ScheduleBuilder": ...
@@ -90,12 +91,12 @@ class ScheduleSpec:
 
     def __init__(
         self,
-        start: Union[str, date],
-        end: Union[str, date],
+        start: str | date,
+        end: str | date,
         frequency: Frequency,
-        stub: Optional[StubKind] = ...,
-        business_day_convention: Optional[BusinessDayConvention] = ...,
-        calendar_id: Optional[str] = ...,
+        stub: StubKind | None = ...,
+        business_day_convention: BusinessDayConvention | None = ...,
+        calendar_id: str | None = ...,
         end_of_month: bool = ...,
         cds_imm_mode: bool = ...,
         graceful: bool = ...,
@@ -114,7 +115,7 @@ class ScheduleSpec:
         ...
 
     @property
-    def calendar_id(self) -> Optional[str]: ...
+    def calendar_id(self) -> str | None: ...
     @property
     def frequency(self) -> Frequency: ...
     @property

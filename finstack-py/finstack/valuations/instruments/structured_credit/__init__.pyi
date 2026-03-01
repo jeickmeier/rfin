@@ -1,6 +1,7 @@
 """Structured credit instruments (ABS, RMBS, CMBS, CLO)."""
 
-from typing import Optional, Dict, Any, Union
+from __future__ import annotations
+from typing import Dict, Any
 from ...common import InstrumentType
 from . import waterfall
 
@@ -159,7 +160,7 @@ class StructuredCredit:
     """
 
     @classmethod
-    def from_json(cls, data: Union[str, Dict[str, Any]]) -> "StructuredCredit":
+    def from_json(cls, data: str | Dict[str, Any]) -> "StructuredCredit":
         """Parse a JSON payload into a structured credit instrument.
 
         Parameters

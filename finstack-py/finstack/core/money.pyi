@@ -257,6 +257,16 @@ class Money:
         """
         ...
 
+    def __format__(self, spec: str) -> str:
+        """Format with a format specifier (e.g., '.2f' for 2 decimal places).
+
+        Examples
+        --------
+        >>> f"{Money(125.5, 'USD'):.2f}"
+        'USD 125.50'
+        """
+        ...
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
     def __hash__(self) -> int: ...

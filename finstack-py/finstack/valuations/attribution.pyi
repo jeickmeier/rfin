@@ -1,7 +1,8 @@
 """P&L Attribution type stubs."""
 
+from __future__ import annotations
 from datetime import date
-from typing import Optional, Dict, List, Mapping, Any
+from typing import Dict, List, Mapping, Any
 from finstack.core.money import Money
 from finstack.core.market_data.context import MarketContext
 from finstack.portfolio import Portfolio
@@ -134,22 +135,22 @@ class ModelParamsAttribution:
     """Detailed attribution for model-specific parameters."""
 
     @property
-    def prepayment(self) -> Optional[Money]:
+    def prepayment(self) -> Money | None:
         """Prepayment speed changes P&L (for MBS/ABS)."""
         ...
 
     @property
-    def default_rate(self) -> Optional[Money]:
+    def default_rate(self) -> Money | None:
         """Default rate changes P&L (for structured credit)."""
         ...
 
     @property
-    def recovery_rate(self) -> Optional[Money]:
+    def recovery_rate(self) -> Money | None:
         """Recovery rate changes P&L (for credit instruments)."""
         ...
 
     @property
-    def conversion_ratio(self) -> Optional[Money]:
+    def conversion_ratio(self) -> Money | None:
         """Conversion ratio changes P&L (for convertible bonds)."""
         ...
 
@@ -217,17 +218,17 @@ class PnlAttribution:
         ...
 
     @property
-    def rates_detail(self) -> Optional[RatesCurvesAttribution]:
+    def rates_detail(self) -> RatesCurvesAttribution | None:
         """Detailed rates curves attribution."""
         ...
 
     @property
-    def credit_detail(self) -> Optional[CreditCurvesAttribution]:
+    def credit_detail(self) -> CreditCurvesAttribution | None:
         """Detailed credit curves attribution."""
         ...
 
     @property
-    def model_params_detail(self) -> Optional[ModelParamsAttribution]:
+    def model_params_detail(self) -> ModelParamsAttribution | None:
         """Detailed model parameters attribution."""
         ...
 
@@ -252,7 +253,7 @@ class PnlAttribution:
         """
         ...
 
-    def rates_detail_to_csv(self) -> Optional[str]:
+    def rates_detail_to_csv(self) -> str | None:
         """Export rates curves detail as CSV.
 
         Returns:
@@ -260,7 +261,7 @@ class PnlAttribution:
         """
         ...
 
-    def credit_detail_to_csv(self) -> Optional[str]:
+    def credit_detail_to_csv(self) -> str | None:
         """Export credit curves detail as CSV.
 
         Returns:
@@ -380,8 +381,8 @@ def attribute_pnl(
     market_t1: MarketContext,
     as_of_t0: date,
     as_of_t1: date,
-    method: Optional[AttributionMethod] = None,
-    model_params_t0: Optional[Mapping[str, Any] | str] = None,
+    method: AttributionMethod | None = None,
+    model_params_t0: Mapping[str, Any] | str | None = None,
 ) -> PnlAttribution:
     """Perform P&L attribution for an instrument.
 
@@ -454,7 +455,7 @@ def attribute_portfolio_pnl(
     market_t1: MarketContext,
     as_of_t0: date,
     as_of_t1: date,
-    method: Optional[AttributionMethod] = None,
+    method: AttributionMethod | None = None,
 ) -> PortfolioAttribution:
     """Perform P&L attribution for an entire portfolio.
 

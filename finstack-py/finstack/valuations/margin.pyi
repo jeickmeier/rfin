@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from finstack.core.currency import Currency
 from finstack.core.money import Money
@@ -116,7 +116,7 @@ class EligibleCollateralSchedule:
     @staticmethod
     def us_treasuries() -> EligibleCollateralSchedule: ...
     @property
-    def default_haircut(self) -> Optional[float]: ...
+    def default_haircut(self) -> float | None: ...
     @property
     def rehypothecation_allowed(self) -> bool: ...
     @property

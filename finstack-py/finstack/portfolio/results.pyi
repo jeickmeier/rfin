@@ -1,6 +1,7 @@
 """Portfolio results."""
 
-from typing import Dict, Any, Optional
+from __future__ import annotations
+from typing import Dict, Any
 from finstack.core.money import Money
 from .valuation import PortfolioValuation
 from .metrics import PortfolioMetrics
@@ -39,7 +40,7 @@ class PortfolioResult:
         """
         ...
 
-    def get_metric(self, metric_id: str) -> Optional[float]:
+    def get_metric(self, metric_id: str) -> float | None:
         """Get a specific aggregated metric.
 
         Args:

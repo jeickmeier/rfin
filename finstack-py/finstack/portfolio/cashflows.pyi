@@ -1,6 +1,7 @@
 """Portfolio cashflow aggregation bindings."""
 
-from typing import Dict, List, Tuple, Union
+from __future__ import annotations
+from typing import Dict, List, Tuple
 from datetime import date
 from finstack.core.money import Money
 from finstack.core.currency import Currency
@@ -8,7 +9,7 @@ from finstack.core.dates.periods import Period
 from finstack.core.market_data.context import MarketContext
 from .portfolio import Portfolio
 
-DateLike = Union[str, date]
+DateLike = str | date
 
 DateMoney = Tuple[DateLike, Money]
 

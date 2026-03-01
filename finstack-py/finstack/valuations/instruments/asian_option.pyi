@@ -1,6 +1,7 @@
 """Asian option instrument."""
 
-from typing import Optional, List
+from __future__ import annotations
+from typing import List
 from datetime import date
 from ...core.money import Money
 
@@ -97,9 +98,9 @@ class AsianOption:
         spot_id: str,
         vol_surface: str,
         *,
-        averaging_method: Optional[str] = "arithmetic",
-        option_type: Optional[str] = "call",
-        div_yield_id: Optional[str] = None,
+        averaging_method: str | None = "arithmetic",
+        option_type: str | None = "call",
+        div_yield_id: str | None = None,
     ) -> "AsianOption":
         """Create an Asian option with explicit parameters.
 
@@ -182,6 +183,6 @@ class AsianOption:
     @property
     def vol_surface(self) -> str: ...
     @property
-    def div_yield_id(self) -> Optional[str]: ...
+    def div_yield_id(self) -> str | None: ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

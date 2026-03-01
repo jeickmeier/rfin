@@ -4,7 +4,8 @@ Provides volatility surfaces for various asset classes
 including equity, credit, and swaption surfaces.
 """
 
-from typing import List, Tuple, Optional
+from __future__ import annotations
+from typing import List, Tuple
 
 class VolSurface:
     """Two-dimensional volatility surface for options pricing.
@@ -257,8 +258,8 @@ class VolSurface:
     def apply_bucket_bump(
         self,
         pct: float,
-        expiries_filter: Optional[List[float]] = None,
-        strikes_filter: Optional[List[float]] = None,
+        expiries_filter: List[float] | None = None,
+        strikes_filter: List[float] | None = None,
     ) -> "VolSurface":
         """Apply a bucket bump to volatilities matching the filters.
 

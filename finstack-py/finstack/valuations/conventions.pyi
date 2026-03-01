@@ -1,6 +1,6 @@
 """Market Conventions Registry type stubs."""
 
-from typing import Optional
+from __future__ import annotations
 from finstack.core.currency import Currency
 from finstack.core.dates.daycount import DayCount
 from finstack.core.dates.tenor import Tenor
@@ -111,7 +111,7 @@ class RateIndexConventions:
         ...
 
     @property
-    def tenor(self) -> Optional[Tenor]:
+    def tenor(self) -> Tenor | None:
         """Native tenor (for term indices)."""
         ...
 
@@ -306,7 +306,7 @@ class IrFutureConventions:
         ...
 
     @property
-    def convexity_adjustment(self) -> Optional[float]:
+    def convexity_adjustment(self) -> float | None:
         """Default convexity adjustment (if any)."""
         ...
 

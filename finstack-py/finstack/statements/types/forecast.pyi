@@ -1,6 +1,7 @@
 """Forecast method bindings."""
 
-from typing import Optional, Dict, Any
+from __future__ import annotations
+from typing import Dict, Any
 
 class ForecastMethod:
     """Forecast method enumeration.
@@ -40,7 +41,7 @@ class ForecastSpec:
     and parameters.
     """
 
-    def __init__(self, method: ForecastMethod, params: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, method: ForecastMethod, params: Dict[str, Any] | None = None) -> None:
         """Create a forecast specification.
 
         Args:

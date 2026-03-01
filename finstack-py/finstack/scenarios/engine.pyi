@@ -1,6 +1,7 @@
 """Scenario engine and execution context."""
 
-from typing import List, Optional, Dict, Any, Union
+from __future__ import annotations
+from typing import List, Dict, Any
 from datetime import date
 from finstack.core.market_data.context import MarketContext
 from finstack.core.dates.calendar import Calendar
@@ -48,9 +49,9 @@ class ExecutionContext:
         market: MarketContext,
         model: FinancialModelSpec,
         as_of: date,
-        instruments: Optional[List[Any]] = None,
-        rate_bindings: Optional[Union[Dict[str, RateBindingSpec], List[RateBindingSpec], Dict[str, str]]] = None,
-        calendar: Optional[Calendar] = None,
+        instruments: List[Any] | None = None,
+        rate_bindings: Dict[str, RateBindingSpec] | List[RateBindingSpec] | Dict[str, str] | None = None,
+        calendar: Calendar | None = None,
     ) -> None:
         """Create a new execution context.
 
@@ -101,7 +102,7 @@ class ExecutionContext:
         ...
 
     @property
-    def instruments(self) -> Optional[List[Any]]:
+    def instruments(self) -> List[Any] | None:
         """Get the instruments list.
 
         Returns:
@@ -110,7 +111,7 @@ class ExecutionContext:
         ...
 
     @instruments.setter
-    def instruments(self, value: Optional[List[Any]]) -> None:
+    def instruments(self, value: List[Any] | None) -> None:
         """Set the instruments list.
 
         Args:
@@ -119,7 +120,7 @@ class ExecutionContext:
         ...
 
     @property
-    def rate_bindings(self) -> Optional[Dict[str, RateBindingSpec]]:
+    def rate_bindings(self) -> Dict[str, RateBindingSpec] | None:
         """Get the rate bindings.
 
         Returns:
@@ -130,7 +131,7 @@ class ExecutionContext:
     @rate_bindings.setter
     def rate_bindings(
         self,
-        value: Optional[Union[Dict[str, RateBindingSpec], List[RateBindingSpec], Dict[str, str]]],
+        value: Dict[str, RateBindingSpec] | List[RateBindingSpec] | Dict[str, str] | None,
     ) -> None:
         """Set the rate bindings.
 
@@ -140,12 +141,12 @@ class ExecutionContext:
         ...
 
     @property
-    def calendar(self) -> Optional[Calendar]:
+    def calendar(self) -> Calendar | None:
         """Get the holiday calendar used for business-day adjustments."""
         ...
 
     @calendar.setter
-    def calendar(self, value: Optional[Calendar]) -> None:
+    def calendar(self, value: Calendar | None) -> None:
         """Set the holiday calendar for tenor alignment."""
         ...
 

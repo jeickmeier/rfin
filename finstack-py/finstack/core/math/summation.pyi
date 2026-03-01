@@ -1,5 +1,6 @@
 """Summation algorithms for reduced floating-point error."""
 
+from __future__ import annotations
 from typing import List
 
 def kahan_sum(values: List[float]) -> float: ...

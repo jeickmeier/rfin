@@ -1,5 +1,6 @@
 """Enum bindings for scenarios Python module."""
 
+from __future__ import annotations
 from typing import ClassVar
 
 class CurveKind:

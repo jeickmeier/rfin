@@ -1,5 +1,6 @@
 """Common valuation parameter enums exposed to Python."""
 
+from __future__ import annotations
 from typing import ClassVar
 
 class OptionType:

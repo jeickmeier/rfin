@@ -1,6 +1,6 @@
 """AmountOrScalar binding."""
 
-from typing import Optional
+from __future__ import annotations
 from ...core.currency import Currency
 
 class AmountOrScalar:
@@ -55,7 +55,7 @@ class AmountOrScalar:
         ...
 
     @property
-    def currency(self) -> Optional[Currency]:
+    def currency(self) -> Currency | None:
         """Get the currency if this is an amount.
 
         Returns:

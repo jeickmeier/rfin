@@ -9,6 +9,7 @@ This module provides comprehensive date handling capabilities:
 - Tenor: Market-standard tenor parsing and calendar-aware conversions
 """
 
+from __future__ import annotations
 from . import calendar
 from . import daycount
 from . import imm

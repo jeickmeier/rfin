@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, Union
+from typing import Any
 
 from ...core.currency import Currency
 from ...core.dates.daycount import DayCount
@@ -69,7 +69,7 @@ class RealEstateAsset:
         disposition_costs: list[Money] | None = None,
         purchase_price: Money | None = None,
         property_type: str | None = None,
-        day_count: Union[DayCount, str, None] = None,
+        day_count: DayCount | str | None = None,
         appraisal_value: Money | None = None,
     ) -> RealEstateAsset:
         """Create a real estate asset with DCF valuation method."""
@@ -91,7 +91,7 @@ class RealEstateAsset:
         disposition_cost_pct: float | None = None,
         purchase_price: Money | None = None,
         property_type: str | None = None,
-        day_count: Union[DayCount, str, None] = None,
+        day_count: DayCount | str | None = None,
         appraisal_value: Money | None = None,
     ) -> RealEstateAsset:
         """Create a real estate asset with direct capitalization valuation method."""

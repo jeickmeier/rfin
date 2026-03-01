@@ -1,6 +1,7 @@
 """DCF valuation helpers."""
 
-from typing import Optional, Dict, Any, Union
+from __future__ import annotations
+from typing import Dict, Any
 from ...statements.types import FinancialModelSpec
 from ...core.money import Money
 
@@ -9,19 +10,19 @@ def evaluate_dcf(
     wacc: float = 0.10,
     terminal_growth: float = 0.02,
     ufcf_node: str = "ufcf",
-    net_debt_override: Optional[float] = None,
+    net_debt_override: float | None = None,
     *,
     mid_year_convention: bool = False,
     terminal_type: str = "gordon_growth",
-    terminal_metric: Optional[float] = None,
-    terminal_multiple: Optional[float] = None,
-    high_growth_rate: Optional[float] = None,
-    stable_growth_rate: Optional[float] = None,
-    half_life_years: Optional[float] = None,
-    shares_outstanding: Optional[float] = None,
-    dlom: Optional[float] = None,
-    dloc: Optional[float] = None,
-) -> Dict[str, Union[Money, float]]:
+    terminal_metric: float | None = None,
+    terminal_multiple: float | None = None,
+    high_growth_rate: float | None = None,
+    stable_growth_rate: float | None = None,
+    half_life_years: float | None = None,
+    shares_outstanding: float | None = None,
+    dlom: float | None = None,
+    dloc: float | None = None,
+) -> Dict[str, Money | float]:
     """Evaluate a corporate DCF (Discounted Cash Flow) valuation.
 
     This function performs a DCF valuation using a financial model specification
@@ -73,7 +74,7 @@ def evaluate_dcf(
 
     Returns
     -------
-    Dict[str, Union[Money, float]]
+    Dict[str, Money | float]
         Dictionary containing:
         - "equity_value": Money - Equity value (EV - net debt, after discounts)
         - "enterprise_value": Money - Total enterprise value

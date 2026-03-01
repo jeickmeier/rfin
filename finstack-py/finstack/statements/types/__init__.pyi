@@ -1,5 +1,6 @@
 """Core types for statement modeling."""
 
+from __future__ import annotations
 from .model import (
     CapitalStructureSpec,
     DebtInstrumentSpec,

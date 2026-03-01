@@ -1,9 +1,10 @@
 """Extended IRR (XIRR) for cashflows with irregular dates."""
 
+from __future__ import annotations
 from datetime import date
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
-def xirr(cash_flows: List[Tuple[date, float]], guess: Optional[float] = None) -> float:
+def xirr(cash_flows: List[Tuple[date, float]], guess: float | None = None) -> float:
     """Calculate extended internal rate of return for cashflows with irregular dates.
 
     XIRR computes the annualized IRR for a series of cashflows with arbitrary

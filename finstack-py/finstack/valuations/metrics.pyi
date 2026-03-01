@@ -1,6 +1,7 @@
 """Metric identifiers and registry helpers for finstack valuations."""
 
-from typing import List, Any, Union
+from __future__ import annotations
+from typing import List, Any
 from .common import InstrumentType
 
 class MetricId:
@@ -309,7 +310,7 @@ class MetricRegistry:
         """
         ...
 
-    def metrics_for_instrument(self, instrument_type: Union[InstrumentType, str]) -> List[MetricId]:
+    def metrics_for_instrument(self, instrument_type: InstrumentType | str) -> List[MetricId]:
         """Metrics applicable to the supplied instrument type.
 
         Returns a filtered list of metrics that can be computed for the specified
@@ -359,7 +360,7 @@ class MetricRegistry:
         """
         ...
 
-    def is_applicable(self, metric: Union[MetricId, str], instrument_type: Union[InstrumentType, str]) -> bool:
+    def is_applicable(self, metric: MetricId | str, instrument_type: InstrumentType | str) -> bool:
         """Test whether metric applies to the provided instrument type.
 
         Checks if a specific metric can be computed for a given instrument type.
@@ -412,7 +413,7 @@ class MetricRegistry:
         """
         ...
 
-    def has_metric(self, metric: Union[MetricId, str]) -> bool:
+    def has_metric(self, metric: MetricId | str) -> bool:
         """Determine whether the registry contains metric.
 
         Checks if a metric is registered in the registry, regardless of

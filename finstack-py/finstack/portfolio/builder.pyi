@@ -1,6 +1,7 @@
 """Portfolio builder."""
 
-from typing import Any, Union, List
+from __future__ import annotations
+from typing import Any, List
 from .types import Book, BookId, Entity, Position
 from .portfolio import Portfolio
 
@@ -113,7 +114,7 @@ class PortfolioBuilder:
         """
         ...
 
-    def entity(self, entity_or_entities: Union[Entity, List[Entity]]) -> "PortfolioBuilder":
+    def entity(self, entity_or_entities: Entity | List[Entity]) -> "PortfolioBuilder":
         """Register entity or entities with the builder.
 
         Accepts either a single Entity or a list of entities.
@@ -131,7 +132,7 @@ class PortfolioBuilder:
         """
         ...
 
-    def position(self, position_or_positions: Union[Position, List[Position]]) -> "PortfolioBuilder":
+    def position(self, position_or_positions: Position | List[Position]) -> "PortfolioBuilder":
         """Add position or positions to the portfolio.
 
         Accepts either a single Position or a list of positions.
@@ -153,7 +154,7 @@ class PortfolioBuilder:
         """
         ...
 
-    def book(self, book_or_books: Union[Book, List[Book]]) -> "PortfolioBuilder":
+    def book(self, book_or_books: Book | List[Book]) -> "PortfolioBuilder":
         """Add book or books to the portfolio hierarchy."""
         ...
 

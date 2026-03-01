@@ -4,7 +4,8 @@ Provides discount curves, forward curves, hazard curves, inflation curves,
 and base correlation curves for financial modeling.
 """
 
-from typing import List, Tuple, Optional, Dict, Union
+from __future__ import annotations
+from typing import List, Tuple, Dict
 from datetime import date
 from ..currency import Currency
 from ..money import Money
@@ -89,11 +90,11 @@ class DiscountCurve:
     def __init__(
         self,
         id: str,
-        base_date: Union[str, date],
+        base_date: str | date,
         knots: List[Tuple[float, float]],
-        day_count: Optional[Union[str, DayCount]] = None,
-        interp: Optional[Union[str, InterpStyle]] = None,
-        extrapolation: Optional[Union[str, ExtrapolationPolicy]] = None,
+        day_count: str | DayCount | None = None,
+        interp: str | InterpStyle | None = None,
+        extrapolation: str | ExtrapolationPolicy | None = None,
         require_monotonic: bool = True,
     ) -> None: ...
     @property
@@ -214,7 +215,7 @@ class DiscountCurve:
         """
         ...
 
-    def df_on_date(self, date: Union[str, date]) -> float:
+    def df_on_date(self, date: str | date) -> float:
         """Get discount factor on a specific date.
 
         Parameters
@@ -232,7 +233,7 @@ class DiscountCurve:
     def npv(
         self,
         cash_flows: List[Tuple[date, Money]],
-        day_count: Optional[Union[str, DayCount]] = None,
+        day_count: str | DayCount | None = None,
     ) -> Money:
         """Calculate the Net Present Value of a series of cashflows.
 
@@ -341,10 +342,10 @@ class ForwardCurve:
         id: str,
         tenor_years: float,
         knots: List[Tuple[float, float]],
-        base_date: Optional[Union[str, date]] = None,
-        reset_lag: Optional[int] = None,
-        day_count: Optional[Union[str, DayCount]] = None,
-        interp: Optional[Union[str, InterpStyle]] = None,
+        base_date: str | date | None = None,
+        reset_lag: int | None = None,
+        day_count: str | DayCount | None = None,
+        interp: str | InterpStyle | None = None,
     ) -> None: ...
     @property
     def id(self) -> str:
@@ -448,7 +449,7 @@ class ForwardCurve:
         """
         ...
 
-    def df_on_date(self, date: Union[str, date]) -> float:
+    def df_on_date(self, date: str | date) -> float:
         """Implied projection discount factor on a calendar date using the curve's day-count."""
         ...
 
@@ -535,14 +536,14 @@ class HazardCurve:
     def __init__(
         self,
         id: str,
-        base_date: Union[str, date],
+        base_date: str | date,
         knots: List[Tuple[float, float]],
-        recovery_rate: Optional[float] = None,
-        day_count: Optional[Union[str, DayCount]] = None,
-        issuer: Optional[str] = None,
-        seniority: Optional[str] = None,
-        currency: Optional[Currency] = None,
-        par_points: Optional[List[Tuple[float, float]]] = None,
+        recovery_rate: float | None = None,
+        day_count: str | DayCount | None = None,
+        issuer: str | None = None,
+        seniority: str | None = None,
+        currency: Currency | None = None,
+        par_points: List[Tuple[float, float]] | None = None,
     ) -> None: ...
     @property
     def id(self) -> str:
@@ -739,7 +740,7 @@ class InflationCurve:
         id: str,
         base_cpi: float,
         knots: List[Tuple[float, float]],
-        interp: Optional[Union[str, InterpStyle]] = None,
+        interp: str | InterpStyle | None = None,
     ) -> None: ...
     @property
     def id(self) -> str:
@@ -902,7 +903,7 @@ class CreditIndexData:
         recovery_rate: float,
         index_curve: HazardCurve,
         base_correlation_curve: BaseCorrelationCurve,
-        issuer_curves: Optional[Dict[str, HazardCurve]] = None,
+        issuer_curves: Dict[str, HazardCurve] | None = None,
     ) -> None: ...
     @property
     def num_constituents(self) -> int:
@@ -969,7 +970,7 @@ class CreditIndexData:
         """
         ...
 
-    def issuer_curve(self, issuer_id: str) -> Optional[HazardCurve]:
+    def issuer_curve(self, issuer_id: str) -> HazardCurve | None:
         """Get an issuer curve.
 
         Parameters

@@ -3,6 +3,7 @@
 Provides functions to convert between simple, periodic, and continuous interest rates.
 """
 
+from __future__ import annotations
 def simple_to_periodic(
     simple_rate: float,
     year_fraction: float,

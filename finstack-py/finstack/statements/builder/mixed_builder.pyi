@@ -1,5 +1,6 @@
 """Mixed node builder for statements."""
 
+from __future__ import annotations
 from typing import Any, List, Tuple
 from ..types.forecast import ForecastSpec
 from ..types.value import AmountOrScalar

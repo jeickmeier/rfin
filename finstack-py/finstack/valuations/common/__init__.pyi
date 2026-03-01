@@ -1,7 +1,7 @@
 """Shared enums, keys, and error helpers used across finstack valuations bindings."""
 
-from typing import Union
 
+from __future__ import annotations
 # Monte Carlo submodule
 from . import mc
 from . import parse
@@ -137,7 +137,7 @@ class PricerKey:
         PricerKey(instrument='bond', model='discounting')
     """
 
-    def __init__(self, instrument: Union[InstrumentType, str], model: Union[ModelKey, str]) -> None:
+    def __init__(self, instrument: InstrumentType | str, model: ModelKey | str) -> None:
         """Build a key that refers to a (instrument, model) pair.
 
         Args:

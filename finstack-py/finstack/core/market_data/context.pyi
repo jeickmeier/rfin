@@ -489,4 +489,27 @@ class MarketContext:
         """
         ...
 
+    def __copy__(self) -> MarketContext:
+        """Support copy.copy(ctx)."""
+        ...
+
+    def __deepcopy__(self, memo: Any) -> MarketContext:
+        """Support copy.deepcopy(ctx)."""
+        ...
+
+    def __contains__(self, id: str) -> bool:
+        """Check if a curve or surface with the given ID exists.
+
+        Parameters
+        ----------
+        id : str
+            Identifier to look up.
+
+        Returns
+        -------
+        bool
+            True if found.
+        """
+        ...
+
     def __repr__(self) -> str: ...

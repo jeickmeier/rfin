@@ -1,6 +1,7 @@
 """Evaluator for financial models."""
 
-from typing import Optional, Dict, Any, List, Tuple
+from __future__ import annotations
+from typing import Dict, Any, List, Tuple
 from datetime import date
 from ..types.model import FinancialModelSpec
 from ...core.dates.periods import PeriodId
@@ -10,7 +11,7 @@ class ResultsMeta:
     """Metadata about evaluation results."""
 
     @property
-    def eval_time_ms(self) -> Optional[int]:
+    def eval_time_ms(self) -> int | None:
         """Evaluation time in milliseconds.
 
         Returns:
@@ -41,7 +42,7 @@ class ResultsMeta:
 class StatementResult:
     """Result from evaluating a financial model."""
 
-    def get(self, node_id: str, period_id: PeriodId) -> Optional[float]:
+    def get(self, node_id: str, period_id: PeriodId) -> float | None:
         """Get the value for a node at a specific period.
 
         Args:
@@ -53,7 +54,7 @@ class StatementResult:
         """
         ...
 
-    def get_node(self, node_id: str) -> Optional[Dict[PeriodId, float]]:
+    def get_node(self, node_id: str) -> Dict[PeriodId, float] | None:
         """Get all period values for a specific node.
 
         Args:
@@ -254,7 +255,7 @@ class MonteCarloResults:
         """Percentiles computed for each metric/period."""
         ...
 
-    def get_percentile(self, metric: str, percentile: float) -> Optional[Dict[PeriodId, float]]:
+    def get_percentile(self, metric: str, percentile: float) -> Dict[PeriodId, float] | None:
         """Get a percentile time series for a metric.
 
         Args:
@@ -266,7 +267,7 @@ class MonteCarloResults:
         """
         ...
 
-    def breach_probability(self, metric: str, threshold: float) -> Optional[float]:
+    def breach_probability(self, metric: str, threshold: float) -> float | None:
         """Estimate breach probability for a metric crossing a threshold.
 
         The current implementation returns the probability that
@@ -387,7 +388,7 @@ class Evaluator:
         model: FinancialModelSpec,
         n_paths: int,
         seed: int,
-        percentiles: Optional[List[float]] = None,
+        percentiles: List[float] | None = None,
     ) -> MonteCarloResults:
         """Evaluate a financial model using Monte Carlo simulation of forecasts.
 

@@ -4,7 +4,7 @@ Provides cashflow modeling primitives, amortization
 specifications, and analytics (XIRR) for building payment schedules.
 """
 
-from typing import Union
+from __future__ import annotations
 from datetime import date
 from .primitives import CashFlow, CFKind
 from .performance import npv, irr_periodic
@@ -25,8 +25,8 @@ __all__ = [
 
 def npv_static(
     curve: DiscountCurve,
-    base_date: Union[date, str],
-    day_count: Union[DayCount, str],
+    base_date: date | str,
+    day_count: DayCount | str,
     cash_flows: list[tuple[date, Money]],
 ) -> Money:
     """Compute NPV of cashflows using a discount curve with explicit day-count.
@@ -68,7 +68,7 @@ def npv_static(
 
 def npv_using_curve_dc(
     curve: DiscountCurve,
-    base_date: Union[date, str],
+    base_date: date | str,
     cash_flows: list[tuple[date, Money]],
 ) -> Money:
     """Compute NPV of cashflows using the curve's internal day-count convention.

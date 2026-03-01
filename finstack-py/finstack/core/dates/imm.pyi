@@ -4,10 +4,10 @@ Provides functions for calculating IMM dates and related
 financial market dates.
 """
 
-from typing import Union
+from __future__ import annotations
 from datetime import date
 
-def next_imm(date: Union[str, date]) -> date:
+def next_imm(date: str | date) -> date:
     """Get the next IMM date after the given date.
 
     Parameters
@@ -22,7 +22,7 @@ def next_imm(date: Union[str, date]) -> date:
     """
     ...
 
-def next_cds_date(date: Union[str, date]) -> date:
+def next_cds_date(date: str | date) -> date:
     """Get the next CDS date after the given date.
 
     Parameters
@@ -37,7 +37,7 @@ def next_cds_date(date: Union[str, date]) -> date:
     """
     ...
 
-def next_imm_option_expiry(date: Union[str, date]) -> date:
+def next_imm_option_expiry(date: str | date) -> date:
     """Get the next IMM option expiry date.
 
     Parameters
@@ -69,7 +69,7 @@ def imm_option_expiry(year: int, month: int) -> date:
     """
     ...
 
-def next_equity_option_expiry(date: Union[str, date]) -> date:
+def next_equity_option_expiry(date: str | date) -> date:
     """Get the next equity option expiry date.
 
     Parameters

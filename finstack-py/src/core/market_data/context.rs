@@ -621,6 +621,51 @@ impl PyMarketContext {
         self.inner.fx().is_some()
     }
 
+    /// Support ``copy.copy(ctx)``.
+    ///
+    /// Returns
+    /// -------
+    /// MarketContext
+    ///     Shallow clone of this context.
+    fn __copy__(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+
+    /// Support ``copy.deepcopy(ctx)``.
+    ///
+    /// Parameters
+    /// ----------
+    /// _memo : Any
+    ///     Memo dictionary (unused; all data is Arc-shared).
+    ///
+    /// Returns
+    /// -------
+    /// MarketContext
+    ///     Deep clone of this context.
+    fn __deepcopy__(&self, _memo: Bound<'_, PyAny>) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+
+    /// Check if a curve or surface with the given ID exists in the context.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Identifier to look up (curve id or surface id).
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     ``True`` if a curve or surface with the given id is registered.
+    fn __contains__(&self, id: &str) -> bool {
+        // Check curves first, then surfaces
+        self.inner.curve(id).is_some() || self.inner.surface(id).is_ok()
+    }
+
     fn __repr__(&self) -> String {
         let stats = self.inner.stats();
         format!(

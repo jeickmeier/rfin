@@ -1,6 +1,6 @@
 """Credit default swap instrument."""
 
-from typing import Optional
+from __future__ import annotations
 from datetime import date
 from ...core.money import Money
 from ..common import InstrumentType
@@ -121,8 +121,8 @@ class CreditDefaultSwap:
         discount_curve: str,
         credit_curve: str,
         *,
-        recovery_rate: Optional[float] = None,
-        settlement_delay: Optional[int] = None,
+        recovery_rate: float | None = None,
+        settlement_delay: int | None = None,
     ) -> "CreditDefaultSwap":
         """Create a CDS where the caller buys protection (pays premium, receives protection).
 
@@ -201,8 +201,8 @@ class CreditDefaultSwap:
         discount_curve: str,
         credit_curve: str,
         *,
-        recovery_rate: Optional[float] = None,
-        settlement_delay: Optional[int] = None,
+        recovery_rate: float | None = None,
+        settlement_delay: int | None = None,
     ) -> "CreditDefaultSwap":
         """Create a CDS where the caller sells protection (receives premium).
 

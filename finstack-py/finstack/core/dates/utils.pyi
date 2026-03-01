@@ -4,12 +4,12 @@ This module provides helpers that mirror :mod:`finstack_core.dates.utils` and
 selected methods from :trait:`finstack_core::dates::DateExt` for Python.
 """
 
-from typing import Union
+from __future__ import annotations
 from datetime import date
 from .periods import FiscalConfig
 from .calendar import Calendar
 
-def add_months(d: Union[str, date], months: int) -> date:
+def add_months(d: str | date, months: int) -> date:
     """Add calendar months to a date (with end-of-month handling).
 
     Parameters
@@ -26,7 +26,7 @@ def add_months(d: Union[str, date], months: int) -> date:
     """
     ...
 
-def last_day_of_month(d: Union[str, date]) -> date:
+def last_day_of_month(d: str | date) -> date:
     """Get the last calendar day in the month for a date.
 
     Parameters
@@ -41,31 +41,31 @@ def last_day_of_month(d: Union[str, date]) -> date:
     """
     ...
 
-def is_weekend(d: Union[str, date]) -> bool:
+def is_weekend(d: str | date) -> bool:
     """Return True if the date falls on a weekend (Saturday or Sunday)."""
     ...
 
-def quarter(d: Union[str, date]) -> int:
+def quarter(d: str | date) -> int:
     """Return the calendar quarter (1-4) for the given date."""
     ...
 
-def months_until(start: Union[str, date], end: Union[str, date]) -> int:
+def months_until(start: str | date, end: str | date) -> int:
     """Number of whole calendar months from ``start`` to ``end`` (0 if end precedes start)."""
     ...
 
-def fiscal_year(d: Union[str, date], config: "FiscalConfig") -> int:
+def fiscal_year(d: str | date, config: "FiscalConfig") -> int:
     """Return the fiscal year for a date under the given FiscalConfig."""
     ...
 
-def add_weekdays(d: Union[str, date], n: int) -> date:
+def add_weekdays(d: str | date, n: int) -> date:
     """Add/subtract a number of weekdays (Mon–Fri), ignoring holidays."""
     ...
 
-def add_business_days(d: Union[str, date], n: int, calendar: "Calendar") -> date:
+def add_business_days(d: str | date, n: int, calendar: "Calendar") -> date:
     """Add/subtract a number of business days using the supplied calendar."""
     ...
 
-def is_business_day(d: Union[str, date], calendar: "Calendar") -> bool:
+def is_business_day(d: str | date, calendar: "Calendar") -> bool:
     """Return True if the date is a business day under the supplied calendar."""
     ...
 
@@ -90,7 +90,7 @@ def is_leap_year(year: int) -> bool:
     """Check if a year is a leap year."""
     ...
 
-def date_to_days_since_epoch(d: Union[str, date]) -> int:
+def date_to_days_since_epoch(d: str | date) -> int:
     """Convert a date to days since the Unix epoch (1970-01-01)."""
     ...
 

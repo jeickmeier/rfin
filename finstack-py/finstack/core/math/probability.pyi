@@ -4,6 +4,7 @@ Provides functions and classes for computing joint probabilities of correlated
 Bernoulli random variables, useful for credit modeling and scenario generation.
 """
 
+from __future__ import annotations
 from typing import Tuple
 
 def joint_probabilities(p1: float, p2: float, correlation: float) -> Tuple[float, float, float, float]:

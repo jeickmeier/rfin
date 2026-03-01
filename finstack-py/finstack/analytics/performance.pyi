@@ -1,6 +1,7 @@
 """Type stubs for the Performance analytics class."""
 
-from typing import Optional, TypedDict
+from __future__ import annotations
+from typing import TypedDict
 from datetime import date
 
 import polars
@@ -75,7 +76,7 @@ class Performance:
     def __init__(
         self,
         prices: polars.DataFrame,
-        benchmark_ticker: Optional[str] = None,
+        benchmark_ticker: str | None = None,
         freq: str = "daily",
         log_returns: bool = False,
     ) -> None: ...
@@ -151,7 +152,7 @@ class Performance:
     def correlation(self) -> polars.DataFrame: ...
     def cumulative_returns_outperformance(self) -> polars.DataFrame: ...
     def drawdown_outperformance(self) -> polars.DataFrame: ...
-    def excess_returns(self, rf: list[float], nperiods: Optional[float] = None) -> polars.DataFrame: ...
+    def excess_returns(self, rf: list[float], nperiods: float | None = None) -> polars.DataFrame: ...
 
     # ── Per-ticker rolling metrics ──
 

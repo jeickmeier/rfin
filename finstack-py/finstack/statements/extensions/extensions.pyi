@@ -1,6 +1,7 @@
 """Extension system for statements crate."""
 
-from typing import Optional, Dict, Any, List, Tuple
+from __future__ import annotations
+from typing import Dict, Any, List, Tuple
 from ..types.model import FinancialModelSpec
 from ..evaluator import StatementResult
 
@@ -8,7 +9,7 @@ class ExtensionMetadata:
     """Extension metadata."""
 
     def __init__(
-        self, name: str, version: str, description: Optional[str] = None, author: Optional[str] = None
+        self, name: str, version: str, description: str | None = None, author: str | None = None
     ) -> None:
         """Create extension metadata.
 
@@ -28,9 +29,9 @@ class ExtensionMetadata:
     @property
     def version(self) -> str: ...
     @property
-    def description(self) -> Optional[str]: ...
+    def description(self) -> str | None: ...
     @property
-    def author(self) -> Optional[str]: ...
+    def author(self) -> str | None: ...
     def __repr__(self) -> str: ...
 
 class ExtensionStatus:
@@ -165,8 +166,8 @@ class CorkscrewAccount:
         self,
         node_id: str,
         account_type: AccountType,
-        changes: Optional[List[str]] = None,
-        beginning_balance_node: Optional[str] = None,
+        changes: List[str] | None = None,
+        beginning_balance_node: str | None = None,
     ) -> None: ...
 
     @property
@@ -176,7 +177,7 @@ class CorkscrewAccount:
     @property
     def changes(self) -> List[str]: ...
     @property
-    def beginning_balance_node(self) -> Optional[str]: ...
+    def beginning_balance_node(self) -> str | None: ...
     def __repr__(self) -> str: ...
 
 class CorkscrewConfig:
@@ -196,9 +197,9 @@ class CorkscrewConfig:
 
     def __init__(
         self,
-        accounts: Optional[List[CorkscrewAccount]] = None,
-        tolerance: Optional[float] = None,
-        fail_on_error: Optional[bool] = None,
+        accounts: List[CorkscrewAccount] | None = None,
+        tolerance: float | None = None,
+        fail_on_error: bool | None = None,
     ) -> None: ...
 
     @property
@@ -235,9 +236,9 @@ class ScorecardMetric:
         self,
         name: str,
         formula: str,
-        weight: Optional[float] = None,
-        thresholds: Optional[Dict[str, Tuple[float, float]]] = None,
-        description: Optional[str] = None,
+        weight: float | None = None,
+        thresholds: Dict[str, Tuple[float, float]] | None = None,
+        description: str | None = None,
     ) -> None: ...
 
     @property
@@ -249,7 +250,7 @@ class ScorecardMetric:
     @property
     def thresholds(self) -> Dict[str, Tuple[float, float]]: ...
     @property
-    def description(self) -> Optional[str]: ...
+    def description(self) -> str | None: ...
     def __repr__(self) -> str: ...
 
 class ScorecardConfig:
@@ -269,9 +270,9 @@ class ScorecardConfig:
 
     def __init__(
         self,
-        rating_scale: Optional[str] = None,
-        metrics: Optional[List[ScorecardMetric]] = None,
-        min_rating: Optional[str] = None,
+        rating_scale: str | None = None,
+        metrics: List[ScorecardMetric] | None = None,
+        min_rating: str | None = None,
     ) -> None: ...
 
     @property
@@ -279,7 +280,7 @@ class ScorecardConfig:
     @property
     def metrics(self) -> List[ScorecardMetric]: ...
     @property
-    def min_rating(self) -> Optional[str]: ...
+    def min_rating(self) -> str | None: ...
     def to_json(self) -> str: ...
     @classmethod
     def from_json(cls, json_str: str) -> ScorecardConfig: ...
@@ -352,7 +353,7 @@ class CorkscrewExtension:
         """
         ...
 
-    def config(self) -> Optional[CorkscrewConfig]:
+    def config(self) -> CorkscrewConfig | None:
         """Get the current configuration.
 
         Returns
@@ -429,7 +430,7 @@ class CreditScorecardExtension:
         """
         ...
 
-    def config(self) -> Optional[ScorecardConfig]:
+    def config(self) -> ScorecardConfig | None:
         """Get the current configuration.
 
         Returns

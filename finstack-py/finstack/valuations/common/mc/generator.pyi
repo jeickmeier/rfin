@@ -1,6 +1,7 @@
 """Standalone Monte Carlo path generation for visualization and analysis."""
 
-from typing import Optional, Dict, List
+from __future__ import annotations
+from typing import Dict, List
 from .paths import PathDataset
 
 class MonteCarloPathGenerator:
@@ -25,7 +26,7 @@ class MonteCarloPathGenerator:
         num_steps: int,
         num_paths: int,
         capture_mode: str = "all",
-        sample_count: Optional[int] = None,
+        sample_count: int | None = None,
         seed: int = 42,
     ) -> PathDataset:
         """
@@ -77,7 +78,7 @@ class MonteCarloPathGenerator:
         num_steps: int,
         num_paths: int,
         capture_mode: str = "all",
-        sample_count: Optional[int] = None,
+        sample_count: int | None = None,
         seed: int = 42,
     ) -> PathDataset:
         """

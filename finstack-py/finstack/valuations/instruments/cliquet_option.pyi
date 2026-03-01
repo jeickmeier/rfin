@@ -1,6 +1,7 @@
 """Cliquet option instrument."""
 
-from typing import List, Optional
+from __future__ import annotations
+from typing import List
 from datetime import date
 from ...core.money import Money
 
@@ -79,7 +80,7 @@ class CliquetOption:
         local_floor: float = 0.0,
         global_cap: float = 0.0,
         global_floor: float = 0.0,
-        div_yield_id: Optional[str] = None,
+        div_yield_id: str | None = None,
     ) -> "CliquetOption":
         """Create a cliquet option.
 

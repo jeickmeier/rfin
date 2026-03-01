@@ -14,6 +14,7 @@ Highlights
 - JSON serialization for persistence and auditability
 """
 
+from __future__ import annotations
 from .enums import CurveKind, VolSurfaceKind, TenorMatchMode
 from .spec import Compounding, OperationSpec, RateBindingSpec, ScenarioSpec
 from .reports import ApplicationReport, RollForwardReport

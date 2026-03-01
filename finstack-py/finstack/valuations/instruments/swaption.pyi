@@ -1,6 +1,6 @@
 """Swaption instrument."""
 
-from typing import Optional
+from __future__ import annotations
 from datetime import date
 from ...core.money import Money
 from ..common import InstrumentType
@@ -126,8 +126,8 @@ class Swaption:
         discount_curve: str,
         forward_curve: str,
         vol_surface: str,
-        exercise: Optional[str] = "european",
-        settlement: Optional[str] = "physical",
+        exercise: str | None = "european",
+        settlement: str | None = "physical",
     ) -> "Swaption":
         """Create a payer swaption (option to pay fixed on underlying swap).
 
@@ -211,8 +211,8 @@ class Swaption:
         discount_curve: str,
         forward_curve: str,
         vol_surface: str,
-        exercise: Optional[str] = "european",
-        settlement: Optional[str] = "physical",
+        exercise: str | None = "european",
+        settlement: str | None = "physical",
     ) -> "Swaption":
         """Create a receiver swaption (option to receive fixed on underlying swap).
 

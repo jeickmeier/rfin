@@ -4,7 +4,8 @@ Provides various day count conventions for calculating year fractions
 between dates, essential for interest calculations.
 """
 
-from typing import ClassVar, Optional, Union
+from __future__ import annotations
+from typing import ClassVar
 from datetime import date
 from .calendar import Calendar
 from .schedule import Frequency
@@ -59,7 +60,7 @@ class DayCount:
         ...
 
     def year_fraction(
-        self, start: Union[str, date], end: Union[str, date], ctx: Optional["DayCountContext"] = None
+        self, start: str | date, end: str | date, ctx: "DayCountContext" | None = None
     ) -> float:
         """Calculate year fraction between two dates.
 
@@ -99,7 +100,7 @@ class DayCountContext:
     day count calculations for certain conventions.
     """
 
-    def __init__(self, calendar: Optional[Calendar] = None, frequency: Optional["Frequency"] = None) -> None:
+    def __init__(self, calendar: Calendar | None = None, frequency: "Frequency" | None = None) -> None:
         """Create a context with optional calendar/frequency hints.
 
         Parameters
@@ -112,7 +113,7 @@ class DayCountContext:
         ...
 
     @property
-    def calendar(self) -> Optional[Calendar]:
+    def calendar(self) -> Calendar | None:
         """Get the calendar hint.
 
         Returns
@@ -122,7 +123,7 @@ class DayCountContext:
         """
         ...
 
-    def set_calendar(self, calendar: Optional[Calendar]) -> None:
+    def set_calendar(self, calendar: Calendar | None) -> None:
         """Set the calendar hint.
 
         Parameters
@@ -133,7 +134,7 @@ class DayCountContext:
         ...
 
     @property
-    def frequency(self) -> Optional["Frequency"]:
+    def frequency(self) -> "Frequency" | None:
         """Get the frequency hint.
 
         Returns
@@ -143,7 +144,7 @@ class DayCountContext:
         """
         ...
 
-    def set_frequency(self, frequency: Optional["Frequency"]) -> None:
+    def set_frequency(self, frequency: "Frequency" | None) -> None:
         """Set the frequency hint.
 
         Parameters
@@ -164,9 +165,9 @@ class DayCountContextState:
 
     def __init__(
         self,
-        calendar_id: Optional[str] = ...,
-        frequency: Optional["Frequency"] = ...,
-        bus_basis: Optional[int] = ...,
+        calendar_id: str | None = ...,
+        frequency: "Frequency" | None = ...,
+        bus_basis: int | None = ...,
     ) -> None: ...
     @classmethod
     def from_context(cls, ctx: DayCountContext) -> DayCountContextState:
@@ -187,11 +188,11 @@ class DayCountContextState:
         ...
 
     @property
-    def calendar_id(self) -> Optional[str]: ...
+    def calendar_id(self) -> str | None: ...
     @property
-    def frequency(self) -> Optional["Frequency"]: ...
+    def frequency(self) -> "Frequency" | None: ...
     @property
-    def bus_basis(self) -> Optional[int]: ...
+    def bus_basis(self) -> int | None: ...
 
 class Thirty360Convention:
     """30/360 convention variant.

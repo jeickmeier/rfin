@@ -1,5 +1,6 @@
 """Structured credit waterfall engine bindings."""
 
+from __future__ import annotations
 from enum import IntEnum
 
 class AllocationMode(IntEnum):

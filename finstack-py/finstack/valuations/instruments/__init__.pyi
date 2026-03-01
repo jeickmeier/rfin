@@ -1,5 +1,6 @@
 """Instrument wrappers for finstack-valuations (rates, FX, credit, equity)."""
 
+from __future__ import annotations
 from .agency_mbs import (
     AgencyCmo as AgencyCmo,
     AgencyMbsPassthrough as AgencyMbsPassthrough,
@@ -45,6 +46,12 @@ from .xccy_swap import (
 )
 from .fx import FxSpot as FxSpot, FxOption as FxOption, FxSwap as FxSwap
 from .fx_barrier_option import FxBarrierOption as FxBarrierOption
+from .fx_digital_option import FxDigitalOption as FxDigitalOption
+from .fx_forward import (
+    FxForward as FxForward,
+    FxForwardBuilder as FxForwardBuilder,
+)
+from .fx_touch_option import FxTouchOption as FxTouchOption
 from .fx_variance_swap import (
     FxVarianceSwap as FxVarianceSwap,
     FxVarianceSwapBuilder as FxVarianceSwapBuilder,
@@ -76,6 +83,10 @@ from .variance_swap import (
     VarianceSwapBuilder as VarianceSwapBuilder,
     VarianceDirection as VarianceDirection,
     RealizedVarianceMethod as RealizedVarianceMethod,
+)
+from .commodity_asian_option import (
+    CommodityAsianOption as CommodityAsianOption,
+    CommodityAsianOptionBuilder as CommodityAsianOptionBuilder,
 )
 from .commodity_forward import CommodityForward as CommodityForward
 from .commodity_option import CommodityOption as CommodityOption
@@ -147,7 +158,11 @@ __all__ = [
     "FxSpot",
     "FxOption",
     "FxSwap",
+    "FxForward",
+    "FxForwardBuilder",
     "FxBarrierOption",
+    "FxDigitalOption",
+    "FxTouchOption",
     "FxVarianceSwap",
     "FxVarianceSwapBuilder",
     "FxVarianceDirection",
@@ -180,6 +195,8 @@ __all__ = [
     "CommodityForward",
     "CommodityOption",
     "CommoditySwap",
+    "CommodityAsianOption",
+    "CommodityAsianOptionBuilder",
     # Credit
     "CreditDefaultSwap",
     "CDSPayReceive",

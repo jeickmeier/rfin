@@ -14,6 +14,7 @@ Module Structure (mirrors Rust):
 - registry - Dynamic metric registry
 """
 
+from __future__ import annotations
 from .types import (
     NodeType,
     NodeSpec,

@@ -248,6 +248,78 @@ impl PyPortfolio {
             .clone()
             .unwrap_or_else(|| self.inner.id.clone())
     }
+
+    /// Return the number of positions in the portfolio.
+    fn __len__(&self) -> usize {
+        self.inner.positions.len()
+    }
+
+    /// Check if a position with the given ID exists in the portfolio.
+    fn __contains__(&self, position_id: &str) -> bool {
+        self.inner.get_position(position_id).is_some()
+    }
+
+    /// Get a position by index or ID.
+    fn __getitem__(&self, key: &Bound<'_, PyAny>) -> PyResult<PyPosition> {
+        if let Ok(idx) = key.extract::<isize>() {
+            let len = self.inner.positions.len() as isize;
+            let actual = if idx < 0 { len + idx } else { idx };
+            if actual < 0 || actual >= len {
+                return Err(pyo3::exceptions::PyIndexError::new_err(format!(
+                    "position index out of range: {}",
+                    idx
+                )));
+            }
+            Ok(PyPosition::new(
+                self.inner.positions[actual as usize].clone(),
+            ))
+        } else if let Ok(id) = key.extract::<String>() {
+            self.inner
+                .get_position(&id)
+                .map(|p| PyPosition::new(p.clone()))
+                .ok_or_else(|| {
+                    pyo3::exceptions::PyKeyError::new_err(format!("Position '{}' not found", id))
+                })
+        } else {
+            Err(PyTypeError::new_err("Position index must be int or str"))
+        }
+    }
+
+    /// Return an iterator over the positions in the portfolio.
+    fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<PyPositionIterator>> {
+        let positions: Vec<finstack_portfolio::Position> = slf.inner.positions.clone();
+        Py::new(
+            slf.py(),
+            PyPositionIterator {
+                positions,
+                index: 0,
+            },
+        )
+    }
+}
+
+/// Iterator over positions in a portfolio.
+#[pyclass(module = "finstack.portfolio", name = "PositionIterator")]
+pub struct PyPositionIterator {
+    positions: Vec<finstack_portfolio::Position>,
+    index: usize,
+}
+
+#[pymethods]
+impl PyPositionIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<PyPosition> {
+        if slf.index < slf.positions.len() {
+            let pos = PyPosition::new(slf.positions[slf.index].clone());
+            slf.index += 1;
+            Some(pos)
+        } else {
+            None
+        }
+    }
 }
 
 /// Extract a Portfolio from Python object.
@@ -265,6 +337,10 @@ pub(crate) fn register<'py>(
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<String>> {
     parent.add_class::<PyPortfolio>()?;
+    parent.add_class::<PyPositionIterator>()?;
 
-    Ok(vec!["Portfolio".to_string()])
+    Ok(vec![
+        "Portfolio".to_string(),
+        "PositionIterator".to_string(),
+    ])
 }

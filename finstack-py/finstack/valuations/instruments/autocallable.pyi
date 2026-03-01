@@ -1,6 +1,7 @@
 """Autocallable structured product instrument."""
 
-from typing import List, Optional, Dict, Union, Any
+from __future__ import annotations
+from typing import List, Dict, Any
 from datetime import date
 from ...core.money import Money
 
@@ -76,7 +77,7 @@ class Autocallable:
         autocall_barriers: List[float],
         coupons: List[float],
         final_barrier: float,
-        final_payoff_type: Union[str, Dict[str, Any]],
+        final_payoff_type: str | Dict[str, Any],
         participation_rate: float,
         cap_level: float,
         notional: Money,
@@ -84,8 +85,8 @@ class Autocallable:
         spot_id: str,
         vol_surface: str,
         *,
-        expiry: Optional[date] = None,
-        div_yield_id: Optional[str] = None,
+        expiry: date | None = None,
+        div_yield_id: str | None = None,
     ) -> "Autocallable":
         """Create an autocallable structured product.
 

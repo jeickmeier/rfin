@@ -1,6 +1,7 @@
 """Random number utilities."""
 
-from typing import Optional, Tuple
+from __future__ import annotations
+from typing import Tuple
 
 class SimpleRng:
     """Deterministic pseudo-random number generator."""

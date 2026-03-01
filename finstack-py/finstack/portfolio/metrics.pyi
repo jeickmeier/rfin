@@ -1,6 +1,7 @@
 """Portfolio metrics."""
 
-from typing import Optional, Dict, Any
+from __future__ import annotations
+from typing import Dict, Any
 from .valuation import PortfolioValuation
 
 class AggregatedMetric:
@@ -64,7 +65,7 @@ class PortfolioMetrics:
         0.0
     """
 
-    def get_metric(self, metric_id: str) -> Optional[AggregatedMetric]:
+    def get_metric(self, metric_id: str) -> AggregatedMetric | None:
         """Get an aggregated metric by identifier.
 
         Args:
@@ -76,7 +77,7 @@ class PortfolioMetrics:
         """
         ...
 
-    def get_position_metrics(self, position_id: str) -> Optional[Dict[str, float]]:
+    def get_position_metrics(self, position_id: str) -> Dict[str, float] | None:
         """Get metrics for a specific position.
 
         Args:
@@ -88,7 +89,7 @@ class PortfolioMetrics:
         """
         ...
 
-    def get_total(self, metric_id: str) -> Optional[float]:
+    def get_total(self, metric_id: str) -> float | None:
         """Get the total value of a specific metric across the portfolio.
 
         Args:

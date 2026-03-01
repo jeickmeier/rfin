@@ -474,6 +474,36 @@ impl PyFxMatrix {
     fn cache_stats(&self) -> usize {
         self.inner.cache_stats()
     }
+
+    /// Return the number of stored FX quotes.
+    fn __len__(&self) -> usize {
+        self.inner.cache_stats()
+    }
+
+    /// Check if a ``(from_currency, to_currency)`` pair has a quote.
+    ///
+    /// Parameters
+    /// ----------
+    /// pair : tuple[Currency, Currency]
+    ///     Currency pair to look up.
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     ``True`` if a rate can be resolved for the pair.
+    fn __contains__(&self, pair: (PyCurrency, PyCurrency)) -> bool {
+        use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
+        // Use a fixed date for the existence check
+        let date =
+            time::Date::from_calendar_date(2000, time::Month::January, 1).expect("valid date");
+        let query = FxQuery::with_policy(
+            pair.0.inner,
+            pair.1.inner,
+            date,
+            FxConversionPolicy::CashflowDate,
+        );
+        self.inner.rate(query).is_ok()
+    }
 }
 
 pub(crate) fn register<'py>(

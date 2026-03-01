@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 class RatesQuote:
     @classmethod
@@ -30,8 +30,8 @@ class RatesQuote:
         price: float,
         *,
         contract: str | None = ...,
-        convexity_adjustment: Optional[float] = ...,
-        vol_surface_id: Optional[str] = ...,
+        convexity_adjustment: float | None = ...,
+        vol_surface_id: str | None = ...,
     ) -> RatesQuote: ...
     @classmethod
     def swap(
@@ -41,7 +41,7 @@ class RatesQuote:
         maturity: Any,
         rate: float,
         *,
-        spread: Optional[float] = ...,
+        spread: float | None = ...,
     ) -> RatesQuote: ...
     @property
     def kind(self) -> str: ...

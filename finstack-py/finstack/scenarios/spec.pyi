@@ -8,7 +8,8 @@ Use :class:`OperationSpec` to declare shocks, :class:`ScenarioSpec` to group
 them, and :class:`RateBindingSpec` to link market curves into statement nodes.
 """
 
-from typing import List, Optional, Dict, Any, Tuple
+from __future__ import annotations
+from typing import List, Dict, Any, Tuple
 from datetime import date
 from finstack.core.currency import Currency
 from finstack.valuations.common import InstrumentType
@@ -56,8 +57,8 @@ class RateBindingSpec:
         node_id: str,
         curve_id: str,
         tenor: str,
-        compounding: Optional[Compounding] = None,
-        day_count: Optional[str] = None,
+        compounding: Compounding | None = None,
+        day_count: str | None = None,
     ) -> None: ...
     @property
     def node_id(self) -> str:
@@ -76,7 +77,7 @@ class RateBindingSpec:
         """Compounding convention used when converting the extracted rate."""
 
     @property
-    def day_count(self) -> Optional[str]:
+    def day_count(self) -> str | None:
         """Optional day-count override; defaults to the curve's convention."""
 
     def to_dict(self) -> Dict[str, Any]:
@@ -178,7 +179,7 @@ class OperationSpec:
         curve_kind: CurveKind,
         curve_id: str,
         nodes: List[Tuple[str, float]],
-        match_mode: Optional[TenorMatchMode] = None,
+        match_mode: TenorMatchMode | None = None,
     ) -> OperationSpec:
         """Node-specific basis point shifts for curve shaping.
 
@@ -211,8 +212,8 @@ class OperationSpec:
         cls,
         surface_id: str,
         points: float,
-        detachment_bps: Optional[List[int]] = None,
-        maturities: Optional[List[str]] = None,
+        detachment_bps: List[int] | None = None,
+        maturities: List[str] | None = None,
     ) -> OperationSpec:
         """Bucket-specific base correlation shifts.
 
@@ -247,8 +248,8 @@ class OperationSpec:
         surface_kind: VolSurfaceKind,
         surface_id: str,
         pct: float,
-        tenors: Optional[List[str]] = None,
-        strikes: Optional[List[float]] = None,
+        tenors: List[str] | None = None,
+        strikes: List[float] | None = None,
     ) -> OperationSpec:
         """Bucketed volatility surface shock.
 
@@ -379,7 +380,7 @@ class OperationSpec:
 
     @classmethod
     def time_roll_forward(
-        cls, period: str, apply_shocks: Optional[bool] = True, roll_mode: Optional[TimeRollMode] = None
+        cls, period: str, apply_shocks: bool | None = True, roll_mode: TimeRollMode | None = None
     ) -> OperationSpec:
         """Roll forward horizon by a period with carry/theta.
 
@@ -486,8 +487,8 @@ class ScenarioSpec:
         self,
         id: str,
         operations: List[OperationSpec],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
+        name: str | None = None,
+        description: str | None = None,
         priority: int = 0,
     ) -> None:
         """Create a new scenario specification.
@@ -511,7 +512,7 @@ class ScenarioSpec:
         ...
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """Display name.
 
         Returns:
@@ -520,7 +521,7 @@ class ScenarioSpec:
         ...
 
     @property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         """Description text.
 
         Returns:

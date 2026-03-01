@@ -1,6 +1,7 @@
 """Portfolio margin aggregation bindings."""
 
-from typing import Dict, List, Optional, Tuple, Any, Union
+from __future__ import annotations
+from typing import Dict, List, Tuple, Any
 from datetime import date
 from finstack.core.currency import Currency
 from finstack.core.money import Money
@@ -8,15 +9,15 @@ from finstack.core.market_data.context import MarketContext
 from .types import Position
 from .portfolio import Portfolio
 
-DateLike = Union[str, date]
+DateLike = str | date
 SimmSensitivities = Any
 
 class NettingSetId:
     """Identifier for a margin netting set (CSA or CCP)."""
 
     counterparty_id: str
-    csa_id: Optional[str]
-    ccp_id: Optional[str]
+    csa_id: str | None
+    ccp_id: str | None
 
     @staticmethod
     def bilateral(counterparty_id: str, csa_id: str) -> "NettingSetId": ...
@@ -92,7 +93,7 @@ class NettingSetMargin:
         ...
 
     @property
-    def sensitivities(self) -> Optional[SimmSensitivities]:
+    def sensitivities(self) -> SimmSensitivities | None:
         """Aggregated SIMM sensitivities if available."""
         ...
 
@@ -115,7 +116,7 @@ class NettingSetManager:
         """Configure a default netting set for positions without explicit spec."""
         ...
 
-    def add_position(self, position: Position, netting_set_id: Optional[NettingSetId] = ...) -> None:
+    def add_position(self, position: Position, netting_set_id: NettingSetId | None = ...) -> None:
         """Add a position to a netting set (explicit or default)."""
         ...
 
@@ -127,7 +128,7 @@ class NettingSetManager:
         """All netting set identifiers."""
         ...
 
-    def get(self, id: NettingSetId) -> Optional[NettingSet]:
+    def get(self, id: NettingSetId) -> NettingSet | None:
         """Fetch a netting set by id."""
         ...
 

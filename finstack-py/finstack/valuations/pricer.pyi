@@ -1,7 +1,8 @@
 """Pricer registry bridging instruments and pricing models to valuation engines."""
 
+from __future__ import annotations
 import datetime as dt
-from typing import Any, List, Tuple, Optional
+from typing import Any, List, Tuple
 from .common import ModelKey, PricerKey
 from .results import ValuationResult
 from ..core.market_data.context import MarketContext
@@ -66,7 +67,7 @@ class PricerRegistry:
         instrument: Any,
         model: Any,
         market: MarketContext,
-        as_of: Optional[dt.date] = None,
+        as_of: dt.date | None = None,
     ) -> ValuationResult:
         """Price an instrument using the specified model and market data.
 
@@ -130,7 +131,7 @@ class PricerRegistry:
         instruments: List[Any],
         model: Any,
         market: MarketContext,
-        as_of: Optional[dt.date] = None,
+        as_of: dt.date | None = None,
     ) -> List[ValuationResult]:
         """Price a batch of instruments in parallel.
 
@@ -151,7 +152,7 @@ class PricerRegistry:
         model: Any,
         market: MarketContext,
         metrics: List[Any],
-        as_of: Optional[dt.date] = None,
+        as_of: dt.date | None = None,
     ) -> ValuationResult:
         """Price an instrument and compute the requested risk and return metrics.
 
@@ -226,7 +227,7 @@ class PricerRegistry:
         market: MarketContext,
         forward_curve: str,
         float_margin_bp: float,
-        dirty_price_ccy: Optional[float] = None,
+        dirty_price_ccy: float | None = None,
     ) -> Tuple[float, float]:
         """Compute par and market asset swap spreads using a forward curve.
 

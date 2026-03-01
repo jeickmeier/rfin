@@ -13,6 +13,7 @@ Sources
 - Devroye (1986): see ``docs/REFERENCES.md#devroye1986``.
 """
 
+from __future__ import annotations
 from typing import List
 
 def binomial_probability(trials: int, successes: int, probability: float) -> float:

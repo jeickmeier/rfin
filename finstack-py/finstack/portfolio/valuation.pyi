@@ -1,6 +1,7 @@
 """Portfolio valuation."""
 
-from typing import Optional, Dict, Any
+from __future__ import annotations
+from typing import Dict, Any
 from finstack.core.money import Money
 from finstack.core.market_data.context import MarketContext
 from finstack.core.config import FinstackConfig
@@ -107,7 +108,7 @@ class PortfolioValuation:
         (12000.0, ['POS-1'])
     """
 
-    def get_position_value(self, position_id: str) -> Optional[PositionValue]:
+    def get_position_value(self, position_id: str) -> PositionValue | None:
         """Get the value for a specific position.
 
         Args:
@@ -146,7 +147,7 @@ class PortfolioValuation:
         """
         ...
 
-    def get_entity_value(self, entity_id: str) -> Optional[Money]:
+    def get_entity_value(self, entity_id: str) -> Money | None:
         """Get the total value for a specific entity.
 
         Args:
@@ -206,7 +207,7 @@ class PortfolioValuation:
 def value_portfolio(
     portfolio: Portfolio,
     market_context: MarketContext,
-    config: Optional[FinstackConfig] = None,
+    config: FinstackConfig | None = None,
 ) -> PortfolioValuation:
     """Value a complete portfolio with multi-currency aggregation.
 
@@ -298,7 +299,7 @@ def value_portfolio_with_options(
     portfolio: Portfolio,
     market_context: MarketContext,
     options: PortfolioValuationOptions,
-    config: Optional[FinstackConfig] = None,
+    config: FinstackConfig | None = None,
 ) -> PortfolioValuation:
     """Value a portfolio using explicit valuation options (e.g., strict_risk)."""
     ...

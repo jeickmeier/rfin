@@ -688,4 +688,56 @@ impl PyPathDataset {
     fn __len__(&self) -> usize {
         self.inner.num_captured()
     }
+
+    /// Get a path by index.
+    fn __getitem__(&self, index: isize) -> PyResult<PySimulatedPath> {
+        let len = self.inner.paths.len() as isize;
+        let actual = if index < 0 { len + index } else { index };
+        if actual < 0 || actual >= len {
+            return Err(pyo3::exceptions::PyIndexError::new_err(
+                format!("path index out of range: {}", index),
+            ));
+        }
+        Ok(PySimulatedPath {
+            inner: self.inner.paths[actual as usize].clone(),
+        })
+    }
+
+    /// Return an iterator over the paths in this dataset.
+    fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<PyPathDatasetIterator>> {
+        let paths: Vec<SimulatedPath> = slf.inner.paths.clone();
+        Py::new(
+            slf.py(),
+            PyPathDatasetIterator {
+                paths,
+                index: 0,
+            },
+        )
+    }
+}
+
+/// Iterator over simulated paths in a dataset.
+#[pyclass(module = "finstack.valuations.common.mc", name = "PathDatasetIterator")]
+pub struct PyPathDatasetIterator {
+    paths: Vec<SimulatedPath>,
+    index: usize,
+}
+
+#[pymethods]
+impl PyPathDatasetIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<PySimulatedPath> {
+        if slf.index < slf.paths.len() {
+            let path = PySimulatedPath {
+                inner: slf.paths[slf.index].clone(),
+            };
+            slf.index += 1;
+            Some(path)
+        } else {
+            None
+        }
+    }
 }

@@ -1,5 +1,6 @@
 """Forecast helpers mirroring finstack.statements.forecast (Rust)."""
 
+from __future__ import annotations
 from typing import Dict, List
 
 from finstack.core.dates.periods import PeriodId

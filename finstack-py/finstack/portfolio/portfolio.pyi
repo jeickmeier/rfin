@@ -1,9 +1,16 @@
 """Portfolio class."""
 
-from typing import Dict, List, Any, Optional
+from __future__ import annotations
+from typing import Dict, Iterator, List, Any, overload
 from datetime import date
 from finstack.core.currency import Currency
 from .types import Book, Entity, Position
+
+class PositionIterator:
+    """Iterator over positions in a portfolio."""
+
+    def __iter__(self) -> PositionIterator: ...
+    def __next__(self) -> Position: ...
 
 class Portfolio:
     """A portfolio of positions across multiple entities with aggregation support.
@@ -80,7 +87,7 @@ class Portfolio:
         """
         ...
 
-    def get_position(self, position_id: str) -> Optional[Position]:
+    def get_position(self, position_id: str) -> Position | None:
         """Get a position by identifier.
 
         Args:
@@ -194,12 +201,12 @@ class Portfolio:
         ...
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """Get the portfolio name."""
         ...
 
     @name.setter
-    def name(self, value: Optional[str]) -> None:
+    def name(self, value: str | None) -> None:
         """Set the portfolio name."""
         ...
 
@@ -240,3 +247,11 @@ class Portfolio:
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
+    def __len__(self) -> int: ...
+    def __contains__(self, position_id: str) -> bool: ...
+    @overload
+    def __getitem__(self, key: int) -> Position: ...
+    @overload
+    def __getitem__(self, key: str) -> Position: ...
+    def __getitem__(self, key: int | str) -> Position: ...
+    def __iter__(self) -> PositionIterator: ...

@@ -7,7 +7,7 @@ for equity instruments.
 from __future__ import annotations
 
 from datetime import date as _Date
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple
 from ..currency import Currency
 from ..money import Money
 
@@ -22,7 +22,7 @@ class DividendEvent:
         Dividend kind ("cash", "yield", "stock").
     """
 
-    def __init__(self, date: Union[str, _Date], kind: str) -> None: ...
+    def __init__(self, date: str | _Date, kind: str) -> None: ...
     def date(self) -> _Date:
         """Get the dividend date.
 
@@ -44,7 +44,7 @@ class DividendEvent:
         """
         ...
 
-    def cash_amount(self) -> Optional[Money]:
+    def cash_amount(self) -> Money | None:
         """Get the cash amount if this is a cash dividend.
 
         Returns
@@ -54,7 +54,7 @@ class DividendEvent:
         """
         ...
 
-    def dividend_yield(self) -> Optional[float]:
+    def dividend_yield(self) -> float | None:
         """Get the dividend yield if this is a yield dividend.
 
         Returns
@@ -64,7 +64,7 @@ class DividendEvent:
         """
         ...
 
-    def stock_ratio(self) -> Optional[float]:
+    def stock_ratio(self) -> float | None:
         """Get the stock ratio if this is a stock dividend.
 
         Returns
@@ -95,8 +95,8 @@ class DividendSchedule:
         self,
         id: str,
         events: List[DividendEvent],
-        underlying: Optional[str] = None,
-        currency: Optional[Currency] = None,
+        underlying: str | None = None,
+        currency: Currency | None = None,
     ) -> None: ...
     @property
     def id(self) -> str:
@@ -110,7 +110,7 @@ class DividendSchedule:
         ...
 
     @property
-    def underlying(self) -> Optional[str]:
+    def underlying(self) -> str | None:
         """Get the underlying identifier.
 
         Returns
@@ -121,7 +121,7 @@ class DividendSchedule:
         ...
 
     @property
-    def currency(self) -> Optional[Currency]:
+    def currency(self) -> Currency | None:
         """Get the currency.
 
         Returns
@@ -184,7 +184,7 @@ class DividendScheduleBuilder:
         """
         ...
 
-    def cash(self, date: Union[str, _Date], amount: Money) -> None:
+    def cash(self, date: str | _Date, amount: Money) -> None:
         """Add a cash dividend.
 
         Parameters
@@ -196,7 +196,7 @@ class DividendScheduleBuilder:
         """
         ...
 
-    def yield_div(self, date: Union[str, _Date], yield_value: float) -> None:
+    def yield_div(self, date: str | _Date, yield_value: float) -> None:
         """Add a yield dividend.
 
         Parameters
@@ -208,7 +208,7 @@ class DividendScheduleBuilder:
         """
         ...
 
-    def stock(self, date: Union[str, _Date], ratio: float) -> None:
+    def stock(self, date: str | _Date, ratio: float) -> None:
         """Add a stock dividend.
 
         Parameters

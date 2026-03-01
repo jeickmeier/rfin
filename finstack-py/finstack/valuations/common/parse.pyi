@@ -4,6 +4,7 @@ These utilities mirror the Rust parsing functions and only perform label
 normalization and enum construction. They do not execute any pricing logic.
 """
 
+from __future__ import annotations
 from .parameters import OptionType, ExerciseStyle, SettlementType, PayReceive
 
 def option_type(label: str) -> OptionType:

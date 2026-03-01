@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Union
 
 from ...core.dates.calendar import BusinessDayConvention
 from ...core.dates.daycount import DayCount
@@ -31,16 +30,16 @@ class InflationCapFloorBuilder:
     def end_date(self, date: date) -> InflationCapFloorBuilder:
         """Set end date of the final inflation period."""
         ...
-    def frequency(self, frequency: Union[str, int]) -> InflationCapFloorBuilder:
+    def frequency(self, frequency: str | int) -> InflationCapFloorBuilder:
         """Set payment frequency (ignored for caplet/floorlet)."""
         ...
-    def day_count(self, day_count: Union[DayCount, str]) -> InflationCapFloorBuilder:
+    def day_count(self, day_count: DayCount | str) -> InflationCapFloorBuilder:
         """Set day count convention for accrual and option time."""
         ...
-    def bdc(self, bdc: Union[BusinessDayConvention, str]) -> InflationCapFloorBuilder:
+    def bdc(self, bdc: BusinessDayConvention | str) -> InflationCapFloorBuilder:
         """Set business day convention for schedule and payments."""
         ...
-    def stub(self, stub: Union[StubKind, str]) -> InflationCapFloorBuilder:
+    def stub(self, stub: StubKind | str) -> InflationCapFloorBuilder:
         """Set stub handling convention for irregular periods."""
         ...
     def calendar_id(self, calendar_id: str | None) -> InflationCapFloorBuilder:

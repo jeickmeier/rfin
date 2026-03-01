@@ -7,7 +7,8 @@ This module provides tools for:
 - Reports - Formatted output for P&L summaries and credit assessment
 """
 
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
+from typing import Any, Dict, List
 from ..evaluator import StatementResult, DependencyGraph
 from ..types import FinancialModelSpec, NodeType
 from ...core.dates.periods import PeriodId
@@ -265,7 +266,7 @@ class VarianceAnalyzer:
     def compute(
         self,
         metrics: List[str],
-        periods: Optional[List[PeriodId]] = None,
+        periods: List[PeriodId] | None = None,
     ) -> VarianceReport:
         """Compute variance between baseline and comparison.
 
@@ -282,7 +283,7 @@ class VarianceAnalyzer:
         self,
         target_metric: str,
         drivers: List[str],
-        period: Optional[PeriodId] = None,
+        period: PeriodId | None = None,
     ) -> BridgeChart:
         """Compute a simple bridge decomposition for a target metric.
 
@@ -307,9 +308,9 @@ class ScenarioDefinition:
 
     def __init__(
         self,
-        parent: Optional[str] = None,
-        overrides: Optional[Dict[str, float]] = None,
-        model_id: Optional[str] = None,
+        parent: str | None = None,
+        overrides: Dict[str, float] | None = None,
+        model_id: str | None = None,
     ) -> None:
         """Create a new scenario definition.
 
@@ -321,9 +322,9 @@ class ScenarioDefinition:
         ...
 
     @property
-    def parent(self) -> Optional[str]: ...
+    def parent(self) -> str | None: ...
     @property
-    def model_id(self) -> Optional[str]: ...
+    def model_id(self) -> str | None: ...
     @property
     def overrides(self) -> Dict[str, float]: ...
     def __repr__(self) -> str: ...
@@ -445,7 +446,7 @@ def generate_tornado_chart(result: SensitivityResult, metric: str) -> List[Torna
 class ExplanationStep:
     """Step in a formula calculation breakdown."""
 
-    def __init__(self, component: str, value: float, operation: Optional[str] = None) -> None:
+    def __init__(self, component: str, value: float, operation: str | None = None) -> None:
         """Create an explanation step.
 
         Args:
@@ -460,7 +461,7 @@ class ExplanationStep:
     @property
     def value(self) -> float: ...
     @property
-    def operation(self) -> Optional[str]: ...
+    def operation(self) -> str | None: ...
     def __repr__(self) -> str: ...
 
 class Explanation:
@@ -475,7 +476,7 @@ class Explanation:
     @property
     def node_type(self) -> NodeType: ...
     @property
-    def formula_text(self) -> Optional[str]: ...
+    def formula_text(self) -> str | None: ...
     @property
     def breakdown(self) -> List[ExplanationStep]: ...
     def to_string_detailed(self) -> str:
@@ -529,7 +530,7 @@ class DependencyTree:
     @property
     def node_id(self) -> str: ...
     @property
-    def formula(self) -> Optional[str]: ...
+    def formula(self) -> str | None: ...
     @property
     def children(self) -> List["DependencyTree"]: ...
     def depth(self) -> int:

@@ -1,6 +1,6 @@
 """Total return swap instruments."""
 
-from typing import Optional
+from __future__ import annotations
 from datetime import date
 from ...core.money import Money
 from ...core.currency import Currency
@@ -23,7 +23,7 @@ class TrsFinancingLegSpec:
         forward_curve: str,
         day_count: DayCount,
         *,
-        spread_bp: Optional[float] = 0.0,
+        spread_bp: float | None = 0.0,
     ) -> "TrsFinancingLegSpec": ...
     @property
     def discount_curve(self) -> str: ...
@@ -57,8 +57,8 @@ class EquityUnderlying:
         spot_id: str,
         currency: Currency,
         *,
-        div_yield_id: Optional[str] = None,
-        contract_size: Optional[float] = None,
+        div_yield_id: str | None = None,
+        contract_size: float | None = None,
     ) -> "EquityUnderlying": ...
     @property
     def ticker(self) -> str: ...
@@ -75,10 +75,10 @@ class IndexUnderlying:
         index_id: str,
         base_currency: Currency,
         *,
-        yield_id: Optional[str] = None,
-        duration_id: Optional[str] = None,
-        convexity_id: Optional[str] = None,
-        contract_size: Optional[float] = None,
+        yield_id: str | None = None,
+        duration_id: str | None = None,
+        convexity_id: str | None = None,
+        contract_size: float | None = None,
     ) -> "IndexUnderlying": ...
     @property
     def index_id(self) -> str: ...
@@ -94,7 +94,7 @@ class EquityTotalReturnSwapBuilder:
     def financing(self, financing: TrsFinancingLegSpec) -> "EquityTotalReturnSwapBuilder": ...
     def schedule(self, schedule: TrsScheduleSpec) -> "EquityTotalReturnSwapBuilder": ...
     def side(self, side: TrsSide) -> "EquityTotalReturnSwapBuilder": ...
-    def initial_level(self, initial_level: Optional[float] = ...) -> "EquityTotalReturnSwapBuilder": ...
+    def initial_level(self, initial_level: float | None = ...) -> "EquityTotalReturnSwapBuilder": ...
     def build(self) -> "EquityTotalReturnSwap": ...
 
 class EquityTotalReturnSwap:
@@ -165,7 +165,7 @@ class FiIndexTotalReturnSwapBuilder:
     def financing(self, financing: TrsFinancingLegSpec) -> "FiIndexTotalReturnSwapBuilder": ...
     def schedule(self, schedule: TrsScheduleSpec) -> "FiIndexTotalReturnSwapBuilder": ...
     def side(self, side: TrsSide) -> "FiIndexTotalReturnSwapBuilder": ...
-    def initial_level(self, initial_level: Optional[float] = ...) -> "FiIndexTotalReturnSwapBuilder": ...
+    def initial_level(self, initial_level: float | None = ...) -> "FiIndexTotalReturnSwapBuilder": ...
     def build(self) -> "FiIndexTotalReturnSwap": ...
 
 class FiIndexTotalReturnSwap:

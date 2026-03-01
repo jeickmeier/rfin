@@ -8,6 +8,7 @@ native Polars expression plugins for use inside ``.select()``,
 ``.with_columns()``, and other Polars contexts.
 """
 
+from __future__ import annotations
 from . import expr as expr
 from .performance import (
     BetaResult,

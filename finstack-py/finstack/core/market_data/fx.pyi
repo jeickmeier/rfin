@@ -4,6 +4,8 @@ from typing import List, Tuple, Optional, Union
 from datetime import date
 from ..currency import Currency
 
+CurrencyPair = Tuple[Currency, Currency]
+
 class FxConversionPolicy:
     """FX conversion policy for cross-currency calculations.
 
@@ -293,6 +295,14 @@ class FxMatrix:
 
     def cache_stats(self) -> int:
         """Get cache statistics as (stored_quotes, reserved_capacity)."""
+        ...
+
+    def __len__(self) -> int:
+        """Return the number of stored FX quotes."""
+        ...
+
+    def __contains__(self, pair: Tuple[Currency, Currency]) -> bool:
+        """Check if a (from_currency, to_currency) pair has a quote."""
         ...
 
     def __repr__(self) -> str: ...

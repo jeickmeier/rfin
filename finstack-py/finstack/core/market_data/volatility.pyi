@@ -4,6 +4,7 @@ This module provides volatility quoting conventions and option pricing
 functions for various models (Bachelier, Black, Shifted Black).
 """
 
+from __future__ import annotations
 class VolatilityConvention:
     """Volatility quoting convention.
 

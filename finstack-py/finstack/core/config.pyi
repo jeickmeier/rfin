@@ -7,7 +7,8 @@ Also exposes a RoundingMode enum with common strategies (bankers, floor,
 ceil, toward/away from zero).
 """
 
-from typing import Dict, Optional, Union, Any
+from __future__ import annotations
+from typing import Dict, Any
 from .currency import Currency
 
 class RoundingMode:
@@ -97,7 +98,7 @@ class CurrencyScalePolicy:
         {'JPY': 0, 'USD': 4}
     """
 
-    def __init__(self, overrides: Optional[Dict[str, int]] = None) -> None: ...
+    def __init__(self, overrides: Dict[str, int] | None = None) -> None: ...
     @property
     def overrides(self) -> Dict[str, int]:
         """Get the currency scale overrides.
@@ -132,9 +133,9 @@ class RoundingPolicy:
     def __init__(
         self,
         *,
-        mode: Optional[Union[str, RoundingMode]] = None,
-        ingest_scale: Optional[Union[CurrencyScalePolicy, Dict[str, int]]] = None,
-        output_scale: Optional[Union[CurrencyScalePolicy, Dict[str, int]]] = None,
+        mode: str | RoundingMode | None = None,
+        ingest_scale: CurrencyScalePolicy | Dict[str, int] | None = None,
+        output_scale: CurrencyScalePolicy | Dict[str, int] | None = None,
     ) -> None: ...
     @property
     def mode(self) -> RoundingMode:
@@ -176,7 +177,7 @@ class ZeroKind:
     """Interest rates or small numeric ratios."""
 
     @classmethod
-    def money(cls, currency: Union[str, Currency]) -> "ZeroKind":
+    def money(cls, currency: str | Currency) -> "ZeroKind":
         """Create a money zero-kind for the specified currency.
 
         Parameters
@@ -244,7 +245,7 @@ class RoundingContext:
         """Output scale overrides by currency code."""
         ...
 
-    def output_scale(self, currency: Union[str, Currency]) -> int:
+    def output_scale(self, currency: str | Currency) -> int:
         """Effective output scale for a currency.
 
         Parameters
@@ -259,7 +260,7 @@ class RoundingContext:
         """
         ...
 
-    def money_epsilon(self, currency: Union[str, Currency]) -> float:
+    def money_epsilon(self, currency: str | Currency) -> float:
         """Money epsilon derived from the currency output scale.
 
         Half of one unit in the last place at the configured scale.
@@ -276,7 +277,7 @@ class RoundingContext:
         """
         ...
 
-    def is_effectively_zero_money(self, amount: float, currency: Union[str, Currency]) -> bool:
+    def is_effectively_zero_money(self, amount: float, currency: str | Currency) -> bool:
         """Check if a money amount is effectively zero under this context.
 
         Parameters
@@ -336,17 +337,17 @@ class ResultsMeta:
         ...
 
     @property
-    def fx_policy_applied(self) -> Optional[str]:
+    def fx_policy_applied(self) -> str | None:
         """Optional FX policy applied by the computing layer."""
         ...
 
     @property
-    def timestamp(self) -> Optional[str]:
+    def timestamp(self) -> str | None:
         """Timestamp when result was computed (ISO 8601 format)."""
         ...
 
     @property
-    def version(self) -> Optional[str]:
+    def version(self) -> str | None:
         """Finstack library version used to produce the result."""
         ...
 
@@ -421,7 +422,7 @@ class FinstackConfig:
         """
         ...
 
-    def set_rounding_mode(self, mode: Union[str, RoundingMode]) -> None:
+    def set_rounding_mode(self, mode: str | RoundingMode) -> None:
         """Set the global rounding mode for decimal arithmetic.
 
         Parameters
@@ -446,7 +447,7 @@ class FinstackConfig:
         """
         ...
 
-    def ingest_scale(self, currency: Union[str, Currency]) -> int:
+    def ingest_scale(self, currency: str | Currency) -> int:
         """Get the ingest scale for a currency.
 
         Parameters
@@ -461,7 +462,7 @@ class FinstackConfig:
         """
         ...
 
-    def set_ingest_scale(self, currency: Union[str, Currency], decimals: int) -> None:
+    def set_ingest_scale(self, currency: str | Currency, decimals: int) -> None:
         """Set the number of decimal places used when creating Money from floats.
 
         The ingest scale controls how many decimal places are preserved when
@@ -485,7 +486,7 @@ class FinstackConfig:
         """
         ...
 
-    def output_scale(self, currency: Union[str, Currency]) -> int:
+    def output_scale(self, currency: str | Currency) -> int:
         """Get the output scale for a currency.
 
         Parameters
@@ -500,7 +501,7 @@ class FinstackConfig:
         """
         ...
 
-    def set_output_scale(self, currency: Union[str, Currency], decimals: int) -> None:
+    def set_output_scale(self, currency: str | Currency, decimals: int) -> None:
         """Set the number of decimal places used when formatting Money to strings.
 
         The output scale controls how many decimal places are shown when converting

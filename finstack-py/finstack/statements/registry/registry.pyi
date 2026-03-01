@@ -1,6 +1,7 @@
 """Registry system for dynamic metrics."""
 
-from typing import List, Optional
+from __future__ import annotations
+from typing import List
 from .schema import MetricDefinition, MetricRegistry
 
 class Registry:
@@ -60,7 +61,7 @@ class Registry:
         """
         ...
 
-    def list_metrics(self, namespace: Optional[str] = None) -> List[str]:
+    def list_metrics(self, namespace: str | None = None) -> List[str]:
         """List available metrics.
 
         Args:

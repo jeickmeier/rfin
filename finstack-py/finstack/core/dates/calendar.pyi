@@ -4,7 +4,8 @@ Provides business day adjustment logic and holiday calendar management
 for financial date calculations.
 """
 
-from typing import List, Optional, Union
+from __future__ import annotations
+from typing import List
 from datetime import date
 
 class BusinessDayConvention:
@@ -98,7 +99,7 @@ class Calendar:
         """
         ...
 
-    def is_business_day(self, date: Union[str, date]) -> bool:
+    def is_business_day(self, date: str | date) -> bool:
         """Check if a date is a business day.
 
         Parameters
@@ -113,7 +114,7 @@ class Calendar:
         """
         ...
 
-    def is_holiday(self, date: Union[str, date]) -> bool:
+    def is_holiday(self, date: str | date) -> bool:
         """Check if a date is a holiday.
 
         Parameters
@@ -174,7 +175,7 @@ def get_calendar(code: str) -> Calendar:
     """
     ...
 
-def adjust(date: Union[str, date], convention: BusinessDayConvention, calendar: Calendar) -> date:
+def adjust(date: str | date, convention: BusinessDayConvention, calendar: Calendar) -> date:
     """Adjust a date to a business day according to a convention and calendar.
 
     This is the primary function for business day adjustments in financial

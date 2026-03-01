@@ -1,6 +1,6 @@
 """Portfolio scenario integration."""
 
-from typing import Optional
+from __future__ import annotations
 from finstack.core.config import FinstackConfig
 from finstack.core.market_data.context import MarketContext
 from finstack.scenarios.spec import ScenarioSpec
@@ -39,7 +39,7 @@ def apply_and_revalue(
     portfolio: Portfolio,
     scenario: ScenarioSpec,
     market_context: MarketContext,
-    config: Optional[FinstackConfig] = None,
+    config: FinstackConfig | None = None,
 ) -> PortfolioValuation:
     """Apply a scenario to a portfolio and revalue it.
 

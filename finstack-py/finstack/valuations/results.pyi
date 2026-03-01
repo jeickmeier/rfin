@@ -1,6 +1,7 @@
 """Valuation result envelopes, metadata, and covenant report bindings."""
 
-from typing import Dict, Optional, Any, List
+from __future__ import annotations
+from typing import Dict, Any, List
 from datetime import date
 from ..core.money import Money
 
@@ -73,7 +74,7 @@ class CovenantReport:
         ...
 
     @property
-    def actual_value(self) -> Optional[float]:
+    def actual_value(self) -> float | None:
         """Observed metric value when available.
 
         Returns
@@ -92,7 +93,7 @@ class CovenantReport:
         ...
 
     @property
-    def threshold(self) -> Optional[float]:
+    def threshold(self) -> float | None:
         """Required threshold for the covenant, when provided.
 
         Returns
@@ -112,7 +113,7 @@ class CovenantReport:
         ...
 
     @property
-    def details(self) -> Optional[str]:
+    def details(self) -> str | None:
         """Additional free-form details attached to the report.
 
         Returns
@@ -201,7 +202,7 @@ class ResultsMeta:
         ...
 
     @property
-    def fx_policy_applied(self) -> Optional[str]:
+    def fx_policy_applied(self) -> str | None:
         """Optional FX policy key applied during result aggregation.
 
         Returns the FX conversion policy identifier if multi-currency aggregation
@@ -652,7 +653,7 @@ class ValuationResult:
         ...
 
     @property
-    def covenants(self) -> Optional[Dict[str, CovenantReport]]:
+    def covenants(self) -> Dict[str, CovenantReport] | None:
         """Covenant reports (if any) keyed by covenant identifier.
 
         Covenants are optional checks performed during valuation (e.g., LTV ratios,

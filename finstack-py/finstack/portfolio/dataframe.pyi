@@ -1,5 +1,6 @@
 """Polars DataFrame exports for portfolio outputs."""
 
+from __future__ import annotations
 from typing import Any
 from .valuation import PortfolioValuation
 from .metrics import PortfolioMetrics

@@ -1,7 +1,8 @@
 """Waterfall type bindings."""
 
+from __future__ import annotations
 from enum import Enum
-from typing import Optional, List
+from typing import List
 
 class PaymentPriority(Enum):
     """Payment priority levels in the waterfall.
@@ -34,10 +35,10 @@ class EcfSweepSpec:
         self,
         ebitda_node: str,
         sweep_percentage: float,
-        taxes_node: Optional[str] = None,
-        capex_node: Optional[str] = None,
-        working_capital_node: Optional[str] = None,
-        target_instrument_id: Optional[str] = None,
+        taxes_node: str | None = None,
+        capex_node: str | None = None,
+        working_capital_node: str | None = None,
+        target_instrument_id: str | None = None,
     ) -> None:
         """Create an ECF sweep specification.
 
@@ -56,13 +57,13 @@ class EcfSweepSpec:
     @property
     def sweep_percentage(self) -> float: ...
     @property
-    def taxes_node(self) -> Optional[str]: ...
+    def taxes_node(self) -> str | None: ...
     @property
-    def capex_node(self) -> Optional[str]: ...
+    def capex_node(self) -> str | None: ...
     @property
-    def working_capital_node(self) -> Optional[str]: ...
+    def working_capital_node(self) -> str | None: ...
     @property
-    def target_instrument_id(self) -> Optional[str]: ...
+    def target_instrument_id(self) -> str | None: ...
     def __repr__(self) -> str: ...
 
 class PikToggleSpec:
@@ -75,7 +76,7 @@ class PikToggleSpec:
         self,
         liquidity_metric: str,
         threshold: float,
-        target_instrument_ids: Optional[List[str]] = None,
+        target_instrument_ids: List[str] | None = None,
     ) -> None:
         """Create a PIK toggle specification.
 
@@ -91,7 +92,7 @@ class PikToggleSpec:
     @property
     def threshold(self) -> float: ...
     @property
-    def target_instrument_ids(self) -> Optional[List[str]]: ...
+    def target_instrument_ids(self) -> List[str] | None: ...
     def __repr__(self) -> str: ...
 
 class WaterfallSpec:
@@ -102,9 +103,9 @@ class WaterfallSpec:
 
     def __init__(
         self,
-        priority_of_payments: Optional[List[PaymentPriority]] = None,
-        ecf_sweep: Optional[EcfSweepSpec] = None,
-        pik_toggle: Optional[PikToggleSpec] = None,
+        priority_of_payments: List[PaymentPriority] | None = None,
+        ecf_sweep: EcfSweepSpec | None = None,
+        pik_toggle: PikToggleSpec | None = None,
     ) -> None:
         """Create a waterfall specification.
 
@@ -118,7 +119,7 @@ class WaterfallSpec:
     @property
     def priority_of_payments(self) -> List[PaymentPriority]: ...
     @property
-    def ecf_sweep(self) -> Optional[EcfSweepSpec]: ...
+    def ecf_sweep(self) -> EcfSweepSpec | None: ...
     @property
-    def pik_toggle(self) -> Optional[PikToggleSpec]: ...
+    def pik_toggle(self) -> PikToggleSpec | None: ...
     def __repr__(self) -> str: ...

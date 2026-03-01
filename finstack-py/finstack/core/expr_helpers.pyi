@@ -6,11 +6,11 @@ The underlying expression types come from the Rust extension module.
 
 from __future__ import annotations
 
-from typing import TypeAlias, Union
+from typing import TypeAlias
 
 from .expr import Expr
 
-ExprLike: TypeAlias = Union["ExprWrapper", Expr, float, int]
+ExprLike: TypeAlias = "ExprWrapper" | Expr | float | int
 
 class ExprWrapper:
     """Wrapper around :class:`~finstack.core.expr.Expr` that adds operator overloading."""

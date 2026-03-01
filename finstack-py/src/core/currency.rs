@@ -152,6 +152,11 @@ impl PyCurrency {
         self.numeric() as isize
     }
 
+    /// Deconstruct into ``(code,)`` tuple (used by pickle).
+    fn __getnewargs__(&self) -> (String,) {
+        (self.inner.to_string(),)
+    }
+
     fn __richcmp__(
         &self,
         other: Bound<'_, PyAny>,

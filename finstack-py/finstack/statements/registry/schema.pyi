@@ -1,6 +1,7 @@
 """Schema types for metric definitions."""
 
-from typing import Optional, List, Dict, Any
+from __future__ import annotations
+from typing import List, Dict, Any
 
 class UnitType:
     """Unit type for metric values."""
@@ -22,11 +23,11 @@ class MetricDefinition:
         id: str,
         name: str,
         formula: str,
-        description: Optional[str] = None,
-        category: Optional[str] = None,
-        unit_type: Optional[UnitType] = None,
-        requires: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
+        description: str | None = None,
+        category: str | None = None,
+        unit_type: UnitType | None = None,
+        requires: List[str] | None = None,
+        tags: List[str] | None = None,
     ) -> None:
         """Create a metric definition.
 
@@ -52,11 +53,11 @@ class MetricDefinition:
     @property
     def formula(self) -> str: ...
     @property
-    def description(self) -> Optional[str]: ...
+    def description(self) -> str | None: ...
     @property
-    def category(self) -> Optional[str]: ...
+    def category(self) -> str | None: ...
     @property
-    def unit_type(self) -> Optional[UnitType]: ...
+    def unit_type(self) -> UnitType | None: ...
     @property
     def requires(self) -> List[str]: ...
     @property
@@ -88,7 +89,7 @@ class MetricDefinition:
 class MetricRegistry:
     """Top-level metric registry schema."""
 
-    def __init__(self, namespace: str, metrics: List[MetricDefinition], schema_version: Optional[int] = None) -> None:
+    def __init__(self, namespace: str, metrics: List[MetricDefinition], schema_version: int | None = None) -> None:
         """Create a metric registry.
 
         Args:

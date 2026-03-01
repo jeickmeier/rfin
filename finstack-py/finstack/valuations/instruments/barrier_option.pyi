@@ -1,6 +1,6 @@
 """Barrier option instrument."""
 
-from typing import Optional
+from __future__ import annotations
 from datetime import date
 from ...core.money import Money
 
@@ -92,8 +92,8 @@ class BarrierOption:
         spot_id: str,
         vol_surface: str,
         *,
-        div_yield_id: Optional[str] = None,
-        use_gobet_miri: Optional[bool] = False,
+        div_yield_id: str | None = None,
+        use_gobet_miri: bool | None = False,
     ) -> "BarrierOption":
         """Create a barrier option.
 

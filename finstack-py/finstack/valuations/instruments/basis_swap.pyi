@@ -1,6 +1,6 @@
 """Basis swap instrument (builder-only API)."""
 
-from typing import Optional, Union
+from __future__ import annotations
 from datetime import date
 from ...core.currency import Currency
 from ...core.money import Money
@@ -20,11 +20,11 @@ class BasisSwapLeg:
         discount_curve: str,
         start_date: date,
         end_date: date,
-        frequency: Optional[str] = "quarterly",
-        day_count: Optional[DayCount] = None,
-        business_day_convention: Optional[BusinessDayConvention] = None,
-        calendar_id: Optional[str] = None,
-        stub: Optional[str] = None,
+        frequency: str | None = "quarterly",
+        day_count: DayCount | None = None,
+        business_day_convention: BusinessDayConvention | None = None,
+        calendar_id: str | None = None,
+        stub: str | None = None,
         spread_bp: float = 0.0,
         payment_lag_days: int = 0,
         reset_lag_days: int = 0,
@@ -41,7 +41,7 @@ class BasisSwapBuilder:
 
     def __init__(self, instrument_id: str) -> None: ...
     def notional(self, amount: float) -> BasisSwapBuilder: ...
-    def currency(self, currency: Union[str, Currency]) -> BasisSwapBuilder: ...
+    def currency(self, currency: str | Currency) -> BasisSwapBuilder: ...
     def money(self, money: Money) -> BasisSwapBuilder: ...
     def primary_leg(self, primary_leg: BasisSwapLeg) -> BasisSwapBuilder: ...
     def reference_leg(self, reference_leg: BasisSwapLeg) -> BasisSwapBuilder: ...

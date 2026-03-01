@@ -4,7 +4,8 @@ Wraps the Rust portfolio attribution engine to attribute portfolio P&L across
 factors (carry, rates, credit, FX, vol, etc.) with no Python-side logic.
 """
 
-from typing import Dict, Optional, Union
+from __future__ import annotations
+from typing import Dict
 from datetime import date
 from finstack.core.money import Money
 from finstack.core.market_data.context import MarketContext
@@ -17,7 +18,7 @@ from finstack.valuations.attribution import (
     AttributionMethod,
 )
 
-DateLike = Union[str, date]
+DateLike = str | date
 
 class PortfolioAttribution:
     """Portfolio-level P&L attribution result.
@@ -92,12 +93,12 @@ class PortfolioAttribution:
         ...
 
     @property
-    def rates_detail(self) -> Optional[RatesCurvesAttribution]:
+    def rates_detail(self) -> RatesCurvesAttribution | None:
         """Optional detailed rates attribution aggregated across positions."""
         ...
 
     @property
-    def credit_detail(self) -> Optional[CreditCurvesAttribution]:
+    def credit_detail(self) -> CreditCurvesAttribution | None:
         """Optional detailed credit attribution aggregated across positions."""
         ...
 
@@ -122,7 +123,7 @@ def attribute_portfolio_pnl(
     as_of_t0: DateLike,
     as_of_t1: DateLike,
     method: AttributionMethod,
-    config: Optional[FinstackConfig] = ...,
+    config: FinstackConfig | None = ...,
 ) -> PortfolioAttribution:
     """Perform portfolio-level P&L attribution.
 

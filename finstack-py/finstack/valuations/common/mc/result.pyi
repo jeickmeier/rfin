@@ -1,6 +1,7 @@
 """Monte Carlo result wrapper with optional path data."""
 
-from typing import Optional, Tuple
+from __future__ import annotations
+from typing import Tuple
 from finstack.core.money import Money
 from finstack.valuations.common.mc import PathDataset
 
@@ -27,7 +28,7 @@ class MonteCarloResult:
         ...
 
     @property
-    def paths(self) -> Optional[PathDataset]:
+    def paths(self) -> PathDataset | None:
         """Get the captured paths dataset (if available)."""
         ...
 

@@ -4,7 +4,8 @@ Provides root finding algorithms including Newton's method
 and Brent's method.
 """
 
-from typing import Callable, Optional
+from __future__ import annotations
+from typing import Callable
 
 class NewtonSolver:
     """Newton's method for root finding.
@@ -43,9 +44,9 @@ class NewtonSolver:
 
     def __init__(
         self,
-        tolerance: Optional[float] = None,
-        max_iterations: Optional[int] = None,
-        fd_step: Optional[float] = None,
+        tolerance: float | None = None,
+        max_iterations: int | None = None,
+        fd_step: float | None = None,
     ) -> None: ...
     @property
     def tolerance(self) -> float:
@@ -193,10 +194,10 @@ class BrentSolver:
 
     def __init__(
         self,
-        tolerance: Optional[float] = None,
-        max_iterations: Optional[int] = None,
-        bracket_expansion: Optional[float] = None,
-        initial_bracket_size: Optional[float] = None,
+        tolerance: float | None = None,
+        max_iterations: int | None = None,
+        bracket_expansion: float | None = None,
+        initial_bracket_size: float | None = None,
     ) -> None: ...
     @property
     def tolerance(self) -> float:
@@ -262,7 +263,7 @@ class BrentSolver:
         ...
 
     @property
-    def initial_bracket_size(self) -> Optional[float]:
+    def initial_bracket_size(self) -> float | None:
         """Get the initial bracket size.
 
         Returns
@@ -272,7 +273,7 @@ class BrentSolver:
         """
         ...
 
-    def set_initial_bracket_size(self, value: Optional[float]) -> None:
+    def set_initial_bracket_size(self, value: float | None) -> None:
         """Set the initial bracket size.
 
         Parameters

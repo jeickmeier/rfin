@@ -1,6 +1,7 @@
 """CMS option instrument."""
 
-from typing import List, Optional
+from __future__ import annotations
+from typing import List
 from datetime import date
 from ...core.money import Money
 from ...core.dates.schedule import Frequency
@@ -83,10 +84,10 @@ class CmsOption:
         forward_curve: str,
         vol_surface: str,
         *,
-        payment_dates: Optional[List[date]] = None,
-        swap_fixed_freq: Optional[Frequency] = None,
-        swap_float_freq: Optional[Frequency] = None,
-        swap_day_count: Optional[DayCount] = None,
+        payment_dates: List[date] | None = None,
+        swap_fixed_freq: Frequency | None = None,
+        swap_float_freq: Frequency | None = None,
+        swap_day_count: DayCount | None = None,
     ) -> "CmsOption":
         """Create a CMS option.
 
@@ -164,10 +165,10 @@ class CmsOption:
         forward_curve: str,
         vol_surface: str,
         *,
-        swap_fixed_freq: Optional[Frequency] = None,
-        swap_float_freq: Optional[Frequency] = None,
-        swap_day_count: Optional[DayCount] = None,
-        day_count: Optional[DayCount] = None,
+        swap_fixed_freq: Frequency | None = None,
+        swap_float_freq: Frequency | None = None,
+        swap_day_count: DayCount | None = None,
+        day_count: DayCount | None = None,
     ) -> "CmsOption":
         """Create a CMS option from a schedule specification.
 

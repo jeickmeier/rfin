@@ -28,6 +28,7 @@ pub(crate) fn register(
     mc_module.add_class::<paths::PyPathPoint>()?;
     mc_module.add_class::<paths::PySimulatedPath>()?;
     mc_module.add_class::<paths::PyPathDataset>()?;
+    mc_module.add_class::<paths::PyPathDatasetIterator>()?;
     mc_module.add_class::<result::PyMonteCarloResult>()?;
     mc_module.add_class::<generator::PyMonteCarloPathGenerator>()?;
 

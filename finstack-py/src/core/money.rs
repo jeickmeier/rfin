@@ -448,6 +448,43 @@ impl PyMoney {
         ))
     }
 
+    /// Format the money amount according to a format specifier.
+    ///
+    /// Supports standard float format specifiers (e.g., ``.2f``, ``.4f``).
+    /// When a precision is given, the amount is formatted with that many
+    /// decimal places prefixed by the currency code.
+    /// An empty spec falls back to the default ``Display`` implementation.
+    ///
+    /// Examples
+    /// --------
+    /// >>> f"{Money(125.5, 'USD'):.2f}"
+    /// 'USD 125.50'
+    /// >>> f"{Money(125.5, 'USD')}"
+    /// 'USD 125.50'
+    fn __format__(&self, spec: &str) -> PyResult<String> {
+        if spec.is_empty() {
+            return Ok(format!("{}", self.inner));
+        }
+        // Parse precision from spec like ".2f", ".4f", etc.
+        let precision = if spec.ends_with('f') {
+            let num_part = spec.trim_start_matches('.').trim_end_matches('f');
+            num_part.parse::<usize>().unwrap_or(2)
+        } else if let Some(rest) = spec.strip_prefix('.') {
+            rest.parse::<usize>().unwrap_or(2)
+        } else {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Unsupported format spec for Money: '{}'",
+                spec
+            )));
+        };
+        Ok(format!(
+            "{} {:.*}",
+            self.inner.currency(),
+            precision,
+            self.inner.amount()
+        ))
+    }
+
     /// Deconstruct into ``(amount, currency)`` tuple (used by pickle).
     fn __getnewargs__(&self) -> PyResult<(f64, PyCurrency)> {
         Ok((self.inner.amount(), PyCurrency::new(self.inner.currency())))

@@ -7,7 +7,6 @@ This module mirrors ``finstack_core::dates::tenor`` and provides:
 
 from __future__ import annotations
 from datetime import date
-from typing import Optional
 
 from .calendar import BusinessDayConvention, Calendar
 from .daycount import DayCount
@@ -118,8 +117,8 @@ class Tenor:
         self,
         date: date,
         *,
-        calendar: Optional[Calendar] = None,
-        convention: Optional[BusinessDayConvention] = None,
+        calendar: Calendar | None = None,
+        convention: BusinessDayConvention | None = None,
     ) -> date:
         """Add the tenor to a date, optionally applying a business-day convention."""
         ...
@@ -128,8 +127,8 @@ class Tenor:
         self,
         as_of: date,
         *,
-        calendar: Optional[Calendar] = None,
-        convention: Optional[BusinessDayConvention] = None,
+        calendar: Calendar | None = None,
+        convention: BusinessDayConvention | None = None,
         day_count: DayCount,
     ) -> float:
         """Compute year fraction using calendar adjustment and day-count."""

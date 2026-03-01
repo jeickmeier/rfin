@@ -1,6 +1,7 @@
 """Valuations cash-flow builder exposing complex coupon windows, PIK splits, and amortization."""
 
-from typing import List, Optional, Any, Dict, Tuple
+from __future__ import annotations
+from typing import List, Any, Dict, Tuple
 from datetime import date
 from ...core.currency import Currency
 from ...core.money import Money
@@ -85,8 +86,8 @@ class ScheduleParams:
         freq: Frequency,
         day_count: DayCount,
         bdc: BusinessDayConvention,
-        calendar_id: Optional[str] = None,
-        stub: Optional[StubKind] = None,
+        calendar_id: str | None = None,
+        stub: StubKind | None = None,
     ) -> None:
         """Create schedule parameters.
 
@@ -158,7 +159,7 @@ class FixedCouponSpec:
         cls,
         rate: float,
         schedule: ScheduleParams,
-        coupon_type: Optional[CouponType] = None,
+        coupon_type: CouponType | None = None,
     ) -> "FixedCouponSpec":
         """Create fixed coupon specification.
 
@@ -199,7 +200,7 @@ class FloatingCouponSpec:
         cls,
         params: FloatCouponParams,
         schedule: ScheduleParams,
-        coupon_type: Optional[CouponType] = None,
+        coupon_type: CouponType | None = None,
     ) -> "FloatingCouponSpec":
         """Create floating coupon specification.
 
@@ -232,7 +233,7 @@ class CashflowBuilder:
         """
         ...
 
-    def amortization(self, amortization: Optional[AmortizationSpec]) -> CashflowBuilder:
+    def amortization(self, amortization: AmortizationSpec | None) -> CashflowBuilder:
         """Add amortization specification.
 
         Args:
@@ -291,7 +292,7 @@ class CashflowBuilder:
         """
         ...
 
-    def build_with_curves(self, market: Optional[MarketContext] = None) -> CashFlowSchedule:
+    def build_with_curves(self, market: MarketContext | None = None) -> CashFlowSchedule:
         """Build the cashflow schedule with market curves for floating rate computation.
 
         When a market context is provided, floating rate coupons include the forward rate
@@ -327,9 +328,9 @@ class CashFlowSchedule:
 
     def to_dataframe(
         self,
-        market: Optional[MarketContext] = None,
-        discount_curve_id: Optional[str] = None,
-        as_of: Optional[date | str] = None,
+        market: MarketContext | None = None,
+        discount_curve_id: str | None = None,
+        as_of: date | str | None = None,
     ) -> Any:
         """Convert the schedule into a Polars DataFrame.
 
@@ -413,7 +414,7 @@ class FeeSpec:
 
     @classmethod
     def periodic_bps(
-        cls, base: FeeBase, bps: float, schedule: ScheduleParams, *, calendar: Optional[str] = None, stub: str = "none"
+        cls, base: FeeBase, bps: float, schedule: ScheduleParams, *, calendar: str | None = None, stub: str = "none"
     ) -> FeeSpec:
         """Create a periodic fee calculated as basis points on a balance.
 

@@ -1,6 +1,7 @@
 """Private markets fund instrument."""
 
-from typing import Optional, Dict, Any, List, Tuple, Union
+from __future__ import annotations
+from typing import Dict, Any, List, Tuple
 from datetime import date
 from ...core.money import Money
 from ...core.currency import Currency
@@ -79,7 +80,7 @@ class PrivateMarketsFund:
     """
 
     @classmethod
-    def from_json(cls, data: Union[str, Dict[str, Any]]) -> "PrivateMarketsFund":
+    def from_json(cls, data: str | Dict[str, Any]) -> "PrivateMarketsFund":
         """Create a private markets fund from JSON string or dictionary.
 
         Parameters
@@ -121,7 +122,7 @@ class PrivateMarketsFund:
     @property
     def currency(self) -> Currency: ...
     @property
-    def discount_curve(self) -> Optional[str]: ...
+    def discount_curve(self) -> str | None: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

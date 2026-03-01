@@ -1,6 +1,6 @@
 """Quanto option instrument."""
 
-from typing import Optional
+from __future__ import annotations
 from datetime import date
 from ...core.money import Money
 from ...core.currency import Currency
@@ -94,9 +94,9 @@ class QuantoOption:
         spot_id: str,
         vol_surface: str,
         *,
-        div_yield_id: Optional[str] = None,
-        fx_rate_id: Optional[str] = None,
-        fx_vol_id: Optional[str] = None,
+        div_yield_id: str | None = None,
+        fx_rate_id: str | None = None,
+        fx_vol_id: str | None = None,
     ) -> "QuantoOption":
         """Create a quanto option.
 

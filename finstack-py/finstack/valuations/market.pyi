@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from finstack.valuations.common import InstrumentType
 from finstack.valuations.conventions import CdsConventionKey
@@ -23,12 +23,12 @@ class Pillar:
     def __str__(self) -> str: ...
 
 class BuildCtx:
-    def __init__(self, as_of: Any, notional: float, *, curve_ids: Optional[dict[str, str]] = ...) -> None: ...
+    def __init__(self, as_of: Any, notional: float, *, curve_ids: dict[str, str] | None = ...) -> None: ...
     @property
     def as_of(self) -> Any: ...
     @property
     def notional(self) -> float: ...
-    def curve_id(self, role: str) -> Optional[str]: ...
+    def curve_id(self, role: str) -> str | None: ...
 
 class BuiltInstrument:
     @property
@@ -49,8 +49,8 @@ class RateQuote:
         price: float,
         *,
         contract: str | None = ...,
-        convexity_adjustment: Optional[float] = ...,
-        vol_surface_id: Optional[str] = ...,
+        convexity_adjustment: float | None = ...,
+        vol_surface_id: str | None = ...,
     ) -> RateQuote: ...
     @classmethod
     def swap(
@@ -60,7 +60,7 @@ class RateQuote:
         pillar: Any,
         rate: float,
         *,
-        spread_decimal: Optional[float] = ...,
+        spread_decimal: float | None = ...,
     ) -> RateQuote: ...
     @property
     def id(self) -> QuoteId: ...

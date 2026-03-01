@@ -1,6 +1,7 @@
 """Calibration Bump Helpers type stubs."""
 
-from typing import List, Tuple, Optional, Union
+from __future__ import annotations
+from typing import List, Tuple
 from datetime import date
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve, InflationCurve
@@ -61,11 +62,11 @@ class BumpRequest:
         """Check if this is a tenor-specific bump."""
         ...
 
-    def parallel_bp(self) -> Optional[float]:
+    def parallel_bp(self) -> float | None:
         """Get the parallel bump size (if parallel), or None."""
         ...
 
-    def tenor_bumps(self) -> Optional[List[Tuple[float, float]]]:
+    def tenor_bumps(self) -> List[Tuple[float, float]] | None:
         """Get the tenor bumps (if tenors), or None."""
         ...
 
@@ -73,7 +74,7 @@ def bump_discount_curve_synthetic(
     curve: DiscountCurve,
     market: MarketContext,
     bump: BumpRequest,
-    as_of: Union[date, Tuple[int, int, int]],
+    as_of: date | Tuple[int, int, int],
 ) -> DiscountCurve:
     """Bump a discount curve by synthesizing quotes and re-calibrating.
 
@@ -155,7 +156,7 @@ def bump_inflation_rates(
     market: MarketContext,
     bump: BumpRequest,
     discount_id: str,
-    as_of: Union[date, Tuple[int, int, int]],
+    as_of: date | Tuple[int, int, int],
 ) -> InflationCurve:
     """Bump an inflation curve by re-calibrating from implied rates.
 

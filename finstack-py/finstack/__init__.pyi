@@ -59,6 +59,7 @@ See Also
 - :mod:`finstack.portfolio`: Portfolio aggregation
 """
 
+from __future__ import annotations
 from . import core
 from . import valuations
 from . import statements

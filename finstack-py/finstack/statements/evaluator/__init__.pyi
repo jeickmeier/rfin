@@ -1,5 +1,6 @@
 """Evaluator for financial models."""
 
+from __future__ import annotations
 from .evaluator import (
     ResultsMeta,
     StatementResult,

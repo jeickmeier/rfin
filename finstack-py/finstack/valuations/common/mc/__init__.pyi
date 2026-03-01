@@ -1,5 +1,6 @@
 """Monte Carlo simulation infrastructure for path generation and pricing."""
 
+from __future__ import annotations
 from . import generator
 from . import params
 from . import paths

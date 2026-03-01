@@ -4,7 +4,8 @@ Provides period identification and fiscal calendar management
 for financial modeling and reporting.
 """
 
-from typing import List, Optional
+from __future__ import annotations
+from typing import List
 from datetime import date
 
 class FiscalConfig:
@@ -96,7 +97,7 @@ class PeriodPlan:
     def __len__(self) -> int: ...
     def __repr__(self) -> str: ...
 
-def build_periods(range: str, actuals_until: Optional[str] = None) -> PeriodPlan:
+def build_periods(range: str, actuals_until: str | None = None) -> PeriodPlan:
     """Build a sequence of calendar periods from a period-range expression.
 
     Creates a :class:`PeriodPlan` containing monthly, quarterly, or annual
@@ -151,7 +152,7 @@ def build_periods(range: str, actuals_until: Optional[str] = None) -> PeriodPlan
     """
     ...
 
-def build_fiscal_periods(range: str, config: FiscalConfig, actuals_until: Optional[str] = None) -> PeriodPlan:
+def build_fiscal_periods(range: str, config: FiscalConfig, actuals_until: str | None = None) -> PeriodPlan:
     """Build a sequence of fiscal periods from a period-range expression.
 
     Creates a :class:`PeriodPlan` containing fiscal periods based on a date

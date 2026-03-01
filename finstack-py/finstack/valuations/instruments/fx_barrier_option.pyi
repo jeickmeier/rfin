@@ -1,6 +1,6 @@
 """FX barrier option instrument."""
 
-from typing import Optional
+from __future__ import annotations
 from datetime import date
 from ...core.money import Money
 from ...core.currency import Currency
@@ -91,10 +91,10 @@ class FxBarrierOption:
         foreign_currency: Currency,
         discount_curve: str,
         foreign_discount_curve: str,
-        fx_spot_id: Optional[str],
+        fx_spot_id: str | None,
         fx_vol_surface: str,
         *,
-        use_gobet_miri: Optional[bool] = False,
+        use_gobet_miri: bool | None = False,
     ) -> "FxBarrierOption":
         """Create an FX barrier option.
 

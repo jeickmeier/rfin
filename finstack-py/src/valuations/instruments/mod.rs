@@ -22,6 +22,7 @@ mod cds_option;
 mod cds_tranche;
 mod cliquet_option;
 mod cms_option;
+mod commodity_asian_option;
 mod commodity_forward;
 mod commodity_option;
 mod commodity_swap;
@@ -34,6 +35,9 @@ mod equity_option;
 mod fra;
 mod fx;
 mod fx_barrier_option;
+mod fx_digital_option;
+mod fx_forward;
+mod fx_touch_option;
 mod fx_variance_swap;
 mod inflation_cap_floor;
 mod inflation_linked_bond;
@@ -74,6 +78,7 @@ use cds_option::PyCDSOption;
 use cds_tranche::PyCDSTranche;
 use cliquet_option::PyCliquetOption;
 use cms_option::PyCmsOption;
+use commodity_asian_option::PyCommodityAsianOption;
 use commodity_forward::PyCommodityForward;
 use commodity_option::PyCommodityOption;
 use commodity_swap::PyCommoditySwap;
@@ -85,6 +90,9 @@ use equity_option::PyEquityOption;
 use fra::PyForwardRateAgreement;
 use fx::{PyFxOption, PyFxSpot, PyFxSwap};
 use fx_barrier_option::PyFxBarrierOption;
+use fx_digital_option::PyFxDigitalOption;
+use fx_forward::PyFxForward;
+use fx_touch_option::PyFxTouchOption;
 use fx_variance_swap::PyFxVarianceSwap;
 use inflation_cap_floor::PyInflationCapFloor;
 use inflation_linked_bond::PyInflationLinkedBond;
@@ -197,6 +205,11 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract_arc!(value, PyCommodityForward, InstrumentType::CommodityForward);
     try_extract_arc!(value, PyCommodityOption, InstrumentType::CommodityOption);
     try_extract_arc!(value, PyCommoditySwap, InstrumentType::CommoditySwap);
+    try_extract_arc!(
+        value,
+        PyCommodityAsianOption,
+        InstrumentType::CommodityAsianOption
+    );
     try_extract_arc!(value, PyRepo, InstrumentType::Repo);
     try_extract_arc!(
         value,
@@ -229,6 +242,9 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract_arc!(value, PyCliquetOption, InstrumentType::CliquetOption);
     try_extract_arc!(value, PyCmsOption, InstrumentType::CmsOption);
     try_extract_arc!(value, PyFxBarrierOption, InstrumentType::FxBarrierOption);
+    try_extract_arc!(value, PyFxDigitalOption, InstrumentType::FxDigitalOption);
+    try_extract_arc!(value, PyFxForward, InstrumentType::FxForward);
+    try_extract_arc!(value, PyFxTouchOption, InstrumentType::FxTouchOption);
     try_extract_arc!(value, PyLookbackOption, InstrumentType::LookbackOption);
     try_extract_arc!(value, PyQuantoOption, InstrumentType::QuantoOption);
     try_extract_arc!(value, PyRangeAccrual, InstrumentType::RangeAccrual);
@@ -298,8 +314,17 @@ pub(crate) fn register<'py>(
     let fx_exports = fx::register(py, &module)?;
     exports.extend(fx_exports.iter().copied());
 
+    let fx_forward_exports = fx_forward::register(py, &module)?;
+    exports.extend(fx_forward_exports.iter().copied());
+
     let ndf_exports = ndf::register(py, &module)?;
     exports.extend(ndf_exports.iter().copied());
+
+    let fx_digital_option_exports = fx_digital_option::register(py, &module)?;
+    exports.extend(fx_digital_option_exports.iter().copied());
+
+    let fx_touch_option_exports = fx_touch_option::register(py, &module)?;
+    exports.extend(fx_touch_option_exports.iter().copied());
 
     let fx_variance_swap_exports = fx_variance_swap::register(py, &module)?;
     exports.extend(fx_variance_swap_exports.iter().copied());
@@ -384,6 +409,9 @@ pub(crate) fn register<'py>(
     commodity_swap::register_module(&module)?;
     exports.push("CommoditySwap");
     exports.push("CommoditySwapBuilder");
+
+    let commodity_asian_option_exports = commodity_asian_option::register(py, &module)?;
+    exports.extend(commodity_asian_option_exports.iter().copied());
 
     real_estate::register_module(&module)?;
     exports.push("RealEstateAsset");

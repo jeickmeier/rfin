@@ -1,6 +1,7 @@
 """Term loan instrument."""
 
-from typing import Optional, Dict, Any
+from __future__ import annotations
+from typing import Dict, Any
 from datetime import date
 from ...core.money import Money
 from ...core.currency import Currency

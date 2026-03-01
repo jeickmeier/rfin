@@ -4,7 +4,8 @@ Provides market prices, time series, and interpolation
 for scalar market data.
 """
 
-from typing import List, Tuple, Optional, Union
+from __future__ import annotations
+from typing import List, Tuple
 from datetime import date
 from ..currency import Currency
 from ..money import Money
@@ -117,7 +118,7 @@ class MarketScalar:
         ...
 
     @property
-    def value(self) -> Union[float, "Money"]:
+    def value(self) -> float | "Money":
         """Get the scalar value.
 
         This is exposed as a property in the Python bindings, so you access it
@@ -150,9 +151,9 @@ class ScalarTimeSeries:
     def __init__(
         self,
         id: str,
-        observations: List[Tuple[Union[str, date], float]],
-        currency: Optional[Currency] = None,
-        interpolation: Optional[SeriesInterpolation] = None,
+        observations: List[Tuple[str | date, float]],
+        currency: Currency | None = None,
+        interpolation: SeriesInterpolation | None = None,
     ) -> None: ...
     def set_interpolation(self, interpolation: SeriesInterpolation) -> None:
         """Set the interpolation method.
@@ -176,7 +177,7 @@ class ScalarTimeSeries:
         ...
 
     @property
-    def currency(self) -> Optional[Currency]:
+    def currency(self) -> Currency | None:
         """Get the currency.
 
         Returns
@@ -197,7 +198,7 @@ class ScalarTimeSeries:
         """
         ...
 
-    def value_on(self, date: Union[str, date]) -> float:
+    def value_on(self, date: str | date) -> float:
         """Get value on a specific date.
 
         Parameters
@@ -212,7 +213,7 @@ class ScalarTimeSeries:
         """
         ...
 
-    def values_on(self, dates: List[Union[str, date]]) -> List[float]:
+    def values_on(self, dates: List[str | date]) -> List[float]:
         """Get values on multiple dates.
 
         Parameters

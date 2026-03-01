@@ -16,7 +16,8 @@ Examples
     ... )
 """
 
-from typing import Any, Optional
+from __future__ import annotations
+from typing import Any
 
 class ExplainOpts:
     """Opt-in configuration for generating explanation traces.
@@ -59,7 +60,7 @@ class ExplainOpts:
     DISABLED: "ExplainOpts"
     """Pre-built disabled options (zero overhead)."""
 
-    def __init__(self, enabled: bool = False, max_entries: Optional[int] = None) -> None: ...
+    def __init__(self, enabled: bool = False, max_entries: int | None = None) -> None: ...
     @classmethod
     def enabled(cls) -> "ExplainOpts":
         """Create an enabled ExplainOpts instance with default limits.
@@ -79,7 +80,7 @@ class ExplainOpts:
         ...
 
     @property
-    def max_entries(self) -> Optional[int]:
+    def max_entries(self) -> int | None:
         """Maximum number of trace entries, if set."""
         ...
 
@@ -179,8 +180,8 @@ class TraceEntry:
         cash_in_currency: str,
         cash_out_amount: float,
         cash_out_currency: str,
-        shortfall_amount: Optional[float] = None,
-        shortfall_currency: Optional[str] = None,
+        shortfall_amount: float | None = None,
+        shortfall_currency: str | None = None,
     ) -> "TraceEntry":
         """Create a waterfall step entry.
 
@@ -215,7 +216,7 @@ class TraceEntry:
         cls,
         name: str,
         description: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "TraceEntry":
         """Create a generic computation step entry.
 
@@ -329,7 +330,7 @@ class ExplanationTrace:
         """List of trace entries as dictionaries."""
         ...
 
-    def push(self, entry: TraceEntry, max_entries: Optional[int] = None) -> None:
+    def push(self, entry: TraceEntry, max_entries: int | None = None) -> None:
         """Add an entry to the trace, respecting size limits.
 
         If max_entries is reached, marks the trace as truncated.

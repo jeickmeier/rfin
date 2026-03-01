@@ -81,6 +81,11 @@ impl PyCurveId {
         (hasher.finish() & isize::MAX as u64) as isize
     }
 
+    /// Deconstruct into ``(id,)`` tuple (used by pickle).
+    fn __getnewargs__(&self) -> (String,) {
+        (self.inner.to_string(),)
+    }
+
     fn __richcmp__(
         &self,
         other: Bound<'_, PyAny>,
@@ -138,6 +143,11 @@ impl PyInstrumentId {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         self.inner.hash(&mut hasher);
         (hasher.finish() & isize::MAX as u64) as isize
+    }
+
+    /// Deconstruct into ``(id,)`` tuple (used by pickle).
+    fn __getnewargs__(&self) -> (String,) {
+        (self.inner.to_string(),)
     }
 
     fn __richcmp__(
@@ -360,6 +370,18 @@ impl PyRate {
 
 #[pymethods]
 impl PyRate {
+    #[new]
+    #[pyo3(text_signature = "(decimal)")]
+    /// Create a rate from a decimal value (0.05 = 5%).
+    ///
+    /// Parameters
+    /// ----------
+    /// decimal : float
+    ///     Rate as a decimal value (e.g. 0.05 for 5%).
+    fn ctor(decimal: f64) -> Self {
+        Self::new(Rate::from_decimal(decimal))
+    }
+
     #[staticmethod]
     #[pyo3(text_signature = "(decimal)")]
     /// Create a rate from a decimal value (0.05 = 5%).
@@ -410,6 +432,46 @@ impl PyRate {
     fn __hash__(&self) -> isize {
         let bits = self.inner.as_decimal().to_bits();
         (bits & isize::MAX as u64) as isize
+    }
+
+    /// Format the rate according to a format specifier.
+    ///
+    /// Supports standard float format specifiers (e.g., ``.2f``, ``.4f``,
+    /// ``.2%``). A ``%`` suffix formats as a percentage value; ``f`` formats
+    /// as a decimal. An empty spec falls back to the default ``Display``
+    /// implementation.
+    ///
+    /// Examples
+    /// --------
+    /// >>> f"{Rate.from_decimal(0.05):.2%}"
+    /// '5.00%'
+    /// >>> f"{Rate.from_decimal(0.05):.4f}"
+    /// '0.0500'
+    fn __format__(&self, spec: &str) -> PyResult<String> {
+        if spec.is_empty() {
+            return Ok(self.inner.to_string());
+        }
+        if spec.ends_with('%') {
+            // Format as percentage
+            let num_part = spec.trim_start_matches('.').trim_end_matches('%');
+            let precision = num_part.parse::<usize>().unwrap_or(4);
+            Ok(format!("{:.*}%", precision, self.inner.as_percent()))
+        } else if spec.ends_with('f') {
+            // Format as decimal
+            let num_part = spec.trim_start_matches('.').trim_end_matches('f');
+            let precision = num_part.parse::<usize>().unwrap_or(6);
+            Ok(format!("{:.*}", precision, self.inner.as_decimal()))
+        } else {
+            Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Unsupported format spec for Rate: '{}'",
+                spec
+            )))
+        }
+    }
+
+    /// Deconstruct into ``(decimal,)`` tuple (used by pickle).
+    fn __getnewargs__(&self) -> (f64,) {
+        (self.inner.as_decimal(),)
     }
 
     fn __richcmp__(
@@ -522,6 +584,11 @@ impl PyBps {
 
     fn __hash__(&self) -> isize {
         self.inner.as_bps() as isize
+    }
+
+    /// Deconstruct into ``(bps,)`` tuple (used by pickle).
+    fn __getnewargs__(&self) -> (i32,) {
+        (self.inner.as_bps(),)
     }
 
     fn __richcmp__(

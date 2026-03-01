@@ -1,0 +1,144 @@
+"""Commodity Asian option instrument."""
+
+from __future__ import annotations
+
+from datetime import date
+from typing import List, Tuple
+
+from ...core.currency import Currency
+from ...core.money import Money
+from ..common import InstrumentType
+
+
+class CommodityAsianOptionBuilder:
+    """Fluent builder returned by :meth:`CommodityAsianOption.builder`."""
+
+    def commodity_type(self, commodity_type: str) -> CommodityAsianOptionBuilder: ...
+    def ticker(self, ticker: str) -> CommodityAsianOptionBuilder: ...
+    def unit(self, unit: str) -> CommodityAsianOptionBuilder: ...
+    def currency(self, currency: str | Currency) -> CommodityAsianOptionBuilder: ...
+    def strike(self, strike: float) -> CommodityAsianOptionBuilder: ...
+    def option_type(self, option_type: str) -> CommodityAsianOptionBuilder: ...
+    def averaging_method(self, method: str) -> CommodityAsianOptionBuilder: ...
+    def fixing_dates(self, dates: List[date]) -> CommodityAsianOptionBuilder: ...
+    def realized_fixings(
+        self, fixings: List[Tuple[date, float]]
+    ) -> CommodityAsianOptionBuilder: ...
+    def quantity(self, quantity: float) -> CommodityAsianOptionBuilder: ...
+    def expiry(self, expiry: date) -> CommodityAsianOptionBuilder: ...
+    def forward_curve_id(self, curve_id: str) -> CommodityAsianOptionBuilder: ...
+    def discount_curve_id(self, curve_id: str) -> CommodityAsianOptionBuilder: ...
+    def vol_surface_id(self, surface_id: str) -> CommodityAsianOptionBuilder: ...
+    def build(self) -> CommodityAsianOption: ...
+    def __repr__(self) -> str: ...
+
+
+class CommodityAsianOption:
+    """Commodity Asian option: option on the average of commodity prices.
+
+    This is the dominant option type in commodity markets. The average is
+    typically computed over commodity forward/futures prices for specific
+    delivery periods.
+
+    Key differences from equity Asian options:
+    - Uses forward prices from a price curve for each fixing date, not spot
+    - No dividend yield parameter (cost of carry is in the forward curve)
+    - Seasoned options combine realized fixings with projected forwards
+
+    Examples
+    --------
+    Create a WTI arithmetic average call option:
+
+        >>> from finstack.valuations.instruments import CommodityAsianOption
+        >>> from finstack import Money, Currency
+        >>> from datetime import date
+        >>> option = (
+        ...     CommodityAsianOption.builder("WTI-ASIAN-6M")
+        ...     .commodity_type("Energy")
+        ...     .ticker("CL")
+        ...     .unit("BBL")
+        ...     .currency("USD")
+        ...     .strike(75.0)
+        ...     .option_type("call")
+        ...     .averaging_method("arithmetic")
+        ...     .fixing_dates([date(2025, 1, 31), date(2025, 2, 28)])
+        ...     .quantity(1000.0)
+        ...     .expiry(date(2025, 7, 2))
+        ...     .forward_curve_id("CL-FORWARD")
+        ...     .discount_curve_id("USD-OIS")
+        ...     .vol_surface_id("CL-VOL")
+        ...     .build()
+        ... )
+
+    See Also
+    --------
+    :class:`AsianOption`: Equity Asian options
+    :class:`CommodityOption`: Standard commodity options
+    :class:`CommodityForward`: Commodity forward contracts
+    """
+
+    @classmethod
+    def builder(cls, instrument_id: str) -> CommodityAsianOptionBuilder:
+        """Start a fluent builder for a commodity Asian option."""
+        ...
+    @property
+    def instrument_id(self) -> str:
+        """Instrument identifier."""
+        ...
+    @property
+    def instrument_type(self) -> InstrumentType:
+        """Instrument type key."""
+        ...
+    @property
+    def commodity_type(self) -> str:
+        """Commodity type (e.g., "Energy", "Metal")."""
+        ...
+    @property
+    def ticker(self) -> str:
+        """Ticker symbol."""
+        ...
+    @property
+    def unit(self) -> str:
+        """Unit of measurement."""
+        ...
+    @property
+    def currency(self) -> Currency:
+        """Currency."""
+        ...
+    @property
+    def strike(self) -> float:
+        """Strike price per unit."""
+        ...
+    @property
+    def option_type(self) -> str:
+        """Option type label ("call" or "put")."""
+        ...
+    @property
+    def averaging_method(self) -> str:
+        """Averaging method label ("arithmetic" or "geometric")."""
+        ...
+    @property
+    def fixing_dates(self) -> List[date]:
+        """List of fixing dates for averaging."""
+        ...
+    @property
+    def quantity(self) -> float:
+        """Contract quantity in commodity units."""
+        ...
+    @property
+    def expiry(self) -> date:
+        """Option expiry/settlement date."""
+        ...
+    @property
+    def forward_curve_id(self) -> str:
+        """Forward/futures price curve ID."""
+        ...
+    @property
+    def discount_curve_id(self) -> str:
+        """Discount curve ID."""
+        ...
+    @property
+    def vol_surface_id(self) -> str:
+        """Volatility surface ID."""
+        ...
+    def __repr__(self) -> str: ...

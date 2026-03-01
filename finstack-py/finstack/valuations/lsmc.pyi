@@ -1,6 +1,7 @@
 """LSMC (Longstaff-Schwartz Monte Carlo) pricer type stubs."""
 
-from typing import List, Tuple, Union
+from __future__ import annotations
+from typing import List, Tuple
 from finstack.core.money import Money
 
 class AmericanPut:
@@ -202,8 +203,8 @@ class LsmcPricer:
         sigma: float,
         time_to_maturity: float,
         num_steps: int,
-        exercise: Union[AmericanPut, AmericanCall],
-        basis: Union[PolynomialBasis, LaguerreBasis],
+        exercise: AmericanPut | AmericanCall,
+        basis: PolynomialBasis | LaguerreBasis,
         currency: str,
     ) -> LsmcResult:
         """Price an American-style option using LSMC.

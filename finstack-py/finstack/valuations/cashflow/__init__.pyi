@@ -1,5 +1,6 @@
 """Valuations cash-flow builder exposing complex coupon windows, PIK splits, and amortization."""
 
+from __future__ import annotations
 from .builder import (
     AmortizationSpec as AmortizationSpec,
     CouponType as CouponType,

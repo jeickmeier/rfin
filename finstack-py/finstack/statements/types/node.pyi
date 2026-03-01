@@ -1,6 +1,7 @@
 """Node specification bindings."""
 
-from typing import Optional, Dict, Any, List
+from __future__ import annotations
+from typing import Dict, Any, List
 from finstack.core.dates.periods import PeriodId
 from .forecast import ForecastSpec
 from .value import AmountOrScalar
@@ -102,7 +103,7 @@ class NodeSpec:
         ...
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """Get the human-readable name.
 
         Returns:
@@ -120,7 +121,7 @@ class NodeSpec:
         ...
 
     @property
-    def values(self) -> Optional[Dict[PeriodId, AmountOrScalar]]:
+    def values(self) -> Dict[PeriodId, AmountOrScalar] | None:
         """Get explicit period values.
 
         Returns:
@@ -129,7 +130,7 @@ class NodeSpec:
         ...
 
     @property
-    def forecast(self) -> Optional[ForecastSpec]:
+    def forecast(self) -> ForecastSpec | None:
         """Get the forecast specification.
 
         Returns:
@@ -138,7 +139,7 @@ class NodeSpec:
         ...
 
     @property
-    def formula_text(self) -> Optional[str]:
+    def formula_text(self) -> str | None:
         """Get the formula text.
 
         Returns:
@@ -147,7 +148,7 @@ class NodeSpec:
         ...
 
     @property
-    def where_text(self) -> Optional[str]:
+    def where_text(self) -> str | None:
         """Get the where clause.
 
         Returns:

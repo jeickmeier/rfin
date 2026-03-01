@@ -13,6 +13,7 @@ This module provides the fundamental building blocks for financial computations:
 - Types: Type-safe identifiers and rate helpers
 """
 
+from __future__ import annotations
 from . import cashflow
 from . import config
 from . import currency

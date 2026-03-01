@@ -1,7 +1,7 @@
 """Monte Carlo path data structures for visualization and analysis."""
 
 from datetime import date
-from typing import Optional, Dict, List, Tuple, Any
+from typing import Optional, Dict, Iterator, List, Tuple, Any
 from enum import Enum
 
 class CashflowType(Enum):
@@ -320,5 +320,13 @@ class PathDataset:
         ...
 
     def __len__(self) -> int: ...
+    def __getitem__(self, index: int) -> SimulatedPath: ...
+    def __iter__(self) -> PathDatasetIterator: ...
 
-__all__ = ["CashflowType", "PathPoint", "SimulatedPath", "PathDataset"]
+class PathDatasetIterator:
+    """Iterator over simulated paths in a dataset."""
+
+    def __iter__(self) -> PathDatasetIterator: ...
+    def __next__(self) -> SimulatedPath: ...
+
+__all__ = ["CashflowType", "PathPoint", "SimulatedPath", "PathDataset", "PathDatasetIterator"]

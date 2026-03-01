@@ -13,6 +13,7 @@ This module provides comprehensive market data handling:
 Note: Interpolation types have moved to finstack.core.math.interp
 """
 
+from __future__ import annotations
 from . import bumps
 from . import context
 from . import diff

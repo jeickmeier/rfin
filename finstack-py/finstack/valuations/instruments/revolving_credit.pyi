@@ -1,6 +1,7 @@
 """Revolving credit facility instrument."""
 
-from typing import Optional, Dict, Any, List, Union
+from __future__ import annotations
+from typing import Dict, Any, List
 from datetime import date
 from ...core.money import Money
 from ...core.currency import Currency
@@ -118,7 +119,7 @@ class RevolvingCredit:
     @property
     def discount_curve(self) -> str: ...
     @property
-    def hazard_curve(self) -> Optional[str]: ...
+    def hazard_curve(self) -> str | None: ...
     @property
     def recovery_rate(self) -> float: ...
     @property
@@ -150,7 +151,7 @@ class PathResult:
     @property
     def cashflows(self) -> CashFlowSchedule: ...
     @property
-    def path_data(self) -> Optional["ThreeFactorPathData"]: ...
+    def path_data(self) -> "ThreeFactorPathData" | None: ...
     def __repr__(self) -> str: ...
 
 class ThreeFactorPathData:

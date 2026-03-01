@@ -1,6 +1,7 @@
 """Basket instrument."""
 
-from typing import Union, Dict, Any
+from __future__ import annotations
+from typing import Dict, Any
 from ..common import InstrumentType
 
 class Basket:
@@ -78,7 +79,7 @@ class Basket:
     """
 
     @classmethod
-    def from_json(cls, data: Union[str, Dict[str, Any]]) -> "Basket":
+    def from_json(cls, data: str | Dict[str, Any]) -> "Basket":
         """Parse a basket definition from a JSON string or dictionary.
 
         Parameters

@@ -1,5 +1,6 @@
 """Extension system for statement models."""
 
+from __future__ import annotations
 from .extensions import (
     ExtensionMetadata,
     ExtensionStatus,

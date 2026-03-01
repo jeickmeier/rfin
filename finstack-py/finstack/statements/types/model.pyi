@@ -1,6 +1,7 @@
 """Financial model specification bindings."""
 
-from typing import Optional, List, Dict, Any
+from __future__ import annotations
+from typing import List, Dict, Any
 from finstack.core.dates.periods import Period
 from .node import NodeSpec
 from .waterfall import WaterfallSpec
@@ -13,9 +14,9 @@ class CapitalStructureSpec:
 
     def __init__(
         self,
-        debt_instruments: Optional[List[DebtInstrumentSpec]] = None,
-        equity_instruments: Optional[List[Any]] = None,
-        waterfall: Optional[WaterfallSpec] = None,
+        debt_instruments: List[DebtInstrumentSpec] | None = None,
+        equity_instruments: List[Any] | None = None,
+        waterfall: WaterfallSpec | None = None,
     ) -> None:
         """Create a capital structure specification.
 
@@ -39,7 +40,7 @@ class CapitalStructureSpec:
         ...
 
     @property
-    def waterfall(self) -> Optional[WaterfallSpec]:
+    def waterfall(self) -> WaterfallSpec | None:
         """Get waterfall spec.
 
         Returns:
@@ -191,7 +192,7 @@ class FinancialModelSpec:
         """
         ...
 
-    def get_node(self, node_id: str) -> Optional[NodeSpec]:
+    def get_node(self, node_id: str) -> NodeSpec | None:
         """Get a node by ID.
 
         Args:
@@ -241,7 +242,7 @@ class FinancialModelSpec:
         ...
 
     @property
-    def capital_structure(self) -> Optional[CapitalStructureSpec]:
+    def capital_structure(self) -> CapitalStructureSpec | None:
         """Get capital structure.
 
         Returns:

@@ -1,6 +1,7 @@
 """Report types from scenario execution."""
 
-from typing import List, Tuple, Optional
+from __future__ import annotations
+from typing import List, Tuple
 from datetime import date
 
 class ApplicationReport:
@@ -66,7 +67,7 @@ class ApplicationReport:
         ...
 
     @property
-    def rounding_context(self) -> Optional[str]:
+    def rounding_context(self) -> str | None:
         """Rounding context stamp (for reproducibility metadata).
 
         Returns:
