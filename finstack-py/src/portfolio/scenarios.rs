@@ -10,7 +10,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule};
 use pyo3::Bound;
 
-#[cfg(feature = "scenarios")]
 use finstack_portfolio::scenarios::{apply_and_revalue, apply_scenario};
 
 /// Apply a scenario to a portfolio.
@@ -35,7 +34,6 @@ use finstack_portfolio::scenarios::{apply_and_revalue, apply_scenario};
 ///     >>> transformed = apply_scenario(portfolio, scenario, market_context)
 #[pyfunction]
 #[pyo3(signature = (portfolio, scenario, market_context))]
-#[cfg(feature = "scenarios")]
 fn py_apply_scenario(
     portfolio: &Bound<'_, PyAny>,
     scenario: &Bound<'_, PyAny>,
@@ -77,7 +75,6 @@ fn py_apply_scenario(
 ///     Money(USD, 9500000.0)
 #[pyfunction]
 #[pyo3(signature = (portfolio, scenario, market_context, config=None))]
-#[cfg(feature = "scenarios")]
 fn py_apply_and_revalue(
     portfolio: &Bound<'_, PyAny>,
     scenario: &Bound<'_, PyAny>,
@@ -109,22 +106,14 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<String>> {
-    #[cfg(feature = "scenarios")]
-    {
-        let wrapped_apply = wrap_pyfunction!(py_apply_scenario, parent)?;
-        parent.add("apply_scenario", wrapped_apply)?;
+    let wrapped_apply = wrap_pyfunction!(py_apply_scenario, parent)?;
+    parent.add("apply_scenario", wrapped_apply)?;
 
-        let wrapped_revalue = wrap_pyfunction!(py_apply_and_revalue, parent)?;
-        parent.add("apply_and_revalue", wrapped_revalue)?;
+    let wrapped_revalue = wrap_pyfunction!(py_apply_and_revalue, parent)?;
+    parent.add("apply_and_revalue", wrapped_revalue)?;
 
-        Ok(vec![
-            "apply_scenario".to_string(),
-            "apply_and_revalue".to_string(),
-        ])
-    }
-
-    #[cfg(not(feature = "scenarios"))]
-    {
-        Ok(vec![])
-    }
+    Ok(vec![
+        "apply_scenario".to_string(),
+        "apply_and_revalue".to_string(),
+    ])
 }

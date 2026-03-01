@@ -18,7 +18,6 @@ pub(crate) mod results;
 pub(crate) mod types;
 pub(crate) mod valuation;
 
-#[cfg(feature = "scenarios")]
 pub(crate) mod scenarios;
 
 use pyo3::prelude::*;
@@ -71,8 +70,6 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     // Register margin utilities
     let margin_exports = margin::register(py, &module)?;
 
-    // Register scenarios integration if feature enabled
-    #[cfg(feature = "scenarios")]
     let scenarios_exports = scenarios::register(py, &module)?;
 
     // Collect all exports
@@ -91,7 +88,6 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     all_exports.extend(dataframe_exports);
     all_exports.extend(margin_exports);
 
-    #[cfg(feature = "scenarios")]
     all_exports.extend(scenarios_exports);
 
     // Set __all__ for the module

@@ -66,7 +66,6 @@ jobs:
             --release
             --out dist
             --manifest-path finstack-py/Cargo.toml
-            --features scenarios
             --interpreter python${{ matrix.python }}
           manylinux: "2_28"
           sccache: true

@@ -30,7 +30,3 @@ time = { workspace = true }
 strum = { workspace = true }
 rayon = "1.11.0"
 rust_decimal = { workspace = true }
-
-[features]
-default = ["scenarios"]
-scenarios = []

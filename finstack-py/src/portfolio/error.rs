@@ -27,7 +27,6 @@ pub(crate) fn portfolio_to_py(err: Error) -> PyErr {
             "Valuation error for position '{}': {}",
             position_id, message
         )),
-        #[cfg(feature = "scenarios")]
         Error::ScenarioError(msg) => {
             PyRuntimeError::new_err(format!("Scenario application failed: {}", msg))
         }
