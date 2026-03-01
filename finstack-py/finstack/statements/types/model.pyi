@@ -103,6 +103,20 @@ class DebtInstrumentSpec:
         ...
 
     @staticmethod
+    def term_loan(id: str, spec: Dict[str, Any]) -> DebtInstrumentSpec:
+        """Create a term loan instrument.
+
+        Args:
+            id: Instrument identifier
+            spec: Instrument specification (e.g. notional, spread, base_rate,
+                amortization_schedule, prepayment_penalty)
+
+        Returns:
+            DebtInstrumentSpec: Term loan instrument spec
+        """
+        ...
+
+    @staticmethod
     def generic(id: str, spec: Dict[str, Any]) -> DebtInstrumentSpec:
         """Create a generic debt instrument.
 
@@ -285,6 +299,32 @@ class FinancialModelSpec:
 
         Returns:
             FinancialModelSpec: Deserialized model spec
+        """
+        ...
+
+    def goal_seek(
+        self,
+        target_node: str,
+        target_period: str,
+        target_value: float,
+        driver_node: str,
+        driver_period: str | None = None,
+        update_model: bool = True,
+        bounds: tuple[float, float] | None = None,
+    ) -> float:
+        """Perform goal seek using Brent's method.
+
+        Args:
+            target_node: Target metric node (e.g. "interest_coverage")
+            target_period: Period to evaluate (e.g. "2025Q4")
+            target_value: Desired target value
+            driver_node: Driver input node to vary
+            driver_period: Period for the driver (defaults to target_period)
+            update_model: If True, update the model with the solved value
+            bounds: Explicit (lower, upper) search bounds; inferred if None
+
+        Returns:
+            float: Solved driver value
         """
         ...
 

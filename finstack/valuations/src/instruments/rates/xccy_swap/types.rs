@@ -431,6 +431,14 @@ impl crate::instruments::common_impl::traits::Instrument for XccySwap {
         self.validate_leg(&self.leg1)?;
         self.validate_leg(&self.leg2)?;
 
+        if self.leg1.currency == self.leg2.currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "XccySwap legs must have different currencies; both are {}. \
+                 Use BasisSwap for same-currency basis trades.",
+                self.leg1.currency
+            )));
+        }
+
         let s1 = self.leg_schedule(&self.leg1)?;
         let s2 = self.leg_schedule(&self.leg2)?;
 

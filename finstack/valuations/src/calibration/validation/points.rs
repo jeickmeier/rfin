@@ -3,17 +3,19 @@
 
 /// Standard year-fraction points for checking discount curve monotonicity.
 pub(crate) const DF_MONO_POINTS: &[f64] = &[
-    0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
+    0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0,
 ];
 
 /// Standard year-fraction points for checking discount curve no-arbitrage conditions.
 ///
 /// Used for forward-rate sanity checks between adjacent tenors.
-pub(crate) const DF_ARBI_POINTS: &[f64] =
-    &[0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
+pub(crate) const DF_ARBI_POINTS: &[f64] = &[
+    0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0,
+];
 
 /// Standard year-fraction points for checking discount factor bounds.
-pub(crate) const DF_BOUNDS_POINTS: &[f64] = &[0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 30.0];
+pub(crate) const DF_BOUNDS_POINTS: &[f64] =
+    &[0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0];
 
 /// Standard year-fraction points for checking forward curve arbitrage.
 pub(crate) const FWD_ARBI_POINTS: &[f64] = &[0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];

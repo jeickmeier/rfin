@@ -240,12 +240,18 @@ impl PyForecastSpec {
     #[pyo3(text_signature = "(cls, mean, std, seed)")]
     /// Create a log-normal distribution forecast (always positive).
     ///
+    /// The generated values follow ``X = exp(mu + sigma * Z)`` where
+    /// ``Z ~ N(0,1)``.  This means the **physical-space** expected value
+    /// is ``E[X] = exp(mu + sigma^2 / 2)`` and the physical-space
+    /// variance is ``(exp(sigma^2) - 1) * exp(2*mu + sigma^2)``.
+    ///
     /// Parameters
     /// ----------
     /// mean : float
-    ///     Mean of the underlying normal distribution
+    ///     ``mu`` -- mean of the underlying **log-space** normal
+    ///     distribution (not the expected value in physical space).
     /// std : float
-    ///     Standard deviation of the underlying normal
+    ///     ``sigma`` -- standard deviation in **log-space**.
     /// seed : int
     ///     Random seed for determinism
     ///

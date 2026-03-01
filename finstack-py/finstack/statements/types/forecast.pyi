@@ -104,9 +104,13 @@ class ForecastSpec:
     def lognormal(cls, mean: float, std: float, seed: int) -> ForecastSpec:
         """Create a log-normal distribution forecast (always positive).
 
+        Values follow ``X = exp(mu + sigma * Z)`` where ``Z ~ N(0,1)``.
+        The physical-space expected value is ``E[X] = exp(mu + sigma^2/2)``.
+
         Args:
-            mean: Mean of the underlying normal distribution
-            std: Standard deviation of the underlying normal
+            mean: ``mu`` -- mean of the underlying **log-space** normal
+                (not the expected value in physical space).
+            std: ``sigma`` -- standard deviation in **log-space**.
             seed: Random seed for determinism
 
         Returns:

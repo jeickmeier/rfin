@@ -210,6 +210,30 @@ impl PyDebtInstrumentSpec {
 
     #[staticmethod]
     #[pyo3(text_signature = "(id, spec)")]
+    /// Create a term loan instrument.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Instrument identifier
+    /// spec : dict
+    ///     Instrument specification (e.g. notional, spread, base_rate,
+    ///     amortization_schedule, prepayment_penalty)
+    ///
+    /// Returns
+    /// -------
+    /// DebtInstrumentSpec
+    ///     Term loan instrument spec
+    fn term_loan(id: String, spec: &Bound<'_, PyDict>) -> PyResult<Self> {
+        let spec_value = dict_to_json(spec)?;
+        Ok(Self::new(DebtInstrumentSpec::TermLoan {
+            id,
+            spec: spec_value,
+        }))
+    }
+
+    #[staticmethod]
+    #[pyo3(text_signature = "(id, spec)")]
     /// Create a generic debt instrument.
     ///
     /// Parameters
@@ -463,13 +487,13 @@ impl PyFinancialModelSpec {
     }
 
     #[pyo3(
-        signature = (target_node, target_period, target_value, driver_node, driver_period=None, update_model=true),
-        text_signature = "(self, target_node, target_period, target_value, driver_node, driver_period=None, update_model=True)"
+        signature = (target_node, target_period, target_value, driver_node, driver_period=None, update_model=true, bounds=None),
+        text_signature = "(self, target_node, target_period, target_value, driver_node, driver_period=None, update_model=True, bounds=None)"
     )]
     /// Perform goal seek to find the driver value that achieves a target metric.
     ///
     /// Solves for the driver node value that achieves a target metric value in a specific period.
-    /// Uses Brent's method for robust root-finding.
+    /// Uses Brent's method for robust root-finding (tolerance ~1e-9, max 128 iterations).
     ///
     /// Parameters
     /// ----------
@@ -485,6 +509,9 @@ impl PyFinancialModelSpec {
     ///     Period in which to vary the driver. Defaults to target_period if None.
     /// update_model : bool, optional
     ///     If True (default), update the model with the solved driver value
+    /// bounds : tuple[float, float], optional
+    ///     Explicit (lower, upper) search bounds for the driver value.
+    ///     If None, bounds are inferred automatically from the model.
     ///
     /// Returns
     /// -------
@@ -523,14 +550,13 @@ impl PyFinancialModelSpec {
         driver_node: &str,
         driver_period: Option<&str>,
         update_model: bool,
+        bounds: Option<(f64, f64)>,
     ) -> PyResult<f64> {
-        // Parse target period
         let target_period_id: finstack_core::dates::PeriodId =
             target_period.parse().map_err(|e| {
                 PyValueError::new_err(format!("Invalid target period '{}': {}", target_period, e))
             })?;
 
-        // Parse driver period (default to target period if None)
         let driver_period_str = driver_period.unwrap_or(target_period);
         let driver_period_id: finstack_core::dates::PeriodId =
             driver_period_str.parse().map_err(|e| {
@@ -540,7 +566,6 @@ impl PyFinancialModelSpec {
                 ))
             })?;
 
-        // Call the Rust implementation
         finstack_statements::analysis::goal_seek(
             &mut self.inner,
             target_node,
@@ -549,7 +574,7 @@ impl PyFinancialModelSpec {
             driver_node,
             driver_period_id,
             update_model,
-            None,
+            bounds,
         )
         .map_err(|e| PyValueError::new_err(format!("Goal seek failed: {}", e)))
     }

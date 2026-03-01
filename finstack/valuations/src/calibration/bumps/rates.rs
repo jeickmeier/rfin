@@ -147,16 +147,20 @@ pub fn bump_discount_curve_synthetic(
     }
     .to_string();
 
-    // Synthesize deposit-style quotes for each knot (excluding t≈0) and re-calibrate.
+    // Synthesize quotes for each knot (excluding t≈0) and re-calibrate.
+    // Use Deposit quotes for short maturities (<= 2Y) and Swap quotes for longer
+    // maturities, matching the natural instrument coverage of a yield curve.
 
     let mut quotes = Vec::new();
     let dc = DayCount::Act365F;
     let dc_ctx = DayCountCtx::default();
 
+    const SWAP_THRESHOLD_YEARS: f64 = 2.0;
+
     for &t in knots {
         if t <= 0.0001 {
             continue;
-        } // Skip t=0 or very small
+        }
 
         let df = curve.df(t);
         let maturity_days = (t * 365.25).round() as i64;
@@ -164,19 +168,41 @@ pub fn bump_discount_curve_synthetic(
 
         let yf = dc.year_fraction(base_date, maturity, dc_ctx).unwrap_or(t);
 
-        // Simple rate: DF = 1 / (1 + r * t)
-        let rate = if yf > 1e-4 {
-            (1.0 / df - 1.0) / yf
+        if yf <= SWAP_THRESHOLD_YEARS {
+            let rate = if yf > 1e-4 {
+                (1.0 / df - 1.0) / yf
+            } else {
+                0.0
+            };
+            quotes.push(RateQuote::Deposit {
+                id: QuoteId::new(format!("SYNTH-DEP-{}", t)),
+                index: crate::market::conventions::ids::IndexId::new(index_id.clone()),
+                pillar: Pillar::Date(maturity),
+                rate,
+            });
         } else {
-            0.0
-        };
-
-        quotes.push(RateQuote::Deposit {
-            id: QuoteId::new(format!("SYNTH-{}", t)),
-            index: crate::market::conventions::ids::IndexId::new(index_id.clone()),
-            pillar: Pillar::Date(maturity),
-            rate,
-        });
+            // Implied par swap rate: S = (DF_0 - DF_n) / Annuity
+            // where Annuity = sum of DF(t_i) * tau_i over annual payment dates.
+            let n_years = yf.round() as usize;
+            let n_years = n_years.max(1);
+            let mut annuity = 0.0;
+            for i in 1..=n_years {
+                let pay_t = i as f64;
+                annuity += curve.df(pay_t);
+            }
+            let par_rate = if annuity > 1e-10 {
+                (1.0 - df) / annuity
+            } else {
+                0.0
+            };
+            quotes.push(RateQuote::Swap {
+                id: QuoteId::new(format!("SYNTH-SWP-{}", t)),
+                index: crate::market::conventions::ids::IndexId::new(index_id.clone()),
+                pillar: Pillar::Date(maturity),
+                rate: par_rate,
+                spread_decimal: None,
+            });
+        }
     }
 
     let params = DiscountCurveParams {

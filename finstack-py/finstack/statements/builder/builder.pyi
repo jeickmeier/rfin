@@ -247,6 +247,33 @@ class ModelBuilder:
         """
         ...
 
+    def add_bond_with_convention(
+        self,
+        id: str,
+        notional: Any,  # Money
+        coupon_rate: float,
+        issue_date: Any,  # date
+        maturity_date: Any,  # date
+        convention: str,
+        discount_curve_id: str,
+    ) -> None:
+        """Add a bond with a named market convention.
+
+        Uses pre-configured regional conventions for day count, frequency,
+        settlement days, and business-day rules.
+
+        Args:
+            id: Unique instrument identifier
+            notional: Principal amount (Money)
+            coupon_rate: Annual coupon rate (e.g., 0.05 for 5%)
+            issue_date: Bond issue date
+            maturity_date: Bond maturity date
+            convention: Convention name (e.g., "us_treasury", "german_bund",
+                "uk_gilt", "corporate", "jgb", "french_oat", "us_agency")
+            discount_curve_id: Discount curve ID for pricing
+        """
+        ...
+
     def add_swap(
         self,
         id: str,
@@ -259,6 +286,9 @@ class ModelBuilder:
     ) -> None:
         """Add an interest rate swap to the capital structure.
 
+        Uses default USD conventions (semi-annual fixed 30/360,
+        quarterly float ACT/360, Modified Following).
+
         Args:
             id: Unique instrument identifier
             notional: Notional amount (Money)
@@ -267,6 +297,39 @@ class ModelBuilder:
             maturity_date: Swap maturity date
             discount_curve_id: Discount curve ID
             forward_curve_id: Forward curve ID for floating leg
+        """
+        ...
+
+    def add_swap_with_conventions(
+        self,
+        id: str,
+        notional: Any,  # Money
+        fixed_rate: float,
+        start_date: Any,  # date
+        maturity_date: Any,  # date
+        discount_curve_id: str,
+        forward_curve_id: str,
+        fixed_freq: Any,  # Tenor
+        fixed_dc: Any,  # DayCount
+        float_freq: Any,  # Tenor
+        float_dc: Any,  # DayCount
+        bdc: Any,  # BusinessDayConvention
+    ) -> None:
+        """Add an interest rate swap with explicit leg conventions.
+
+        Args:
+            id: Unique instrument identifier
+            notional: Notional amount (Money)
+            fixed_rate: Fixed rate (e.g., 0.04 for 4%)
+            start_date: Swap start date
+            maturity_date: Swap maturity date
+            discount_curve_id: Discount curve ID
+            forward_curve_id: Forward curve ID for floating leg
+            fixed_freq: Fixed leg payment frequency (Tenor)
+            fixed_dc: Fixed leg day count (DayCount)
+            float_freq: Float leg payment frequency (Tenor)
+            float_dc: Float leg day count (DayCount)
+            bdc: Business day convention (BusinessDayConvention)
         """
         ...
 

@@ -462,10 +462,10 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                 continue;
             }
 
-            // Time to fixing using instrument's day count (for vol surface lookup)
-            let t_fix = self
-                .day_count
-                .year_fraction(as_of, period.accrual_start, dc_ctx)?;
+            // Time to fixing using instrument's day count (for vol surface lookup).
+            // Use the actual reset (fixing) date when available; fall back to accrual_start.
+            let fixing_date = period.reset_date.unwrap_or(period.accrual_start);
+            let t_fix = self.day_count.year_fraction(as_of, fixing_date, dc_ctx)?;
 
             // Accrual year fraction
             let tau = period.accrual_year_fraction;

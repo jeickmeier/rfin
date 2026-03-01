@@ -79,8 +79,13 @@ impl PyEcfSweepSpec {
         working_capital_node: Option<String>,
         cash_interest_node: Option<String>,
         target_instrument_id: Option<String>,
-    ) -> Self {
-        Self {
+    ) -> PyResult<Self> {
+        if !(0.0..=1.0).contains(&sweep_percentage) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "sweep_percentage must be between 0.0 and 1.0",
+            ));
+        }
+        Ok(Self {
             inner: EcfSweepSpec {
                 ebitda_node,
                 taxes_node,
@@ -90,7 +95,7 @@ impl PyEcfSweepSpec {
                 sweep_percentage,
                 target_instrument_id,
             },
-        }
+        })
     }
 
     #[getter]
@@ -275,6 +280,8 @@ fn default_priority() -> Vec<PaymentPriority> {
         PaymentPriority::Fees,
         PaymentPriority::Interest,
         PaymentPriority::Amortization,
+        PaymentPriority::MandatoryPrepayment,
+        PaymentPriority::VoluntaryPrepayment,
         PaymentPriority::Sweep,
         PaymentPriority::Equity,
     ]

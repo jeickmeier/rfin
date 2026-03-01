@@ -6,7 +6,7 @@
       "currency": "USD"
     },
     "amort": {
-      "PercentPerPeriod": {
+      "PercentOfOriginalPerPeriod": {
         "pct": 0.05
       }
     }

@@ -167,7 +167,7 @@ fn test_amortization_spec_step_remaining_validation_increasing() {
 fn test_amortization_spec_percent_per_period_validation() {
     let notional = Notional {
         initial: Money::new(1_000_000.0, Currency::USD),
-        amort: AmortizationSpec::PercentPerPeriod { pct: 0.05 },
+        amort: AmortizationSpec::PercentOfOriginalPerPeriod { pct: 0.05 },
     };
 
     let result = notional.validate();
@@ -220,7 +220,7 @@ fn test_amortization_spec_default() {
 fn test_amortization_spec_percent_nan_rejected() {
     let notional = Notional {
         initial: Money::new(1_000_000.0, Currency::USD),
-        amort: AmortizationSpec::PercentPerPeriod { pct: f64::NAN },
+        amort: AmortizationSpec::PercentOfOriginalPerPeriod { pct: f64::NAN },
     };
 
     let result = notional.validate();
@@ -231,7 +231,7 @@ fn test_amortization_spec_percent_nan_rejected() {
 fn test_amortization_spec_percent_infinity_rejected() {
     let notional = Notional {
         initial: Money::new(1_000_000.0, Currency::USD),
-        amort: AmortizationSpec::PercentPerPeriod { pct: f64::INFINITY },
+        amort: AmortizationSpec::PercentOfOriginalPerPeriod { pct: f64::INFINITY },
     };
 
     let result = notional.validate();
@@ -242,7 +242,7 @@ fn test_amortization_spec_percent_infinity_rejected() {
 fn test_amortization_spec_percent_neg_infinity_rejected() {
     let notional = Notional {
         initial: Money::new(1_000_000.0, Currency::USD),
-        amort: AmortizationSpec::PercentPerPeriod {
+        amort: AmortizationSpec::PercentOfOriginalPerPeriod {
             pct: f64::NEG_INFINITY,
         },
     };
@@ -258,7 +258,7 @@ fn test_amortization_spec_percent_neg_infinity_rejected() {
 fn test_amortization_spec_percent_negative_rejected() {
     let notional = Notional {
         initial: Money::new(1_000_000.0, Currency::USD),
-        amort: AmortizationSpec::PercentPerPeriod { pct: -0.05 },
+        amort: AmortizationSpec::PercentOfOriginalPerPeriod { pct: -0.05 },
     };
 
     let result = notional.validate();
@@ -269,7 +269,7 @@ fn test_amortization_spec_percent_negative_rejected() {
 fn test_amortization_spec_percent_over_100_rejected() {
     let notional = Notional {
         initial: Money::new(1_000_000.0, Currency::USD),
-        amort: AmortizationSpec::PercentPerPeriod { pct: 1.5 },
+        amort: AmortizationSpec::PercentOfOriginalPerPeriod { pct: 1.5 },
     };
 
     let result = notional.validate();
@@ -280,7 +280,7 @@ fn test_amortization_spec_percent_over_100_rejected() {
 fn test_amortization_spec_percent_zero_ok() {
     let notional = Notional {
         initial: Money::new(1_000_000.0, Currency::USD),
-        amort: AmortizationSpec::PercentPerPeriod { pct: 0.0 },
+        amort: AmortizationSpec::PercentOfOriginalPerPeriod { pct: 0.0 },
     };
 
     let result = notional.validate();
@@ -291,7 +291,7 @@ fn test_amortization_spec_percent_zero_ok() {
 fn test_amortization_spec_percent_100_ok() {
     let notional = Notional {
         initial: Money::new(1_000_000.0, Currency::USD),
-        amort: AmortizationSpec::PercentPerPeriod { pct: 1.0 },
+        amort: AmortizationSpec::PercentOfOriginalPerPeriod { pct: 1.0 },
     };
 
     let result = notional.validate();
@@ -449,7 +449,7 @@ mod computation {
         let mut builder = CashFlowSchedule::builder();
         let _ = builder
             .principal(init, issue, maturity)
-            .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
+            .amortization(AmortizationSpec::PercentOfOriginalPerPeriod { pct: 0.25 })
             .fixed_cf(standard_fixed_spec());
 
         let schedule = builder.build_with_curves(None).unwrap();
@@ -512,7 +512,7 @@ mod computation {
         let mut builder = CashFlowSchedule::builder();
         let _ = builder
             .principal(init, issue, maturity)
-            .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
+            .amortization(AmortizationSpec::PercentOfOriginalPerPeriod { pct: 0.25 })
             .fixed_cf(standard_fixed_spec());
 
         let schedule = builder.build_with_curves(None).unwrap();

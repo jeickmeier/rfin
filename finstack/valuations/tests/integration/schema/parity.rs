@@ -173,7 +173,7 @@ const CANONICAL_AMORTIZATION_VARIANTS: &[&str] = &[
     "CustomPrincipal",
     "LinearTo",
     "None",
-    "PercentPerPeriod",
+    "PercentOfOriginalPerPeriod",
     "StepRemaining",
 ];
 

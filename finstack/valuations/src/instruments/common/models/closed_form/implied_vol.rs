@@ -9,6 +9,7 @@
 
 use finstack_core::Result;
 
+use crate::instruments::common_impl::models::closed_form::greeks::bs_vega;
 use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
 use crate::instruments::common_impl::parameters::OptionType;
 
@@ -22,8 +23,12 @@ const MIN_VOL: f64 = 1e-8;
 const MAX_VOL: f64 = 10.0;
 /// Default absolute tolerance on price during solve (per-unit price).
 const PRICE_TOL: f64 = 1e-10;
-/// Default maximum bisection iterations.
+/// Default maximum solver iterations.
 const MAX_ITER: usize = 200;
+/// Maximum Newton-Raphson iterations before falling back to bisection.
+const MAX_NEWTON_ITER: usize = 15;
+/// Minimum vega for Newton step to be accepted (avoid division by near-zero).
+const MIN_VEGA: f64 = 1e-15;
 
 /// Solve for Black–Scholes / Garman–Kohlhagen implied volatility.
 ///
@@ -80,8 +85,37 @@ pub fn bs_implied_vol(
         return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
     }
 
-    // Bisection.
+    // Newton-Raphson with bisection fallback.
+    // bs_vega returns dPrice/dSigma scaled by 0.01, so multiply by 100 for raw vega.
+    let raw_vega_at = |sigma: f64| -> f64 { bs_vega(spot, strike, t, r, q, sigma) * 100.0 };
+
     let mut mid = 0.5 * (lo + hi);
+
+    // Phase 1: Newton-Raphson (quadratic convergence near root)
+    for _ in 0..MAX_NEWTON_ITER {
+        let f_mid = price_at(mid) - target_price;
+        if f_mid.abs() < PRICE_TOL {
+            return Ok(mid);
+        }
+        let vega = raw_vega_at(mid);
+        if vega.abs() < MIN_VEGA {
+            break; // vega too small; fall through to bisection
+        }
+        let step = f_mid / vega;
+        let candidate = mid - step;
+        if candidate <= lo || candidate >= hi || !candidate.is_finite() {
+            break; // Newton step out of bracket; fall through to bisection
+        }
+        // Update bracket
+        if f_mid > 0.0 {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+        mid = candidate;
+    }
+
+    // Phase 2: Bisection fallback (guaranteed convergence)
     for _ in 0..MAX_ITER {
         mid = 0.5 * (lo + hi);
         let f_mid = price_at(mid) - target_price;
@@ -153,7 +187,34 @@ pub fn black76_implied_vol(
         return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
     }
 
+    // Newton-Raphson with bisection fallback.
+    // For Black-76: vega = df * d(bs_price(F,K,0,0,sigma,t))/d(sigma)
+    let raw_vega_at =
+        |sigma: f64| -> f64 { df * bs_vega(forward, strike, t, 0.0, 0.0, sigma) * 100.0 };
+
     let mut mid = 0.5 * (lo + hi);
+
+    for _ in 0..MAX_NEWTON_ITER {
+        let f_mid = price_at(mid) - target_price;
+        if f_mid.abs() < PRICE_TOL {
+            return Ok(mid);
+        }
+        let vega = raw_vega_at(mid);
+        if vega.abs() < MIN_VEGA {
+            break;
+        }
+        let candidate = mid - f_mid / vega;
+        if candidate <= lo || candidate >= hi || !candidate.is_finite() {
+            break;
+        }
+        if f_mid > 0.0 {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+        mid = candidate;
+    }
+
     for _ in 0..MAX_ITER {
         mid = 0.5 * (lo + hi);
         let f_mid = price_at(mid) - target_price;

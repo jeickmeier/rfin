@@ -202,6 +202,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for TenorArg {
         // Try string parsing
         if let Ok(name) = obj.extract::<&str>() {
             let normalized = normalize_label(name);
+            if let Ok(payments) = normalized.parse::<u32>() {
+                return Tenor::from_payments_per_year(payments)
+                    .map(TenorArg)
+                    .map_err(|msg| pyo3::exceptions::PyValueError::new_err(msg.to_string()));
+            }
             let tenor = match normalized.as_str() {
                 "annual" | "1y" | "yearly" => Tenor::annual(),
                 "semiannual" | "semi_annual" | "6m" | "semi" => Tenor::semi_annual(),
@@ -211,14 +216,6 @@ impl<'a, 'py> FromPyObject<'a, 'py> for TenorArg {
                 "weekly" | "1w" => Tenor::weekly(),
                 "daily" | "1d" => Tenor::daily(),
                 other => {
-                    // Try parsing as payments per year
-                    if let Ok(payments) = other.parse::<u32>() {
-                        return Tenor::from_payments_per_year(payments)
-                            .map(TenorArg)
-                            .map_err(|msg| {
-                                pyo3::exceptions::PyValueError::new_err(msg.to_string())
-                            });
-                    }
                     return Err(pyo3::exceptions::PyValueError::new_err(format!(
                         "Unknown frequency/tenor: {other}"
                     )));
@@ -321,28 +318,22 @@ fn extract_from_dict(obj: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(f64, f64)>>
 
 fn extract_from_pandas(obj: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(f64, f64)>>> {
     // Check for "items" method which returns iterator of (index, value)
-    if let Ok(items_method) = obj.getattr("items") {
-        if let Ok(iter) = items_method.call0()?.try_iter() {
-            let mut results = Vec::new();
-            for item in iter {
-                let item = item?;
-                // Check if item is a pair (k, v)
-                if let Ok((k, v)) = item.extract::<(f64, f64)>() {
-                    results.push((k, v));
-                } else {
-                    // If items() returns something else (unlikely for Series/Dict but possible for others)
-                    // we might want to bail out or treat it as failure of this method.
-                    // However, for Series.items(), it should return pairs.
-                    // If we fail here, maybe we should return Err?
-                    // But "items" might exist on other objects.
-                    // Let's assume if it has items(), it should behave like dict/series items.
-                    return Err(PyTypeError::new_err("Expected pair from items() iterator"));
-                }
-            }
-            return Ok(Some(results));
-        }
+    let Ok(items_method) = obj.getattr("items") else {
+        return Ok(None);
+    };
+    let Ok(iter) = items_method.call0()?.try_iter() else {
+        return Ok(None);
+    };
+
+    let mut results = Vec::new();
+    for item in iter {
+        let item = item?;
+        let pair = item
+            .extract::<(f64, f64)>()
+            .map_err(|_| PyTypeError::new_err("Expected pair from items() iterator"))?;
+        results.push(pair);
     }
-    Ok(None)
+    Ok(Some(results))
 }
 
 fn extract_from_sequence(obj: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(f64, f64)>>> {

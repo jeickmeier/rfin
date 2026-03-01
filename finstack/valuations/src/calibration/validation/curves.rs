@@ -53,10 +53,14 @@ impl CurveValidator for DiscountCurve {
             return Ok(());
         }
 
-        // Check forward rate positivity
+        let max_knot_arbi = self.knots().last().copied().unwrap_or(0.0);
+
         for i in 0..DF_ARBI_POINTS.len() - 1 {
             let t1 = DF_ARBI_POINTS[i];
             let t2 = DF_ARBI_POINTS[i + 1];
+            if t2 > max_knot_arbi + 0.01 {
+                break;
+            }
 
             let df1 = self.df(t1);
             let df2 = self.df(t2);
@@ -120,8 +124,12 @@ impl CurveValidator for DiscountCurve {
         // In positive-rate environments (or when negative rates not allowed),
         // enforce strict monotonicity - this is the market standard constraint
         let mut prev_df = 1.0;
+        let max_knot = self.knots().last().copied().unwrap_or(0.0);
 
         for &t in DF_MONO_POINTS {
+            if t > max_knot + 0.01 {
+                break;
+            }
             let df = self.df(t);
 
             // Allow for numerical tolerance
@@ -151,7 +159,12 @@ impl CurveValidator for DiscountCurve {
             1.0
         };
 
+        let max_knot_bounds = self.knots().last().copied().unwrap_or(0.0);
+
         for &t in DF_BOUNDS_POINTS {
+            if t > max_knot_bounds + 0.01 {
+                break;
+            }
             let df = self.df(t);
 
             if df <= 0.0 {
@@ -179,8 +192,10 @@ impl CurveValidator for DiscountCurve {
             }
         }
 
-        // Check zero rates are reasonable
         for &t in DF_BOUNDS_POINTS {
+            if t > max_knot_bounds + 0.01 {
+                break;
+            }
             let rate = self.zero(t);
 
             // Allow slightly negative rates but not too extreme

@@ -424,7 +424,7 @@ impl PyInterestRateSwapBuilder {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_lag_days: 0,
+            payment_lag_days: -1,
             end_of_month: false,
         };
 
@@ -443,7 +443,7 @@ impl PyInterestRateSwapBuilder {
             end,
             compounding: Default::default(),
             fixing_calendar_id: calendar,
-            payment_lag_days: 0,
+            payment_lag_days: -1,
             end_of_month: false,
         };
 

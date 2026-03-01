@@ -15,6 +15,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyList, PyModule, PyType};
 use pyo3::Bound;
+use std::str::FromStr;
 
 /// Builder for financial models.
 ///
@@ -433,6 +434,79 @@ impl PyModelBuilder {
     }
 
     #[pyo3(
+        text_signature = "(self, id, notional, coupon_rate, issue_date, maturity_date, convention, discount_curve_id)"
+    )]
+    /// Add a bond with a named market convention to the capital structure.
+    ///
+    /// Uses pre-configured regional conventions that set day count, coupon
+    /// frequency, settlement days, and business-day rules automatically.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Unique instrument identifier
+    /// notional : Money
+    ///     Principal amount
+    /// coupon_rate : float
+    ///     Annual coupon rate (e.g., 0.05 for 5%)
+    /// issue_date : date
+    ///     Bond issue date
+    /// maturity_date : date
+    ///     Bond maturity date
+    /// convention : str
+    ///     Market convention name. Supported values:
+    ///     ``"us_treasury"`` / ``"UST"``, ``"us_agency"``,
+    ///     ``"german_bund"``, ``"uk_gilt"``, ``"french_oat"``,
+    ///     ``"jgb"``, ``"corporate"``
+    /// discount_curve_id : str
+    ///     Discount curve ID for pricing
+    ///
+    /// Returns
+    /// -------
+    /// None
+    fn add_bond_with_convention(
+        &mut self,
+        id: String,
+        notional: &crate::core::money::PyMoney,
+        coupon_rate: f64,
+        issue_date: &Bound<'_, PyAny>,
+        maturity_date: &Bound<'_, PyAny>,
+        convention: &str,
+        discount_curve_id: String,
+    ) -> PyResult<()> {
+        use crate::core::dates::utils::py_to_date;
+
+        let issue = py_to_date(issue_date)?;
+        let maturity = py_to_date(maturity_date)?;
+
+        let bond_conv = finstack_valuations::instruments::BondConvention::from_str(convention)
+            .map_err(|_| {
+                PyValueError::new_err(format!(
+                    "Unknown bond convention '{}'. Supported: us_treasury, UST, us_agency, \
+                     german_bund, uk_gilt, french_oat, jgb, corporate",
+                    convention
+                ))
+            })?;
+
+        let rate = finstack_core::types::Rate::from_decimal(coupon_rate);
+
+        let builder = self.take_ready_builder()?;
+        let builder = builder
+            .add_bond_with_convention(
+                id,
+                notional.inner,
+                rate,
+                issue,
+                maturity,
+                bond_conv,
+                discount_curve_id,
+            )
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
+    }
+
+    #[pyo3(
         text_signature = "(self, id, notional, fixed_rate, start_date, maturity_date, discount_curve_id, forward_curve_id)"
     )]
     /// Add an interest rate swap to the capital structure.
@@ -483,6 +557,83 @@ impl PyModelBuilder {
                 maturity,
                 discount_curve_id,
                 forward_curve_id,
+            )
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
+    }
+
+    #[pyo3(
+        text_signature = "(self, id, notional, fixed_rate, start_date, maturity_date, discount_curve_id, forward_curve_id, fixed_freq, fixed_dc, float_freq, float_dc, bdc)"
+    )]
+    /// Add an interest rate swap with explicit leg conventions.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Unique instrument identifier
+    /// notional : Money
+    ///     Notional amount
+    /// fixed_rate : float
+    ///     Fixed rate (e.g., 0.04 for 4%)
+    /// start_date : date
+    ///     Swap start date
+    /// maturity_date : date
+    ///     Swap maturity date
+    /// discount_curve_id : str
+    ///     Discount curve ID
+    /// forward_curve_id : str
+    ///     Forward curve ID for floating leg
+    /// fixed_freq : Tenor
+    ///     Fixed leg payment frequency (e.g., ``Tenor.semi_annual()``)
+    /// fixed_dc : DayCount
+    ///     Fixed leg day count (e.g., ``DayCount.THIRTY_360``)
+    /// float_freq : Tenor
+    ///     Float leg payment frequency (e.g., ``Tenor.quarterly()``)
+    /// float_dc : DayCount
+    ///     Float leg day count (e.g., ``DayCount.ACT_360``)
+    /// bdc : BusinessDayConvention
+    ///     Business day convention (e.g., ``BusinessDayConvention.MODIFIED_FOLLOWING``)
+    ///
+    /// Returns
+    /// -------
+    /// None
+    #[allow(clippy::too_many_arguments)]
+    fn add_swap_with_conventions(
+        &mut self,
+        id: String,
+        notional: &crate::core::money::PyMoney,
+        fixed_rate: f64,
+        start_date: &Bound<'_, PyAny>,
+        maturity_date: &Bound<'_, PyAny>,
+        discount_curve_id: String,
+        forward_curve_id: String,
+        fixed_freq: &crate::core::dates::tenor::PyTenor,
+        fixed_dc: &crate::core::dates::daycount::PyDayCount,
+        float_freq: &crate::core::dates::tenor::PyTenor,
+        float_dc: &crate::core::dates::daycount::PyDayCount,
+        bdc: &crate::core::dates::calendar::PyBusinessDayConvention,
+    ) -> PyResult<()> {
+        use crate::core::dates::utils::py_to_date;
+
+        let start = py_to_date(start_date)?;
+        let maturity = py_to_date(maturity_date)?;
+
+        let builder = self.take_ready_builder()?;
+        let builder = builder
+            .add_swap_with_conventions(
+                id,
+                notional.inner,
+                fixed_rate,
+                start,
+                maturity,
+                discount_curve_id,
+                forward_curve_id,
+                fixed_freq.inner,
+                fixed_dc.inner,
+                float_freq.inner,
+                float_dc.inner,
+                bdc.inner,
             )
             .map_err(stmt_to_py)?;
         self.state = BuilderState::Ready(Some(builder));

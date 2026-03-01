@@ -8,6 +8,14 @@
 //!
 //! Typical flow: configure an `FxMatrix`, load direct quotes, then call
 //! `rate(from, to, on, policy)` to evaluate an FX rate for a given date.
+//!
+//! ## Important: market conventions are not modeled here
+//!
+//! This module is a quote graph (direct quotes + optional triangulation). It does **not**
+//! model FX market conventions such as spot-lag (T+1/T+2), joint calendars, cutoffs, or
+//! forward-point/settlement conventions. If you need market-standard FX spot/forward
+//! economics, model those explicitly at the instrument layer and treat `FxMatrix` as the
+//! source of *rates*.
 use crate::core::currency::PyCurrency;
 // use crate::core::common::args::{ExtrapolationPolicyArg, CurrencyArg};
 use crate::core::dates::utils::py_to_date;
@@ -26,10 +34,16 @@ use std::sync::Arc;
 /// Returns a `ValueError` if the policy name is unrecognized.
 fn parse_policy_from_str(value: &str) -> PyResult<FxConversionPolicy> {
     match value.to_ascii_lowercase().as_str() {
-        "cashflow_date" | "cashflow" | "spot" => Ok(FxConversionPolicy::CashflowDate),
+        "cashflow_date" | "cashflow" => Ok(FxConversionPolicy::CashflowDate),
         "period_end" | "end" => Ok(FxConversionPolicy::PeriodEnd),
         "period_average" | "average" => Ok(FxConversionPolicy::PeriodAverage),
         "custom" => Ok(FxConversionPolicy::Custom),
+        // "spot" is market terminology for FX settlement/value-date conventions (e.g. T+1/T+2),
+        // not a cashflow conversion timing policy. Reject to avoid silent economic mismatch.
+        "spot" => Err(PyValueError::new_err(
+            "FX conversion policy 'spot' is ambiguous: 'spot' typically refers to settlement/value-date conventions (T+1/T+2). \
+Use 'cashflow_date' for conversion timing, and model spot settlement separately if needed.",
+        )),
         other => Err(PyValueError::new_err(format!(
             "Unknown FX conversion policy: {other}"
         ))),
@@ -308,6 +322,12 @@ pub(crate) fn parse_policy(
 /// config : FxConfig, optional
 ///     Configuration overrides such as triangulation and cache capacity.
 ///
+/// Notes
+/// -----
+/// `FxMatrix` is a quote graph and **does not** implement FX market conventions such as
+/// spot-lag (T+1/T+2), calendars, or settlement/value-date rules. It will return the best
+/// available rate implied by the stored direct quotes (and optional triangulation).
+///
 /// Returns
 /// -------
 /// FxMatrix
@@ -492,17 +512,45 @@ impl PyFxMatrix {
     /// bool
     ///     ``True`` if a rate can be resolved for the pair.
     fn __contains__(&self, pair: (PyCurrency, PyCurrency)) -> bool {
-        use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
-        // Use a fixed date for the existence check
-        let date =
-            time::Date::from_calendar_date(2000, time::Month::January, 1).expect("valid date");
-        let query = FxQuery::with_policy(
-            pair.0.inner,
-            pair.1.inner,
-            date,
-            FxConversionPolicy::CashflowDate,
-        );
-        self.inner.rate(query).is_ok()
+        let from = pair.0.inner;
+        let to = pair.1.inner;
+        if from == to {
+            return true;
+        }
+
+        // `__contains__` should answer "do we have a quote?" rather than depending on
+        // date/policy semantics (which may evolve to include calendars/settlement logic).
+        self.provider.get_direct(from, to).is_some() || self.provider.get_direct(to, from).is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+
+    #[test]
+    fn policy_from_name_rejects_spot_alias() {
+        // Ensure we never silently interpret FX "spot" as a cashflow conversion policy.
+        let err = parse_policy_from_str("spot").expect_err("spot must be rejected");
+        assert!(err.to_string().to_ascii_lowercase().contains("ambiguous"));
+    }
+
+    #[test]
+    fn fx_matrix_contains_checks_direct_or_reciprocal_quote() {
+        let fx = PyFxMatrix::ctor(None);
+        let eur = PyCurrency::new(Currency::EUR);
+        let usd = PyCurrency::new(Currency::USD);
+
+        assert!(!fx.__contains__((eur, usd)));
+        assert!(!fx.__contains__((usd, eur)));
+
+        fx.set_quote(&eur, &usd, 1.10)
+            .expect("set_quote should succeed");
+
+        assert!(fx.__contains__((eur, usd)));
+        // reciprocal presence counts as "contains"
+        assert!(fx.__contains__((usd, eur)));
     }
 }
 

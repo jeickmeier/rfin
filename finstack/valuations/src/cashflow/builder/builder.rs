@@ -113,7 +113,7 @@ struct AmortizationSetup {
     amort_dates: finstack_core::HashSet<Date>,
     step_remaining_map: Option<finstack_core::HashMap<Date, Money>>, // for StepRemaining
     linear_delta: Option<f64>,                                       // for LinearTo
-    percent_per: Option<f64>,                                        // for PercentPerPeriod
+    percent_per: Option<f64>, // for PercentOfOriginalPerPeriod
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -182,7 +182,7 @@ fn derive_amortization_setup(
     // Determine base cadence schedule for linear/percent amortization by
     // borrowing the first available schedule instead of cloning dates.
     let amort_base: Option<&[Date]> = match notional.amort {
-        AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. } => {
+        AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentOfOriginalPerPeriod { .. } => {
             if let Some((_, ds, _, _)) = fixed_schedules.first() {
                 Some(ds.as_slice())
             } else if let Some((_, ds, _)) = float_schedules.first() {
@@ -197,7 +197,7 @@ fn derive_amortization_setup(
     if amort_base.is_none()
         && matches!(
             notional.amort,
-            AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. }
+            AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentOfOriginalPerPeriod { .. }
         )
     {
         return Err(InputError::Invalid.into());
@@ -229,7 +229,7 @@ fn derive_amortization_setup(
                 None,
             )
         }
-        AmortizationSpec::PercentPerPeriod { pct } => {
+        AmortizationSpec::PercentOfOriginalPerPeriod { pct } => {
             (None, Some((notional.initial.amount() * *pct).max(0.0)))
         }
         _ => (None, None),
@@ -697,20 +697,20 @@ impl CashFlowBuilder {
             index_id,
             spread_bp,
             gearing,
-            gearing_includes_spread: _,
-            floor_bp: _,
-            cap_bp: _,
-            all_in_floor_bp: _,
-            index_cap_bp: _,
+            gearing_includes_spread,
+            floor_bp,
+            cap_bp,
+            all_in_floor_bp,
+            index_cap_bp,
             reset_freq: _,
             reset_lag_days,
             dc,
             bdc,
             calendar_id,
-            fixing_calendar_id: _fixing_calendar_id,
+            fixing_calendar_id,
             end_of_month,
             payment_lag_days,
-            overnight_compounding: _,
+            overnight_compounding,
         } = rate_spec;
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow {
@@ -731,6 +731,13 @@ impl CashFlowBuilder {
                 margin_bp: spread_bp,
                 gearing,
                 reset_lag_days,
+                gearing_includes_spread,
+                floor_bp,
+                cap_bp,
+                all_in_floor_bp,
+                index_cap_bp,
+                fixing_calendar_id,
+                overnight_compounding,
             },
         });
         self.payment_program.push(PaymentProgramPiece {
@@ -853,6 +860,13 @@ impl CashFlowBuilder {
                 margin_bp: params.margin_bp,
                 gearing: params.gearing,
                 reset_lag_days: params.reset_lag_days,
+                gearing_includes_spread: true,
+                floor_bp: None,
+                cap_bp: None,
+                all_in_floor_bp: None,
+                index_cap_bp: None,
+                fixing_calendar_id: None,
+                overnight_compounding: None,
             },
         });
         self.payment_program.push(PaymentProgramPiece {

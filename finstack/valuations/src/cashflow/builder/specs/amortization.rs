@@ -26,8 +26,13 @@ pub enum AmortizationSpec {
         /// Ordered list of `(date, remaining_principal_after_date)`.
         schedule: Vec<(Date, Money)>,
     },
-    /// Fixed percentage of original notional paid each period (capped by remaining outstanding).
-    PercentPerPeriod {
+    /// Fixed percentage of **original** notional paid each period (capped by remaining outstanding).
+    ///
+    /// This is a sinking-fund style amortization where the payment amount is constant
+    /// across periods: `initial_notional * pct`. It does **not** compound (i.e., it is
+    /// NOT percentage-of-remaining / declining-balance / mortgage-style).
+    #[serde(alias = "PercentPerPeriod")]
+    PercentOfOriginalPerPeriod {
         /// Fraction of original notional paid per period (e.g., 0.05 = 5%).
         pct: f64,
     },
@@ -157,16 +162,16 @@ impl Notional {
                 }
                 Ok(())
             }
-            AmortizationSpec::PercentPerPeriod { pct } => {
+            AmortizationSpec::PercentOfOriginalPerPeriod { pct } => {
                 if !pct.is_finite() {
                     return Err(finstack_core::Error::Validation(format!(
-                        "PercentPerPeriod pct must be finite; got {}",
+                        "PercentOfOriginalPerPeriod pct must be finite; got {}",
                         pct
                     )));
                 }
                 if *pct < 0.0 || *pct > 1.0 {
                     return Err(finstack_core::Error::Validation(format!(
-                        "PercentPerPeriod pct must be in [0.0, 1.0]; got {}",
+                        "PercentOfOriginalPerPeriod pct must be in [0.0, 1.0]; got {}",
                         pct
                     )));
                 }

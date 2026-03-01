@@ -156,7 +156,7 @@ impl PyRepoBuilder {
             maturity: None,
             discount_curve_id: None,
             repo_type: RepoType::Term,
-            haircut: 0.0,
+            haircut: 0.02,
             day_count: finstack_core::dates::DayCount::Act360,
             business_day_convention: BusinessDayConvention::Following,
             calendar: None,

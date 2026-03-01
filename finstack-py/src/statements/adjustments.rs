@@ -141,19 +141,10 @@ pub struct PyNormalizationEngine;
 impl PyNormalizationEngine {
     #[staticmethod]
     pub fn normalize(
-        py: Python<'_>,
-        results: Py<PyAny>,
-        config: Py<PyAny>,
+        results: &PyStatementResult,
+        config: &PyNormalizationConfig,
     ) -> PyResult<Vec<PyNormalizationResult>> {
-        let results_bound = results.bind(py);
-        let config_bound = config.bind(py);
-
-        let results: &Bound<'_, PyStatementResult> = results_bound.cast()?;
-        let config: &Bound<'_, PyNormalizationConfig> = config_bound.cast()?;
-
-        let results_ref = results.borrow();
-        let config_ref = config.borrow();
-        let res = RustNormalizationEngine::normalize(&results_ref.inner, &config_ref.inner)
+        let res = RustNormalizationEngine::normalize(&results.inner, &config.inner)
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         Ok(res
@@ -164,22 +155,17 @@ impl PyNormalizationEngine {
 
     #[staticmethod]
     pub fn merge_into_results(
-        py: Python<'_>,
-        results: Py<PyAny>,
+        results: &mut PyStatementResult,
         normalization_results: Vec<PyRef<'_, PyNormalizationResult>>,
         output_node_id: String,
     ) -> PyResult<()> {
-        let results_bound = results.bind(py);
-        let results: &Bound<'_, PyStatementResult> = results_bound.cast()?;
-
         let rust_results: Vec<RustNormalizationResult> = normalization_results
             .into_iter()
-            .map(|r| r.inner.clone()) // PyRef derefs to the struct, we clone inner
+            .map(|r| r.inner.clone())
             .collect();
 
-        let mut results_mut = results.borrow_mut();
         RustNormalizationEngine::merge_into_results(
-            &mut results_mut.inner,
+            &mut results.inner,
             &rust_results,
             &output_node_id,
         );

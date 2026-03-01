@@ -368,8 +368,8 @@ AmortizationSpec::StepRemaining {
     ],
 }
 
-// Percentage per period
-AmortizationSpec::PercentPerPeriod {
+// Fixed percentage of original notional per period (sinking-fund style)
+AmortizationSpec::PercentOfOriginalPerPeriod {
     pct: 0.05,  // 5% of original notional per period
 }
 

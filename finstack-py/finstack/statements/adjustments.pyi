@@ -9,7 +9,8 @@ static analyzers (pyright/basedpyright) can resolve
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+
+from .evaluator import StatementResult
 
 class NormalizationConfig:
     def __init__(self, target_node: str) -> None: ...
@@ -44,10 +45,10 @@ class NormalizationResult:
 
 class NormalizationEngine:
     @staticmethod
-    def normalize(results: Any, config: Any) -> list[NormalizationResult]: ...
+    def normalize(results: StatementResult, config: NormalizationConfig) -> list[NormalizationResult]: ...
     @staticmethod
     def merge_into_results(
-        results: Any,
+        results: StatementResult,
         normalization_results: Sequence[NormalizationResult],
         output_node_id: str,
     ) -> None: ...

@@ -135,6 +135,18 @@ pub struct PyPLSummaryReport {
     results: PyStatementResult,
     line_items: Vec<String>,
     periods: Vec<finstack_core::dates::PeriodId>,
+    cached_string: std::sync::OnceLock<String>,
+    cached_markdown: std::sync::OnceLock<String>,
+}
+
+impl PyPLSummaryReport {
+    fn build_report(&self) -> PLSummaryReport<'_> {
+        PLSummaryReport::new(
+            &self.results.inner,
+            self.line_items.clone(),
+            self.periods.clone(),
+        )
+    }
 }
 
 #[pymethods]
@@ -165,6 +177,8 @@ impl PyPLSummaryReport {
             results: results.clone(),
             line_items,
             periods: periods.into_iter().map(|p| p.inner).collect(),
+            cached_string: std::sync::OnceLock::new(),
+            cached_markdown: std::sync::OnceLock::new(),
         }
     }
 
@@ -176,12 +190,9 @@ impl PyPLSummaryReport {
     /// str
     ///     Formatted report
     fn render_string(&self) -> String {
-        let report = PLSummaryReport::new(
-            &self.results.inner,
-            self.line_items.clone(),
-            self.periods.clone(),
-        );
-        report.to_string()
+        self.cached_string
+            .get_or_init(|| self.build_report().to_string())
+            .clone()
     }
 
     #[pyo3(signature = ())]
@@ -192,23 +203,15 @@ impl PyPLSummaryReport {
     /// str
     ///     Markdown formatted report
     fn to_markdown(&self) -> String {
-        let report = PLSummaryReport::new(
-            &self.results.inner,
-            self.line_items.clone(),
-            self.periods.clone(),
-        );
-        report.to_markdown()
+        self.cached_markdown
+            .get_or_init(|| self.build_report().to_markdown())
+            .clone()
     }
 
     #[pyo3(signature = ())]
     /// Print report to stdout.
     fn print(&self) {
-        let report = PLSummaryReport::new(
-            &self.results.inner,
-            self.line_items.clone(),
-            self.periods.clone(),
-        );
-        report.print();
+        println!("{}", self.render_string());
     }
 
     fn __repr__(&self) -> String {
@@ -232,6 +235,14 @@ impl PyPLSummaryReport {
 pub struct PyCreditAssessmentReport {
     results: PyStatementResult,
     as_of: finstack_core::dates::PeriodId,
+    cached_string: std::sync::OnceLock<String>,
+    cached_markdown: std::sync::OnceLock<String>,
+}
+
+impl PyCreditAssessmentReport {
+    fn build_report(&self) -> CreditAssessmentReport<'_> {
+        CreditAssessmentReport::new(&self.results.inner, self.as_of)
+    }
 }
 
 #[pymethods]
@@ -255,6 +266,8 @@ impl PyCreditAssessmentReport {
         Self {
             results: results.clone(),
             as_of: as_of.inner,
+            cached_string: std::sync::OnceLock::new(),
+            cached_markdown: std::sync::OnceLock::new(),
         }
     }
 
@@ -266,8 +279,9 @@ impl PyCreditAssessmentReport {
     /// str
     ///     Formatted report
     fn render_string(&self) -> String {
-        let report = CreditAssessmentReport::new(&self.results.inner, self.as_of);
-        report.to_string()
+        self.cached_string
+            .get_or_init(|| self.build_report().to_string())
+            .clone()
     }
 
     #[pyo3(signature = ())]
@@ -278,15 +292,15 @@ impl PyCreditAssessmentReport {
     /// str
     ///     Markdown formatted report
     fn to_markdown(&self) -> String {
-        let report = CreditAssessmentReport::new(&self.results.inner, self.as_of);
-        report.to_markdown()
+        self.cached_markdown
+            .get_or_init(|| self.build_report().to_markdown())
+            .clone()
     }
 
     #[pyo3(signature = ())]
     /// Print report to stdout.
     fn print(&self) {
-        let report = CreditAssessmentReport::new(&self.results.inner, self.as_of);
-        report.print();
+        println!("{}", self.render_string());
     }
 
     fn __repr__(&self) -> String {

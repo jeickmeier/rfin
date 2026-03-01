@@ -63,7 +63,7 @@ impl PyAmortizationSpec {
     /// Fixed percentage of original notional paid each period (e.g., 0.05 = 5%).
     fn percent_per_period(_cls: &Bound<'_, PyType>, pct: f64) -> Self {
         Self {
-            inner: AmortizationSpec::PercentPerPeriod { pct },
+            inner: AmortizationSpec::PercentOfOriginalPerPeriod { pct },
         }
     }
 
@@ -91,7 +91,7 @@ impl PyAmortizationSpec {
             AmortizationSpec::StepRemaining { .. } => {
                 "AmortizationSpec.step_remaining(...)".to_string()
             }
-            AmortizationSpec::PercentPerPeriod { pct } => {
+            AmortizationSpec::PercentOfOriginalPerPeriod { pct } => {
                 format!("AmortizationSpec.percent_per_period({pct})")
             }
             AmortizationSpec::CustomPrincipal { .. } => {

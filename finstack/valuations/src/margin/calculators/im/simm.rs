@@ -33,12 +33,14 @@ use crate::margin::config::margin_registry_from_config;
 use crate::margin::registry::{embedded_registry, MarginRegistry, SimmParams};
 use crate::margin::traits::{SimmRiskClass, SimmSensitivities};
 use crate::margin::types::ImMethodology;
+use crate::metrics::{standard_registry, MetricContext, MetricId, StrictMode};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
 use finstack_core::Result;
+use std::sync::Arc;
 
 /// SIMM version identifier.
 #[derive(
@@ -516,27 +518,52 @@ impl ImCalculator for SimmCalculator {
         context: &MarketContext,
         as_of: Date,
     ) -> Result<ImResult> {
-        // Get instrument value for scaling
         let pv = instrument.value(context, as_of)?;
         let currency = pv.currency();
 
-        // Simplified: estimate sensitivities from PV
-        // In production, this would use actual DV01/CS01/Greek calculations
-        let notional = pv.amount().abs();
+        // Compute actual sensitivities via the metrics framework
+        let instrument_arc: Arc<dyn Instrument> = Arc::from(instrument.clone_box());
+        let mut metric_ctx = MetricContext::new(
+            instrument_arc,
+            Arc::new(context.clone()),
+            as_of,
+            pv,
+            MetricContext::default_config(),
+        );
 
-        // Heuristic: estimate DV01 as ~0.01% of notional per year of duration
-        // This is a rough approximation - real implementation would compute actual Greeks
-        let estimated_dv01 = notional * 0.0001 * 5.0; // Assume ~5y duration
+        let metrics_registry = standard_registry();
+        let metrics = [
+            MetricId::BucketedDv01,
+            MetricId::Dv01,
+            MetricId::BucketedCs01,
+        ];
+        let computed = metrics_registry.compute_with_mode(
+            &metrics,
+            &mut metric_ctx,
+            StrictMode::BestEffort,
+        )?;
+
+        let parallel_dv01 = computed.get(&MetricId::Dv01).copied().unwrap_or(0.0);
+
+        // Build tenor-bucketed DV01 from the metrics framework
+        let dv01_by_tenor: HashMap<String, f64> = metric_ctx
+            .computed_series
+            .get(&MetricId::BucketedDv01)
+            .map(|series| series.iter().map(|(k, v)| (k.clone(), *v)).collect())
+            .unwrap_or_else(|| {
+                // Fall back to parallel DV01 in the 5Y bucket if bucketed is unavailable
+                [("5y".to_string(), parallel_dv01.abs())]
+                    .into_iter()
+                    .collect()
+            });
 
         let mut breakdown = HashMap::default();
         let mut risk_class_margins = HashMap::default();
 
-        // IR risk (primary for IRS, bonds)
-        let ir_margin =
-            self.calculate_ir_delta(&[("5y".to_string(), estimated_dv01)].into_iter().collect());
+        let ir_margin = self.calculate_ir_delta(&dv01_by_tenor);
         risk_class_margins.insert(SimmRiskClass::InterestRate, ir_margin);
         breakdown.insert("interest_rate".to_string(), Money::new(ir_margin, currency));
-        // Aggregate across risk classes
+
         let total_im = self.aggregate_risk_classes(&risk_class_margins);
 
         Ok(ImResult::with_breakdown(

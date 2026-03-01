@@ -45,17 +45,16 @@ impl CallableAdapter {
         match catch_unwind(AssertUnwindSafe(eval)) {
             Ok(value) => self.take_or_return(value),
             Err(payload) => {
-                if payload.downcast_ref::<CallbackPanic>().is_some() {
-                    if let Some(err) = self.error.borrow_mut().take() {
-                        Err(err)
-                    } else {
-                        Err(PyRuntimeError::new_err(
-                            "Python callable failed but no error was captured",
-                        ))
-                    }
-                } else {
+                if payload.downcast_ref::<CallbackPanic>().is_none() {
                     std::panic::resume_unwind(payload)
                 }
+
+                if let Some(err) = self.error.borrow_mut().take() {
+                    return Err(err);
+                }
+                Err(PyRuntimeError::new_err(
+                    "Python callable failed but no error was captured",
+                ))
             }
         }
     }
@@ -80,22 +79,21 @@ impl CallableAdapter {
 
 #[allow(clippy::panic)]
 impl<'a> CallableProxy<'a> {
+    #[cold]
+    fn capture_and_panic(&self, err: PyErr) -> ! {
+        *self.error.borrow_mut() = Some(err);
+        std::panic::panic_any(CallbackPanic);
+    }
+
     fn invoke(&self, x: f64) -> f64 {
         Python::attach(|py| {
             let callable = self.callable.bind(py);
-            match callable.call1((x,)) {
-                Ok(result) => match result.extract::<f64>() {
-                    Ok(value) => value,
-                    Err(err) => {
-                        *self.error.borrow_mut() = Some(err);
-                        std::panic::panic_any(CallbackPanic);
-                    }
-                },
-                Err(err) => {
-                    *self.error.borrow_mut() = Some(err);
-                    std::panic::panic_any(CallbackPanic);
-                }
-            }
+            let result = callable
+                .call1((x,))
+                .unwrap_or_else(|err| self.capture_and_panic(err));
+            result
+                .extract::<f64>()
+                .unwrap_or_else(|err| self.capture_and_panic(err))
         })
     }
 }
@@ -152,17 +150,16 @@ impl VectorCallableAdapter {
         match catch_unwind(AssertUnwindSafe(eval)) {
             Ok(value) => self.take_or_return(value),
             Err(payload) => {
-                if payload.downcast_ref::<CallbackPanic>().is_some() {
-                    if let Some(err) = self.error.borrow_mut().take() {
-                        Err(err)
-                    } else {
-                        Err(PyRuntimeError::new_err(
-                            "Python callable failed but no error was captured",
-                        ))
-                    }
-                } else {
+                if payload.downcast_ref::<CallbackPanic>().is_none() {
                     std::panic::resume_unwind(payload)
                 }
+
+                if let Some(err) = self.error.borrow_mut().take() {
+                    return Err(err);
+                }
+                Err(PyRuntimeError::new_err(
+                    "Python callable failed but no error was captured",
+                ))
             }
         }
     }
@@ -178,66 +175,50 @@ impl VectorCallableAdapter {
 
 #[allow(clippy::panic)]
 impl<'a> VectorCallableProxy<'a> {
+    #[cold]
+    fn capture_and_panic(&self, err: PyErr) -> ! {
+        *self.error.borrow_mut() = Some(err);
+        std::panic::panic_any(CallbackPanic);
+    }
+
+    fn list_from_slice<'py>(&self, py: Python<'py>, params: &[f64]) -> Bound<'py, PyList> {
+        PyList::new(py, params).unwrap_or_else(|err| self.capture_and_panic(err))
+    }
+
     fn invoke_objective(&self, params: &[f64]) -> f64 {
         Python::attach(|py| {
             let callable = self.callable.bind(py);
-            let list = match PyList::new(py, params) {
-                Ok(value) => value,
-                Err(err) => {
-                    *self.error.borrow_mut() = Some(err);
-                    std::panic::panic_any(CallbackPanic);
-                }
-            };
-            match callable.call1((list,)) {
-                Ok(result) => match result.extract::<f64>() {
-                    Ok(value) => value,
-                    Err(err) => {
-                        *self.error.borrow_mut() = Some(err);
-                        std::panic::panic_any(CallbackPanic);
-                    }
-                },
-                Err(err) => {
-                    *self.error.borrow_mut() = Some(err);
-                    std::panic::panic_any(CallbackPanic);
-                }
-            }
+            let list = self.list_from_slice(py, params);
+            let result = callable
+                .call1((list,))
+                .unwrap_or_else(|err| self.capture_and_panic(err));
+            result
+                .extract::<f64>()
+                .unwrap_or_else(|err| self.capture_and_panic(err))
         })
     }
 
     fn invoke_residual(&self, params: &[f64], output: &mut [f64]) {
         Python::attach(|py| {
             let callable = self.callable.bind(py);
-            let list = match PyList::new(py, params) {
-                Ok(value) => value,
-                Err(err) => {
-                    *self.error.borrow_mut() = Some(err);
-                    std::panic::panic_any(CallbackPanic);
-                }
-            };
-            match callable.call1((list,)) {
-                Ok(result) => match result.extract::<Vec<f64>>() {
-                    Ok(values) => {
-                        if values.len() != output.len() {
-                            *self.error.borrow_mut() = Some(PyValueError::new_err(format!(
-                                "Residual function returned {} values, expected {}",
-                                values.len(),
-                                output.len()
-                            )));
-                            std::panic::panic_any(CallbackPanic);
-                        }
-                        for (dest, value) in output.iter_mut().zip(values.into_iter()) {
-                            *dest = value;
-                        }
-                    }
-                    Err(err) => {
-                        *self.error.borrow_mut() = Some(err);
-                        std::panic::panic_any(CallbackPanic);
-                    }
-                },
-                Err(err) => {
-                    *self.error.borrow_mut() = Some(err);
-                    std::panic::panic_any(CallbackPanic);
-                }
+            let list = self.list_from_slice(py, params);
+            let result = callable
+                .call1((list,))
+                .unwrap_or_else(|err| self.capture_and_panic(err));
+            let values = result
+                .extract::<Vec<f64>>()
+                .unwrap_or_else(|err| self.capture_and_panic(err));
+
+            if values.len() != output.len() {
+                self.capture_and_panic(PyValueError::new_err(format!(
+                    "Residual function returned {} values, expected {}",
+                    values.len(),
+                    output.len()
+                )));
+            }
+
+            for (dest, value) in output.iter_mut().zip(values.into_iter()) {
+                *dest = value;
             }
         })
     }

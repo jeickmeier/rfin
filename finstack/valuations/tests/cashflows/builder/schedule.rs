@@ -164,7 +164,7 @@ fn ordering_invariants_within_date() {
     let mut b = CashFlowSchedule::builder();
     let _ = b
         .principal(init, issue, maturity)
-        .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
+        .amortization(AmortizationSpec::PercentOfOriginalPerPeriod { pct: 0.25 })
         .fixed_cf(fixed.clone());
     let s = b.build_with_curves(None).unwrap();
 
@@ -313,7 +313,7 @@ fn outstanding_by_date_dedup_and_values() {
     let mut b = CashFlowSchedule::builder();
     let _ = b
         .principal(init, issue, maturity)
-        .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
+        .amortization(AmortizationSpec::PercentOfOriginalPerPeriod { pct: 0.25 })
         .fixed_cf(fixed.clone());
     let s = b.build_with_curves(None).unwrap();
 

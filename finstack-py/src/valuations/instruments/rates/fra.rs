@@ -251,10 +251,10 @@ impl PyForwardRateAgreementBuilder {
         slf
     }
 
-    /// Deprecated alias for receive_fixed(). Use receive_fixed() instead.
+    #[deprecated(note = "Use receive_fixed() instead")]
     #[pyo3(text_signature = "($self, pay_fixed)")]
     fn pay_fixed(mut slf: PyRefMut<'_, Self>, pay_fixed: bool) -> PyRefMut<'_, Self> {
-        slf.receive_fixed = pay_fixed;
+        slf.receive_fixed = !pay_fixed;
         slf
     }
 
@@ -382,10 +382,10 @@ impl PyForwardRateAgreement {
         self.inner.side.is_receiver()
     }
 
-    /// Deprecated alias for receive_fixed. Use receive_fixed instead.
+    #[deprecated(note = "Use receive_fixed instead")]
     #[getter]
     fn pay_fixed(&self) -> bool {
-        self.inner.side.is_receiver()
+        !self.inner.side.is_receiver()
     }
 
     /// Discount curve identifier.

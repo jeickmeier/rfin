@@ -14,9 +14,7 @@ pub(crate) fn promote_exports<'py>(
         return Ok(());
     }
 
-    let submodule = parent
-        .getattr(submodule_name)?
-        .downcast_into::<PyModule>()?;
+    let submodule = parent.getattr(submodule_name)?.cast_into::<PyModule>()?;
     for &name in exports {
         if submodule.hasattr(name)? {
             let attr = submodule.getattr(name)?;
