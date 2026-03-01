@@ -178,7 +178,13 @@ from .commodity.commodity_swap import CommoditySwap as CommoditySwap
 # Exotics
 from .exotics.asian_option import AsianOption as AsianOption, AveragingMethod as AveragingMethod
 from .exotics.barrier_option import BarrierOption as BarrierOption, BarrierType as BarrierType
-from .exotics.basket import Basket as Basket
+from .exotics.basket import (
+    AssetType as AssetType,
+    Basket as Basket,
+    BasketCalculator as BasketCalculator,
+    BasketConstituent as BasketConstituent,
+    BasketPricingConfig as BasketPricingConfig,
+)
 from .exotics.lookback_option import LookbackOption as LookbackOption, LookbackType as LookbackType
 
 __all__ = [
@@ -248,7 +254,11 @@ __all__ = [
     "AsianOption",
     "AveragingMethod",
     "Autocallable",
+    "AssetType",
     "Basket",
+    "BasketCalculator",
+    "BasketConstituent",
+    "BasketPricingConfig",
     "VarianceSwap",
     "VarianceSwapBuilder",
     "VarianceDirection",

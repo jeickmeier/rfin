@@ -7,7 +7,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyModule;
 
 pub(crate) fn register<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     let mut exports = Vec::new();
@@ -24,8 +24,9 @@ pub(crate) fn register<'py>(
     exports.push("CommoditySwap");
     exports.push("CommoditySwapBuilder");
 
-    let asian_exports = commodity_asian_option::register(py, module)?;
-    exports.extend(asian_exports.iter().copied());
+    commodity_asian_option::register_module(module)?;
+    exports.push("CommodityAsianOption");
+    exports.push("CommodityAsianOptionBuilder");
 
     Ok(exports)
 }

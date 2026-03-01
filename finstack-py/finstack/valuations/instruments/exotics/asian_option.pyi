@@ -1,9 +1,10 @@
 """Asian option instrument."""
 
 from __future__ import annotations
-from typing import List
+from typing import List, Tuple
 from datetime import date
 from ....core.money import Money
+from ....core.dates.daycount import DayCount
 
 class AveragingMethod:
     """Averaging method enumeration."""
@@ -101,6 +102,7 @@ class AsianOption:
         averaging_method: str | None = "arithmetic",
         option_type: str | None = "call",
         div_yield_id: str | None = None,
+        past_fixings: List[Tuple[date, float]] | None = None,
     ) -> "AsianOption":
         """Create an Asian option with explicit parameters.
 
@@ -131,6 +133,8 @@ class AsianOption:
             Option type: "call" (default) or "put".
         div_yield_id : str, optional
             Dividend yield identifier in MarketContext.
+        past_fixings : list of (date, float), optional
+            Historical fixings for seasoned options as (date, price) tuples.
 
         Returns
         -------
@@ -165,7 +169,7 @@ class AsianOption:
     @property
     def ticker(self) -> str: ...
     @property
-    def strike(self) -> Money: ...
+    def strike(self) -> float: ...
     @property
     def option_type(self) -> str: ...
     @property
@@ -175,7 +179,11 @@ class AsianOption:
     @property
     def fixing_dates(self) -> List[date]: ...
     @property
+    def past_fixings(self) -> List[Tuple[date, float]]: ...
+    @property
     def notional(self) -> Money: ...
+    @property
+    def day_count(self) -> DayCount: ...
     @property
     def discount_curve(self) -> str: ...
     @property
@@ -185,4 +193,3 @@ class AsianOption:
     @property
     def div_yield_id(self) -> str | None: ...
     def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...

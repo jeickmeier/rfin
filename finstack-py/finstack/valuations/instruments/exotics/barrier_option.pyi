@@ -3,6 +3,7 @@
 from __future__ import annotations
 from datetime import date
 from ....core.money import Money
+from ....core.dates.daycount import DayCount
 
 class BarrierType:
     """Barrier type enumeration."""
@@ -38,16 +39,14 @@ class BarrierOption:
         ...     "BARRIER-AAPL-DO-CALL",
         ...     ticker="AAPL",
         ...     strike=150.0,
-        ...     barrier=140.0,  # Barrier level
+        ...     barrier=140.0,
         ...     option_type="call",
-        ...     barrier_type="down_and_out",  # Knocked out if price goes below barrier
+        ...     barrier_type="down_and_out",
         ...     expiry=date(2024, 12, 20),
         ...     notional=Money(100_000, Currency("USD")),
         ...     discount_curve="USD",
         ...     spot_id="AAPL",
         ...     vol_surface="AAPL-VOL",
-        ...     div_yield_id=None,
-        ...     use_gobet_miri=False,
         ... )
 
     Notes
@@ -57,6 +56,7 @@ class BarrierOption:
     - Out options are knocked out if barrier is crossed
     - In options only pay if barrier is crossed
     - Barrier options are typically cheaper than standard options
+    - Gobet-Miri discrete barrier correction is enabled by default
 
     MarketContext Requirements
     -------------------------
@@ -93,7 +93,8 @@ class BarrierOption:
         vol_surface: str,
         *,
         div_yield_id: str | None = None,
-        use_gobet_miri: bool | None = False,
+        rebate: Money | None = None,
+        use_gobet_miri: bool | None = True,
     ) -> "BarrierOption":
         """Create a barrier option.
 
@@ -123,8 +124,10 @@ class BarrierOption:
             Volatility surface identifier in MarketContext.
         div_yield_id : str, optional
             Dividend yield identifier in MarketContext.
+        rebate : Money, optional
+            Rebate payment on knock-out events.
         use_gobet_miri : bool, optional
-            Use Gobet-Miri approximation for barrier pricing (default: False).
+            Use Gobet-Miri discrete barrier correction (default: True).
 
         Returns
         -------
@@ -159,9 +162,11 @@ class BarrierOption:
     @property
     def ticker(self) -> str: ...
     @property
-    def strike(self) -> Money: ...
+    def strike(self) -> float: ...
     @property
     def barrier(self) -> Money: ...
+    @property
+    def rebate(self) -> Money | None: ...
     @property
     def option_type(self) -> str: ...
     @property
@@ -170,5 +175,16 @@ class BarrierOption:
     def expiry(self) -> date: ...
     @property
     def notional(self) -> Money: ...
+    @property
+    def day_count(self) -> DayCount: ...
+    @property
+    def discount_curve(self) -> str: ...
+    @property
+    def spot_id(self) -> str: ...
+    @property
+    def vol_surface(self) -> str: ...
+    @property
+    def div_yield_id(self) -> str | None: ...
+    @property
+    def use_gobet_miri(self) -> bool: ...
     def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...

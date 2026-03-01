@@ -3,6 +3,8 @@
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::context::PyMarketContext;
+use crate::core::money::PyMoney;
 use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::{BusinessDayConvention, Tenor, TenorUnit};
@@ -13,7 +15,7 @@ use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyModule, PyType};
+use pyo3::types::{PyAny, PyList, PyModule, PyTuple, PyType};
 use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
@@ -481,11 +483,111 @@ impl PyCommoditySwap {
         self.inner.discount_curve_id.as_str()
     }
 
+    /// Payment frequency as a string (e.g., "1M", "3M").
+    #[getter]
+    fn payment_frequency(&self) -> String {
+        format!(
+            "{}{}",
+            self.inner.frequency.count,
+            match self.inner.frequency.unit {
+                finstack_core::dates::TenorUnit::Days => "D",
+                finstack_core::dates::TenorUnit::Weeks => "W",
+                finstack_core::dates::TenorUnit::Months => "M",
+                finstack_core::dates::TenorUnit::Years => "Y",
+            }
+        )
+    }
+
+    /// Calendar ID for date adjustments, if set.
+    #[getter]
+    fn calendar_id(&self) -> Option<&str> {
+        self.inner.calendar_id.as_deref()
+    }
+
+    /// Business day convention.
+    #[getter]
+    fn bdc(&self) -> &str {
+        match self.inner.bdc {
+            BusinessDayConvention::Following => "following",
+            BusinessDayConvention::ModifiedFollowing => "modified_following",
+            BusinessDayConvention::Preceding => "preceding",
+            BusinessDayConvention::ModifiedPreceding => "modified_preceding",
+            BusinessDayConvention::Unadjusted => "unadjusted",
+            _ => "unknown",
+        }
+    }
+
+    /// Index lag in days, if set.
+    #[getter]
+    fn index_lag_days(&self) -> Option<i32> {
+        self.inner.index_lag_days
+    }
+
     /// Instrument type key.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         use finstack_valuations::instruments::Instrument;
         PyInstrumentType::new(self.inner.key())
+    }
+
+    /// Present value of the fixed leg.
+    #[pyo3(signature = (market, as_of))]
+    fn fixed_leg_pv(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<f64> {
+        let date = py_to_date(&as_of).context("as_of")?;
+        self.inner
+            .fixed_leg_pv(&market.inner, date)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))
+    }
+
+    /// Present value of the floating leg.
+    #[pyo3(signature = (market, as_of))]
+    fn floating_leg_pv(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<f64> {
+        let date = py_to_date(&as_of).context("as_of")?;
+        self.inner
+            .floating_leg_pv(&market.inner, date)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))
+    }
+
+    /// Payment schedule as a list of dates.
+    #[pyo3(signature = (as_of))]
+    fn payment_schedule<'py>(
+        &self,
+        py: Python<'py>,
+        as_of: Bound<'py, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let date = py_to_date(&as_of).context("as_of")?;
+        let schedule = self
+            .inner
+            .payment_schedule(date)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))?;
+        let py_dates = PyList::empty(py);
+        for d in schedule {
+            py_dates.append(date_to_py(py, d)?)?;
+        }
+        Ok(py_dates.into())
+    }
+
+    /// Net cashflows at each payment date: list of (date, Money) tuples.
+    #[pyo3(signature = (market, as_of))]
+    fn cashflows<'py>(
+        &self,
+        py: Python<'py>,
+        market: &PyMarketContext,
+        as_of: Bound<'py, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let date = py_to_date(&as_of).context("as_of")?;
+        let flows = self
+            .inner
+            .cashflows(&market.inner, date)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))?;
+        let result = PyList::empty(py);
+        for (d, money) in flows {
+            let py_date = date_to_py(py, d)?;
+            let py_money = PyMoney::new(money);
+            let tuple = PyTuple::new(py, [py_date, Py::new(py, py_money)?.into_any()])?;
+            result.append(tuple)?;
+        }
+        Ok(result.into())
     }
 
     fn __repr__(&self) -> String {

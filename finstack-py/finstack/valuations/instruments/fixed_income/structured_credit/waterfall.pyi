@@ -1,138 +1,106 @@
 """Structured credit waterfall engine bindings."""
 
 from __future__ import annotations
+from typing import Any
 from enum import IntEnum
 
 class AllocationMode(IntEnum):
-    """Allocation mode within a tier.
-
-    Attributes:
-        Sequential: Pay recipients in order until tier allocation exhausted
-        ProRata: Distribute proportionally by weight or equally
-    """
-
     Sequential = 0
     ProRata = 1
 
 class PaymentType(IntEnum):
-    """Payment type classification.
-
-    Attributes:
-        Fee: Fee payment
-        Interest: Interest payment
-        Principal: Principal payment
-        Residual: Residual/equity distribution
-    """
-
     Fee = 0
     Interest = 1
     Principal = 2
     Residual = 3
 
 class WaterfallTier:
-    """Waterfall tier with multiple recipients.
-
-    A tier groups related payments with a priority level and allocation mode.
-
-    Args:
-        tier_id: Unique tier identifier
-        priority: Priority order (lower = higher priority)
-        payment_type: Type of payment (Fee, Interest, Principal, Residual)
-
-    Examples:
-        >>> from finstack.valuations.instruments import AllocationMode, PaymentType, WaterfallTier
-        >>> tier = WaterfallTier("fees", 1, PaymentType.Fee)
-        >>> tier.add_fixed_fee("trustee", "Trustee", 50_000.0, "USD")
-        >>> tier.set_allocation_mode(AllocationMode.Sequential)
-        >>> tier.recipient_count
-        1
-    """
-
     def __init__(self, tier_id: str, priority: int, payment_type: PaymentType) -> None: ...
-    def add_recipient(self, recipient_id: str, recipient_type: str, calculation: str) -> "WaterfallTier":
-        """Add a recipient to this tier.
-
-        Args:
-            recipient_id: Unique recipient identifier
-            recipient_type: Type of recipient (JSON format)
-            calculation: Payment calculation (JSON format)
-
-        Returns:
-            Self for method chaining
-        """
-        ...
-
-    def add_fixed_fee(self, recipient_id: str, provider_name: str, amount: float, currency: str) -> "WaterfallTier":
-        """Add a fixed fee recipient.
-
-        Args:
-            recipient_id: Unique recipient identifier
-            provider_name: Service provider name
-            amount: Fixed fee amount
-            currency: Currency code (e.g., "USD")
-
-        Returns:
-            Self for method chaining
-        """
-        ...
-
-    def add_tranche_interest(self, recipient_id: str, tranche_id: str) -> "WaterfallTier":
-        """Add a tranche interest recipient.
-
-        Args:
-            recipient_id: Unique recipient identifier
-            tranche_id: Tranche identifier
-
-        Returns:
-            Self for method chaining
-        """
-        ...
-
-    def add_tranche_principal(self, recipient_id: str, tranche_id: str) -> "WaterfallTier":
-        """Add a tranche principal recipient.
-
-        Args:
-            recipient_id: Unique recipient identifier
-            tranche_id: Tranche identifier
-
-        Returns:
-            Self for method chaining
-        """
-        ...
-
-    def set_allocation_mode(self, mode: AllocationMode) -> "WaterfallTier":
-        """Set allocation mode for this tier.
-
-        Args:
-            mode: AllocationMode (Sequential or ProRata)
-
-        Returns:
-            Self for method chaining
-        """
-        ...
-
-    def set_divertible(self, divertible: bool) -> "WaterfallTier":
-        """Mark tier as divertible.
-
-        Args:
-            divertible: Whether this tier can be diverted
-
-        Returns:
-            Self for method chaining
-        """
-        ...
-
+    def add_recipient(self, recipient_id: str, recipient_type: str, calculation: str) -> "WaterfallTier": ...
+    def add_fixed_fee(self, recipient_id: str, provider_name: str, amount: float, currency: str) -> "WaterfallTier": ...
+    def add_tranche_interest(self, recipient_id: str, tranche_id: str) -> "WaterfallTier": ...
+    def add_tranche_principal(self, recipient_id: str, tranche_id: str) -> "WaterfallTier": ...
+    def set_allocation_mode(self, mode: AllocationMode) -> "WaterfallTier": ...
+    def set_divertible(self, divertible: bool) -> "WaterfallTier": ...
     @property
-    def tier_id(self) -> str:
-        """Get tier ID."""
-        ...
-
+    def tier_id(self) -> str: ...
     @property
-    def priority(self) -> int:
-        """Get priority."""
-        ...
-
+    def priority(self) -> int: ...
     @property
-    def recipient_count(self) -> int:
-        """Get number of recipients."""
-        ...
+    def recipient_count(self) -> int: ...
+    def __repr__(self) -> str: ...
+
+class Recipient:
+    def __init__(self, id: str, recipient_type_json: str, calculation_json: str) -> None: ...
+    def with_weight(self, weight: float) -> "Recipient": ...
+    @classmethod
+    def fixed_fee(cls, id: str, provider_name: str, amount: float, currency: str) -> "Recipient": ...
+    @classmethod
+    def tranche_interest(cls, id: str, tranche_id: str) -> "Recipient": ...
+    @classmethod
+    def tranche_principal(cls, id: str, tranche_id: str, target_balance: float | None = None) -> "Recipient": ...
+    @property
+    def recipient_id(self) -> str: ...
+    @property
+    def weight(self) -> float | None: ...
+    def to_dict(self) -> Any: ...
+    @classmethod
+    def from_dict(cls, data: Any) -> "Recipient": ...
+    def __repr__(self) -> str: ...
+
+class WaterfallCoverageTrigger:
+    def __init__(self, tranche_id: str, oc_trigger: float | None = None, ic_trigger: float | None = None) -> None: ...
+    @property
+    def tranche_id(self) -> str: ...
+    @property
+    def oc_trigger(self) -> float | None: ...
+    @property
+    def ic_trigger(self) -> float | None: ...
+    def __repr__(self) -> str: ...
+
+class CoverageTestRules:
+    def __init__(self, par_value_threshold: float | None = None) -> None: ...
+    @classmethod
+    def empty(cls) -> "CoverageTestRules": ...
+    def is_empty(self) -> bool: ...
+    def to_dict(self) -> Any: ...
+    @classmethod
+    def from_dict(cls, data: Any) -> "CoverageTestRules": ...
+    def __repr__(self) -> str: ...
+
+class Waterfall:
+    def __init__(self, currency: str = "USD") -> None: ...
+    @classmethod
+    def builder(cls, currency: str = "USD") -> "WaterfallBuilder": ...
+    def add_tier(self, tier: WaterfallTier) -> "Waterfall": ...
+    def add_coverage_trigger(self, trigger: WaterfallCoverageTrigger) -> "Waterfall": ...
+    def with_coverage_rules(self, rules: CoverageTestRules) -> "Waterfall": ...
+    @classmethod
+    def standard_sequential(cls, currency: str, tranches: Any, fee_recipients: list[Recipient]) -> "Waterfall": ...
+    @property
+    def tier_count(self) -> int: ...
+    @property
+    def base_currency(self) -> str: ...
+    def to_dict(self) -> Any: ...
+    @classmethod
+    def from_dict(cls, data: Any) -> "Waterfall": ...
+    def __repr__(self) -> str: ...
+
+class WaterfallBuilder:
+    def __init__(self, currency: str = "USD") -> None: ...
+    def add_tier(self, tier: WaterfallTier) -> "WaterfallBuilder": ...
+    def add_coverage_trigger(self, trigger: WaterfallCoverageTrigger) -> "WaterfallBuilder": ...
+    def coverage_rules(self, rules: CoverageTestRules) -> "WaterfallBuilder": ...
+    def build(self) -> Waterfall: ...
+    def __repr__(self) -> str: ...
+
+__all__ = [
+    "AllocationMode",
+    "PaymentType",
+    "WaterfallTier",
+    "Recipient",
+    "WaterfallCoverageTrigger",
+    "CoverageTestRules",
+    "Waterfall",
+    "WaterfallBuilder",
+]

@@ -1,3 +1,4 @@
+use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
@@ -5,7 +6,7 @@ use finstack_valuations::instruments::exotics::asian_option::{AsianOption, Avera
 use finstack_valuations::instruments::OptionType;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyList, PyModule, PyType};
+use pyo3::types::{PyAny, PyList, PyModule, PyTuple, PyType};
 use pyo3::Bound;
 use std::sync::Arc;
 
@@ -99,7 +100,7 @@ impl PyAsianOption {
 impl PyAsianOption {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, strike, expiry, fixing_dates, notional, discount_curve, spot_id, vol_surface, *, averaging_method='arithmetic', option_type='call', div_yield_id=None)"
+        text_signature = "(cls, instrument_id, ticker, strike, expiry, fixing_dates, notional, discount_curve, spot_id, vol_surface, *, averaging_method='arithmetic', option_type='call', div_yield_id=None, past_fixings=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create an Asian option with explicit parameters.
@@ -117,6 +118,7 @@ impl PyAsianOption {
     ///     averaging_method: Averaging method (``"arithmetic"`` or ``"geometric"``).
     ///     option_type: Option type (``"call"`` or ``"put"``).
     ///     div_yield_id: Optional dividend yield identifier.
+    ///     past_fixings: Optional list of ``(date, float)`` tuples for seasoned options.
     ///
     /// Returns:
     ///     AsianOption: Configured Asian option instrument.
@@ -137,6 +139,7 @@ impl PyAsianOption {
         averaging_method: Option<&str>,
         option_type: Option<&str>,
         div_yield_id: Option<&str>,
+        past_fixings: Option<Bound<'_, PyList>>,
     ) -> PyResult<Self> {
         use crate::core::common::labels::normalize_label;
         use crate::errors::PyContext;
@@ -149,13 +152,11 @@ impl PyAsianOption {
             CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
 
-        // Parse fixing dates
         let mut fixing_dates_vec = Vec::new();
         for item in fixing_dates.iter() {
             fixing_dates_vec.push(py_to_date(&item).context("fixing_dates")?);
         }
 
-        // Parse averaging method
         let avg_method = match averaging_method.map(normalize_label).as_deref() {
             None | Some("arithmetic") => AveragingMethod::Arithmetic,
             Some("geometric") => AveragingMethod::Geometric,
@@ -166,7 +167,6 @@ impl PyAsianOption {
             }
         };
 
-        // Parse option type
         let opt_type = match option_type.map(normalize_label).as_deref() {
             None | Some("call") => OptionType::Call,
             Some("put") => OptionType::Put,
@@ -176,6 +176,26 @@ impl PyAsianOption {
                 )))
             }
         };
+
+        let mut past_fixings_vec = Vec::new();
+        if let Some(pf) = past_fixings {
+            for item in pf.iter() {
+                let tuple = item.cast::<PyTuple>().map_err(|_| {
+                    PyValueError::new_err("past_fixings must be a list of (date, float) tuples")
+                })?;
+                if tuple.len() != 2 {
+                    return Err(PyValueError::new_err(
+                        "Each past_fixings entry must be a (date, float) tuple",
+                    ));
+                }
+                let date = py_to_date(&tuple.get_item(0)?).context("past_fixings date")?;
+                let price = tuple
+                    .get_item(1)?
+                    .extract::<f64>()
+                    .map_err(|_| PyValueError::new_err("past_fixings price must be a float"))?;
+                past_fixings_vec.push((date, price));
+            }
+        }
 
         let mut builder = AsianOption::builder();
         builder = builder.id(id);
@@ -194,6 +214,9 @@ impl PyAsianOption {
         builder = builder.vol_surface_id(vol_surface_id);
         if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(div.into());
+        }
+        if !past_fixings_vec.is_empty() {
+            builder = builder.past_fixings(past_fixings_vec);
         }
         let option = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to build AsianOption: {e}"))
@@ -274,6 +297,21 @@ impl PyAsianOption {
         Ok(dates.into())
     }
 
+    /// Past fixings for seasoned options.
+    ///
+    /// Returns:
+    ///     list: List of ``(datetime.date, float)`` tuples, or empty list.
+    #[getter]
+    fn past_fixings(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let result = PyList::empty(py);
+        for (date, price) in &self.inner.past_fixings {
+            let py_date = date_to_py(py, *date)?;
+            let tuple = PyTuple::new(py, &[py_date, price.into_pyobject(py)?.into_any().unbind()])?;
+            result.append(tuple)?;
+        }
+        Ok(result.into())
+    }
+
     /// Notional amount.
     ///
     /// Returns:
@@ -281,6 +319,15 @@ impl PyAsianOption {
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
+    }
+
+    /// Day count convention.
+    ///
+    /// Returns:
+    ///     DayCount: Day count convention used for time fraction calculations.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count)
     }
 
     /// Discount curve identifier.

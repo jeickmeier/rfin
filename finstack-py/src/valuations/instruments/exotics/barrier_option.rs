@@ -1,3 +1,4 @@
+use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
@@ -101,7 +102,7 @@ impl PyBarrierOption {
 impl PyBarrierOption {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, strike, barrier, option_type, barrier_type, expiry, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None, use_gobet_miri=False)"
+        text_signature = "(cls, instrument_id, ticker, strike, barrier, option_type, barrier_type, expiry, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None, rebate=None, use_gobet_miri=True)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a barrier option.
@@ -119,7 +120,8 @@ impl PyBarrierOption {
     ///     spot_id: Spot price identifier.
     ///     vol_surface: Volatility surface identifier.
     ///     div_yield_id: Optional dividend yield identifier.
-    ///     use_gobet_miri: Whether to use Gobet-Miri approximation.
+    ///     rebate: Optional rebate payment on knock-out as :class:`finstack.core.money.Money`.
+    ///     use_gobet_miri: Whether to use Gobet-Miri discrete barrier correction (default: True).
     ///
     /// Returns:
     ///     BarrierOption: Configured barrier option instrument.
@@ -137,6 +139,7 @@ impl PyBarrierOption {
         spot_id: &str,
         vol_surface: Bound<'_, PyAny>,
         div_yield_id: Option<&str>,
+        rebate: Option<Bound<'_, PyAny>>,
         use_gobet_miri: Option<bool>,
     ) -> PyResult<Self> {
         use crate::core::common::labels::normalize_label;
@@ -174,17 +177,24 @@ impl PyBarrierOption {
 
         let barrier_money = finstack_core::money::Money::new(barrier, notional_money.currency());
 
+        let rebate_money = rebate
+            .map(|r| extract_money(&r).context("rebate"))
+            .transpose()?;
+
         let mut builder = BarrierOption::builder();
         builder = builder.id(id);
         builder = builder.underlying_ticker(ticker.to_string());
         builder = builder.strike(strike);
         builder = builder.barrier(barrier_money);
+        if let Some(r) = rebate_money {
+            builder = builder.rebate(r);
+        }
         builder = builder.option_type(opt_type);
         builder = builder.barrier_type(barrier_type_enum);
         builder = builder.expiry(expiry_date);
         builder = builder.notional(notional_money);
         builder = builder.day_count(DayCount::Act365F);
-        builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
+        builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(true));
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder = builder.discount_curve_id(discount_curve_id);
@@ -212,6 +222,9 @@ impl PyBarrierOption {
     }
 
     /// Strike price as scalar.
+    ///
+    /// Returns:
+    ///     float: Strike price in underlying price units.
     #[getter]
     fn strike(&self) -> f64 {
         self.inner.strike
@@ -221,6 +234,15 @@ impl PyBarrierOption {
     #[getter]
     fn barrier(&self) -> PyMoney {
         PyMoney::new(self.inner.barrier)
+    }
+
+    /// Rebate payment on knock-out (if any).
+    ///
+    /// Returns:
+    ///     Money | None: Rebate amount or None.
+    #[getter]
+    fn rebate(&self) -> Option<PyMoney> {
+        self.inner.rebate.map(PyMoney::new)
     }
 
     /// Option type label.
@@ -258,13 +280,68 @@ impl PyBarrierOption {
         PyMoney::new(self.inner.notional)
     }
 
+    /// Day count convention.
+    ///
+    /// Returns:
+    ///     DayCount: Day count convention used for time fraction calculations.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count)
+    }
+
+    /// Discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Discount curve identifier.
+    #[getter]
+    fn discount_curve(&self) -> String {
+        self.inner.discount_curve_id.as_str().to_string()
+    }
+
+    /// Spot price identifier.
+    ///
+    /// Returns:
+    ///     str: Spot price identifier.
+    #[getter]
+    fn spot_id(&self) -> &str {
+        &self.inner.spot_id
+    }
+
+    /// Volatility surface identifier.
+    ///
+    /// Returns:
+    ///     str: Volatility surface identifier used for pricing.
+    #[getter]
+    fn vol_surface(&self) -> String {
+        self.inner.vol_surface_id.as_str().to_string()
+    }
+
+    /// Dividend yield identifier (if any).
+    ///
+    /// Returns:
+    ///     str | None: Dividend yield identifier or None.
+    #[getter]
+    fn div_yield_id(&self) -> Option<&str> {
+        self.inner.div_yield_id.as_deref()
+    }
+
+    /// Whether Gobet-Miri discrete barrier correction is enabled.
+    ///
+    /// Returns:
+    ///     bool: True if Gobet-Miri correction is active.
+    #[getter]
+    fn use_gobet_miri(&self) -> bool {
+        self.inner.use_gobet_miri
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "BarrierOption(id='{}', ticker='{}', strike={}, barrier={}, barrier_type='{}')",
+            "BarrierOption(id='{}', ticker='{}', strike={}, barrier={} {}, barrier_type='{}')",
             self.inner.id.as_str(),
             self.inner.underlying_ticker,
             self.inner.strike,
             self.inner.barrier.amount(),
+            self.inner.barrier.currency(),
             match self.inner.barrier_type {
                 BarrierType::UpAndOut => "up_and_out",
                 BarrierType::UpAndIn => "up_and_in",

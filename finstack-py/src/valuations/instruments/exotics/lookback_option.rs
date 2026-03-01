@@ -1,3 +1,4 @@
+use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
@@ -93,7 +94,7 @@ impl PyLookbackOption {
 impl PyLookbackOption {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, strike, option_type, lookback_type, expiry, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None)"
+        text_signature = "(cls, instrument_id, ticker, strike, option_type, lookback_type, expiry, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None, observed_min=None, observed_max=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a lookback option.
@@ -110,6 +111,8 @@ impl PyLookbackOption {
     ///     spot_id: Spot price identifier.
     ///     vol_surface: Volatility surface identifier.
     ///     div_yield_id: Optional dividend yield identifier.
+    ///     observed_min: Optional observed minimum price for seasoned options.
+    ///     observed_max: Optional observed maximum price for seasoned options.
     ///
     /// Returns:
     ///     LookbackOption: Configured lookback option instrument.
@@ -126,6 +129,8 @@ impl PyLookbackOption {
         spot_id: &str,
         vol_surface: Bound<'_, PyAny>,
         div_yield_id: Option<&str>,
+        observed_min: Option<Bound<'_, PyAny>>,
+        observed_max: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         use crate::core::common::labels::normalize_label;
         use crate::errors::PyContext;
@@ -158,6 +163,13 @@ impl PyLookbackOption {
             }
         };
 
+        let observed_min_money = observed_min
+            .map(|m| extract_money(&m).context("observed_min"))
+            .transpose()?;
+        let observed_max_money = observed_max
+            .map(|m| extract_money(&m).context("observed_max"))
+            .transpose()?;
+
         let mut builder = LookbackOption::builder()
             .id(id)
             .underlying_ticker(ticker.to_string());
@@ -177,6 +189,12 @@ impl PyLookbackOption {
         builder = builder.vol_surface_id(vol_surface_id);
         if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(CurveId::new(div));
+        }
+        if let Some(min_m) = observed_min_money {
+            builder = builder.observed_min(min_m);
+        }
+        if let Some(max_m) = observed_max_money {
+            builder = builder.observed_max(max_m);
         }
         let option = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!(
@@ -235,6 +253,69 @@ impl PyLookbackOption {
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
+    }
+
+    /// Day count convention.
+    ///
+    /// Returns:
+    ///     DayCount: Day count convention used for time fraction calculations.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count)
+    }
+
+    /// Discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Discount curve identifier.
+    #[getter]
+    fn discount_curve(&self) -> String {
+        self.inner.discount_curve_id.as_str().to_string()
+    }
+
+    /// Spot price identifier.
+    ///
+    /// Returns:
+    ///     str: Spot price identifier.
+    #[getter]
+    fn spot_id(&self) -> &str {
+        &self.inner.spot_id
+    }
+
+    /// Volatility surface identifier.
+    ///
+    /// Returns:
+    ///     str: Volatility surface identifier used for pricing.
+    #[getter]
+    fn vol_surface(&self) -> String {
+        self.inner.vol_surface_id.as_str().to_string()
+    }
+
+    /// Dividend yield identifier (if any).
+    ///
+    /// Returns:
+    ///     str | None: Dividend yield identifier or None.
+    #[getter]
+    fn div_yield_id(&self) -> Option<&str> {
+        self.inner.div_yield_id.as_deref()
+    }
+
+    /// Observed minimum price for seasoned options (if any).
+    ///
+    /// Returns:
+    ///     Money | None: Observed minimum price or None.
+    #[getter]
+    fn observed_min(&self) -> Option<PyMoney> {
+        self.inner.observed_min.map(PyMoney::new)
+    }
+
+    /// Observed maximum price for seasoned options (if any).
+    ///
+    /// Returns:
+    ///     Money | None: Observed maximum price or None.
+    #[getter]
+    fn observed_max(&self) -> Option<PyMoney> {
+        self.inner.observed_max.map(PyMoney::new)
     }
 
     fn __repr__(&self) -> String {

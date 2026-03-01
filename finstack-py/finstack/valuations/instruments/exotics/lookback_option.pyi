@@ -3,6 +3,7 @@
 from __future__ import annotations
 from datetime import date
 from ....core.money import Money
+from ....core.dates.daycount import DayCount
 
 class LookbackType:
     """Lookback option type."""
@@ -35,7 +36,7 @@ class LookbackOption:
         >>> lookback = LookbackOption.builder(
         ...     "LOOKBACK-AAPL",
         ...     ticker="AAPL",
-        ...     strike=None,  # Floating strike uses minimum price
+        ...     strike=None,
         ...     option_type="call",
         ...     lookback_type="floating_strike",
         ...     expiry=date(2024, 12, 20),
@@ -43,7 +44,6 @@ class LookbackOption:
         ...     discount_curve="USD",
         ...     spot_id="AAPL",
         ...     vol_surface="AAPL-VOL",
-        ...     div_yield_id=None,
         ... )
 
     Notes
@@ -87,6 +87,8 @@ class LookbackOption:
         vol_surface: str,
         *,
         div_yield_id: str | None = None,
+        observed_min: Money | None = None,
+        observed_max: Money | None = None,
     ) -> "LookbackOption":
         """Create a lookback option.
 
@@ -114,6 +116,10 @@ class LookbackOption:
             Volatility surface identifier in MarketContext.
         div_yield_id : str, optional
             Dividend yield identifier in MarketContext.
+        observed_min : Money, optional
+            Observed minimum price for seasoned options.
+        observed_max : Money, optional
+            Observed maximum price for seasoned options.
 
         Returns
         -------
@@ -147,7 +153,7 @@ class LookbackOption:
     @property
     def ticker(self) -> str: ...
     @property
-    def strike(self) -> Money | None: ...
+    def strike(self) -> float | None: ...
     @property
     def option_type(self) -> str: ...
     @property
@@ -156,5 +162,18 @@ class LookbackOption:
     def expiry(self) -> date: ...
     @property
     def notional(self) -> Money: ...
+    @property
+    def day_count(self) -> DayCount: ...
+    @property
+    def discount_curve(self) -> str: ...
+    @property
+    def spot_id(self) -> str: ...
+    @property
+    def vol_surface(self) -> str: ...
+    @property
+    def div_yield_id(self) -> str | None: ...
+    @property
+    def observed_min(self) -> Money | None: ...
+    @property
+    def observed_max(self) -> Money | None: ...
     def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...

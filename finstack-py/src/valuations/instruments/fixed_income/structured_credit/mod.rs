@@ -1,16 +1,26 @@
 //! Python bindings for structured credit instruments (ABS, RMBS, CMBS, CLO).
 
+pub(crate) mod enums;
+pub(crate) mod pool;
+pub(crate) mod pricing;
+pub(crate) mod results;
+pub(crate) mod setup;
+pub(crate) mod stochastic;
+pub(crate) mod tranches;
+pub(crate) mod utils;
 pub(crate) mod waterfall;
 
 use crate::core::common::args::TenorArg;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::context::PyMarketContext;
+use crate::core::money::PyMoney;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::Tenor;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     CreditFactors, CreditModelConfig, DealType, DefaultAssumptions, MarketConditions,
     Metadata as DealMetadata, Overrides as DealOverrides, Pool, Seniority, StructuredCredit,
-    TrancheStructure,
+    TrancheStructure, TrancheValuationExt,
 };
 use finstack_valuations::instruments::{Attributes, PricingOverrides};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -338,17 +348,208 @@ impl PyStructuredCredit {
         self.inner.tranches.tranches.len()
     }
 
-    /// Create a fluent builder for constructing a StructuredCredit instrument.
-    ///
-    /// Args:
-    ///     instrument_id: Unique identifier for the instrument.
+    /// Total pool balance.
     ///
     /// Returns:
-    ///     StructuredCreditBuilder: Builder instance with fluent setter methods.
+    ///     PyMoney: Sum of all asset balances in the pool.
+    #[getter]
+    fn pool_balance(&self) -> PyResult<PyMoney> {
+        self.inner
+            .pool
+            .total_balance()
+            .map(PyMoney::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Pool as a dict (serialized via serde).
+    #[getter]
+    fn pool(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let json_str = serde_json::to_string(&self.inner.pool)
+            .map_err(|e| PyValueError::new_err(format!("Failed to serialize pool: {e}")))?;
+        let json_mod = PyModule::import(py, "json")?;
+        let obj = json_mod.call_method1("loads", (json_str,))?;
+        Ok(obj.into())
+    }
+
+    /// Create a fluent builder for constructing a StructuredCredit instrument.
     #[classmethod]
     #[pyo3(text_signature = "(cls, instrument_id)")]
     fn builder(_cls: &Bound<'_, PyType>, instrument_id: &str) -> PyStructuredCreditBuilder {
         PyStructuredCreditBuilder::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    /// Cumulative net loss as percentage of original pool balance.
+    fn current_loss_percentage(&self) -> PyResult<f64> {
+        self.inner
+            .current_loss_percentage()
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Expected life of the pool (weighted average maturity from as_of).
+    fn expected_life(&self, as_of: &Bound<'_, PyAny>) -> PyResult<f64> {
+        let date = py_to_date(as_of)?;
+        self.inner
+            .expected_life(date)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Create the waterfall engine from instrument configuration.
+    fn create_waterfall(&self) -> waterfall::PyWaterfall {
+        waterfall::PyWaterfall {
+            inner: self.inner.create_waterfall(),
+        }
+    }
+
+    /// Calculate prepayment rate (SMM) for a given period.
+    fn calculate_prepayment_rate(
+        &self,
+        pay_date: &Bound<'_, PyAny>,
+        seasoning_months: u32,
+    ) -> PyResult<f64> {
+        let date = py_to_date(pay_date)?;
+        Ok(self.inner.calculate_prepayment_rate(date, seasoning_months))
+    }
+
+    /// Calculate default rate (MDR) for a given period.
+    fn calculate_default_rate(
+        &self,
+        pay_date: &Bound<'_, PyAny>,
+        seasoning_months: u32,
+    ) -> PyResult<f64> {
+        let date = py_to_date(pay_date)?;
+        Ok(self.inner.calculate_default_rate(date, seasoning_months))
+    }
+
+    /// Stochastic pricing using tree-based engine.
+    fn price_stochastic(
+        &self,
+        market: &PyMarketContext,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<stochastic::PyStochasticPricingResult> {
+        let date = py_to_date(as_of)?;
+        let result = self
+            .inner
+            .price_stochastic(&market.inner, date)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(stochastic::PyStochasticPricingResult { inner: result })
+    }
+
+    /// Stochastic pricing with an explicit pricing mode.
+    fn price_stochastic_with_mode(
+        &self,
+        market: &PyMarketContext,
+        as_of: &Bound<'_, PyAny>,
+        mode: &stochastic::PyPricingMode,
+    ) -> PyResult<stochastic::PyStochasticPricingResult> {
+        let date = py_to_date(as_of)?;
+        let result = self
+            .inner
+            .price_stochastic_with_mode(&market.inner, date, mode.inner.clone())
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(stochastic::PyStochasticPricingResult { inner: result })
+    }
+
+    /// Calculate Z-spread given a market price.
+    fn calculate_z_spread(
+        &self,
+        market: &PyMarketContext,
+        as_of: &Bound<'_, PyAny>,
+        market_price: f64,
+    ) -> PyResult<f64> {
+        let date = py_to_date(as_of)?;
+        self.inner
+            .calculate_z_spread(&market.inner, date, market_price)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// NPV of hedge swaps attached to this deal.
+    fn hedge_npv(&self, market: &PyMarketContext, as_of: &Bound<'_, PyAny>) -> PyResult<PyMoney> {
+        let date = py_to_date(as_of)?;
+        let npv = self
+            .inner
+            .hedge_npv(&market.inner, date)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(PyMoney::new(npv))
+    }
+
+    /// Price deal with hedges: returns (deal_npv, hedge_npv, total_npv) as tuple.
+    fn price_with_hedges(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let date = py_to_date(as_of)?;
+        let (deal_npv, hedge_npv, total_npv) = self
+            .inner
+            .price_with_hedges(&market.inner, date)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok((
+            PyMoney::new(deal_npv),
+            PyMoney::new(hedge_npv),
+            PyMoney::new(total_npv),
+        )
+            .into_pyobject(py)?
+            .into_any()
+            .unbind())
+    }
+
+    /// Whether this deal has hedge swaps attached.
+    fn has_hedges(&self) -> bool {
+        self.inner.has_hedges()
+    }
+
+    /// Number of hedge swaps.
+    fn hedge_count(&self) -> usize {
+        self.inner.hedge_count()
+    }
+
+    /// Generate cashflows for a specific tranche.
+    fn get_tranche_cashflows(
+        &self,
+        tranche_id: &str,
+        market: &PyMarketContext,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<results::PyTrancheCashflows> {
+        let date = py_to_date(as_of)?;
+        let cf = self
+            .inner
+            .get_tranche_cashflows(tranche_id, &market.inner, date)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(results::PyTrancheCashflows { inner: cf })
+    }
+
+    /// Value a specific tranche.
+    fn value_tranche(
+        &self,
+        tranche_id: &str,
+        market: &PyMarketContext,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(as_of)?;
+        let val = self
+            .inner
+            .value_tranche(tranche_id, &market.inner, date)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(PyMoney::new(val))
+    }
+
+    /// Full tranche valuation with risk metrics.
+    fn value_tranche_with_metrics(
+        &self,
+        tranche_id: &str,
+        market: &PyMarketContext,
+        as_of: &Bound<'_, PyAny>,
+        metrics: Vec<String>,
+    ) -> PyResult<results::PyTrancheValuation> {
+        let date = py_to_date(as_of)?;
+        let metric_ids: Vec<finstack_valuations::metrics::MetricId> =
+            metrics.iter().filter_map(|s| s.parse().ok()).collect();
+        let val = self
+            .inner
+            .value_tranche_with_metrics(tranche_id, &market.inner, date, &metric_ids)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(results::PyTrancheValuation { inner: val })
     }
 }
 
@@ -765,7 +966,15 @@ pub(crate) fn register<'py>(
     module.add_class::<PyStructuredCredit>()?;
     module.add_class::<PyStructuredCreditBuilder>()?;
 
+    let pool_exports = pool::register(py, module)?;
+    let pricing_exports = pricing::register(py, module)?;
+    let results_exports = results::register(py, module)?;
+    let setup_exports = setup::register(py, module)?;
+    let stochastic_exports = stochastic::register(py, module)?;
+    let tranches_exports = tranches::register(py, module)?;
+    let utils_exports = utils::register(py, module)?;
     let waterfall_exports = waterfall::register(py, module)?;
+    let enum_exports = enums::register(py, module)?;
 
     let mut exports = vec![
         "DealType",
@@ -773,7 +982,15 @@ pub(crate) fn register<'py>(
         "StructuredCredit",
         "StructuredCreditBuilder",
     ];
+    exports.extend(pool_exports.iter().copied());
+    exports.extend(pricing_exports.iter().copied());
+    exports.extend(results_exports.iter().copied());
+    exports.extend(setup_exports.iter().copied());
+    exports.extend(stochastic_exports.iter().copied());
+    exports.extend(tranches_exports.iter().copied());
+    exports.extend(utils_exports.iter().copied());
     exports.extend(waterfall_exports.iter().copied());
+    exports.extend(enum_exports.iter().copied());
 
     Ok(exports)
 }

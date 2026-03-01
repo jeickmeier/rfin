@@ -1,14 +1,17 @@
 //! Python bindings for CommodityForward instrument.
 
 use crate::core::common::args::CurrencyArg;
+use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
+use finstack_core::dates::BusinessDayConvention;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_forward::{
     CommodityForward, Position, SettlementType,
 };
+use finstack_valuations::instruments::common::parameters::CommodityConvention;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
 use pyo3::exceptions::PyValueError;
@@ -79,6 +82,10 @@ pub struct PyCommodityForwardBuilder {
     contract_month: Option<String>,
     position: Option<Position>,
     contract_price: Option<f64>,
+    convention: Option<CommodityConvention>,
+    settlement_lag_days: Option<u32>,
+    settlement_calendar_id: Option<String>,
+    settlement_bdc: Option<BusinessDayConvention>,
 }
 
 impl PyCommodityForwardBuilder {
@@ -101,6 +108,10 @@ impl PyCommodityForwardBuilder {
             contract_month: None,
             position: None,
             contract_price: None,
+            convention: None,
+            settlement_lag_days: None,
+            settlement_calendar_id: None,
+            settlement_bdc: None,
         }
     }
 
@@ -279,6 +290,57 @@ impl PyCommodityForwardBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, convention=None)", signature = (convention=None))]
+    fn convention(
+        mut slf: PyRefMut<'_, Self>,
+        convention: Option<String>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.convention = match convention.map(|s| normalize_label(&s)).as_deref() {
+            Some("wticrude") | Some("wti") => Some(CommodityConvention::WTICrude),
+            Some("brentcrude") | Some("brent") => Some(CommodityConvention::BrentCrude),
+            Some("naturalgas") | Some("ng") => Some(CommodityConvention::NaturalGas),
+            Some("gold") => Some(CommodityConvention::Gold),
+            Some("silver") => Some(CommodityConvention::Silver),
+            Some("copper") => Some(CommodityConvention::Copper),
+            Some("agricultural") | Some("ag") => Some(CommodityConvention::Agricultural),
+            Some("power") => Some(CommodityConvention::Power),
+            None => None,
+            Some(other) => {
+                return Err(PyValueError::new_err(format!(
+                    "Invalid convention: '{other}'. Must be one of: wti, brent, naturalgas, gold, silver, copper, agricultural, power"
+                )))
+            }
+        };
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, lag_days=None)", signature = (lag_days=None))]
+    fn settlement_lag_days(
+        mut slf: PyRefMut<'_, Self>,
+        lag_days: Option<u32>,
+    ) -> PyRefMut<'_, Self> {
+        slf.settlement_lag_days = lag_days;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, calendar_id=None)", signature = (calendar_id=None))]
+    fn settlement_calendar_id(
+        mut slf: PyRefMut<'_, Self>,
+        calendar_id: Option<String>,
+    ) -> PyRefMut<'_, Self> {
+        slf.settlement_calendar_id = calendar_id;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, bdc=None)", signature = (bdc=None))]
+    fn settlement_bdc(
+        mut slf: PyRefMut<'_, Self>,
+        bdc: Option<String>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.settlement_bdc = parse_bdc_option(bdc.as_deref())?;
+        Ok(slf)
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCommodityForward> {
         slf.ensure_ready()?;
@@ -357,6 +419,18 @@ impl PyCommodityForwardBuilder {
         }
         if let Some(cp) = slf.contract_price {
             builder = builder.contract_price_opt(Some(cp));
+        }
+        if let Some(conv) = slf.convention {
+            builder = builder.convention_opt(Some(conv));
+        }
+        if let Some(lag) = slf.settlement_lag_days {
+            builder = builder.settlement_lag_days_opt(Some(lag));
+        }
+        if let Some(cal) = slf.settlement_calendar_id.clone() {
+            builder = builder.settlement_calendar_id_opt(Some(cal));
+        }
+        if let Some(bdc) = slf.settlement_bdc {
+            builder = builder.settlement_bdc_opt(Some(bdc));
         }
 
         let forward = builder
@@ -478,11 +552,55 @@ impl PyCommodityForward {
         self.inner.contract_price
     }
 
+    /// Commodity convention (e.g., "wti", "brent", "gold"). None if not set.
+    #[getter]
+    fn convention(&self) -> Option<&str> {
+        self.inner.convention.map(convention_to_str)
+    }
+
+    /// Settlement lag in business days, if explicitly set.
+    #[getter]
+    fn settlement_lag_days(&self) -> Option<u32> {
+        self.inner.settlement_lag_days
+    }
+
+    /// Settlement calendar ID, if explicitly set.
+    #[getter]
+    fn settlement_calendar_id(&self) -> Option<&str> {
+        self.inner.settlement_calendar_id.as_deref()
+    }
+
+    /// Settlement business day convention, if explicitly set.
+    #[getter]
+    fn settlement_bdc(&self) -> Option<&str> {
+        self.inner.settlement_bdc.map(bdc_to_str)
+    }
+
     /// Instrument type key.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         use finstack_valuations::instruments::Instrument;
         PyInstrumentType::new(self.inner.key())
+    }
+
+    /// True if this forward has no contract price set (NPV ~ 0 at inception).
+    fn is_at_market(&self) -> bool {
+        self.inner.is_at_market()
+    }
+
+    /// Effective settlement lag in business days (resolves convention defaults).
+    fn effective_settlement_lag(&self) -> u32 {
+        self.inner.effective_settlement_lag()
+    }
+
+    /// Effective settlement calendar ID (resolves convention defaults).
+    fn effective_settlement_calendar(&self) -> Option<&str> {
+        self.inner.effective_settlement_calendar()
+    }
+
+    /// Effective settlement business day convention (resolves convention defaults).
+    fn effective_settlement_bdc(&self) -> &str {
+        bdc_to_str(self.inner.effective_settlement_bdc())
     }
 
     fn __repr__(&self) -> String {
@@ -505,6 +623,51 @@ impl fmt::Display for PyCommodityForward {
             self.inner.underlying.ticker,
             self.inner.quantity
         )
+    }
+}
+
+fn convention_to_str(c: CommodityConvention) -> &'static str {
+    match c {
+        CommodityConvention::WTICrude => "wti",
+        CommodityConvention::BrentCrude => "brent",
+        CommodityConvention::NaturalGas => "naturalgas",
+        CommodityConvention::Gold => "gold",
+        CommodityConvention::Silver => "silver",
+        CommodityConvention::Copper => "copper",
+        CommodityConvention::Agricultural => "agricultural",
+        CommodityConvention::Power => "power",
+        _ => "unknown",
+    }
+}
+
+fn bdc_to_str(bdc: BusinessDayConvention) -> &'static str {
+    match bdc {
+        BusinessDayConvention::Following => "following",
+        BusinessDayConvention::ModifiedFollowing => "modified_following",
+        BusinessDayConvention::Preceding => "preceding",
+        BusinessDayConvention::ModifiedPreceding => "modified_preceding",
+        BusinessDayConvention::Unadjusted => "unadjusted",
+        _ => "unknown",
+    }
+}
+
+fn parse_bdc_option(bdc: Option<&str>) -> PyResult<Option<BusinessDayConvention>> {
+    match bdc {
+        Some("following") | Some("Following") => Ok(Some(BusinessDayConvention::Following)),
+        Some("modified_following") | Some("ModifiedFollowing") => {
+            Ok(Some(BusinessDayConvention::ModifiedFollowing))
+        }
+        Some("preceding") | Some("Preceding") => Ok(Some(BusinessDayConvention::Preceding)),
+        Some("modified_preceding") | Some("ModifiedPreceding") => {
+            Ok(Some(BusinessDayConvention::ModifiedPreceding))
+        }
+        Some("unadjusted") | Some("Unadjusted") | Some("none") | Some("None") => {
+            Ok(Some(BusinessDayConvention::Unadjusted))
+        }
+        None => Ok(None),
+        Some(other) => Err(PyValueError::new_err(format!(
+            "Invalid bdc: '{other}'. Must be 'following', 'modified_following', 'preceding', 'modified_preceding', or 'unadjusted'"
+        ))),
     }
 }
 

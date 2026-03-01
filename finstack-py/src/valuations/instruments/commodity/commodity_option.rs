@@ -1,6 +1,7 @@
 //! Python bindings for CommodityOption instrument.
 
 use crate::core::common::args::CurrencyArg;
+use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -9,6 +10,7 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
+use finstack_valuations::instruments::common::parameters::CommodityConvention;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
 use finstack_valuations::instruments::{
     Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
@@ -89,6 +91,8 @@ pub struct PyCommodityOptionBuilder {
     quoted_forward: Option<f64>,
     implied_volatility: Option<f64>,
     tree_steps: Option<usize>,
+    convention: Option<CommodityConvention>,
+    premium_settlement_days: Option<u32>,
 }
 
 impl PyCommodityOptionBuilder {
@@ -114,6 +118,8 @@ impl PyCommodityOptionBuilder {
             quoted_forward: None,
             implied_volatility: None,
             tree_steps: None,
+            convention: None,
+            premium_settlement_days: None,
         }
     }
 
@@ -348,6 +354,39 @@ impl PyCommodityOptionBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, convention=None)", signature = (convention=None))]
+    fn convention(
+        mut slf: PyRefMut<'_, Self>,
+        convention: Option<String>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.convention = match convention.map(|s| normalize_label(&s)).as_deref() {
+            Some("wticrude") | Some("wti") => Some(CommodityConvention::WTICrude),
+            Some("brentcrude") | Some("brent") => Some(CommodityConvention::BrentCrude),
+            Some("naturalgas") | Some("ng") => Some(CommodityConvention::NaturalGas),
+            Some("gold") => Some(CommodityConvention::Gold),
+            Some("silver") => Some(CommodityConvention::Silver),
+            Some("copper") => Some(CommodityConvention::Copper),
+            Some("agricultural") | Some("ag") => Some(CommodityConvention::Agricultural),
+            Some("power") => Some(CommodityConvention::Power),
+            None => None,
+            Some(other) => {
+                return Err(PyValueError::new_err(format!(
+                    "Invalid convention: '{other}'. Must be one of: wti, brent, naturalgas, gold, silver, copper, agricultural, power"
+                )))
+            }
+        };
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, days=None)", signature = (days=None))]
+    fn premium_settlement_days(
+        mut slf: PyRefMut<'_, Self>,
+        days: Option<u32>,
+    ) -> PyRefMut<'_, Self> {
+        slf.premium_settlement_days = days;
+        slf
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCommodityOption> {
         slf.ensure_ready()?;
@@ -437,6 +476,12 @@ impl PyCommodityOptionBuilder {
         }
         if let Some(qf) = slf.quoted_forward {
             builder = builder.quoted_forward_opt(Some(qf));
+        }
+        if let Some(conv) = slf.convention {
+            builder = builder.convention_opt(Some(conv));
+        }
+        if let Some(days) = slf.premium_settlement_days {
+            builder = builder.premium_settlement_days_opt(Some(days));
         }
 
         let option = builder
@@ -583,11 +628,38 @@ impl PyCommodityOption {
         PyDayCount::new(self.inner.day_count)
     }
 
+    /// Commodity convention (e.g., "wti", "brent", "gold"). None if not set.
+    #[getter]
+    fn convention(&self) -> Option<&str> {
+        self.inner.convention.map(|c| match c {
+            CommodityConvention::WTICrude => "wti",
+            CommodityConvention::BrentCrude => "brent",
+            CommodityConvention::NaturalGas => "naturalgas",
+            CommodityConvention::Gold => "gold",
+            CommodityConvention::Silver => "silver",
+            CommodityConvention::Copper => "copper",
+            CommodityConvention::Agricultural => "agricultural",
+            CommodityConvention::Power => "power",
+            _ => "unknown",
+        })
+    }
+
+    /// Premium settlement lag in business days, if explicitly set.
+    #[getter]
+    fn premium_settlement_days(&self) -> Option<u32> {
+        self.inner.premium_settlement_days
+    }
+
     /// Instrument type key.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         use finstack_valuations::instruments::Instrument;
         PyInstrumentType::new(self.inner.key())
+    }
+
+    /// Effective premium settlement days (resolves convention defaults).
+    fn effective_premium_settlement_days(&self) -> u32 {
+        self.inner.effective_premium_settlement_days()
     }
 
     fn __repr__(&self) -> String {

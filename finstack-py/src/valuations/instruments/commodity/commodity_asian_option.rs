@@ -1,17 +1,18 @@
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
+use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
-
 use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
+use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_asian_option::CommodityAsianOption;
 use finstack_valuations::instruments::exotics::asian_option::AveragingMethod;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
 use finstack_valuations::instruments::OptionType;
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyList, PyModule, PyType};
+use pyo3::types::{PyAny, PyList, PyModule, PyTuple, PyType};
 use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
@@ -81,6 +82,7 @@ pub struct PyCommodityAsianOptionBuilder {
     forward_curve_id: Option<CurveId>,
     discount_curve_id: Option<CurveId>,
     vol_surface_id: Option<CurveId>,
+    day_count: DayCount,
 }
 
 impl PyCommodityAsianOptionBuilder {
@@ -101,6 +103,7 @@ impl PyCommodityAsianOptionBuilder {
             forward_curve_id: None,
             discount_curve_id: None,
             vol_surface_id: None,
+            day_count: DayCount::Act365F,
         }
     }
 
@@ -177,7 +180,7 @@ impl PyCommodityAsianOptionBuilder {
             .forward_curve_id(forward_curve_id)
             .discount_curve_id(discount_curve_id)
             .vol_surface_id(vol_surface_id)
-            .day_count(finstack_core::dates::DayCount::Act365F)
+            .day_count(self.day_count)
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
             .attributes(finstack_valuations::instruments::Attributes::new());
 
@@ -314,6 +317,14 @@ impl PyCommodityAsianOptionBuilder {
         slf
     }
 
+    fn day_count<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        day_count: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.day_count = parse_day_count(day_count)?;
+        Ok(slf)
+    }
+
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCommodityAsianOption> {
         let inner = slf.validate_and_build()?;
         Ok(PyCommodityAsianOption::new(inner))
@@ -443,8 +454,46 @@ impl PyCommodityAsianOption {
 
     /// Volatility surface ID.
     #[getter]
-    fn vol_surface_id(&self) -> String {
-        self.inner.vol_surface_id.as_str().to_string()
+    fn vol_surface_id(&self) -> &str {
+        self.inner.vol_surface_id.as_str()
+    }
+
+    /// Day count convention.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count)
+    }
+
+    /// Realized fixings as a list of (date, price) tuples.
+    #[getter]
+    fn realized_fixings<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
+        let result = PyList::empty(py);
+        for (d, v) in &self.inner.realized_fixings {
+            let py_date = date_to_py(py, *d)?;
+            let tuple = PyTuple::new(py, [py_date, v.into_pyobject(py)?.into_any().unbind()])?;
+            result.append(tuple)?;
+        }
+        Ok(result.into())
+    }
+
+    /// Get accumulated state from realized fixings: (sum, log_product, count).
+    #[pyo3(signature = (as_of))]
+    fn accumulated_state<'py>(
+        &self,
+        py: Python<'py>,
+        as_of: Bound<'py, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let date = py_to_date(&as_of).context("as_of")?;
+        let (sum, log_prod, count) = self.inner.accumulated_state(date);
+        let tuple = PyTuple::new(
+            py,
+            [
+                sum.into_pyobject(py)?.into_any().unbind(),
+                log_prod.into_pyobject(py)?.into_any().unbind(),
+                count.into_pyobject(py)?.into_any().unbind(),
+            ],
+        )?;
+        Ok(tuple.into())
     }
 
     fn __repr__(&self) -> String {
@@ -474,11 +523,26 @@ impl fmt::Display for PyCommodityAsianOption {
     }
 }
 
-pub(crate) fn register<'py>(
-    _py: Python<'py>,
-    parent: &Bound<'py, PyModule>,
-) -> PyResult<Vec<&'static str>> {
+fn parse_day_count(dc: Bound<'_, PyAny>) -> PyResult<DayCount> {
+    if let Ok(py_dc) = dc.extract::<pyo3::PyRef<PyDayCount>>() {
+        return Ok(py_dc.inner);
+    }
+    if let Ok(name) = dc.extract::<&str>() {
+        return match name.to_lowercase().as_str() {
+            "act_360" | "act/360" => Ok(DayCount::Act360),
+            "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
+            "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
+            "thirty_360" | "30/360" | "30e/360" => Ok(DayCount::Thirty360),
+            other => Err(PyValueError::new_err(format!(
+                "Unsupported day count '{other}'"
+            ))),
+        };
+    }
+    Err(PyTypeError::new_err("day_count expects DayCount or str"))
+}
+
+pub(crate) fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyCommodityAsianOption>()?;
     parent.add_class::<PyCommodityAsianOptionBuilder>()?;
-    Ok(vec!["CommodityAsianOption", "CommodityAsianOptionBuilder"])
+    Ok(())
 }
