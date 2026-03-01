@@ -2,154 +2,187 @@
 
 from __future__ import annotations
 from typing import List, Any, Dict, Tuple
-from datetime import date
+from datetime import date as _Date
 from ...core.currency import Currency
 from ...core.money import Money
 from ...core.dates.schedule import Frequency, StubKind
 from ...core.dates.daycount import DayCount
 from ...core.dates.calendar import BusinessDayConvention
-from ...core.cashflow.primitives import CashFlow
+from ...core.cashflow.primitives import CashFlow, CFKind
 from ...core.market_data.context import MarketContext
+from ...core.market_data.term_structures import DiscountCurve
+from ...core.dates.periods import Period, PeriodPlan
+
+# ---------------------------------------------------------------------------
+# Amortization
+# ---------------------------------------------------------------------------
 
 class AmortizationSpec:
-    """Amortization specification for principal payments.
-
-    Use class methods to create specific types.
-    """
+    """Amortization specification for principal payments."""
 
     @classmethod
-    def none(cls) -> "AmortizationSpec":
+    def none(cls) -> AmortizationSpec:
         """No amortization: principal remains until redemption."""
         ...
 
     @classmethod
-    def linear_to(cls, final_notional: Money) -> "AmortizationSpec":
-        """Linear amortization to final notional.
-
-        Args:
-            final_notional: Final notional amount.
-        """
+    def linear_to(cls, final_notional: Money) -> AmortizationSpec:
+        """Linear amortization to final notional."""
         ...
 
     @classmethod
     def step_remaining(
         cls,
-        schedule: List[Tuple[date | str, Money]],
-    ) -> "AmortizationSpec":
-        """Step amortization with remaining notional.
-
-        Args:
-            schedule: List of (date, remaining_notional) pairs.
-        """
+        schedule: List[Tuple[_Date | str, Money]],
+    ) -> AmortizationSpec:
+        """Step amortization with remaining notional."""
         ...
 
     @classmethod
-    def percent_per_period(cls, pct: float) -> "AmortizationSpec":
-        """Percentage amortization per period.
-
-        Args:
-            pct: Percentage per period (e.g., 0.05 = 5%).
-        """
+    def percent_per_period(cls, pct: float) -> AmortizationSpec:
+        """Percentage amortization per period (e.g., 0.05 = 5%)."""
         ...
 
     @classmethod
     def custom_principal(
         cls,
-        items: List[Tuple[date | str, Money]],
-    ) -> "AmortizationSpec":
-        """Custom principal amortization.
-
-        Args:
-            items: List of (date, principal_amount) pairs.
-        """
+        items: List[Tuple[_Date | str, Money]],
+    ) -> AmortizationSpec:
+        """Custom principal amortization."""
         ...
 
     def __repr__(self) -> str: ...
 
-class CouponType:
-    """Coupon split type (cash, PIK, split) mirroring valuations builder."""
+# ---------------------------------------------------------------------------
+# Notional
+# ---------------------------------------------------------------------------
 
-    # Class attributes
-    CASH: "CouponType"
-    PIK: "CouponType"
+class Notional:
+    """Principal notional with optional amortization schedule."""
 
     @classmethod
-    def split(cls, cash_pct: float, pik_pct: float) -> "CouponType":
+    def par(cls, amount: float, currency: Currency) -> Notional:
+        """Create a par notional (no amortization)."""
+        ...
+
+    @property
+    def initial(self) -> Money: ...
+    @property
+    def amort(self) -> AmortizationSpec: ...
+    def validate(self) -> None: ...
+    def __repr__(self) -> str: ...
+
+# ---------------------------------------------------------------------------
+# Coupon types
+# ---------------------------------------------------------------------------
+
+class CouponType:
+    """Coupon split type (cash, PIK, split)."""
+
+    CASH: CouponType
+    PIK: CouponType
+
+    @classmethod
+    def split(cls, cash_pct: float, pik_pct: float) -> CouponType:
         """Create a split coupon type with percentage weights summing to ~1.0."""
         ...
+
+# ---------------------------------------------------------------------------
+# Overnight compounding
+# ---------------------------------------------------------------------------
+
+class OvernightCompoundingMethod:
+    """Overnight rate compounding method for SOFR/SONIA-style indices."""
+
+    SIMPLE_AVERAGE: OvernightCompoundingMethod
+    COMPOUNDED_IN_ARREARS: OvernightCompoundingMethod
+
+    @classmethod
+    def compounded_with_lookback(cls, lookback_days: int) -> OvernightCompoundingMethod:
+        """Compounded in arrears with lookback."""
+        ...
+
+    @classmethod
+    def compounded_with_lockout(cls, lockout_days: int) -> OvernightCompoundingMethod:
+        """Compounded in arrears with lockout."""
+        ...
+
+    @classmethod
+    def compounded_with_observation_shift(cls, shift_days: int) -> OvernightCompoundingMethod:
+        """Compounded with observation shift."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+# ---------------------------------------------------------------------------
+# Schedule parameters
+# ---------------------------------------------------------------------------
 
 class ScheduleParams:
     """Schedule parameter bundle."""
 
-    def __init__(
-        self,
+    @classmethod
+    def new(
+        cls,
         freq: Frequency,
         day_count: DayCount,
         bdc: BusinessDayConvention,
-        calendar_id: str | None = None,
+        calendar_id: str,
         stub: StubKind | None = None,
-    ) -> None:
+        end_of_month: bool = False,
+        payment_lag_days: int = 0,
+    ) -> ScheduleParams:
         """Create schedule parameters.
 
         Args:
             freq: Payment frequency
             day_count: Day count convention
             bdc: Business day convention
-            calendar_id: Optional calendar identifier
+            calendar_id: Calendar identifier
             stub: Optional stub kind
+            end_of_month: End-of-month rule (default: False)
+            payment_lag_days: Payment lag in days (default: 0)
         """
         ...
 
     @classmethod
-    def quarterly_act360(cls) -> "ScheduleParams":
+    def quarterly_act360(cls) -> ScheduleParams:
         """Quarterly payments with Act/360 day count."""
         ...
 
     @classmethod
-    def semiannual_30360(cls) -> "ScheduleParams":
+    def semiannual_30360(cls) -> ScheduleParams:
         """Semi-annual payments with 30/360 day count."""
         ...
 
     @classmethod
-    def annual_actact(cls) -> "ScheduleParams":
+    def annual_actact(cls) -> ScheduleParams:
         """Annual payments with Act/Act day count."""
         ...
 
     @classmethod
-    def usd_standard(cls) -> "ScheduleParams":
-        """USD market standard: quarterly, Act/360, Modified Following, USD calendar.
-
-        Returns:
-            ScheduleParams: USD standard configuration
-        """
+    def usd_standard(cls) -> ScheduleParams:
+        """USD market standard: quarterly, Act/360, Modified Following, USD calendar."""
         ...
 
     @classmethod
-    def eur_standard(cls) -> "ScheduleParams":
-        """EUR market standard: semi-annual, 30/360, Modified Following, EUR calendar.
-
-        Returns:
-            ScheduleParams: EUR standard configuration
-        """
+    def eur_standard(cls) -> ScheduleParams:
+        """EUR market standard: semi-annual, 30/360, Modified Following, EUR calendar."""
         ...
 
     @classmethod
-    def gbp_standard(cls) -> "ScheduleParams":
-        """GBP market standard: semi-annual, Act/365, Modified Following, GBP calendar.
-
-        Returns:
-            ScheduleParams: GBP standard configuration
-        """
+    def gbp_standard(cls) -> ScheduleParams:
+        """GBP market standard: semi-annual, Act/365, Modified Following, GBP calendar."""
         ...
 
     @classmethod
-    def jpy_standard(cls) -> "ScheduleParams":
-        """JPY market standard: semi-annual, Act/365, Modified Following, JPY calendar.
-
-        Returns:
-            ScheduleParams: JPY standard configuration
-        """
+    def jpy_standard(cls) -> ScheduleParams:
+        """JPY market standard: semi-annual, Act/365, Modified Following, JPY calendar."""
         ...
+
+# ---------------------------------------------------------------------------
+# Coupon specs
+# ---------------------------------------------------------------------------
 
 class FixedCouponSpec:
     """Fixed coupon specification."""
@@ -160,18 +193,12 @@ class FixedCouponSpec:
         rate: float,
         schedule: ScheduleParams,
         coupon_type: CouponType | None = None,
-    ) -> "FixedCouponSpec":
-        """Create fixed coupon specification.
-
-        Args:
-            rate: Fixed coupon rate
-            schedule: Schedule parameters
-            coupon_type: Optional coupon type (default: cash)
-        """
+    ) -> FixedCouponSpec:
+        """Create fixed coupon specification."""
         ...
 
 class FloatCouponParams:
-    """Floating coupon parameters and spec."""
+    """Floating coupon parameters."""
 
     @classmethod
     def new(
@@ -181,16 +208,44 @@ class FloatCouponParams:
         *,
         gearing: float = 1.0,
         reset_lag_days: int = 2,
-    ) -> "FloatCouponParams":
-        """Create floating coupon parameters.
-
-        Args:
-            index_id: Curve identifier for the floating rate index
-            margin_bp: Margin in basis points
-            gearing: Gearing factor (default: 1.0)
-            reset_lag_days: Reset lag in days (default: 2)
-        """
+    ) -> FloatCouponParams:
+        """Create floating coupon parameters."""
         ...
+
+class FloatingRateSpec:
+    """Full floating rate specification with caps, floors, and compounding."""
+
+    @classmethod
+    def new(
+        cls,
+        index_id: str,
+        spread_bp: float,
+        schedule: ScheduleParams,
+        *,
+        gearing: float = 1.0,
+        gearing_includes_spread: bool = True,
+        floor_bp: float | None = None,
+        all_in_floor_bp: float | None = None,
+        cap_bp: float | None = None,
+        index_cap_bp: float | None = None,
+        reset_lag_days: int = 2,
+        fixing_calendar_id: str | None = None,
+        overnight_compounding: OvernightCompoundingMethod | None = None,
+    ) -> FloatingRateSpec:
+        """Create full floating rate specification."""
+        ...
+
+    @property
+    def index_id(self) -> str: ...
+    @property
+    def spread_bp(self) -> float: ...
+    @property
+    def gearing(self) -> float: ...
+    @property
+    def floor_bp(self) -> float | None: ...
+    @property
+    def cap_bp(self) -> float | None: ...
+    def __repr__(self) -> str: ...
 
 class FloatingCouponSpec:
     """Floating coupon specification."""
@@ -201,287 +256,462 @@ class FloatingCouponSpec:
         params: FloatCouponParams,
         schedule: ScheduleParams,
         coupon_type: CouponType | None = None,
-    ) -> "FloatingCouponSpec":
-        """Create floating coupon specification.
-
-        Args:
-            params: Floating rate parameters
-            schedule: Schedule parameters
-            coupon_type: Optional coupon type (default: cash)
-        """
+    ) -> FloatingCouponSpec:
+        """Create from simplified FloatCouponParams (no caps/floors/compounding)."""
         ...
-
-class CashflowBuilder:
-    """Python wrapper for the composable valuations CashflowBuilder."""
 
     @classmethod
-    def new(cls) -> "CashflowBuilder":
-        """Create a new cashflow builder."""
+    def from_rate_spec(
+        cls,
+        rate_spec: FloatingRateSpec,
+        schedule: ScheduleParams,
+        coupon_type: CouponType | None = None,
+    ) -> FloatingCouponSpec:
+        """Create from full FloatingRateSpec (with caps, floors, compounding)."""
         ...
 
-    def principal(self, amount: float, currency: Currency, issue: date, maturity: date) -> CashflowBuilder:
-        """Add principal cashflow.
-
-        Args:
-            amount: Principal amount
-            currency: Currency
-            issue: Issue date
-            maturity: Maturity date
-
-        Returns:
-            CashflowBuilder: Self for method chaining
-        """
-        ...
-
-    def amortization(self, amortization: AmortizationSpec | None) -> CashflowBuilder:
-        """Add amortization specification.
-
-        Args:
-            amortization: Optional amortization spec
-
-        Returns:
-            CashflowBuilder: Self for method chaining
-        """
-        ...
-
-    def fixed_cf(self, spec: FixedCouponSpec) -> CashflowBuilder:
-        """Add fixed coupon cashflow.
-
-        Args:
-            spec: Fixed coupon specification
-
-        Returns:
-            CashflowBuilder: Self for method chaining
-        """
-        ...
-
-    def floating_cf(self, spec: FloatingCouponSpec) -> CashflowBuilder:
-        """Add floating coupon cashflow.
-
-        Args:
-            spec: Floating coupon specification
-
-        Returns:
-            CashflowBuilder: Self for method chaining
-        """
-        ...
-
-    def fixed_stepup(
-        self, steps: List[Tuple[date | str, float]], schedule: ScheduleParams, default_split: CouponType
-    ) -> CashflowBuilder:
-        """Fixed step-up program with boundaries steps=[(end_date, rate), ...].
-
-        Args:
-            steps: List of (end_date, rate) tuples
-            schedule: Schedule parameters
-            default_split: Default coupon type for splits
-
-        Returns:
-            CashflowBuilder: Self for method chaining
-        """
-        ...
-
-    def payment_split_program(self, steps: List[Tuple[date | str, CouponType]]) -> CashflowBuilder:
-        """Payment split program (end_date, split) where split is CouponType.
-
-        Args:
-            steps: List of (end_date, split) tuples
-
-        Returns:
-            CashflowBuilder: Self for method chaining
-        """
-        ...
-
-    def build_with_curves(self, market: MarketContext | None = None) -> CashFlowSchedule:
-        """Build the cashflow schedule with market curves for floating rate computation.
-
-        When a market context is provided, floating rate coupons include the forward rate
-        from the curve: coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * year_fraction
-
-        Without curves (or using build_with_curves(None)), only the margin is used:
-        coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction
-
-        Args:
-            market: Optional market context with curves
-
-        Returns:
-            CashFlowSchedule: Built cashflow schedule with forward rates
-        """
-        ...
-
-class CashFlowSchedule:
-    """CashflowSchedule wrapper exposing holder-side flows and metadata."""
-
-    @property
-    def day_count(self) -> DayCount:
-        """Day count convention used for the schedule."""
-        ...
-
-    @property
-    def notional(self) -> Money:
-        """Initial notional amount."""
-        ...
-
-    def flows(self) -> List[CashFlow]:
-        """List of cashflows in the schedule."""
-        ...
-
-    def to_dataframe(
-        self,
-        market: MarketContext | None = None,
-        discount_curve_id: str | None = None,
-        as_of: date | str | None = None,
-    ) -> Any:
-        """Convert the schedule into a Polars DataFrame.
-
-        Returns a Polars DataFrame with columns: "start_date", "end_date", "kind", "amount",
-        "accrual_factor", "reset_date", "outstanding", "rate", and optionally
-        "outstanding_undrawn" (if facility limit exists), "discount_factor", "pv" (if market provided).
-        """
-        ...
+# ---------------------------------------------------------------------------
+# Fees
+# ---------------------------------------------------------------------------
 
 class FeeBase:
-    """Fee base for periodic basis point fees.
-
-    Determines what balance is used to calculate periodic fees.
-
-    Examples:
-        >>> from finstack.core.currency import Currency
-        >>> from finstack.core.money import Money
-        >>> from finstack.valuations.cashflow.builder import FeeBase
-        >>> # Fee on drawn balance
-        >>> FeeBase.drawn()
-        >>> # Fee on undrawn (unused) facility
-        >>> FeeBase.undrawn(Money(10_000_000, Currency("USD")))
-    """
+    """Fee base for periodic basis point fees."""
 
     @classmethod
     def drawn(cls) -> FeeBase:
-        """Fee calculated on drawn (outstanding) balance.
-
-        Returns:
-            FeeBase: Drawn balance base
-        """
+        """Fee calculated on drawn (outstanding) balance."""
         ...
 
     @classmethod
     def undrawn(cls, facility_limit: Money) -> FeeBase:
-        """Fee calculated on undrawn (unused) facility.
-
-        Args:
-            facility_limit: Total facility size as Money
-
-        Returns:
-            FeeBase: Undrawn balance base (facility_limit - outstanding)
-        """
+        """Fee calculated on undrawn (unused) facility."""
         ...
 
     def __repr__(self) -> str: ...
 
 class FeeSpec:
-    """Fee specification for cashflow schedules.
-
-    Supports both fixed one-time fees and periodic fees calculated as
-    basis points on drawn or undrawn balances.
-
-    Examples:
-        >>> from datetime import date
-        >>> from finstack.core.currency import Currency
-        >>> from finstack.core.money import Money
-        >>> from finstack.valuations.cashflow.builder import FeeBase, FeeSpec, ScheduleParams
-        >>> # One-time fixed fee
-        >>> FeeSpec.fixed(date(2025, 6, 15), Money(50_000, Currency("USD")))
-        >>> # Periodic commitment fee on undrawn balance
-        >>> FeeSpec.periodic_bps(
-        ...     FeeBase.undrawn(Money(10_000_000, Currency("USD"))),
-        ...     25.0,
-        ...     ScheduleParams.quarterly_act360(),
-        ... )
-    """
+    """Fee specification for cashflow schedules."""
 
     @classmethod
-    def fixed(cls, date: date, amount: Money) -> FeeSpec:
-        """Create a fixed one-time fee.
-
-        Args:
-            date: Payment date
-            amount: Fee amount as Money
-
-        Returns:
-            FeeSpec: Fixed fee specification
-        """
+    def fixed(cls, date: _Date, amount: Money) -> FeeSpec:
+        """Create a fixed one-time fee."""
         ...
 
     @classmethod
     def periodic_bps(
-        cls, base: FeeBase, bps: float, schedule: ScheduleParams, *, calendar: str | None = None, stub: str = "none"
+        cls,
+        base: FeeBase,
+        bps: float,
+        schedule: ScheduleParams,
+        *,
+        calendar: str | None = None,
+        stub: str | None = None,
     ) -> FeeSpec:
-        """Create a periodic fee calculated as basis points on a balance.
-
-        Args:
-            base: Fee base (drawn or undrawn balance)
-            bps: Fee rate in basis points (e.g., 25.0 for 0.25%)
-            schedule: Schedule parameters (frequency, day count, BDC)
-            calendar: Optional calendar identifier
-            stub: Optional stub kind (default: "none")
-
-        Returns:
-            FeeSpec: Periodic fee specification
-        """
+        """Create a periodic fee calculated as basis points on a balance."""
         ...
 
     def __repr__(self) -> str: ...
 
-class FixedWindow:
-    """Fixed coupon window for rate step-up programs.
+class FeeTier:
+    """Fee tier defining a utilization threshold and corresponding basis point fee."""
 
-    Defines a period with a specific fixed rate and schedule.
-
-    Examples:
-        >>> from finstack.valuations.cashflow.builder import FixedWindow, ScheduleParams
-        >>> window = FixedWindow(rate=0.05, schedule=ScheduleParams.quarterly_act360())
-    """
-
-    def __init__(self, rate: float, schedule: ScheduleParams) -> None:
-        """Create a fixed coupon window.
-
-        Args:
-            rate: Fixed coupon rate (annual decimal)
-            schedule: Schedule parameters defining frequency and conventions
-
-        Returns:
-            FixedWindow: Window specification
-        """
+    @classmethod
+    def from_bps(cls, threshold: float, bps: float) -> FeeTier:
+        """Create a fee tier from utilization threshold (0.0-1.0) and fee in bps."""
         ...
 
     @property
-    def rate(self) -> float:
-        """Fixed coupon rate."""
-        ...
+    def threshold(self) -> float: ...
+    @property
+    def bps(self) -> float: ...
+    def __repr__(self) -> str: ...
 
+def evaluate_fee_tiers(tiers: List[FeeTier], utilization: float) -> float:
+    """Evaluate tiered fees given utilization level."""
+    ...
+
+# ---------------------------------------------------------------------------
+# Windows
+# ---------------------------------------------------------------------------
+
+class FixedWindow:
+    """Fixed coupon window for rate step-up programs."""
+
+    def __init__(self, rate: float, schedule: ScheduleParams) -> None: ...
+    @property
+    def rate(self) -> float: ...
     def __repr__(self) -> str: ...
 
 class FloatWindow:
-    """Floating coupon window for floating rate periods.
+    """Floating coupon window for floating rate periods."""
 
-    Defines a period with floating rate parameters and schedule.
+    def __init__(self, params: FloatCouponParams, schedule: ScheduleParams) -> None: ...
+    def __repr__(self) -> str: ...
 
-    Examples:
-        >>> from finstack.valuations.cashflow.builder import FloatCouponParams, FloatWindow, ScheduleParams
-        >>> params = FloatCouponParams.new("USD-SOFR", 50.0, 1.0, 2)
-        >>> window = FloatWindow(params=params, schedule=ScheduleParams.quarterly_act360())
-    """
+# ---------------------------------------------------------------------------
+# Principal events
+# ---------------------------------------------------------------------------
 
-    def __init__(self, params: FloatCouponParams, schedule: ScheduleParams) -> None:
-        """Create a floating coupon window.
+class PrincipalEvent:
+    """A principal draw/repay event that adjusts outstanding balance."""
 
-        Args:
-            params: Floating rate parameters (index, margin, gearing)
-            schedule: Schedule parameters defining frequency and conventions
+    @classmethod
+    def new(
+        cls,
+        date: _Date,
+        delta: Money,
+        cash: Money,
+        kind: CFKind,
+    ) -> PrincipalEvent:
+        """Create a principal event."""
+        ...
 
-        Returns:
-            FloatWindow: Window specification
-        """
+    @property
+    def date(self) -> _Date: ...
+    @property
+    def delta(self) -> Money: ...
+    @property
+    def cash(self) -> Money: ...
+    @property
+    def kind(self) -> CFKind: ...
+    def __repr__(self) -> str: ...
+
+# ---------------------------------------------------------------------------
+# Prepayment / Default / Recovery
+# ---------------------------------------------------------------------------
+
+class PrepaymentCurve:
+    """Prepayment curve shape."""
+
+    CONSTANT: PrepaymentCurve
+
+    @classmethod
+    def psa(cls, speed_multiplier: float) -> PrepaymentCurve:
+        """PSA prepayment curve."""
+        ...
+
+    @classmethod
+    def cmbs_lockout(cls, lockout_months: int) -> PrepaymentCurve:
+        """CMBS lockout curve."""
         ...
 
     def __repr__(self) -> str: ...
+
+class PrepaymentModelSpec:
+    """Prepayment model specification with CPR and optional curve."""
+
+    @classmethod
+    def constant_cpr(cls, cpr: float) -> PrepaymentModelSpec:
+        """Constant CPR prepayment model."""
+        ...
+
+    @classmethod
+    def psa(cls, speed_multiplier: float) -> PrepaymentModelSpec:
+        """PSA prepayment model."""
+        ...
+
+    @classmethod
+    def psa_100(cls) -> PrepaymentModelSpec:
+        """PSA 100% standard prepayment model."""
+        ...
+
+    @classmethod
+    def cmbs_with_lockout(cls, lockout_months: int, post_lockout_cpr: float) -> PrepaymentModelSpec:
+        """CMBS with lockout: no prepayment during lockout, constant CPR after."""
+        ...
+
+    def smm(self, seasoning_months: int) -> float:
+        """Compute the Single Monthly Mortality (SMM) rate for a given month."""
+        ...
+
+    @property
+    def cpr(self) -> float: ...
+    def __repr__(self) -> str: ...
+
+class DefaultCurve:
+    """Default curve shape."""
+
+    CONSTANT: DefaultCurve
+
+    @classmethod
+    def sda(cls, speed_multiplier: float) -> DefaultCurve:
+        """SDA default curve."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+class DefaultModelSpec:
+    """Default model specification with CDR and optional curve."""
+
+    @classmethod
+    def constant_cdr(cls, cdr: float) -> DefaultModelSpec:
+        """Constant CDR default model."""
+        ...
+
+    @classmethod
+    def sda(cls, speed_multiplier: float) -> DefaultModelSpec:
+        """SDA default model."""
+        ...
+
+    @classmethod
+    def cdr_2pct(cls) -> DefaultModelSpec:
+        """Standard 2% CDR default model."""
+        ...
+
+    def mdr(self, seasoning_months: int) -> float:
+        """Compute the Monthly Default Rate (MDR) for a given month."""
+        ...
+
+    @property
+    def cdr(self) -> float: ...
+    def __repr__(self) -> str: ...
+
+class DefaultEvent:
+    """A specific default event with date, amount, and recovery parameters."""
+
+    @classmethod
+    def new(
+        cls,
+        default_date: _Date,
+        defaulted_amount: float,
+        recovery_rate: float,
+        recovery_lag: int,
+        *,
+        recovery_bdc: BusinessDayConvention | None = None,
+        recovery_calendar_id: str | None = None,
+    ) -> DefaultEvent: ...
+    def validate(self) -> None: ...
+    @property
+    def default_date(self) -> _Date: ...
+    @property
+    def defaulted_amount(self) -> float: ...
+    @property
+    def recovery_rate(self) -> float: ...
+    @property
+    def recovery_lag(self) -> int: ...
+    def __repr__(self) -> str: ...
+
+class RecoveryModelSpec:
+    """Recovery model specification with rate and lag."""
+
+    @classmethod
+    def with_lag(cls, rate: float, recovery_lag: int) -> RecoveryModelSpec:
+        """Create a recovery model with rate (0.0-1.0) and lag in months."""
+        ...
+
+    def validate(self) -> None: ...
+    @property
+    def rate(self) -> float: ...
+    @property
+    def recovery_lag(self) -> int: ...
+    def __repr__(self) -> str: ...
+
+# ---------------------------------------------------------------------------
+# Builder
+# ---------------------------------------------------------------------------
+
+class CashFlowBuilder:
+    """Composable cashflow schedule builder."""
+
+    @classmethod
+    def new(cls) -> CashFlowBuilder:
+        """Create a new cashflow builder."""
+        ...
+
+    def principal(self, amount: float, currency: Currency, issue: _Date, maturity: _Date) -> CashFlowBuilder:
+        """Add principal cashflow."""
+        ...
+
+    def amortization(self, amortization: AmortizationSpec | None) -> CashFlowBuilder:
+        """Add amortization specification."""
+        ...
+
+    def fixed_cf(self, spec: FixedCouponSpec) -> CashFlowBuilder:
+        """Add fixed coupon cashflow."""
+        ...
+
+    def floating_cf(self, spec: FloatingCouponSpec) -> CashFlowBuilder:
+        """Add floating coupon cashflow."""
+        ...
+
+    def fee(self, spec: FeeSpec) -> CashFlowBuilder:
+        """Add a fee specification to the schedule."""
+        ...
+
+    def principal_events(self, events: List[PrincipalEvent]) -> CashFlowBuilder:
+        """Add custom principal events (draws/repays)."""
+        ...
+
+    def add_principal_event(self, date: _Date, delta: Money, cash: Money, kind: CFKind) -> CashFlowBuilder:
+        """Add a single principal event."""
+        ...
+
+    def add_fixed_coupon_window(
+        self,
+        start: _Date,
+        end: _Date,
+        rate: float,
+        schedule: ScheduleParams,
+        split: CouponType,
+    ) -> CashFlowBuilder:
+        """Add a fixed coupon window with explicit start/end dates."""
+        ...
+
+    def add_float_coupon_window(
+        self,
+        start: _Date,
+        end: _Date,
+        params: FloatCouponParams,
+        schedule: ScheduleParams,
+        split: CouponType,
+    ) -> CashFlowBuilder:
+        """Add a floating coupon window with explicit start/end dates."""
+        ...
+
+    def add_payment_window(self, start: _Date, end: _Date, split: CouponType) -> CashFlowBuilder:
+        """Add a payment window (PIK toggle) with explicit start/end dates."""
+        ...
+
+    def fixed_stepup(
+        self,
+        steps: List[Tuple[_Date | str, float]],
+        schedule: ScheduleParams,
+        default_split: CouponType,
+    ) -> CashFlowBuilder:
+        """Fixed step-up program with boundaries steps=[(end_date, rate), ...]."""
+        ...
+
+    def float_margin_stepup(
+        self,
+        steps: List[Tuple[_Date | str, float]],
+        base_params: FloatCouponParams,
+        schedule: ScheduleParams,
+        default_split: CouponType,
+    ) -> CashFlowBuilder:
+        """Floating margin step-up program with boundaries steps=[(end_date, margin_bp), ...]."""
+        ...
+
+    def fixed_to_float(
+        self,
+        switch: _Date,
+        fixed_win: FixedWindow,
+        float_win: FloatWindow,
+        default_split: CouponType,
+    ) -> CashFlowBuilder:
+        """Fixed-to-float switch at a given date."""
+        ...
+
+    def payment_split_program(self, steps: List[Tuple[_Date | str, CouponType]]) -> CashFlowBuilder:
+        """Payment split program (end_date, split) where split is CouponType."""
+        ...
+
+    def build_with_curves(self, market: MarketContext | None = None) -> CashFlowSchedule:
+        """Build the cashflow schedule with optional market curves for floating rate computation."""
+        ...
+
+# ---------------------------------------------------------------------------
+# Schedule
+# ---------------------------------------------------------------------------
+
+class CashFlowSchedule:
+    """Cashflow schedule with flows, metadata, and analytics."""
+
+    @property
+    def day_count(self) -> DayCount: ...
+    @property
+    def notional(self) -> Money: ...
+    def flows(self) -> List[CashFlow]:
+        """List of all cashflows in the schedule."""
+        ...
+
+    def dates(self) -> List[_Date]:
+        """Unique payment dates from the schedule."""
+        ...
+
+    def coupons(self) -> List[CashFlow]:
+        """Only coupon cashflows from the schedule."""
+        ...
+
+    def outstanding_path_per_flow(self) -> List[Tuple[_Date, Money]]:
+        """Outstanding balance path per cashflow as (date, Money) pairs."""
+        ...
+
+    def outstanding_by_date(self) -> List[Tuple[_Date, Money]]:
+        """Outstanding balance by date as (date, Money) pairs."""
+        ...
+
+    def npv(
+        self,
+        market_or_curve: MarketContext | DiscountCurve,
+        *,
+        discount_curve_id: str | None = None,
+        as_of: _Date | str | None = None,
+        day_count: DayCount | None = None,
+    ) -> float:
+        """Compute the net present value of all cashflows."""
+        ...
+
+    def per_period_pv(
+        self,
+        periods: List[Period] | PeriodPlan,
+        market_or_curve: MarketContext | DiscountCurve,
+        *,
+        discount_curve_id: str | None = None,
+        hazard_curve_id: str | None = None,
+        as_of: _Date | str | None = None,
+        day_count: DayCount | None = None,
+    ) -> Dict[str, float]:
+        """Compute present values aggregated by period."""
+        ...
+
+    def to_dataframe(
+        self,
+        *,
+        market: MarketContext,
+        discount_curve_id: str,
+        as_of: _Date | str | None = None,
+        credit_curve_id: str | None = None,
+        forward_curve_id: str | None = None,
+        include_floating_decomposition: bool = False,
+        day_count: DayCount | None = None,
+        discount_day_count: DayCount | None = None,
+        facility_limit: Money | None = None,
+    ) -> Any:
+        """Convert the cashflow schedule to a Polars DataFrame."""
+        ...
+
+# ---------------------------------------------------------------------------
+# Utility functions
+# ---------------------------------------------------------------------------
+
+def cpr_to_smm(cpr: float) -> float:
+    """Convert annual CPR to Single Monthly Mortality (SMM)."""
+    ...
+
+def smm_to_cpr(smm: float) -> float:
+    """Convert Single Monthly Mortality (SMM) to annual CPR."""
+    ...
+
+def compute_compounded_rate(
+    daily_rates: List[Tuple[float, int]],
+    total_days: int,
+    day_count_basis: float,
+) -> float:
+    """Compute a compounded rate from daily rate observations."""
+    ...
+
+def compute_simple_average_rate(
+    daily_rates: List[Tuple[float, int]],
+    total_days: int,
+) -> float:
+    """Compute a simple average rate from daily rate observations."""
+    ...
+
+def compute_overnight_rate(
+    method: OvernightCompoundingMethod,
+    daily_rates: List[Tuple[float, int]],
+    total_days: int,
+    day_count_basis: float,
+) -> float:
+    """Compute an overnight compounding rate using the specified method."""
+    ...

@@ -424,12 +424,12 @@ class TestMetricsParity:
         # Just verify the API works without error
 
 
-class TestCashflowBuilderParity:
+class TestCashFlowBuilderParity:
     """Test cashflow builder matches Rust."""
 
     def test_cashflow_builder_basic(self) -> None:
         """Test basic cashflow schedule generation."""
-        from finstack.valuations.cashflow import CashflowBuilder, CouponType, FixedCouponSpec, ScheduleParams
+        from finstack.valuations.cashflow import CashFlowBuilder, CouponType, FixedCouponSpec, ScheduleParams
 
         issue = date(2024, 1, 1)
         maturity = date(2029, 1, 1)
@@ -437,7 +437,7 @@ class TestCashflowBuilderParity:
         schedule = ScheduleParams.semiannual_30360()
         fixed_spec = FixedCouponSpec.new(rate=0.05, schedule=schedule, coupon_type=CouponType.CASH)
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.fixed_cf(fixed_spec)
         cf_schedule = builder.build_with_curves(None)
@@ -448,7 +448,7 @@ class TestCashflowBuilderParity:
         """Test cashflow builder with amortization."""
         from finstack.valuations.cashflow import (
             AmortizationSpec,
-            CashflowBuilder,
+            CashFlowBuilder,
             CouponType,
             FixedCouponSpec,
             ScheduleParams,
@@ -462,7 +462,7 @@ class TestCashflowBuilderParity:
         schedule = ScheduleParams.annual_actact()
         fixed_spec = FixedCouponSpec.new(rate=0.05, schedule=schedule, coupon_type=CouponType.CASH)
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.amortization(amort)
         builder.fixed_cf(fixed_spec)

@@ -182,7 +182,10 @@ pub struct PyFixedCouponSpec {
 #[pymethods]
 impl PyFixedCouponSpec {
     #[classmethod]
-    #[pyo3(text_signature = "(cls, rate, schedule, coupon_type=None)")]
+    #[pyo3(
+        signature = (rate, schedule, coupon_type=None),
+        text_signature = "(cls, rate, schedule, coupon_type=None)"
+    )]
     fn new(
         _cls: &Bound<'_, PyType>,
         rate: f64,
@@ -222,7 +225,10 @@ pub struct PyFloatCouponParams {
 #[pymethods]
 impl PyFloatCouponParams {
     #[classmethod]
-    #[pyo3(text_signature = "(cls, index_id, margin_bp, *, gearing=1.0, reset_lag_days=2)")]
+    #[pyo3(
+        signature = (index_id, margin_bp, *, gearing=None, reset_lag_days=None),
+        text_signature = "(cls, index_id, margin_bp, *, gearing=1.0, reset_lag_days=2)"
+    )]
     fn new(
         _cls: &Bound<'_, PyType>,
         index_id: &str,
@@ -256,7 +262,11 @@ pub struct PyFloatingCouponSpec {
 #[pymethods]
 impl PyFloatingCouponSpec {
     #[classmethod]
-    #[pyo3(text_signature = "(cls, params, schedule, coupon_type=None)")]
+    #[pyo3(
+        signature = (params, schedule, coupon_type=None),
+        text_signature = "(cls, params, schedule, coupon_type=None)"
+    )]
+    /// Create from simplified FloatCouponParams (no caps/floors/compounding).
     fn new(
         _cls: &Bound<'_, PyType>,
         params: PyFloatCouponParams,
@@ -293,20 +303,44 @@ impl PyFloatingCouponSpec {
             },
         }
     }
+
+    #[classmethod]
+    #[pyo3(
+        signature = (rate_spec, schedule, coupon_type=None),
+        text_signature = "(cls, rate_spec, schedule, coupon_type=None)"
+    )]
+    /// Create from full FloatingRateSpec (with caps, floors, compounding).
+    fn from_rate_spec(
+        _cls: &Bound<'_, PyType>,
+        rate_spec: super::specs::PyFloatingRateSpec,
+        schedule: PyScheduleParams,
+        coupon_type: Option<PyCouponType>,
+    ) -> Self {
+        Self {
+            inner: val_builder::FloatingCouponSpec {
+                rate_spec: rate_spec.inner,
+                coupon_type: coupon_type
+                    .map(|c| c.inner)
+                    .unwrap_or(val_builder::CouponType::Cash),
+                freq: schedule.inner.freq,
+                stub: schedule.inner.stub,
+            },
+        }
+    }
 }
 
-/// Python wrapper for the composable valuations CashflowBuilder.
+/// Python wrapper for the composable valuations CashFlowBuilder.
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
-    name = "CashflowBuilder",
+    name = "CashFlowBuilder",
     unsendable
 )]
-pub struct PyCashflowBuilder {
+pub struct PyCashFlowBuilder {
     inner: val_builder::CashFlowBuilder,
 }
 
 #[pymethods]
-impl PyCashflowBuilder {
+impl PyCashFlowBuilder {
     #[classmethod]
     #[pyo3(text_signature = "(cls)")]
     fn new(_cls: &Bound<'_, PyType>) -> Self {
@@ -390,6 +424,152 @@ impl PyCashflowBuilder {
             rust_steps.push((py_to_date(&d).context("steps[].date")?, split.inner));
         }
         let _ = self.inner.payment_split_program(&rust_steps);
+        Ok(Self {
+            inner: self.inner.clone(),
+        })
+    }
+
+    #[pyo3(text_signature = "(self, spec)")]
+    /// Add a fee specification to the schedule.
+    fn fee(&mut self, spec: &PyFeeSpec) -> Self {
+        let _ = self.inner.fee(spec.inner.clone());
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+
+    #[pyo3(text_signature = "(self, events)")]
+    /// Add custom principal events (draws/repays) to the schedule.
+    fn principal_events(&mut self, events: Vec<PyRef<super::specs::PyPrincipalEvent>>) -> Self {
+        let rust_events: Vec<val_builder::PrincipalEvent> =
+            events.iter().map(|e| e.inner.clone()).collect();
+        let _ = self.inner.principal_events(&rust_events);
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+
+    #[pyo3(text_signature = "(self, date, delta, cash, kind)")]
+    /// Add a single principal event (draw or repay).
+    fn add_principal_event(
+        &mut self,
+        date: Bound<'_, PyAny>,
+        delta: Bound<'_, PyAny>,
+        cash: Bound<'_, PyAny>,
+        kind: &crate::core::cashflow::primitives::PyCFKind,
+    ) -> PyResult<Self> {
+        use crate::core::money::extract_money;
+        let d = py_to_date(&date).context("date")?;
+        let delta_money = extract_money(&delta).context("delta")?;
+        let cash_money = extract_money(&cash).context("cash")?;
+        let _ = self
+            .inner
+            .add_principal_event(d, delta_money, Some(cash_money), kind.inner);
+        Ok(Self {
+            inner: self.inner.clone(),
+        })
+    }
+
+    #[pyo3(text_signature = "(self, start, end, rate, schedule, split)")]
+    /// Add a fixed coupon window with explicit start/end dates.
+    fn add_fixed_coupon_window(
+        &mut self,
+        start: Bound<'_, PyAny>,
+        end: Bound<'_, PyAny>,
+        rate: f64,
+        schedule: &PyScheduleParams,
+        split: PyCouponType,
+    ) -> PyResult<Self> {
+        let s = py_to_date(&start).context("start")?;
+        let e = py_to_date(&end).context("end")?;
+        let _ = self
+            .inner
+            .add_fixed_coupon_window(s, e, rate, schedule.inner.clone(), split.inner);
+        Ok(Self {
+            inner: self.inner.clone(),
+        })
+    }
+
+    #[pyo3(text_signature = "(self, start, end, params, schedule, split)")]
+    /// Add a floating coupon window with explicit start/end dates.
+    fn add_float_coupon_window(
+        &mut self,
+        start: Bound<'_, PyAny>,
+        end: Bound<'_, PyAny>,
+        params: PyFloatCouponParams,
+        schedule: &PyScheduleParams,
+        split: PyCouponType,
+    ) -> PyResult<Self> {
+        let s = py_to_date(&start).context("start")?;
+        let e = py_to_date(&end).context("end")?;
+        let _ = self.inner.add_float_coupon_window(
+            s,
+            e,
+            params.inner,
+            schedule.inner.clone(),
+            split.inner,
+        );
+        Ok(Self {
+            inner: self.inner.clone(),
+        })
+    }
+
+    #[pyo3(text_signature = "(self, start, end, split)")]
+    /// Add a payment window (PIK toggle) with explicit start/end dates.
+    fn add_payment_window(
+        &mut self,
+        start: Bound<'_, PyAny>,
+        end: Bound<'_, PyAny>,
+        split: PyCouponType,
+    ) -> PyResult<Self> {
+        let s = py_to_date(&start).context("start")?;
+        let e = py_to_date(&end).context("end")?;
+        let _ = self.inner.add_payment_window(s, e, split.inner);
+        Ok(Self {
+            inner: self.inner.clone(),
+        })
+    }
+
+    #[pyo3(text_signature = "(self, steps, base_params, schedule, default_split)")]
+    /// Floating margin step-up program with boundaries `steps=[(end_date, margin_bp), ...]`.
+    fn float_margin_stepup(
+        &mut self,
+        steps: Vec<(Bound<'_, PyAny>, f64)>,
+        base_params: PyFloatCouponParams,
+        schedule: &PyScheduleParams,
+        default_split: PyCouponType,
+    ) -> PyResult<Self> {
+        let mut rust_steps: Vec<(time::Date, f64)> = Vec::with_capacity(steps.len());
+        for (d, margin) in steps {
+            rust_steps.push((py_to_date(&d).context("steps[].date")?, margin));
+        }
+        let _ = self.inner.float_margin_stepup(
+            &rust_steps,
+            base_params.inner,
+            schedule.inner.clone(),
+            default_split.inner,
+        );
+        Ok(Self {
+            inner: self.inner.clone(),
+        })
+    }
+
+    #[pyo3(text_signature = "(self, switch, fixed_win, float_win, default_split)")]
+    /// Fixed-to-float switch at a given date.
+    fn fixed_to_float(
+        &mut self,
+        switch: Bound<'_, PyAny>,
+        fixed_win: &PyFixedWindow,
+        float_win: &PyFloatWindow,
+        default_split: PyCouponType,
+    ) -> PyResult<Self> {
+        let switch_date = py_to_date(&switch).context("switch")?;
+        let _ = self.inner.fixed_to_float(
+            switch_date,
+            fixed_win.inner.clone(),
+            float_win.inner.clone(),
+            default_split.inner,
+        );
         Ok(Self {
             inner: self.inner.clone(),
         })
@@ -491,71 +671,169 @@ impl PyCashFlowSchedule {
         Ok(PyList::new(py, items)?.into())
     }
 
+    #[pyo3(text_signature = "(self)")]
+    /// Return the unique payment dates from the schedule.
+    fn dates(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dates: Vec<Py<PyAny>> = self
+            .inner
+            .dates()
+            .into_iter()
+            .map(|d| {
+                pyo3::types::PyDate::new(py, d.year(), d.month() as u8, d.day()).map(|dt| dt.into())
+            })
+            .collect::<PyResult<_>>()?;
+        Ok(PyList::new(py, dates)?.into())
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Return only the coupon cashflows from the schedule.
+    fn coupons(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let items: Vec<crate::core::cashflow::primitives::PyCashFlow> = self
+            .inner
+            .coupons()
+            .copied()
+            .map(crate::core::cashflow::primitives::PyCashFlow::new)
+            .collect();
+        Ok(PyList::new(py, items)?.into())
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Return the outstanding balance path per cashflow as (date, Money) pairs.
+    fn outstanding_path_per_flow(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let path = self.inner.outstanding_path_per_flow().map_err(core_to_py)?;
+        let items: Vec<(Py<PyAny>, PyMoney)> = path
+            .into_iter()
+            .map(|(d, m)| {
+                let date = pyo3::types::PyDate::new(py, d.year(), d.month() as u8, d.day())?;
+                Ok((date.into(), PyMoney::new(m)))
+            })
+            .collect::<PyResult<_>>()?;
+        Ok(PyList::new(py, items)?.into())
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Return the outstanding balance by date as (date, Money) pairs.
+    fn outstanding_by_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let path = self.inner.outstanding_by_date().map_err(core_to_py)?;
+        let items: Vec<(Py<PyAny>, PyMoney)> = path
+            .into_iter()
+            .map(|(d, m)| {
+                let date = pyo3::types::PyDate::new(py, d.year(), d.month() as u8, d.day())?;
+                Ok((date.into(), PyMoney::new(m)))
+            })
+            .collect::<PyResult<_>>()?;
+        Ok(PyList::new(py, items)?.into())
+    }
+
     #[pyo3(
-        signature = (*, market=None, discount_curve_id=None, as_of=None),
-        text_signature = "(*, market=None, discount_curve_id=None, as_of=None)"
+        signature = (market_or_curve, *, discount_curve_id=None, as_of=None, day_count=None),
+        text_signature = "(market_or_curve, /, *, discount_curve_id=None, as_of=None, day_count=None)"
     )]
-    /// Convert the cashflow schedule to a Polars DataFrame.
-    ///
-    /// Returns a Polars DataFrame with columns: "start_date", "end_date", "kind", "amount",
-    /// "accrual_factor", "reset_date", "outstanding", "rate", and optionally
-    /// "outstanding_undrawn" (if facility limit exists), "discount_factor", "pv" (if market provided).
-    ///
-    /// All cashflow amounts are computed in Rust for deterministic, fast processing.
-    /// Outstanding balances track drawn amounts using standard conventions:
-    /// - Amortization reduces outstanding
-    /// - PIK increases outstanding
-    /// - Notional flows: draws (negative) increase outstanding, repays (positive) decrease
-    /// - The outstanding balance shown is AFTER applying the cashflow and will be used for
-    ///   interest/fee calculations in the NEXT period (step function approach)
-    ///
-    /// For revolving credit facilities with a facility limit, an additional "outstanding_undrawn"
-    /// column shows the unused commitment (facility_limit - outstanding).
+    /// Compute the net present value of all cashflows.
     ///
     /// Args:
-    ///     market: Optional MarketContext for discount factor and PV calculations
-    ///     discount_curve_id: Curve ID to use (required if market provided)
-    ///     as_of: Valuation date (defaults to curve base_date if not provided)
+    ///     market_or_curve: MarketContext or DiscountCurve
+    ///     discount_curve_id: Curve ID (required when using MarketContext)
+    ///     as_of: Valuation date (defaults to curve base_date)
+    ///     day_count: Day count convention (defaults to schedule day_count)
+    fn npv(
+        &self,
+        market_or_curve: Bound<'_, PyAny>,
+        discount_curve_id: Option<&str>,
+        as_of: Option<Bound<'_, PyAny>>,
+        day_count: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<f64> {
+        use finstack_core::cashflow::Discountable;
+        let dc = extract_day_count(day_count, self.inner.day_count)?;
+
+        if let Ok(market) = market_or_curve.extract::<PyRef<PyMarketContext>>() {
+            let disc_id = discount_curve_id.ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(
+                    "discount_curve_id required when using MarketContext",
+                )
+            })?;
+            let disc_arc = market.inner.get_discount(disc_id).map_err(core_to_py)?;
+            let base = if let Some(as_of_obj) = as_of {
+                py_to_date(&as_of_obj)?
+            } else {
+                disc_arc.base_date()
+            };
+            let result = self
+                .inner
+                .npv(disc_arc.as_ref(), base, Some(dc))
+                .map_err(core_to_py)?;
+            Ok(result.amount())
+        } else if let Ok(disc_curve) = market_or_curve.extract::<PyRef<PyDiscountCurve>>() {
+            let base = if let Some(as_of_obj) = as_of {
+                py_to_date(&as_of_obj)?
+            } else {
+                disc_curve.inner.base_date()
+            };
+            let result = self
+                .inner
+                .npv(disc_curve.inner.as_ref(), base, Some(dc))
+                .map_err(core_to_py)?;
+            Ok(result.amount())
+        } else {
+            Err(pyo3::exceptions::PyTypeError::new_err(
+                "market_or_curve must be MarketContext or DiscountCurve",
+            ))
+        }
+    }
+
+    #[pyo3(
+        signature = (*, market, discount_curve_id, as_of=None, credit_curve_id=None, forward_curve_id=None, include_floating_decomposition=false, day_count=None, discount_day_count=None, facility_limit=None),
+        text_signature = "(*, market, discount_curve_id, as_of=None, credit_curve_id=None, forward_curve_id=None, include_floating_decomposition=False, day_count=None, discount_day_count=None, facility_limit=None)"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    /// Convert the cashflow schedule to a Polars DataFrame.
+    ///
+    /// Args:
+    ///     market: MarketContext for discount factor and PV calculations
+    ///     discount_curve_id: Curve ID for discounting
+    ///     as_of: Valuation date (defaults to curve base_date)
+    ///     credit_curve_id: Optional credit/hazard curve ID
+    ///     forward_curve_id: Optional forward curve ID for floating rate decomposition
+    ///     include_floating_decomposition: Include base_rate/spread columns (default: False)
+    ///     day_count: Optional day count for year fraction calculations
+    ///     discount_day_count: Optional day count override for discounting time
+    ///     facility_limit: Optional facility limit for undrawn balance calculations
     ///
     /// Returns:
     ///     PyDataFrame: Polars DataFrame with cashflow data
-    ///
-    /// Examples:
-    ///     >>> # Basic usage (no pricing)
-    ///     >>> df = schedule.to_dataframe()
-    ///     >>>
-    ///     >>> # With pricing
-    ///     >>> df = schedule.to_dataframe(market=market, discount_curve_id="USD-OIS")
     fn to_dataframe(
         &self,
-        market: Option<PyRef<PyMarketContext>>,
-        discount_curve_id: Option<&str>,
+        market: PyRef<PyMarketContext>,
+        discount_curve_id: &str,
         as_of: Option<Bound<'_, PyAny>>,
+        credit_curve_id: Option<&str>,
+        forward_curve_id: Option<&str>,
+        include_floating_decomposition: bool,
+        day_count: Option<Bound<'_, PyAny>>,
+        discount_day_count: Option<Bound<'_, PyAny>>,
+        facility_limit: Option<Bound<'_, PyAny>>,
     ) -> PyResult<pyo3_polars::PyDataFrame> {
         use polars::prelude::*;
 
-        // Market context is required for DataFrame export
-        let mkt = market.ok_or_else(|| {
-            pyo3::exceptions::PyValueError::new_err("market context required for DataFrame export")
-        })?;
-
-        let curve_id = discount_curve_id.ok_or_else(|| {
-            pyo3::exceptions::PyValueError::new_err(
-                "discount_curve_id required when market is provided",
-            )
-        })?;
-
-        // Parse as_of if provided
         let as_of_date = as_of.map(|d| py_to_date(&d)).transpose()?;
+        let dc = day_count
+            .map(|d| extract_day_count(Some(d), self.inner.day_count))
+            .transpose()?;
+        let disc_dc = discount_day_count
+            .map(|d| extract_day_count(Some(d), self.inner.day_count))
+            .transpose()?;
+        let fac_limit = facility_limit
+            .map(|f| crate::core::money::extract_money(&f))
+            .transpose()?;
 
         let options = val_builder::PeriodDataFrameOptions {
-            credit_curve_id: None,
-            forward_curve_id: None,
+            credit_curve_id,
+            forward_curve_id,
             as_of: as_of_date,
-            day_count: None,
-            discount_day_count: None,
-            facility_limit: None,
-            include_floating_decomposition: false,
+            day_count: dc,
+            discount_day_count: disc_dc,
+            facility_limit: fac_limit,
+            include_floating_decomposition,
             frequency: None,
             calendar_id: None,
         };
@@ -575,7 +853,7 @@ impl PyCashFlowSchedule {
 
         let frame = self
             .inner
-            .to_period_dataframe(&periods, &mkt.inner, curve_id, options)
+            .to_period_dataframe(&periods, &market.inner, discount_curve_id, options)
             .map_err(core_to_py)?;
 
         // Convert dates to Polars Date (days since epoch)
@@ -689,7 +967,7 @@ impl PyCashFlowSchedule {
         text_signature = "(periods, market_or_curve, /, *, discount_curve_id=None, hazard_curve_id=None, as_of=None, day_count=None)"
     )]
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn per_period_pv(
+    pub fn per_period_pv(
         &self,
         _py: Python<'_>,
         periods: Bound<'_, PyAny>,
@@ -1100,7 +1378,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyFixedCouponSpec>()?;
     module.add_class::<PyFloatCouponParams>()?;
     module.add_class::<PyFloatingCouponSpec>()?;
-    module.add_class::<PyCashflowBuilder>()?;
+    module.add_class::<PyCashFlowBuilder>()?;
     module.add_class::<PyCashFlowSchedule>()?;
     module.add_class::<PyFeeBase>()?;
     module.add_class::<PyFeeSpec>()?;
@@ -1112,7 +1390,7 @@ pub(crate) fn register<'py>(
         "FixedCouponSpec",
         "FloatCouponParams",
         "FloatingCouponSpec",
-        "CashflowBuilder",
+        "CashFlowBuilder",
         "CashFlowSchedule",
         "FeeBase",
         "FeeSpec",

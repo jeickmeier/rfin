@@ -7,7 +7,7 @@ from finstack.core.dates.daycount import DayCount
 from finstack.core.dates.schedule import Frequency, StubKind
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
-from finstack.valuations.cashflow import CashflowBuilder, CouponType, FixedCouponSpec, ScheduleParams
+from finstack.valuations.cashflow import CashFlowBuilder, CouponType, FixedCouponSpec, ScheduleParams
 from finstack.valuations.instruments import Bond
 from finstack.valuations.metrics import MetricId, MetricRegistry
 from finstack.valuations.pricer import create_standard_registry
@@ -54,7 +54,7 @@ def build_custom_schedule(issue: date, maturity: date, notional: Money):
         coupon_type=CouponType.split(0.7, 0.3),  # 70% cash, 30% PIK
     )
     cfb = (
-        CashflowBuilder.new()
+        CashFlowBuilder.new()
         .principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         .fixed_cf(fixed_5pct)
     )
@@ -134,7 +134,7 @@ def main() -> None:
 
     # E) Payment split program: switch 100% PIK for the first year, then 100% cash
     cfb2 = (
-        CashflowBuilder.new()
+        CashFlowBuilder.new()
         .principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         .fixed_cf(
             FixedCouponSpec.new(rate=0.055, schedule=ScheduleParams.semiannual_30360(), coupon_type=CouponType.CASH)

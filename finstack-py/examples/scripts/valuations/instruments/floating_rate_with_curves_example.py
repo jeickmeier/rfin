@@ -19,7 +19,7 @@ from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
 from finstack.valuations.cashflow import (
-    CashflowBuilder,
+    CashFlowBuilder,
     CouponType,
     FloatCouponParams,
     FloatingCouponSpec,
@@ -49,7 +49,7 @@ def main() -> None:
     )
 
     # Build cashflow builder
-    builder = CashflowBuilder.new()
+    builder = CashFlowBuilder.new()
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.floating_cf(float_spec)
 

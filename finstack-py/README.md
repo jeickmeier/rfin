@@ -160,7 +160,7 @@ The `finstack.valuations` module provides comprehensive instrument pricing, cash
 ```python
 from finstack.valuations.instruments import Bond, EquityOption, IRS
 from finstack.valuations.pricer import Pricer
-from finstack.valuations.cashflow import CashflowBuilder
+from finstack.valuations.cashflow import CashFlowBuilder
 from finstack.core.market_data import MarketContext
 
 # Create instruments

@@ -27,7 +27,7 @@ from finstack.core.market_data import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.cashflow import (
     AmortizationSpec,
-    CashflowBuilder,
+    CashFlowBuilder,
     CouponType,
     FixedCouponSpec,
     FloatCouponParams,
@@ -59,7 +59,7 @@ class TestBasicCashflowConstruction:
         )
 
         # Build cashflow schedule
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.fixed_cf(fixed_spec)
 
@@ -100,7 +100,7 @@ class TestBasicCashflowConstruction:
             coupon_type=CouponType.CASH,
         )
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.floating_cf(float_spec)
 
@@ -146,7 +146,7 @@ class TestAmortizationSchedules:
         fixed_spec = FixedCouponSpec.new(rate=0.06, schedule=schedule, coupon_type=CouponType.CASH)
 
         # No amortization spec = bullet
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.fixed_cf(fixed_spec)
 
@@ -175,7 +175,7 @@ class TestAmortizationSchedules:
         # Linear amortization
         amort_spec = AmortizationSpec.linear_to(final_notional)
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.amortization(amort_spec)
         builder.fixed_cf(fixed_spec)
@@ -215,7 +215,7 @@ class TestAmortizationSchedules:
 
         amort_spec = AmortizationSpec.step_remaining(amort_steps)
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.amortization(amort_spec)
         builder.fixed_cf(fixed_spec)
@@ -240,7 +240,7 @@ class TestAmortizationSchedules:
         # 5% of original notional per period
         amort_spec = AmortizationSpec.percent_per_period(0.05)
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.amortization(amort_spec)
         builder.fixed_cf(fixed_spec)
@@ -277,7 +277,7 @@ class TestAmortizationSchedules:
 
         amort_spec = AmortizationSpec.custom_principal(principal_payments)
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.amortization(amort_spec)
         builder.fixed_cf(fixed_spec)
@@ -303,7 +303,7 @@ class TestCouponTypes:
         schedule = ScheduleParams.semiannual_30360()
         fixed_spec = FixedCouponSpec.new(rate=0.05, schedule=schedule, coupon_type=CouponType.CASH)
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.fixed_cf(fixed_spec)
 
@@ -325,7 +325,7 @@ class TestCouponTypes:
         schedule = ScheduleParams.semiannual_30360()
         fixed_spec = FixedCouponSpec.new(rate=0.08, schedule=schedule, coupon_type=CouponType.PIK)
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.fixed_cf(fixed_spec)
 
@@ -347,7 +347,7 @@ class TestCouponTypes:
 
         fixed_spec = FixedCouponSpec.new(rate=0.08, schedule=schedule, coupon_type=CouponType.split(0.7, 0.3))
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=EUR, issue=issue, maturity=maturity)
         builder.fixed_cf(fixed_spec)
 
@@ -378,7 +378,7 @@ class TestAdvancedFeatures:
             (date(2032, 1, 1), 0.06),  # 6% until maturity
         ]
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.fixed_stepup(steps=step_program, schedule=schedule, default_split=CouponType.CASH)
 
@@ -412,7 +412,7 @@ class TestAdvancedFeatures:
             (date(2030, 1, 1), CouponType.PIK),
         ]
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.fixed_cf(fixed_spec)
         builder.payment_split_program(split_program)
@@ -445,7 +445,7 @@ class TestAdvancedFeatures:
         # Linear amortization
         amort_spec = AmortizationSpec.linear_to(final_notional)
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.amortization(amort_spec)
         builder.fixed_stepup(steps=step_program, schedule=schedule, default_split=CouponType.CASH)
@@ -498,8 +498,8 @@ class TestScheduleParameters:
 class TestDataFrameConversion:
     """Test DataFrame export functionality."""
 
-    def test_to_dataframe_no_market(self) -> None:
-        """DataFrame export requires a market context."""
+    def test_to_dataframe_requires_market_and_curve(self) -> None:
+        """DataFrame export requires market and discount_curve_id as keyword args."""
         issue = date(2025, 1, 1)
         maturity = date(2027, 1, 1)
         notional = Money(1_000_000, USD)
@@ -507,13 +507,13 @@ class TestDataFrameConversion:
         schedule = ScheduleParams.quarterly_act360()
         fixed_spec = FixedCouponSpec.new(rate=0.05, schedule=schedule, coupon_type=CouponType.CASH)
 
-        builder = CashflowBuilder.new()
+        builder = CashFlowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         builder.fixed_cf(fixed_spec)
 
         cf_schedule = builder.build_with_curves(None)
 
-        with pytest.raises(ValueError, match="market context required"):
+        with pytest.raises(TypeError):
             cf_schedule.to_dataframe()
 
         market = MarketContext()
@@ -559,7 +559,7 @@ def test_builder_with_5y_bond() -> None:
     fixed_spec = FixedCouponSpec.new(rate=0.05, schedule=schedule, coupon_type=CouponType.CASH)
 
     # Build schedule
-    builder = CashflowBuilder.new()
+    builder = CashFlowBuilder.new()
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.fixed_cf(fixed_spec)
 

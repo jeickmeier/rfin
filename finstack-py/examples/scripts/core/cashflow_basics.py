@@ -7,7 +7,7 @@ Run after installing the extension in editable mode, for example:
 
 The script constructs several cash-flow primitives (fixed, floating, fees,
 principal exchanges) and shows how to inspect their metadata from Python.
-Note: CashFlow primitives are typically created via the CashflowBuilder for
+Note: CashFlow primitives are typically created via the CashFlowBuilder for
 scheduled flows. This example shows direct construction for illustration.
 """
 
@@ -23,7 +23,7 @@ def main() -> None:
     cfkind = finstack.core.cashflow.CFKind
     money = finstack.Money
 
-    # Note: For production use, prefer CashflowBuilder for scheduled flows
+    # Note: For production use, prefer CashFlowBuilder for scheduled flows
     fixed_cf = cashflow(
         date=date(2025, 3, 15),
         amount=money(12_500.0, "USD"),

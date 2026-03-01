@@ -6,7 +6,7 @@ Run after installing the extension in editable mode:
     uv run maturin develop
     uv run python finstack-py/examples/scripts/valuations/cashflow_builder_capabilities.py
 
-This script showcases the composable CashflowBuilder which supports:
+This script showcases the composable CashFlowBuilder which supports:
 - Fixed and floating coupon schedules
 - Cash/PIK/split payment types
 - Amortization (linear, step schedules)
@@ -36,7 +36,7 @@ from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.cashflow import (
     AmortizationSpec,
-    CashflowBuilder,
+    CashFlowBuilder,
     CouponType,
     FixedCouponSpec,
     FloatCouponParams,
@@ -99,7 +99,7 @@ def example_1_simple_fixed_coupon() -> None:
     )
 
     # Build cashflow schedule
-    builder = CashflowBuilder.new()
+    builder = CashFlowBuilder.new()
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.fixed_cf(fixed_spec)
 
@@ -132,7 +132,7 @@ def example_2_floating_coupon() -> None:
     )
 
     # Build schedule
-    builder = CashflowBuilder.new()
+    builder = CashFlowBuilder.new()
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.floating_cf(float_spec)
 
@@ -156,7 +156,7 @@ def example_3_pik_toggle() -> None:
         coupon_type=CouponType.split(0.7, 0.3),
     )
 
-    builder = CashflowBuilder.new()
+    builder = CashFlowBuilder.new()
     builder.principal(amount=notional.amount, currency=EUR, issue=issue, maturity=maturity)
     builder.fixed_cf(fixed_spec)
 
@@ -191,7 +191,7 @@ def example_4_amortizing_loan() -> None:
     # Linear amortization
     amort_spec = AmortizationSpec.linear_to(final_notional)
 
-    builder = CashflowBuilder.new()
+    builder = CashFlowBuilder.new()
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.amortization(amort_spec)
     builder.fixed_cf(fixed_spec)
@@ -224,7 +224,7 @@ def example_5_step_amortization() -> None:
 
     amort_spec = AmortizationSpec.step_remaining(amort_steps)
 
-    builder = CashflowBuilder.new()
+    builder = CashFlowBuilder.new()
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.amortization(amort_spec)
     builder.fixed_cf(fixed_spec)
@@ -252,7 +252,7 @@ def example_6_step_up_coupon() -> None:
         (date(2032, 1, 1), 0.06),  # 6% until maturity
     ]
 
-    builder = CashflowBuilder.new()
+    builder = CashFlowBuilder.new()
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.fixed_stepup(
         steps=step_program,
@@ -290,7 +290,7 @@ def example_7_payment_split_program() -> None:
         (date(2030, 1, 1), CouponType.PIK),  # 100% PIK
     ]
 
-    builder = CashflowBuilder.new()
+    builder = CashFlowBuilder.new()
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.fixed_cf(fixed_spec)
     builder.payment_split_program(split_program)
@@ -319,7 +319,7 @@ def example_8_complex_structure() -> None:
     # Linear amortization
     amort_spec = AmortizationSpec.linear_to(final_notional)
 
-    builder = CashflowBuilder.new()
+    builder = CashFlowBuilder.new()
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.amortization(amort_spec)
     builder.fixed_stepup(steps=step_program, schedule=schedule, default_split=CouponType.CASH)

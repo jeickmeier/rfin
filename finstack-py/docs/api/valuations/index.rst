@@ -202,7 +202,7 @@ Cashflows
 ---------
 
 .. automodule:: finstack.cashflows
-   :members: CashflowBuilder, CashFlowSchedule, AmortizationType, CouponType
+   :members: CashFlowBuilder, CashFlowSchedule, AmortizationType, CouponType
    :undoc-members:
    :show-inheritance:
 
@@ -212,9 +212,9 @@ Example:
 
 .. code-block:: python
 
-   from finstack import CashflowBuilder, AmortizationType
+   from finstack import CashFlowBuilder, AmortizationType
 
-   builder = CashflowBuilder()
+   builder = CashFlowBuilder()
    builder.notional(1_000_000.0)
    builder.currency(Currency.from_code("USD"))
    builder.rate(0.05)
