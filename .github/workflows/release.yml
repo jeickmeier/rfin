@@ -23,30 +23,36 @@ jobs:
   build-wheels:
     name: Wheel / ${{ matrix.os }} / py${{ matrix.python }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
       matrix:
         include:
           # ── Linux x86_64 ──
-          - { os: linux-x64,   runner: ubuntu-latest,  target: x86_64,  python: "3.12" }
-          - { os: linux-x64,   runner: ubuntu-latest,  target: x86_64,  python: "3.13" }
-          - { os: linux-x64,   runner: ubuntu-latest,  target: x86_64,  python: "3.14" }
+          - { os: linux-x64,   runner: ubuntu-latest,  target: x86_64,  python: "3.12", timeout: 30 }
+          - { os: linux-x64,   runner: ubuntu-latest,  target: x86_64,  python: "3.13", timeout: 30 }
+          - { os: linux-x64,   runner: ubuntu-latest,  target: x86_64,  python: "3.14", timeout: 30 }
           # ── Linux arm64 ──
-          - { os: linux-arm64, runner: ubuntu-latest,  target: aarch64, python: "3.12" }
-          - { os: linux-arm64, runner: ubuntu-latest,  target: aarch64, python: "3.13" }
-          - { os: linux-arm64, runner: ubuntu-latest,  target: aarch64, python: "3.14" }
+          - { os: linux-arm64, runner: ubuntu-latest,  target: aarch64, python: "3.12", timeout: 30 }
+          - { os: linux-arm64, runner: ubuntu-latest,  target: aarch64, python: "3.13", timeout: 30 }
+          - { os: linux-arm64, runner: ubuntu-latest,  target: aarch64, python: "3.14", timeout: 30 }
           # ── macOS arm64 (Apple Silicon) ──
-          - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.12" }
-          - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.13" }
-          - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.14" }
-          # ── Windows x86_64 ──
-          - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.12" }
-          - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.13" }
-          - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.14" }
+          - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.12", timeout: 30 }
+          - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.13", timeout: 30 }
+          - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.14", timeout: 30 }
+          # ── Windows x86_64 (MSVC is slower — larger timeout) ──
+          - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.12", timeout: 60 }
+          - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.13", timeout: 60 }
+          - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.14", timeout: 60 }
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+          rustflags: ""
 
       - uses: actions/setup-python@v5
         with:
@@ -63,6 +69,7 @@ jobs:
             --features scenarios
             --interpreter python${{ matrix.python }}
           manylinux: "2_28"
+          sccache: true
 
       - name: Smoke test wheel
         if: matrix.target != 'aarch64' || runner.os != 'Linux'
