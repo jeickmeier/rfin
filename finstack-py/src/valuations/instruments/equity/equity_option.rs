@@ -1,5 +1,6 @@
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
@@ -10,9 +11,10 @@ use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::{
     Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
 };
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyModule, PyType};
+use pyo3::types::{PyAny, PyModule, PyTuple, PyType};
 use pyo3::Bound;
 use std::fmt;
 use std::sync::Arc;
@@ -42,6 +44,61 @@ impl PyEquityOption {
     }
 }
 
+/// Greeks for an equity option (delta, gamma, vega, theta, rho).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "EquityOptionGreeks",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyEquityOptionGreeks {
+    pub(crate) delta_val: f64,
+    pub(crate) gamma_val: f64,
+    pub(crate) vega_val: f64,
+    pub(crate) theta_val: f64,
+    pub(crate) rho_val: f64,
+}
+
+#[pymethods]
+impl PyEquityOptionGreeks {
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.delta_val
+    }
+
+    #[getter]
+    fn gamma(&self) -> f64 {
+        self.gamma_val
+    }
+
+    #[getter]
+    fn vega(&self) -> f64 {
+        self.vega_val
+    }
+
+    #[getter]
+    fn theta(&self) -> f64 {
+        self.theta_val
+    }
+
+    #[getter]
+    fn rho(&self) -> f64 {
+        self.rho_val
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "EquityOptionGreeks(delta={:.6}, gamma={:.6}, vega={:.6}, theta={:.6}, rho={:.6})",
+            self.delta_val, self.gamma_val, self.vega_val, self.theta_val, self.rho_val,
+        )
+    }
+
+    fn __str__(&self) -> String {
+        self.__repr__()
+    }
+}
+
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "EquityOptionBuilder",
@@ -61,6 +118,7 @@ pub struct PyEquityOptionBuilder {
     spot_id: Option<String>,
     vol_surface_id: Option<CurveId>,
     div_yield_id: Option<String>,
+    discrete_dividends: Vec<(time::Date, f64)>,
 }
 
 impl PyEquityOptionBuilder {
@@ -79,6 +137,7 @@ impl PyEquityOptionBuilder {
             spot_id: None,
             vol_surface_id: None,
             div_yield_id: None,
+            discrete_dividends: Vec::new(),
         }
     }
 
@@ -255,6 +314,17 @@ impl PyEquityOptionBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, ex_date, amount)")]
+    fn add_discrete_dividend<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ex_date: Bound<'py, PyAny>,
+        amount: f64,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let date = py_to_date(&ex_date).context("ex_date")?;
+        slf.discrete_dividends.push((date, amount));
+        Ok(slf)
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyEquityOption> {
         slf.ensure_ready()?;
@@ -307,6 +377,7 @@ impl PyEquityOptionBuilder {
             .spot_id(spot_id.into())
             .vol_surface_id(vol_surface)
             .div_yield_id_opt(slf.div_yield_id.clone().map(CurveId::new))
+            .discrete_dividends(slf.discrete_dividends.clone())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -421,6 +492,69 @@ impl PyEquityOption {
         self.inner.vol_surface_id.as_str().to_string()
     }
 
+    /// Day count convention.
+    ///
+    /// Returns:
+    ///     DayCount: Day count convention used for time calculations.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count)
+    }
+
+    /// Settlement type (``"cash"`` or ``"physical"``).
+    ///
+    /// Returns:
+    ///     str: Settlement method for the option contract.
+    #[getter]
+    fn settlement(&self) -> &'static str {
+        match self.inner.settlement {
+            SettlementType::Cash => "cash",
+            SettlementType::Physical => "physical",
+        }
+    }
+
+    /// Spot price identifier.
+    ///
+    /// Returns:
+    ///     str: Market data key for spot price lookup.
+    #[getter]
+    fn spot_id(&self) -> &str {
+        self.inner.spot_id.as_str()
+    }
+
+    /// Dividend yield identifier, if provided.
+    ///
+    /// Returns:
+    ///     str | None: Market data key for dividend yield, or None.
+    #[getter]
+    fn div_yield_id(&self) -> Option<String> {
+        self.inner
+            .div_yield_id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+    }
+
+    /// Discrete dividend schedule as list of ``(date, amount)`` tuples.
+    ///
+    /// Returns:
+    ///     list[tuple[date, float]]: Dividend ex-dates and amounts.
+    #[getter]
+    fn discrete_dividends(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let items: PyResult<Vec<Py<PyAny>>> = self
+            .inner
+            .discrete_dividends
+            .iter()
+            .map(|(date, amount)| {
+                let py_date = date_to_py(py, *date)?;
+                Ok(
+                    PyTuple::new(py, [py_date, amount.into_pyobject(py)?.into_any().unbind()])?
+                        .into(),
+                )
+            })
+            .collect();
+        Ok(pyo3::types::PyList::new(py, items?)?.into())
+    }
+
     /// Instrument type enum (``InstrumentType.EQUITY_OPTION``).
     ///
     /// Returns:
@@ -428,6 +562,113 @@ impl PyEquityOption {
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::EquityOption)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| self.inner.value(&market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn greeks(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyEquityOptionGreeks> {
+        let date = py_to_date(&as_of)?;
+        let g = py
+            .detach(|| self.inner.greeks(&market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyEquityOptionGreeks {
+            delta_val: g.delta,
+            gamma_val: g.gamma,
+            vega_val: g.vega,
+            theta_val: g.theta,
+            rho_val: g.rho,
+        })
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn delta(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.delta(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn gamma(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.gamma(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn vega(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.vega(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn theta(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.theta(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn rho(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.rho(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of, market_price))]
+    fn implied_vol(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+        market_price: f64,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.implied_vol(&market.inner, date, market_price))
+            .map_err(core_to_py)
     }
 
     fn __repr__(&self) -> PyResult<String> {
@@ -458,5 +699,10 @@ pub(crate) fn register<'py>(
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyEquityOption>()?;
     module.add_class::<PyEquityOptionBuilder>()?;
-    Ok(vec!["EquityOption", "EquityOptionBuilder"])
+    module.add_class::<PyEquityOptionGreeks>()?;
+    Ok(vec![
+        "EquityOption",
+        "EquityOptionBuilder",
+        "EquityOptionGreeks",
+    ])
 }

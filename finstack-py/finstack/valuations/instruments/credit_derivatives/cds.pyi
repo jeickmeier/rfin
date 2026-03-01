@@ -3,7 +3,81 @@
 from __future__ import annotations
 from datetime import date
 from ....core.money import Money
+from ....core.currency import Currency
 from ...common import InstrumentType
+
+class CDSConvention:
+    """ISDA CDS convention for regional market standards.
+
+    Provides access to standard convention parameters (day count, payment
+    frequency, business day convention, settlement delay) for regional CDS
+    markets.
+
+    Examples
+    --------
+        >>> CDSConvention.ISDA_NA.day_count
+        'act_360'
+        >>> CDSConvention.detect_from_currency("EUR")
+        CDSConvention('isda_eu')
+    """
+
+    ISDA_NA: "CDSConvention"
+    ISDA_EU: "CDSConvention"
+    ISDA_AS: "CDSConvention"
+    CUSTOM: "CDSConvention"
+
+    @classmethod
+    def from_name(cls, name: str) -> "CDSConvention":
+        """Parse a convention name.
+
+        Parameters
+        ----------
+        name : str
+            Convention name such as ``"isda_na"``, ``"isda_eu"``, ``"isda_as"``.
+
+        Returns
+        -------
+        CDSConvention
+
+        Raises
+        ------
+        ValueError
+            If the name is not recognized.
+        """
+        ...
+
+    @classmethod
+    def detect_from_currency(cls, currency: Currency | str) -> "CDSConvention":
+        """Detect the appropriate convention based on currency.
+
+        Parameters
+        ----------
+        currency : Currency or str
+            Currency object or ISO code string.
+
+        Returns
+        -------
+        CDSConvention
+        """
+        ...
+
+    @property
+    def name(self) -> str: ...
+    @property
+    def day_count(self) -> str: ...
+    @property
+    def frequency(self) -> str: ...
+    @property
+    def business_day_convention(self) -> str: ...
+    @property
+    def settlement_delay(self) -> int: ...
+    @property
+    def default_calendar(self) -> str: ...
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __ne__(self, other: object) -> bool: ...
 
 class CDSPayReceive:
     """Pay/receive indicator for CDS premium leg."""
@@ -15,6 +89,11 @@ class CDSPayReceive:
     def from_name(cls, name: str) -> "CDSPayReceive": ...
     @property
     def name(self) -> str: ...
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __ne__(self, other: object) -> bool: ...
 
 class CreditDefaultSwap:
     """Credit default swap for credit risk transfer and pricing.
@@ -22,10 +101,6 @@ class CreditDefaultSwap:
     CreditDefaultSwap (CDS) is a credit derivative that provides protection
     against default of a reference entity. The protection buyer pays a periodic
     premium (spread) and receives a payment if the reference entity defaults.
-
-    CDS pricing requires both a discount curve (for time value) and a credit
-    curve (hazard curve) for default probability. The recovery rate determines
-    the protection payment amount in case of default.
 
     Examples
     --------
@@ -46,63 +121,12 @@ class CreditDefaultSwap:
         ...     recovery_rate=0.40,
         ... )
 
-    Price the CDS:
-
-        >>> from datetime import date
-        >>> from finstack.core.currency import Currency
-        >>> from finstack.core.market_data.context import MarketContext
-        >>> from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
-        >>> from finstack.core.money import Money
-        >>> from finstack.valuations.instruments import CreditDefaultSwap
-        >>> from finstack.valuations.pricer import create_standard_registry
-        >>> cds = CreditDefaultSwap.buy_protection(
-        ...     "CDS-CORP-A-5Y",
-        ...     Money(5_000_000, Currency("USD")),
-        ...     120.0,
-        ...     date(2024, 1, 1),
-        ...     date(2029, 1, 1),
-        ...     discount_curve="USD-OIS",
-        ...     credit_curve="CORP-A-HAZARD",
-        ...     recovery_rate=0.40,
-        ... )
-        >>> ctx = MarketContext()
-        >>> ctx.insert_discount(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.95)]))
-        >>> ctx.insert_hazard(
-        ...     HazardCurve("CORP-A-HAZARD", date(2024, 1, 1), [(0.5, 0.01), (5.0, 0.02)], recovery_rate=0.40)
-        ... )
-        >>> registry = create_standard_registry()
-        >>> pv = registry.price(cds, "hazard_rate", ctx).value
-        >>> pv.currency.code
-        'USD'
-
     Notes
     -----
-    - CDS requires discount curve and credit (hazard) curve
-    - Spread is quoted in basis points (e.g., 150bp = 1.5% annual)
-    - Recovery rate affects protection leg value (typically 40% for senior debt)
-    - Settlement delay is the number of days between default and payment
-    - Premium leg pays spread quarterly (standard convention)
-    - Protection leg pays (1 - recovery_rate) * notional on default
-
-    Conventions
-    -----------
-    - ``spread_bp`` is quoted in basis points (bp). Convert to decimal rate with ``spread_bp / 10_000``.
-    - ``recovery_rate`` is a decimal fraction in [0, 1].
-    - Required market data is identified by string IDs (``discount_curve``, ``credit_curve``) and must be present
-      in ``MarketContext``.
-    - The concrete schedule/roll conventions are determined by the runtime implementation and the inputs
-      provided (e.g., dates and settlement_delay).
-
-    MarketContext Requirements
-    -------------------------
-    - Discount curve: ``discount_curve`` (required).
-    - Credit/hazard curve: ``credit_curve`` (required).
-
-    See Also
-    --------
-    :class:`HazardCurve`: Credit curve for default probability
-    :class:`Bond`: Bonds with credit risk
-    :class:`PricerRegistry`: Pricing entry point
+    - Spread is quoted in basis points (e.g., 150bp = 1.5% annual).
+    - Recovery rate affects the protection leg payment: ``(1 - recovery_rate) * notional``.
+    - Premium leg pays spread quarterly (standard ISDA convention).
+    - Convention defaults to ISDA North American; use ``convention`` kwarg for EU/Asian CDS.
 
     Sources
     -------
@@ -123,70 +147,36 @@ class CreditDefaultSwap:
         *,
         recovery_rate: float | None = None,
         settlement_delay: int | None = None,
+        convention: CDSConvention | None = None,
     ) -> "CreditDefaultSwap":
-        """Create a CDS where the caller buys protection (pays premium, receives protection).
-
-        Buying protection means paying the CDS spread (premium) in exchange for
-        receiving a payment if the reference entity defaults. This is equivalent
-        to being long credit risk (benefiting from credit improvement) or hedging
-        a long credit position.
+        """Create a CDS where the caller buys protection.
 
         Parameters
         ----------
         instrument_id : str
-            Unique identifier for the CDS (e.g., "CDS-CORP-A-5Y").
+            Unique identifier for the CDS.
         notional : Money
-            Notional principal amount. The currency determines curve currency
-            requirements.
+            Notional principal amount.
         spread_bp : float
-            CDS spread in basis points (e.g., 150.0 for 150bp = 1.5% annual).
-            This is the premium paid quarterly by the protection buyer.
+            CDS spread in basis points.
         start_date : date
-            CDS start date (first accrual date for premium payments).
+            CDS start date.
         maturity : date
-            CDS maturity date (last premium payment date). Must be after start_date.
+            CDS maturity date.
         discount_curve : str
-            Discount curve identifier in MarketContext for present value calculations.
+            Discount curve identifier in MarketContext.
         credit_curve : str
-            Credit (hazard) curve identifier in MarketContext for default probability.
-            The curve should be calibrated to the reference entity's credit risk.
+            Credit (hazard) curve identifier in MarketContext.
         recovery_rate : float, optional
-            Recovery rate assumed in case of default, as a decimal (e.g., 0.40
-            for 40%). Defaults to 0.40 if not specified. Affects the protection
-            leg payment: (1 - recovery_rate) * notional.
+            Recovery rate (default: 0.40).
         settlement_delay : int, optional
-            Number of days between default event and protection payment (settlement
-            delay). Defaults to standard market convention if not specified.
+            Settlement delay in days.
+        convention : CDSConvention, optional
+            ISDA convention (default: ISDA_NA).
 
         Returns
         -------
         CreditDefaultSwap
-            Configured CDS where the caller buys protection (pays premium).
-
-        Raises
-        ------
-        ValueError
-            If dates are invalid (maturity <= start_date), if spread_bp is negative,
-            if recovery_rate is not in [0, 1], or if notional is invalid.
-
-        Examples
-        --------
-            >>> from finstack import Money, Currency
-            >>> from datetime import date
-            >>> cds = CreditDefaultSwap.buy_protection(
-            ...     "CDS-CORP-A-5Y",
-            ...     Money(10_000_000, Currency("USD")),
-            ...     150.0,  # 150bp spread
-            ...     date(2024, 1, 1),
-            ...     date(2029, 1, 1),  # 5-year CDS
-            ...     discount_curve="USD",
-            ...     credit_curve="CORP-A-HAZARD",
-            ...     recovery_rate=0.40,
-            ... )
-            >>> cds.spread_bp
-            150.0
-            >>> cds.side
-            CDSPayReceive.PAY_PROTECTION
         """
         ...
 
@@ -203,13 +193,9 @@ class CreditDefaultSwap:
         *,
         recovery_rate: float | None = None,
         settlement_delay: int | None = None,
+        convention: CDSConvention | None = None,
     ) -> "CreditDefaultSwap":
-        """Create a CDS where the caller sells protection (receives premium).
-
-        Selling protection means receiving the CDS spread (premium) in exchange for
-        paying a protection payment if the reference entity defaults. This is
-        equivalent to being short credit risk (benefiting from credit deterioration)
-        or taking a credit position.
+        """Create a CDS where the caller sells protection.
 
         Parameters
         ----------
@@ -218,12 +204,11 @@ class CreditDefaultSwap:
         notional : Money
             Notional principal amount.
         spread_bp : float
-            CDS spread in basis points. This is the premium received quarterly
-            by the protection seller.
+            CDS spread in basis points.
         start_date : date
             CDS start date.
         maturity : date
-            CDS maturity date. Must be after start_date.
+            CDS maturity date.
         discount_curve : str
             Discount curve identifier in MarketContext.
         credit_curve : str
@@ -231,29 +216,13 @@ class CreditDefaultSwap:
         recovery_rate : float, optional
             Recovery rate (default: 0.40).
         settlement_delay : int, optional
-            Settlement delay in days (default: market convention).
+            Settlement delay in days.
+        convention : CDSConvention, optional
+            ISDA convention (default: ISDA_NA).
 
         Returns
         -------
         CreditDefaultSwap
-            Configured CDS where the caller sells protection (receives premium).
-
-        Raises
-        ------
-        ValueError
-            If parameters are invalid.
-
-        Examples
-        --------
-            >>> cds = CreditDefaultSwap.sell_protection(
-            ...     "CDS-SELL-CORP-A",
-            ...     Money(10_000_000, Currency("USD")),
-            ...     150.0,
-            ...     date(2024, 1, 1),
-            ...     date(2029, 1, 1),
-            ...     discount_curve="USD",
-            ...     credit_curve="CORP-A-HAZARD",
-            ... )
         """
         ...
 
@@ -279,5 +248,17 @@ class CreditDefaultSwap:
     def maturity(self) -> date: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
+    @property
+    def convention(self) -> CDSConvention: ...
+    @property
+    def day_count(self) -> str: ...
+    @property
+    def frequency(self) -> str: ...
+    @property
+    def calendar(self) -> str | None: ...
+    def isda_coupon_schedule(self) -> list[date]:
+        """Return ISDA-standard coupon date schedule."""
+        ...
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

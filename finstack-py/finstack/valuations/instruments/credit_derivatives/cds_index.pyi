@@ -4,41 +4,50 @@ from __future__ import annotations
 from datetime import date
 from ....core.money import Money
 from ...common import InstrumentType
+from .cds import CDSConvention, CDSPayReceive
+from ....core.market_data.context import MarketContext
 
-class CdsIndexBuilder:
+class CDSIndexConstituent:
+    """Constituent in a CDS index."""
+
+    @property
+    def credit_curve(self) -> str: ...
+    @property
+    def recovery_rate(self) -> float: ...
+    @property
+    def weight(self) -> float: ...
+    @property
+    def defaulted(self) -> bool: ...
+    def __repr__(self) -> str: ...
+
+class CDSIndexBuilder:
     """Fluent builder returned by :meth:`CDSIndex.builder`."""
 
     def __init__(self, instrument_id: str) -> None: ...
-    def index_name(self, index_name: str) -> "CdsIndexBuilder": ...
-    def series(self, series: int) -> "CdsIndexBuilder": ...
-    def version(self, version: int) -> "CdsIndexBuilder": ...
-    def notional(self, notional: Money) -> "CdsIndexBuilder": ...
-    def money(self, money: Money) -> "CdsIndexBuilder": ...
-    def fixed_coupon_bp(self, fixed_coupon_bp: float) -> "CdsIndexBuilder": ...
-    def start_date(self, start_date: date) -> "CdsIndexBuilder": ...
-    def maturity(self, maturity: date) -> "CdsIndexBuilder": ...
-    def discount_curve(self, discount_curve: str) -> "CdsIndexBuilder": ...
-    def credit_curve(self, credit_curve: str) -> "CdsIndexBuilder": ...
-    def side(self, side: str) -> "CdsIndexBuilder": ...
-    def recovery_rate(self, recovery_rate: float) -> "CdsIndexBuilder": ...
-    def index_factor(self, index_factor: float | None = ...) -> "CdsIndexBuilder": ...
+    def index_name(self, index_name: str) -> "CDSIndexBuilder": ...
+    def series(self, series: int) -> "CDSIndexBuilder": ...
+    def version(self, version: int) -> "CDSIndexBuilder": ...
+    def notional(self, notional: Money) -> "CDSIndexBuilder": ...
+    def money(self, money: Money) -> "CDSIndexBuilder": ...
+    def fixed_coupon_bp(self, fixed_coupon_bp: float) -> "CDSIndexBuilder": ...
+    def start_date(self, start_date: date) -> "CDSIndexBuilder": ...
+    def maturity(self, maturity: date) -> "CDSIndexBuilder": ...
+    def discount_curve(self, discount_curve: str) -> "CDSIndexBuilder": ...
+    def credit_curve(self, credit_curve: str) -> "CDSIndexBuilder": ...
+    def side(self, side: str) -> "CDSIndexBuilder": ...
+    def recovery_rate(self, recovery_rate: float) -> "CDSIndexBuilder": ...
+    def index_factor(self, index_factor: float | None = ...) -> "CDSIndexBuilder": ...
+    def convention(self, convention: CDSConvention) -> "CDSIndexBuilder": ...
     def build(self) -> "CDSIndex": ...
 
 class CDSIndex:
     """CDS index for portfolio credit risk exposure.
 
     CDSIndex represents a credit default swap on a standardized index of
-    reference entities (e.g., CDX, iTraxx). The index provides diversified
-    credit exposure and is more liquid than single-name CDS.
-
-    CDS indices are used for portfolio credit risk management, hedging, and
-    speculation. They follow ISDA conventions and require discount and credit
-    curves for pricing.
+    reference entities (e.g., CDX, iTraxx).
 
     Examples
     --------
-    Create a CDS index position:
-
         >>> from finstack.valuations.instruments import CDSIndex
         >>> from finstack import Money, Currency
         >>> from datetime import date
@@ -49,40 +58,14 @@ class CDSIndex:
         ...     .series(40)
         ...     .version(1)
         ...     .money(Money(10_000_000, Currency("USD")))
-        ...     .fixed_coupon_bp(100.0)  # 100bp fixed coupon
+        ...     .fixed_coupon_bp(100.0)
         ...     .start_date(date(2024, 1, 1))
-        ...     .maturity(date(2029, 1, 1))  # 5-year index
+        ...     .maturity(date(2029, 1, 1))
         ...     .discount_curve("USD")
         ...     .credit_curve("CDX-IG-40")
         ...     .side("pay_protection")
         ...     .build()
         ... )
-
-    Notes
-    -----
-    - CDS indices require discount curve and credit (index) curve
-    - Fixed coupon is the standard coupon for the index series
-    - Index factor accounts for defaults and roll-downs
-    - Series and version identify the specific index iteration
-    - Side determines protection buyer vs seller
-
-    Conventions
-    -----------
-    - ``fixed_coupon_bp`` is quoted in basis points (bp). Convert to decimal rate with ``fixed_coupon_bp / 10_000``.
-    - ``recovery_rate`` is a decimal fraction in [0, 1] when provided.
-    - Required market data is identified by string IDs (``discount_curve``, ``credit_curve``) and must be present
-      in ``MarketContext``.
-
-    MarketContext Requirements
-    -------------------------
-    - Discount curve: ``discount_curve`` (required).
-    - Credit/index curve: ``credit_curve`` (required).
-
-    See Also
-    --------
-    :class:`CreditDefaultSwap`: Single-name CDS
-    :class:`CdsTranche`: CDS index tranches
-    :class:`PricerRegistry`: Pricing entry point
 
     Sources
     -------
@@ -91,50 +74,17 @@ class CDSIndex:
     """
 
     @classmethod
-    def builder(cls, instrument_id: str) -> CdsIndexBuilder:
+    def builder(cls, instrument_id: str) -> CDSIndexBuilder:
         """Start a fluent builder (builder-only API).
 
         Parameters
         ----------
         instrument_id : str
-            Unique identifier for the CDS index (e.g., "CDX-IG-5Y").
-        index_name : str
-            Index name (e.g., "CDX.NA.IG", "iTraxx.Europe").
-        series : int
-            Index series number (e.g., 40 for CDX.NA.IG Series 40).
-        version : int
-            Index version number (typically 1 for new series).
-        notional : Money
-            Notional principal amount.
-        fixed_coupon_bp : float
-            Fixed coupon in basis points (e.g., 100.0 for 100bp = 1%).
-            This is the standard coupon for the index series.
-        start_date : date
-            CDS index start date.
-        maturity : date
-            CDS index maturity date. Must be after start_date.
-        discount_curve : str
-            Discount curve identifier in MarketContext.
-        credit_curve : str
-            Credit (index) curve identifier in MarketContext.
-        side : str, optional
-            Position side: "pay_protection" (default, pay premium, receive protection)
-            or "receive_protection" (receive premium, pay protection).
-        recovery_rate : float, optional
-            Recovery rate (default: index standard, typically 0.40).
-        index_factor : float, optional
-            Index factor accounting for defaults and roll-downs (default: 1.0).
+            Unique identifier for the CDS index.
 
         Returns
         -------
-        CDSIndex
-            Configured CDS index ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If parameters are invalid or if required curves are not found.
-
+        CDSIndexBuilder
         """
         ...
 
@@ -147,7 +97,7 @@ class CDSIndex:
     @property
     def fixed_coupon_bp(self) -> float: ...
     @property
-    def side(self) -> str: ...
+    def side(self) -> CDSPayReceive: ...
     @property
     def discount_curve(self) -> str: ...
     @property
@@ -156,5 +106,41 @@ class CDSIndex:
     def maturity(self) -> date: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
+    @property
+    def series(self) -> int: ...
+    @property
+    def version(self) -> int: ...
+    @property
+    def index_factor(self) -> float: ...
+    @property
+    def start_date(self) -> date: ...
+    @property
+    def recovery_rate(self) -> float: ...
+    @property
+    def convention(self) -> CDSConvention: ...
+    @property
+    def constituents(self) -> list[CDSIndexConstituent]: ...
+    @property
+    def pricing_mode(self) -> str: ...
+    def pv_protection_leg(self, market: MarketContext, as_of: date) -> Money:
+        """Calculate protection leg present value."""
+        ...
+
+    def pv_premium_leg(self, market: MarketContext, as_of: date) -> Money:
+        """Calculate premium leg present value."""
+        ...
+
+    def par_spread(self, market: MarketContext, as_of: date) -> float:
+        """Calculate par spread in basis points."""
+        ...
+
+    def risky_pv01(self, market: MarketContext, as_of: date) -> float:
+        """Calculate risky PV01."""
+        ...
+
+    def cs01(self, market: MarketContext, as_of: date) -> float:
+        """Calculate CS01 (credit spread sensitivity)."""
+        ...
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

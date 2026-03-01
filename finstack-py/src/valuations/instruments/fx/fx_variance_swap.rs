@@ -548,6 +548,67 @@ impl PyFxVarianceSwap {
         PyFxPayReceive::new(self.inner.side)
     }
 
+    /// Observation frequency label (e.g., "daily", "weekly").
+    #[getter]
+    fn observation_freq(&self) -> String {
+        if let Some(days) = self.inner.observation_freq.days() {
+            match days {
+                1 => "daily".to_string(),
+                7 => "weekly".to_string(),
+                14 => "biweekly".to_string(),
+                other => format!("{}d", other),
+            }
+        } else if let Some(months) = self.inner.observation_freq.months() {
+            match months {
+                1 => "monthly".to_string(),
+                3 => "quarterly".to_string(),
+                6 => "semiannual".to_string(),
+                12 => "annual".to_string(),
+                other => format!("{}m", other),
+            }
+        } else {
+            "daily".to_string()
+        }
+    }
+
+    /// Realized variance calculation method.
+    #[getter]
+    fn realized_var_method(&self) -> PyFxRealizedVarMethod {
+        PyFxRealizedVarMethod {
+            inner: self.inner.realized_var_method,
+        }
+    }
+
+    /// Spot identifier used for historical series lookup.
+    #[getter]
+    fn spot_id(&self) -> Option<String> {
+        self.inner.spot_id.clone()
+    }
+
+    /// Domestic discount curve identifier.
+    #[getter]
+    fn domestic_discount_curve(&self) -> String {
+        self.inner.domestic_discount_curve_id.as_str().to_string()
+    }
+
+    /// Foreign discount curve identifier.
+    #[getter]
+    fn foreign_discount_curve(&self) -> String {
+        self.inner.foreign_discount_curve_id.as_str().to_string()
+    }
+
+    /// Volatility surface identifier.
+    #[getter]
+    fn vol_surface(&self) -> String {
+        self.inner.vol_surface_id.as_str().to_string()
+    }
+
+    /// Day count convention label.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count)
+    }
+
     /// Calculate present value of the FX variance swap.
     ///
     /// Parameters
@@ -610,6 +671,54 @@ impl PyFxVarianceSwap {
     ///     Annualization factor (e.g., 252 for daily, 12 for monthly)
     fn annualization_factor(&self) -> f64 {
         self.inner.annualization_factor()
+    }
+
+    /// Calculate partial realized variance for the elapsed observation period.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including historical price series
+    /// as_of : Date
+    ///     Valuation date
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Annualized realized variance for the elapsed period
+    fn partial_realized_variance(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.partial_realized_variance(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate implied forward variance for the remaining observation period.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including volatility surface and discount curves
+    /// as_of : Date
+    ///     Valuation date
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Annualized implied forward variance for the remaining period
+    fn remaining_forward_variance(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.remaining_forward_variance(&market.inner, date))
+            .map_err(core_to_py)
     }
 
     fn __repr__(&self) -> String {

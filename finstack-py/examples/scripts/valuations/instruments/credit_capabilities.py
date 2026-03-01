@@ -7,7 +7,7 @@ from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import BaseCorrelationCurve, CreditIndexData, DiscountCurve, HazardCurve
-from finstack.valuations.instruments import CDSIndex, CdsOption, CdsTranche, CreditDefaultSwap
+from finstack.valuations.instruments import CDSIndex, CDSOption, CDSTranche, CreditDefaultSwap
 from finstack.valuations.pricer import create_standard_registry
 
 from finstack import Money
@@ -137,7 +137,7 @@ def main() -> None:
     )
 
     option = (
-        CdsOption.builder("ACME-CDSOPT")
+        CDSOption.builder("ACME-CDSOPT")
         .notional(Money(5_000_000, USD))
         .strike(0.015)
         .expiry(date(2025, 1, 2))
@@ -157,7 +157,7 @@ def main() -> None:
     )
 
     tranche = (
-        CdsTranche.builder("CDX-MEZ-TRANCHE")
+        CDSTranche.builder("CDX-MEZ-TRANCHE")
         .index_name("CDX.NA.IG")
         .series(42)
         .attach_pct(3.0)

@@ -5,143 +5,61 @@ from __future__ import annotations
 from datetime import date
 
 from ....core.currency import Currency
+from ....core.dates.daycount import DayCount
+from ....core.market_data.context import MarketContext
 from ....core.money import Money
 from ...common import InstrumentType
 
+class FxTouchOptionBuilder:
+    """Fluent builder returned by :meth:`FxTouchOption.builder`."""
+
+    def base_currency(self, ccy: str | Currency) -> FxTouchOptionBuilder: ...
+    def quote_currency(self, ccy: str | Currency) -> FxTouchOptionBuilder: ...
+    def barrier_level(self, level: float) -> FxTouchOptionBuilder: ...
+    def touch_type(self, touch_type: str) -> FxTouchOptionBuilder: ...
+    def barrier_direction(self, direction: str) -> FxTouchOptionBuilder: ...
+    def payout_amount(self, amount: Money) -> FxTouchOptionBuilder: ...
+    def payout_timing(self, timing: str) -> FxTouchOptionBuilder: ...
+    def expiry(self, date: date) -> FxTouchOptionBuilder: ...
+    def domestic_discount_curve(self, curve_id: str) -> FxTouchOptionBuilder: ...
+    def foreign_discount_curve(self, curve_id: str) -> FxTouchOptionBuilder: ...
+    def vol_surface(self, surface_id: str) -> FxTouchOptionBuilder: ...
+    def day_count(self, dc: DayCount) -> FxTouchOptionBuilder: ...
+    def build(self) -> FxTouchOption: ...
+    def __repr__(self) -> str: ...
+
 class FxTouchOption:
-    """FX touch option (American binary option) instrument.
-
-    Touch options pay a fixed amount if the spot rate touches a barrier
-    level at any time before expiry:
-    - One-touch: pays if barrier is touched
-    - No-touch: pays if barrier is NOT touched
-
-    Pricing uses closed-form formulas for continuous monitoring
-    (Rubinstein & Reiner 1991).
-
-    Examples
-    --------
-    Create a down-and-in one-touch option:
-
-        >>> from finstack.valuations.instruments import FxTouchOption
-        >>> from finstack import Money, Currency
-        >>> from datetime import date
-        >>> touch = FxTouchOption.builder(
-        ...     "FXTOUCH-EURUSD-OT",
-        ...     barrier_level=1.05,
-        ...     touch_type="one_touch",
-        ...     barrier_direction="down",
-        ...     payout_amount=Money(1_000_000, Currency("USD")),
-        ...     payout_timing="at_expiry",
-        ...     expiry=date(2024, 6, 21),
-        ...     base_currency=Currency("EUR"),
-        ...     quote_currency=Currency("USD"),
-        ...     domestic_discount_curve="USD-OIS",
-        ...     foreign_discount_curve="EUR-OIS",
-        ...     vol_surface="EURUSD-VOL",
-        ... )
-
-    See Also
-    --------
-    :class:`FxDigitalOption`: Digital/binary FX options
-    :class:`FxBarrierOption`: FX barrier options
-    """
+    """FX touch option (American binary option) instrument."""
 
     @classmethod
-    def builder(
-        cls,
-        instrument_id: str,
-        barrier_level: float,
-        touch_type: str,
-        barrier_direction: str,
-        payout_amount: Money,
-        payout_timing: str,
-        expiry: date,
-        base_currency: Currency,
-        quote_currency: Currency,
-        domestic_discount_curve: str,
-        foreign_discount_curve: str,
-        vol_surface: str,
-    ) -> FxTouchOption:
-        """Create an FX touch option.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the option.
-        barrier_level : float
-            Barrier exchange rate level. Must be > 0.
-        touch_type : str
-            Touch type: "one_touch" or "no_touch".
-        barrier_direction : str
-            Barrier direction: "up" or "down".
-        payout_amount : Money
-            Fixed payout amount.
-        payout_timing : str
-            Payout timing: "at_hit" or "at_expiry".
-        expiry : date
-            Option expiration date.
-        base_currency : Currency
-            Base (foreign) currency.
-        quote_currency : Currency
-            Quote (domestic) currency.
-        domestic_discount_curve : str
-            Domestic discount curve identifier in MarketContext.
-        foreign_discount_curve : str
-            Foreign discount curve identifier in MarketContext.
-        vol_surface : str
-            FX volatility surface identifier in MarketContext.
-
-        Returns
-        -------
-        FxTouchOption
-            Configured FX touch option ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If parameters are invalid.
-        """
-        ...
-
+    def builder(cls, instrument_id: str) -> FxTouchOptionBuilder: ...
     @property
-    def instrument_id(self) -> str:
-        """Instrument identifier."""
-        ...
+    def instrument_id(self) -> str: ...
     @property
-    def instrument_type(self) -> InstrumentType:
-        """Instrument type."""
-        ...
+    def instrument_type(self) -> InstrumentType: ...
     @property
-    def base_currency(self) -> Currency:
-        """Base currency (foreign currency)."""
-        ...
+    def base_currency(self) -> Currency: ...
     @property
-    def quote_currency(self) -> Currency:
-        """Quote currency (domestic currency)."""
-        ...
+    def quote_currency(self) -> Currency: ...
     @property
-    def barrier_level(self) -> float:
-        """Barrier level (exchange rate)."""
-        ...
+    def barrier_level(self) -> float: ...
     @property
-    def touch_type(self) -> str:
-        """Touch type label ("one_touch" or "no_touch")."""
-        ...
+    def touch_type(self) -> str: ...
     @property
-    def barrier_direction(self) -> str:
-        """Barrier direction label ("up" or "down")."""
-        ...
+    def barrier_direction(self) -> str: ...
     @property
-    def payout_amount(self) -> Money:
-        """Fixed payout amount."""
-        ...
+    def payout_amount(self) -> Money: ...
     @property
-    def payout_timing(self) -> str:
-        """Payout timing label ("at_hit" or "at_expiry")."""
-        ...
+    def payout_timing(self) -> str: ...
     @property
-    def expiry(self) -> date:
-        """Expiry date."""
-        ...
+    def expiry(self) -> date: ...
+    @property
+    def domestic_discount_curve(self) -> str: ...
+    @property
+    def foreign_discount_curve(self) -> str: ...
+    @property
+    def vol_surface(self) -> str: ...
+    @property
+    def day_count(self) -> DayCount: ...
+    def value(self, market: MarketContext, as_of: date) -> Money: ...
     def __repr__(self) -> str: ...

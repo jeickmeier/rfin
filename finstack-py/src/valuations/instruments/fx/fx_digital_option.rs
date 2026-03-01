@@ -1,23 +1,23 @@
+use crate::core::common::args::CurrencyArg;
+use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
+use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
+use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_digital_option::{DigitalPayoutType, FxDigitalOption};
 use finstack_valuations::instruments::OptionType;
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRefMut};
 use std::sync::Arc;
 
-/// FX digital (binary) option instrument.
-///
-/// Pays a fixed cash amount if the option expires in-the-money.
-///
-/// Two payout types:
-/// - Cash-or-nothing: pays a fixed amount in the payout currency
-/// - Asset-or-nothing: pays one unit of foreign currency
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "FxDigitalOption",
@@ -37,69 +37,77 @@ impl PyFxDigitalOption {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "FxDigitalOptionBuilder",
+    unsendable
+)]
+pub struct PyFxDigitalOptionBuilder {
+    instrument_id: InstrumentId,
+    base_currency: Option<finstack_core::currency::Currency>,
+    quote_currency: Option<finstack_core::currency::Currency>,
+    strike: Option<f64>,
+    option_type: OptionType,
+    payout_type: Option<DigitalPayoutType>,
+    payout_amount: Option<finstack_core::money::Money>,
+    expiry: Option<time::Date>,
+    notional: Option<finstack_core::money::Money>,
+    domestic_discount_curve_id: Option<CurveId>,
+    foreign_discount_curve_id: Option<CurveId>,
+    vol_surface_id: Option<CurveId>,
+    day_count: DayCount,
+}
+
+impl PyFxDigitalOptionBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            base_currency: None,
+            quote_currency: None,
+            strike: None,
+            option_type: OptionType::Call,
+            payout_type: None,
+            payout_amount: None,
+            expiry: None,
+            notional: None,
+            domestic_discount_curve_id: None,
+            foreign_discount_curve_id: None,
+            vol_surface_id: None,
+            day_count: DayCount::Act365F,
+        }
+    }
+}
+
 #[pymethods]
-impl PyFxDigitalOption {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, strike, option_type, payout_type, payout_amount, expiry, notional, base_currency, quote_currency, domestic_discount_curve, foreign_discount_curve, vol_surface)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create an FX digital option.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier.
-    ///     strike: Strike exchange rate (quote per base).
-    ///     option_type: Option type (``"call"`` or ``"put"``).
-    ///     payout_type: Payout type (``"cash_or_nothing"`` or ``"asset_or_nothing"``).
-    ///     payout_amount: Fixed payout amount.
-    ///     expiry: Option expiry date.
-    ///     notional: Contract notional amount.
-    ///     base_currency: Base (foreign) currency.
-    ///     quote_currency: Quote (domestic) currency.
-    ///     domestic_discount_curve: Domestic discount curve identifier.
-    ///     foreign_discount_curve: Foreign discount curve identifier.
-    ///     vol_surface: FX volatility surface identifier.
-    ///
-    /// Returns:
-    ///     FxDigitalOption: Configured FX digital option instrument.
-    fn builder(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        strike: f64,
+impl PyFxDigitalOptionBuilder {
+    fn base_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let CurrencyArg(c) = ccy.extract().context("base_currency")?;
+        slf.base_currency = Some(c);
+        Ok(slf)
+    }
+
+    fn quote_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let CurrencyArg(c) = ccy.extract().context("quote_currency")?;
+        slf.quote_currency = Some(c);
+        Ok(slf)
+    }
+
+    fn strike(mut slf: PyRefMut<'_, Self>, strike: f64) -> PyRefMut<'_, Self> {
+        slf.strike = Some(strike);
+        slf
+    }
+
+    fn option_type<'py>(
+        mut slf: PyRefMut<'py, Self>,
         option_type: &str,
-        payout_type: &str,
-        payout_amount: Bound<'_, PyAny>,
-        expiry: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        base_currency: Bound<'_, PyAny>,
-        quote_currency: Bound<'_, PyAny>,
-        domestic_discount_curve: Bound<'_, PyAny>,
-        foreign_discount_curve: Bound<'_, PyAny>,
-        vol_surface: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        use crate::core::common::args::CurrencyArg;
-        use crate::core::common::labels::normalize_label;
-        use crate::errors::PyContext;
-        use finstack_core::dates::DayCount;
-
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let domestic_discount_curve_id = CurveId::new(
-            domestic_discount_curve
-                .extract::<&str>()
-                .context("domestic_discount_curve")?,
-        );
-        let foreign_discount_curve_id = CurveId::new(
-            foreign_discount_curve
-                .extract::<&str>()
-                .context("foreign_discount_curve")?,
-        );
-        let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
-
-        let CurrencyArg(base_ccy) = base_currency.extract().context("base_currency")?;
-        let CurrencyArg(quote_ccy) = quote_currency.extract().context("quote_currency")?;
-
-        let opt_type = match normalize_label(option_type).as_str() {
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.option_type = match normalize_label(option_type).as_str() {
             "call" => OptionType::Call,
             "put" => OptionType::Put,
             other => {
@@ -108,8 +116,14 @@ impl PyFxDigitalOption {
                 )))
             }
         };
+        Ok(slf)
+    }
 
-        let payout_type_enum = match normalize_label(payout_type).as_str() {
+    fn payout_type<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        payout_type: &str,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.payout_type = Some(match normalize_label(payout_type).as_str() {
             "cash_or_nothing" | "cashornothing" => DigitalPayoutType::CashOrNothing,
             "asset_or_nothing" | "assetornothing" => DigitalPayoutType::AssetOrNothing,
             other => {
@@ -117,25 +131,109 @@ impl PyFxDigitalOption {
                     "Unknown payout type: {other}"
                 )))
             }
-        };
+        });
+        Ok(slf)
+    }
 
-        let payout_money = extract_money(&payout_amount).context("payout_amount")?;
-        let notional_money = extract_money(&notional).context("notional")?;
+    fn payout_amount<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        amount: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.payout_amount = Some(extract_money(&amount).context("payout_amount")?);
+        Ok(slf)
+    }
+
+    fn expiry<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.expiry = Some(py_to_date(&date).context("expiry")?);
+        Ok(slf)
+    }
+
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.notional = Some(extract_money(&notional).context("notional")?);
+        Ok(slf)
+    }
+
+    fn domestic_discount_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
+        slf.domestic_discount_curve_id = Some(CurveId::new(curve_id));
+        slf
+    }
+
+    fn foreign_discount_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
+        slf.foreign_discount_curve_id = Some(CurveId::new(curve_id));
+        slf
+    }
+
+    fn vol_surface<'py>(mut slf: PyRefMut<'py, Self>, surface_id: &str) -> PyRefMut<'py, Self> {
+        slf.vol_surface_id = Some(CurveId::new(surface_id));
+        slf
+    }
+
+    fn day_count<'py>(mut slf: PyRefMut<'py, Self>, dc: &PyDayCount) -> PyRefMut<'py, Self> {
+        slf.day_count = dc.inner;
+        slf
+    }
+
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxDigitalOption> {
+        let base = slf
+            .base_currency
+            .ok_or_else(|| PyValueError::new_err("base_currency is required"))?;
+        let quote = slf
+            .quote_currency
+            .ok_or_else(|| PyValueError::new_err("quote_currency is required"))?;
+        let strike = slf
+            .strike
+            .ok_or_else(|| PyValueError::new_err("strike is required"))?;
+        let payout_type = slf
+            .payout_type
+            .ok_or_else(|| PyValueError::new_err("payout_type is required"))?;
+        let payout_amount = slf
+            .payout_amount
+            .ok_or_else(|| PyValueError::new_err("payout_amount is required"))?;
+        let expiry = slf
+            .expiry
+            .ok_or_else(|| PyValueError::new_err("expiry is required"))?;
+        let notional = slf
+            .notional
+            .ok_or_else(|| PyValueError::new_err("notional is required"))?;
+        let domestic = slf
+            .domestic_discount_curve_id
+            .clone()
+            .ok_or_else(|| PyValueError::new_err("domestic_discount_curve is required"))?;
+        let foreign = slf
+            .foreign_discount_curve_id
+            .clone()
+            .ok_or_else(|| PyValueError::new_err("foreign_discount_curve is required"))?;
+        let vol = slf
+            .vol_surface_id
+            .clone()
+            .ok_or_else(|| PyValueError::new_err("vol_surface is required"))?;
 
         let option = FxDigitalOption::builder()
-            .id(id)
-            .base_currency(base_ccy)
-            .quote_currency(quote_ccy)
+            .id(slf.instrument_id.clone())
+            .base_currency(base)
+            .quote_currency(quote)
             .strike(strike)
-            .option_type(opt_type)
-            .payout_type(payout_type_enum)
-            .payout_amount(payout_money)
-            .expiry(expiry_date)
-            .day_count(DayCount::Act365F)
-            .notional(notional_money)
-            .domestic_discount_curve_id(domestic_discount_curve_id)
-            .foreign_discount_curve_id(foreign_discount_curve_id)
-            .vol_surface_id(vol_surface_id)
+            .option_type(slf.option_type)
+            .payout_type(payout_type)
+            .payout_amount(payout_amount)
+            .expiry(expiry)
+            .day_count(slf.day_count)
+            .notional(notional)
+            .domestic_discount_curve_id(domestic)
+            .foreign_discount_curve_id(foreign)
+            .vol_surface_id(vol)
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
             .attributes(finstack_valuations::instruments::Attributes::new())
             .build()
@@ -144,40 +242,46 @@ impl PyFxDigitalOption {
                     "Failed to build FxDigitalOption: {e}"
                 ))
             })?;
-        Ok(Self::new(option))
+        Ok(PyFxDigitalOption::new(option))
     }
 
-    /// Instrument identifier.
+    fn __repr__(&self) -> String {
+        format!("FxDigitalOptionBuilder(id='{}')", self.instrument_id)
+    }
+}
+
+#[pymethods]
+impl PyFxDigitalOption {
+    #[classmethod]
+    fn builder(_cls: &Bound<'_, PyType>, instrument_id: &str) -> PyFxDigitalOptionBuilder {
+        PyFxDigitalOptionBuilder::new_with_id(InstrumentId::new(instrument_id))
+    }
+
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
-    /// Instrument type.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::FxDigitalOption)
     }
 
-    /// Base currency (foreign currency).
     #[getter]
     fn base_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.base_currency)
     }
 
-    /// Quote currency (domestic currency).
     #[getter]
     fn quote_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.quote_currency)
     }
 
-    /// Strike exchange rate (quote per base).
     #[getter]
     fn strike(&self) -> f64 {
         self.inner.strike
     }
 
-    /// Option type label.
     #[getter]
     fn option_type(&self) -> &'static str {
         match self.inner.option_type {
@@ -186,7 +290,6 @@ impl PyFxDigitalOption {
         }
     }
 
-    /// Payout type label.
     #[getter]
     fn payout_type(&self) -> &'static str {
         match self.inner.payout_type {
@@ -196,22 +299,53 @@ impl PyFxDigitalOption {
         }
     }
 
-    /// Fixed payout amount.
     #[getter]
     fn payout_amount(&self) -> PyMoney {
         PyMoney::new(self.inner.payout_amount)
     }
 
-    /// Expiry date.
     #[getter]
     fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.expiry)
     }
 
-    /// Notional amount.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
+    }
+
+    #[getter]
+    fn domestic_discount_curve(&self) -> String {
+        self.inner.domestic_discount_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn foreign_discount_curve(&self) -> String {
+        self.inner.foreign_discount_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn vol_surface(&self) -> String {
+        self.inner.vol_surface_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count)
+    }
+
+    /// Calculate present value of the FX digital option.
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| Instrument::value(self.inner.as_ref(), &market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
     }
 
     fn __repr__(&self) -> String {
@@ -237,5 +371,6 @@ pub(crate) fn register<'py>(
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     parent.add_class::<PyFxDigitalOption>()?;
-    Ok(vec!["FxDigitalOption"])
+    parent.add_class::<PyFxDigitalOptionBuilder>()?;
+    Ok(vec!["FxDigitalOption", "FxDigitalOptionBuilder"])
 }

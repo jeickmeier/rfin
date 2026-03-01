@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
@@ -11,17 +9,116 @@ use crate::valuations::common::{
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CDSTranche, TrancheSide};
+use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::{Bound, Py, PyRefMut};
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
+
+use crate::core::market_data::context::PyMarketContext;
+
+fn day_count_label(dc: finstack_core::dates::DayCount) -> &'static str {
+    use finstack_core::dates::DayCount;
+    match dc {
+        DayCount::Act360 => "act_360",
+        DayCount::Act365F => "act_365f",
+        DayCount::Act365L => "act_365l",
+        DayCount::Thirty360 => "thirty_360",
+        DayCount::ThirtyE360 => "thirty_e_360",
+        DayCount::ActAct => "act_act",
+        DayCount::ActActIsma => "act_act_isma",
+        DayCount::Bus252 => "bus_252",
+        _ => "custom",
+    }
+}
 
 fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
     match label {
         None => Ok(TrancheSide::BuyProtection),
         Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
+    }
+}
+
+/// Buy/sell protection side for CDS tranches.
+///
+/// Examples:
+///     >>> TrancheSide.BUY_PROTECTION
+///     TrancheSide('buy_protection')
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "TrancheSide",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyTrancheSide {
+    pub(crate) inner: TrancheSide,
+}
+
+impl PyTrancheSide {
+    pub(crate) const fn new(inner: TrancheSide) -> Self {
+        Self { inner }
+    }
+
+    fn label(&self) -> &'static str {
+        match self.inner {
+            TrancheSide::BuyProtection => "buy_protection",
+            TrancheSide::SellProtection => "sell_protection",
+        }
+    }
+}
+
+#[pymethods]
+impl PyTrancheSide {
+    #[classattr]
+    const BUY_PROTECTION: Self = Self::new(TrancheSide::BuyProtection);
+    #[classattr]
+    const SELL_PROTECTION: Self = Self::new(TrancheSide::SellProtection);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse::<TrancheSide>()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
+    }
+
+    #[getter]
+    fn name(&self) -> &'static str {
+        self.label()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("TrancheSide('{}')", self.label())
+    }
+
+    fn __str__(&self) -> &'static str {
+        self.label()
+    }
+
+    fn __hash__(&self) -> isize {
+        self.inner as isize
+    }
+
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<Py<PyAny>> {
+        let rhs = other
+            .extract::<PyRef<Self>>()
+            .ok()
+            .map(|ref_obj| ref_obj.inner);
+        crate::core::common::pycmp::richcmp_eq_ne(py, &self.inner, rhs, op)
+    }
+}
+
+impl fmt::Display for PyTrancheSide {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.label())
     }
 }
 
@@ -45,7 +142,7 @@ fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
 ///     3.0
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CdsTranche",
+    name = "CDSTranche",
     frozen,
     from_py_object
 )]
@@ -64,7 +161,7 @@ impl PyCDSTranche {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CdsTrancheBuilder",
+    name = "CDSTrancheBuilder",
     unsendable
 )]
 pub struct PyCDSTrancheBuilder {
@@ -274,6 +371,7 @@ impl PyCDSTrancheBuilder {
     }
 
     #[pyo3(text_signature = "($self)")]
+    #[allow(clippy::unwrap_used)]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCDSTranche> {
         slf.ensure_ready()?;
 
@@ -396,6 +494,69 @@ impl PyCDSTranche {
         self.inner.credit_index_id.as_str().to_string()
     }
 
+    /// Index name.
+    #[getter]
+    fn index_name(&self) -> &str {
+        &self.inner.index_name
+    }
+
+    /// Index series number.
+    #[getter]
+    fn series(&self) -> u16 {
+        self.inner.series
+    }
+
+    /// Protection side.
+    #[getter]
+    fn side(&self) -> PyTrancheSide {
+        PyTrancheSide::new(self.inner.side)
+    }
+
+    /// Payment frequency.
+    #[getter]
+    fn frequency(&self) -> String {
+        format!("{}", self.inner.frequency)
+    }
+
+    /// Day count convention.
+    #[getter]
+    fn day_count(&self) -> &'static str {
+        day_count_label(self.inner.day_count)
+    }
+
+    /// Business day convention.
+    #[getter]
+    fn bdc(&self) -> String {
+        format!("{}", self.inner.bdc)
+    }
+
+    /// Holiday calendar identifier.
+    #[getter]
+    fn calendar(&self) -> Option<String> {
+        self.inner.calendar_id.clone()
+    }
+
+    /// Effective date for schedule anchoring.
+    #[getter]
+    fn effective_date(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        match self.inner.effective_date {
+            Some(d) => Ok(Some(date_to_py(py, d)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Accumulated realized loss as fraction of original portfolio notional.
+    #[getter]
+    fn accumulated_loss(&self) -> f64 {
+        self.inner.accumulated_loss
+    }
+
+    /// Whether standard IMM dates are enforced.
+    #[getter]
+    fn standard_imm_dates(&self) -> bool {
+        self.inner.standard_imm_dates
+    }
+
     /// Instrument type enumeration.
     ///
     /// Returns:
@@ -403,6 +564,112 @@ impl PyCDSTranche {
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CDSTranche)
+    }
+
+    /// Calculate upfront amount.
+    #[pyo3(signature = (market, as_of))]
+    fn upfront(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.upfront(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate spread DV01 (sensitivity to 1bp running coupon change).
+    #[pyo3(signature = (market, as_of))]
+    fn spread_dv01(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.spread_dv01(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate par spread (running coupon in basis points).
+    #[pyo3(signature = (market, as_of))]
+    fn par_spread(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.par_spread(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate expected loss.
+    #[pyo3(signature = (market,))]
+    fn expected_loss(&self, py: Python<'_>, market: &PyMarketContext) -> PyResult<f64> {
+        py.detach(|| self.inner.expected_loss(&market.inner))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate jump-to-default metric.
+    #[pyo3(signature = (market, as_of))]
+    fn jump_to_default(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.jump_to_default(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate correlation delta (sensitivity to correlation changes).
+    #[pyo3(signature = (market, as_of))]
+    fn correlation_delta(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.correlation_delta(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate accrued premium.
+    #[pyo3(signature = (market, as_of))]
+    fn accrued_premium(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.accrued_premium(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate expected loss curve over time.
+    ///
+    /// Returns:
+    ///     list[tuple[datetime.date, float]]: (date, cumulative_expected_loss) pairs.
+    #[pyo3(signature = (market, as_of))]
+    fn expected_loss_curve(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<Vec<(Py<PyAny>, f64)>> {
+        let date = py_to_date(&as_of)?;
+        let curve = py
+            .detach(|| self.inner.expected_loss_curve(&market.inner, date))
+            .map_err(core_to_py)?;
+        curve
+            .into_iter()
+            .map(|(d, v)| Ok((date_to_py(py, d)?, v)))
+            .collect()
     }
 
     fn __repr__(&self) -> PyResult<String> {
@@ -427,7 +694,8 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyTrancheSide>()?;
     module.add_class::<PyCDSTranche>()?;
     module.add_class::<PyCDSTrancheBuilder>()?;
-    Ok(vec!["CDSTranche", "CDSTrancheBuilder"])
+    Ok(vec!["TrancheSide", "CDSTranche", "CDSTrancheBuilder"])
 }

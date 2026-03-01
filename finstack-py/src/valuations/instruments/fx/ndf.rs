@@ -48,7 +48,7 @@ use std::sync::Arc;
 ///         .maturity_date(Date(2025, 3, 15))
 ///         .notional(Money.from_code(10_000_000, "CNY"))
 ///         .contract_rate(7.25)
-///         .settlement_curve("USD-OIS")
+///         .domestic_discount_curve("USD-OIS")
 ///         .quote_convention("base_per_settlement")
 ///         .fixing_source_enum("CNHFIX")
 ///         .build()
@@ -246,12 +246,18 @@ impl PyNdfBuilder {
         slf
     }
 
-    fn settlement_curve<'py>(mut slf: PyRefMut<'py, Self>, curve_id: &str) -> PyRefMut<'py, Self> {
+    fn domestic_discount_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
         slf.domestic_discount_curve_id = Some(CurveId::new(curve_id));
         slf
     }
 
-    fn foreign_curve<'py>(mut slf: PyRefMut<'py, Self>, curve_id: &str) -> PyRefMut<'py, Self> {
+    fn foreign_discount_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
         slf.foreign_discount_curve_id = Some(CurveId::new(curve_id));
         slf
     }
@@ -389,6 +395,45 @@ impl PyNdf {
             .map(|source| source.to_string())
     }
 
+    /// Domestic (settlement) discount curve identifier.
+    #[getter]
+    fn domestic_discount_curve(&self) -> String {
+        self.inner.domestic_discount_curve_id.as_str().to_string()
+    }
+
+    /// Foreign discount curve identifier (if set).
+    #[getter]
+    fn foreign_discount_curve(&self) -> Option<String> {
+        self.inner
+            .foreign_discount_curve_id
+            .as_ref()
+            .map(|c| c.as_str().to_string())
+    }
+
+    /// Quote convention label.
+    #[getter]
+    fn quote_convention(&self) -> String {
+        self.inner.quote_convention.to_string()
+    }
+
+    /// Spot rate override (if set).
+    #[getter]
+    fn spot_rate_override(&self) -> Option<f64> {
+        self.inner.spot_rate_override
+    }
+
+    /// Base currency calendar identifier (if set).
+    #[getter]
+    fn base_calendar(&self) -> Option<String> {
+        self.inner.base_calendar_id.clone()
+    }
+
+    /// Quote currency calendar identifier (if set).
+    #[getter]
+    fn quote_calendar(&self) -> Option<String> {
+        self.inner.quote_calendar_id.clone()
+    }
+
     /// Check if NDF is in post-fixing mode (fixing rate is set).
     ///
     /// Returns
@@ -426,6 +471,16 @@ impl PyNdf {
             .detach(|| self.inner.value(&market.inner, date))
             .map_err(core_to_py)?;
         Ok(PyMoney::new(value))
+    }
+
+    /// Validate that fixing source matches the base currency.
+    ///
+    /// Raises
+    /// ------
+    /// RuntimeError
+    ///     If the fixing source enum is set but doesn't match the expected currency.
+    fn validate_fixing_source(&self) -> PyResult<()> {
+        self.inner.validate_fixing_source().map_err(core_to_py)
     }
 
     fn __repr__(&self) -> String {

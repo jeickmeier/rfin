@@ -40,4 +40,4 @@ pub(crate) mod pricer;
 pub(crate) mod traits;
 pub(crate) mod types;
 
-pub use types::CliquetOption;
+pub use types::{CliquetOption, CliquetPayoffType};

@@ -6,147 +6,89 @@ from ....core.money import Money
 from ....core.dates.daycount import DayCount
 from ....core.dates.calendar import BusinessDayConvention
 from ...common import InstrumentType
+from ....core.market_data.context import MarketContext
 
-class CdsTrancheBuilder:
-    """Fluent builder returned by :meth:`CdsTranche.builder`."""
+class TrancheSide:
+    """Buy/sell protection side for CDS tranches."""
+
+    BUY_PROTECTION: "TrancheSide"
+    SELL_PROTECTION: "TrancheSide"
+
+    @classmethod
+    def from_name(cls, name: str) -> "TrancheSide": ...
+    @property
+    def name(self) -> str: ...
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __ne__(self, other: object) -> bool: ...
+
+class CDSTrancheBuilder:
+    """Fluent builder returned by :meth:`CDSTranche.builder`."""
 
     def __init__(self, instrument_id: str) -> None: ...
-    def index_name(self, index_name: str) -> "CdsTrancheBuilder": ...
-    def series(self, series: int) -> "CdsTrancheBuilder": ...
-    def attach_pct(self, attach_pct: float) -> "CdsTrancheBuilder": ...
-    def detach_pct(self, detach_pct: float) -> "CdsTrancheBuilder": ...
-    def notional(self, notional: Money) -> "CdsTrancheBuilder": ...
-    def maturity(self, maturity: date) -> "CdsTrancheBuilder": ...
-    def running_coupon_bp(self, running_coupon_bp: float) -> "CdsTrancheBuilder": ...
-    def discount_curve(self, discount_curve: str) -> "CdsTrancheBuilder": ...
-    def credit_index_curve(self, credit_index_curve: str) -> "CdsTrancheBuilder": ...
-    def side(self, side: str) -> "CdsTrancheBuilder": ...
-    def payments_per_year(self, payments_per_year: int) -> "CdsTrancheBuilder": ...
-    def day_count(self, day_count: DayCount) -> "CdsTrancheBuilder": ...
-    def business_day_convention(self, business_day_convention: BusinessDayConvention) -> "CdsTrancheBuilder": ...
-    def calendar(self, calendar: str | None = ...) -> "CdsTrancheBuilder": ...
-    def effective_date(self, effective_date: date | None = ...) -> "CdsTrancheBuilder": ...
-    def build(self) -> "CdsTranche": ...
+    def index_name(self, index_name: str) -> "CDSTrancheBuilder": ...
+    def series(self, series: int) -> "CDSTrancheBuilder": ...
+    def attach_pct(self, attach_pct: float) -> "CDSTrancheBuilder": ...
+    def detach_pct(self, detach_pct: float) -> "CDSTrancheBuilder": ...
+    def notional(self, notional: Money) -> "CDSTrancheBuilder": ...
+    def maturity(self, maturity: date) -> "CDSTrancheBuilder": ...
+    def running_coupon_bp(self, running_coupon_bp: float) -> "CDSTrancheBuilder": ...
+    def discount_curve(self, discount_curve: str) -> "CDSTrancheBuilder": ...
+    def credit_index_curve(self, credit_index_curve: str) -> "CDSTrancheBuilder": ...
+    def side(self, side: str) -> "CDSTrancheBuilder": ...
+    def payments_per_year(self, payments_per_year: int) -> "CDSTrancheBuilder": ...
+    def day_count(self, day_count: DayCount | str) -> "CDSTrancheBuilder": ...
+    def business_day_convention(self, business_day_convention: BusinessDayConvention | str) -> "CDSTrancheBuilder": ...
+    def calendar(self, calendar: str | None = ...) -> "CDSTrancheBuilder": ...
+    def effective_date(self, effective_date: date | None = ...) -> "CDSTrancheBuilder": ...
+    def build(self) -> "CDSTranche": ...
 
-class CdsTranche:
+class CDSTranche:
     """CDS tranche for structured credit exposure.
 
-    CdsTranche represents a tranche of a CDS index, providing exposure to
-    a specific loss layer (attachment point to detachment point). Tranches
-    are used in structured credit products (CDO, CLO).
-
-    CDS tranches provide leveraged credit exposure and are priced using
-    portfolio credit models. They require discount curves and credit index
-    curves.
+    CDSTranche represents a tranche of a CDS index, providing exposure to
+    a specific loss layer (attachment point to detachment point).
 
     Examples
     --------
-    Create a CDS tranche (equity tranche):
-
-        >>> from finstack.valuations.instruments import CdsTranche
+        >>> from finstack.valuations.instruments import CDSTranche
         >>> from finstack import Money, Currency
         >>> from datetime import date
         >>> tranche = (
-        ...     CdsTranche
+        ...     CDSTranche
         ...     .builder("CDX-IG-0-3")
         ...     .index_name("CDX.NA.IG")
         ...     .series(40)
-        ...     .attach_pct(0.0)  # 0% attachment (equity)
-        ...     .detach_pct(3.0)  # 3% detachment
+        ...     .attach_pct(0.0)
+        ...     .detach_pct(3.0)
         ...     .notional(Money(10_000_000, Currency("USD")))
         ...     .maturity(date(2029, 1, 1))
-        ...     .running_coupon_bp(500.0)  # 500bp running coupon
+        ...     .running_coupon_bp(500.0)
         ...     .discount_curve("USD")
         ...     .credit_index_curve("CDX-IG-40")
         ...     .build()
         ... )
 
-    Notes
-    -----
-    - CDS tranches require discount curve and credit index curve
-    - Attachment and detachment define the loss layer
-    - Equity tranche (0-3%) has highest risk and return
-    - Senior tranches (e.g., 15-30%) have lower risk
-    - Running coupon is paid on remaining notional
-
-    Conventions
-    -----------
-    - ``attach_pct`` and ``detach_pct`` are expressed in percent points (e.g., 3.0 means 3% subordination).
-    - ``running_coupon_bp`` is quoted in basis points (bp).
-    - Required market data is identified by string IDs (``discount_curve``, ``credit_index_curve``) and must be
-      present in ``MarketContext``.
-    - The exact tranche pricing model is selected by the runtime/pricer; inputs such as ``payments_per_year``,
-      ``day_count``, and calendar/BDC parameters control the cashflow schedule.
-
-    MarketContext Requirements
-    -------------------------
-    - Discount curve: ``discount_curve`` (required).
-    - Credit index curve: ``credit_index_curve`` (required).
-
-    See Also
-    --------
-    :class:`CDSIndex`: CDS indices
-    :class:`CreditDefaultSwap`: Single-name CDS
-    :class:`PricerRegistry`: Pricing entry point
-
     Sources
     -------
     - Li (2000): see ``docs/REFERENCES.md#liGaussianCopula2000``.
     - O'Kane (2008): see ``docs/REFERENCES.md#okane2008``.
-    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
     """
 
     @classmethod
-    def builder(cls, instrument_id: str) -> CdsTrancheBuilder:
+    def builder(cls, instrument_id: str) -> CDSTrancheBuilder:
         """Start a fluent builder (builder-only API).
 
         Parameters
         ----------
         instrument_id : str
-            Unique identifier for the tranche (e.g., "CDX-IG-0-3").
-        index_name : str
-            Index name (e.g., "CDX.NA.IG", "iTraxx.Europe").
-        series : int
-            Index series number.
-        attach_pct : float
-            Attachment point as percentage (e.g., 0.0 for equity, 3.0 for mezzanine).
-        detach_pct : float
-            Detachment point as percentage (e.g., 3.0, 7.0, 15.0, 30.0).
-            Must be > attach_pct.
-        notional : Money
-            Notional principal amount.
-        maturity : date
-            Tranche maturity date.
-        running_coupon_bp : float
-            Running coupon in basis points paid on remaining notional.
-        discount_curve : str
-            Discount curve identifier in MarketContext.
-        credit_index_curve : str
-            Credit index curve identifier in MarketContext.
-        side : str, optional
-            Position side: "buy_protection" (default) or "sell_protection".
-        payments_per_year : int, optional
-            Coupon payment frequency per year (default: 4 for quarterly).
-        day_count : DayCount, optional
-            Day-count convention (default: ACT/360).
-        business_day_convention : BusinessDayConvention, optional
-            Business day convention for payment dates.
-        calendar : str, optional
-            Holiday calendar identifier.
-        effective_date : date, optional
-            Effective date (default: trade date).
+            Unique identifier for the tranche.
 
         Returns
         -------
-        CdsTranche
-            Configured CDS tranche ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If parameters are invalid (detach_pct <= attach_pct, etc.) or if
-            required curves are not found.
-
+        CDSTrancheBuilder
         """
         ...
 
@@ -167,6 +109,58 @@ class CdsTranche:
     @property
     def credit_index_curve(self) -> str: ...
     @property
+    def index_name(self) -> str: ...
+    @property
+    def series(self) -> int: ...
+    @property
+    def side(self) -> TrancheSide: ...
+    @property
+    def frequency(self) -> str: ...
+    @property
+    def day_count(self) -> str: ...
+    @property
+    def bdc(self) -> str: ...
+    @property
+    def calendar(self) -> str | None: ...
+    @property
+    def effective_date(self) -> date | None: ...
+    @property
+    def accumulated_loss(self) -> float: ...
+    @property
+    def standard_imm_dates(self) -> bool: ...
+    @property
     def instrument_type(self) -> InstrumentType: ...
+    def upfront(self, market: MarketContext, as_of: date) -> float:
+        """Calculate upfront amount."""
+        ...
+
+    def spread_dv01(self, market: MarketContext, as_of: date) -> float:
+        """Calculate spread DV01."""
+        ...
+
+    def par_spread(self, market: MarketContext, as_of: date) -> float:
+        """Calculate par spread in basis points."""
+        ...
+
+    def expected_loss(self, market: MarketContext) -> float:
+        """Calculate expected loss."""
+        ...
+
+    def jump_to_default(self, market: MarketContext, as_of: date) -> float:
+        """Calculate jump-to-default metric."""
+        ...
+
+    def correlation_delta(self, market: MarketContext, as_of: date) -> float:
+        """Calculate correlation delta."""
+        ...
+
+    def accrued_premium(self, market: MarketContext, as_of: date) -> float:
+        """Calculate accrued premium."""
+        ...
+
+    def expected_loss_curve(self, market: MarketContext, as_of: date) -> list[tuple[date, float]]:
+        """Calculate expected loss curve over time."""
+        ...
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

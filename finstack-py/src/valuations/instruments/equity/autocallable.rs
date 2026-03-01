@@ -1,4 +1,4 @@
-use crate::core::dates::utils::py_to_date;
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::autocallable::{Autocallable, FinalPayoffType};
@@ -247,6 +247,52 @@ impl PyAutocallable {
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
+    }
+
+    /// Observation dates.
+    #[getter]
+    fn observation_dates(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dates: PyResult<Vec<Py<PyAny>>> = self
+            .inner
+            .observation_dates
+            .iter()
+            .map(|d| date_to_py(py, *d))
+            .collect();
+        Ok(PyList::new(py, dates?)?.into())
+    }
+
+    /// Autocall barrier levels.
+    #[getter]
+    fn autocall_barriers(&self) -> Vec<f64> {
+        self.inner.autocall_barriers.clone()
+    }
+
+    /// Coupon rates.
+    #[getter]
+    fn coupons(&self) -> Vec<f64> {
+        self.inner.coupons.clone()
+    }
+
+    /// Expiry date.
+    #[getter]
+    fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.expiry)
+    }
+
+    /// Final payoff type as string.
+    #[getter]
+    fn final_payoff_type(&self) -> &'static str {
+        match self.inner.final_payoff_type {
+            FinalPayoffType::CapitalProtection { .. } => "capital_protection",
+            FinalPayoffType::Participation { .. } => "participation",
+            FinalPayoffType::KnockInPut { .. } => "knock_in_put",
+        }
+    }
+
+    /// Discount curve identifier.
+    #[getter]
+    fn discount_curve(&self) -> String {
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     fn __repr__(&self) -> String {

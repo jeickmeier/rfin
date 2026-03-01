@@ -105,6 +105,19 @@ impl PyPrivateMarketsFund {
         Ok(PyList::new(py, items?)?.into())
     }
 
+    #[pyo3(text_signature = "(self)")]
+    fn run_waterfall(&self) -> PyResult<String> {
+        let ledger = self.inner.run_waterfall().map_err(core_to_py)?;
+        ledger.to_json().map_err(core_to_py)
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn run_waterfall_tabular(&self) -> PyResult<(Vec<String>, Vec<Vec<String>>)> {
+        let ledger = self.inner.run_waterfall().map_err(core_to_py)?;
+        let (headers, rows) = ledger.to_tabular_data();
+        Ok((headers.into_iter().map(|h| h.to_string()).collect(), rows))
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "PrivateMarketsFund(id='{}', events={})",

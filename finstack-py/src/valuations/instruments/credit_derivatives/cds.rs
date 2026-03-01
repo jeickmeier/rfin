@@ -14,7 +14,23 @@ use pyo3::{Bound, Py, PyRef};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
+
+fn day_count_label(dc: finstack_core::dates::DayCount) -> &'static str {
+    use finstack_core::dates::DayCount;
+    match dc {
+        DayCount::Act360 => "act_360",
+        DayCount::Act365F => "act_365f",
+        DayCount::Act365L => "act_365l",
+        DayCount::Thirty360 => "thirty_360",
+        DayCount::ThirtyE360 => "thirty_e_360",
+        DayCount::ActAct => "act_act",
+        DayCount::ActActIsma => "act_act_isma",
+        DayCount::Bus252 => "bus_252",
+        _ => "custom",
+    }
+}
 
 /// Pay/receive indicator for CDS premium leg.
 ///
@@ -111,6 +127,133 @@ impl fmt::Display for PyCdsPayReceive {
     }
 }
 
+/// ISDA CDS convention for regional market standards.
+///
+/// Examples:
+///     >>> CDSConvention.ISDA_NA.day_count
+///     'act_360'
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CDSConvention",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyCdsConvention {
+    pub(crate) inner: CDSConvention,
+}
+
+impl PyCdsConvention {
+    pub(crate) const fn new(inner: CDSConvention) -> Self {
+        Self { inner }
+    }
+
+    fn label(&self) -> String {
+        self.inner.to_string()
+    }
+}
+
+#[pymethods]
+impl PyCdsConvention {
+    #[classattr]
+    const ISDA_NA: Self = Self::new(CDSConvention::IsdaNa);
+    #[classattr]
+    const ISDA_EU: Self = Self::new(CDSConvention::IsdaEu);
+    #[classattr]
+    const ISDA_AS: Self = Self::new(CDSConvention::IsdaAs);
+    #[classattr]
+    const CUSTOM: Self = Self::new(CDSConvention::Custom);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse::<CDSConvention>()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, currency)")]
+    fn detect_from_currency(
+        _cls: &Bound<'_, PyType>,
+        currency: Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        use finstack_core::currency::Currency;
+        let ccy = if let Ok(py_ccy) = currency.extract::<crate::core::currency::PyCurrency>() {
+            py_ccy.inner
+        } else if let Ok(code) = currency.extract::<&str>() {
+            Currency::from_str(code)
+                .map_err(|_| PyValueError::new_err(format!("Unknown currency code: '{}'", code)))?
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Expected Currency or string",
+            ));
+        };
+        Ok(Self::new(CDSConvention::detect_from_currency(ccy)))
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.label()
+    }
+
+    #[getter]
+    fn day_count(&self) -> &'static str {
+        day_count_label(self.inner.day_count())
+    }
+
+    #[getter]
+    fn frequency(&self) -> String {
+        format!("{}", self.inner.frequency())
+    }
+
+    #[getter]
+    fn business_day_convention(&self) -> String {
+        format!("{}", self.inner.business_day_convention())
+    }
+
+    #[getter]
+    fn settlement_delay(&self) -> u16 {
+        self.inner.settlement_delay()
+    }
+
+    #[getter]
+    fn default_calendar(&self) -> &'static str {
+        self.inner.default_calendar()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("CDSConvention('{}')", self.label())
+    }
+
+    fn __str__(&self) -> String {
+        self.label()
+    }
+
+    fn __hash__(&self) -> isize {
+        self.inner as isize
+    }
+
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<Py<PyAny>> {
+        let rhs = other
+            .extract::<PyRef<Self>>()
+            .ok()
+            .map(|ref_obj| ref_obj.inner);
+        crate::core::common::pycmp::richcmp_eq_ne(py, &self.inner, rhs, op)
+    }
+}
+
+impl fmt::Display for PyCdsConvention {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.label())
+    }
+}
+
 pub(crate) fn normalize_cds_side(name: &str) -> PyResult<PayReceive> {
     name.parse().map_err(|e: String| PyValueError::new_err(e))
 }
@@ -162,9 +305,10 @@ impl PyCreditDefaultSwap {
             credit_curve,
             *,
             recovery_rate=None,
-            settlement_delay=None
+            settlement_delay=None,
+            convention=None
         ),
-        text_signature = "(cls, instrument_id, notional, spread_bp, start_date, maturity, discount_curve, credit_curve, /, *, recovery_rate=None, settlement_delay=None)"
+        text_signature = "(cls, instrument_id, notional, spread_bp, start_date, maturity, discount_curve, credit_curve, /, *, recovery_rate=None, settlement_delay=None, convention=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a CDS where the caller buys protection (pays premium, receives protection).
@@ -179,6 +323,7 @@ impl PyCreditDefaultSwap {
     ///     credit_curve: Credit curve identifier.
     ///     recovery_rate: Optional recovery rate override.
     ///     settlement_delay: Optional settlement delay in days.
+    ///     convention: Optional ISDA convention (default: ISDA_NA).
     ///
     /// Returns:
     ///     CreditDefaultSwap: Configured CDS instrument with pay-protection side.
@@ -196,6 +341,7 @@ impl PyCreditDefaultSwap {
         credit_curve: Bound<'_, PyAny>,
         recovery_rate: Option<f64>,
         settlement_delay: Option<u16>,
+        convention: Option<PyCdsConvention>,
     ) -> PyResult<Self> {
         construct_cds(
             instrument_id,
@@ -208,6 +354,7 @@ impl PyCreditDefaultSwap {
             PayReceive::PayFixed,
             recovery_rate,
             settlement_delay,
+            convention,
         )
     }
 
@@ -223,9 +370,10 @@ impl PyCreditDefaultSwap {
             credit_curve,
             *,
             recovery_rate=None,
-            settlement_delay=None
+            settlement_delay=None,
+            convention=None
         ),
-        text_signature = "(cls, instrument_id, notional, spread_bp, start_date, maturity, discount_curve, credit_curve, /, *, recovery_rate=None, settlement_delay=None)"
+        text_signature = "(cls, instrument_id, notional, spread_bp, start_date, maturity, discount_curve, credit_curve, /, *, recovery_rate=None, settlement_delay=None, convention=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a CDS where the caller sells protection (receives premium).
@@ -240,6 +388,7 @@ impl PyCreditDefaultSwap {
     ///     credit_curve: Credit curve identifier.
     ///     recovery_rate: Optional recovery rate override.
     ///     settlement_delay: Optional settlement delay in days.
+    ///     convention: Optional ISDA convention (default: ISDA_NA).
     ///
     /// Returns:
     ///     CreditDefaultSwap: Configured CDS instrument with receive-protection side.
@@ -257,6 +406,7 @@ impl PyCreditDefaultSwap {
         credit_curve: Bound<'_, PyAny>,
         recovery_rate: Option<f64>,
         settlement_delay: Option<u16>,
+        convention: Option<PyCdsConvention>,
     ) -> PyResult<Self> {
         construct_cds(
             instrument_id,
@@ -269,6 +419,7 @@ impl PyCreditDefaultSwap {
             PayReceive::ReceiveFixed,
             recovery_rate,
             settlement_delay,
+            convention,
         )
     }
 
@@ -371,6 +522,45 @@ impl PyCreditDefaultSwap {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CDS)
     }
 
+    /// ISDA convention used for this CDS.
+    #[getter]
+    fn convention(&self) -> PyCdsConvention {
+        PyCdsConvention::new(self.inner.convention)
+    }
+
+    /// Day count convention for premium leg.
+    #[getter]
+    fn day_count(&self) -> &'static str {
+        day_count_label(self.inner.premium.day_count)
+    }
+
+    /// Payment frequency for premium leg.
+    #[getter]
+    fn frequency(&self) -> String {
+        format!("{}", self.inner.premium.frequency)
+    }
+
+    /// Holiday calendar identifier.
+    #[getter]
+    fn calendar(&self) -> Option<String> {
+        self.inner.premium.calendar_id.clone()
+    }
+
+    /// ISDA-standard coupon date schedule.
+    ///
+    /// Returns:
+    ///     list[datetime.date]: Coupon dates including start and maturity.
+    ///
+    /// Raises:
+    ///     ValueError: If schedule generation fails.
+    fn isda_coupon_schedule(&self, py: Python<'_>) -> PyResult<Vec<Py<PyAny>>> {
+        let dates = self
+            .inner
+            .isda_coupon_schedule()
+            .map_err(crate::errors::core_to_py)?;
+        dates.into_iter().map(|d| date_to_py(py, d)).collect()
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "CreditDefaultSwap(id='{}', side='{}', spread_bp={:.1})",
@@ -405,6 +595,7 @@ fn construct_cds(
     side: PayReceive,
     recovery_rate: Option<f64>,
     settlement_delay: Option<u16>,
+    convention: Option<PyCdsConvention>,
 ) -> PyResult<PyCreditDefaultSwap> {
     use crate::errors::PyContext;
     let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
@@ -414,7 +605,7 @@ fn construct_cds(
     let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
     let credit = credit_curve.extract::<&str>().context("credit_curve")?;
 
-    let convention = CDSConvention::IsdaNa;
+    let convention = convention.map(|c| c.inner).unwrap_or(CDSConvention::IsdaNa);
     let dc = convention.day_count();
     let freq = convention.frequency();
     let bdc = convention.business_day_convention();
@@ -468,6 +659,7 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyCdsPayReceive>()?;
+    module.add_class::<PyCdsConvention>()?;
     module.add_class::<PyCreditDefaultSwap>()?;
-    Ok(vec!["CDSPayReceive", "CreditDefaultSwap"])
+    Ok(vec!["CDSPayReceive", "CDSConvention", "CreditDefaultSwap"])
 }

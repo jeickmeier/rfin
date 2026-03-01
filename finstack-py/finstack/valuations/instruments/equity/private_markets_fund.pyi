@@ -117,6 +117,14 @@ class PrivateMarketsFund:
         """Calculate LP cashflows."""
         ...
 
+    def run_waterfall(self) -> str:
+        """Run the waterfall allocation and return the result as JSON."""
+        ...
+
+    def run_waterfall_tabular(self) -> tuple[list[str], list[list[str]]]:
+        """Run the waterfall allocation and return headers and rows for DataFrame construction."""
+        ...
+
     @property
     def instrument_id(self) -> str: ...
     @property

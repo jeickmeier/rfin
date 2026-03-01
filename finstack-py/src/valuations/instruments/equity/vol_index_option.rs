@@ -1,7 +1,8 @@
 //! Python bindings for VolatilityIndexOption.
 
 use crate::core::currency::PyCurrency;
-use crate::core::dates::utils::py_to_date;
+use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::PyMoney;
 use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
@@ -11,6 +12,7 @@ use finstack_valuations::instruments::equity::vol_index_option::{
     VolIndexOptionSpecs, VolatilityIndexOption,
 };
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -371,8 +373,155 @@ impl PyVolatilityIndexOption {
     }
 
     #[getter]
+    fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.expiry)
+    }
+
+    #[getter]
+    fn exercise_style(&self) -> &'static str {
+        match self.inner.exercise_style {
+            ExerciseStyle::European => "european",
+            ExerciseStyle::American => "american",
+            ExerciseStyle::Bermudan => "bermudan",
+        }
+    }
+
+    #[getter]
+    fn discount_curve_id(&self) -> String {
+        self.inner.discount_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn vol_index_curve_id(&self) -> String {
+        self.inner.vol_index_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn vol_of_vol_surface_id(&self) -> String {
+        self.inner.vol_of_vol_surface_id.as_str().to_string()
+    }
+
+    #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::VolatilityIndexOption)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| self.inner.value(&market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn npv_raw(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.npv_raw(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn forward_vol(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.forward_vol(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn delta(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.delta(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn gamma(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.gamma(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn vega(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.vega(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn theta(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.theta(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn intrinsic_value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.intrinsic_value(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn time_value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.time_value(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    fn num_contracts(&self) -> f64 {
+        self.inner.num_contracts()
+    }
+
+    fn black_price(&self, forward: f64, sigma: f64, t: f64) -> f64 {
+        self.inner.black_price(forward, sigma, t)
     }
 
     fn __repr__(&self) -> PyResult<String> {

@@ -1,7 +1,9 @@
 use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
+use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -10,6 +12,7 @@ use finstack_valuations::instruments::equity::equity_index_future::{
 };
 use finstack_valuations::instruments::rates::ir_future::Position;
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -283,8 +286,6 @@ impl PyEquityIndexFutureBuilder {
     }
 
     fn validate_and_build(&self) -> PyResult<EquityIndexFuture> {
-        use crate::errors::core_to_py;
-
         let index_ticker = self.index_ticker.clone().ok_or_else(|| {
             PyValueError::new_err("index_ticker is required (e.g., 'SPX', 'NDX')")
         })?;
@@ -594,19 +595,19 @@ impl PyEquityIndexFuture {
         }
     }
 
-    /// Calculate the notional value of the position at a given price.
+    /// Number of contracts implied by notional and contract multiplier at a given price.
     ///
     /// Parameters
     /// ----------
     /// price : float
-    ///     Index price
+    ///     Index price for contract sizing
     ///
     /// Returns
     /// -------
     /// float
-    ///     Notional value = contracts × price × multiplier
-    fn notional_value(&self, price: f64) -> f64 {
-        self.inner.num_contracts(price.max(1e-12)) * price * self.inner.contract_specs.multiplier
+    ///     Number of contracts = notional / (price × multiplier)
+    fn num_contracts(&self, price: f64) -> f64 {
+        self.inner.num_contracts(price)
     }
 
     /// Calculate delta exposure (index point sensitivity).
@@ -619,6 +620,61 @@ impl PyEquityIndexFuture {
     /// This represents the currency P&L change for a 1-point move in the index.
     fn delta(&self) -> f64 {
         self.inner.delta()
+    }
+
+    #[getter]
+    fn discount_curve_id(&self) -> String {
+        self.inner.discount_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn div_yield_id(&self) -> Option<String> {
+        self.inner
+            .div_yield_id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| self.inner.value(&market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn npv_raw(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.npv_raw(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn fair_forward(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.fair_forward(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    fn position_sign(&self) -> f64 {
+        self.inner.position_sign()
     }
 
     fn __repr__(&self) -> String {

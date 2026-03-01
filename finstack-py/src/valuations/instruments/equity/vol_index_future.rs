@@ -1,7 +1,8 @@
 //! Python bindings for VolatilityIndexFuture.
 
 use crate::core::currency::PyCurrency;
-use crate::core::dates::utils::py_to_date;
+use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::PyMoney;
 use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
@@ -11,6 +12,7 @@ use finstack_valuations::instruments::equity::vol_index_future::{
     VolIndexContractSpecs, VolatilityIndexFuture,
 };
 use finstack_valuations::instruments::rates::ir_future::Position;
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -328,8 +330,86 @@ impl PyVolatilityIndexFuture {
     }
 
     #[getter]
+    fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.expiry)
+    }
+
+    #[getter]
+    fn position(&self) -> &'static str {
+        match self.inner.position {
+            Position::Long => "long",
+            Position::Short => "short",
+            _ => unreachable!("unknown Position variant"),
+        }
+    }
+
+    #[getter]
+    fn discount_curve_id(&self) -> String {
+        self.inner.discount_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn vol_index_curve_id(&self) -> String {
+        self.inner.vol_index_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn multiplier(&self) -> f64 {
+        self.inner.contract_specs.multiplier
+    }
+
+    #[getter]
+    fn tick_size(&self) -> f64 {
+        self.inner.contract_specs.tick_size
+    }
+
+    #[getter]
+    fn tick_value(&self) -> f64 {
+        self.inner.contract_specs.tick_value
+    }
+
+    #[getter]
+    fn index_id(&self) -> &str {
+        &self.inner.contract_specs.index_id
+    }
+
+    #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::VolatilityIndexFuture)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| self.inner.value(&market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
+    }
+
+    #[pyo3(signature = (market))]
+    fn npv_raw(&self, py: Python<'_>, market: &PyMarketContext) -> PyResult<f64> {
+        py.detach(|| self.inner.npv_raw(&market.inner))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market))]
+    fn forward_vol(&self, py: Python<'_>, market: &PyMarketContext) -> PyResult<f64> {
+        py.detach(|| self.inner.forward_vol(&market.inner))
+            .map_err(core_to_py)
+    }
+
+    fn delta_vol(&self) -> f64 {
+        self.inner.delta_vol()
+    }
+
+    fn num_contracts(&self) -> f64 {
+        self.inner.num_contracts()
     }
 
     fn __repr__(&self) -> PyResult<String> {

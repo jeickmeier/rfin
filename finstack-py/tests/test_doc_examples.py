@@ -366,8 +366,8 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                 namespace["FxSwap"] = finstack.valuations.instruments.fx.FxSwap
                 namespace["Equity"] = finstack.valuations.instruments.equity.Equity
                 namespace["CDSIndex"] = finstack.valuations.instruments.cds_index.CDSIndex
-                namespace["CdsOption"] = finstack.valuations.instruments.cds_option.CdsOption
-                namespace["CdsTranche"] = finstack.valuations.instruments.cds_tranche.CdsTranche
+                namespace["CDSOption"] = finstack.valuations.instruments.cds_option.CDSOption
+                namespace["CDSTranche"] = finstack.valuations.instruments.cds_tranche.CDSTranche
                 namespace["BarrierOption"] = finstack.valuations.instruments.barrier_option.BarrierOption
                 namespace["BarrierType"] = finstack.valuations.instruments.barrier_option.BarrierType
                 namespace["AsianOption"] = finstack.valuations.instruments.asian_option.AsianOption

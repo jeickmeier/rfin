@@ -77,6 +77,9 @@ class CliquetOption:
         spot_id: str,
         vol_surface: str,
         *,
+        local_floor: float = 0.0,
+        global_floor: float = 0.0,
+        payoff_type: str | None = None,
         maturity: date | None = None,
         div_yield_id: str | None = None,
     ) -> "CliquetOption":
@@ -86,28 +89,30 @@ class CliquetOption:
         ----------
         instrument_id : str
             Unique identifier for the option.
-        underlying_ticker : str
+        ticker : str
             Underlying equity ticker symbol.
         reset_dates : List[date]
             Dates when returns are calculated and locked. Must be in ascending order.
-        maturity : date
-            Option maturity date (should be >= last reset date).
+        local_cap : float
+            Local cap per period. E.g., 0.10 for 10% cap.
+        global_cap : float
+            Global cap on total return. E.g., 0.30 for 30% cap.
         notional : Money
             Notional amount.
         discount_curve : str
             Discount curve identifier in MarketContext.
-        vol_surface : str
-            Volatility surface identifier in MarketContext.
         spot_id : str
             Spot price identifier in MarketContext.
-        local_cap : float, optional
-            Local cap per period (default: 0.0 = no cap). E.g., 0.10 for 10% cap.
+        vol_surface : str
+            Volatility surface identifier in MarketContext.
         local_floor : float, optional
-            Local floor per period (default: 0.0 = no floor). E.g., -0.05 for -5% floor.
-        global_cap : float, optional
-            Global cap on total return (default: 0.0 = no cap). E.g., 0.30 for 30% cap.
+            Local floor per period (default: 0.0). E.g., -0.05 for -5% floor.
         global_floor : float, optional
-            Global floor on total return (default: 0.0 = no floor). E.g., 0.0 for 0% floor.
+            Global floor on total return (default: 0.0). E.g., 0.0 for 0% floor.
+        payoff_type : str, optional
+            Payoff aggregation type: "additive" (default) or "multiplicative".
+        maturity : date, optional
+            Option maturity date (defaults to last reset date).
         div_yield_id : str, optional
             Dividend yield identifier in MarketContext.
 
@@ -128,13 +133,15 @@ class CliquetOption:
             ...     "CLIQUET-SPX",
             ...     "SPX",
             ...     reset_dates,
-            ...     date(2024, 12, 31),
+            ...     0.10,
+            ...     0.30,
             ...     Money(1_000_000, Currency("USD")),
             ...     discount_curve="USD",
-            ...     vol_surface="SPX-VOL",
             ...     spot_id="SPX",
-            ...     local_cap=0.10,
-            ...     global_cap=0.30,
+            ...     vol_surface="SPX-VOL",
+            ...     local_floor=-0.05,
+            ...     global_floor=0.0,
+            ...     payoff_type="additive",
             ... )
         """
         ...
@@ -144,8 +151,20 @@ class CliquetOption:
     @property
     def ticker(self) -> str: ...
     @property
+    def local_cap(self) -> float: ...
+    @property
+    def global_cap(self) -> float: ...
+    @property
     def notional(self) -> Money: ...
     @property
-    def maturity(self) -> date: ...
+    def reset_dates(self) -> List[date]: ...
+    @property
+    def expiry(self) -> date: ...
+    @property
+    def local_floor(self) -> float: ...
+    @property
+    def global_floor(self) -> float: ...
+    @property
+    def payoff_type(self) -> str: ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

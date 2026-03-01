@@ -1,15 +1,23 @@
+use crate::core::common::args::CurrencyArg;
+use crate::core::common::labels::normalize_label;
+use crate::core::currency::PyCurrency;
+use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
+use crate::errors::{core_to_py, PyContext};
+use crate::valuations::common::PyInstrumentType;
+use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::quanto_option::QuantoOption;
 use finstack_valuations::instruments::OptionType;
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRefMut};
 use std::sync::Arc;
 
-/// Quanto option instrument.
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "QuantoOption",
@@ -29,77 +37,90 @@ impl PyQuantoOption {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "QuantoOptionBuilder",
+    unsendable
+)]
+pub struct PyQuantoOptionBuilder {
+    instrument_id: InstrumentId,
+    base_currency: Option<finstack_core::currency::Currency>,
+    quote_currency: Option<finstack_core::currency::Currency>,
+    ticker: Option<String>,
+    equity_strike: Option<f64>,
+    option_type: OptionType,
+    expiry: Option<time::Date>,
+    notional: Option<finstack_core::money::Money>,
+    correlation: Option<f64>,
+    domestic_discount_curve_id: Option<CurveId>,
+    foreign_discount_curve_id: Option<CurveId>,
+    spot_id: Option<String>,
+    vol_surface_id: Option<CurveId>,
+    div_yield_id: Option<CurveId>,
+    fx_rate_id: Option<String>,
+    fx_vol_id: Option<CurveId>,
+    day_count: DayCount,
+}
+
+impl PyQuantoOptionBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            base_currency: None,
+            quote_currency: None,
+            ticker: None,
+            equity_strike: None,
+            option_type: OptionType::Call,
+            expiry: None,
+            notional: None,
+            correlation: None,
+            domestic_discount_curve_id: None,
+            foreign_discount_curve_id: None,
+            spot_id: None,
+            vol_surface_id: None,
+            div_yield_id: None,
+            fx_rate_id: None,
+            fx_vol_id: None,
+            day_count: DayCount::Act365F,
+        }
+    }
+}
+
 #[pymethods]
-impl PyQuantoOption {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, equity_strike, option_type, expiry, notional, domestic_currency, foreign_currency, correlation, domestic_discount_curve, foreign_discount_curve, spot_id, vol_surface, *, div_yield_id=None, fx_rate_id=None, fx_vol_id=None)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create a quanto option.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier.
-    ///     ticker: Equity ticker symbol.
-    ///     equity_strike: Strike price in foreign currency.
-    ///     option_type: Option type (``"call"`` or ``"put"``).
-    ///     expiry: Option expiry date.
-    ///     notional: Contract notional amount.
-    ///     domestic_currency: Currency for settlement.
-    ///     foreign_currency: Currency of the underlying.
-    ///     correlation: Correlation between equity and FX.
-    ///     domestic_discount_curve: Domestic discount curve identifier.
-    ///     foreign_discount_curve: Foreign discount curve identifier.
-    ///     spot_id: Spot price identifier.
-    ///     vol_surface: Volatility surface identifier.
-    ///     div_yield_id: Optional dividend yield identifier.
-    ///     fx_rate_id: Optional FX rate identifier.
-    ///     fx_vol_id: Optional FX volatility surface identifier.
-    ///
-    /// Returns:
-    ///     QuantoOption: Configured quanto option instrument.
-    fn builder(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        ticker: &str,
-        equity_strike: f64,
+impl PyQuantoOptionBuilder {
+    fn base_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let CurrencyArg(c) = ccy.extract().context("base_currency")?;
+        slf.base_currency = Some(c);
+        Ok(slf)
+    }
+
+    fn quote_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let CurrencyArg(c) = ccy.extract().context("quote_currency")?;
+        slf.quote_currency = Some(c);
+        Ok(slf)
+    }
+
+    fn ticker<'py>(mut slf: PyRefMut<'py, Self>, ticker: &str) -> PyRefMut<'py, Self> {
+        slf.ticker = Some(ticker.to_string());
+        slf
+    }
+
+    fn equity_strike(mut slf: PyRefMut<'_, Self>, strike: f64) -> PyRefMut<'_, Self> {
+        slf.equity_strike = Some(strike);
+        slf
+    }
+
+    fn option_type<'py>(
+        mut slf: PyRefMut<'py, Self>,
         option_type: &str,
-        expiry: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        domestic_currency: Bound<'_, PyAny>,
-        foreign_currency: Bound<'_, PyAny>,
-        correlation: f64,
-        domestic_discount_curve: Bound<'_, PyAny>,
-        foreign_discount_curve: Bound<'_, PyAny>,
-        spot_id: &str,
-        vol_surface: Bound<'_, PyAny>,
-        div_yield_id: Option<&str>,
-        fx_rate_id: Option<&str>,
-        fx_vol_id: Option<Bound<'_, PyAny>>,
-    ) -> PyResult<Self> {
-        use crate::core::common::args::CurrencyArg;
-        use crate::core::common::labels::normalize_label;
-        use crate::errors::PyContext;
-        use finstack_core::dates::DayCount;
-
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let domestic_discount_curve_id = CurveId::new(
-            domestic_discount_curve
-                .extract::<&str>()
-                .context("domestic_discount_curve")?,
-        );
-        let foreign_discount_curve_id = CurveId::new(
-            foreign_discount_curve
-                .extract::<&str>()
-                .context("foreign_discount_curve")?,
-        );
-        let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
-
-        let CurrencyArg(dom_currency) = domestic_currency.extract().context("domestic_currency")?;
-        let CurrencyArg(for_currency) = foreign_currency.extract().context("foreign_currency")?;
-
-        let opt_type = match normalize_label(option_type).as_str() {
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.option_type = match normalize_label(option_type).as_str() {
             "call" => OptionType::Call,
             "put" => OptionType::Put,
             other => {
@@ -108,63 +129,194 @@ impl PyQuantoOption {
                 )))
             }
         };
+        Ok(slf)
+    }
 
-        let equity_strike_money = finstack_core::money::Money::new(equity_strike, for_currency);
-        let notional_money = extract_money(&notional).context("notional")?;
+    fn expiry<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.expiry = Some(py_to_date(&date).context("expiry")?);
+        Ok(slf)
+    }
 
-        let fx_vol_curve_id = fx_vol_id.and_then(|v| v.extract::<&str>().ok().map(CurveId::new));
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.notional = Some(extract_money(&notional).context("notional")?);
+        Ok(slf)
+    }
+
+    fn correlation(mut slf: PyRefMut<'_, Self>, correlation: f64) -> PyRefMut<'_, Self> {
+        slf.correlation = Some(correlation);
+        slf
+    }
+
+    fn domestic_discount_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
+        slf.domestic_discount_curve_id = Some(CurveId::new(curve_id));
+        slf
+    }
+
+    fn foreign_discount_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
+        slf.foreign_discount_curve_id = Some(CurveId::new(curve_id));
+        slf
+    }
+
+    fn spot_id<'py>(mut slf: PyRefMut<'py, Self>, id: &str) -> PyRefMut<'py, Self> {
+        slf.spot_id = Some(id.to_string());
+        slf
+    }
+
+    fn vol_surface<'py>(mut slf: PyRefMut<'py, Self>, surface_id: &str) -> PyRefMut<'py, Self> {
+        slf.vol_surface_id = Some(CurveId::new(surface_id));
+        slf
+    }
+
+    fn div_yield_id<'py>(mut slf: PyRefMut<'py, Self>, curve_id: &str) -> PyRefMut<'py, Self> {
+        slf.div_yield_id = Some(CurveId::new(curve_id));
+        slf
+    }
+
+    fn fx_rate_id<'py>(mut slf: PyRefMut<'py, Self>, rate_id: &str) -> PyRefMut<'py, Self> {
+        slf.fx_rate_id = Some(rate_id.to_string());
+        slf
+    }
+
+    fn fx_vol_id<'py>(mut slf: PyRefMut<'py, Self>, vol_id: &str) -> PyRefMut<'py, Self> {
+        slf.fx_vol_id = Some(CurveId::new(vol_id));
+        slf
+    }
+
+    fn day_count<'py>(mut slf: PyRefMut<'py, Self>, dc: &PyDayCount) -> PyRefMut<'py, Self> {
+        slf.day_count = dc.inner;
+        slf
+    }
+
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyQuantoOption> {
+        let base = slf
+            .base_currency
+            .ok_or_else(|| PyValueError::new_err("base_currency is required"))?;
+        let quote = slf
+            .quote_currency
+            .ok_or_else(|| PyValueError::new_err("quote_currency is required"))?;
+        let ticker = slf
+            .ticker
+            .as_ref()
+            .ok_or_else(|| PyValueError::new_err("ticker is required"))?
+            .clone();
+        let equity_strike_val = slf
+            .equity_strike
+            .ok_or_else(|| PyValueError::new_err("equity_strike is required"))?;
+        let expiry = slf
+            .expiry
+            .ok_or_else(|| PyValueError::new_err("expiry is required"))?;
+        let notional = slf
+            .notional
+            .ok_or_else(|| PyValueError::new_err("notional is required"))?;
+        let correlation = slf
+            .correlation
+            .ok_or_else(|| PyValueError::new_err("correlation is required"))?;
+        let domestic = slf
+            .domestic_discount_curve_id
+            .clone()
+            .ok_or_else(|| PyValueError::new_err("domestic_discount_curve is required"))?;
+        let foreign = slf
+            .foreign_discount_curve_id
+            .clone()
+            .ok_or_else(|| PyValueError::new_err("foreign_discount_curve is required"))?;
+        let spot_id = slf
+            .spot_id
+            .as_ref()
+            .ok_or_else(|| PyValueError::new_err("spot_id is required"))?
+            .clone();
+        let vol = slf
+            .vol_surface_id
+            .clone()
+            .ok_or_else(|| PyValueError::new_err("vol_surface is required"))?;
+
+        let equity_strike_money = finstack_core::money::Money::new(equity_strike_val, base);
 
         let mut builder = QuantoOption::builder();
-        builder = builder.id(id);
-        builder = builder.underlying_ticker(ticker.to_string());
+        builder = builder.id(slf.instrument_id.clone());
+        builder = builder.underlying_ticker(ticker);
         builder = builder.equity_strike(equity_strike_money);
-        builder = builder.option_type(opt_type);
-        builder = builder.expiry(expiry_date);
-        builder = builder.notional(notional_money);
-        builder = builder.base_currency(dom_currency);
-        builder = builder.quote_currency(for_currency);
+        builder = builder.option_type(slf.option_type);
+        builder = builder.expiry(expiry);
+        builder = builder.notional(notional);
+        builder = builder.base_currency(base);
+        builder = builder.quote_currency(quote);
         builder = builder.correlation(correlation);
-        builder = builder.day_count(DayCount::Act365F);
+        builder = builder.day_count(slf.day_count);
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
-        builder = builder.domestic_discount_curve_id(domestic_discount_curve_id);
-        builder = builder.foreign_discount_curve_id(foreign_discount_curve_id);
-        builder = builder.spot_id(spot_id.to_string().into());
-        builder = builder.vol_surface_id(vol_surface_id);
-        if let Some(div) = div_yield_id {
-            builder = builder.div_yield_id(CurveId::new(div.to_string()));
+        builder = builder.domestic_discount_curve_id(domestic);
+        builder = builder.foreign_discount_curve_id(foreign);
+        builder = builder.spot_id(spot_id.into());
+        builder = builder.vol_surface_id(vol);
+        if let Some(ref div) = slf.div_yield_id {
+            builder = builder.div_yield_id(div.clone());
         }
-        if let Some(fx_rate) = fx_rate_id {
-            builder = builder.fx_rate_id(fx_rate.to_string());
+        if let Some(ref fx_rate) = slf.fx_rate_id {
+            builder = builder.fx_rate_id(fx_rate.clone());
         }
-        if let Some(fx_vol) = fx_vol_curve_id {
-            builder = builder.fx_vol_id(fx_vol);
+        if let Some(ref fx_vol) = slf.fx_vol_id {
+            builder = builder.fx_vol_id(fx_vol.clone());
         }
         let option = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to build QuantoOption: {e}"))
         })?;
-        Ok(Self::new(option))
+        Ok(PyQuantoOption::new(option))
     }
 
-    /// Instrument identifier.
+    fn __repr__(&self) -> String {
+        format!("QuantoOptionBuilder(id='{}')", self.instrument_id)
+    }
+}
+
+#[pymethods]
+impl PyQuantoOption {
+    #[classmethod]
+    fn builder(_cls: &Bound<'_, PyType>, instrument_id: &str) -> PyQuantoOptionBuilder {
+        PyQuantoOptionBuilder::new_with_id(InstrumentId::new(instrument_id))
+    }
+
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
-    /// Underlying ticker symbol.
+    #[getter]
+    fn instrument_type(&self) -> PyInstrumentType {
+        PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::QuantoOption)
+    }
+
+    #[getter]
+    fn base_currency(&self) -> PyCurrency {
+        PyCurrency::new(self.inner.base_currency)
+    }
+
+    #[getter]
+    fn quote_currency(&self) -> PyCurrency {
+        PyCurrency::new(self.inner.quote_currency)
+    }
+
     #[getter]
     fn ticker(&self) -> &str {
         &self.inner.underlying_ticker
     }
 
-    /// Equity strike as money.
     #[getter]
     fn equity_strike(&self) -> PyMoney {
         PyMoney::new(self.inner.equity_strike)
     }
 
-    /// Option type label.
     #[getter]
     fn option_type(&self) -> &'static str {
         match self.inner.option_type {
@@ -173,25 +325,79 @@ impl PyQuantoOption {
         }
     }
 
-    /// Expiry date.
     #[getter]
     fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.expiry)
     }
 
-    /// Notional amount.
-    ///
-    /// Returns:
-    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
-    /// Correlation between equity and FX.
     #[getter]
     fn correlation(&self) -> f64 {
         self.inner.correlation
+    }
+
+    #[getter]
+    fn domestic_discount_curve(&self) -> String {
+        self.inner.domestic_discount_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn foreign_discount_curve(&self) -> String {
+        self.inner.foreign_discount_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn spot_id(&self) -> String {
+        self.inner.spot_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn vol_surface(&self) -> String {
+        self.inner.vol_surface_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn div_yield_id(&self) -> Option<String> {
+        self.inner
+            .div_yield_id
+            .as_ref()
+            .map(|c| c.as_str().to_string())
+    }
+
+    #[getter]
+    fn fx_rate_id(&self) -> Option<String> {
+        self.inner.fx_rate_id.clone()
+    }
+
+    #[getter]
+    fn fx_vol_id(&self) -> Option<String> {
+        self.inner
+            .fx_vol_id
+            .as_ref()
+            .map(|c| c.as_str().to_string())
+    }
+
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count)
+    }
+
+    /// Calculate present value of the quanto option.
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| Instrument::value(self.inner.as_ref(), &market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
     }
 
     fn __repr__(&self) -> String {
@@ -209,5 +415,6 @@ pub(crate) fn register<'py>(
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     parent.add_class::<PyQuantoOption>()?;
-    Ok(vec!["QuantoOption"])
+    parent.add_class::<PyQuantoOptionBuilder>()?;
+    Ok(vec!["QuantoOption", "QuantoOptionBuilder"])
 }

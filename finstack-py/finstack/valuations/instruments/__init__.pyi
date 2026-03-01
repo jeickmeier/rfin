@@ -94,10 +94,22 @@ from .rates.cms_option import CmsOption as CmsOption
 from .rates.range_accrual import RangeAccrual as RangeAccrual
 
 # Credit Derivatives
-from .credit_derivatives.cds import CreditDefaultSwap as CreditDefaultSwap, CDSPayReceive as CDSPayReceive
-from .credit_derivatives.cds_index import CDSIndex as CdsIndex
-from .credit_derivatives.cds_option import CdsOption as CdsOption
-from .credit_derivatives.cds_tranche import CdsTranche as CdsTranche
+from .credit_derivatives.cds import (
+    CreditDefaultSwap as CreditDefaultSwap,
+    CDSPayReceive as CDSPayReceive,
+    CDSConvention as CDSConvention,
+)
+from .credit_derivatives.cds_index import (
+    CDSIndex as CDSIndex,
+    CDSIndexBuilder as CDSIndexBuilder,
+    CDSIndexConstituent as CDSIndexConstituent,
+)
+from .credit_derivatives.cds_option import CDSOption as CDSOption, CDSOptionBuilder as CDSOptionBuilder
+from .credit_derivatives.cds_tranche import (
+    CDSTranche as CDSTranche,
+    CDSTrancheBuilder as CDSTrancheBuilder,
+    TrancheSide as TrancheSide,
+)
 
 # FX
 from .fx.fx import FxSpot as FxSpot, FxOption as FxOption, FxSwap as FxSwap
@@ -249,9 +261,15 @@ __all__ = [
     # Credit
     "CreditDefaultSwap",
     "CDSPayReceive",
-    "CdsIndex",
-    "CdsOption",
-    "CdsTranche",
+    "CDSConvention",
+    "CDSIndex",
+    "CDSIndexBuilder",
+    "CDSIndexConstituent",
+    "CDSOption",
+    "CDSOptionBuilder",
+    "CDSTranche",
+    "CDSTrancheBuilder",
+    "TrancheSide",
     "CmsOption",
     "DealType",
     "TrancheSeniority",

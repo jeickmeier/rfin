@@ -1,5 +1,6 @@
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
@@ -8,6 +9,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_forward::FxForward;
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -317,6 +319,80 @@ impl PyFxForward {
     #[getter]
     fn spot_rate_override(&self) -> Option<f64> {
         self.inner.spot_rate_override
+    }
+
+    /// Domestic (quote currency) discount curve identifier.
+    #[getter]
+    fn domestic_discount_curve(&self) -> String {
+        self.inner.domestic_discount_curve_id.as_str().to_string()
+    }
+
+    /// Foreign (base currency) discount curve identifier.
+    #[getter]
+    fn foreign_discount_curve(&self) -> String {
+        self.inner.foreign_discount_curve_id.as_str().to_string()
+    }
+
+    /// Base currency calendar identifier (if set).
+    #[getter]
+    fn base_calendar(&self) -> Option<String> {
+        self.inner.base_calendar_id.clone()
+    }
+
+    /// Quote currency calendar identifier (if set).
+    #[getter]
+    fn quote_calendar(&self) -> Option<String> {
+        self.inner.quote_calendar_id.clone()
+    }
+
+    /// Calculate present value of the FX forward.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including discount curves and FX rates
+    /// as_of : Date
+    ///     Valuation date
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Present value in quote currency
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| self.inner.value(&market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
+    }
+
+    /// Compute the market forward rate via covered interest rate parity.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including discount curves and FX rates
+    /// as_of : Date
+    ///     Valuation date
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Forward rate (quote per base)
+    fn market_forward_rate(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.market_forward_rate(&market.inner, date))
+            .map_err(core_to_py)
     }
 
     fn __repr__(&self) -> String {

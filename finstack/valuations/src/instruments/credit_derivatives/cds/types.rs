@@ -233,6 +233,35 @@ impl Default for CDSConvention {
     }
 }
 
+impl std::fmt::Display for CDSConvention {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::IsdaNa => write!(f, "isda_na"),
+            Self::IsdaEu => write!(f, "isda_eu"),
+            Self::IsdaAs => write!(f, "isda_as"),
+            Self::Custom => write!(f, "custom"),
+        }
+    }
+}
+
+impl std::str::FromStr for CDSConvention {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "isda_na" | "isdana" | "na" => Ok(Self::IsdaNa),
+            "isda_eu" | "isdaeu" | "eu" => Ok(Self::IsdaEu),
+            "isda_as" | "isdaas" | "as" | "asia" => Ok(Self::IsdaAs),
+            "custom" => Ok(Self::Custom),
+            _ => Err(format!(
+                "Unknown CDS convention: '{}'. Expected one of: isda_na, isda_eu, isda_as, custom",
+                s
+            )),
+        }
+    }
+}
+
 pub(crate) fn resolve_market_conventions(
     currency: Currency,
     doc_clause: Option<&str>,

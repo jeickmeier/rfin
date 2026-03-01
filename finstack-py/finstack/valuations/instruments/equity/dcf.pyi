@@ -22,6 +22,11 @@ def evaluate_dcf(
     shares_outstanding: float | None = None,
     dlom: float | None = None,
     dloc: float | None = None,
+    total_debt: float | None = None,
+    cash: float | None = None,
+    preferred_equity: float | None = None,
+    minority_interest: float | None = None,
+    non_operating_assets: float | None = None,
 ) -> Dict[str, Money | float]:
     """Evaluate a corporate DCF (Discounted Cash Flow) valuation.
 
@@ -71,6 +76,18 @@ def evaluate_dcf(
         Discount for Lack of Marketability (0.0-1.0, e.g., 0.25 for 25%).
     dloc : float, optional
         Discount for Lack of Control (0.0-1.0, e.g., 0.20 for 20%).
+    total_debt : float, optional
+        Total interest-bearing debt for the equity bridge.
+        When any equity bridge parameter is provided, a structured bridge
+        is used instead of the flat ``net_debt_override``.
+    cash : float, optional
+        Cash and cash equivalents for the equity bridge.
+    preferred_equity : float, optional
+        Preferred stock at liquidation preference for the equity bridge.
+    minority_interest : float, optional
+        Non-controlling (minority) interests for the equity bridge.
+    non_operating_assets : float, optional
+        Non-operating assets (excess cash, investments, etc.) for the equity bridge.
 
     Returns
     -------

@@ -2,7 +2,9 @@
 
 use crate::core::common::args::{BusinessDayConventionArg, CurrencyArg};
 use crate::core::currency::PyCurrency;
+use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::intern_calendar_id_opt;
@@ -12,6 +14,7 @@ use finstack_valuations::instruments::fx::fx_option::FxOption;
 use finstack_valuations::instruments::fx::fx_spot::FxSpot;
 use finstack_valuations::instruments::fx::fx_swap::FxSwap;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType, SettlementType};
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -92,12 +95,10 @@ impl PyFxSpotBuilder {
 #[pymethods]
 impl PyFxSpotBuilder {
     #[new]
-    #[pyo3(text_signature = "(instrument_id)")]
     fn new_py(instrument_id: &str) -> Self {
         Self::new_with_id(InstrumentId::new(instrument_id))
     }
 
-    #[pyo3(text_signature = "($self, base_currency)")]
     fn base_currency<'py>(
         mut slf: PyRefMut<'py, Self>,
         base_currency: Bound<'py, PyAny>,
@@ -108,7 +109,6 @@ impl PyFxSpotBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, quote_currency)")]
     fn quote_currency<'py>(
         mut slf: PyRefMut<'py, Self>,
         quote_currency: Bound<'py, PyAny>,
@@ -119,7 +119,6 @@ impl PyFxSpotBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, settlement)")]
     fn settlement<'py>(
         mut slf: PyRefMut<'py, Self>,
         settlement: Bound<'py, PyAny>,
@@ -129,7 +128,6 @@ impl PyFxSpotBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, settlement_lag_days)")]
     fn settlement_lag_days(
         mut slf: PyRefMut<'_, Self>,
         settlement_lag_days: i32,
@@ -138,13 +136,11 @@ impl PyFxSpotBuilder {
         slf
     }
 
-    #[pyo3(text_signature = "($self, spot_rate)")]
     fn spot_rate(mut slf: PyRefMut<'_, Self>, spot_rate: f64) -> PyRefMut<'_, Self> {
         slf.spot_rate = Some(spot_rate);
         slf
     }
 
-    #[pyo3(text_signature = "($self, notional)")]
     fn notional<'py>(
         mut slf: PyRefMut<'py, Self>,
         notional: Bound<'py, PyAny>,
@@ -154,7 +150,6 @@ impl PyFxSpotBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, bdc)")]
     fn bdc<'py>(
         mut slf: PyRefMut<'py, Self>,
         bdc: Bound<'py, PyAny>,
@@ -165,25 +160,16 @@ impl PyFxSpotBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, base_calendar_id=None)", signature = (base_calendar_id=None))]
-    fn base_calendar_id(
-        mut slf: PyRefMut<'_, Self>,
-        base_calendar_id: Option<String>,
-    ) -> PyRefMut<'_, Self> {
-        slf.base_calendar_id = base_calendar_id;
+    fn base_calendar<'py>(mut slf: PyRefMut<'py, Self>, calendar_id: &str) -> PyRefMut<'py, Self> {
+        slf.base_calendar_id = Some(calendar_id.to_string());
         slf
     }
 
-    #[pyo3(text_signature = "($self, quote_calendar_id=None)", signature = (quote_calendar_id=None))]
-    fn quote_calendar_id(
-        mut slf: PyRefMut<'_, Self>,
-        quote_calendar_id: Option<String>,
-    ) -> PyRefMut<'_, Self> {
-        slf.quote_calendar_id = quote_calendar_id;
+    fn quote_calendar<'py>(mut slf: PyRefMut<'py, Self>, calendar_id: &str) -> PyRefMut<'py, Self> {
+        slf.quote_calendar_id = Some(calendar_id.to_string());
         slf
     }
 
-    #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxSpot> {
         slf.ensure_ready()?;
         let base = slf.base_currency.ok_or_else(|| {
@@ -230,7 +216,6 @@ impl PyFxSpotBuilder {
 #[pymethods]
 impl PyFxSpot {
     #[classmethod]
-    #[pyo3(text_signature = "(cls, instrument_id)")]
     /// Start a fluent builder (builder-only API).
     fn builder<'py>(
         cls: &Bound<'py, PyType>,
@@ -323,21 +308,21 @@ impl PyFxSpot {
         }
     }
 
-    /// Optional base currency calendar identifier.
+    /// Base currency calendar identifier (if set).
     ///
     /// Returns:
     ///     str | None: Base currency calendar used for settlement adjustments.
     #[getter]
-    fn base_calendar_id(&self) -> Option<&str> {
+    fn base_calendar(&self) -> Option<&str> {
         self.inner.base_calendar_id.as_deref()
     }
 
-    /// Optional quote currency calendar identifier.
+    /// Quote currency calendar identifier (if set).
     ///
     /// Returns:
     ///     str | None: Quote currency calendar used for settlement adjustments.
     #[getter]
-    fn quote_calendar_id(&self) -> Option<&str> {
+    fn quote_calendar(&self) -> Option<&str> {
         self.inner.quote_calendar_id.as_deref()
     }
 
@@ -357,6 +342,66 @@ impl PyFxSpot {
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::FxSpot)
+    }
+
+    /// Calculate present value of the FX spot.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including FX rates
+    /// as_of : Date
+    ///     Valuation date
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Present value in quote currency
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| Instrument::value(self.inner.as_ref(), &market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
+    }
+
+    /// Compute effective settlement date for the FX spot.
+    ///
+    /// Parameters
+    /// ----------
+    /// as_of : Date
+    ///     Trade/valuation date
+    ///
+    /// Returns
+    /// -------
+    /// Date
+    ///     Effective settlement date adjusted for business days
+    fn effective_settlement_date(
+        &self,
+        py: Python<'_>,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let date = py_to_date(&as_of)?;
+        let settle = self
+            .inner
+            .effective_settlement_date(date)
+            .map_err(core_to_py)?;
+        date_to_py(py, settle)
+    }
+
+    /// Check if this is a T+1 settlement pair (e.g. USD/CAD, USD/TRY).
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     True if the pair conventionally settles T+1
+    fn is_t1_pair(&self) -> bool {
+        self.inner.is_t1_pair()
     }
 
     fn __repr__(&self) -> PyResult<String> {
@@ -461,10 +506,14 @@ impl PyFxOptionBuilder {
             return Err(PyValueError::new_err("notional() is required."));
         }
         if self.domestic_curve.is_none() {
-            return Err(PyValueError::new_err("domestic_curve() is required."));
+            return Err(PyValueError::new_err(
+                "domestic_discount_curve() is required.",
+            ));
         }
         if self.foreign_curve.is_none() {
-            return Err(PyValueError::new_err("foreign_curve() is required."));
+            return Err(PyValueError::new_err(
+                "foreign_discount_curve() is required.",
+            ));
         }
         if self.vol_surface.is_none() {
             return Err(PyValueError::new_err("vol_surface() is required."));
@@ -476,12 +525,10 @@ impl PyFxOptionBuilder {
 #[pymethods]
 impl PyFxOptionBuilder {
     #[new]
-    #[pyo3(text_signature = "(instrument_id)")]
     fn new_py(instrument_id: &str) -> Self {
         Self::new_with_id(InstrumentId::new(instrument_id))
     }
 
-    #[pyo3(text_signature = "($self, base_currency)")]
     fn base_currency<'py>(
         mut slf: PyRefMut<'py, Self>,
         base_currency: Bound<'py, PyAny>,
@@ -492,7 +539,6 @@ impl PyFxOptionBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, quote_currency)")]
     fn quote_currency<'py>(
         mut slf: PyRefMut<'py, Self>,
         quote_currency: Bound<'py, PyAny>,
@@ -503,13 +549,11 @@ impl PyFxOptionBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, strike)")]
     fn strike(mut slf: PyRefMut<'_, Self>, strike: f64) -> PyRefMut<'_, Self> {
         slf.strike = Some(strike);
         slf
     }
 
-    #[pyo3(text_signature = "($self, expiry)")]
     fn expiry<'py>(
         mut slf: PyRefMut<'py, Self>,
         expiry: Bound<'py, PyAny>,
@@ -519,7 +563,6 @@ impl PyFxOptionBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, notional)")]
     fn notional<'py>(
         mut slf: PyRefMut<'py, Self>,
         notional: Bound<'py, PyAny>,
@@ -529,43 +572,49 @@ impl PyFxOptionBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, domestic_curve)")]
-    fn domestic_curve<'py>(
+    fn domestic_discount_curve<'py>(
         mut slf: PyRefMut<'py, Self>,
-        domestic_curve: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        use crate::errors::PyContext;
-        slf.domestic_curve = Some(CurveId::new(
-            domestic_curve.extract::<&str>().context("domestic_curve")?,
-        ));
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
+        slf.domestic_curve = Some(CurveId::new(curve_id));
+        slf
+    }
+
+    fn foreign_discount_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
+        slf.foreign_curve = Some(CurveId::new(curve_id));
+        slf
+    }
+
+    fn vol_surface<'py>(mut slf: PyRefMut<'py, Self>, surface_id: &str) -> PyRefMut<'py, Self> {
+        slf.vol_surface = Some(CurveId::new(surface_id));
+        slf
+    }
+
+    fn exercise_style(
+        mut slf: PyRefMut<'_, Self>,
+        exercise_style: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.exercise_style = match exercise_style.to_lowercase().as_str() {
+            "european" => ExerciseStyle::European,
+            "american" => ExerciseStyle::American,
+            "bermudan" => ExerciseStyle::Bermudan,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                "Invalid exercise_style: '{other}'. Must be 'european', 'american', or 'bermudan'",
+            )))
+            }
+        };
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, foreign_curve)")]
-    fn foreign_curve<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        foreign_curve: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        use crate::errors::PyContext;
-        slf.foreign_curve = Some(CurveId::new(
-            foreign_curve.extract::<&str>().context("foreign_curve")?,
-        ));
-        Ok(slf)
+    fn day_count<'py>(mut slf: PyRefMut<'py, Self>, day_count: &PyDayCount) -> PyRefMut<'py, Self> {
+        slf.day_count = day_count.inner;
+        slf
     }
 
-    #[pyo3(text_signature = "($self, vol_surface)")]
-    fn vol_surface<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        vol_surface: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        use crate::errors::PyContext;
-        slf.vol_surface = Some(CurveId::new(
-            vol_surface.extract::<&str>().context("vol_surface")?,
-        ));
-        Ok(slf)
-    }
-
-    #[pyo3(text_signature = "($self, option_type)")]
     fn option_type(
         mut slf: PyRefMut<'_, Self>,
         option_type: String,
@@ -582,7 +631,6 @@ impl PyFxOptionBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, settlement)")]
     fn settlement(mut slf: PyRefMut<'_, Self>, settlement: String) -> PyResult<PyRefMut<'_, Self>> {
         slf.settlement = match settlement.to_lowercase().as_str() {
             "cash" => SettlementType::Cash,
@@ -596,7 +644,6 @@ impl PyFxOptionBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxOption> {
         slf.ensure_ready()?;
         let base = slf.base_currency.ok_or_else(|| {
@@ -653,7 +700,6 @@ impl PyFxOptionBuilder {
 #[pymethods]
 impl PyFxOption {
     #[classmethod]
-    #[pyo3(text_signature = "(cls, instrument_id)")]
     /// Start a fluent builder (builder-only API).
     fn builder<'py>(
         cls: &Bound<'py, PyType>,
@@ -760,7 +806,7 @@ impl PyFxOption {
     /// Returns:
     ///     str: Domestic discount curve used for discounting.
     #[getter]
-    fn domestic_curve(&self) -> String {
+    fn domestic_discount_curve(&self) -> String {
         self.inner.domestic_discount_curve_id.as_str().to_string()
     }
 
@@ -769,7 +815,7 @@ impl PyFxOption {
     /// Returns:
     ///     str: Foreign discount curve used for discounting.
     #[getter]
-    fn foreign_curve(&self) -> String {
+    fn foreign_discount_curve(&self) -> String {
         self.inner.foreign_discount_curve_id.as_str().to_string()
     }
 
@@ -782,6 +828,15 @@ impl PyFxOption {
         self.inner.vol_surface_id.as_str().to_string()
     }
 
+    /// Day count convention.
+    ///
+    /// Returns:
+    ///     DayCount: Day count convention used for time calculations.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count)
+    }
+
     /// Instrument type enum (``InstrumentType.FX_OPTION``).
     ///
     /// Returns:
@@ -789,6 +844,108 @@ impl PyFxOption {
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::FxOption)
+    }
+
+    /// Calculate present value using Garman-Kohlhagen model.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including discount curves and FX rates
+    /// as_of : Date
+    ///     Valuation date
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Present value in quote currency
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| self.inner.value(&market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
+    }
+
+    /// Solve for implied volatility given a target price.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including discount curves
+    /// as_of : Date
+    ///     Valuation date
+    /// target_price : float
+    ///     Target option price to match
+    /// initial_guess : float, optional
+    ///     Starting volatility guess (default: 0.20)
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Implied volatility (decimal)
+    #[pyo3(signature = (market, as_of, target_price, initial_guess=None))]
+    fn implied_vol(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+        target_price: f64,
+        initial_guess: Option<f64>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| {
+            self.inner
+                .implied_vol(&market.inner, date, target_price, initial_guess)
+        })
+        .map_err(core_to_py)
+    }
+
+    /// Calculate the at-the-money forward (ATMF) strike.
+    ///
+    /// Parameters
+    /// ----------
+    /// spot : float
+    ///     Current spot FX rate
+    /// df_domestic : float
+    ///     Domestic discount factor to expiry
+    /// df_foreign : float
+    ///     Foreign discount factor to expiry
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     ATMF strike
+    #[staticmethod]
+    fn atm_forward_strike(spot: f64, df_domestic: f64, df_foreign: f64) -> f64 {
+        FxOption::atm_forward_strike(spot, df_domestic, df_foreign)
+    }
+
+    /// Calculate the Delta-Neutral Straddle (DNS) strike.
+    ///
+    /// Parameters
+    /// ----------
+    /// forward : float
+    ///     Forward FX rate
+    /// vol : float
+    ///     ATM volatility (decimal)
+    /// time_to_expiry : float
+    ///     Time to expiry in years
+    /// use_forward_delta : bool
+    ///     If True, use forward delta convention (interbank standard)
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     DNS strike
+    #[staticmethod]
+    fn atm_dns_strike(forward: f64, vol: f64, time_to_expiry: f64, use_forward_delta: bool) -> f64 {
+        FxOption::atm_dns_strike(forward, vol, time_to_expiry, use_forward_delta)
     }
 
     fn __repr__(&self) -> PyResult<String> {
@@ -849,6 +1006,8 @@ pub struct PyFxSwapBuilder {
     foreign_curve: Option<CurveId>,
     near_rate: Option<f64>,
     far_rate: Option<f64>,
+    base_calendar_id: Option<String>,
+    quote_calendar_id: Option<String>,
 }
 
 impl PyFxSwapBuilder {
@@ -864,6 +1023,8 @@ impl PyFxSwapBuilder {
             foreign_curve: None,
             near_rate: None,
             far_rate: None,
+            base_calendar_id: None,
+            quote_calendar_id: None,
         }
     }
 
@@ -884,10 +1045,14 @@ impl PyFxSwapBuilder {
             return Err(PyValueError::new_err("far_date() is required."));
         }
         if self.domestic_curve.is_none() {
-            return Err(PyValueError::new_err("domestic_curve() is required."));
+            return Err(PyValueError::new_err(
+                "domestic_discount_curve() is required.",
+            ));
         }
         if self.foreign_curve.is_none() {
-            return Err(PyValueError::new_err("foreign_curve() is required."));
+            return Err(PyValueError::new_err(
+                "foreign_discount_curve() is required.",
+            ));
         }
         Ok(())
     }
@@ -896,12 +1061,10 @@ impl PyFxSwapBuilder {
 #[pymethods]
 impl PyFxSwapBuilder {
     #[new]
-    #[pyo3(text_signature = "(instrument_id)")]
     fn new_py(instrument_id: &str) -> Self {
         Self::new_with_id(InstrumentId::new(instrument_id))
     }
 
-    #[pyo3(text_signature = "($self, base_currency)")]
     fn base_currency<'py>(
         mut slf: PyRefMut<'py, Self>,
         base_currency: Bound<'py, PyAny>,
@@ -912,7 +1075,6 @@ impl PyFxSwapBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, quote_currency)")]
     fn quote_currency<'py>(
         mut slf: PyRefMut<'py, Self>,
         quote_currency: Bound<'py, PyAny>,
@@ -923,7 +1085,6 @@ impl PyFxSwapBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, notional)")]
     fn notional<'py>(
         mut slf: PyRefMut<'py, Self>,
         notional: Bound<'py, PyAny>,
@@ -933,7 +1094,6 @@ impl PyFxSwapBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, near_date)")]
     fn near_date<'py>(
         mut slf: PyRefMut<'py, Self>,
         near_date: Bound<'py, PyAny>,
@@ -943,7 +1103,6 @@ impl PyFxSwapBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, far_date)")]
     fn far_date<'py>(
         mut slf: PyRefMut<'py, Self>,
         far_date: Bound<'py, PyAny>,
@@ -953,28 +1112,30 @@ impl PyFxSwapBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, domestic_curve)")]
-    fn domestic_curve<'py>(
+    fn domestic_discount_curve<'py>(
         mut slf: PyRefMut<'py, Self>,
-        domestic_curve: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        use crate::errors::PyContext;
-        slf.domestic_curve = Some(CurveId::new(
-            domestic_curve.extract::<&str>().context("domestic_curve")?,
-        ));
-        Ok(slf)
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
+        slf.domestic_curve = Some(CurveId::new(curve_id));
+        slf
     }
 
-    #[pyo3(text_signature = "($self, foreign_curve)")]
-    fn foreign_curve<'py>(
+    fn foreign_discount_curve<'py>(
         mut slf: PyRefMut<'py, Self>,
-        foreign_curve: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        use crate::errors::PyContext;
-        slf.foreign_curve = Some(CurveId::new(
-            foreign_curve.extract::<&str>().context("foreign_curve")?,
-        ));
-        Ok(slf)
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
+        slf.foreign_curve = Some(CurveId::new(curve_id));
+        slf
+    }
+
+    fn base_calendar<'py>(mut slf: PyRefMut<'py, Self>, calendar_id: &str) -> PyRefMut<'py, Self> {
+        slf.base_calendar_id = Some(calendar_id.to_string());
+        slf
+    }
+
+    fn quote_calendar<'py>(mut slf: PyRefMut<'py, Self>, calendar_id: &str) -> PyRefMut<'py, Self> {
+        slf.quote_calendar_id = Some(calendar_id.to_string());
+        slf
     }
 
     #[pyo3(text_signature = "($self, near_rate=None)", signature = (near_rate=None))]
@@ -989,7 +1150,6 @@ impl PyFxSwapBuilder {
         slf
     }
 
-    #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxSwap> {
         slf.ensure_ready()?;
         let base = slf.base_currency.ok_or_else(|| {
@@ -1033,6 +1193,12 @@ impl PyFxSwapBuilder {
         if let Some(rate) = slf.far_rate {
             builder = builder.far_rate(rate);
         }
+        if let Some(ref cal) = slf.base_calendar_id {
+            builder = builder.base_calendar_id_opt(Some(cal.clone()));
+        }
+        if let Some(ref cal) = slf.quote_calendar_id {
+            builder = builder.quote_calendar_id_opt(Some(cal.clone()));
+        }
 
         let swap = builder.build().map_err(core_to_py)?;
         Ok(PyFxSwap::new(swap))
@@ -1046,7 +1212,6 @@ impl PyFxSwapBuilder {
 #[pymethods]
 impl PyFxSwap {
     #[classmethod]
-    #[pyo3(text_signature = "(cls, instrument_id)")]
     /// Start a fluent builder (builder-only API).
     fn builder<'py>(
         cls: &Bound<'py, PyType>,
@@ -1132,28 +1297,72 @@ impl PyFxSwap {
     /// Domestic discount curve identifier.
     ///
     /// Returns:
-    ///     Any: Domestic discount curve identifier.
+    ///     str: Domestic discount curve identifier.
     #[getter]
-    fn domestic_curve(&self) -> String {
+    fn domestic_discount_curve(&self) -> String {
         self.inner.domestic_discount_curve_id.as_str().to_string()
     }
 
     /// Foreign discount curve identifier.
     ///
     /// Returns:
-    ///     Any: Foreign discount curve identifier.
+    ///     str: Foreign discount curve identifier.
     #[getter]
-    fn foreign_curve(&self) -> String {
+    fn foreign_discount_curve(&self) -> String {
         self.inner.foreign_discount_curve_id.as_str().to_string()
+    }
+
+    /// Base currency calendar identifier (if set).
+    ///
+    /// Returns:
+    ///     str | None: Base currency calendar identifier.
+    #[getter]
+    fn base_calendar(&self) -> Option<String> {
+        self.inner.base_calendar_id.clone()
+    }
+
+    /// Quote currency calendar identifier (if set).
+    ///
+    /// Returns:
+    ///     str | None: Quote currency calendar identifier.
+    #[getter]
+    fn quote_calendar(&self) -> Option<String> {
+        self.inner.quote_calendar_id.clone()
     }
 
     /// Instrument type enum (``InstrumentType.FX_SWAP``).
     ///
     /// Returns:
-    ///     Any: Instrument type enum (``InstrumentType.FX_SWAP``).
+    ///     InstrumentType: Enumeration value ``InstrumentType.FX_SWAP``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::FxSwap)
+    }
+
+    /// Calculate present value of the FX swap.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including discount curves and FX rates
+    /// as_of : Date
+    ///     Valuation date
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Present value in quote currency
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| Instrument::value(self.inner.as_ref(), &market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
     }
 
     fn __repr__(&self) -> PyResult<String> {

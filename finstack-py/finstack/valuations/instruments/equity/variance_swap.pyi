@@ -1,11 +1,13 @@
 """Variance swap instrument."""
 
 from __future__ import annotations
+from typing import List
 from datetime import date
 from ....core.currency import Currency
 from ....core.money import Money
 from ....core.dates.schedule import Frequency
 from ....core.dates.daycount import DayCount
+from ....core.market_data.context import MarketContext
 from ...common import InstrumentType
 
 class VarianceDirection:
@@ -121,5 +123,186 @@ class VarianceSwap:
     def realized_method(self) -> str: ...
     @property
     def side(self) -> str: ...
+    @property
+    def underlying_ticker(self) -> str: ...
+    @property
+    def notional(self) -> Money: ...
+    @property
+    def start_date(self) -> date: ...
+    @property
+    def maturity(self) -> date: ...
+    @property
+    def day_count(self) -> DayCount: ...
+    @property
+    def discount_curve_id(self) -> str: ...
+    @staticmethod
+    def vega_to_variance_notional(vega_notional: float, strike_vol: float) -> float:
+        """Convert vega notional to variance notional.
+
+        Parameters
+        ----------
+        vega_notional : float
+            Vega notional amount.
+        strike_vol : float
+            Strike volatility.
+
+        Returns
+        -------
+        float
+            Variance notional.
+        """
+        ...
+
+    @staticmethod
+    def variance_to_vega_notional(variance_notional: float, strike_vol: float) -> float:
+        """Convert variance notional to vega notional.
+
+        Parameters
+        ----------
+        variance_notional : float
+            Variance notional amount.
+        strike_vol : float
+            Strike volatility.
+
+        Returns
+        -------
+        float
+            Vega notional.
+        """
+        ...
+
+    def value(self, market: MarketContext, as_of: date) -> Money:
+        """Compute present value.
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data context.
+        as_of : date
+            Valuation date.
+
+        Returns
+        -------
+        Money
+            Present value.
+        """
+        ...
+
+    def payoff(self, realized_variance: float) -> Money:
+        """Compute payoff for a given realized variance.
+
+        Parameters
+        ----------
+        realized_variance : float
+            Realized variance.
+
+        Returns
+        -------
+        Money
+            Payoff amount.
+        """
+        ...
+
+    def observation_dates(self) -> List[date]:
+        """Return the schedule of observation dates.
+
+        Returns
+        -------
+        List[date]
+            Observation dates.
+        """
+        ...
+
+    def annualization_factor(self) -> float:
+        """Return the annualization factor for the swap.
+
+        Returns
+        -------
+        float
+            Annualization factor.
+        """
+        ...
+
+    def time_elapsed_fraction(self, as_of: date) -> float:
+        """Fraction of total swap time elapsed as of a given date.
+
+        Parameters
+        ----------
+        as_of : date
+            Reference date.
+
+        Returns
+        -------
+        float
+            Fraction of time elapsed (0 to 1).
+        """
+        ...
+
+    def realized_fraction_by_observations(self, as_of: date) -> float:
+        """Fraction of observations realized as of a given date.
+
+        Parameters
+        ----------
+        as_of : date
+            Reference date.
+
+        Returns
+        -------
+        float
+            Fraction of observations realized (0 to 1).
+        """
+        ...
+
+    def partial_realized_variance(self, market: MarketContext, as_of: date) -> float:
+        """Compute partial realized variance from historical prices.
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data context with historical prices.
+        as_of : date
+            Reference date.
+
+        Returns
+        -------
+        float
+            Partial realized variance.
+        """
+        ...
+
+    def remaining_forward_variance(self, market: MarketContext, as_of: date) -> float:
+        """Compute remaining forward variance from the vol surface.
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data context.
+        as_of : date
+            Reference date.
+
+        Returns
+        -------
+        float
+            Remaining forward variance.
+        """
+        ...
+
+    def get_historical_prices(self, market: MarketContext, as_of: date) -> List[float]:
+        """Retrieve historical prices for realized variance calculation.
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data context with price history.
+        as_of : date
+            Reference date.
+
+        Returns
+        -------
+        List[float]
+            Historical prices.
+        """
+        ...
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

@@ -1,23 +1,24 @@
+use crate::core::common::args::CurrencyArg;
+use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
+use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
+use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_touch_option::{
     BarrierDirection, FxTouchOption, PayoutTiming, TouchType,
 };
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRefMut};
 use std::sync::Arc;
 
-/// FX touch option (American binary option) instrument.
-///
-/// Touch options pay a fixed amount if the spot rate touches a barrier
-/// level at any time before expiry:
-/// - One-touch: pays if barrier is touched
-/// - No-touch: pays if barrier is NOT touched
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "FxTouchOption",
@@ -37,69 +38,77 @@ impl PyFxTouchOption {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "FxTouchOptionBuilder",
+    unsendable
+)]
+pub struct PyFxTouchOptionBuilder {
+    instrument_id: InstrumentId,
+    base_currency: Option<finstack_core::currency::Currency>,
+    quote_currency: Option<finstack_core::currency::Currency>,
+    barrier_level: Option<f64>,
+    touch_type: Option<TouchType>,
+    barrier_direction: Option<BarrierDirection>,
+    payout_amount: Option<finstack_core::money::Money>,
+    payout_timing: PayoutTiming,
+    expiry: Option<time::Date>,
+    domestic_discount_curve_id: Option<CurveId>,
+    foreign_discount_curve_id: Option<CurveId>,
+    vol_surface_id: Option<CurveId>,
+    day_count: DayCount,
+}
+
+impl PyFxTouchOptionBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            base_currency: None,
+            quote_currency: None,
+            barrier_level: None,
+            touch_type: None,
+            barrier_direction: None,
+            payout_amount: None,
+            payout_timing: PayoutTiming::AtExpiry,
+            expiry: None,
+            domestic_discount_curve_id: None,
+            foreign_discount_curve_id: None,
+            vol_surface_id: None,
+            day_count: DayCount::Act365F,
+        }
+    }
+}
+
 #[pymethods]
-impl PyFxTouchOption {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, barrier_level, touch_type, barrier_direction, payout_amount, payout_timing, expiry, base_currency, quote_currency, domestic_discount_curve, foreign_discount_curve, vol_surface)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create an FX touch option.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier.
-    ///     barrier_level: Barrier exchange rate level.
-    ///     touch_type: Touch type (``"one_touch"`` or ``"no_touch"``).
-    ///     barrier_direction: Barrier direction (``"up"`` or ``"down"``).
-    ///     payout_amount: Fixed payout amount.
-    ///     payout_timing: Payout timing (``"at_hit"`` or ``"at_expiry"``).
-    ///     expiry: Option expiry date.
-    ///     base_currency: Base (foreign) currency.
-    ///     quote_currency: Quote (domestic) currency.
-    ///     domestic_discount_curve: Domestic discount curve identifier.
-    ///     foreign_discount_curve: Foreign discount curve identifier.
-    ///     vol_surface: FX volatility surface identifier.
-    ///
-    /// Returns:
-    ///     FxTouchOption: Configured FX touch option instrument.
-    fn builder(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        barrier_level: f64,
+impl PyFxTouchOptionBuilder {
+    fn base_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let CurrencyArg(c) = ccy.extract().context("base_currency")?;
+        slf.base_currency = Some(c);
+        Ok(slf)
+    }
+
+    fn quote_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let CurrencyArg(c) = ccy.extract().context("quote_currency")?;
+        slf.quote_currency = Some(c);
+        Ok(slf)
+    }
+
+    fn barrier_level(mut slf: PyRefMut<'_, Self>, level: f64) -> PyRefMut<'_, Self> {
+        slf.barrier_level = Some(level);
+        slf
+    }
+
+    fn touch_type<'py>(
+        mut slf: PyRefMut<'py, Self>,
         touch_type: &str,
-        barrier_direction: &str,
-        payout_amount: Bound<'_, PyAny>,
-        payout_timing: &str,
-        expiry: Bound<'_, PyAny>,
-        base_currency: Bound<'_, PyAny>,
-        quote_currency: Bound<'_, PyAny>,
-        domestic_discount_curve: Bound<'_, PyAny>,
-        foreign_discount_curve: Bound<'_, PyAny>,
-        vol_surface: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        use crate::core::common::args::CurrencyArg;
-        use crate::core::common::labels::normalize_label;
-        use crate::errors::PyContext;
-        use finstack_core::dates::DayCount;
-
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let domestic_discount_curve_id = CurveId::new(
-            domestic_discount_curve
-                .extract::<&str>()
-                .context("domestic_discount_curve")?,
-        );
-        let foreign_discount_curve_id = CurveId::new(
-            foreign_discount_curve
-                .extract::<&str>()
-                .context("foreign_discount_curve")?,
-        );
-        let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
-
-        let CurrencyArg(base_ccy) = base_currency.extract().context("base_currency")?;
-        let CurrencyArg(quote_ccy) = quote_currency.extract().context("quote_currency")?;
-
-        let touch_type_enum = match normalize_label(touch_type).as_str() {
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.touch_type = Some(match normalize_label(touch_type).as_str() {
             "one_touch" | "onetouch" => TouchType::OneTouch,
             "no_touch" | "notouch" => TouchType::NoTouch,
             other => {
@@ -107,9 +116,15 @@ impl PyFxTouchOption {
                     "Unknown touch type: {other}"
                 )))
             }
-        };
+        });
+        Ok(slf)
+    }
 
-        let barrier_dir_enum = match normalize_label(barrier_direction).as_str() {
+    fn barrier_direction<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        direction: &str,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.barrier_direction = Some(match normalize_label(direction).as_str() {
             "up" => BarrierDirection::Up,
             "down" => BarrierDirection::Down,
             other => {
@@ -117,9 +132,23 @@ impl PyFxTouchOption {
                     "Unknown barrier direction: {other}"
                 )))
             }
-        };
+        });
+        Ok(slf)
+    }
 
-        let payout_timing_enum = match normalize_label(payout_timing).as_str() {
+    fn payout_amount<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        amount: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.payout_amount = Some(extract_money(&amount).context("payout_amount")?);
+        Ok(slf)
+    }
+
+    fn payout_timing<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        timing: &str,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.payout_timing = match normalize_label(timing).as_str() {
             "at_hit" | "athit" => PayoutTiming::AtHit,
             "at_expiry" | "atexpiry" => PayoutTiming::AtExpiry,
             other => {
@@ -128,23 +157,92 @@ impl PyFxTouchOption {
                 )))
             }
         };
+        Ok(slf)
+    }
 
-        let payout_money = extract_money(&payout_amount).context("payout_amount")?;
+    fn expiry<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.expiry = Some(py_to_date(&date).context("expiry")?);
+        Ok(slf)
+    }
+
+    fn domestic_discount_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
+        slf.domestic_discount_curve_id = Some(CurveId::new(curve_id));
+        slf
+    }
+
+    fn foreign_discount_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
+        slf.foreign_discount_curve_id = Some(CurveId::new(curve_id));
+        slf
+    }
+
+    fn vol_surface<'py>(mut slf: PyRefMut<'py, Self>, surface_id: &str) -> PyRefMut<'py, Self> {
+        slf.vol_surface_id = Some(CurveId::new(surface_id));
+        slf
+    }
+
+    fn day_count<'py>(mut slf: PyRefMut<'py, Self>, dc: &PyDayCount) -> PyRefMut<'py, Self> {
+        slf.day_count = dc.inner;
+        slf
+    }
+
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxTouchOption> {
+        let base = slf
+            .base_currency
+            .ok_or_else(|| PyValueError::new_err("base_currency is required"))?;
+        let quote = slf
+            .quote_currency
+            .ok_or_else(|| PyValueError::new_err("quote_currency is required"))?;
+        let barrier_level = slf
+            .barrier_level
+            .ok_or_else(|| PyValueError::new_err("barrier_level is required"))?;
+        let touch_type = slf
+            .touch_type
+            .ok_or_else(|| PyValueError::new_err("touch_type is required"))?;
+        let barrier_direction = slf
+            .barrier_direction
+            .ok_or_else(|| PyValueError::new_err("barrier_direction is required"))?;
+        let payout_amount = slf
+            .payout_amount
+            .ok_or_else(|| PyValueError::new_err("payout_amount is required"))?;
+        let expiry = slf
+            .expiry
+            .ok_or_else(|| PyValueError::new_err("expiry is required"))?;
+        let domestic = slf
+            .domestic_discount_curve_id
+            .clone()
+            .ok_or_else(|| PyValueError::new_err("domestic_discount_curve is required"))?;
+        let foreign = slf
+            .foreign_discount_curve_id
+            .clone()
+            .ok_or_else(|| PyValueError::new_err("foreign_discount_curve is required"))?;
+        let vol = slf
+            .vol_surface_id
+            .clone()
+            .ok_or_else(|| PyValueError::new_err("vol_surface is required"))?;
 
         let option = FxTouchOption::builder()
-            .id(id)
-            .base_currency(base_ccy)
-            .quote_currency(quote_ccy)
+            .id(slf.instrument_id.clone())
+            .base_currency(base)
+            .quote_currency(quote)
             .barrier_level(barrier_level)
-            .touch_type(touch_type_enum)
-            .barrier_direction(barrier_dir_enum)
-            .payout_amount(payout_money)
-            .payout_timing(payout_timing_enum)
-            .expiry(expiry_date)
-            .day_count(DayCount::Act365F)
-            .domestic_discount_curve_id(domestic_discount_curve_id)
-            .foreign_discount_curve_id(foreign_discount_curve_id)
-            .vol_surface_id(vol_surface_id)
+            .touch_type(touch_type)
+            .barrier_direction(barrier_direction)
+            .payout_amount(payout_amount)
+            .payout_timing(slf.payout_timing)
+            .expiry(expiry)
+            .day_count(slf.day_count)
+            .domestic_discount_curve_id(domestic)
+            .foreign_discount_curve_id(foreign)
+            .vol_surface_id(vol)
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
             .attributes(finstack_valuations::instruments::Attributes::new())
             .build()
@@ -153,40 +251,46 @@ impl PyFxTouchOption {
                     "Failed to build FxTouchOption: {e}"
                 ))
             })?;
-        Ok(Self::new(option))
+        Ok(PyFxTouchOption::new(option))
     }
 
-    /// Instrument identifier.
+    fn __repr__(&self) -> String {
+        format!("FxTouchOptionBuilder(id='{}')", self.instrument_id)
+    }
+}
+
+#[pymethods]
+impl PyFxTouchOption {
+    #[classmethod]
+    fn builder(_cls: &Bound<'_, PyType>, instrument_id: &str) -> PyFxTouchOptionBuilder {
+        PyFxTouchOptionBuilder::new_with_id(InstrumentId::new(instrument_id))
+    }
+
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
-    /// Instrument type.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::FxTouchOption)
     }
 
-    /// Base currency (foreign currency).
     #[getter]
     fn base_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.base_currency)
     }
 
-    /// Quote currency (domestic currency).
     #[getter]
     fn quote_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.quote_currency)
     }
 
-    /// Barrier level (exchange rate).
     #[getter]
     fn barrier_level(&self) -> f64 {
         self.inner.barrier_level
     }
 
-    /// Touch type label.
     #[getter]
     fn touch_type(&self) -> &'static str {
         match self.inner.touch_type {
@@ -196,7 +300,6 @@ impl PyFxTouchOption {
         }
     }
 
-    /// Barrier direction label.
     #[getter]
     fn barrier_direction(&self) -> &'static str {
         match self.inner.barrier_direction {
@@ -206,13 +309,11 @@ impl PyFxTouchOption {
         }
     }
 
-    /// Fixed payout amount.
     #[getter]
     fn payout_amount(&self) -> PyMoney {
         PyMoney::new(self.inner.payout_amount)
     }
 
-    /// Payout timing label.
     #[getter]
     fn payout_timing(&self) -> &'static str {
         match self.inner.payout_timing {
@@ -222,10 +323,43 @@ impl PyFxTouchOption {
         }
     }
 
-    /// Expiry date.
     #[getter]
     fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.expiry)
+    }
+
+    #[getter]
+    fn domestic_discount_curve(&self) -> String {
+        self.inner.domestic_discount_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn foreign_discount_curve(&self) -> String {
+        self.inner.foreign_discount_curve_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn vol_surface(&self) -> String {
+        self.inner.vol_surface_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count)
+    }
+
+    /// Calculate present value of the FX touch option.
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| Instrument::value(self.inner.as_ref(), &market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
     }
 
     fn __repr__(&self) -> String {
@@ -252,5 +386,6 @@ pub(crate) fn register<'py>(
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     parent.add_class::<PyFxTouchOption>()?;
-    Ok(vec!["FxTouchOption"])
+    parent.add_class::<PyFxTouchOptionBuilder>()?;
+    Ok(vec!["FxTouchOption", "FxTouchOptionBuilder"])
 }

@@ -3,11 +3,14 @@
 
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
-// use crate::core::money::PyMoney; // not used in this module
-use crate::errors::PyContext;
+use crate::core::dates::utils::py_to_date;
+use crate::core::market_data::PyMarketContext;
+use crate::core::money::PyMoney;
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::Equity;
+use finstack_valuations::prelude::Instrument;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
@@ -53,6 +56,7 @@ pub struct PyEquityBuilder {
     price: Option<f64>,
     price_id: Option<String>,
     div_yield_id: Option<String>,
+    discount_curve_id: Option<CurveId>,
 }
 
 impl PyEquityBuilder {
@@ -65,6 +69,7 @@ impl PyEquityBuilder {
             price: None,
             price_id: None,
             div_yield_id: None,
+            discount_curve_id: None,
         }
     }
 }
@@ -117,6 +122,15 @@ impl PyEquityBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, discount_curve_id)")]
+    fn discount_curve_id(
+        mut slf: PyRefMut<'_, Self>,
+        discount_curve_id: String,
+    ) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(discount_curve_id.as_str()));
+        slf
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyEquity> {
         let ticker = slf.ticker.as_deref().ok_or_else(|| {
@@ -138,6 +152,9 @@ impl PyEquityBuilder {
         }
         if let Some(did) = slf.div_yield_id.as_deref() {
             equity = equity.with_dividend_yield_id(did);
+        }
+        if let Some(ref dc_id) = slf.discount_curve_id {
+            equity.discount_curve_id = dc_id.clone();
         }
 
         Ok(PyEquity::new(equity))
@@ -232,6 +249,70 @@ impl PyEquity {
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::Equity)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| self.inner.value(&market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn price_per_share(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| self.inner.price_per_share(&market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
+    }
+
+    #[pyo3(signature = (market))]
+    fn dividend_yield(&self, py: Python<'_>, market: &PyMarketContext) -> PyResult<f64> {
+        py.detach(|| self.inner.dividend_yield(&market.inner))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of, t))]
+    fn forward_price_per_share(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+        t: f64,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| self.inner.forward_price_per_share(&market.inner, date, t))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
+    }
+
+    #[pyo3(signature = (market, as_of, t))]
+    fn forward_value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+        t: f64,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let value = py
+            .detach(|| self.inner.forward_value(&market.inner, date, t))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(value))
     }
 
     fn __repr__(&self) -> PyResult<String> {

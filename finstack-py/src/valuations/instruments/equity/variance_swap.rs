@@ -507,6 +507,98 @@ impl PyVarianceSwap {
         Ok(PyList::new(py, py_dates?)?.into())
     }
 
+    #[staticmethod]
+    fn vega_to_variance_notional(vega_notional: f64, strike_vol: f64) -> f64 {
+        finstack_valuations::instruments::equity::variance_swap::VarianceSwap::vega_to_variance_notional(vega_notional, strike_vol)
+    }
+
+    #[staticmethod]
+    fn variance_to_vega_notional(variance_notional: f64, strike_vol: f64) -> f64 {
+        finstack_valuations::instruments::equity::variance_swap::VarianceSwap::variance_to_vega_notional(variance_notional, strike_vol)
+    }
+
+    fn annualization_factor(&self) -> f64 {
+        self.inner.annualization_factor()
+    }
+
+    #[pyo3(signature = (as_of))]
+    fn time_elapsed_fraction(&self, as_of: Bound<'_, PyAny>) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        Ok(self.inner.time_elapsed_fraction(date))
+    }
+
+    #[pyo3(signature = (as_of))]
+    fn realized_fraction_by_observations(&self, as_of: Bound<'_, PyAny>) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        Ok(self.inner.realized_fraction_by_observations(date))
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn partial_realized_variance(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.partial_realized_variance(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn remaining_forward_variance(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.remaining_forward_variance(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(signature = (market, as_of))]
+    fn get_historical_prices(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<Vec<f64>> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.get_historical_prices(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    #[getter]
+    fn underlying_ticker(&self) -> &str {
+        &self.inner.underlying_ticker
+    }
+
+    #[getter]
+    fn notional(&self) -> PyMoney {
+        PyMoney::new(self.inner.notional)
+    }
+
+    #[getter]
+    fn start_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.start_date)
+    }
+
+    #[getter]
+    fn maturity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.maturity)
+    }
+
+    #[getter]
+    fn day_count(&self) -> crate::core::dates::daycount::PyDayCount {
+        crate::core::dates::daycount::PyDayCount::new(self.inner.day_count)
+    }
+
+    #[getter]
+    fn discount_curve_id(&self) -> String {
+        self.inner.discount_curve_id.as_str().to_string()
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "VarianceSwap(id='{}', underlying='{}', strike_var={}, side='{}')",

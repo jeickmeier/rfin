@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from ....core.currency import Currency
+from ....core.market_data.context import MarketContext
 from ....core.money import Money
 from ...common import InstrumentType
 
@@ -25,76 +26,34 @@ class FxForwardBuilder:
     def __repr__(self) -> str: ...
 
 class FxForward:
-    """FX forward (outright forward) instrument.
-
-    Represents a commitment to exchange one currency for another at a specified
-    future date at a predetermined rate. The position is long base currency
-    (foreign) and short quote currency (domestic).
-
-    Pricing:
-
-    - Forward rate via covered interest rate parity:
-      F_market = S * DF_foreign(T) / DF_domestic(T)
-    - PV = notional * (F_market - F_contract) * DF_domestic(T)
-
-    Examples
-    --------
-    Create a 6-month EUR/USD forward:
-
-        >>> from finstack.valuations.instruments import FxForward
-        >>> fwd = (
-        ...     FxForward
-        ...     .builder("EURUSD-FWD-6M")
-        ...     .base_currency("EUR")
-        ...     .quote_currency("USD")
-        ...     .maturity(date(2025, 6, 15))
-        ...     .notional(Money(1_000_000, "EUR"))
-        ...     .domestic_discount_curve("USD-OIS")
-        ...     .foreign_discount_curve("EUR-OIS")
-        ...     .contract_rate(1.12)
-        ...     .build()
-        ... )
-
-    See Also
-    --------
-    :class:`Ndf`: Non-deliverable forward
-    :class:`FxSwap`: FX swap
-    """
+    """FX forward (outright forward) instrument."""
 
     @classmethod
-    def builder(cls, instrument_id: str) -> FxForwardBuilder:
-        """Create a builder for an FX forward contract."""
-        ...
+    def builder(cls, instrument_id: str) -> FxForwardBuilder: ...
     @property
-    def instrument_id(self) -> str:
-        """Instrument identifier."""
-        ...
+    def instrument_id(self) -> str: ...
     @property
-    def instrument_type(self) -> InstrumentType:
-        """Instrument type."""
-        ...
+    def instrument_type(self) -> InstrumentType: ...
     @property
-    def base_currency(self) -> Currency:
-        """Base currency (foreign currency, numerator of the pair)."""
-        ...
+    def base_currency(self) -> Currency: ...
     @property
-    def quote_currency(self) -> Currency:
-        """Quote currency (domestic currency, denominator of the pair)."""
-        ...
+    def quote_currency(self) -> Currency: ...
     @property
-    def maturity(self) -> date:
-        """Maturity/settlement date."""
-        ...
+    def maturity(self) -> date: ...
     @property
-    def notional(self) -> Money:
-        """Notional amount in base currency."""
-        ...
+    def notional(self) -> Money: ...
     @property
-    def contract_rate(self) -> float | None:
-        """Contract forward rate (quote per base). None if at-market."""
-        ...
+    def contract_rate(self) -> float | None: ...
     @property
-    def spot_rate_override(self) -> float | None:
-        """Spot rate override (if set)."""
-        ...
+    def spot_rate_override(self) -> float | None: ...
+    @property
+    def domestic_discount_curve(self) -> str: ...
+    @property
+    def foreign_discount_curve(self) -> str: ...
+    @property
+    def base_calendar(self) -> str | None: ...
+    @property
+    def quote_calendar(self) -> str | None: ...
+    def value(self, market: MarketContext, as_of: date) -> Money: ...
+    def market_forward_rate(self, market: MarketContext, as_of: date) -> float: ...
     def __repr__(self) -> str: ...

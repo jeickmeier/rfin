@@ -1,7 +1,10 @@
-// use crate::errors::core_to_py; // not used directly
 use super::cds::normalize_cds_side;
+use super::cds::PyCdsConvention;
+use super::cds::PyCdsPayReceive;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
+use crate::errors::core_to_py;
 use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::InstrumentId;
@@ -19,7 +22,7 @@ use rust_decimal::prelude::ToPrimitive;
 use std::fmt;
 use std::sync::Arc;
 
-const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
+use finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
 
 /// CDS index instrument binding exposing a simplified constructor.
 ///
@@ -58,9 +61,58 @@ impl PyCdsIndex {
     }
 }
 
+/// Constituent in a CDS index.
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CdsIndexBuilder",
+    name = "CDSIndexConstituent",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyCdsIndexConstituent {
+    credit_curve: String,
+    recovery_rate: f64,
+    weight: f64,
+    defaulted: bool,
+}
+
+#[pymethods]
+impl PyCdsIndexConstituent {
+    /// Credit curve identifier for this constituent.
+    #[getter]
+    fn credit_curve(&self) -> &str {
+        &self.credit_curve
+    }
+
+    /// Recovery rate for this constituent.
+    #[getter]
+    fn recovery_rate(&self) -> f64 {
+        self.recovery_rate
+    }
+
+    /// Weight of this constituent in the index.
+    #[getter]
+    fn weight(&self) -> f64 {
+        self.weight
+    }
+
+    /// Whether this constituent has defaulted.
+    #[getter]
+    fn defaulted(&self) -> bool {
+        self.defaulted
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "CDSIndexConstituent(credit_curve='{}', weight={:.4}, defaulted={})",
+            self.credit_curve, self.weight, self.defaulted
+        )
+    }
+}
+
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CDSIndexBuilder",
     unsendable
 )]
 pub struct PyCdsIndexBuilder {
@@ -77,6 +129,7 @@ pub struct PyCdsIndexBuilder {
     side: PayReceive,
     recovery_rate: f64,
     index_factor: Option<f64>,
+    convention: CDSConvention,
 }
 
 impl PyCdsIndexBuilder {
@@ -93,8 +146,9 @@ impl PyCdsIndexBuilder {
             discount_curve: None,
             credit_curve: None,
             side: PayReceive::PayFixed,
-            recovery_rate: STANDARD_RECOVERY_SENIOR,
+            recovery_rate: RECOVERY_SENIOR_UNSECURED,
             index_factor: None,
+            convention: CDSConvention::IsdaNa,
         }
     }
 
@@ -230,6 +284,12 @@ impl PyCdsIndexBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, convention)")]
+    fn convention(mut slf: PyRefMut<'_, Self>, convention: PyCdsConvention) -> PyRefMut<'_, Self> {
+        slf.convention = convention.inner;
+        slf
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCdsIndex> {
         slf.ensure_ready()?;
@@ -284,8 +344,7 @@ impl PyCdsIndexBuilder {
             index_params = index_params.with_index_factor(factor);
         }
 
-        let construction =
-            CDSIndexConstructionParams::new(notional, slf.side, CDSConvention::IsdaNa);
+        let construction = CDSIndexConstructionParams::new(notional, slf.side, slf.convention);
         let credit_params = CreditParams::new(
             index_name.clone(),
             slf.recovery_rate,
@@ -309,7 +368,7 @@ impl PyCdsIndexBuilder {
     }
 
     fn __repr__(&self) -> String {
-        "CdsIndexBuilder(...)".to_string()
+        "CDSIndexBuilder(...)".to_string()
     }
 }
 
@@ -364,15 +423,9 @@ impl PyCdsIndex {
     }
 
     /// Pay/receive direction for protection.
-    ///
-    /// Returns:
-    ///     str: ``"pay_protection"`` or ``"receive_protection"``.
     #[getter]
-    fn side(&self) -> &'static str {
-        match self.inner.side {
-            PayReceive::PayFixed => "pay_protection",
-            PayReceive::ReceiveFixed => "receive_protection",
-        }
+    fn side(&self) -> PyCdsPayReceive {
+        PyCdsPayReceive::new(self.inner.side)
     }
 
     /// Discount curve identifier.
@@ -411,6 +464,135 @@ impl PyCdsIndex {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CDSIndex)
     }
 
+    /// Index series number.
+    #[getter]
+    fn series(&self) -> u16 {
+        self.inner.series
+    }
+
+    /// Index version number.
+    #[getter]
+    fn version(&self) -> u16 {
+        self.inner.version
+    }
+
+    /// Index factor (fraction of surviving notional).
+    #[getter]
+    fn index_factor(&self) -> f64 {
+        self.inner.index_factor
+    }
+
+    /// Start date of the index swap.
+    #[getter]
+    fn start_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.premium.start)
+    }
+
+    /// Recovery rate for the protection leg.
+    #[getter]
+    fn recovery_rate(&self) -> f64 {
+        self.inner.protection.recovery_rate
+    }
+
+    /// ISDA convention used for this index.
+    #[getter]
+    fn convention(&self) -> PyCdsConvention {
+        PyCdsConvention::new(self.inner.convention)
+    }
+
+    /// Index constituents (empty for single-curve pricing mode).
+    #[getter]
+    fn constituents(&self) -> Vec<PyCdsIndexConstituent> {
+        self.inner
+            .constituents
+            .iter()
+            .map(|c| PyCdsIndexConstituent {
+                credit_curve: c.credit.credit_curve_id.as_str().to_string(),
+                recovery_rate: c.credit.recovery_rate,
+                weight: c.weight,
+                defaulted: c.defaulted,
+            })
+            .collect()
+    }
+
+    /// Pricing mode: "single_curve" or "constituents".
+    #[getter]
+    fn pricing_mode(&self) -> &'static str {
+        match self.inner.pricing {
+            finstack_valuations::instruments::credit_derivatives::cds_index::IndexPricing::SingleCurve => "single_curve",
+            finstack_valuations::instruments::credit_derivatives::cds_index::IndexPricing::Constituents => "constituents",
+        }
+    }
+
+    /// Calculate protection leg present value.
+    #[pyo3(signature = (market, as_of))]
+    fn pv_protection_leg(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let pv = py
+            .detach(|| self.inner.pv_protection_leg(&market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(pv))
+    }
+
+    /// Calculate premium leg present value.
+    #[pyo3(signature = (market, as_of))]
+    fn pv_premium_leg(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        let pv = py
+            .detach(|| self.inner.pv_premium_leg(&market.inner, date))
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(pv))
+    }
+
+    /// Calculate par spread in basis points.
+    #[pyo3(signature = (market, as_of))]
+    fn par_spread(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.par_spread(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate risky PV01.
+    #[pyo3(signature = (market, as_of))]
+    fn risky_pv01(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.risky_pv01(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate CS01 (credit spread sensitivity).
+    #[pyo3(signature = (market, as_of))]
+    fn cs01(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.cs01(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "CDSIndex(id='{}', name='{}', series={}, version={})",
@@ -435,5 +617,6 @@ pub(crate) fn register<'py>(
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyCdsIndex>()?;
     module.add_class::<PyCdsIndexBuilder>()?;
-    Ok(vec!["CDSIndex", "CdsIndexBuilder"])
+    module.add_class::<PyCdsIndexConstituent>()?;
+    Ok(vec!["CDSIndex", "CDSIndexBuilder", "CDSIndexConstituent"])
 }

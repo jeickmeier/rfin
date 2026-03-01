@@ -1,172 +1,50 @@
 """Quanto option instrument."""
 
 from __future__ import annotations
+
 from datetime import date
-from ....core.money import Money
+
 from ....core.currency import Currency
+from ....core.dates.daycount import DayCount
+from ....core.market_data.context import MarketContext
+from ....core.money import Money
+from ...common import InstrumentType
+
+class QuantoOptionBuilder:
+    """Fluent builder returned by :meth:`QuantoOption.builder`."""
+
+    def base_currency(self, ccy: str | Currency) -> QuantoOptionBuilder: ...
+    def quote_currency(self, ccy: str | Currency) -> QuantoOptionBuilder: ...
+    def ticker(self, ticker: str) -> QuantoOptionBuilder: ...
+    def equity_strike(self, strike: float) -> QuantoOptionBuilder: ...
+    def option_type(self, option_type: str) -> QuantoOptionBuilder: ...
+    def expiry(self, date: date) -> QuantoOptionBuilder: ...
+    def notional(self, notional: Money) -> QuantoOptionBuilder: ...
+    def correlation(self, correlation: float) -> QuantoOptionBuilder: ...
+    def domestic_discount_curve(self, curve_id: str) -> QuantoOptionBuilder: ...
+    def foreign_discount_curve(self, curve_id: str) -> QuantoOptionBuilder: ...
+    def spot_id(self, id: str) -> QuantoOptionBuilder: ...
+    def vol_surface(self, surface_id: str) -> QuantoOptionBuilder: ...
+    def div_yield_id(self, curve_id: str) -> QuantoOptionBuilder: ...
+    def fx_rate_id(self, rate_id: str) -> QuantoOptionBuilder: ...
+    def fx_vol_id(self, vol_id: str) -> QuantoOptionBuilder: ...
+    def day_count(self, dc: DayCount) -> QuantoOptionBuilder: ...
+    def build(self) -> QuantoOption: ...
+    def __repr__(self) -> str: ...
 
 class QuantoOption:
-    """Quanto option with FX risk eliminated.
-
-    QuantoOption represents an option on a foreign asset where the payoff
-    is converted to a domestic currency at a fixed exchange rate, eliminating
-    FX risk. The correlation between equity and FX affects pricing.
-
-    Quanto options are used for international equity exposure without FX risk.
-    They require discount curves for both currencies, equity prices, and
-    correlation parameters.
-
-    Examples
-    --------
-    Create a quanto call option:
-
-        >>> from finstack.valuations.instruments import QuantoOption
-        >>> from finstack import Money, Currency
-        >>> from datetime import date
-        >>> quanto = QuantoOption.builder(
-        ...     "QUANTO-NIKKEI-CALL",
-        ...     ticker="NIKKEI",
-        ...     equity_strike=30000.0,
-        ...     option_type="call",
-        ...     expiry=date(2024, 12, 20),
-        ...     notional=Money(1_000_000, Currency("USD")),  # Payoff in USD
-        ...     domestic_currency=Currency("USD"),
-        ...     foreign_currency=Currency("JPY"),
-        ...     correlation=-0.3,  # Negative correlation (equity down, JPY up)
-        ...     domestic_discount_curve="USD",
-        ...     foreign_discount_curve="JPY",
-        ...     spot_id="NIKKEI",
-        ...     vol_surface="NIKKEI-VOL",
-        ...     div_yield_id=None,
-        ...     fx_rate_id=None,
-        ...     fx_vol_id=None,
-        ... )
-
-    Notes
-    -----
-    - Quanto options require domestic and foreign discount curves
-    - Correlation between equity and FX affects quanto adjustment
-    - Payoff is in domestic currency at fixed FX rate
-    - Quanto adjustment compensates for FX risk elimination
-    - Negative correlation typically increases quanto option value
-
-    Conventions
-    -----------
-    - ``correlation`` is the (model) correlation between equity returns and FX returns used for the quanto
-      adjustment.
-    - Rates/volatilities referenced via curves/surfaces are expected as decimals.
-    - Required market data is referenced by IDs (``domestic_discount_curve``, ``foreign_discount_curve``, ``spot_id``,
-      ``vol_surface`` and optional FX IDs) and must be present in ``MarketContext``.
-
-    MarketContext Requirements
-    -------------------------
-    - Discount curves: ``domestic_discount_curve`` and ``foreign_discount_curve`` (required).
-    - Equity spot: ``spot_id`` (required).
-    - Equity volatility surface: ``vol_surface`` (required).
-    - Optional FX inputs: ``fx_rate_id`` / ``fx_vol_id`` (used when provided by the model).
-
-    See Also
-    --------
-    :class:`EquityOption`: Standard equity options
-    :class:`FxOption`: FX options
-    :class:`PricerRegistry`: Pricing entry point
-
-    Sources
-    -------
-    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
-    - Garman & Kohlhagen (1983): see ``docs/REFERENCES.md#garmanKohlhagen1983``.
-    """
+    """Quanto option instrument."""
 
     @classmethod
-    def builder(
-        cls,
-        instrument_id: str,
-        ticker: str,
-        equity_strike: float,
-        option_type: str,
-        expiry: date,
-        notional: Money,
-        domestic_currency: Currency,
-        foreign_currency: Currency,
-        correlation: float,
-        domestic_discount_curve: str,
-        foreign_discount_curve: str,
-        spot_id: str,
-        vol_surface: str,
-        *,
-        div_yield_id: str | None = None,
-        fx_rate_id: str | None = None,
-        fx_vol_id: str | None = None,
-    ) -> "QuantoOption":
-        """Create a quanto option.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the option.
-        ticker : str
-            Underlying equity ticker symbol (foreign asset).
-        equity_strike : float
-            Strike price in foreign currency. Must be > 0.
-        option_type : str
-            Option type: "call" or "put".
-        expiry : date
-            Option expiration date.
-        notional : Money
-            Notional amount in domestic currency.
-        domestic_currency : Currency
-            Currency for payoff (e.g., Currency("USD")).
-        foreign_currency : Currency
-            Currency of underlying asset (e.g., Currency("JPY")).
-        correlation : float
-            Correlation between equity returns and FX returns (typically -0.2 to -0.5).
-        domestic_discount_curve : str
-            Domestic discount curve identifier in MarketContext.
-        foreign_discount_curve : str
-            Foreign discount curve identifier in MarketContext.
-        spot_id : str
-            Equity spot price identifier in MarketContext.
-        vol_surface : str
-            Equity volatility surface identifier in MarketContext.
-        div_yield_id : str, optional
-            Dividend yield identifier in MarketContext.
-        fx_rate_id : str, optional
-            FX rate identifier in MarketContext (default: uses currency pair).
-        fx_vol_id : str, optional
-            FX volatility identifier for quanto adjustment.
-
-        Returns
-        -------
-        QuantoOption
-            Configured quanto option ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If parameters are invalid or if required market data is missing.
-
-        Examples
-        --------
-            >>> option = QuantoOption.builder(
-            ...     "QUANTO-NIKKEI",
-            ...     "NIKKEI",
-            ...     30000.0,
-            ...     "call",
-            ...     date(2024, 12, 20),
-            ...     Money(1_000_000, Currency("USD")),
-            ...     Currency("USD"),
-            ...     Currency("JPY"),
-            ...     -0.3,
-            ...     domestic_discount_curve="USD",
-            ...     foreign_discount_curve="JPY",
-            ...     spot_id="NIKKEI",
-            ...     vol_surface="NIKKEI-VOL",
-            ... )
-        """
-        ...
-
+    def builder(cls, instrument_id: str) -> QuantoOptionBuilder: ...
     @property
     def instrument_id(self) -> str: ...
+    @property
+    def instrument_type(self) -> InstrumentType: ...
+    @property
+    def base_currency(self) -> Currency: ...
+    @property
+    def quote_currency(self) -> Currency: ...
     @property
     def ticker(self) -> str: ...
     @property
@@ -179,5 +57,21 @@ class QuantoOption:
     def notional(self) -> Money: ...
     @property
     def correlation(self) -> float: ...
+    @property
+    def domestic_discount_curve(self) -> str: ...
+    @property
+    def foreign_discount_curve(self) -> str: ...
+    @property
+    def spot_id(self) -> str: ...
+    @property
+    def vol_surface(self) -> str: ...
+    @property
+    def div_yield_id(self) -> str | None: ...
+    @property
+    def fx_rate_id(self) -> str | None: ...
+    @property
+    def fx_vol_id(self) -> str | None: ...
+    @property
+    def day_count(self) -> DayCount: ...
+    def value(self, market: MarketContext, as_of: date) -> Money: ...
     def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...

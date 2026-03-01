@@ -5,7 +5,9 @@ use crate::core::money::PyMoney;
 use crate::statements::error::stmt_to_py;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::analysis::corporate::{evaluate_dcf_with_options, DcfOptions};
-use finstack_valuations::instruments::equity::dcf_equity::{TerminalValueSpec, ValuationDiscounts};
+use finstack_valuations::instruments::equity::dcf_equity::{
+    EquityBridge, TerminalValueSpec, ValuationDiscounts,
+};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::{Bound, PyResult};
@@ -46,6 +48,16 @@ use pyo3::{Bound, PyResult};
 ///     Discount for Lack of Marketability (0.0-1.0).
 /// dloc : float, optional
 ///     Discount for Lack of Control (0.0-1.0).
+/// total_debt : float, optional
+///     Total interest-bearing debt for the equity bridge.
+/// cash : float, optional
+///     Cash and cash equivalents for the equity bridge.
+/// preferred_equity : float, optional
+///     Preferred stock at liquidation preference for the equity bridge.
+/// minority_interest : float, optional
+///     Non-controlling (minority) interests for the equity bridge.
+/// non_operating_assets : float, optional
+///     Non-operating assets (excess cash, investments, etc.) for the equity bridge.
 ///
 /// Returns
 /// -------
@@ -56,7 +68,7 @@ use pyo3::{Bound, PyResult};
 #[pyfunction]
 #[pyo3(
     name = "evaluate_dcf",
-    text_signature = "(model, wacc=0.10, terminal_growth=0.02, ufcf_node='ufcf', net_debt_override=None, *, mid_year_convention=False, terminal_type='gordon_growth', terminal_metric=None, terminal_multiple=None, high_growth_rate=None, stable_growth_rate=None, half_life_years=None, shares_outstanding=None, dlom=None, dloc=None)"
+    text_signature = "(model, wacc=0.10, terminal_growth=0.02, ufcf_node='ufcf', net_debt_override=None, *, mid_year_convention=False, terminal_type='gordon_growth', terminal_metric=None, terminal_multiple=None, high_growth_rate=None, stable_growth_rate=None, half_life_years=None, shares_outstanding=None, dlom=None, dloc=None, total_debt=None, cash=None, preferred_equity=None, minority_interest=None, non_operating_assets=None)"
 )]
 #[allow(clippy::too_many_arguments)]
 fn evaluate_dcf_py(
@@ -76,6 +88,11 @@ fn evaluate_dcf_py(
     shares_outstanding: Option<f64>,
     dlom: Option<f64>,
     dloc: Option<f64>,
+    total_debt: Option<f64>,
+    cash: Option<f64>,
+    preferred_equity: Option<f64>,
+    minority_interest: Option<f64>,
+    non_operating_assets: Option<f64>,
 ) -> PyResult<Py<PyAny>> {
     let ufcf_node = ufcf_node.unwrap_or_else(|| "ufcf".to_string());
 
@@ -141,9 +158,27 @@ fn evaluate_dcf_py(
         None
     };
 
+    let equity_bridge = if total_debt.is_some()
+        || cash.is_some()
+        || preferred_equity.is_some()
+        || minority_interest.is_some()
+        || non_operating_assets.is_some()
+    {
+        Some(EquityBridge {
+            total_debt: total_debt.unwrap_or(0.0),
+            cash: cash.unwrap_or(0.0),
+            preferred_equity: preferred_equity.unwrap_or(0.0),
+            minority_interest: minority_interest.unwrap_or(0.0),
+            non_operating_assets: non_operating_assets.unwrap_or(0.0),
+            other_adjustments: Vec::new(),
+        })
+    } else {
+        None
+    };
+
     let options = DcfOptions {
         mid_year_convention: mid_year_convention.unwrap_or(false),
-        equity_bridge: None, // Not exposed via simple kwargs; use JSON model for complex bridges
+        equity_bridge,
         shares_outstanding,
         valuation_discounts,
     };

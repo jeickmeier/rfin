@@ -1,8 +1,7 @@
-// Reverted start_date
 use crate::core::dates::utils::date_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::equity::cliquet_option::CliquetOption;
+use finstack_valuations::instruments::equity::cliquet_option::{CliquetOption, CliquetPayoffType};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
@@ -32,8 +31,8 @@ impl PyCliquetOption {
 impl PyCliquetOption {
     #[classmethod]
     #[pyo3(
-        signature = (instrument_id, ticker, reset_dates, local_cap, global_cap, notional, discount_curve, spot_id, vol_surface, *, maturity=None, div_yield_id=None),
-        text_signature = "(cls, instrument_id, ticker, reset_dates, local_cap, global_cap, notional, discount_curve, spot_id, vol_surface, *, maturity=None, div_yield_id=None)"
+        signature = (instrument_id, ticker, reset_dates, local_cap, global_cap, notional, discount_curve, spot_id, vol_surface, *, local_floor=0.0, global_floor=0.0, payoff_type=None, maturity=None, div_yield_id=None),
+        text_signature = "(cls, instrument_id, ticker, reset_dates, local_cap, global_cap, notional, discount_curve, spot_id, vol_surface, *, local_floor=0.0, global_floor=0.0, payoff_type=None, maturity=None, div_yield_id=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a cliquet option.
@@ -48,6 +47,9 @@ impl PyCliquetOption {
     ///     discount_curve: Discount curve identifier.
     ///     spot_id: Spot price identifier.
     ///     vol_surface: Volatility surface identifier.
+    ///     local_floor: Local floor per period (default 0.0).
+    ///     global_floor: Global floor on total return (default 0.0).
+    ///     payoff_type: Payoff aggregation type: "additive" or "multiplicative" (default "additive").
     ///     maturity: Optional explicit maturity/expiry date (defaults to last reset date).
     ///     div_yield_id: Optional dividend yield identifier.
     ///
@@ -64,6 +66,9 @@ impl PyCliquetOption {
         discount_curve: Bound<'_, PyAny>,
         spot_id: &str,
         vol_surface: Bound<'_, PyAny>,
+        local_floor: f64,
+        global_floor: f64,
+        payoff_type: Option<&str>,
         maturity: Option<Bound<'_, PyAny>>,
         div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
@@ -99,13 +104,25 @@ impl PyCliquetOption {
         builder = builder.reset_dates(reset_dates_vec);
         builder = builder.expiry(expiry_date);
         builder = builder.local_cap(local_cap);
-        builder = builder.local_floor(0.0);
+        builder = builder.local_floor(local_floor);
         builder = builder.global_cap(global_cap);
-        builder = builder.global_floor(0.0);
+        builder = builder.global_floor(global_floor);
         builder = builder.notional(notional_money);
+
+        let cliquet_payoff_type = match payoff_type.unwrap_or("additive") {
+            "additive" => CliquetPayoffType::Additive,
+            "multiplicative" => CliquetPayoffType::Multiplicative,
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unknown payoff_type: {other}. Expected 'additive' or 'multiplicative'"
+                )))
+            }
+        };
+        builder = builder.payoff_type(cliquet_payoff_type);
         builder = builder.day_count(DayCount::Act365F);
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
+        builder = builder.attributes(finstack_valuations::instruments::Attributes::new());
         builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.spot_id(spot_id.to_string().into());
         builder = builder.vol_surface_id(vol_surface_id);
@@ -156,6 +173,33 @@ impl PyCliquetOption {
             dates.append(date_to_py(py, *d)?)?;
         }
         Ok(dates.into())
+    }
+
+    /// Expiry date.
+    #[getter]
+    fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.expiry)
+    }
+
+    /// Local floor.
+    #[getter]
+    fn local_floor(&self) -> f64 {
+        self.inner.local_floor
+    }
+
+    /// Global floor.
+    #[getter]
+    fn global_floor(&self) -> f64 {
+        self.inner.global_floor
+    }
+
+    /// Payoff aggregation type ("additive" or "multiplicative").
+    #[getter]
+    fn payoff_type(&self) -> &'static str {
+        match self.inner.payoff_type {
+            CliquetPayoffType::Additive => "additive",
+            CliquetPayoffType::Multiplicative => "multiplicative",
+        }
     }
 
     fn __repr__(&self) -> String {

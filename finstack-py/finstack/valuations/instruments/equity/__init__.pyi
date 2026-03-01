@@ -1,16 +1,22 @@
 """Equity instrument wrappers."""
 
 from __future__ import annotations
-from .equity import Equity as Equity
-from .equity_option import EquityOption as EquityOption
+from .equity import Equity as Equity, EquityBuilder as EquityBuilder
+from .equity_option import EquityOption as EquityOption, EquityOptionGreeks as EquityOptionGreeks
 from .equity_index_future import (
     EquityIndexFuture as EquityIndexFuture,
     EquityIndexFutureBuilder as EquityIndexFutureBuilder,
     EquityFutureSpecs as EquityFutureSpecs,
     FuturePosition as FuturePosition,
 )
-from .vol_index_future import VolatilityIndexFuture as VolatilityIndexFuture
-from .vol_index_option import VolatilityIndexOption as VolatilityIndexOption
+from .vol_index_future import (
+    VolatilityIndexFuture as VolatilityIndexFuture,
+    VolatilityIndexFutureBuilder as VolatilityIndexFutureBuilder,
+)
+from .vol_index_option import (
+    VolatilityIndexOption as VolatilityIndexOption,
+    VolatilityIndexOptionBuilder as VolatilityIndexOptionBuilder,
+)
 from .cliquet_option import CliquetOption as CliquetOption
 from .autocallable import Autocallable as Autocallable
 from .variance_swap import (
@@ -35,13 +41,17 @@ from .dcf import evaluate_dcf as evaluate_dcf
 
 __all__ = [
     "Equity",
+    "EquityBuilder",
     "EquityOption",
+    "EquityOptionGreeks",
     "EquityIndexFuture",
     "EquityIndexFutureBuilder",
     "EquityFutureSpecs",
     "FuturePosition",
     "VolatilityIndexFuture",
+    "VolatilityIndexFutureBuilder",
     "VolatilityIndexOption",
+    "VolatilityIndexOptionBuilder",
     "CliquetOption",
     "Autocallable",
     "VarianceSwap",

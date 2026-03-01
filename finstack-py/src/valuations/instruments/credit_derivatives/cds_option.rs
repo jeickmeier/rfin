@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::PyContext;
@@ -17,7 +15,26 @@ use rust_decimal::Decimal;
 use std::fmt;
 use std::sync::Arc;
 
-const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
+use crate::core::market_data::context::PyMarketContext;
+use crate::errors::core_to_py;
+use crate::valuations::common::parameters::{PyExerciseStyle, PyOptionType, PySettlementType};
+
+use finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
+
+fn day_count_label(dc: finstack_core::dates::DayCount) -> &'static str {
+    use finstack_core::dates::DayCount;
+    match dc {
+        DayCount::Act360 => "act_360",
+        DayCount::Act365F => "act_365f",
+        DayCount::Act365L => "act_365l",
+        DayCount::Thirty360 => "thirty_360",
+        DayCount::ThirtyE360 => "thirty_e_360",
+        DayCount::ActAct => "act_act",
+        DayCount::ActActIsma => "act_act_isma",
+        DayCount::Bus252 => "bus_252",
+        _ => "custom",
+    }
+}
 
 fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
     match label {
@@ -44,7 +61,7 @@ fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
 ///     0.015
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CdsOption",
+    name = "CDSOption",
     frozen,
     from_py_object
 )]
@@ -63,7 +80,7 @@ impl PyCDSOption {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CdsOptionBuilder",
+    name = "CDSOptionBuilder",
     unsendable
 )]
 pub struct PyCDSOptionBuilder {
@@ -94,7 +111,7 @@ impl PyCDSOptionBuilder {
             credit_curve: None,
             vol_surface: None,
             option_type: OptionType::Call,
-            recovery_rate: STANDARD_RECOVERY_SENIOR,
+            recovery_rate: RECOVERY_SENIOR_UNSECURED,
             underlying_is_index: false,
             index_factor: None,
             forward_adjust: 0.0,
@@ -255,6 +272,7 @@ impl PyCDSOptionBuilder {
     }
 
     #[pyo3(text_signature = "($self)")]
+    #[allow(clippy::unwrap_used)]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCDSOption> {
         slf.ensure_ready()?;
         let notional = slf.notional.ok_or_else(|| {
@@ -401,6 +419,60 @@ impl PyCDSOption {
         self.inner.credit_curve_id.as_str().to_string()
     }
 
+    /// Option type (call or put).
+    #[getter]
+    fn option_type(&self) -> PyOptionType {
+        PyOptionType::new(self.inner.option_type)
+    }
+
+    /// Exercise style.
+    #[getter]
+    fn exercise_style(&self) -> PyExerciseStyle {
+        PyExerciseStyle::new(self.inner.exercise_style)
+    }
+
+    /// Settlement type.
+    #[getter]
+    fn settlement(&self) -> PySettlementType {
+        PySettlementType::new(self.inner.settlement)
+    }
+
+    /// Recovery rate assumption.
+    #[getter]
+    fn recovery_rate(&self) -> f64 {
+        self.inner.recovery_rate
+    }
+
+    /// Volatility surface identifier.
+    #[getter]
+    fn vol_surface(&self) -> String {
+        self.inner.vol_surface_id.as_str().to_string()
+    }
+
+    /// Whether the underlying is a CDS index.
+    #[getter]
+    fn underlying_is_index(&self) -> bool {
+        self.inner.underlying_is_index
+    }
+
+    /// Index factor scaling (None for single-name).
+    #[getter]
+    fn index_factor(&self) -> Option<f64> {
+        self.inner.index_factor
+    }
+
+    /// Forward spread adjustment as decimal rate.
+    #[getter]
+    fn forward_spread_adjust(&self) -> f64 {
+        self.inner.forward_spread_adjust.to_f64().unwrap_or(0.0)
+    }
+
+    /// Day count convention for time calculations.
+    #[getter]
+    fn day_count(&self) -> &'static str {
+        day_count_label(self.inner.day_count)
+    }
+
     /// Instrument type enumeration.
     ///
     /// Returns:
@@ -408,6 +480,92 @@ impl PyCDSOption {
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CDSOption)
+    }
+
+    /// Calculate delta (spread sensitivity).
+    ///
+    /// Args:
+    ///     market: Market context with discount, hazard, and vol surfaces.
+    ///     as_of: Valuation date.
+    ///
+    /// Returns:
+    ///     float: Dollar delta per unit spread change.
+    #[pyo3(signature = (market, as_of))]
+    fn delta(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.delta(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate gamma (second-order spread sensitivity).
+    #[pyo3(signature = (market, as_of))]
+    fn gamma(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.gamma(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate vega (volatility sensitivity).
+    #[pyo3(signature = (market, as_of))]
+    fn vega(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.vega(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate theta (time decay per day).
+    #[pyo3(signature = (market, as_of))]
+    fn theta(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.theta(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate implied volatility from a target price.
+    ///
+    /// Args:
+    ///     market: Market context.
+    ///     as_of: Valuation date.
+    ///     target_price: Observed market price to match.
+    ///     initial_guess: Optional starting volatility (default: surface vol or 20%).
+    ///
+    /// Returns:
+    ///     float: Implied lognormal volatility in decimal form.
+    #[pyo3(signature = (market, as_of, target_price, initial_guess=None))]
+    fn implied_vol(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+        target_price: f64,
+        initial_guess: Option<f64>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| {
+            self.inner
+                .implied_vol(&market.inner, date, target_price, initial_guess)
+        })
+        .map_err(core_to_py)
     }
 
     fn __repr__(&self) -> PyResult<String> {
