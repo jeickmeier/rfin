@@ -28,7 +28,6 @@ use pyo3::Bound;
 mod analytics;
 mod core;
 mod errors;
-mod io;
 mod portfolio;
 mod scenarios;
 mod statements;
@@ -133,9 +132,6 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     // Analytics bindings (module registers itself under `analytics`)
     analytics::register(py, &m)?;
 
-    // IO bindings (module registers itself under `io`)
-    io::register(py, &m)?;
-
     // Re-export selected helpers at package root for convenience
     let dates_binding = core_mod.getattr("dates")?;
     let dates_mod = dates_binding.cast::<PyModule>()?;
@@ -212,7 +208,6 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "scenarios",
             "portfolio",
             "analytics",
-            "io",
             "Currency",
             "Money",
             "DiscountCurve",

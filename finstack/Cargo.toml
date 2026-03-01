@@ -16,8 +16,7 @@ statements = ["core", "dep:finstack_statements", "dep:indexmap"]
 valuations = ["core", "dep:finstack_valuations"]
 scenarios = ["core", "statements", "dep:finstack_scenarios"]
 portfolio = ["core", "statements", "valuations", "dep:finstack_portfolio"]
-io = ["dep:finstack_io"]
-all = ["core", "statements", "valuations", "portfolio", "io", "scenarios"]
+all = ["core", "statements", "valuations", "portfolio", "scenarios"]
 
 # Cross-cutting capability features
 serde = []  # Delegated to subcrates (enabled by default in most)
@@ -29,7 +28,6 @@ finstack_core = { package = "finstack-core", path = "core", optional = true }
 finstack_statements = { package = "finstack-statements", path = "statements", optional = true }
 finstack_valuations = { package = "finstack-valuations", path = "valuations", optional = true }
 finstack_portfolio = { package = "finstack-portfolio", path = "portfolio", optional = true }
-finstack_io = { package = "finstack-io", path = "io", optional = true }
 finstack_scenarios = { package = "finstack-scenarios", path = "scenarios", optional = true }
 indexmap = { workspace = true, optional = true }
 
@@ -157,9 +155,3 @@ required-features = ["scenarios"]
 name = "portfolio_example"
 path = "examples/portfolio/portfolio_example.rs"
 required-features = ["portfolio", "scenarios"]
-
-# IO Examples
-[[example]]
-name = "io_basic_example"
-path = "examples/io/io_basic_example.rs"
-required-features = ["all"]

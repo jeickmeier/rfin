@@ -20,7 +20,6 @@
 //! | `statements`  | [`finstack-statements`]|
 //! | `portfolio`   | [`finstack-portfolio`] |
 //! | `scenarios`   | [`finstack-scenarios`] |
-//! | `io`          | [`finstack-io`]        |
 //!
 //! Enable `all` to pull in every sub-crate at once.
 
@@ -38,9 +37,6 @@ pub use finstack_portfolio as portfolio;
 
 #[cfg(feature = "scenarios")]
 pub use finstack_scenarios as scenarios;
-
-#[cfg(feature = "io")]
-pub use finstack_io as io;
 
 // Bridge modules that wire multiple subcrates together
 #[cfg(all(feature = "valuations", feature = "statements"))]

@@ -17,7 +17,6 @@ finstack-valuations = { path = "../finstack/valuations", features = ["mc"] }
 finstack-statements = { path = "../finstack/statements", features = ["dataframes"] }
 finstack-scenarios = { path = "../finstack/scenarios" }
 finstack-portfolio = { path = "../finstack/portfolio", features = ["scenarios"] }
-finstack-io = { path = "../finstack/io", default-features = false }
 pyo3 = { version = "0.28", features = ["extension-module"] }
 pyo3-polars = { version = "0.26", features = ["derive"] }
 polars = { version = "0.53", default-features = false, features = ["temporal"] }
@@ -32,12 +31,6 @@ strum = { workspace = true }
 rayon = "1.11.0"
 rust_decimal = { workspace = true }
 
-# Async runtime for IO operations
-tokio = { version = "1", features = ["rt-multi-thread"] }
-
 [features]
-default = ["scenarios", "sqlite"]
+default = ["scenarios"]
 scenarios = []
-sqlite = ["finstack-io/sqlite"]
-postgres = ["finstack-io/postgres"]
-turso = ["finstack-io/turso"]

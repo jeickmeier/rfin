@@ -88,9 +88,6 @@ libverification_test.rlib
 # Script Outputs
 finstack-py/examples/outputs/
 
-# Example databases
-finstack-py/examples/scripts/io/*.db
-
 # LLM
 .windsurf/
 .zencoder/

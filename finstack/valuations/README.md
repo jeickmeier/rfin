@@ -706,7 +706,6 @@ cargo doc -p finstack-valuations --open
 - **[finstack-statements](../statements/)**: Financial statement modeling
 - **[finstack-portfolio](../portfolio/)**: Multi-instrument portfolio aggregation
 - **[finstack-scenarios](../scenarios/)**: Scenario analysis and stress testing
-- **[finstack-io](../io/)**: Market data I/O (CSV/Parquet/Bloomberg/FRED)
 
 ---
 

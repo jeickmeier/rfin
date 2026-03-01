@@ -347,7 +347,7 @@ class RustAPIExtractor:
             }
 
         # Process major crates
-        crate_dirs = ["core", "valuations", "statements", "scenarios", "portfolio", "io"]
+        crate_dirs = ["core", "valuations", "statements", "scenarios", "portfolio"]
         for crate_dir in crate_dirs:
             crate_path = self.src_root / crate_dir / "src"
             if not crate_path.exists():
