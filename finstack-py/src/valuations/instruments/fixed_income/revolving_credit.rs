@@ -1,16 +1,43 @@
+use crate::core::common::args::{CurrencyArg, DayCountArg, StubKindArg, TenorArg};
 use crate::core::currency::PyCurrency;
-use crate::core::dates::utils::date_to_py;
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
 use crate::core::money::PyMoney;
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
 use crate::valuations::common::PyInstrumentType;
 use crate::valuations::results::PyValuationResult;
-use finstack_valuations::instruments::fixed_income::revolving_credit::RevolvingCredit;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::cashflow::builder::specs::FloatingRateSpec;
+use finstack_valuations::cashflow::builder::FeeTier;
+use finstack_valuations::instruments::fixed_income::revolving_credit::{
+    BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
+    StochasticUtilizationSpec, UtilizationProcess,
+};
+use finstack_valuations::instruments::{Attributes, PricingOverrides};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyModule, PyType};
-use pyo3::Bound;
+use pyo3::types::{PyAny, PyModule, PyType};
+use pyo3::{Bound, Py, PyRefMut};
+use rust_decimal::Decimal;
 use std::fmt;
 use std::sync::Arc;
+
+fn parse_day_count_str(s: &str) -> PyResult<DayCount> {
+    let n = s.to_ascii_lowercase().replace([' ', '-'], "_");
+    match n.as_str() {
+        "act360" | "act/360" | "act_360" | "actual/360" => Ok(DayCount::Act360),
+        "act365f" | "act/365f" | "act_365f" | "actual/365f" => Ok(DayCount::Act365F),
+        "act365l" | "act/365l" | "act_365l" | "actual/365l" => Ok(DayCount::Act365L),
+        "30/360" | "30_360" | "thirty/360" | "30u/360" => Ok(DayCount::Thirty360),
+        "30e/360" | "30e_360" | "30/360e" => Ok(DayCount::ThirtyE360),
+        "actact" | "act/act" | "act_act" | "actual/actual" => Ok(DayCount::ActAct),
+        other => Err(PyValueError::new_err(format!("Unknown day-count: {other}"))),
+    }
+}
 
 /// Revolving credit facility instrument with deterministic and stochastic pricing.
 ///
@@ -438,6 +465,20 @@ impl PyRevolvingCredit {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
+    /// Start a fluent builder (``RevolvingCredit.builder("ID")``).
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyRevolvingCreditBuilder>> {
+        let py = cls.py();
+        Py::new(
+            py,
+            PyRevolvingCreditBuilder::new_with_id(InstrumentId::new(instrument_id)),
+        )
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "RevolvingCredit(id='{}', commitment={}, drawn={}, commitment_date='{}', maturity='{}')",
@@ -704,6 +745,702 @@ impl PyThreeFactorPathData {
     }
 }
 
+// ============================================================================
+// Builder-supporting types
+// ============================================================================
+
+/// A single fee tier (utilization threshold -> basis points).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "FeeTier",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyFeeTier {
+    pub(crate) inner: FeeTier,
+}
+
+#[pymethods]
+impl PyFeeTier {
+    #[new]
+    #[pyo3(text_signature = "(threshold, bps)")]
+    fn new_py(threshold: f64, bps: f64) -> Self {
+        Self {
+            inner: FeeTier {
+                threshold: Decimal::from_f64_retain(threshold).unwrap_or_default(),
+                bps: Decimal::from_f64_retain(bps).unwrap_or_default(),
+            },
+        }
+    }
+
+    #[getter]
+    fn threshold(&self) -> f64 {
+        self.inner.threshold.to_string().parse().unwrap_or(0.0)
+    }
+
+    #[getter]
+    fn bps(&self) -> f64 {
+        self.inner.bps.to_string().parse().unwrap_or(0.0)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "FeeTier(threshold={}, bps={})",
+            self.inner.threshold, self.inner.bps
+        )
+    }
+}
+
+/// Base rate specification (fixed or floating).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "BaseRateSpec",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyBaseRateSpec {
+    pub(crate) inner: BaseRateSpec,
+}
+
+#[pymethods]
+impl PyBaseRateSpec {
+    /// Create a fixed-rate spec.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, rate)")]
+    fn fixed(_cls: &Bound<'_, PyType>, rate: f64) -> Self {
+        Self {
+            inner: BaseRateSpec::Fixed { rate },
+        }
+    }
+
+    /// Create a floating-rate spec with simplified parameters.
+    #[classmethod]
+    #[pyo3(
+        text_signature = "(cls, index_id, spread_bp, reset_freq='3M', day_count='ACT360', calendar_id='weekends_only')",
+        signature = (index_id, spread_bp, reset_freq="3M", day_count="ACT360", calendar_id="weekends_only")
+    )]
+    fn floating(
+        _cls: &Bound<'_, PyType>,
+        index_id: &str,
+        spread_bp: f64,
+        reset_freq: &str,
+        day_count: &str,
+        calendar_id: &str,
+    ) -> PyResult<Self> {
+        let freq: Tenor = reset_freq
+            .parse()
+            .map_err(|e| PyValueError::new_err(format!("Invalid reset_freq: {e}")))?;
+        let dc = parse_day_count_str(day_count)?;
+        let spec = FloatingRateSpec {
+            index_id: CurveId::new(index_id),
+            spread_bp: Decimal::from_f64_retain(spread_bp).unwrap_or_default(),
+            gearing: Decimal::ONE,
+            gearing_includes_spread: true,
+            floor_bp: None,
+            all_in_floor_bp: None,
+            cap_bp: None,
+            index_cap_bp: None,
+            reset_freq: freq,
+            reset_lag_days: 2,
+            dc,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: calendar_id.to_string(),
+            fixing_calendar_id: None,
+            end_of_month: false,
+            overnight_compounding: None,
+            payment_lag_days: 0,
+        };
+        Ok(Self {
+            inner: BaseRateSpec::Floating(spec),
+        })
+    }
+
+    #[getter]
+    fn spec_type(&self) -> &'static str {
+        match &self.inner {
+            BaseRateSpec::Fixed { .. } => "fixed",
+            BaseRateSpec::Floating(_) => "floating",
+        }
+    }
+
+    #[getter]
+    fn rate(&self) -> Option<f64> {
+        match &self.inner {
+            BaseRateSpec::Fixed { rate } => Some(*rate),
+            BaseRateSpec::Floating(_) => None,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            BaseRateSpec::Fixed { rate } => format!("BaseRateSpec.fixed({rate})"),
+            BaseRateSpec::Floating(s) => {
+                format!(
+                    "BaseRateSpec.floating('{}', {})",
+                    s.index_id.as_str(),
+                    s.spread_bp
+                )
+            }
+        }
+    }
+}
+
+/// Fee structure for a revolving credit facility.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "RevolvingCreditFees",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyRevolvingCreditFees {
+    pub(crate) inner: RevolvingCreditFees,
+}
+
+#[pymethods]
+impl PyRevolvingCreditFees {
+    #[new]
+    #[pyo3(
+        text_signature = "(facility_fee_bp, commitment_fee_tiers=None, usage_fee_tiers=None, upfront_fee=None)",
+        signature = (facility_fee_bp, commitment_fee_tiers=None, usage_fee_tiers=None, upfront_fee=None)
+    )]
+    fn new_py(
+        facility_fee_bp: f64,
+        commitment_fee_tiers: Option<Vec<PyRef<'_, PyFeeTier>>>,
+        usage_fee_tiers: Option<Vec<PyRef<'_, PyFeeTier>>>,
+        upfront_fee: Option<PyRef<'_, PyMoney>>,
+    ) -> Self {
+        Self {
+            inner: RevolvingCreditFees {
+                upfront_fee: upfront_fee.map(|m| m.inner),
+                commitment_fee_tiers: commitment_fee_tiers
+                    .map(|v| v.iter().map(|t| t.inner.clone()).collect())
+                    .unwrap_or_default(),
+                usage_fee_tiers: usage_fee_tiers
+                    .map(|v| v.iter().map(|t| t.inner.clone()).collect())
+                    .unwrap_or_default(),
+                facility_fee_bp,
+            },
+        }
+    }
+
+    /// Convenience: create flat (non-tiered) fees.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, commitment_fee_bp, usage_fee_bp, facility_fee_bp)")]
+    fn flat(
+        _cls: &Bound<'_, PyType>,
+        commitment_fee_bp: f64,
+        usage_fee_bp: f64,
+        facility_fee_bp: f64,
+    ) -> Self {
+        Self {
+            inner: RevolvingCreditFees::flat(commitment_fee_bp, usage_fee_bp, facility_fee_bp),
+        }
+    }
+
+    #[getter]
+    fn facility_fee_bp(&self) -> f64 {
+        self.inner.facility_fee_bp
+    }
+
+    #[getter]
+    fn commitment_fee_tiers(&self) -> Vec<PyFeeTier> {
+        self.inner
+            .commitment_fee_tiers
+            .iter()
+            .map(|t| PyFeeTier { inner: t.clone() })
+            .collect()
+    }
+
+    #[getter]
+    fn usage_fee_tiers(&self) -> Vec<PyFeeTier> {
+        self.inner
+            .usage_fee_tiers
+            .iter()
+            .map(|t| PyFeeTier { inner: t.clone() })
+            .collect()
+    }
+
+    #[getter]
+    fn upfront_fee(&self) -> Option<PyMoney> {
+        self.inner.upfront_fee.map(PyMoney::new)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "RevolvingCreditFees(facility_fee_bp={}, commitment_tiers={}, usage_tiers={})",
+            self.inner.facility_fee_bp,
+            self.inner.commitment_fee_tiers.len(),
+            self.inner.usage_fee_tiers.len()
+        )
+    }
+}
+
+/// A single draw or repayment event.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "DrawRepayEvent",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyDrawRepayEvent {
+    pub(crate) inner: DrawRepayEvent,
+}
+
+#[pymethods]
+impl PyDrawRepayEvent {
+    #[new]
+    #[pyo3(text_signature = "(date, amount, currency, is_draw)")]
+    fn new_py(
+        date: Bound<'_, PyAny>,
+        amount: f64,
+        currency: CurrencyArg,
+        is_draw: bool,
+    ) -> PyResult<Self> {
+        let d = py_to_date(&date).context("DrawRepayEvent date")?;
+        Ok(Self {
+            inner: DrawRepayEvent {
+                date: d,
+                amount: Money::new(amount, currency.0),
+                is_draw,
+            },
+        })
+    }
+
+    #[getter]
+    fn date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.date)
+    }
+
+    #[getter]
+    fn amount(&self) -> PyMoney {
+        PyMoney::new(self.inner.amount)
+    }
+
+    #[getter]
+    fn is_draw(&self) -> bool {
+        self.inner.is_draw
+    }
+
+    fn __repr__(&self) -> String {
+        let kind = if self.inner.is_draw { "Draw" } else { "Repay" };
+        format!(
+            "DrawRepayEvent({kind}, {}, {})",
+            self.inner.date, self.inner.amount
+        )
+    }
+}
+
+/// Utilization process for stochastic simulation.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "UtilizationProcess",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyUtilizationProcess {
+    pub(crate) inner: UtilizationProcess,
+}
+
+#[pymethods]
+impl PyUtilizationProcess {
+    /// Create a mean-reverting Ornstein-Uhlenbeck utilization process.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, target_rate, speed, volatility)")]
+    fn mean_reverting(
+        _cls: &Bound<'_, PyType>,
+        target_rate: f64,
+        speed: f64,
+        volatility: f64,
+    ) -> Self {
+        Self {
+            inner: UtilizationProcess::MeanReverting {
+                target_rate,
+                speed,
+                volatility,
+            },
+        }
+    }
+
+    #[getter]
+    fn process_type(&self) -> &'static str {
+        match &self.inner {
+            UtilizationProcess::MeanReverting { .. } => "mean_reverting",
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            UtilizationProcess::MeanReverting {
+                target_rate,
+                speed,
+                volatility,
+            } => format!(
+                "UtilizationProcess.mean_reverting(target={target_rate}, speed={speed}, vol={volatility})"
+            ),
+        }
+    }
+}
+
+/// Stochastic utilization specification for Monte Carlo.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "StochasticUtilizationSpec",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticUtilizationSpec {
+    pub(crate) inner: StochasticUtilizationSpec,
+}
+
+#[pymethods]
+impl PyStochasticUtilizationSpec {
+    #[new]
+    #[pyo3(
+        text_signature = "(process, num_paths, seed=None, antithetic=False, use_sobol_qmc=False)",
+        signature = (process, num_paths, seed=None, antithetic=false, use_sobol_qmc=false)
+    )]
+    fn new_py(
+        process: &PyUtilizationProcess,
+        num_paths: usize,
+        seed: Option<u64>,
+        antithetic: bool,
+        use_sobol_qmc: bool,
+    ) -> Self {
+        Self {
+            inner: StochasticUtilizationSpec {
+                utilization_process: process.inner.clone(),
+                num_paths,
+                seed,
+                antithetic,
+                use_sobol_qmc,
+                mc_config: None,
+            },
+        }
+    }
+
+    #[getter]
+    fn num_paths(&self) -> usize {
+        self.inner.num_paths
+    }
+
+    #[getter]
+    fn seed(&self) -> Option<u64> {
+        self.inner.seed
+    }
+
+    #[getter]
+    fn antithetic(&self) -> bool {
+        self.inner.antithetic
+    }
+
+    #[getter]
+    fn use_sobol_qmc(&self) -> bool {
+        self.inner.use_sobol_qmc
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "StochasticUtilizationSpec(paths={}, seed={:?})",
+            self.inner.num_paths, self.inner.seed
+        )
+    }
+}
+
+/// Draw/repay specification (deterministic schedule or stochastic).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "DrawRepaySpec",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyDrawRepaySpec {
+    pub(crate) inner: DrawRepaySpec,
+}
+
+#[pymethods]
+impl PyDrawRepaySpec {
+    /// Create a deterministic draw/repay specification from a list of events.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, events)")]
+    fn deterministic(_cls: &Bound<'_, PyType>, events: Vec<PyRef<'_, PyDrawRepayEvent>>) -> Self {
+        Self {
+            inner: DrawRepaySpec::Deterministic(events.iter().map(|e| e.inner.clone()).collect()),
+        }
+    }
+
+    /// Create a deterministic spec with an empty schedule (no draws/repays).
+    #[classmethod]
+    fn empty(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: DrawRepaySpec::Deterministic(Vec::new()),
+        }
+    }
+
+    /// Create a stochastic draw/repay specification for Monte Carlo.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, spec)")]
+    fn stochastic(_cls: &Bound<'_, PyType>, spec: &PyStochasticUtilizationSpec) -> Self {
+        Self {
+            inner: DrawRepaySpec::Stochastic(Box::new(spec.inner.clone())),
+        }
+    }
+
+    #[getter]
+    fn spec_type(&self) -> &'static str {
+        match &self.inner {
+            DrawRepaySpec::Deterministic(_) => "deterministic",
+            DrawRepaySpec::Stochastic(_) => "stochastic",
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            DrawRepaySpec::Deterministic(events) => {
+                format!("DrawRepaySpec.deterministic({} events)", events.len())
+            }
+            DrawRepaySpec::Stochastic(spec) => {
+                format!("DrawRepaySpec.stochastic({} paths)", spec.num_paths)
+            }
+        }
+    }
+}
+
+// ============================================================================
+// RevolvingCreditBuilder
+// ============================================================================
+
+/// Fluent builder for constructing a RevolvingCredit instrument.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "RevolvingCreditBuilder",
+    unsendable,
+    skip_from_py_object
+)]
+pub struct PyRevolvingCreditBuilder {
+    instrument_id: InstrumentId,
+    pending_commitment_amount: Option<f64>,
+    pending_drawn_amount: Option<f64>,
+    pending_currency: Option<Currency>,
+    commitment_date: Option<time::Date>,
+    maturity: Option<time::Date>,
+    base_rate_spec: Option<BaseRateSpec>,
+    day_count: DayCount,
+    frequency: Tenor,
+    fees: Option<RevolvingCreditFees>,
+    draw_repay_spec: Option<DrawRepaySpec>,
+    discount_curve_id: Option<CurveId>,
+    credit_curve_id: Option<CurveId>,
+    recovery_rate: f64,
+    stub: StubKind,
+}
+
+impl PyRevolvingCreditBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            pending_commitment_amount: None,
+            pending_drawn_amount: None,
+            pending_currency: None,
+            commitment_date: None,
+            maturity: None,
+            base_rate_spec: None,
+            day_count: DayCount::Act360,
+            frequency: Tenor::quarterly(),
+            fees: None,
+            draw_repay_spec: None,
+            discount_curve_id: None,
+            credit_curve_id: None,
+            recovery_rate: 0.0,
+            stub: StubKind::ShortFront,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.pending_commitment_amount.is_none() || self.pending_currency.is_none() {
+            return Err(PyValueError::new_err(
+                "commitment_amount() and currency() must be set before build().",
+            ));
+        }
+        if self.commitment_date.is_none() {
+            return Err(PyValueError::new_err(
+                "commitment_date() must be set before build().",
+            ));
+        }
+        if self.maturity.is_none() {
+            return Err(PyValueError::new_err(
+                "maturity() must be set before build().",
+            ));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err(
+                "disc_id() must be set before build().",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[pymethods]
+impl PyRevolvingCreditBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, amount)")]
+    fn commitment_amount(mut slf: PyRefMut<'_, Self>, amount: f64) -> PyRefMut<'_, Self> {
+        slf.pending_commitment_amount = Some(amount);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, amount)")]
+    fn drawn_amount(mut slf: PyRefMut<'_, Self>, amount: f64) -> PyRefMut<'_, Self> {
+        slf.pending_drawn_amount = Some(amount);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency(mut slf: PyRefMut<'_, Self>, currency: CurrencyArg) -> PyRefMut<'_, Self> {
+        slf.pending_currency = Some(currency.0);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, date)")]
+    fn commitment_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.commitment_date = Some(py_to_date(&date).context("commitment_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, date)")]
+    fn maturity<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.maturity = Some(py_to_date(&date).context("maturity")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, spec)")]
+    fn base_rate<'py>(mut slf: PyRefMut<'py, Self>, spec: &PyBaseRateSpec) -> PyRefMut<'py, Self> {
+        slf.base_rate_spec = Some(spec.inner.clone());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, day_count)")]
+    fn day_count(mut slf: PyRefMut<'_, Self>, day_count: DayCountArg) -> PyRefMut<'_, Self> {
+        slf.day_count = day_count.0;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, frequency)")]
+    fn frequency(mut slf: PyRefMut<'_, Self>, frequency: TenorArg) -> PyRefMut<'_, Self> {
+        slf.frequency = frequency.0;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, fees)")]
+    fn fees<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        fees: &PyRevolvingCreditFees,
+    ) -> PyRefMut<'py, Self> {
+        slf.fees = Some(fees.inner.clone());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, spec)")]
+    fn draw_repay<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        spec: &PyDrawRepaySpec,
+    ) -> PyRefMut<'py, Self> {
+        slf.draw_repay_spec = Some(spec.inner.clone());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(&curve_id));
+        slf
+    }
+
+    #[pyo3(
+        text_signature = "($self, curve_id=None)",
+        signature = (curve_id=None)
+    )]
+    fn credit_curve(mut slf: PyRefMut<'_, Self>, curve_id: Option<String>) -> PyRefMut<'_, Self> {
+        slf.credit_curve_id = curve_id.map(|id| CurveId::new(&id));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, rate)")]
+    fn recovery_rate(mut slf: PyRefMut<'_, Self>, rate: f64) -> PyRefMut<'_, Self> {
+        slf.recovery_rate = rate;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, stub)")]
+    fn stub(mut slf: PyRefMut<'_, Self>, stub: StubKindArg) -> PyRefMut<'_, Self> {
+        slf.stub = stub.0;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(&self) -> PyResult<PyRevolvingCredit> {
+        self.ensure_ready()?;
+
+        let ccy = self.pending_currency.unwrap();
+        let commitment = Money::new(self.pending_commitment_amount.unwrap(), ccy);
+        let drawn = Money::new(self.pending_drawn_amount.unwrap_or(0.0), ccy);
+
+        let base_rate = self
+            .base_rate_spec
+            .clone()
+            .unwrap_or(BaseRateSpec::Fixed { rate: 0.0 });
+
+        let fees = self.fees.clone().unwrap_or_default();
+
+        let draw_repay = self
+            .draw_repay_spec
+            .clone()
+            .unwrap_or_else(|| DrawRepaySpec::Deterministic(Vec::new()));
+
+        RevolvingCredit::builder()
+            .id(self.instrument_id.clone())
+            .commitment_amount(commitment)
+            .drawn_amount(drawn)
+            .commitment_date(self.commitment_date.unwrap())
+            .maturity(self.maturity.unwrap())
+            .base_rate_spec(base_rate)
+            .day_count(self.day_count)
+            .frequency(self.frequency)
+            .fees(fees)
+            .draw_repay_spec(draw_repay)
+            .discount_curve_id(self.discount_curve_id.clone().unwrap())
+            .credit_curve_id_opt(self.credit_curve_id.clone())
+            .recovery_rate(self.recovery_rate)
+            .stub(self.stub)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .map(PyRevolvingCredit::new)
+            .map_err(core_to_py)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("RevolvingCreditBuilder('{}')", self.instrument_id)
+    }
+}
+
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
@@ -712,10 +1449,26 @@ pub(crate) fn register<'py>(
     module.add_class::<PyEnhancedMonteCarloResult>()?;
     module.add_class::<PyPathResult>()?;
     module.add_class::<PyThreeFactorPathData>()?;
+    module.add_class::<PyFeeTier>()?;
+    module.add_class::<PyBaseRateSpec>()?;
+    module.add_class::<PyRevolvingCreditFees>()?;
+    module.add_class::<PyDrawRepayEvent>()?;
+    module.add_class::<PyUtilizationProcess>()?;
+    module.add_class::<PyStochasticUtilizationSpec>()?;
+    module.add_class::<PyDrawRepaySpec>()?;
+    module.add_class::<PyRevolvingCreditBuilder>()?;
     Ok(vec![
         "RevolvingCredit",
+        "RevolvingCreditBuilder",
         "EnhancedMonteCarloResult",
         "PathResult",
         "ThreeFactorPathData",
+        "FeeTier",
+        "BaseRateSpec",
+        "RevolvingCreditFees",
+        "DrawRepayEvent",
+        "UtilizationProcess",
+        "StochasticUtilizationSpec",
+        "DrawRepaySpec",
     ])
 }

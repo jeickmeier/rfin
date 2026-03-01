@@ -46,7 +46,8 @@ impl PyFiIndexTotalReturnSwap {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "FiIndexTotalReturnSwapBuilder",
-    unsendable
+    unsendable,
+    skip_from_py_object
 )]
 pub struct PyFiIndexTotalReturnSwapBuilder {
     instrument_id: InstrumentId,

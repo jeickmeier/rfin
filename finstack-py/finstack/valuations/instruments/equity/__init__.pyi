@@ -27,8 +27,6 @@ from .trs import (
     IndexUnderlying as IndexUnderlying,
     EquityTotalReturnSwapBuilder as EquityTotalReturnSwapBuilder,
     EquityTotalReturnSwap as EquityTotalReturnSwap,
-    FiIndexTotalReturnSwapBuilder as FiIndexTotalReturnSwapBuilder,
-    FiIndexTotalReturnSwap as FiIndexTotalReturnSwap,
 )
 from .private_markets_fund import PrivateMarketsFund as PrivateMarketsFund
 from .real_estate import RealEstateAsset as RealEstateAsset
@@ -57,8 +55,6 @@ __all__ = [
     "IndexUnderlying",
     "EquityTotalReturnSwapBuilder",
     "EquityTotalReturnSwap",
-    "FiIndexTotalReturnSwapBuilder",
-    "FiIndexTotalReturnSwap",
     "PrivateMarketsFund",
     "RealEstateAsset",
     "LeveredRealEstateEquity",

@@ -1,12 +1,166 @@
 """Revolving credit facility instrument."""
 
 from __future__ import annotations
-from typing import Dict, Any, List
-from datetime import date
+import datetime
+from typing import List
 from ....core.money import Money
 from ....core.currency import Currency
 from ...common import InstrumentType
 from ...cashflow.builder import CashFlowSchedule
+
+class FeeTier:
+    """A single fee tier (utilization threshold -> basis points)."""
+
+    def __init__(self, threshold: float, bps: float) -> None: ...
+    @property
+    def threshold(self) -> float: ...
+    @property
+    def bps(self) -> float: ...
+    def __repr__(self) -> str: ...
+
+class BaseRateSpec:
+    """Base rate specification (fixed or floating)."""
+
+    @classmethod
+    def fixed(cls, rate: float) -> BaseRateSpec:
+        """Create a fixed-rate spec."""
+        ...
+
+    @classmethod
+    def floating(
+        cls,
+        index_id: str,
+        spread_bp: float,
+        reset_freq: str = "3M",
+        day_count: str = "ACT360",
+        calendar_id: str = "weekends_only",
+    ) -> BaseRateSpec:
+        """Create a floating-rate spec with simplified parameters."""
+        ...
+
+    @property
+    def spec_type(self) -> str: ...
+    @property
+    def rate(self) -> float | None: ...
+    def __repr__(self) -> str: ...
+
+class RevolvingCreditFees:
+    """Fee structure for a revolving credit facility."""
+
+    def __init__(
+        self,
+        facility_fee_bp: float,
+        commitment_fee_tiers: List[FeeTier] | None = None,
+        usage_fee_tiers: List[FeeTier] | None = None,
+        upfront_fee: Money | None = None,
+    ) -> None: ...
+    @classmethod
+    def flat(
+        cls,
+        commitment_fee_bp: float,
+        usage_fee_bp: float,
+        facility_fee_bp: float,
+    ) -> RevolvingCreditFees:
+        """Create flat (non-tiered) fees."""
+        ...
+
+    @property
+    def facility_fee_bp(self) -> float: ...
+    @property
+    def commitment_fee_tiers(self) -> List[FeeTier]: ...
+    @property
+    def usage_fee_tiers(self) -> List[FeeTier]: ...
+    @property
+    def upfront_fee(self) -> Money | None: ...
+    def __repr__(self) -> str: ...
+
+class DrawRepayEvent:
+    """A single draw or repayment event."""
+
+    def __init__(self, date: datetime.date, amount: float, currency: str | Currency, is_draw: bool) -> None: ...
+    @property
+    def date(self) -> datetime.date: ...
+    @property
+    def amount(self) -> Money: ...
+    @property
+    def is_draw(self) -> bool: ...
+    def __repr__(self) -> str: ...
+
+class UtilizationProcess:
+    """Utilization process for stochastic simulation."""
+
+    @classmethod
+    def mean_reverting(cls, target_rate: float, speed: float, volatility: float) -> UtilizationProcess:
+        """Create a mean-reverting Ornstein-Uhlenbeck utilization process."""
+        ...
+
+    @property
+    def process_type(self) -> str: ...
+    def __repr__(self) -> str: ...
+
+class StochasticUtilizationSpec:
+    """Stochastic utilization specification for Monte Carlo."""
+
+    def __init__(
+        self,
+        process: UtilizationProcess,
+        num_paths: int,
+        seed: int | None = None,
+        antithetic: bool = False,
+        use_sobol_qmc: bool = False,
+    ) -> None: ...
+    @property
+    def num_paths(self) -> int: ...
+    @property
+    def seed(self) -> int | None: ...
+    @property
+    def antithetic(self) -> bool: ...
+    @property
+    def use_sobol_qmc(self) -> bool: ...
+    def __repr__(self) -> str: ...
+
+class DrawRepaySpec:
+    """Draw/repay specification (deterministic schedule or stochastic)."""
+
+    @classmethod
+    def deterministic(cls, events: List[DrawRepayEvent]) -> DrawRepaySpec:
+        """Create a deterministic draw/repay specification from a list of events."""
+        ...
+
+    @classmethod
+    def empty(cls) -> DrawRepaySpec:
+        """Create a deterministic spec with an empty schedule."""
+        ...
+
+    @classmethod
+    def stochastic(cls, spec: StochasticUtilizationSpec) -> DrawRepaySpec:
+        """Create a stochastic draw/repay specification for Monte Carlo."""
+        ...
+
+    @property
+    def spec_type(self) -> str: ...
+    def __repr__(self) -> str: ...
+
+class RevolvingCreditBuilder:
+    """Fluent builder for constructing a RevolvingCredit instrument."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def commitment_amount(self, amount: float) -> RevolvingCreditBuilder: ...
+    def drawn_amount(self, amount: float) -> RevolvingCreditBuilder: ...
+    def currency(self, currency: str | Currency) -> RevolvingCreditBuilder: ...
+    def commitment_date(self, date: datetime.date) -> RevolvingCreditBuilder: ...
+    def maturity(self, date: datetime.date) -> RevolvingCreditBuilder: ...
+    def base_rate(self, spec: BaseRateSpec) -> RevolvingCreditBuilder: ...
+    def day_count(self, day_count: str) -> RevolvingCreditBuilder: ...
+    def frequency(self, frequency: str) -> RevolvingCreditBuilder: ...
+    def fees(self, fees: RevolvingCreditFees) -> RevolvingCreditBuilder: ...
+    def draw_repay(self, spec: DrawRepaySpec) -> RevolvingCreditBuilder: ...
+    def disc_id(self, curve_id: str) -> RevolvingCreditBuilder: ...
+    def credit_curve(self, curve_id: str | None = None) -> RevolvingCreditBuilder: ...
+    def recovery_rate(self, rate: float) -> RevolvingCreditBuilder: ...
+    def stub(self, stub: str) -> RevolvingCreditBuilder: ...
+    def build(self) -> "RevolvingCredit": ...
+    def __repr__(self) -> str: ...
 
 class RevolvingCredit:
     """Revolving credit facility with flexible drawdown and repayment.
@@ -43,6 +197,23 @@ class RevolvingCredit:
         >>> revolver = RevolvingCredit.from_json(json_str)
         >>> revolver.utilization_rate()  # 0.4 (20M / 50M)
 
+    Create using the typed builder:
+
+        >>> from datetime import date
+        >>> rc = (
+        ...     RevolvingCredit
+        ...     .builder("RCF-001")
+        ...     .commitment_amount(100_000_000)
+        ...     .drawn_amount(50_000_000)
+        ...     .currency("USD")
+        ...     .commitment_date(date(2025, 1, 1))
+        ...     .maturity(date(2030, 1, 1))
+        ...     .base_rate(BaseRateSpec.fixed(0.055))
+        ...     .fees(RevolvingCreditFees.flat(25, 10, 5))
+        ...     .disc_id("USD-OIS")
+        ...     .build()
+        ... )
+
     Notes
     -----
     - Revolving credit requires discount curve and optionally credit curve
@@ -70,7 +241,7 @@ class RevolvingCredit:
     """
 
     @classmethod
-    def from_json(cls, json_str: str) -> "RevolvingCredit":
+    def from_json(cls, json_str: str) -> RevolvingCredit:
         """Create a revolving credit facility from a JSON string specification.
 
         Parameters
@@ -100,6 +271,11 @@ class RevolvingCredit:
         """
         ...
 
+    @classmethod
+    def builder(cls, instrument_id: str) -> RevolvingCreditBuilder:
+        """Start a fluent builder for constructing a RevolvingCredit."""
+        ...
+
     def to_json(self) -> str:
         """Serialize the revolving credit facility to a JSON string."""
         ...
@@ -111,9 +287,9 @@ class RevolvingCredit:
     @property
     def drawn_amount(self) -> Money: ...
     @property
-    def commitment_date(self) -> date: ...
+    def commitment_date(self) -> datetime.date: ...
     @property
-    def maturity_date(self) -> date: ...
+    def maturity_date(self) -> datetime.date: ...
     @property
     def currency(self) -> Currency: ...
     @property
@@ -151,7 +327,7 @@ class PathResult:
     @property
     def cashflows(self) -> CashFlowSchedule: ...
     @property
-    def path_data(self) -> "ThreeFactorPathData" | None: ...
+    def path_data(self) -> ThreeFactorPathData | None: ...
     def __repr__(self) -> str: ...
 
 class ThreeFactorPathData:
@@ -166,7 +342,7 @@ class ThreeFactorPathData:
     @property
     def time_points(self) -> List[float]: ...
     @property
-    def payment_dates(self) -> List[date]: ...
+    def payment_dates(self) -> List[datetime.date]: ...
     def __repr__(self) -> str: ...
 
 class EnhancedMonteCarloResult:

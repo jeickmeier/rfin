@@ -10,6 +10,7 @@ use crate::core::common::args::{
     BusinessDayConventionArg, CurrencyArg, DayCountArg, StubKindArg, TenorArg,
 };
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::PyMoney;
 use crate::errors::{core_to_py, PyContext};
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
@@ -21,7 +22,10 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::cashflow::builder::AmortizationSpec as ValAmortizationSpec;
 use finstack_valuations::cashflow::builder::CashFlowSchedule;
+use finstack_valuations::cashflow::AccrualMethod;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::BondSettlementConvention;
+use finstack_valuations::instruments::fixed_income::bond::MakeWholeSpec;
 use finstack_valuations::instruments::fixed_income::bond::{
     CallPut, CallPutSchedule, CashflowSpec,
 };
@@ -37,6 +41,270 @@ use std::sync::Arc;
 use finstack_valuations::cashflow::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
 };
+
+/// Bond settlement and ex-coupon conventions.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "BondSettlementConvention",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyBondSettlementConvention {
+    pub(crate) inner: BondSettlementConvention,
+}
+
+#[pymethods]
+impl PyBondSettlementConvention {
+    #[new]
+    #[pyo3(signature = (settlement_days, ex_coupon_days=0, ex_coupon_calendar_id=None))]
+    fn new_py(
+        settlement_days: u32,
+        ex_coupon_days: u32,
+        ex_coupon_calendar_id: Option<String>,
+    ) -> Self {
+        Self {
+            inner: BondSettlementConvention {
+                settlement_days,
+                ex_coupon_days,
+                ex_coupon_calendar_id,
+            },
+        }
+    }
+
+    #[getter]
+    fn settlement_days(&self) -> u32 {
+        self.inner.settlement_days
+    }
+    #[getter]
+    fn ex_coupon_days(&self) -> u32 {
+        self.inner.ex_coupon_days
+    }
+    #[getter]
+    fn ex_coupon_calendar_id(&self) -> Option<String> {
+        self.inner.ex_coupon_calendar_id.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "BondSettlementConvention(settlement_days={}, ex_coupon_days={})",
+            self.inner.settlement_days, self.inner.ex_coupon_days
+        )
+    }
+}
+
+/// Accrual method for bond interest calculation.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "AccrualMethod",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyAccrualMethod {
+    pub(crate) inner: AccrualMethod,
+}
+
+#[pymethods]
+impl PyAccrualMethod {
+    #[classattr]
+    const LINEAR: Self = Self {
+        inner: AccrualMethod::Linear,
+    };
+    #[classattr]
+    const COMPOUNDED: Self = Self {
+        inner: AccrualMethod::Compounded,
+    };
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            AccrualMethod::Linear => "AccrualMethod.LINEAR".to_string(),
+            AccrualMethod::Compounded => "AccrualMethod.COMPOUNDED".to_string(),
+            _ => "AccrualMethod.UNKNOWN".to_string(),
+        }
+    }
+}
+
+/// Make-whole call specification.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "MakeWholeSpec",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyMakeWholeSpec {
+    pub(crate) inner: MakeWholeSpec,
+}
+
+#[pymethods]
+impl PyMakeWholeSpec {
+    #[new]
+    #[pyo3(text_signature = "(reference_curve_id, spread_bps)")]
+    fn new_py(reference_curve_id: String, spread_bps: f64) -> Self {
+        Self {
+            inner: MakeWholeSpec {
+                reference_curve_id: CurveId::new(&reference_curve_id),
+                spread_bps,
+            },
+        }
+    }
+
+    #[getter]
+    fn reference_curve_id(&self) -> String {
+        self.inner.reference_curve_id.as_str().to_string()
+    }
+    #[getter]
+    fn spread_bps(&self) -> f64 {
+        self.inner.spread_bps
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "MakeWholeSpec(curve='{}', spread_bps={})",
+            self.inner.reference_curve_id, self.inner.spread_bps
+        )
+    }
+}
+
+/// Call or put option on a bond.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CallPut",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyCallPut {
+    pub(crate) inner: CallPut,
+}
+
+#[pymethods]
+impl PyCallPut {
+    #[new]
+    #[pyo3(signature = (date, price_pct_of_par, end_date=None, make_whole=None))]
+    fn new_py(
+        date: Bound<'_, PyAny>,
+        price_pct_of_par: f64,
+        end_date: Option<Bound<'_, PyAny>>,
+        make_whole: Option<&PyMakeWholeSpec>,
+    ) -> PyResult<Self> {
+        Ok(Self {
+            inner: CallPut {
+                date: py_to_date(&date)?,
+                price_pct_of_par,
+                end_date: end_date.map(|d| py_to_date(&d)).transpose()?,
+                make_whole: make_whole.map(|mw| mw.inner.clone()),
+            },
+        })
+    }
+
+    #[getter]
+    fn date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.date)
+    }
+    #[getter]
+    fn price_pct_of_par(&self) -> f64 {
+        self.inner.price_pct_of_par
+    }
+    #[getter]
+    fn end_date(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        self.inner.end_date.map(|d| date_to_py(py, d)).transpose()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "CallPut(date={}, price_pct={})",
+            self.inner.date, self.inner.price_pct_of_par
+        )
+    }
+}
+
+/// Schedule of call and put options for a bond.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CallPutSchedule",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyCallPutSchedule {
+    pub(crate) inner: CallPutSchedule,
+}
+
+#[pymethods]
+impl PyCallPutSchedule {
+    #[new]
+    #[pyo3(signature = (calls=None, puts=None))]
+    fn new_py(
+        calls: Option<Vec<PyRef<'_, PyCallPut>>>,
+        puts: Option<Vec<PyRef<'_, PyCallPut>>>,
+    ) -> Self {
+        Self {
+            inner: CallPutSchedule {
+                calls: calls
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|c| c.inner.clone())
+                    .collect(),
+                puts: puts
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|p| p.inner.clone())
+                    .collect(),
+            },
+        }
+    }
+
+    fn has_options(&self) -> bool {
+        self.inner.has_options()
+    }
+
+    #[getter]
+    fn call_count(&self) -> usize {
+        self.inner.calls.len()
+    }
+    #[getter]
+    fn put_count(&self) -> usize {
+        self.inner.puts.len()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "CallPutSchedule(calls={}, puts={})",
+            self.inner.calls.len(),
+            self.inner.puts.len()
+        )
+    }
+}
+
+/// Cashflow specification for a bond (fixed, floating, or amortizing).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CashflowSpec",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyCashflowSpec {
+    pub(crate) inner: CashflowSpec,
+}
+
+#[pymethods]
+impl PyCashflowSpec {
+    #[getter]
+    fn spec_type(&self) -> &'static str {
+        match &self.inner {
+            CashflowSpec::Fixed(_) => "fixed",
+            CashflowSpec::Floating(_) => "floating",
+            CashflowSpec::Amortizing { .. } => "amortizing",
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("CashflowSpec(type='{}')", self.spec_type())
+    }
+}
 
 /// Fixed-income bond instrument (builder-only API).
 #[pyclass(
@@ -61,7 +329,8 @@ impl PyBond {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "BondBuilder",
-    unsendable
+    unsendable,
+    skip_from_py_object
 )]
 pub struct PyBondBuilder {
     instrument_id: InstrumentId,
@@ -78,6 +347,7 @@ pub struct PyBondBuilder {
     stub: StubKind,
     amortization: Option<ValAmortizationSpec>,
     call_put: Option<CallPutSchedule>,
+    settlement_convention: Option<BondSettlementConvention>,
     custom_cashflows: Option<CashFlowSchedule>,
     coupon_rate: f64,
     quoted_clean_price: Option<f64>,
@@ -104,6 +374,7 @@ impl PyBondBuilder {
             stub: StubKind::None,
             amortization: None,
             call_put: None,
+            settlement_convention: None,
             custom_cashflows: None,
             coupon_rate: 0.0,
             quoted_clean_price: None,
@@ -333,6 +604,15 @@ impl PyBondBuilder {
         slf
     }
 
+    #[pyo3(signature = (convention))]
+    fn settlement_convention<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        convention: &PyBondSettlementConvention,
+    ) -> PyRefMut<'py, Self> {
+        slf.settlement_convention = Some(convention.inner.clone());
+        slf
+    }
+
     #[pyo3(text_signature = "($self, schedule)")]
     fn call_schedule<'py>(
         mut slf: PyRefMut<'py, Self>,
@@ -501,7 +781,7 @@ impl PyBondBuilder {
             .cashflow_spec(slf.make_cashflow_spec())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
-            .settlement_convention_opt(None);
+            .settlement_convention_opt(slf.settlement_convention.clone());
 
         if let Some(credit) = slf.credit_curve.clone() {
             builder = builder.credit_curve_id_opt(Some(credit));
@@ -624,6 +904,82 @@ impl PyBond {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::Bond)
     }
 
+    /// Number of settlement days (T+n), if a settlement convention is set.
+    #[getter]
+    fn settlement_days(&self) -> Option<u32> {
+        self.inner.settlement_days()
+    }
+
+    /// Number of ex-coupon days before a coupon date, if set.
+    #[getter]
+    fn ex_coupon_days(&self) -> Option<u32> {
+        self.inner.ex_coupon_days()
+    }
+
+    /// Calendar identifier used for ex-coupon day counting, if set.
+    #[getter]
+    fn ex_coupon_calendar_id(&self) -> Option<String> {
+        self.inner.ex_coupon_calendar_id().map(|s| s.to_string())
+    }
+
+    /// Accrual method ("linear" or "compounded").
+    #[getter]
+    fn accrual_method(&self) -> &'static str {
+        match &self.inner.accrual_method {
+            finstack_valuations::cashflow::AccrualMethod::Linear => "linear",
+            finstack_valuations::cashflow::AccrualMethod::Compounded => "compounded",
+            _ => "unknown",
+        }
+    }
+
+    /// Whether the bond has any call or put options.
+    #[getter]
+    fn has_call_put(&self) -> bool {
+        self.inner
+            .call_put
+            .as_ref()
+            .map_or(false, |cp| cp.has_options())
+    }
+
+    /// Validate all bond parameters.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If validation fails (e.g. issue >= maturity, notional <= 0)
+    fn validate(&self) -> PyResult<()> {
+        self.inner.validate().map_err(core_to_py)
+    }
+
+    /// Generate the full cashflow schedule for this bond.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data for forward rate fixing (required for floating-rate bonds)
+    ///
+    /// Returns
+    /// -------
+    /// CashFlowSchedule
+    ///     Complete schedule of coupon and principal cashflows
+    fn get_full_schedule(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+    ) -> PyResult<PyCashFlowSchedule> {
+        let schedule = py
+            .detach(|| self.inner.get_full_schedule(&market.inner))
+            .map_err(core_to_py)?;
+        Ok(PyCashFlowSchedule::new(schedule))
+    }
+
+    #[getter]
+    fn cashflow_spec(&self) -> PyCashflowSpec {
+        PyCashflowSpec {
+            inner: self.inner.cashflow_spec.clone(),
+        }
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         use rust_decimal::prelude::ToPrimitive;
         let coupon_rate = match &self.inner.cashflow_spec {
@@ -652,7 +1008,22 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyBondSettlementConvention>()?;
+    module.add_class::<PyAccrualMethod>()?;
+    module.add_class::<PyMakeWholeSpec>()?;
+    module.add_class::<PyCallPut>()?;
+    module.add_class::<PyCallPutSchedule>()?;
+    module.add_class::<PyCashflowSpec>()?;
     module.add_class::<PyBond>()?;
     module.add_class::<PyBondBuilder>()?;
-    Ok(vec!["Bond", "BondBuilder"])
+    Ok(vec![
+        "BondSettlementConvention",
+        "AccrualMethod",
+        "MakeWholeSpec",
+        "CallPut",
+        "CallPutSchedule",
+        "CashflowSpec",
+        "Bond",
+        "BondBuilder",
+    ])
 }

@@ -9,16 +9,17 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
 use finstack_valuations::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
+use finstack_valuations::instruments::fixed_income::convertible::ConvertibleTreeType;
 use finstack_valuations::instruments::fixed_income::convertible::{
     AntiDilutionPolicy, ConversionEvent, ConversionPolicy, ConversionSpec, ConvertibleBond,
-    DividendAdjustment,
+    ConvertibleGreeks, DilutionEvent, DividendAdjustment, SoftCallTrigger,
 };
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::{Bound, Py, PyRefMut};
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -310,7 +311,7 @@ impl PyConversionSpec {
 #[pymethods]
 impl PyConversionSpec {
     #[pyo3(
-        text_signature = "(cls, policy, /, *, ratio=None, price=None, anti_dilution=None, dividend_adjustment=None)",
+        text_signature = "(cls, policy, /, *, ratio=None, price=None, anti_dilution=None, dividend_adjustment=None, dilution_events=None)",
         signature = (
             policy,
             /,
@@ -318,7 +319,8 @@ impl PyConversionSpec {
             ratio=None,
             price=None,
             anti_dilution=None,
-            dividend_adjustment=None
+            dividend_adjustment=None,
+            dilution_events=None
         )
     )]
     #[new]
@@ -328,12 +330,16 @@ impl PyConversionSpec {
         price: Option<f64>,
         anti_dilution: Option<PyAntiDilutionPolicy>,
         dividend_adjustment: Option<PyDividendAdjustment>,
+        dilution_events: Option<Vec<PyRef<'_, PyDilutionEvent>>>,
     ) -> PyResult<Self> {
         if ratio.is_none() && price.is_none() {
             return Err(PyValueError::new_err(
                 "Provide either conversion ratio or conversion price",
             ));
         }
+        let events = dilution_events
+            .map(|evts| evts.iter().map(|e| e.inner.clone()).collect())
+            .unwrap_or_default();
         Ok(Self::from_inner(ConversionSpec {
             ratio,
             price,
@@ -344,7 +350,7 @@ impl PyConversionSpec {
             dividend_adjustment: dividend_adjustment
                 .map(|v| v.inner)
                 .unwrap_or(DividendAdjustment::None),
-            dilution_events: Vec::new(),
+            dilution_events: events,
         }))
     }
 
@@ -361,6 +367,205 @@ impl PyConversionSpec {
     #[getter]
     fn policy(&self) -> String {
         describe_policy(&self.inner.policy)
+    }
+}
+
+/// Greeks for a convertible bond.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "ConvertibleGreeks",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyConvertibleGreeks {
+    pub(crate) inner: ConvertibleGreeks,
+}
+
+#[pymethods]
+impl PyConvertibleGreeks {
+    #[getter]
+    fn price(&self) -> f64 {
+        self.inner.price
+    }
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.inner.delta
+    }
+    #[getter]
+    fn gamma(&self) -> f64 {
+        self.inner.gamma
+    }
+    #[getter]
+    fn vega(&self) -> f64 {
+        self.inner.vega
+    }
+    #[getter]
+    fn theta(&self) -> f64 {
+        self.inner.theta
+    }
+    #[getter]
+    fn rho(&self) -> f64 {
+        self.inner.rho
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ConvertibleGreeks(price={:.4}, delta={:.4}, gamma={:.6}, vega={:.4}, theta={:.4}, rho={:.4})",
+            self.inner.price, self.inner.delta, self.inner.gamma,
+            self.inner.vega, self.inner.theta, self.inner.rho
+        )
+    }
+}
+
+/// Tree type for convertible bond valuation.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "ConvertibleTreeType",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyConvertibleTreeType {
+    pub(crate) inner: ConvertibleTreeType,
+}
+
+#[pymethods]
+impl PyConvertibleTreeType {
+    /// Create a binomial tree specification.
+    #[classmethod]
+    #[pyo3(signature = (steps=100))]
+    fn binomial(_cls: &Bound<'_, PyType>, steps: usize) -> Self {
+        Self {
+            inner: ConvertibleTreeType::Binomial(steps),
+        }
+    }
+
+    /// Create a trinomial tree specification.
+    #[classmethod]
+    #[pyo3(signature = (steps=100))]
+    fn trinomial(_cls: &Bound<'_, PyType>, steps: usize) -> Self {
+        Self {
+            inner: ConvertibleTreeType::Trinomial(steps),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            ConvertibleTreeType::Binomial(n) => format!("ConvertibleTreeType.binomial({})", n),
+            ConvertibleTreeType::Trinomial(n) => format!("ConvertibleTreeType.trinomial({})", n),
+        }
+    }
+}
+
+/// Soft-call trigger condition for convertible bonds.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "SoftCallTrigger",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PySoftCallTrigger {
+    pub(crate) inner: SoftCallTrigger,
+}
+
+#[pymethods]
+impl PySoftCallTrigger {
+    #[new]
+    #[pyo3(text_signature = "(threshold_pct, observation_days, required_days_above)")]
+    fn new_py(threshold_pct: f64, observation_days: u32, required_days_above: u32) -> Self {
+        Self {
+            inner: SoftCallTrigger {
+                threshold_pct,
+                observation_days,
+                required_days_above,
+            },
+        }
+    }
+
+    #[getter]
+    fn threshold_pct(&self) -> f64 {
+        self.inner.threshold_pct
+    }
+
+    #[getter]
+    fn observation_days(&self) -> u32 {
+        self.inner.observation_days
+    }
+
+    #[getter]
+    fn required_days_above(&self) -> u32 {
+        self.inner.required_days_above
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "SoftCallTrigger(threshold_pct={}, observation_days={}, required_days_above={})",
+            self.inner.threshold_pct, self.inner.observation_days, self.inner.required_days_above
+        )
+    }
+}
+
+/// Dilution event for anti-dilution adjustment.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "DilutionEvent",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyDilutionEvent {
+    pub(crate) inner: DilutionEvent,
+}
+
+#[pymethods]
+impl PyDilutionEvent {
+    #[new]
+    #[pyo3(
+        text_signature = "(date, new_issue_price, new_shares_issued, shares_outstanding_before)"
+    )]
+    fn new_py(
+        date: Bound<'_, PyAny>,
+        new_issue_price: f64,
+        new_shares_issued: f64,
+        shares_outstanding_before: f64,
+    ) -> PyResult<Self> {
+        Ok(Self {
+            inner: DilutionEvent {
+                date: py_to_date(&date)?,
+                new_issue_price,
+                new_shares_issued,
+                shares_outstanding_before,
+            },
+        })
+    }
+
+    #[getter]
+    fn date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.date)
+    }
+
+    #[getter]
+    fn new_issue_price(&self) -> f64 {
+        self.inner.new_issue_price
+    }
+
+    #[getter]
+    fn new_shares_issued(&self) -> f64 {
+        self.inner.new_shares_issued
+    }
+
+    #[getter]
+    fn shares_outstanding_before(&self) -> f64 {
+        self.inner.shares_outstanding_before
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "DilutionEvent(date={}, price={})",
+            self.inner.date, self.inner.new_issue_price
+        )
     }
 }
 
@@ -387,7 +592,8 @@ impl PyConvertibleBond {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "ConvertibleBondBuilder",
-    unsendable
+    unsendable,
+    skip_from_py_object
 )]
 pub struct PyConvertibleBondBuilder {
     instrument_id: InstrumentId,
@@ -401,6 +607,7 @@ pub struct PyConvertibleBondBuilder {
     puts: Vec<CallPut>,
     fixed_coupon: Option<FixedCouponSpec>,
     floating_coupon: Option<FloatingCouponSpec>,
+    soft_call_trigger: Option<SoftCallTrigger>,
 }
 
 impl PyConvertibleBondBuilder {
@@ -417,6 +624,7 @@ impl PyConvertibleBondBuilder {
             puts: Vec::new(),
             fixed_coupon: None,
             floating_coupon: None,
+            soft_call_trigger: None,
         }
     }
 
@@ -554,6 +762,15 @@ impl PyConvertibleBondBuilder {
         slf
     }
 
+    #[pyo3(signature = (trigger))]
+    fn soft_call_trigger<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        trigger: &PySoftCallTrigger,
+    ) -> PyRefMut<'py, Self> {
+        slf.soft_call_trigger = Some(trigger.inner.clone());
+        slf
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyConvertibleBond> {
         slf.ensure_ready()?;
@@ -577,7 +794,7 @@ impl PyConvertibleBondBuilder {
             conversion: slf.conversion.clone().unwrap(),
             underlying_equity_id: slf.underlying_equity_id.clone(),
             call_put,
-            soft_call_trigger: None,
+            soft_call_trigger: slf.soft_call_trigger.clone(),
             fixed_coupon: slf.fixed_coupon.clone(),
             floating_coupon: slf.floating_coupon.clone(),
             pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
@@ -674,6 +891,95 @@ impl PyConvertibleBond {
             .map_err(core_to_py)
     }
 
+    /// Calculate all Greeks for this convertible bond.
+    #[pyo3(signature = (market, as_of, tree_type=None, bump_size=None))]
+    fn greeks(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+        tree_type: Option<&PyConvertibleTreeType>,
+        bump_size: Option<f64>,
+    ) -> PyResult<PyConvertibleGreeks> {
+        let date = py_to_date(&as_of)?;
+        let tt = tree_type.map(|t| t.inner.clone());
+        let result = py
+            .detach(|| self.inner.greeks(&market.inner, tt, bump_size, date))
+            .map_err(core_to_py)?;
+        Ok(PyConvertibleGreeks { inner: result })
+    }
+
+    /// Calculate delta (equity spot sensitivity).
+    #[pyo3(signature = (market, as_of))]
+    fn delta(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.delta(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate gamma (second derivative w.r.t. spot).
+    #[pyo3(signature = (market, as_of))]
+    fn gamma(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.gamma(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate vega (volatility sensitivity).
+    #[pyo3(signature = (market, as_of))]
+    fn vega(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.vega(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate rho (interest rate sensitivity).
+    #[pyo3(signature = (market, as_of))]
+    fn rho(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.rho(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Calculate theta (time decay per day).
+    #[pyo3(signature = (market, as_of))]
+    fn theta(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        py.detach(|| self.inner.theta(&market.inner, date))
+            .map_err(core_to_py)
+    }
+
+    /// Effective conversion ratio adjusted for anti-dilution events.
+    #[getter]
+    fn effective_conversion_ratio(&self) -> Option<f64> {
+        self.inner.effective_conversion_ratio()
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "ConvertibleBond(id='{}', notional={}, policy='{}')",
@@ -704,16 +1010,24 @@ pub(crate) fn register<'py>(
     module.add_class::<PyConversionPolicy>()?;
     module.add_class::<PyAntiDilutionPolicy>()?;
     module.add_class::<PyDividendAdjustment>()?;
+    module.add_class::<PySoftCallTrigger>()?;
+    module.add_class::<PyDilutionEvent>()?;
     module.add_class::<PyConversionSpec>()?;
     module.add_class::<PyConvertibleBond>()?;
     module.add_class::<PyConvertibleBondBuilder>()?;
+    module.add_class::<PyConvertibleGreeks>()?;
+    module.add_class::<PyConvertibleTreeType>()?;
     Ok(vec![
         "ConversionEvent",
         "ConversionPolicy",
         "AntiDilutionPolicy",
         "DividendAdjustment",
+        "SoftCallTrigger",
+        "DilutionEvent",
         "ConversionSpec",
         "ConvertibleBond",
         "ConvertibleBondBuilder",
+        "ConvertibleGreeks",
+        "ConvertibleTreeType",
     ])
 }

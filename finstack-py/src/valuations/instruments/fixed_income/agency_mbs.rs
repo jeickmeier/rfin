@@ -25,7 +25,7 @@ use finstack_valuations::instruments::fixed_income::dollar_roll::DollarRoll;
 use finstack_valuations::instruments::fixed_income::mbs_passthrough::{
     AgencyMbsPassthrough, AgencyProgram, PoolType,
 };
-use finstack_valuations::instruments::fixed_income::tba::{AgencyTba, TbaTerm};
+use finstack_valuations::instruments::fixed_income::tba::{AgencyTba, TbaSettlement, TbaTerm};
 use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -270,7 +270,8 @@ impl PyAgencyMbsPassthrough {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "AgencyMbsPassthroughBuilder",
-    unsendable
+    unsendable,
+    skip_from_py_object
 )]
 pub struct PyAgencyMbsPassthroughBuilder {
     instrument_id: InstrumentId,
@@ -630,6 +631,42 @@ impl PyAgencyMbsPassthrough {
 }
 
 // =============================================================================
+// TBA Settlement
+// =============================================================================
+
+/// TBA settlement information.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "TbaSettlement",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyTbaSettlement {
+    pub(crate) inner: TbaSettlement,
+}
+
+#[pymethods]
+impl PyTbaSettlement {
+    #[getter]
+    fn settlement_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.settlement_date)
+    }
+
+    #[getter]
+    fn notification_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.notification_date)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "TbaSettlement(settlement={}, notification={})",
+            self.inner.settlement_date, self.inner.notification_date
+        )
+    }
+}
+
+// =============================================================================
 // Agency TBA
 // =============================================================================
 
@@ -659,7 +696,8 @@ impl PyAgencyTba {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "AgencyTbaBuilder",
-    unsendable
+    unsendable,
+    skip_from_py_object
 )]
 pub struct PyAgencyTbaBuilder {
     instrument_id: InstrumentId,
@@ -938,7 +976,8 @@ impl PyDollarRoll {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "DollarRollBuilder",
-    unsendable
+    unsendable,
+    skip_from_py_object
 )]
 pub struct PyDollarRollBuilder {
     instrument_id: InstrumentId,
@@ -1585,7 +1624,8 @@ impl PyAgencyCmo {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "AgencyCmoBuilder",
-    unsendable
+    unsendable,
+    skip_from_py_object
 )]
 pub struct PyAgencyCmoBuilder {
     instrument_id: InstrumentId,
@@ -1822,6 +1862,7 @@ pub(crate) fn register(
     parent.add_class::<PyPoolType>()?;
     parent.add_class::<PyTbaTerm>()?;
     parent.add_class::<PyCmoTrancheType>()?;
+    parent.add_class::<PyTbaSettlement>()?;
     parent.add_class::<PyAgencyMbsPassthrough>()?;
     parent.add_class::<PyAgencyMbsPassthroughBuilder>()?;
     parent.add_class::<PyAgencyTba>()?;
@@ -1838,6 +1879,7 @@ pub(crate) fn register(
         "AgencyProgram",
         "PoolType",
         "TbaTerm",
+        "TbaSettlement",
         "CmoTrancheType",
         "AgencyMbsPassthrough",
         "AgencyMbsPassthroughBuilder",

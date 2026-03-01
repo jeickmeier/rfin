@@ -1,23 +1,93 @@
 """Fixed-income bond instrument with convenience constructors."""
 
 from __future__ import annotations
+import datetime
 from typing import List, Tuple, Any, TypedDict, overload
-from datetime import date
 from ....core.money import Money
 from ....core.currency import Currency
 from ....core.dates.schedule import Frequency, StubKind
 from ....core.dates.daycount import DayCount
 from ....core.dates.calendar import BusinessDayConvention
+from ....core.market_data.context import MarketContext
 from ...cashflow.builder import AmortizationSpec, CashFlowSchedule
 from ...common import InstrumentType
 
 class CallScheduleItem(TypedDict):
-    date: date
+    date: datetime.date
     price_pct: float
 
 class PutScheduleItem(TypedDict):
-    date: date
+    date: datetime.date
     price_pct: float
+
+class BondSettlementConvention:
+    """Bond settlement and ex-coupon conventions."""
+    def __init__(
+        self,
+        settlement_days: int,
+        ex_coupon_days: int = 0,
+        ex_coupon_calendar_id: str | None = None,
+    ) -> None: ...
+    @property
+    def settlement_days(self) -> int: ...
+    @property
+    def ex_coupon_days(self) -> int: ...
+    @property
+    def ex_coupon_calendar_id(self) -> str | None: ...
+    def __repr__(self) -> str: ...
+
+class AccrualMethod:
+    """Accrual method for bond interest calculation."""
+
+    LINEAR: AccrualMethod
+    COMPOUNDED: AccrualMethod
+    def __repr__(self) -> str: ...
+
+class MakeWholeSpec:
+    """Make-whole call specification."""
+    def __init__(self, reference_curve_id: str, spread_bps: float) -> None: ...
+    @property
+    def reference_curve_id(self) -> str: ...
+    @property
+    def spread_bps(self) -> float: ...
+    def __repr__(self) -> str: ...
+
+class CallPut:
+    """Call or put option on a bond."""
+    def __init__(
+        self,
+        date: datetime.date,
+        price_pct_of_par: float,
+        end_date: datetime.date | None = None,
+        make_whole: MakeWholeSpec | None = None,
+    ) -> None: ...
+    @property
+    def date(self) -> datetime.date: ...
+    @property
+    def price_pct_of_par(self) -> float: ...
+    @property
+    def end_date(self) -> datetime.date | None: ...
+    def __repr__(self) -> str: ...
+
+class CallPutSchedule:
+    """Schedule of call and put options for a bond."""
+    def __init__(
+        self,
+        calls: list[CallPut] | None = None,
+        puts: list[CallPut] | None = None,
+    ) -> None: ...
+    def has_options(self) -> bool: ...
+    @property
+    def call_count(self) -> int: ...
+    @property
+    def put_count(self) -> int: ...
+    def __repr__(self) -> str: ...
+
+class CashflowSpec:
+    """Cashflow specification (fixed, floating, or amortizing)."""
+    @property
+    def spec_type(self) -> str: ...
+    def __repr__(self) -> str: ...
 
 class BondBuilder:
     """Fluent builder returned by :meth:`Bond.builder` when only an ID is provided."""
@@ -27,8 +97,8 @@ class BondBuilder:
     def currency(self, currency: str | Currency) -> BondBuilder: ...
     def money(self, money: Money) -> BondBuilder: ...
     def cashflows(self, schedule: CashFlowSchedule) -> BondBuilder: ...
-    def issue(self, issue: date) -> BondBuilder: ...
-    def maturity(self, maturity: date) -> BondBuilder: ...
+    def issue(self, issue: datetime.date) -> BondBuilder: ...
+    def maturity(self, maturity: datetime.date) -> BondBuilder: ...
     def disc_id(self, curve_id: str) -> BondBuilder: ...
     def credit_curve(self, curve_id: str | None = ...) -> BondBuilder: ...
     def coupon_rate(self, rate: float) -> BondBuilder: ...
@@ -38,6 +108,7 @@ class BondBuilder:
     def stub(self, stub: StubKind | str) -> BondBuilder: ...
     def calendar(self, calendar_id: str | None = ...) -> BondBuilder: ...
     def amortization(self, amortization: AmortizationSpec | None = ...) -> BondBuilder: ...
+    def settlement_convention(self, convention: BondSettlementConvention) -> BondBuilder: ...
     def call_schedule(self, schedule: List[CallScheduleItem]) -> BondBuilder: ...
     def put_schedule(self, schedule: List[PutScheduleItem]) -> BondBuilder: ...
     def quoted_clean_price(self, price: float | None = ...) -> BondBuilder: ...
@@ -168,7 +239,7 @@ class Bond:
         ...
 
     @property
-    def issue(self) -> date:
+    def issue(self) -> datetime.date:
         """Issue date for the bond.
 
         Returns:
@@ -177,7 +248,7 @@ class Bond:
         ...
 
     @property
-    def maturity(self) -> date:
+    def maturity(self) -> datetime.date:
         """Maturity date.
 
         Returns:
@@ -212,5 +283,40 @@ class Bond:
         """
         ...
 
+    @property
+    def settlement_days(self) -> int | None:
+        """Number of settlement days (T+n)."""
+        ...
+    @property
+    def ex_coupon_days(self) -> int | None:
+        """Number of ex-coupon days before a coupon date."""
+        ...
+    @property
+    def ex_coupon_calendar_id(self) -> str | None:
+        """Calendar identifier for ex-coupon day counting."""
+        ...
+    @property
+    def accrual_method(self) -> str:
+        """Accrual method ('linear' or 'compounded')."""
+        ...
+    @property
+    def has_call_put(self) -> bool:
+        """Whether the bond has any call or put options."""
+        ...
+    def validate(self) -> None:
+        """Validate all bond parameters.
+
+        Raises
+        ------
+        ValueError
+            If validation fails.
+        """
+        ...
+    def get_full_schedule(self, market: MarketContext) -> CashFlowSchedule:
+        """Generate the full cashflow schedule for this bond."""
+        ...
+
+    @property
+    def cashflow_spec(self) -> CashflowSpec: ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

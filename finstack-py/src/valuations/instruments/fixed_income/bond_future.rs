@@ -1,8 +1,10 @@
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::PyMoney;
-use crate::errors::PyContext;
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
+use crate::valuations::instruments::fixed_income::bond::PyBond;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -16,6 +18,49 @@ use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
+
+/// A deliverable bond in a futures contract basket.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "DeliverableBond",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyDeliverableBond {
+    pub(crate) inner: DeliverableBond,
+}
+
+#[pymethods]
+impl PyDeliverableBond {
+    #[new]
+    #[pyo3(text_signature = "(bond_id, conversion_factor)")]
+    fn new_py(bond_id: &str, conversion_factor: f64) -> Self {
+        Self {
+            inner: DeliverableBond {
+                bond_id: InstrumentId::new(bond_id),
+                conversion_factor,
+            },
+        }
+    }
+
+    #[getter]
+    fn bond_id(&self) -> String {
+        self.inner.bond_id.as_str().to_string()
+    }
+
+    #[getter]
+    fn conversion_factor(&self) -> f64 {
+        self.inner.conversion_factor
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "DeliverableBond(bond_id='{}', cf={})",
+            self.inner.bond_id, self.inner.conversion_factor
+        )
+    }
+}
 
 /// Bond future contract instrument.
 ///
@@ -190,7 +235,8 @@ impl PyBondFutureSpecs {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "BondFutureBuilder",
-    unsendable
+    unsendable,
+    skip_from_py_object
 )]
 pub struct PyBondFutureBuilder {
     instrument_id: InstrumentId,
@@ -363,8 +409,8 @@ impl PyBondFutureBuilder {
     ///
     /// Parameters
     /// ----------
-    /// basket : list of dict
-    ///     Each dict must have "bond_id" (str) and "conversion_factor" (float)
+    /// basket : list of DeliverableBond or dict
+    ///     Each item is a DeliverableBond or dict with "bond_id" and "conversion_factor"
     #[pyo3(text_signature = "($self, basket)")]
     fn deliverable_basket<'py>(
         mut slf: PyRefMut<'py, Self>,
@@ -372,22 +418,25 @@ impl PyBondFutureBuilder {
     ) -> PyResult<PyRefMut<'py, Self>> {
         let mut bonds = Vec::new();
         for item in basket.iter() {
-            let dict = item.cast::<pyo3::types::PyDict>()?;
-            let bond_id = dict
-                .get_item("bond_id")?
-                .ok_or_else(|| PyValueError::new_err("Each basket item must have 'bond_id'"))?
-                .extract::<String>()?;
-            let conversion_factor = dict
-                .get_item("conversion_factor")?
-                .ok_or_else(|| {
-                    PyValueError::new_err("Each basket item must have 'conversion_factor'")
-                })?
-                .extract::<f64>()?;
-
-            bonds.push(DeliverableBond {
-                bond_id: InstrumentId::new(&bond_id),
-                conversion_factor,
-            });
+            if let Ok(db) = item.extract::<PyRef<PyDeliverableBond>>() {
+                bonds.push(db.inner.clone());
+            } else {
+                let dict = item.cast::<pyo3::types::PyDict>()?;
+                let bond_id = dict
+                    .get_item("bond_id")?
+                    .ok_or_else(|| PyValueError::new_err("Each basket item must have 'bond_id'"))?
+                    .extract::<String>()?;
+                let conversion_factor = dict
+                    .get_item("conversion_factor")?
+                    .ok_or_else(|| {
+                        PyValueError::new_err("Each basket item must have 'conversion_factor'")
+                    })?
+                    .extract::<f64>()?;
+                bonds.push(DeliverableBond {
+                    bond_id: InstrumentId::new(&bond_id),
+                    conversion_factor,
+                });
+            }
         }
         slf.deliverable_basket = bonds;
         Ok(slf)
@@ -607,6 +656,122 @@ impl PyBondFuture {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::BondFuture)
     }
 
+    /// Compute the invoice price for delivering the CTD bond.
+    ///
+    /// Parameters
+    /// ----------
+    /// ctd_bond : Bond
+    ///     The cheapest-to-deliver bond instrument
+    /// market : MarketContext
+    ///     Market data for schedule generation and accrued interest
+    /// settlement_date : date
+    ///     Delivery settlement date
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Invoice price (futures price * CF + accrued interest)
+    fn invoice_price(
+        &self,
+        py: Python<'_>,
+        ctd_bond: &PyBond,
+        market: &PyMarketContext,
+        settlement_date: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&settlement_date)?;
+        let result = py
+            .detach(|| {
+                self.inner
+                    .invoice_price(&ctd_bond.inner, &market.inner, date)
+            })
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(result))
+    }
+
+    /// Determine the cheapest-to-deliver bond from clean prices.
+    ///
+    /// Parameters
+    /// ----------
+    /// bond_clean_prices : list[tuple[str, float]]
+    ///     List of (bond_id, clean_price_per_100) tuples
+    ///
+    /// Returns
+    /// -------
+    /// tuple[str, float]
+    ///     (bond_id, basis) of the CTD bond
+    fn determine_ctd(&self, bond_clean_prices: Vec<(String, f64)>) -> PyResult<(String, f64)> {
+        let prices: Vec<(InstrumentId, f64)> = bond_clean_prices
+            .into_iter()
+            .map(|(id, px)| (InstrumentId::new(&id), px))
+            .collect();
+        let (ctd_id, basis) = self.inner.determine_ctd(&prices).map_err(core_to_py)?;
+        Ok((ctd_id.as_str().to_string(), basis))
+    }
+
+    /// Determine the cheapest-to-deliver bond from prices with accrued interest.
+    ///
+    /// Parameters
+    /// ----------
+    /// bond_prices_with_accrued : list[tuple[str, float, float]]
+    ///     List of (bond_id, clean_price_per_100, accrued_per_100) tuples
+    ///
+    /// Returns
+    /// -------
+    /// tuple[str, float]
+    ///     (bond_id, basis) of the CTD bond
+    fn determine_ctd_with_accrued(
+        &self,
+        bond_prices_with_accrued: Vec<(String, f64, f64)>,
+    ) -> PyResult<(String, f64)> {
+        let prices: Vec<(InstrumentId, f64, f64)> = bond_prices_with_accrued
+            .into_iter()
+            .map(|(id, px, acc)| (InstrumentId::new(&id), px, acc))
+            .collect();
+        let (ctd_id, basis) = self
+            .inner
+            .determine_ctd_with_accrued(&prices)
+            .map_err(core_to_py)?;
+        Ok((ctd_id.as_str().to_string(), basis))
+    }
+
+    /// Calculate the implied repo rate for a deliverable bond.
+    ///
+    /// Parameters
+    /// ----------
+    /// bond_id : str
+    ///     Bond identifier (must exist in deliverable basket)
+    /// clean_price : float
+    ///     Current clean price of the bond
+    /// accrued_today : float
+    ///     Accrued interest as of today
+    /// accrued_at_delivery : float
+    ///     Projected accrued interest at delivery date
+    /// days_to_delivery : int
+    ///     Number of days until delivery
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Annualized implied repo rate
+    fn implied_repo_rate(
+        &self,
+        bond_id: &str,
+        clean_price: f64,
+        accrued_today: f64,
+        accrued_at_delivery: f64,
+        days_to_delivery: i32,
+    ) -> PyResult<f64> {
+        self.inner
+            .implied_repo_rate(
+                &InstrumentId::new(bond_id),
+                clean_price,
+                accrued_today,
+                accrued_at_delivery,
+                days_to_delivery,
+            )
+            .map_err(core_to_py)
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "BondFuture(id='{}', position='{}', expiry='{}')",
@@ -627,8 +792,14 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyDeliverableBond>()?;
     module.add_class::<PyBondFuture>()?;
     module.add_class::<PyBondFutureBuilder>()?;
     module.add_class::<PyBondFutureSpecs>()?;
-    Ok(vec!["BondFuture", "BondFutureBuilder", "BondFutureSpecs"])
+    Ok(vec![
+        "DeliverableBond",
+        "BondFuture",
+        "BondFutureBuilder",
+        "BondFutureSpecs",
+    ])
 }

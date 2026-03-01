@@ -38,8 +38,32 @@ from .fixed_income.revolving_credit import (
     PathResult as PathResult,
     ThreeFactorPathData as ThreeFactorPathData,
 )
-from .fixed_income.structured_credit import StructuredCredit as StructuredCredit
-from .fixed_income.term_loan import TermLoan as TermLoan
+from .fixed_income.structured_credit import (
+    DealType as DealType,
+    StructuredCredit as StructuredCredit,
+    StructuredCreditBuilder as StructuredCreditBuilder,
+    TrancheSeniority as TrancheSeniority,
+)
+from .fixed_income.term_loan import (
+    CashSweepEvent as CashSweepEvent,
+    CommitmentFeeBase as CommitmentFeeBase,
+    CommitmentStepDown as CommitmentStepDown,
+    CouponType as CouponType,
+    CovenantSpec as CovenantSpec,
+    DdtlSpec as DdtlSpec,
+    DrawEvent as DrawEvent,
+    LoanCall as LoanCall,
+    LoanCallSchedule as LoanCallSchedule,
+    LoanCallType as LoanCallType,
+    MarginStepUp as MarginStepUp,
+    OidEirSpec as OidEirSpec,
+    OidPolicy as OidPolicy,
+    PikToggle as PikToggle,
+    RateSpec as RateSpec,
+    TermLoan as TermLoan,
+    TermLoanAmortizationSpec as TermLoanAmortizationSpec,
+    TermLoanBuilder as TermLoanBuilder,
+)
 
 # Rates
 from .rates.deposit import Deposit as Deposit
@@ -120,6 +144,8 @@ from .equity.trs import (
     IndexUnderlying as IndexUnderlying,
     EquityTotalReturnSwapBuilder as EquityTotalReturnSwapBuilder,
     EquityTotalReturnSwap as EquityTotalReturnSwap,
+)
+from .fixed_income.fi_trs import (
     FiIndexTotalReturnSwapBuilder as FiIndexTotalReturnSwapBuilder,
     FiIndexTotalReturnSwap as FiIndexTotalReturnSwap,
 )
@@ -227,12 +253,33 @@ __all__ = [
     "CdsOption",
     "CdsTranche",
     "CmsOption",
+    "DealType",
+    "TrancheSeniority",
+    "StructuredCreditBuilder",
     "StructuredCredit",
     # Other
     "BarrierOption",
     "BarrierType",
     "PrivateMarketsFund",
+    # Term Loan
+    "CashSweepEvent",
+    "CommitmentFeeBase",
+    "CommitmentStepDown",
+    "CouponType",
+    "CovenantSpec",
+    "DdtlSpec",
+    "DrawEvent",
+    "LoanCall",
+    "LoanCallSchedule",
+    "LoanCallType",
+    "MarginStepUp",
+    "OidEirSpec",
+    "OidPolicy",
+    "PikToggle",
+    "RateSpec",
     "TermLoan",
+    "TermLoanAmortizationSpec",
+    "TermLoanBuilder",
     "RevolvingCredit",
     "EnhancedMonteCarloResult",
     "PathResult",

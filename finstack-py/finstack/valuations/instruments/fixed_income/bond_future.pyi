@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ....core.money import Money
 from ...common import InstrumentType
+
+if TYPE_CHECKING:
+    from .bond import Bond
+    from ....core.market_data.context import MarketContext
 
 class BondFutureSpecs:
     """Bond future contract specifications.
@@ -55,6 +59,15 @@ class BondFutureSpecs:
         ...
     def __repr__(self) -> str: ...
 
+class DeliverableBond:
+    """A deliverable bond in a futures contract basket."""
+    def __init__(self, bond_id: str, conversion_factor: float) -> None: ...
+    @property
+    def bond_id(self) -> str: ...
+    @property
+    def conversion_factor(self) -> float: ...
+    def __repr__(self) -> str: ...
+
 class BondFutureBuilder:
     """Fluent builder returned by :meth:`BondFuture.builder`."""
 
@@ -80,7 +93,7 @@ class BondFutureBuilder:
     def contract_specs(self, specs: BondFutureSpecs) -> BondFutureBuilder:
         """Set contract specifications."""
         ...
-    def deliverable_basket(self, basket: list[dict[str, Any]]) -> BondFutureBuilder:
+    def deliverable_basket(self, basket: list[DeliverableBond | dict[str, Any]]) -> BondFutureBuilder:
         """Set deliverable basket of bonds with conversion factors."""
         ...
     def ctd_bond_id(self, bond_id: str) -> BondFutureBuilder:
@@ -189,5 +202,35 @@ class BondFuture:
     @property
     def instrument_type(self) -> InstrumentType:
         """Instrument type enum."""
+        ...
+    def invoice_price(
+        self,
+        ctd_bond: Bond,
+        market: MarketContext,
+        settlement_date: date,
+    ) -> Money:
+        """Compute the invoice price for delivering the CTD bond."""
+        ...
+    def determine_ctd(
+        self,
+        bond_clean_prices: list[tuple[str, float]],
+    ) -> tuple[str, float]:
+        """Determine the cheapest-to-deliver bond from clean prices."""
+        ...
+    def determine_ctd_with_accrued(
+        self,
+        bond_prices_with_accrued: list[tuple[str, float, float]],
+    ) -> tuple[str, float]:
+        """Determine the cheapest-to-deliver bond using prices with accrued interest."""
+        ...
+    def implied_repo_rate(
+        self,
+        bond_id: str,
+        clean_price: float,
+        accrued_today: float,
+        accrued_at_delivery: float,
+        days_to_delivery: int,
+    ) -> float:
+        """Calculate the annualized implied repo rate for a deliverable bond."""
         ...
     def __repr__(self) -> str: ...
