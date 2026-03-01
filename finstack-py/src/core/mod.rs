@@ -10,3 +10,4 @@ pub mod math;
 pub mod money;
 pub mod types;
 pub mod volatility;
+pub mod volatility_models;

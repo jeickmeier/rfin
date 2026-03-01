@@ -1,4 +1,4 @@
-use finstack_core::math::solver::{BrentSolver, NewtonSolver, Solver};
+use finstack_core::math::solver::{BracketHint, BrentSolver, NewtonSolver, Solver};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
@@ -6,6 +6,94 @@ use pyo3::Bound;
 use crate::errors::core_to_py;
 
 use super::callable::CallableAdapter;
+
+/// Domain-specific hints for initial bracket sizing in Brent's method.
+///
+/// Different financial quantities have typical ranges that can dramatically
+/// improve convergence speed when the bracket is appropriately sized.
+///
+/// Examples:
+///     >>> from finstack.core.math.solver import BracketHint
+///     >>> hint = BracketHint.IMPLIED_VOL
+///     >>> print(hint.to_bracket_size())
+///     0.2
+#[pyclass(
+    name = "BracketHint",
+    module = "finstack.core.math.solver",
+    eq,
+    from_py_object
+)]
+#[derive(Clone, PartialEq)]
+pub struct PyBracketHint {
+    inner: BracketHint,
+}
+
+#[pymethods]
+impl PyBracketHint {
+    /// Create a custom bracket hint with a specified size.
+    ///
+    /// Args:
+    ///     size (float): Custom bracket size.
+    ///
+    /// Returns:
+    ///     BracketHint: Custom bracket hint.
+    #[staticmethod]
+    fn custom(size: f64) -> Self {
+        Self {
+            inner: BracketHint::Custom(size),
+        }
+    }
+
+    /// Implied volatility hint: sigma typically in [0.01, 2.0], initial bracket +/-0.2.
+    #[classattr]
+    const IMPLIED_VOL: PyBracketHint = PyBracketHint {
+        inner: BracketHint::ImpliedVol,
+    };
+
+    /// Interest rate hint: r typically in [-0.05, 0.30], initial bracket +/-0.02.
+    #[classattr]
+    const RATE: PyBracketHint = PyBracketHint {
+        inner: BracketHint::Rate,
+    };
+
+    /// Credit spread hint: spread typically in [0, 0.05], initial bracket +/-0.005.
+    #[classattr]
+    const SPREAD: PyBracketHint = PyBracketHint {
+        inner: BracketHint::Spread,
+    };
+
+    /// Yield-to-maturity hint: similar to rates, initial bracket +/-0.02.
+    #[classattr]
+    const YTM: PyBracketHint = PyBracketHint {
+        inner: BracketHint::Ytm,
+    };
+
+    /// Internal Rate of Return hint: typically in [-0.5, 1.0], initial bracket +/-0.5.
+    #[classattr]
+    const XIRR: PyBracketHint = PyBracketHint {
+        inner: BracketHint::Xirr,
+    };
+
+    /// Convert hint to its corresponding initial bracket size.
+    ///
+    /// Returns:
+    ///     float: Bracket size for this hint.
+    fn to_bracket_size(&self) -> f64 {
+        self.inner.to_bracket_size()
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            BracketHint::ImpliedVol => "BracketHint.IMPLIED_VOL".to_string(),
+            BracketHint::Rate => "BracketHint.RATE".to_string(),
+            BracketHint::Spread => "BracketHint.SPREAD".to_string(),
+            BracketHint::Ytm => "BracketHint.YTM".to_string(),
+            BracketHint::Xirr => "BracketHint.XIRR".to_string(),
+            BracketHint::Custom(size) => format!("BracketHint.custom({size})"),
+            _ => format!("BracketHint.custom({})", self.inner.to_bracket_size()),
+        }
+    }
+}
 
 #[pyclass(name = "NewtonSolver", module = "finstack.core.math.solver")]
 /// Newton-Raphson root finder with automatic finite-difference derivatives.
@@ -124,6 +212,43 @@ impl PyNewtonSolver {
         let closure = adapter.closure();
         adapter.run_core(
             || Solver::solve(&self.inner, closure, initial_guess),
+            core_to_py,
+        )
+    }
+
+    #[pyo3(text_signature = "($self, func, func_derivative, initial_guess)")]
+    /// Solve `func(x) = 0` using an analytic derivative for faster convergence.
+    ///
+    /// Recommended over :meth:`solve` when derivatives are cheaply available,
+    /// providing roughly 2x fewer function evaluations per iteration.
+    ///
+    /// Args:
+    ///     func (Callable[[float], float]): Function whose root is sought.
+    ///     func_derivative (Callable[[float], float]): Derivative of *func*.
+    ///     initial_guess (float): Starting point for Newton iterations.
+    ///
+    /// Returns:
+    ///     float: Root approximation.
+    ///
+    /// Raises:
+    ///     ValueError: If the solver does not converge or encounters invalid values.
+    pub fn solve_with_derivative(
+        &self,
+        func: Bound<'_, PyAny>,
+        func_derivative: Bound<'_, PyAny>,
+        initial_guess: f64,
+    ) -> PyResult<f64> {
+        let f_adapter = CallableAdapter::new(func)?;
+        let fp_adapter = CallableAdapter::new(func_derivative)?;
+        let f_closure = f_adapter.closure();
+        let fp_closure = fp_adapter.closure();
+        // We need to run both adapters through the panic-catching path.
+        // Use the f_adapter for the outer panic catch (it handles both).
+        f_adapter.run_core(
+            || {
+                self.inner
+                    .solve_with_derivative(f_closure, fp_closure, initial_guess)
+            },
             core_to_py,
         )
     }
@@ -253,6 +378,17 @@ impl PyBrentSolver {
         self.inner.initial_bracket_size = value;
     }
 
+    #[pyo3(text_signature = "($self, hint)")]
+    /// Apply a domain-specific bracket hint for faster convergence.
+    ///
+    /// Sets the initial bracket size based on a :class:`BracketHint`.
+    ///
+    /// Args:
+    ///     hint (BracketHint): Domain hint such as ``BracketHint.IMPLIED_VOL``.
+    pub fn set_bracket_hint(&mut self, hint: &PyBracketHint) {
+        self.inner.initial_bracket_size = Some(hint.inner.to_bracket_size());
+    }
+
     #[pyo3(text_signature = "($self, func, initial_guess)")]
     /// Solve `func(x) = 0` using Brent's method.
     ///
@@ -302,8 +438,9 @@ pub(crate) fn register<'py>(
 
     module.add_class::<PyNewtonSolver>()?;
     module.add_class::<PyBrentSolver>()?;
+    module.add_class::<PyBracketHint>()?;
 
-    let exports = ["NewtonSolver", "BrentSolver"];
+    let exports = ["NewtonSolver", "BrentSolver", "BracketHint"];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

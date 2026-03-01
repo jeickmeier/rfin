@@ -1,11 +1,68 @@
 """Numerical solver bindings.
 
 Provides root finding algorithms including Newton's method
-and Brent's method.
+and Brent's method, plus domain-specific bracket hints.
 """
 
 from __future__ import annotations
 from typing import Callable
+
+class BracketHint:
+    """Domain-specific hints for initial bracket sizing in Brent's method.
+
+    Different financial quantities have typical ranges that can dramatically
+    improve convergence speed when the bracket is appropriately sized.
+
+    Use the class attributes for built-in hints, or :meth:`custom` for an
+    arbitrary bracket size.
+
+    Examples
+    --------
+        >>> from finstack.core.math.solver import BracketHint
+        >>> hint = BracketHint.IMPLIED_VOL
+        >>> hint.to_bracket_size()
+        0.2
+    """
+
+    IMPLIED_VOL: BracketHint
+    """Implied volatility hint: sigma typically in [0.01, 2.0], initial bracket +/-0.2."""
+    RATE: BracketHint
+    """Interest rate hint: r typically in [-0.05, 0.30], initial bracket +/-0.02."""
+    SPREAD: BracketHint
+    """Credit spread hint: spread typically in [0, 0.05], initial bracket +/-0.005."""
+    YTM: BracketHint
+    """Yield-to-maturity hint: similar to rates, initial bracket +/-0.02."""
+    XIRR: BracketHint
+    """Internal Rate of Return hint: typically in [-0.5, 1.0], initial bracket +/-0.5."""
+
+    @staticmethod
+    def custom(size: float) -> BracketHint:
+        """Create a custom bracket hint with a specified size.
+
+        Parameters
+        ----------
+        size : float
+            Custom bracket size.
+
+        Returns
+        -------
+        BracketHint
+            Custom bracket hint.
+        """
+        ...
+
+    def to_bracket_size(self) -> float:
+        """Convert hint to its corresponding initial bracket size.
+
+        Returns
+        -------
+        float
+            Bracket size for this hint.
+        """
+        ...
+
+    def __repr__(self) -> str: ...
+    def __eq__(self, other: object) -> bool: ...
 
 class NewtonSolver:
     """Newton's method for root finding.
@@ -130,7 +187,7 @@ class NewtonSolver:
         Returns
         -------
         float
-            Root value where func(root) ≈ 0 (within tolerance).
+            Root value where func(root) ~= 0 (within tolerance).
 
         Raises
         ------
@@ -146,6 +203,49 @@ class NewtonSolver:
             >>> root = solver.solve(f, initial_guess=1.5)
             >>> print(f"Root: {root:.6f}")
             Root: 2.000000
+        """
+        ...
+
+    def solve_with_derivative(
+        self,
+        func: Callable[[float], float],
+        func_derivative: Callable[[float], float],
+        initial_guess: float,
+    ) -> float:
+        """Solve for root using Newton's method with an analytic derivative.
+
+        Recommended over :meth:`solve` when derivatives are cheaply available,
+        providing roughly 2x fewer function evaluations per iteration.
+
+        Parameters
+        ----------
+        func : Callable[[float], float]
+            Function to find root of (f(x) = 0).
+        func_derivative : Callable[[float], float]
+            Derivative of *func* with respect to x.
+        initial_guess : float
+            Starting point for Newton iterations.
+
+        Returns
+        -------
+        float
+            Root value where func(root) ~= 0 (within tolerance).
+
+        Raises
+        ------
+        ValueError
+            If convergence fails.
+
+        Examples
+        --------
+            >>> def f(x):
+            ...     return x**2 - 4.0
+            >>> def f_prime(x):
+            ...     return 2.0 * x
+            >>> solver = NewtonSolver(tolerance=1e-10)
+            >>> root = solver.solve_with_derivative(f, f_prime, initial_guess=1.0)
+            >>> abs(root - 2.0) < 1e-10
+            True
         """
         ...
 
@@ -176,7 +276,7 @@ class BrentSolver:
         ...     tolerance=1e-8,
         ...     max_iterations=100,
         ...     bracket_expansion=1.5,
-        ...     initial_bracket_size=0.5,  # ±50% range
+        ...     initial_bracket_size=0.5,  # +/-50% range
         ... )
         >>> ytm = solver.solve(price_error, initial_guess=0.03)
 
@@ -283,6 +383,18 @@ class BrentSolver:
         """
         ...
 
+    def set_bracket_hint(self, hint: BracketHint) -> None:
+        """Apply a domain-specific bracket hint for faster convergence.
+
+        Sets the initial bracket size based on a :class:`BracketHint`.
+
+        Parameters
+        ----------
+        hint : BracketHint
+            Domain hint such as ``BracketHint.IMPLIED_VOL``.
+        """
+        ...
+
     def solve(self, func: Callable[[float], float], initial_guess: float) -> float:
         """Solve for root using Brent's method.
 
@@ -302,7 +414,7 @@ class BrentSolver:
         Returns
         -------
         float
-            Root value where func(root) ≈ 0 (within tolerance).
+            Root value where func(root) ~= 0 (within tolerance).
 
         Raises
         ------

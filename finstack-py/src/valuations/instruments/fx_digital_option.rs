@@ -192,6 +192,7 @@ impl PyFxDigitalOption {
         match self.inner.payout_type {
             DigitalPayoutType::CashOrNothing => "cash_or_nothing",
             DigitalPayoutType::AssetOrNothing => "asset_or_nothing",
+            _ => "unknown",
         }
     }
 
@@ -225,6 +226,7 @@ impl PyFxDigitalOption {
             match self.inner.payout_type {
                 DigitalPayoutType::CashOrNothing => "cash_or_nothing",
                 DigitalPayoutType::AssetOrNothing => "asset_or_nothing",
+                _ => "unknown",
             }
         )
     }

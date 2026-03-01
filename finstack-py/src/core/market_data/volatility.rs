@@ -5,7 +5,10 @@
 //! - Pricing functions: `bachelier_price`, `black_price`, `black_shifted_price`
 //! - `convert_atm_volatility`: utility to convert ATM volatility between conventions
 use finstack_core::math::volatility::{
-    bachelier_call, black_call, black_shifted_call, convert_atm_volatility, VolatilityConvention,
+    bachelier_call, bachelier_delta_call, bachelier_delta_put, bachelier_gamma, bachelier_put,
+    bachelier_vega, black_call, black_delta_call, black_delta_put, black_gamma, black_put,
+    black_shifted_call, black_shifted_put, black_shifted_vega, black_vega, convert_atm_volatility,
+    implied_vol_bachelier, implied_vol_black, VolatilityConvention,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
@@ -166,6 +169,454 @@ pub fn py_black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shi
     black_shifted_call(forward, strike, sigma, t, shift)
 }
 
+// =============================================================================
+// Black-76 (Lognormal) Model — Individual Greeks
+// =============================================================================
+
+/// Compute the price of a call option under the Black-76 (Lognormal) model.
+///
+/// Assumes a unit annuity (PV01=1).
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate (must be positive).
+/// strike : float
+///     Strike rate (must be positive).
+/// sigma : float
+///     Lognormal volatility (e.g. 0.20 for 20%).
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Call option price per unit annuity.
+#[pyfunction(name = "black_call", signature = (forward, strike, sigma, t))]
+pub fn py_black_call(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
+    black_call(forward, strike, sigma, t)
+}
+
+/// Compute the price of a put option under the Black-76 (Lognormal) model.
+///
+/// Assumes a unit annuity (PV01=1).
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate (must be positive).
+/// strike : float
+///     Strike rate (must be positive).
+/// sigma : float
+///     Lognormal volatility (e.g. 0.20 for 20%).
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Put option price per unit annuity.
+#[pyfunction(name = "black_put", signature = (forward, strike, sigma, t))]
+pub fn py_black_put(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
+    black_put(forward, strike, sigma, t)
+}
+
+/// Compute Black-76 vega: sensitivity of option price to lognormal volatility.
+///
+/// Same for both calls and puts.
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate.
+/// strike : float
+///     Strike rate.
+/// sigma : float
+///     Lognormal volatility.
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Vega per unit change in vol (per unit annuity).
+#[pyfunction(name = "black_vega", signature = (forward, strike, sigma, t))]
+pub fn py_black_vega(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
+    black_vega(forward, strike, sigma, t)
+}
+
+/// Compute Black-76 call delta: sensitivity of call price to forward rate.
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate.
+/// strike : float
+///     Strike rate.
+/// sigma : float
+///     Lognormal volatility.
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Call delta (per unit annuity).
+#[pyfunction(name = "black_delta_call", signature = (forward, strike, sigma, t))]
+pub fn py_black_delta_call(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
+    black_delta_call(forward, strike, sigma, t)
+}
+
+/// Compute Black-76 put delta: sensitivity of put price to forward rate.
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate.
+/// strike : float
+///     Strike rate.
+/// sigma : float
+///     Lognormal volatility.
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Put delta (per unit annuity).
+#[pyfunction(name = "black_delta_put", signature = (forward, strike, sigma, t))]
+pub fn py_black_delta_put(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
+    black_delta_put(forward, strike, sigma, t)
+}
+
+/// Compute Black-76 gamma: second derivative of option price w.r.t. forward.
+///
+/// Same for both calls and puts.
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate.
+/// strike : float
+///     Strike rate.
+/// sigma : float
+///     Lognormal volatility.
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Gamma (per unit annuity).
+#[pyfunction(name = "black_gamma", signature = (forward, strike, sigma, t))]
+pub fn py_black_gamma(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
+    black_gamma(forward, strike, sigma, t)
+}
+
+// =============================================================================
+// Bachelier (Normal) Model — Individual Greeks
+// =============================================================================
+
+/// Compute the price of a call option under the Bachelier (Normal) model.
+///
+/// Assumes a unit annuity (PV01=1).
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate.
+/// strike : float
+///     Strike rate.
+/// sigma_n : float
+///     Normal volatility (in rate terms, e.g. 0.005 = 50bp).
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Call option price per unit annuity.
+#[pyfunction(name = "bachelier_call", signature = (forward, strike, sigma_n, t))]
+pub fn py_bachelier_call(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
+    bachelier_call(forward, strike, sigma_n, t)
+}
+
+/// Compute the price of a put option under the Bachelier (Normal) model.
+///
+/// Assumes a unit annuity (PV01=1).
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate.
+/// strike : float
+///     Strike rate.
+/// sigma_n : float
+///     Normal volatility (in rate terms, e.g. 0.005 = 50bp).
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Put option price per unit annuity.
+#[pyfunction(name = "bachelier_put", signature = (forward, strike, sigma_n, t))]
+pub fn py_bachelier_put(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
+    bachelier_put(forward, strike, sigma_n, t)
+}
+
+/// Compute Bachelier vega: sensitivity of option price to normal volatility.
+///
+/// Same for both calls and puts.
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate.
+/// strike : float
+///     Strike rate.
+/// sigma_n : float
+///     Normal volatility.
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Vega per unit change in normal vol (per unit annuity).
+#[pyfunction(name = "bachelier_vega", signature = (forward, strike, sigma_n, t))]
+pub fn py_bachelier_vega(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
+    bachelier_vega(forward, strike, sigma_n, t)
+}
+
+/// Compute Bachelier call delta: sensitivity of call price to forward rate.
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate.
+/// strike : float
+///     Strike rate.
+/// sigma_n : float
+///     Normal volatility.
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Call delta (per unit annuity).
+#[pyfunction(name = "bachelier_delta_call", signature = (forward, strike, sigma_n, t))]
+pub fn py_bachelier_delta_call(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
+    bachelier_delta_call(forward, strike, sigma_n, t)
+}
+
+/// Compute Bachelier put delta: sensitivity of put price to forward rate.
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate.
+/// strike : float
+///     Strike rate.
+/// sigma_n : float
+///     Normal volatility.
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Put delta (per unit annuity).
+#[pyfunction(name = "bachelier_delta_put", signature = (forward, strike, sigma_n, t))]
+pub fn py_bachelier_delta_put(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
+    bachelier_delta_put(forward, strike, sigma_n, t)
+}
+
+/// Compute Bachelier gamma: second derivative of option price w.r.t. forward.
+///
+/// Same for both calls and puts.
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate.
+/// strike : float
+///     Strike rate.
+/// sigma_n : float
+///     Normal volatility.
+/// t : float
+///     Time to expiry in years.
+///
+/// Returns
+/// -------
+/// float
+///     Gamma (per unit annuity).
+#[pyfunction(name = "bachelier_gamma", signature = (forward, strike, sigma_n, t))]
+pub fn py_bachelier_gamma(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
+    bachelier_gamma(forward, strike, sigma_n, t)
+}
+
+// =============================================================================
+// Shifted Black Model — Individual Functions
+// =============================================================================
+
+/// Compute the price of a call option under the Shifted Black model.
+///
+/// Handles negative rates by shifting both forward and strike.
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate (can be negative).
+/// strike : float
+///     Strike rate (can be negative).
+/// sigma : float
+///     Lognormal volatility.
+/// t : float
+///     Time to expiry in years.
+/// shift : float
+///     Shift amount (e.g. 0.03 = 3% shift).
+///
+/// Returns
+/// -------
+/// float
+///     Call option price per unit annuity.
+#[pyfunction(name = "black_shifted_call", signature = (forward, strike, sigma, t, shift))]
+pub fn py_black_shifted_call(forward: f64, strike: f64, sigma: f64, t: f64, shift: f64) -> f64 {
+    black_shifted_call(forward, strike, sigma, t, shift)
+}
+
+/// Compute the price of a put option under the Shifted Black model.
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate (can be negative).
+/// strike : float
+///     Strike rate (can be negative).
+/// sigma : float
+///     Lognormal volatility.
+/// t : float
+///     Time to expiry in years.
+/// shift : float
+///     Shift amount (e.g. 0.03 = 3% shift).
+///
+/// Returns
+/// -------
+/// float
+///     Put option price per unit annuity.
+#[pyfunction(name = "black_shifted_put", signature = (forward, strike, sigma, t, shift))]
+pub fn py_black_shifted_put(forward: f64, strike: f64, sigma: f64, t: f64, shift: f64) -> f64 {
+    black_shifted_put(forward, strike, sigma, t, shift)
+}
+
+/// Compute Shifted Black vega with unit annuity.
+///
+/// Parameters
+/// ----------
+/// forward : float
+///     Forward rate (can be negative).
+/// strike : float
+///     Strike rate (can be negative).
+/// sigma : float
+///     Lognormal volatility.
+/// t : float
+///     Time to expiry in years.
+/// shift : float
+///     Shift amount (e.g. 0.03 = 3% shift).
+///
+/// Returns
+/// -------
+/// float
+///     Vega per unit change in vol (per unit annuity).
+#[pyfunction(name = "black_shifted_vega", signature = (forward, strike, sigma, t, shift))]
+pub fn py_black_shifted_vega(forward: f64, strike: f64, sigma: f64, t: f64, shift: f64) -> f64 {
+    black_shifted_vega(forward, strike, sigma, t, shift)
+}
+
+// =============================================================================
+// Implied Volatility Solvers
+// =============================================================================
+
+/// Extract Black-76 (lognormal) implied volatility from an option price.
+///
+/// Given a market option price, finds the unique lognormal volatility that
+/// reproduces the price under the Black-76 model.
+///
+/// Parameters
+/// ----------
+/// price : float
+///     Market option price per unit annuity (non-negative).
+/// forward : float
+///     Forward rate or price (must be positive and finite).
+/// strike : float
+///     Strike rate or price (must be positive and finite).
+/// t : float
+///     Time to expiry in years (must be positive and finite).
+/// is_call : bool
+///     True for a call option, False for a put option.
+///
+/// Returns
+/// -------
+/// float
+///     The implied lognormal volatility.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If inputs are invalid or the solver fails to converge.
+#[pyfunction(name = "implied_vol_black", signature = (price, forward, strike, t, is_call))]
+pub fn py_implied_vol_black(
+    price: f64,
+    forward: f64,
+    strike: f64,
+    t: f64,
+    is_call: bool,
+) -> PyResult<f64> {
+    implied_vol_black(price, forward, strike, t, is_call)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// Extract Bachelier (normal) implied volatility from an option price.
+///
+/// Given a market option price, finds the unique normal volatility that
+/// reproduces the price under the Bachelier model.
+///
+/// Parameters
+/// ----------
+/// price : float
+///     Market option price per unit annuity (non-negative).
+/// forward : float
+///     Forward rate (any finite value; negative rates supported).
+/// strike : float
+///     Strike rate (any finite value).
+/// t : float
+///     Time to expiry in years (must be positive and finite).
+/// is_call : bool
+///     True for a call option, False for a put option.
+///
+/// Returns
+/// -------
+/// float
+///     The implied normal volatility.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If inputs are invalid or the solver fails to converge.
+#[pyfunction(name = "implied_vol_bachelier", signature = (price, forward, strike, t, is_call))]
+pub fn py_implied_vol_bachelier(
+    price: f64,
+    forward: f64,
+    strike: f64,
+    t: f64,
+    is_call: bool,
+) -> PyResult<f64> {
+    implied_vol_bachelier(price, forward, strike, t, is_call)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 /// Convert ATM volatility between conventions by equating option prices.
 ///
 /// This function performs ATM (at-the-money, strike = forward) volatility conversion.
@@ -274,17 +725,69 @@ pub(crate) fn register<'py>(
     )?;
 
     module.add_class::<PyVolatilityConvention>()?;
+
+    // Legacy convenience wrappers (call-only)
     module.add_function(wrap_pyfunction!(py_bachelier_price, &module)?)?;
     module.add_function(wrap_pyfunction!(py_black_price, &module)?)?;
     module.add_function(wrap_pyfunction!(py_black_shifted_price, &module)?)?;
+
+    // Black-76 pricing and Greeks
+    module.add_function(wrap_pyfunction!(py_black_call, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_black_put, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_black_vega, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_black_delta_call, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_black_delta_put, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_black_gamma, &module)?)?;
+
+    // Bachelier pricing and Greeks
+    module.add_function(wrap_pyfunction!(py_bachelier_call, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_bachelier_put, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_bachelier_vega, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_bachelier_delta_call, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_bachelier_delta_put, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_bachelier_gamma, &module)?)?;
+
+    // Shifted Black pricing and Greeks
+    module.add_function(wrap_pyfunction!(py_black_shifted_call, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_black_shifted_put, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_black_shifted_vega, &module)?)?;
+
+    // Implied volatility solvers
+    module.add_function(wrap_pyfunction!(py_implied_vol_black, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_implied_vol_bachelier, &module)?)?;
+
+    // Volatility convention conversion
     module.add_function(wrap_pyfunction!(py_convert_atm_volatility, &module)?)?;
     module.add_function(wrap_pyfunction!(py_convert_volatility, &module)?)?;
 
     let exports = [
         "VolatilityConvention",
+        // Legacy convenience wrappers
         "bachelier_price",
         "black_price",
         "black_shifted_price",
+        // Black-76
+        "black_call",
+        "black_put",
+        "black_vega",
+        "black_delta_call",
+        "black_delta_put",
+        "black_gamma",
+        // Bachelier
+        "bachelier_call",
+        "bachelier_put",
+        "bachelier_vega",
+        "bachelier_delta_call",
+        "bachelier_delta_put",
+        "bachelier_gamma",
+        // Shifted Black
+        "black_shifted_call",
+        "black_shifted_put",
+        "black_shifted_vega",
+        // Implied vol solvers
+        "implied_vol_black",
+        "implied_vol_bachelier",
+        // Conversion
         "convert_atm_volatility",
         "convert_volatility",
     ];

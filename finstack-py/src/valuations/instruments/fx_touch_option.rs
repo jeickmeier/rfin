@@ -192,6 +192,7 @@ impl PyFxTouchOption {
         match self.inner.touch_type {
             TouchType::OneTouch => "one_touch",
             TouchType::NoTouch => "no_touch",
+            _ => "unknown",
         }
     }
 
@@ -201,6 +202,7 @@ impl PyFxTouchOption {
         match self.inner.barrier_direction {
             BarrierDirection::Up => "up",
             BarrierDirection::Down => "down",
+            _ => "unknown",
         }
     }
 
@@ -216,6 +218,7 @@ impl PyFxTouchOption {
         match self.inner.payout_timing {
             PayoutTiming::AtHit => "at_hit",
             PayoutTiming::AtExpiry => "at_expiry",
+            _ => "unknown",
         }
     }
 
@@ -233,10 +236,12 @@ impl PyFxTouchOption {
             match self.inner.touch_type {
                 TouchType::OneTouch => "one_touch",
                 TouchType::NoTouch => "no_touch",
+                _ => "unknown",
             },
             match self.inner.barrier_direction {
                 BarrierDirection::Up => "up",
                 BarrierDirection::Down => "down",
+                _ => "unknown",
             }
         )
     }

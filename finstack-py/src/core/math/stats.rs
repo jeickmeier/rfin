@@ -2,9 +2,10 @@ use crate::core::common::labels::normalize_label;
 use finstack_core::math::stats::{
     correlation as core_correlation, covariance as core_covariance,
     log_returns as core_log_returns, mean as core_mean, mean_var as core_mean_var,
+    population_variance as core_population_variance, quantile as core_quantile,
     realized_variance as core_realized_variance,
     realized_variance_ohlc as core_realized_variance_ohlc, variance as core_variance,
-    RealizedVarMethod,
+    OnlineCovariance, OnlineStats, RealizedVarMethod,
 };
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -248,6 +249,216 @@ pub fn realized_variance_ohlc_py(
     ))
 }
 
+#[pyfunction(name = "population_variance")]
+#[pyo3(text_signature = "(data)")]
+/// Population variance (n denominator) of a data series.
+///
+/// Parameters
+/// ----------
+/// data : list[float]
+///     Numeric data. Must not be empty.
+///
+/// Returns
+/// -------
+/// float
+///     Population variance.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If *data* is empty.
+pub fn population_variance_py(data: Vec<f64>) -> PyResult<f64> {
+    if data.is_empty() {
+        return Err(PyValueError::new_err("data must not be empty"));
+    }
+    Ok(core_population_variance(&data))
+}
+
+#[pyfunction(name = "quantile")]
+#[pyo3(text_signature = "(data, p)")]
+/// Empirical quantile (R-7 / NumPy default) via partial sort.
+///
+/// Parameters
+/// ----------
+/// data : list[float]
+///     Numeric data. Must not be empty.
+/// p : float
+///     Quantile probability in ``[0, 1]``.
+///
+/// Returns
+/// -------
+/// float
+///     The *p*-th quantile.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If *data* is empty or *p* is outside ``[0, 1]``.
+pub fn quantile_py(data: Vec<f64>, p: f64) -> PyResult<f64> {
+    if data.is_empty() {
+        return Err(PyValueError::new_err("data must not be empty"));
+    }
+    if !(0.0..=1.0).contains(&p) {
+        return Err(PyValueError::new_err("p must be in [0, 1]"));
+    }
+    let mut data = data;
+    Ok(core_quantile(&mut data, p))
+}
+
+// ====== Online Statistics Classes ======
+
+#[pyclass(name = "OnlineStats", module = "finstack.core.math.stats")]
+/// Streaming mean / variance accumulator (Welford's algorithm).
+///
+/// Use this when you need to compute statistics over a stream of values
+/// without storing them all in memory.
+pub struct PyOnlineStats {
+    inner: OnlineStats,
+}
+
+#[pymethods]
+impl PyOnlineStats {
+    #[new]
+    /// Create an empty statistics accumulator.
+    fn new() -> Self {
+        Self {
+            inner: OnlineStats::new(),
+        }
+    }
+
+    /// Feed a single observation.
+    #[pyo3(text_signature = "($self, value)")]
+    fn update(&mut self, value: f64) {
+        self.inner.update(value);
+    }
+
+    /// Merge another ``OnlineStats`` into this one (parallel reduce).
+    #[pyo3(text_signature = "($self, other)")]
+    fn merge(&mut self, other: &PyOnlineStats) {
+        self.inner.merge(&other.inner);
+    }
+
+    /// Number of observations seen so far.
+    #[getter]
+    fn count(&self) -> usize {
+        self.inner.count()
+    }
+
+    /// Current sample mean.
+    #[getter]
+    fn mean(&self) -> f64 {
+        self.inner.mean()
+    }
+
+    /// Current sample variance (unbiased, n-1 denominator).
+    #[getter]
+    fn variance(&self) -> f64 {
+        self.inner.variance()
+    }
+
+    /// Current sample standard deviation.
+    #[getter]
+    fn std_dev(&self) -> f64 {
+        self.inner.std_dev()
+    }
+
+    /// Standard error of the mean.
+    #[getter]
+    fn stderr(&self) -> f64 {
+        self.inner.stderr()
+    }
+
+    /// Reset to empty state.
+    fn reset(&mut self) {
+        self.inner.reset();
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "OnlineStats(count={}, mean={:.6}, variance={:.6})",
+            self.inner.count(),
+            self.inner.mean(),
+            self.inner.variance()
+        )
+    }
+}
+
+#[pyclass(name = "OnlineCovariance", module = "finstack.core.math.stats")]
+/// Streaming covariance / correlation accumulator (Welford's algorithm).
+///
+/// Computes mean, variance, and covariance for two variables in a single
+/// pass without storing every observation.
+pub struct PyOnlineCovariance {
+    inner: OnlineCovariance,
+}
+
+#[pymethods]
+impl PyOnlineCovariance {
+    #[new]
+    /// Create an empty covariance accumulator.
+    fn new() -> Self {
+        Self {
+            inner: OnlineCovariance::new(),
+        }
+    }
+
+    /// Feed a single (x, y) observation pair.
+    #[pyo3(text_signature = "($self, x, y)")]
+    fn update(&mut self, x: f64, y: f64) {
+        self.inner.update(x, y);
+    }
+
+    /// Merge another ``OnlineCovariance`` into this one (parallel reduce).
+    #[pyo3(text_signature = "($self, other)")]
+    fn merge(&mut self, other: &PyOnlineCovariance) {
+        self.inner.merge(&other.inner);
+    }
+
+    /// Number of observation pairs seen so far.
+    #[getter]
+    fn count(&self) -> usize {
+        self.inner.count()
+    }
+
+    /// Sample covariance (unbiased, n-1 denominator).
+    #[getter]
+    fn covariance(&self) -> f64 {
+        self.inner.covariance()
+    }
+
+    /// Sample Pearson correlation.
+    #[getter]
+    fn correlation(&self) -> f64 {
+        self.inner.correlation()
+    }
+
+    /// Current sample mean of x.
+    #[getter]
+    fn mean_x(&self) -> f64 {
+        self.inner.mean_x()
+    }
+
+    /// Current sample mean of y.
+    #[getter]
+    fn mean_y(&self) -> f64 {
+        self.inner.mean_y()
+    }
+
+    /// Reset to empty state.
+    fn reset(&mut self) {
+        self.inner.reset();
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "OnlineCovariance(count={}, covariance={:.6}, correlation={:.6})",
+            self.inner.count(),
+            self.inner.covariance(),
+            self.inner.correlation()
+        )
+    }
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -258,22 +469,30 @@ pub(crate) fn register<'py>(
         "Statistical helpers (means, variances, covariances, realized variance).",
     )?;
     module.add_class::<PyRealizedVarMethod>()?;
+    module.add_class::<PyOnlineStats>()?;
+    module.add_class::<PyOnlineCovariance>()?;
     module.add_function(wrap_pyfunction!(mean_py, &module)?)?;
     module.add_function(wrap_pyfunction!(variance_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(population_variance_py, &module)?)?;
     module.add_function(wrap_pyfunction!(covariance_py, &module)?)?;
     module.add_function(wrap_pyfunction!(correlation_py, &module)?)?;
     module.add_function(wrap_pyfunction!(mean_var_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(quantile_py, &module)?)?;
     module.add_function(wrap_pyfunction!(log_returns_py, &module)?)?;
     module.add_function(wrap_pyfunction!(realized_variance_py, &module)?)?;
     module.add_function(wrap_pyfunction!(realized_variance_ohlc_py, &module)?)?;
 
     let exports = [
         "RealizedVarMethod",
+        "OnlineStats",
+        "OnlineCovariance",
         "mean",
         "variance",
+        "population_variance",
         "covariance",
         "correlation",
         "mean_var",
+        "quantile",
         "log_returns",
         "realized_variance",
         "realized_variance_ohlc",

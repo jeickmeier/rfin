@@ -1,4 +1,5 @@
 pub mod config;
+pub mod hull_white;
 pub mod quote;
 pub mod report;
 pub mod v2;
@@ -23,6 +24,9 @@ pub(crate) fn register<'py>(
 
     let config_exports = config::register(py, &module)?;
     exports.extend(config_exports.iter().copied());
+
+    let hull_white_exports = hull_white::register(py, &module)?;
+    exports.extend(hull_white_exports.iter().copied());
 
     let quote_exports = quote::register(py, &module)?;
     exports.extend(quote_exports.iter().copied());

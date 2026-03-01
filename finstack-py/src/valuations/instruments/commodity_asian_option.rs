@@ -1,7 +1,7 @@
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
-use crate::core::money::{extract_money, PyMoney};
+
 use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -278,8 +278,8 @@ impl PyCommodityAsianOptionBuilder {
     ) -> PyResult<PyRefMut<'py, Self>> {
         let mut realized = Vec::new();
         for item in fixings.iter() {
-            let tuple: (&Bound<'py, PyAny>, f64) = item.extract()?;
-            let date = py_to_date(tuple.0).context("realized_fixings date")?;
+            let tuple: (Py<PyAny>, f64) = item.extract()?;
+            let date = py_to_date(&tuple.0.bind(fixings.py())).context("realized_fixings date")?;
             realized.push((date, tuple.1));
         }
         slf.realized_fixings = realized;

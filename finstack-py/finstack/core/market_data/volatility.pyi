@@ -1,10 +1,12 @@
-"""Volatility conventions, pricing models, and conversion utilities.
+"""Volatility conventions, pricing models, Greeks, implied vol solvers, and conversion utilities.
 
 This module provides volatility quoting conventions and option pricing
-functions for various models (Bachelier, Black, Shifted Black).
+functions for various models (Bachelier, Black, Shifted Black), along with
+Greeks (vega, delta, gamma) and implied volatility extraction.
 """
 
 from __future__ import annotations
+
 class VolatilityConvention:
     """Volatility quoting convention.
 
@@ -41,6 +43,10 @@ class VolatilityConvention:
         ...
 
     def __repr__(self) -> str: ...
+
+# =============================================================================
+# Legacy convenience wrappers (call-only pricing)
+# =============================================================================
 
 def bachelier_price(forward: float, strike: float, sigma_n: float, t: float) -> float:
     """Compute the price of a call option under the Bachelier (Normal) model.
@@ -110,6 +116,427 @@ def black_shifted_price(forward: float, strike: float, sigma: float, t: float, s
         Option price.
     """
     ...
+
+# =============================================================================
+# Black-76 (Lognormal) Model
+# =============================================================================
+
+def black_call(forward: float, strike: float, sigma: float, t: float) -> float:
+    """Compute the price of a call option under the Black-76 (Lognormal) model.
+
+    Assumes a unit annuity (PV01=1).
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate (must be positive).
+    strike : float
+        Strike rate (must be positive).
+    sigma : float
+        Lognormal volatility (e.g. 0.20 for 20%).
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Call option price per unit annuity.
+    """
+    ...
+
+def black_put(forward: float, strike: float, sigma: float, t: float) -> float:
+    """Compute the price of a put option under the Black-76 (Lognormal) model.
+
+    Assumes a unit annuity (PV01=1).
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate (must be positive).
+    strike : float
+        Strike rate (must be positive).
+    sigma : float
+        Lognormal volatility (e.g. 0.20 for 20%).
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Put option price per unit annuity.
+    """
+    ...
+
+def black_vega(forward: float, strike: float, sigma: float, t: float) -> float:
+    """Compute Black-76 vega: sensitivity of option price to lognormal volatility.
+
+    Same for both calls and puts.
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate.
+    strike : float
+        Strike rate.
+    sigma : float
+        Lognormal volatility.
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Vega per unit change in vol (per unit annuity).
+    """
+    ...
+
+def black_delta_call(forward: float, strike: float, sigma: float, t: float) -> float:
+    """Compute Black-76 call delta: sensitivity of call price to forward rate.
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate.
+    strike : float
+        Strike rate.
+    sigma : float
+        Lognormal volatility.
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Call delta (per unit annuity).
+    """
+    ...
+
+def black_delta_put(forward: float, strike: float, sigma: float, t: float) -> float:
+    """Compute Black-76 put delta: sensitivity of put price to forward rate.
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate.
+    strike : float
+        Strike rate.
+    sigma : float
+        Lognormal volatility.
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Put delta (per unit annuity).
+    """
+    ...
+
+def black_gamma(forward: float, strike: float, sigma: float, t: float) -> float:
+    """Compute Black-76 gamma: second derivative of option price w.r.t. forward.
+
+    Same for both calls and puts.
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate.
+    strike : float
+        Strike rate.
+    sigma : float
+        Lognormal volatility.
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Gamma (per unit annuity).
+    """
+    ...
+
+# =============================================================================
+# Bachelier (Normal) Model
+# =============================================================================
+
+def bachelier_call(forward: float, strike: float, sigma_n: float, t: float) -> float:
+    """Compute the price of a call option under the Bachelier (Normal) model.
+
+    Assumes a unit annuity (PV01=1).
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate.
+    strike : float
+        Strike rate.
+    sigma_n : float
+        Normal volatility (in rate terms, e.g. 0.005 = 50bp).
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Call option price per unit annuity.
+    """
+    ...
+
+def bachelier_put(forward: float, strike: float, sigma_n: float, t: float) -> float:
+    """Compute the price of a put option under the Bachelier (Normal) model.
+
+    Assumes a unit annuity (PV01=1).
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate.
+    strike : float
+        Strike rate.
+    sigma_n : float
+        Normal volatility (in rate terms, e.g. 0.005 = 50bp).
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Put option price per unit annuity.
+    """
+    ...
+
+def bachelier_vega(forward: float, strike: float, sigma_n: float, t: float) -> float:
+    """Compute Bachelier vega: sensitivity of option price to normal volatility.
+
+    Same for both calls and puts.
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate.
+    strike : float
+        Strike rate.
+    sigma_n : float
+        Normal volatility.
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Vega per unit change in normal vol (per unit annuity).
+    """
+    ...
+
+def bachelier_delta_call(forward: float, strike: float, sigma_n: float, t: float) -> float:
+    """Compute Bachelier call delta: sensitivity of call price to forward rate.
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate.
+    strike : float
+        Strike rate.
+    sigma_n : float
+        Normal volatility.
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Call delta (per unit annuity).
+    """
+    ...
+
+def bachelier_delta_put(forward: float, strike: float, sigma_n: float, t: float) -> float:
+    """Compute Bachelier put delta: sensitivity of put price to forward rate.
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate.
+    strike : float
+        Strike rate.
+    sigma_n : float
+        Normal volatility.
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Put delta (per unit annuity).
+    """
+    ...
+
+def bachelier_gamma(forward: float, strike: float, sigma_n: float, t: float) -> float:
+    """Compute Bachelier gamma: second derivative of option price w.r.t. forward.
+
+    Same for both calls and puts.
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate.
+    strike : float
+        Strike rate.
+    sigma_n : float
+        Normal volatility.
+    t : float
+        Time to expiry in years.
+
+    Returns
+    -------
+    float
+        Gamma (per unit annuity).
+    """
+    ...
+
+# =============================================================================
+# Shifted Black Model
+# =============================================================================
+
+def black_shifted_call(forward: float, strike: float, sigma: float, t: float, shift: float) -> float:
+    """Compute the price of a call option under the Shifted Black model.
+
+    Handles negative rates by shifting both forward and strike.
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate (can be negative).
+    strike : float
+        Strike rate (can be negative).
+    sigma : float
+        Lognormal volatility.
+    t : float
+        Time to expiry in years.
+    shift : float
+        Shift amount (e.g. 0.03 = 3% shift).
+
+    Returns
+    -------
+    float
+        Call option price per unit annuity.
+    """
+    ...
+
+def black_shifted_put(forward: float, strike: float, sigma: float, t: float, shift: float) -> float:
+    """Compute the price of a put option under the Shifted Black model.
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate (can be negative).
+    strike : float
+        Strike rate (can be negative).
+    sigma : float
+        Lognormal volatility.
+    t : float
+        Time to expiry in years.
+    shift : float
+        Shift amount (e.g. 0.03 = 3% shift).
+
+    Returns
+    -------
+    float
+        Put option price per unit annuity.
+    """
+    ...
+
+def black_shifted_vega(forward: float, strike: float, sigma: float, t: float, shift: float) -> float:
+    """Compute Shifted Black vega with unit annuity.
+
+    Parameters
+    ----------
+    forward : float
+        Forward rate (can be negative).
+    strike : float
+        Strike rate (can be negative).
+    sigma : float
+        Lognormal volatility.
+    t : float
+        Time to expiry in years.
+    shift : float
+        Shift amount (e.g. 0.03 = 3% shift).
+
+    Returns
+    -------
+    float
+        Vega per unit change in vol (per unit annuity).
+    """
+    ...
+
+# =============================================================================
+# Implied Volatility Solvers
+# =============================================================================
+
+def implied_vol_black(price: float, forward: float, strike: float, t: float, is_call: bool) -> float:
+    """Extract Black-76 (lognormal) implied volatility from an option price.
+
+    Given a market option price, finds the unique lognormal volatility that
+    reproduces the price under the Black-76 model.
+
+    Parameters
+    ----------
+    price : float
+        Market option price per unit annuity (non-negative).
+    forward : float
+        Forward rate or price (must be positive and finite).
+    strike : float
+        Strike rate or price (must be positive and finite).
+    t : float
+        Time to expiry in years (must be positive and finite).
+    is_call : bool
+        True for a call option, False for a put option.
+
+    Returns
+    -------
+    float
+        The implied lognormal volatility.
+
+    Raises
+    ------
+    ValueError
+        If inputs are invalid or the solver fails to converge.
+    """
+    ...
+
+def implied_vol_bachelier(price: float, forward: float, strike: float, t: float, is_call: bool) -> float:
+    """Extract Bachelier (normal) implied volatility from an option price.
+
+    Given a market option price, finds the unique normal volatility that
+    reproduces the price under the Bachelier model.
+
+    Parameters
+    ----------
+    price : float
+        Market option price per unit annuity (non-negative).
+    forward : float
+        Forward rate (any finite value; negative rates supported).
+    strike : float
+        Strike rate (any finite value).
+    t : float
+        Time to expiry in years (must be positive and finite).
+    is_call : bool
+        True for a call option, False for a put option.
+
+    Returns
+    -------
+    float
+        The implied normal volatility.
+
+    Raises
+    ------
+    ValueError
+        If inputs are invalid or the solver fails to converge.
+    """
+    ...
+
+# =============================================================================
+# Volatility Convention Conversion
+# =============================================================================
 
 def convert_atm_volatility(
     vol: float,
@@ -186,9 +613,32 @@ def convert_volatility(
 
 __all__ = [
     "VolatilityConvention",
+    # Legacy convenience wrappers
     "bachelier_price",
     "black_price",
     "black_shifted_price",
+    # Black-76
+    "black_call",
+    "black_put",
+    "black_vega",
+    "black_delta_call",
+    "black_delta_put",
+    "black_gamma",
+    # Bachelier
+    "bachelier_call",
+    "bachelier_put",
+    "bachelier_vega",
+    "bachelier_delta_call",
+    "bachelier_delta_put",
+    "bachelier_gamma",
+    # Shifted Black
+    "black_shifted_call",
+    "black_shifted_put",
+    "black_shifted_vega",
+    # Implied vol solvers
+    "implied_vol_black",
+    "implied_vol_bachelier",
+    # Conversion
     "convert_atm_volatility",
     "convert_volatility",
 ]

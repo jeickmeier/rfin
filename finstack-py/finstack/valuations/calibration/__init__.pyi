@@ -10,6 +10,7 @@ from .config import (
     SolverKind,
     ValidationMode,
 )
+from .hull_white import HullWhiteParams, SwaptionQuote, calibrate_hull_white
 from .report import CalibrationReport
 from .sabr import SABRCalibrationDerivatives, SABRMarketData, SABRModelParams
 from .validation import (
@@ -73,6 +74,9 @@ __all__ = [
     "validate_hazard_curve",
     "validate_inflation_curve",
     "validate_vol_surface",
+    "HullWhiteParams",
+    "SwaptionQuote",
+    "calibrate_hull_white",
     "SABRModelParams",
     "SABRMarketData",
     "SABRCalibrationDerivatives",
