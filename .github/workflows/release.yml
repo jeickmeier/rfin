@@ -40,10 +40,6 @@ jobs:
           - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.12" }
           - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.13" }
           - { os: macos-arm64, runner: macos-14,       target: aarch64, python: "3.14" }
-          # ── macOS x86_64 ──
-          - { os: macos-x64,   runner: macos-13,       target: x86_64,  python: "3.12" }
-          - { os: macos-x64,   runner: macos-13,       target: x86_64,  python: "3.13" }
-          - { os: macos-x64,   runner: macos-13,       target: x86_64,  python: "3.14" }
           # ── Windows x86_64 ──
           - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.12" }
           - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.13" }
