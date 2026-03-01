@@ -5,6 +5,10 @@ on:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
+      tag:
+        description: "Tag to publish (e.g. v0.4.1). Required when publishing manually."
+        type: string
+        required: false
       publish:
         description: "Publish artifacts"
         type: boolean
@@ -154,8 +158,25 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          elif [[ -n "${{ inputs.tag }}" ]]; then
+            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::No tag found. For workflow_dispatch, set the 'tag' input."
+            exit 1
+          fi
+
+      - name: List release artifacts
+        run: ls -lhR dist/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.name }}
           files: dist/*
+          fail_on_unmatched_files: true
           generate_release_notes: true
