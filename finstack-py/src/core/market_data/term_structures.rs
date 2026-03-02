@@ -1455,7 +1455,7 @@ impl PyVolatilityIndexCurve {
             }
         };
         let extra = match extrapolation {
-            None => parse_extrap_enum(None)?,
+            None => ExtrapolationPolicy::FlatForward,
             Some(obj) => {
                 if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
                     v
@@ -1639,7 +1639,7 @@ impl PyPriceCurve {
             }
         };
         let extra = match extrapolation {
-            None => parse_extrap_enum(None)?,
+            None => ExtrapolationPolicy::FlatZero,
             Some(obj) => {
                 if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
                     v

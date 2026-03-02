@@ -137,7 +137,7 @@ impl PyDayCount {
             DayCountCtx {
                 calendar: ctx_ref.calendar.as_ref().map(|cal| cal.inner),
                 frequency: ctx_ref.frequency,
-                bus_basis: None,
+                bus_basis: ctx_ref.bus_basis,
             }
         } else {
             DayCountCtx::default()
@@ -206,17 +206,23 @@ impl fmt::Display for PyDayCount {
 pub struct PyDayCountContext {
     calendar: Option<PyCalendar>,
     frequency: Option<Tenor>,
+    bus_basis: Option<u16>,
 }
 
 #[pymethods]
 impl PyDayCountContext {
     #[new]
-    #[pyo3(signature = (calendar=None, frequency=None))]
+    #[pyo3(signature = (calendar=None, frequency=None, bus_basis=None))]
     /// Create a context with optional calendar/frequency hints.
-    fn ctor(calendar: Option<PyRef<PyCalendar>>, frequency: Option<PyRef<PyFrequency>>) -> Self {
+    fn ctor(
+        calendar: Option<PyRef<PyCalendar>>,
+        frequency: Option<PyRef<PyFrequency>>,
+        bus_basis: Option<u16>,
+    ) -> Self {
         Self {
             calendar: calendar.map(|c| c.clone()),
             frequency: frequency.map(|f| f.inner),
+            bus_basis,
         }
     }
 
@@ -244,13 +250,25 @@ impl PyDayCountContext {
         self.frequency = frequency.map(|f| f.inner);
     }
 
+    #[getter]
+    /// Optional business-day basis used by BUS/252 conventions.
+    fn bus_basis(&self) -> Option<u16> {
+        self.bus_basis
+    }
+
+    #[setter]
+    /// Set the business-day basis (``None`` to clear).
+    fn set_bus_basis(&mut self, bus_basis: Option<u16>) {
+        self.bus_basis = bus_basis;
+    }
+
     #[pyo3(text_signature = "(self)")]
     /// Convert the runtime context into a serializable DTO.
     fn to_state(&self) -> PyDayCountContextState {
         let ctx = DayCountCtx {
             calendar: self.calendar.as_ref().map(|cal| cal.inner),
             frequency: self.frequency,
-            bus_basis: None,
+            bus_basis: self.bus_basis,
         };
         PyDayCountContextState { inner: ctx.into() }
     }
@@ -273,7 +291,10 @@ impl PyDayCountContext {
                 }
             })
             .unwrap_or_else(|| "None".to_string());
-        format!("DayCountContext(calendar={cal}, frequency={freq})")
+        format!(
+            "DayCountContext(calendar={cal}, frequency={freq}, bus_basis={:?})",
+            self.bus_basis
+        )
     }
 }
 
@@ -331,6 +352,7 @@ impl PyDayCountContextState {
         Ok(PyDayCountContext {
             calendar,
             frequency: self.inner.frequency,
+            bus_basis: self.inner.bus_basis,
         })
     }
 
