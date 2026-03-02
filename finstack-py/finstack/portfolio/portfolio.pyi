@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Dict, Iterator, List, Any, overload
 from datetime import date
 from finstack.core.currency import Currency
-from .types import Book, Entity, Position
+from .types import Book, Entity, Position, PositionSpec
 
 class PositionIterator:
     """Iterator over positions in a portfolio."""
@@ -245,6 +245,15 @@ class Portfolio:
         """Get portfolio metadata."""
         ...
 
+    def to_spec(self) -> "PortfolioSpec":
+        """Convert to a serializable specification."""
+        ...
+
+    @staticmethod
+    def from_spec(spec: "PortfolioSpec") -> "Portfolio":
+        """Reconstruct a Portfolio from a specification."""
+        ...
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
     def __len__(self) -> int: ...
@@ -255,3 +264,42 @@ class Portfolio:
     def __getitem__(self, key: str) -> Position: ...
     def __getitem__(self, key: int | str) -> Position: ...
     def __iter__(self) -> PositionIterator: ...
+
+class PortfolioSpec:
+    """A serializable portfolio specification."""
+
+    @property
+    def id(self) -> str:
+        """Portfolio identifier."""
+        ...
+
+    @property
+    def name(self) -> str | None:
+        """Portfolio name."""
+        ...
+
+    @property
+    def base_ccy(self) -> Currency:
+        """Base currency."""
+        ...
+
+    @property
+    def as_of(self) -> date:
+        """Valuation date."""
+        ...
+
+    @property
+    def positions(self) -> List[PositionSpec]:
+        """Position specifications."""
+        ...
+
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        ...
+
+    @staticmethod
+    def from_json(json_str: str) -> "PortfolioSpec":
+        """Deserialize from JSON string."""
+        ...
+
+    def __repr__(self) -> str: ...

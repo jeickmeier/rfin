@@ -4,7 +4,8 @@ use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::portfolio::book::PyBook;
 use crate::portfolio::error::portfolio_to_py;
-use crate::portfolio::types::{PyEntity, PyPosition};
+use crate::portfolio::types::{PyEntity, PyPosition, PyPositionSpec};
+use finstack_portfolio::portfolio::PortfolioSpec;
 use finstack_portfolio::Portfolio;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -232,6 +233,18 @@ impl PyPortfolio {
         Ok(bound.unbind())
     }
 
+    /// Convert to a serializable specification.
+    fn to_spec(&self) -> PyPortfolioSpec {
+        PyPortfolioSpec::new(self.inner.to_spec())
+    }
+
+    /// Reconstruct a Portfolio from a specification.
+    #[staticmethod]
+    fn from_spec(spec: &PyPortfolioSpec) -> PyResult<Self> {
+        let portfolio = Portfolio::from_spec(spec.inner.clone()).map_err(portfolio_to_py)?;
+        Ok(Self::new(portfolio))
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "Portfolio(id='{}', base_ccy={}, as_of={}, positions={})",
@@ -322,6 +335,74 @@ impl PyPositionIterator {
     }
 }
 
+/// A serializable portfolio specification.
+#[pyclass(module = "finstack.portfolio", name = "PortfolioSpec")]
+pub struct PyPortfolioSpec {
+    pub(crate) inner: PortfolioSpec,
+}
+
+impl PyPortfolioSpec {
+    pub(crate) fn new(inner: PortfolioSpec) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyPortfolioSpec {
+    #[getter]
+    fn id(&self) -> String {
+        self.inner.id.clone()
+    }
+
+    #[getter]
+    fn name(&self) -> Option<String> {
+        self.inner.name.clone()
+    }
+
+    #[getter]
+    fn base_ccy(&self) -> PyCurrency {
+        PyCurrency::new(self.inner.base_ccy)
+    }
+
+    #[getter]
+    fn as_of(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.as_of)
+    }
+
+    #[getter]
+    fn positions(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let specs: Vec<PyPositionSpec> = self
+            .inner
+            .positions
+            .iter()
+            .map(|s| PyPositionSpec::new(s.clone()))
+            .collect();
+        Ok(PyList::new(py, specs)?.into())
+    }
+
+    /// Serialize to JSON string.
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("JSON serialization failed: {}", e)))
+    }
+
+    /// Deserialize from JSON string.
+    #[staticmethod]
+    fn from_json(json_str: &str) -> PyResult<Self> {
+        let spec: PortfolioSpec = serde_json::from_str(json_str)
+            .map_err(|e| PyValueError::new_err(format!("JSON deserialization failed: {}", e)))?;
+        Ok(Self::new(spec))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "PortfolioSpec(id='{}', positions={})",
+            self.inner.id,
+            self.inner.positions.len()
+        )
+    }
+}
+
 /// Extract a Portfolio from Python object.
 pub(crate) fn extract_portfolio(value: &Bound<'_, PyAny>) -> PyResult<Portfolio> {
     if let Ok(py_portfolio) = value.extract::<PyRef<PyPortfolio>>() {
@@ -338,9 +419,11 @@ pub(crate) fn register<'py>(
 ) -> PyResult<Vec<String>> {
     parent.add_class::<PyPortfolio>()?;
     parent.add_class::<PyPositionIterator>()?;
+    parent.add_class::<PyPortfolioSpec>()?;
 
     Ok(vec![
         "Portfolio".to_string(),
         "PositionIterator".to_string(),
+        "PortfolioSpec".to_string(),
     ])
 }

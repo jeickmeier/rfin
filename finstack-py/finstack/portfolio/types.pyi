@@ -38,6 +38,34 @@ class Book:
     def tags(self) -> Dict[str, str]: ...
     @property
     def meta(self) -> Dict[str, Any]: ...
+    def is_root(self) -> bool:
+        """Check if this is a root book (no parent)."""
+        ...
+
+    def contains_position(self, position_id: str) -> bool:
+        """Check if this book directly contains a position."""
+        ...
+
+    def contains_child(self, child_id: str) -> bool:
+        """Check if this book contains a specific child book."""
+        ...
+
+    def add_position(self, position_id: str) -> None:
+        """Add a position to this book."""
+        ...
+
+    def add_child(self, child_id: str) -> None:
+        """Add a child book to this book."""
+        ...
+
+    def remove_position(self, position_id: str) -> None:
+        """Remove a position from this book."""
+        ...
+
+    def remove_child(self, child_id: str) -> None:
+        """Remove a child book from this book."""
+        ...
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
@@ -322,5 +350,68 @@ class Position:
         """Position metadata."""
         ...
 
+    @property
+    def instrument(self) -> Any:
+        """The instrument held by this position."""
+        ...
+
+    def to_spec(self) -> "PositionSpec":
+        """Convert to a serializable specification."""
+        ...
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
+
+class PositionSpec:
+    """A serializable position specification."""
+
+    @property
+    def position_id(self) -> str:
+        """Position identifier."""
+        ...
+
+    @property
+    def entity_id(self) -> str:
+        """Entity identifier."""
+        ...
+
+    @property
+    def instrument_id(self) -> str:
+        """Instrument identifier."""
+        ...
+
+    @property
+    def quantity(self) -> float:
+        """Signed quantity."""
+        ...
+
+    @property
+    def unit(self) -> PositionUnit:
+        """Unit of measurement."""
+        ...
+
+    @property
+    def book_id(self) -> str | None:
+        """Book identifier (None if unassigned)."""
+        ...
+
+    @property
+    def tags(self) -> Dict[str, str]:
+        """Position tags."""
+        ...
+
+    @property
+    def meta(self) -> Dict[str, Any]:
+        """Position metadata."""
+        ...
+
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        ...
+
+    @staticmethod
+    def from_json(json_str: str) -> "PositionSpec":
+        """Deserialize from JSON string."""
+        ...
+
+    def __repr__(self) -> str: ...

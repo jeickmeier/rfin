@@ -78,6 +78,102 @@ use pyo3::types::{PyList, PyModule};
 use pyo3::{Bound, PyRef};
 use std::sync::Arc;
 
+macro_rules! try_downcast_to_py {
+    ($inst:expr, $py:expr, $rust_type:ty, $py_type:ident) => {
+        if let Some(concrete) = $inst.as_any().downcast_ref::<$rust_type>() {
+            let wrapper = $py_type {
+                inner: Arc::new(concrete.clone()),
+            };
+            return Ok(wrapper.into_pyobject($py)?.into_any().unbind());
+        }
+    };
+}
+
+/// Convert an `Arc<dyn Instrument>` back to the appropriate Python wrapper.
+pub(crate) fn instrument_to_py(py: Python<'_>, inst: &Arc<dyn Instrument>) -> PyResult<Py<PyAny>> {
+    use finstack_valuations::instruments::rates::swaption::BermudanSwaption;
+    use finstack_valuations::instruments::*;
+
+    // Fixed income
+    try_downcast_to_py!(inst, py, AgencyMbsPassthrough, PyAgencyMbsPassthrough);
+    try_downcast_to_py!(inst, py, AgencyTba, PyAgencyTba);
+    try_downcast_to_py!(inst, py, DollarRoll, PyDollarRoll);
+    try_downcast_to_py!(inst, py, AgencyCmo, PyAgencyCmo);
+    try_downcast_to_py!(inst, py, Bond, PyBond);
+    try_downcast_to_py!(inst, py, BondFuture, PyBondFuture);
+    try_downcast_to_py!(inst, py, ConvertibleBond, PyConvertibleBond);
+    try_downcast_to_py!(inst, py, FIIndexTotalReturnSwap, PyFiIndexTotalReturnSwap);
+    try_downcast_to_py!(inst, py, InflationLinkedBond, PyInflationLinkedBond);
+    try_downcast_to_py!(inst, py, RevolvingCredit, PyRevolvingCredit);
+    try_downcast_to_py!(inst, py, StructuredCredit, PyStructuredCredit);
+    try_downcast_to_py!(inst, py, TermLoan, PyTermLoan);
+
+    // Rates
+    try_downcast_to_py!(inst, py, Deposit, PyDeposit);
+    try_downcast_to_py!(inst, py, BasisSwap, PyBasisSwap);
+    try_downcast_to_py!(inst, py, ForwardRateAgreement, PyForwardRateAgreement);
+    try_downcast_to_py!(inst, py, InterestRateOption, PyInterestRateOption);
+    try_downcast_to_py!(inst, py, InterestRateFuture, PyInterestRateFuture);
+    try_downcast_to_py!(inst, py, InterestRateSwap, PyInterestRateSwap);
+    try_downcast_to_py!(inst, py, Swaption, PySwaption);
+    try_downcast_to_py!(inst, py, BermudanSwaption, PyBermudanSwaption);
+    try_downcast_to_py!(inst, py, Repo, PyRepo);
+    try_downcast_to_py!(inst, py, InflationSwap, PyInflationSwap);
+    try_downcast_to_py!(inst, py, InflationCapFloor, PyInflationCapFloor);
+    try_downcast_to_py!(inst, py, XccySwap, PyCrossCurrencySwap);
+    try_downcast_to_py!(inst, py, CmsOption, PyCmsOption);
+    try_downcast_to_py!(inst, py, RangeAccrual, PyRangeAccrual);
+
+    // FX
+    try_downcast_to_py!(inst, py, FxSpot, PyFxSpot);
+    try_downcast_to_py!(inst, py, FxOption, PyFxOption);
+    try_downcast_to_py!(inst, py, FxSwap, PyFxSwap);
+    try_downcast_to_py!(inst, py, Ndf, PyNdf);
+    try_downcast_to_py!(inst, py, FxVarianceSwap, PyFxVarianceSwap);
+    try_downcast_to_py!(inst, py, FxBarrierOption, PyFxBarrierOption);
+    try_downcast_to_py!(inst, py, FxDigitalOption, PyFxDigitalOption);
+    try_downcast_to_py!(inst, py, FxForward, PyFxForward);
+    try_downcast_to_py!(inst, py, FxTouchOption, PyFxTouchOption);
+    try_downcast_to_py!(inst, py, QuantoOption, PyQuantoOption);
+
+    // Equity
+    try_downcast_to_py!(inst, py, Equity, PyEquity);
+    try_downcast_to_py!(inst, py, EquityIndexFuture, PyEquityIndexFuture);
+    try_downcast_to_py!(inst, py, EquityOption, PyEquityOption);
+    try_downcast_to_py!(inst, py, EquityTotalReturnSwap, PyEquityTotalReturnSwap);
+    try_downcast_to_py!(inst, py, VarianceSwap, PyVarianceSwap);
+    try_downcast_to_py!(inst, py, PrivateMarketsFund, PyPrivateMarketsFund);
+    try_downcast_to_py!(inst, py, RealEstateAsset, PyRealEstateAsset);
+    try_downcast_to_py!(inst, py, LeveredRealEstateEquity, PyLeveredRealEstateEquity);
+    try_downcast_to_py!(inst, py, Autocallable, PyAutocallable);
+    try_downcast_to_py!(inst, py, CliquetOption, PyCliquetOption);
+    try_downcast_to_py!(inst, py, VolatilityIndexFuture, PyVolatilityIndexFuture);
+    try_downcast_to_py!(inst, py, VolatilityIndexOption, PyVolatilityIndexOption);
+
+    // Exotics
+    try_downcast_to_py!(inst, py, Basket, PyBasket);
+    try_downcast_to_py!(inst, py, AsianOption, PyAsianOption);
+    try_downcast_to_py!(inst, py, BarrierOption, PyBarrierOption);
+    try_downcast_to_py!(inst, py, LookbackOption, PyLookbackOption);
+
+    // Commodity
+    try_downcast_to_py!(inst, py, CommodityForward, PyCommodityForward);
+    try_downcast_to_py!(inst, py, CommodityOption, PyCommodityOption);
+    try_downcast_to_py!(inst, py, CommoditySwap, PyCommoditySwap);
+    try_downcast_to_py!(inst, py, CommodityAsianOption, PyCommodityAsianOption);
+
+    // Credit derivatives
+    try_downcast_to_py!(inst, py, CreditDefaultSwap, PyCreditDefaultSwap);
+    try_downcast_to_py!(inst, py, CDSIndex, PyCdsIndex);
+    try_downcast_to_py!(inst, py, CDSOption, PyCDSOption);
+    try_downcast_to_py!(inst, py, CDSTranche, PyCDSTranche);
+
+    Err(PyTypeError::new_err(format!(
+        "Cannot convert instrument '{}' back to Python type",
+        inst.id()
+    )))
+}
+
 /// Borrowed reference to an instrument along with its dispatch key.
 pub(crate) struct InstrumentHandle {
     pub instrument: Arc<dyn Instrument>,

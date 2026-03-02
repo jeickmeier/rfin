@@ -8,6 +8,7 @@ use pyo3::types::{PyAny, PyDict, PyList, PyModule};
 use pyo3::Bound;
 use pythonize::pythonize;
 
+use finstack_portfolio::types::PositionId;
 use finstack_portfolio::{Book, BookId};
 
 /// Book identifier.
@@ -142,6 +143,41 @@ impl PyBook {
         let bound = pythonize(py, &self.inner.meta)
             .map_err(|e| PyValueError::new_err(format!("Failed to convert meta: {}", e)))?;
         Ok(bound.unbind())
+    }
+
+    /// Check if this is a root book (no parent).
+    fn is_root(&self) -> bool {
+        self.inner.is_root()
+    }
+
+    /// Check if this book directly contains a position.
+    fn contains_position(&self, position_id: &str) -> bool {
+        self.inner.contains_position(&PositionId::new(position_id))
+    }
+
+    /// Check if this book contains a specific child book.
+    fn contains_child(&self, child_id: &str) -> bool {
+        self.inner.contains_child(&BookId::new(child_id))
+    }
+
+    /// Add a position to this book.
+    fn add_position(&mut self, position_id: String) {
+        self.inner.add_position(PositionId::new(position_id));
+    }
+
+    /// Add a child book to this book.
+    fn add_child(&mut self, child_id: String) {
+        self.inner.add_child(BookId::new(child_id));
+    }
+
+    /// Remove a position from this book.
+    fn remove_position(&mut self, position_id: &str) {
+        self.inner.remove_position(&PositionId::new(position_id));
+    }
+
+    /// Remove a child book from this book.
+    fn remove_child(&mut self, child_id: &str) {
+        self.inner.remove_child(&BookId::new(child_id));
     }
 
     fn __repr__(&self) -> String {

@@ -1,7 +1,7 @@
 """Portfolio grouping utilities."""
 
 from __future__ import annotations
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from finstack.core.money import Money
 from .portfolio import Portfolio
 from .valuation import PortfolioValuation
@@ -141,5 +141,28 @@ def aggregate_by_book(
 
     Computes total value for each book by summing direct position values plus
     recursively aggregated values from child books.
+    """
+    ...
+
+def aggregate_by_multiple_attributes(
+    valuation: PortfolioValuation,
+    portfolio: Portfolio,
+    attribute_keys: list[str],
+) -> Dict[Tuple[str, ...], Money]:
+    """Aggregate portfolio valuation by multiple attributes simultaneously.
+
+    Parameters
+    ----------
+    valuation : PortfolioValuation
+        Portfolio valuation results.
+    portfolio : Portfolio
+        Portfolio containing positions.
+    attribute_keys : list[str]
+        Tag keys to group by (e.g., ["sector", "rating"]).
+
+    Returns
+    -------
+    Dict[tuple[str, ...], Money]
+        Dictionary mapping attribute value tuples to aggregated amounts.
     """
     ...

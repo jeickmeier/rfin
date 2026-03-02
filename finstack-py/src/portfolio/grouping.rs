@@ -5,9 +5,11 @@ use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::positions::extract_portfolio;
 use crate::portfolio::types::PyPosition;
 use crate::portfolio::valuation::extract_portfolio_valuation;
-use finstack_portfolio::grouping::{aggregate_by_attribute, aggregate_by_book, group_by_attribute};
+use finstack_portfolio::grouping::{
+    aggregate_by_attribute, aggregate_by_book, aggregate_by_multiple_attributes, group_by_attribute,
+};
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyList, PyModule};
+use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyTuple};
 use pyo3::Bound;
 
 /// Group portfolio positions by an attribute.
@@ -137,6 +139,49 @@ fn py_aggregate_by_book(
     Ok(dict.into())
 }
 
+/// Aggregate portfolio valuation by multiple attributes simultaneously.
+///
+/// Groups positions by the combination of multiple tag keys and sums their
+/// values. Returns a dictionary mapping attribute value tuples to aggregated
+/// amounts in the portfolio base currency.
+///
+/// Args:
+///     valuation: Portfolio valuation results.
+///     portfolio: Portfolio containing positions.
+///     attribute_keys: List of tag keys to group by (e.g., ["sector", "rating"]).
+///
+/// Returns:
+///     dict[tuple[str, ...], Money]: Mapping of attribute value tuples to aggregated amounts.
+///
+/// Raises:
+///     RuntimeError: If aggregation fails.
+#[pyfunction]
+fn py_aggregate_by_multiple_attributes(
+    valuation: &Bound<'_, PyAny>,
+    portfolio: &Bound<'_, PyAny>,
+    attribute_keys: Vec<String>,
+    py: Python<'_>,
+) -> PyResult<Py<PyAny>> {
+    let valuation_inner = extract_portfolio_valuation(valuation)?;
+    let portfolio_inner = extract_portfolio(portfolio)?;
+    let keys: Vec<&str> = attribute_keys.iter().map(|s| s.as_str()).collect();
+
+    let aggregated = aggregate_by_multiple_attributes(
+        &valuation_inner,
+        &portfolio_inner.positions,
+        &keys,
+        portfolio_inner.base_ccy,
+    )
+    .map_err(portfolio_to_py)?;
+
+    let dict = PyDict::new(py);
+    for (key_vec, money) in aggregated {
+        let tuple = PyTuple::new(py, &key_vec)?;
+        dict.set_item(tuple, PyMoney::new(money))?;
+    }
+    Ok(dict.into())
+}
+
 /// Register grouping module exports.
 pub(crate) fn register<'py>(
     _py: Python<'py>,
@@ -151,9 +196,13 @@ pub(crate) fn register<'py>(
     let wrapped_book = wrap_pyfunction!(py_aggregate_by_book, parent)?;
     parent.add("aggregate_by_book", wrapped_book)?;
 
+    let wrapped_multi = wrap_pyfunction!(py_aggregate_by_multiple_attributes, parent)?;
+    parent.add("aggregate_by_multiple_attributes", wrapped_multi)?;
+
     Ok(vec![
         "group_by_attribute".to_string(),
         "aggregate_by_attribute".to_string(),
         "aggregate_by_book".to_string(),
+        "aggregate_by_multiple_attributes".to_string(),
     ])
 }

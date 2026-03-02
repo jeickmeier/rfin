@@ -10,8 +10,8 @@ from __future__ import annotations
 from finstack.core.config import FinstackConfig
 from finstack.core.market_data.context import MarketContext
 
-from .types import Book, BookId, Entity, PositionUnit, Position, DUMMY_ENTITY_ID
-from .portfolio import Portfolio
+from .types import Book, BookId, Entity, PositionUnit, Position, PositionSpec, DUMMY_ENTITY_ID
+from .portfolio import Portfolio, PortfolioSpec
 from .builder import PortfolioBuilder
 from .valuation import (
     PositionValue,
@@ -22,7 +22,7 @@ from .valuation import (
 )
 from .metrics import AggregatedMetric, PortfolioMetrics, aggregate_metrics, is_summable
 from .results import PortfolioResult
-from .grouping import group_by_attribute, aggregate_by_attribute, aggregate_by_book
+from .grouping import group_by_attribute, aggregate_by_attribute, aggregate_by_book, aggregate_by_multiple_attributes
 from .attribution import PortfolioAttribution, attribute_portfolio_pnl
 from .cashflows import (
     PortfolioCashflows,
@@ -85,8 +85,10 @@ try:
         "Book",
         "PositionUnit",
         "Position",
+        "PositionSpec",
         "DUMMY_ENTITY_ID",
         "Portfolio",
+        "PortfolioSpec",
         "PortfolioBuilder",
         "PositionValue",
         "PortfolioValuation",
@@ -101,6 +103,7 @@ try:
         "group_by_attribute",
         "aggregate_by_attribute",
         "aggregate_by_book",
+        "aggregate_by_multiple_attributes",
         "PortfolioAttribution",
         "attribute_portfolio_pnl",
         "PortfolioCashflows",
@@ -148,8 +151,10 @@ except ImportError:
         "Book",
         "PositionUnit",
         "Position",
+        "PositionSpec",
         "DUMMY_ENTITY_ID",
         "Portfolio",
+        "PortfolioSpec",
         "PortfolioBuilder",
         "PositionValue",
         "PortfolioValuation",
@@ -164,6 +169,7 @@ except ImportError:
         "group_by_attribute",
         "aggregate_by_attribute",
         "aggregate_by_book",
+        "aggregate_by_multiple_attributes",
         "PortfolioAttribution",
         "attribute_portfolio_pnl",
         "PortfolioCashflows",

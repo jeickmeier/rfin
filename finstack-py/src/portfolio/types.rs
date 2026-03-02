@@ -4,7 +4,7 @@ use crate::core::currency::PyCurrency;
 use crate::core::money::PyMoney;
 use crate::portfolio::book::extract_book_id;
 use crate::portfolio::error::portfolio_to_py;
-use crate::valuations::instruments::extract_instrument;
+use crate::valuations::instruments::{extract_instrument, instrument_to_py};
 use finstack_portfolio::{Entity, Position, PositionUnit};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -486,6 +486,17 @@ impl PyPosition {
         Ok(bound.unbind())
     }
 
+    #[getter]
+    /// Get the instrument held by this position.
+    fn instrument(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        instrument_to_py(py, &self.inner.instrument)
+    }
+
+    /// Convert to a serializable specification.
+    fn to_spec(&self) -> PyPositionSpec {
+        PyPositionSpec::new(self.inner.to_spec())
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "Position(id='{}', entity='{}', instrument='{}', qty={}, unit={})",
@@ -506,6 +517,88 @@ impl PyPosition {
 
     fn __str__(&self) -> String {
         format!("{}: {}", self.inner.position_id, self.inner.instrument_id)
+    }
+}
+
+/// A serializable position specification.
+#[pyclass(module = "finstack.portfolio", name = "PositionSpec")]
+pub struct PyPositionSpec {
+    pub(crate) inner: finstack_portfolio::position::PositionSpec,
+}
+
+impl PyPositionSpec {
+    pub(crate) fn new(inner: finstack_portfolio::position::PositionSpec) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyPositionSpec {
+    #[getter]
+    fn position_id(&self) -> String {
+        self.inner.position_id.to_string()
+    }
+
+    #[getter]
+    fn entity_id(&self) -> String {
+        self.inner.entity_id.to_string()
+    }
+
+    #[getter]
+    fn instrument_id(&self) -> String {
+        self.inner.instrument_id.clone()
+    }
+
+    #[getter]
+    fn quantity(&self) -> f64 {
+        self.inner.quantity
+    }
+
+    #[getter]
+    fn unit(&self) -> PyPositionUnit {
+        PyPositionUnit::new(self.inner.unit)
+    }
+
+    #[getter]
+    fn book_id(&self) -> Option<String> {
+        self.inner.book_id.as_ref().map(|id| id.to_string())
+    }
+
+    #[getter]
+    fn tags(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        for (k, v) in &self.inner.tags {
+            dict.set_item(k, v)?;
+        }
+        Ok(dict.into())
+    }
+
+    #[getter]
+    fn meta(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let bound = pythonize(py, &self.inner.meta)
+            .map_err(|e| PyValueError::new_err(format!("Failed to convert meta: {}", e)))?;
+        Ok(bound.unbind())
+    }
+
+    /// Serialize to JSON string.
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("JSON serialization failed: {}", e)))
+    }
+
+    /// Deserialize from JSON string.
+    #[staticmethod]
+    fn from_json(json_str: &str) -> PyResult<Self> {
+        let spec: finstack_portfolio::position::PositionSpec = serde_json::from_str(json_str)
+            .map_err(|e| PyValueError::new_err(format!("JSON deserialization failed: {}", e)))?;
+        Ok(Self::new(spec))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "PositionSpec(id='{}', entity='{}', instrument='{}')",
+            self.inner.position_id, self.inner.entity_id, self.inner.instrument_id
+        )
     }
 }
 
@@ -535,6 +628,7 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyEntity>()?;
     parent.add_class::<PyPositionUnit>()?;
     parent.add_class::<PyPosition>()?;
+    parent.add_class::<PyPositionSpec>()?;
     parent.setattr(
         "DUMMY_ENTITY_ID",
         finstack_portfolio::types::DUMMY_ENTITY_ID,
@@ -544,6 +638,7 @@ pub(crate) fn register<'py>(
         "Entity".to_string(),
         "PositionUnit".to_string(),
         "Position".to_string(),
+        "PositionSpec".to_string(),
         "DUMMY_ENTITY_ID".to_string(),
     ])
 }

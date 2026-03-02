@@ -891,5 +891,165 @@ class TestOptimizationParity:
             assert hasattr(PortfolioOptimizationProblem, attr), f"Missing getter: {attr}"
 
 
+class TestCoreTypesParity:
+    """Test core types match Rust API (Stream 4)."""
+
+    def test_position_instrument_property(self) -> None:
+        """Position.instrument should return the instrument object."""
+        from finstack.core.currency import USD
+        from finstack.valuations.instruments import Equity
+
+        from finstack.portfolio import Position, PositionUnit
+
+        equity = Equity.builder("EQ-1").ticker("TEST").currency(USD).price(100.0).build()
+        pos = Position("P1", "E1", "EQ-1", equity, 100.0, PositionUnit.UNITS)
+        inst = pos.instrument
+        assert inst is not None
+        assert inst.instrument_id == "EQ-1"
+
+    def test_position_instrument_roundtrip_deposit(self) -> None:
+        """Position.instrument should work for different instrument types."""
+        from datetime import date
+
+        from finstack.core.currency import Currency
+        from finstack.core.dates import DayCount
+        from finstack.core.money import Money
+        from finstack.valuations.instruments import Deposit
+
+        from finstack.portfolio import Position, PositionUnit
+
+        dep = (
+            Deposit
+            .builder("DEP-1")
+            .money(Money(1_000_000.0, Currency("USD")))
+            .start(date(2024, 1, 1))
+            .maturity(date(2024, 4, 1))
+            .day_count(DayCount.ACT_360)
+            .disc_id("USD-OIS")
+            .quote_rate(0.045)
+            .build()
+        )
+        pos = Position("P1", "E1", "DEP-1", dep, 1.0, PositionUnit.UNITS)
+        inst = pos.instrument
+        assert inst is not None
+        assert inst.instrument_id == "DEP-1"
+
+
+class TestBookMethodsParity:
+    """Test Book methods match Rust API."""
+
+    def test_is_root(self) -> None:
+        from finstack.portfolio import Book
+
+        root = Book("ROOT", name="Root Book")
+        child = Book("CHILD", name="Child", parent_id="ROOT")
+        assert root.is_root() is True
+        assert child.is_root() is False
+
+    def test_contains_and_add_position(self) -> None:
+        from finstack.portfolio import Book
+
+        book = Book("B1")
+        assert book.contains_position("P1") is False
+        book.add_position("P1")
+        assert book.contains_position("P1") is True
+        # Adding again should not duplicate
+        book.add_position("P1")
+        assert len(book.position_ids) == 1
+
+    def test_contains_and_add_child(self) -> None:
+        from finstack.portfolio import Book
+
+        book = Book("B1")
+        assert book.contains_child("B2") is False
+        book.add_child("B2")
+        assert book.contains_child("B2") is True
+        # Adding again should not duplicate
+        book.add_child("B2")
+        assert len(book.child_book_ids) == 1
+
+    def test_remove_position(self) -> None:
+        from finstack.portfolio import Book
+
+        book = Book("B1")
+        book.add_position("P1")
+        assert book.contains_position("P1") is True
+        book.remove_position("P1")
+        assert book.contains_position("P1") is False
+
+    def test_remove_child(self) -> None:
+        from finstack.portfolio import Book
+
+        book = Book("B1")
+        book.add_child("B2")
+        assert book.contains_child("B2") is True
+        book.remove_child("B2")
+        assert book.contains_child("B2") is False
+
+
+class TestGroupingParity:
+    """Test grouping functions match Rust API."""
+
+    def test_aggregate_by_multiple_attributes_exists(self) -> None:
+        """aggregate_by_multiple_attributes should be importable."""
+        from finstack.portfolio import aggregate_by_multiple_attributes
+
+        assert callable(aggregate_by_multiple_attributes)
+
+
+class TestSpecParity:
+    """Test spec types match Rust API."""
+
+    def test_position_spec_basic(self) -> None:
+        """Position.to_spec() should return a PositionSpec."""
+        from finstack.core.currency import USD
+        from finstack.valuations.instruments import Equity
+
+        from finstack.portfolio import Position, PositionSpec, PositionUnit
+
+        equity = Equity.builder("EQ-1").ticker("TEST").currency(USD).price(100.0).build()
+        pos = Position("P1", "E1", "EQ-1", equity, 100.0, PositionUnit.UNITS)
+        spec = pos.to_spec()
+        assert isinstance(spec, PositionSpec)
+        assert spec.position_id == "P1"
+        assert spec.entity_id == "E1"
+        assert spec.instrument_id == "EQ-1"
+        assert spec.quantity == 100.0
+
+    def test_position_spec_json_roundtrip(self) -> None:
+        """PositionSpec should serialize/deserialize to/from JSON."""
+        from finstack.core.currency import USD
+        from finstack.valuations.instruments import Equity
+
+        from finstack.portfolio import Position, PositionUnit
+
+        equity = Equity.builder("EQ-1").ticker("TEST").currency(USD).price(100.0).build()
+        pos = Position("P1", "E1", "EQ-1", equity, 100.0, PositionUnit.UNITS)
+        spec = pos.to_spec()
+        json_str = spec.to_json()
+        assert isinstance(json_str, str)
+        assert "P1" in json_str
+
+    def test_portfolio_spec_basic(self) -> None:
+        """Portfolio.to_spec() should return a PortfolioSpec."""
+        from datetime import date
+
+        from finstack.core.currency import USD
+        from finstack.valuations.instruments import Equity
+
+        from finstack.portfolio import Entity, PortfolioBuilder, PortfolioSpec, Position, PositionUnit
+
+        entity = Entity("E1")
+        equity = Equity.builder("EQ-1").ticker("TEST").currency(USD).price(100.0).build()
+        pos = Position("P1", "E1", "EQ-1", equity, 100.0, PositionUnit.UNITS)
+        portfolio = PortfolioBuilder("TEST").base_ccy(USD).as_of(date(2024, 1, 1)).entity(entity).position(pos).build()
+        spec = portfolio.to_spec()
+        assert isinstance(spec, PortfolioSpec)
+        assert spec.id == "TEST"
+        json_str = spec.to_json()
+        assert isinstance(json_str, str)
+        assert "TEST" in json_str
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
