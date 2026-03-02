@@ -6,5 +6,15 @@ from .merton import (
     MertonAssetDynamics as MertonAssetDynamics,
     MertonBarrierType as MertonBarrierType,
 )
+from .endogenous_hazard import EndogenousHazardSpec as EndogenousHazardSpec
+from .dynamic_recovery import DynamicRecoverySpec as DynamicRecoverySpec
+from .toggle_exercise import ToggleExerciseModel as ToggleExerciseModel
 
-__all__ = ["MertonModel", "MertonAssetDynamics", "MertonBarrierType"]
+__all__ = [
+    "MertonModel",
+    "MertonAssetDynamics",
+    "MertonBarrierType",
+    "EndogenousHazardSpec",
+    "DynamicRecoverySpec",
+    "ToggleExerciseModel",
+]
