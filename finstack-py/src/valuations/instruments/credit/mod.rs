@@ -1,5 +1,6 @@
 pub(crate) mod dynamic_recovery;
 pub(crate) mod endogenous_hazard;
+pub(crate) mod mc_config;
 pub(crate) mod merton;
 pub(crate) mod toggle_exercise;
 
@@ -23,6 +24,9 @@ pub(crate) fn register<'py>(
 
     let toggle_exports = toggle_exercise::register(py, module)?;
     exports.extend(toggle_exports.iter().copied());
+
+    let mc_config_exports = mc_config::register(py, module)?;
+    exports.extend(mc_config_exports.iter().copied());
 
     Ok(exports)
 }

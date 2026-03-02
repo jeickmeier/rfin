@@ -58,7 +58,7 @@ fn parse_direction(s: &str) -> PyResult<ThresholdDirection> {
 )]
 #[derive(Clone, Debug)]
 pub struct PyToggleExerciseModel {
-    inner: RustToggleExerciseModel,
+    pub(crate) inner: RustToggleExerciseModel,
 }
 
 impl PyToggleExerciseModel {

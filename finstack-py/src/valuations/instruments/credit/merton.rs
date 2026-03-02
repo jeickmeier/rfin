@@ -226,7 +226,7 @@ impl PyBarrierType {
 )]
 #[derive(Clone, Debug)]
 pub struct PyMertonModel {
-    inner: RustMertonModel,
+    pub(crate) inner: RustMertonModel,
 }
 
 #[pymethods]

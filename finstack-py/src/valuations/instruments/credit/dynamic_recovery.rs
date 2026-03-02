@@ -30,7 +30,7 @@ use pyo3::types::{PyModule, PyType};
 )]
 #[derive(Clone, Debug)]
 pub struct PyDynamicRecoverySpec {
-    inner: RustDynamicRecoverySpec,
+    pub(crate) inner: RustDynamicRecoverySpec,
 }
 
 impl PyDynamicRecoverySpec {

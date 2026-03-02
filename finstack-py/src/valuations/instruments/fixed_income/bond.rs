@@ -980,6 +980,40 @@ impl PyBond {
         }
     }
 
+    /// Price the bond using Monte Carlo simulation with structural credit model.
+    ///
+    /// Parameters
+    /// ----------
+    /// config : MertonMcConfig
+    ///     Monte Carlo configuration with Merton model and optional credit specs.
+    /// discount_rate : float
+    ///     Risk-free discount rate.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// MertonMcResult
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the bond's cashflow spec is not supported or simulation fails.
+    #[pyo3(signature = (config, discount_rate, as_of))]
+    fn price_merton_mc(
+        &self,
+        config: &crate::valuations::instruments::credit::mc_config::PyMertonMcConfig,
+        discount_rate: f64,
+        as_of: &Bound<'_, pyo3::types::PyAny>,
+    ) -> PyResult<crate::valuations::instruments::credit::mc_config::PyMertonMcResult> {
+        let date = py_to_date(as_of)?;
+        let result = self
+            .inner
+            .price_merton_mc(&config.inner, discount_rate, date)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(crate::valuations::instruments::credit::mc_config::PyMertonMcResult { inner: result })
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         use rust_decimal::prelude::ToPrimitive;
         let coupon_rate = match &self.inner.cashflow_spec {

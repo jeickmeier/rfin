@@ -11,6 +11,7 @@ from ....core.dates.calendar import BusinessDayConvention
 from ....core.market_data.context import MarketContext
 from ...cashflow.builder import AmortizationSpec, CashFlowSchedule
 from ...common import InstrumentType
+from ..credit.mc_config import MertonMcConfig, MertonMcResult
 
 class CallScheduleItem(TypedDict):
     date: datetime.date
@@ -318,5 +319,32 @@ class Bond:
 
     @property
     def cashflow_spec(self) -> CashflowSpec: ...
+    def price_merton_mc(
+        self,
+        config: MertonMcConfig,
+        discount_rate: float,
+        as_of: datetime.date,
+    ) -> MertonMcResult:
+        """Price the bond using Monte Carlo simulation with structural credit model.
+
+        Parameters
+        ----------
+        config : MertonMcConfig
+            Monte Carlo configuration with Merton model and optional credit specs.
+        discount_rate : float
+            Risk-free discount rate.
+        as_of : datetime.date
+            Valuation date.
+
+        Returns
+        -------
+        MertonMcResult
+
+        Raises
+        ------
+        ValueError
+            If the bond's cashflow spec is not supported or simulation fails.
+        """
+        ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

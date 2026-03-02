@@ -29,7 +29,7 @@ use pyo3::types::{PyModule, PyType};
 )]
 #[derive(Clone, Debug)]
 pub struct PyEndogenousHazardSpec {
-    inner: RustEndogenousHazardSpec,
+    pub(crate) inner: RustEndogenousHazardSpec,
 }
 
 impl PyEndogenousHazardSpec {

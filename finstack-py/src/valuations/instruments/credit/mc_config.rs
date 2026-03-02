@@ -1,0 +1,262 @@
+use crate::valuations::instruments::credit::dynamic_recovery::PyDynamicRecoverySpec;
+use crate::valuations::instruments::credit::endogenous_hazard::PyEndogenousHazardSpec;
+use crate::valuations::instruments::credit::merton::PyMertonModel;
+use crate::valuations::instruments::credit::toggle_exercise::PyToggleExerciseModel;
+use finstack_valuations::instruments::fixed_income::bond::pricing::merton_mc_engine::{
+    MertonMcConfig as RustMertonMcConfig, MertonMcResult as RustMertonMcResult,
+};
+use pyo3::prelude::*;
+use pyo3::types::PyModule;
+
+// ---------------------------------------------------------------------------
+// PyMertonMcConfig
+// ---------------------------------------------------------------------------
+
+/// Monte Carlo configuration for Merton structural credit pricing.
+///
+/// Bundles a :class:`MertonModel` with optional credit extensions
+/// (endogenous hazard, dynamic recovery, toggle exercise) and simulation
+/// parameters (paths, seed, antithetic, time steps).
+///
+/// Examples
+/// --------
+///     >>> from finstack.valuations.instruments.credit import MertonModel, MertonMcConfig
+///     >>> m = MertonModel(asset_value=100, asset_vol=0.25, debt_barrier=80, risk_free_rate=0.04)
+///     >>> config = MertonMcConfig(m, num_paths=5000, seed=123)
+///     >>> config.num_paths
+///     5000
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "MertonMcConfig",
+    frozen
+)]
+pub struct PyMertonMcConfig {
+    pub(crate) inner: RustMertonMcConfig,
+}
+
+#[pymethods]
+impl PyMertonMcConfig {
+    /// Construct a Monte Carlo configuration for Merton structural pricing.
+    ///
+    /// Parameters
+    /// ----------
+    /// merton : MertonModel
+    ///     Structural credit model.
+    /// endogenous_hazard : EndogenousHazardSpec | None, optional
+    ///     Endogenous (leverage-dependent) hazard rate model.
+    /// dynamic_recovery : DynamicRecoverySpec | None, optional
+    ///     Dynamic (notional-dependent) recovery rate model.
+    /// toggle_model : ToggleExerciseModel | None, optional
+    ///     Toggle exercise model for PIK/cash coupon decisions.
+    /// num_paths : int, optional
+    ///     Number of Monte Carlo paths (default: 10,000).
+    /// seed : int, optional
+    ///     RNG seed for reproducibility (default: 42).
+    /// antithetic : bool, optional
+    ///     Use antithetic variates for variance reduction (default: True).
+    /// time_steps_per_year : int, optional
+    ///     Simulation time steps per year (default: 12).
+    ///
+    /// Returns
+    /// -------
+    /// MertonMcConfig
+    #[new]
+    #[pyo3(signature = (
+        merton,
+        *,
+        endogenous_hazard = None,
+        dynamic_recovery = None,
+        toggle_model = None,
+        num_paths = 10_000,
+        seed = 42,
+        antithetic = true,
+        time_steps_per_year = 12,
+    ))]
+    fn new(
+        merton: &PyMertonModel,
+        endogenous_hazard: Option<&PyEndogenousHazardSpec>,
+        dynamic_recovery: Option<&PyDynamicRecoverySpec>,
+        toggle_model: Option<&PyToggleExerciseModel>,
+        num_paths: usize,
+        seed: u64,
+        antithetic: bool,
+        time_steps_per_year: usize,
+    ) -> Self {
+        let mut config = RustMertonMcConfig::new(merton.inner.clone())
+            .num_paths(num_paths)
+            .seed(seed)
+            .antithetic(antithetic)
+            .time_steps_per_year(time_steps_per_year);
+        if let Some(eh) = endogenous_hazard {
+            config = config.endogenous_hazard(eh.inner.clone());
+        }
+        if let Some(dr) = dynamic_recovery {
+            config = config.dynamic_recovery(dr.inner.clone());
+        }
+        if let Some(tm) = toggle_model {
+            config = config.toggle_model(tm.inner.clone());
+        }
+        Self { inner: config }
+    }
+
+    /// Number of Monte Carlo paths.
+    #[getter]
+    fn num_paths(&self) -> usize {
+        self.inner.num_paths
+    }
+
+    /// RNG seed.
+    #[getter]
+    fn seed(&self) -> u64 {
+        self.inner.seed
+    }
+
+    /// Whether antithetic variates are enabled.
+    #[getter]
+    fn antithetic(&self) -> bool {
+        self.inner.antithetic
+    }
+
+    /// Number of time steps per year.
+    #[getter]
+    fn time_steps_per_year(&self) -> usize {
+        self.inner.time_steps_per_year
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "MertonMcConfig(num_paths={}, seed={}, antithetic={}, time_steps_per_year={})",
+            self.inner.num_paths,
+            self.inner.seed,
+            self.inner.antithetic,
+            self.inner.time_steps_per_year,
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PyMertonMcResult
+// ---------------------------------------------------------------------------
+
+/// Result from Monte Carlo Merton structural credit pricing.
+///
+/// Contains clean/dirty prices, loss metrics, spread, and path statistics.
+/// All properties are read-only.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "MertonMcResult",
+    frozen
+)]
+pub struct PyMertonMcResult {
+    pub(crate) inner: RustMertonMcResult,
+}
+
+#[pymethods]
+impl PyMertonMcResult {
+    /// Clean price as percentage of par.
+    #[getter]
+    fn clean_price_pct(&self) -> f64 {
+        self.inner.clean_price_pct
+    }
+
+    /// Dirty price as percentage of par.
+    #[getter]
+    fn dirty_price_pct(&self) -> f64 {
+        self.inner.dirty_price_pct
+    }
+
+    /// Expected loss as fraction of risk-free present value.
+    #[getter]
+    fn expected_loss(&self) -> f64 {
+        self.inner.expected_loss
+    }
+
+    /// Unexpected loss (standard deviation of path PVs / notional).
+    #[getter]
+    fn unexpected_loss(&self) -> f64 {
+        self.inner.unexpected_loss
+    }
+
+    /// Expected shortfall at 95% confidence level.
+    #[getter]
+    fn expected_shortfall_95(&self) -> f64 {
+        self.inner.expected_shortfall_95
+    }
+
+    /// Average PIK fraction across all coupon dates and paths.
+    #[getter]
+    fn average_pik_fraction(&self) -> f64 {
+        self.inner.average_pik_fraction
+    }
+
+    /// Effective credit spread in basis points.
+    #[getter]
+    fn effective_spread_bp(&self) -> f64 {
+        self.inner.effective_spread_bp
+    }
+
+    /// Fraction of paths that defaulted.
+    #[getter]
+    fn default_rate(&self) -> f64 {
+        self.inner.path_statistics.default_rate
+    }
+
+    /// Average default time (in years) among defaulted paths.
+    #[getter]
+    fn avg_default_time(&self) -> f64 {
+        self.inner.path_statistics.avg_default_time
+    }
+
+    /// Average terminal notional (reflects PIK accrual).
+    #[getter]
+    fn avg_terminal_notional(&self) -> f64 {
+        self.inner.path_statistics.avg_terminal_notional
+    }
+
+    /// Average recovery percentage among defaulted paths.
+    #[getter]
+    fn avg_recovery_pct(&self) -> f64 {
+        self.inner.path_statistics.avg_recovery_pct
+    }
+
+    /// Fraction of coupon dates where PIK was elected.
+    #[getter]
+    fn pik_exercise_rate(&self) -> f64 {
+        self.inner.path_statistics.pik_exercise_rate
+    }
+
+    /// Number of paths used.
+    #[getter]
+    fn num_paths(&self) -> usize {
+        self.inner.num_paths
+    }
+
+    /// Standard error of the clean price estimate.
+    #[getter]
+    fn standard_error(&self) -> f64 {
+        self.inner.standard_error
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "MertonMcResult(clean_price_pct={:.4}, effective_spread_bp={:.2}, default_rate={:.4}, num_paths={})",
+            self.inner.clean_price_pct,
+            self.inner.effective_spread_bp,
+            self.inner.path_statistics.default_rate,
+            self.inner.num_paths,
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Registration
+// ---------------------------------------------------------------------------
+
+pub(crate) fn register<'py>(
+    _py: Python<'py>,
+    module: &Bound<'py, PyModule>,
+) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyMertonMcConfig>()?;
+    module.add_class::<PyMertonMcResult>()?;
+    Ok(vec!["MertonMcConfig", "MertonMcResult"])
+}
