@@ -49,6 +49,10 @@ pub mod quote_engine;
 pub mod tree_engine;
 pub mod ytm_solver;
 
+/// Merton Monte Carlo engine for PIK bonds with structural credit risk
+#[cfg(feature = "mc")]
+pub mod merton_mc_engine;
+
 /// Settlement date and quote-date utilities for bond pricing.
 ///
 /// This module provides the `QuoteDateContext` struct which computes:
