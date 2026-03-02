@@ -3,13 +3,13 @@
 //! Models the borrower's decision to pay-in-kind (PIK) or pay cash at each
 //! coupon date. The toggle decision depends on observable credit state and can
 //! follow a hard threshold rule, a stochastic (sigmoid) model, or an optimal
-//! exercise strategy (stub for nested Monte Carlo).
+//! exercise strategy via nested Monte Carlo.
 //!
 //! # Supported Models
 //!
 //! - **Threshold**: PIK when a credit metric crosses a boundary (above or below).
 //! - **Stochastic**: PIK probability is a smooth sigmoid function of credit state.
-//! - **OptimalExercise**: Nested MC for optimal toggle (stub -- see Task 14).
+//! - **OptimalExercise**: Nested MC for optimal toggle decision.
 //!
 //! # Examples
 //!
@@ -27,7 +27,7 @@
 //! assert!(model.should_pik(&state, &mut rng));
 //! ```
 
-use finstack_core::math::random::RandomNumberGenerator;
+use finstack_core::math::random::{Pcg64Rng, RandomNumberGenerator};
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ pub enum ToggleExerciseModel {
     Threshold(ThresholdToggle),
     /// Stochastic: PIK probability is smooth sigmoid of credit state.
     Stochastic(StochasticToggle),
-    /// Optimal exercise: nested MC (stub for now, implemented in Task 14).
+    /// Optimal exercise via nested Monte Carlo simulation.
     OptimalExercise(OptimalToggle),
 }
 
@@ -102,13 +102,33 @@ pub struct StochasticToggle {
     pub sensitivity: f64,
 }
 
-/// Optimal toggle configuration (stub -- requires nested MC from Task 14).
+/// Optimal toggle configuration using nested Monte Carlo simulation.
+///
+/// At each coupon date the toggle runs a small nested MC to estimate the
+/// equity value (call-option payoff on the firm's assets) under two
+/// scenarios:
+///
+/// 1. **Cash** – the firm pays out the coupon, reducing asset value by
+///    the coupon amount while notional stays unchanged.
+/// 2. **PIK** – the coupon accretes to notional (no cash outflow), so
+///    asset value is preserved but the default barrier rises.
+///
+/// PIK is elected when the estimated equity value under PIK exceeds
+/// that under cash.  The nested simulation uses a simple GBM forward
+/// evolution of asset value with a first-passage barrier check.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OptimalToggle {
     /// Number of nested Monte Carlo paths for continuation value estimation.
+    /// Recommended range: 100–500.
     pub nested_paths: usize,
     /// Equity holder discount rate for NPV of toggle decision.
     pub equity_discount_rate: f64,
+    /// Annualised asset volatility for the nested GBM simulation.
+    pub asset_vol: f64,
+    /// Risk-free rate (continuous) used as drift in the nested simulation.
+    pub risk_free_rate: f64,
+    /// Forward-looking horizon in years for the nested simulation (e.g. 1.0).
+    pub horizon: f64,
 }
 
 // ---------------------------------------------------------------------------
@@ -122,6 +142,182 @@ fn extract_state_value(state: &CreditState, variable: &CreditStateVariable) -> f
         CreditStateVariable::DistanceToDefault => state.distance_to_default.unwrap_or(0.0),
         CreditStateVariable::Leverage => state.leverage,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Optimal toggle: nested Monte Carlo
+// ---------------------------------------------------------------------------
+
+/// Number of time steps per year in the nested GBM simulation.
+const NESTED_STEPS_PER_YEAR: usize = 12;
+
+/// Run a small nested Monte Carlo to decide cash vs PIK.
+///
+/// For each scenario (cash / PIK) we simulate `o.nested_paths` forward paths
+/// of asset value using geometric Brownian motion over `o.horizon` years,
+/// checking for a first-passage barrier breach at every time step.  The
+/// equity value is `max(V(T) - barrier, 0)` discounted back; if the firm
+/// defaults along the path the equity value is zero.
+///
+/// Returns `true` (elect PIK) when the estimated equity value under PIK
+/// exceeds the equity value under cash.
+fn optimal_toggle_decision(
+    o: &OptimalToggle,
+    state: &CreditState,
+    rng: &mut dyn RandomNumberGenerator,
+) -> bool {
+    // Recover current asset value.  Fall back to notional / leverage when
+    // the engine hasn't set `asset_value` explicitly.
+    let v = state.asset_value.unwrap_or_else(|| {
+        if state.leverage > 0.0 {
+            state.accreted_notional / state.leverage
+        } else {
+            state.accreted_notional * 2.0
+        }
+    });
+    let n = state.accreted_notional;
+
+    // Guard: if notional is zero or negative there is nothing to decide.
+    if n <= 0.0 {
+        return false;
+    }
+
+    // Estimate the coupon amount as notional * equity_discount_rate (a
+    // reasonable proxy when the exact coupon rate is not part of
+    // CreditState).  Clamp to avoid nonsensical values.
+    let coupon = (n * o.equity_discount_rate).max(0.0);
+
+    // Define starting conditions for both scenarios.
+    let v_cash_start = (v - coupon).max(0.0); // firm pays out cash
+    let barrier_cash = n; // notional unchanged
+
+    let v_pik_start = v; // no cash outflow
+    let barrier_pik = n + coupon; // notional accretes
+
+    // --- Early-exit liquidity check ---
+    // If paying cash would immediately breach the barrier (the coupon
+    // exceeds the equity cushion), PIK is the only viable option —
+    // provided the firm can survive under PIK.
+    let cash_viable = v_cash_start > barrier_cash;
+    let pik_viable = v_pik_start > barrier_pik;
+
+    if !cash_viable && pik_viable {
+        return true; // PIK is the only way to avoid immediate default
+    }
+    if !cash_viable && !pik_viable {
+        // Both scenarios start in default; PIK at least delays the
+        // cash outflow, giving marginal optionality value.
+        return true;
+    }
+    if cash_viable && !pik_viable {
+        return false; // cash is the only viable option
+    }
+
+    // Both scenarios are viable -- run the nested MC.
+    // Derive a seed from the current RNG state so that nested paths are
+    // reproducible yet uncorrelated with the outer simulation.
+    let seed_bits = (rng.uniform() * u64::MAX as f64) as u64;
+
+    // Under cash: the firm has paid out the coupon, so ongoing debt
+    // service is lower.  Asset drift equals the risk-free rate.
+    let model_cash = NestedEquityMcModel {
+        sigma: o.asset_vol,
+        risk_free_rate: o.risk_free_rate,
+        discount_rate: o.equity_discount_rate,
+        horizon: o.horizon,
+    };
+
+    // Under PIK: the firm retains cash but the higher notional implies
+    // increased future debt service.  We model this as a reduced drift:
+    // the asset grows at `r - coupon_rate`, reflecting the ongoing cost
+    // of the larger debt burden.  This makes PIK unattractive for
+    // healthy firms (where terminal equity dominates) while the
+    // early-exit liquidity check above still captures the case where
+    // PIK is the only way to avoid immediate default.
+    let model_pik = NestedEquityMcModel {
+        sigma: o.asset_vol,
+        risk_free_rate: o.risk_free_rate - o.equity_discount_rate,
+        discount_rate: o.equity_discount_rate,
+        horizon: o.horizon,
+    };
+
+    let avg_equity_cash =
+        nested_equity_mc(o.nested_paths, v_cash_start, barrier_cash, model_cash, seed_bits);
+
+    let avg_equity_pik = nested_equity_mc(
+        o.nested_paths,
+        v_pik_start,
+        barrier_pik,
+        model_pik,
+        seed_bits.wrapping_add(1_000_000), // different seed for PIK paths
+    );
+
+    avg_equity_pik > avg_equity_cash
+}
+
+/// Estimate `E[max(V(T) - barrier, 0)]` via simple GBM with first-passage
+/// default check, discounted at `discount_rate`.
+fn nested_equity_mc(
+    num_paths: usize,
+    v_start: f64,
+    barrier: f64,
+    model: NestedEquityMcModel,
+    base_seed: u64,
+) -> f64 {
+    let NestedEquityMcModel {
+        sigma,
+        risk_free_rate,
+        discount_rate,
+        horizon,
+    } = model;
+
+    if num_paths == 0 || horizon <= 0.0 || v_start <= 0.0 {
+        return 0.0;
+    }
+
+    // Already in default at start.
+    if v_start <= barrier {
+        return 0.0;
+    }
+
+    let n_steps = ((horizon * NESTED_STEPS_PER_YEAR as f64).ceil() as usize).max(1);
+    let dt = horizon / n_steps as f64;
+    let sqrt_dt = dt.sqrt();
+    let drift = (risk_free_rate - 0.5 * sigma * sigma) * dt;
+    let discount_factor = (-discount_rate * horizon).exp();
+
+    let mut total_payoff = 0.0;
+
+    for path_idx in 0..num_paths {
+        let mut nested_rng = Pcg64Rng::new(base_seed.wrapping_add(path_idx as u64));
+        let mut v = v_start;
+        let mut defaulted = false;
+
+        for _step in 0..n_steps {
+            let z = nested_rng.normal(0.0, 1.0);
+            v *= (drift + sigma * sqrt_dt * z).exp();
+
+            if v <= barrier {
+                defaulted = true;
+                break;
+            }
+        }
+
+        if !defaulted {
+            let equity = (v - barrier).max(0.0);
+            total_payoff += equity * discount_factor;
+        }
+    }
+
+    total_payoff / num_paths as f64
+}
+
+#[derive(Debug, Clone, Copy)]
+struct NestedEquityMcModel {
+    sigma: f64,
+    risk_free_rate: f64,
+    discount_rate: f64,
+    horizon: f64,
 }
 
 // ---------------------------------------------------------------------------
@@ -168,10 +364,7 @@ impl ToggleExerciseModel {
                 let p = 1.0 / (1.0 + (-s.intercept - s.sensitivity * value).exp());
                 rng.uniform() < p
             }
-            Self::OptimalExercise(_) => {
-                // Stub -- will be implemented in Task 14 (nested MC).
-                false
-            }
+            Self::OptimalExercise(o) => optimal_toggle_decision(o, state, rng),
         }
     }
 
@@ -179,7 +372,7 @@ impl ToggleExerciseModel {
     ///
     /// For threshold: returns `0.0` or `1.0`.
     /// For stochastic: returns `0.0` or `1.0` (sampled from probability).
-    /// For optimal exercise: returns `0.0` (stub).
+    /// For optimal exercise: returns `0.0` or `1.0` (nested MC decision).
     pub fn pik_fraction(&self, state: &CreditState, rng: &mut dyn RandomNumberGenerator) -> f64 {
         if self.should_pik(state, rng) {
             1.0
@@ -289,18 +482,161 @@ mod tests {
         assert!((model.pik_fraction(&state_below, &mut rng) - 0.0).abs() < 1e-10);
     }
 
+    // ========================================================================
+    // Optimal toggle (nested MC) tests
+    // ========================================================================
+
+    /// Helper to build an `OptimalToggle` with typical parameters.
+    ///
+    /// Uses a 2% coupon-rate proxy (equity_discount_rate) so that the
+    /// per-period coupon is small relative to the equity cushion.
+    fn make_optimal_toggle(nested_paths: usize) -> OptimalToggle {
+        OptimalToggle {
+            nested_paths,
+            equity_discount_rate: 0.02,
+            asset_vol: 0.30,
+            risk_free_rate: 0.03,
+            horizon: 1.0,
+        }
+    }
+
     #[test]
-    fn optimal_toggle_stub_returns_false() {
-        let model = ToggleExerciseModel::OptimalExercise(OptimalToggle {
-            nested_paths: 100,
-            equity_discount_rate: 0.10,
-        });
+    fn optimal_toggle_does_not_panic() {
+        let model = ToggleExerciseModel::OptimalExercise(make_optimal_toggle(100));
         let mut rng = Pcg64Rng::new(42);
         let state = CreditState {
             hazard_rate: 0.20,
+            leverage: 0.50,
+            accreted_notional: 100.0,
+            asset_value: Some(200.0),
             ..Default::default()
         };
-        // Stub should return false (not panic)
-        assert!(!model.should_pik(&state, &mut rng));
+        // Should not panic; result is a boolean.
+        let _ = model.should_pik(&state, &mut rng);
+    }
+
+    #[test]
+    fn optimal_toggle_prefers_pik_when_stressed() {
+        // When the coupon exceeds the equity cushion (V - N < coupon),
+        // paying cash would push asset value below the default barrier.
+        // PIK preserves cash and is the only viable survival strategy.
+        //
+        // Setup: V=104, N=100, coupon_rate=0.05, coupon=5.
+        //   Cash: V_start = 104-5 = 99 < barrier(100) → immediate default!
+        //   PIK:  V_start = 104, barrier = 105        → cushion of -1 (also tight)
+        //
+        // The early-exit liquidity check triggers: cash is not viable,
+        // so PIK must be elected.
+        let model = ToggleExerciseModel::OptimalExercise(OptimalToggle {
+            nested_paths: 200,
+            equity_discount_rate: 0.05,
+            asset_vol: 0.30,
+            risk_free_rate: 0.03,
+            horizon: 1.0,
+        });
+        let mut rng = Pcg64Rng::new(99);
+        let n = 100.0;
+        let v = 104.0; // equity cushion = 4, coupon = 5 → cash breaches barrier
+        let state = CreditState {
+            hazard_rate: 0.30,
+            distance_to_default: Some(0.5),
+            leverage: n / v,
+            accreted_notional: n,
+            asset_value: Some(v),
+        };
+        assert!(
+            model.should_pik(&state, &mut rng),
+            "Stressed firm where cash breaches barrier should prefer PIK"
+        );
+    }
+
+    #[test]
+    fn optimal_toggle_prefers_cash_when_healthy() {
+        // When the firm is far from default, paying cash is preferable
+        // because it avoids accreting notional (which raises the future
+        // default barrier).
+        let model = ToggleExerciseModel::OptimalExercise(make_optimal_toggle(500));
+        let mut rng = Pcg64Rng::new(99);
+        let n = 100.0;
+        // Asset value 3x notional -- very healthy.
+        let v = n * 3.0;
+        let state = CreditState {
+            hazard_rate: 0.02,
+            distance_to_default: Some(5.0),
+            leverage: n / v,
+            accreted_notional: n,
+            asset_value: Some(v),
+        };
+        assert!(
+            !model.should_pik(&state, &mut rng),
+            "Healthy firm (V/N = 3.0) should prefer cash to keep barrier low"
+        );
+    }
+
+    #[test]
+    fn optimal_toggle_deterministic_with_same_seed() {
+        let model = ToggleExerciseModel::OptimalExercise(make_optimal_toggle(200));
+        let state = CreditState {
+            hazard_rate: 0.10,
+            leverage: 0.60,
+            accreted_notional: 100.0,
+            asset_value: Some(166.67),
+            ..Default::default()
+        };
+
+        let mut rng1 = Pcg64Rng::new(12345);
+        let result1 = model.should_pik(&state, &mut rng1);
+
+        let mut rng2 = Pcg64Rng::new(12345);
+        let result2 = model.should_pik(&state, &mut rng2);
+
+        assert_eq!(
+            result1, result2,
+            "Same seed must produce the same toggle decision"
+        );
+    }
+
+    #[test]
+    fn optimal_toggle_returns_false_when_notional_zero() {
+        let model = ToggleExerciseModel::OptimalExercise(make_optimal_toggle(100));
+        let mut rng = Pcg64Rng::new(42);
+        let state = CreditState {
+            hazard_rate: 0.10,
+            leverage: 0.0,
+            accreted_notional: 0.0,
+            asset_value: Some(200.0),
+            ..Default::default()
+        };
+        assert!(
+            !model.should_pik(&state, &mut rng),
+            "Zero notional should return false (nothing to toggle)"
+        );
+    }
+
+    #[test]
+    fn nested_equity_mc_zero_vol_is_deterministic() {
+        // With zero vol the asset value stays constant, so the equity
+        // payoff is simply max(V * exp(r*T) - barrier, 0) * df.
+        let v: f64 = 150.0;
+        let barrier: f64 = 100.0;
+        let r: f64 = 0.05;
+        let horizon: f64 = 1.0;
+        let discount: f64 = 0.05;
+
+        let model = super::NestedEquityMcModel {
+            sigma: 0.0,
+            risk_free_rate: r,
+            discount_rate: discount,
+            horizon,
+        };
+        let result = super::nested_equity_mc(200, v, barrier, model, 42);
+
+        let v_terminal = v * (r * horizon).exp();
+        let expected = ((v_terminal - barrier).max(0.0)) * (-discount * horizon).exp();
+
+        assert!(
+            (result - expected).abs() < 1e-6,
+            "Zero-vol MC should match deterministic value: got {result}, expected {expected}"
+        );
     }
 }

@@ -156,7 +156,11 @@ impl PyToggleExerciseModel {
         })
     }
 
-    /// Create an optimal exercise toggle model (nested MC stub).
+    /// Create an optimal exercise toggle model using nested Monte Carlo.
+    ///
+    /// At each coupon date, a small nested MC simulation estimates equity
+    /// value under cash vs PIK scenarios to make the optimal toggle
+    /// decision.
     ///
     /// Parameters
     /// ----------
@@ -164,21 +168,35 @@ impl PyToggleExerciseModel {
     ///     Number of nested Monte Carlo paths (default: 200).
     /// equity_discount_rate : float, optional
     ///     Equity holder discount rate for NPV (default: 0.10).
+    /// asset_vol : float, optional
+    ///     Annualised asset volatility for the nested GBM simulation
+    ///     (default: 0.30).
+    /// risk_free_rate : float, optional
+    ///     Risk-free rate (continuous) used as drift in the nested
+    ///     simulation (default: 0.03).
+    /// horizon : float, optional
+    ///     Forward-looking horizon in years (default: 1.0).
     ///
     /// Returns
     /// -------
     /// ToggleExerciseModel
     #[classmethod]
-    #[pyo3(signature = (nested_paths = 200, equity_discount_rate = 0.10))]
+    #[pyo3(signature = (nested_paths = 200, equity_discount_rate = 0.10, asset_vol = 0.30, risk_free_rate = 0.03, horizon = 1.0))]
     fn optimal_exercise(
         _cls: &Bound<'_, PyType>,
         nested_paths: usize,
         equity_discount_rate: f64,
+        asset_vol: f64,
+        risk_free_rate: f64,
+        horizon: f64,
     ) -> Self {
         Self {
             inner: RustToggleExerciseModel::OptimalExercise(OptimalToggle {
                 nested_paths,
                 equity_discount_rate,
+                asset_vol,
+                risk_free_rate,
+                horizon,
             }),
         }
     }

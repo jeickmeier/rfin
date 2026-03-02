@@ -88,8 +88,15 @@ class ToggleExerciseModel:
         cls,
         nested_paths: int = 200,
         equity_discount_rate: float = 0.10,
+        asset_vol: float = 0.30,
+        risk_free_rate: float = 0.03,
+        horizon: float = 1.0,
     ) -> ToggleExerciseModel:
-        """Create an optimal exercise toggle model (nested MC stub).
+        """Create an optimal exercise toggle model using nested Monte Carlo.
+
+        At each coupon date, a small nested MC simulation estimates equity
+        value under cash vs PIK scenarios to make the optimal toggle
+        decision.
 
         Parameters
         ----------
@@ -97,6 +104,14 @@ class ToggleExerciseModel:
             Number of nested Monte Carlo paths (default: 200).
         equity_discount_rate : float, optional
             Equity holder discount rate for NPV (default: 0.10).
+        asset_vol : float, optional
+            Annualised asset volatility for the nested GBM simulation
+            (default: 0.30).
+        risk_free_rate : float, optional
+            Risk-free rate (continuous) used as drift in the nested
+            simulation (default: 0.03).
+        horizon : float, optional
+            Forward-looking horizon in years (default: 1.0).
 
         Returns
         -------
