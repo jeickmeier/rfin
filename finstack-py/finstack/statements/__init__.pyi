@@ -28,7 +28,7 @@ from .types import (
     DebtInstrumentSpec,
 )
 from .builder import ModelBuilder
-from .evaluator import ResultsMeta, StatementResult, Evaluator, EvaluatorWithContext, DependencyGraph
+from .evaluator import ResultsMeta, StatementResult, MonteCarloResults, Evaluator, EvaluatorWithContext, DependencyGraph
 from .extensions import (
     ExtensionMetadata,
     ExtensionStatus,
@@ -81,6 +81,28 @@ from .analysis import (
     ScenarioSet,
     ScenarioResults,
     ScenarioDiff,
+    # Monte Carlo
+    MonteCarloConfig,
+    # Backtesting
+    ForecastMetrics,
+    backtest_forecast,
+    # Credit Context
+    CreditContextMetrics,
+    compute_credit_context,
+    # Corporate DCF Valuation
+    DcfOptions,
+    CorporateValuationResult,
+    evaluate_dcf,
+    evaluate_dcf_with_options,
+    evaluate_dcf_with_market,
+    # Covenant Analysis
+    forecast_covenant,
+    forecast_covenants,
+    forecast_breaches,
+    # Corporate Analysis Orchestrator
+    CreditInstrumentAnalysis,
+    CorporateAnalysis,
+    CorporateAnalysisBuilder,
 )
 from .forecast import apply_forecast
 from .dsl import StmtExpr, parse_formula, compile_formula, parse_and_compile
@@ -121,6 +143,7 @@ __all__ = [
     # Evaluator
     "ResultsMeta",
     "StatementResult",
+    "MonteCarloResults",
     "Evaluator",
     "EvaluatorWithContext",
     "DependencyGraph",
@@ -173,6 +196,28 @@ __all__ = [
     "ScenarioSet",
     "ScenarioResults",
     "ScenarioDiff",
+    # Analysis (Monte Carlo)
+    "MonteCarloConfig",
+    # Analysis (Backtesting)
+    "ForecastMetrics",
+    "backtest_forecast",
+    # Analysis (Credit Context)
+    "CreditContextMetrics",
+    "compute_credit_context",
+    # Analysis (Corporate DCF Valuation)
+    "DcfOptions",
+    "CorporateValuationResult",
+    "evaluate_dcf",
+    "evaluate_dcf_with_options",
+    "evaluate_dcf_with_market",
+    # Analysis (Covenant Analysis)
+    "forecast_covenant",
+    "forecast_covenants",
+    "forecast_breaches",
+    # Analysis (Corporate Analysis Orchestrator)
+    "CreditInstrumentAnalysis",
+    "CorporateAnalysis",
+    "CorporateAnalysisBuilder",
     # Forecast helpers
     "apply_forecast",
     # DSL helpers

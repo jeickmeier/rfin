@@ -8,10 +8,16 @@ This module provides tools for:
 """
 
 from __future__ import annotations
+from datetime import date
 from typing import Any, Dict, List
 from ..evaluator import StatementResult, DependencyGraph
 from ..types import FinancialModelSpec, NodeType
-from ...core.dates.periods import PeriodId
+from ..capital_structure import CapitalStructureCashflows
+from ...core.dates.periods import Period, PeriodId
+from ...core.money import Money
+from ...core.market_data.context import MarketContext
+from ...valuations.covenants import CovenantSpec, CovenantForecast, CovenantForecastConfig, FutureBreach
+from ...valuations.instruments.equity.dcf import TerminalValueSpec
 
 # =============================================================================
 # Sensitivity Analysis
@@ -856,6 +862,473 @@ def print_debt_summary(model: FinancialModelSpec, results: StatementResult, as_o
     ...
 
 # =============================================================================
+# Backtesting
+# =============================================================================
+
+class ForecastMetrics:
+    """Forecast accuracy metrics.
+
+    Contains MAE, MAPE, RMSE, and the number of data points used.
+    """
+
+    @property
+    def mae(self) -> float:
+        """Mean Absolute Error."""
+        ...
+
+    @property
+    def mape(self) -> float:
+        """Mean Absolute Percentage Error."""
+        ...
+
+    @property
+    def rmse(self) -> float:
+        """Root Mean Squared Error."""
+        ...
+
+    @property
+    def n(self) -> int:
+        """Number of data points."""
+        ...
+
+    def summary(self) -> str:
+        """Format metrics as a human-readable summary.
+
+        Returns:
+            str: Summary string
+        """
+        ...
+
+    def __repr__(self) -> str: ...
+
+def backtest_forecast(actual: list[float], forecast: list[float]) -> ForecastMetrics:
+    """Compute forecast error metrics by comparing actual vs forecast values.
+
+    Args:
+        actual: Actual observed values
+        forecast: Forecasted/predicted values
+
+    Returns:
+        ForecastMetrics: Metrics containing MAE, MAPE, and RMSE
+
+    Raises:
+        RuntimeError: If arrays have different lengths
+    """
+    ...
+
+# =============================================================================
+# Credit Context
+# =============================================================================
+
+class CreditContextMetrics:
+    """Per-instrument credit context metrics.
+
+    Contains DSCR, interest coverage, and LTV time series with summary
+    statistics.
+    """
+
+    @property
+    def dscr(self) -> list[tuple[PeriodId, float]]:
+        """DSCR by period."""
+        ...
+
+    @property
+    def interest_coverage(self) -> list[tuple[PeriodId, float]]:
+        """Interest coverage by period."""
+        ...
+
+    @property
+    def ltv(self) -> list[tuple[PeriodId, float]]:
+        """LTV by period."""
+        ...
+
+    @property
+    def dscr_min(self) -> float | None:
+        """Minimum DSCR across all periods."""
+        ...
+
+    @property
+    def interest_coverage_min(self) -> float | None:
+        """Minimum interest coverage across all periods."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+def compute_credit_context(
+    statement: StatementResult,
+    cs_cashflows: CapitalStructureCashflows,
+    instrument_id: str,
+    coverage_node: str,
+    periods: list[Period],
+    reference_value: float | None = None,
+) -> CreditContextMetrics:
+    """Compute credit context metrics for a specific instrument.
+
+    Args:
+        statement: Evaluated statement results
+        cs_cashflows: Capital structure cashflows
+        instrument_id: Instrument to compute metrics for
+        coverage_node: Statement node for coverage numerator (e.g. "ebitda")
+        periods: Periods over which to compute metrics
+        reference_value: Optional reference value for LTV (e.g. enterprise value)
+
+    Returns:
+        CreditContextMetrics: Credit metrics (DSCR, interest coverage, LTV)
+    """
+    ...
+
+# =============================================================================
+# Corporate DCF Valuation
+# =============================================================================
+
+class DcfOptions:
+    """Optional configuration for DCF valuation."""
+
+    def __init__(
+        self,
+        *,
+        mid_year_convention: bool = False,
+        shares_outstanding: float | None = None,
+    ) -> None:
+        """Create DCF options.
+
+        Args:
+            mid_year_convention: Enable mid-year discounting convention
+            shares_outstanding: Basic shares outstanding for per-share calculation
+        """
+        ...
+
+    @property
+    def mid_year_convention(self) -> bool: ...
+    @property
+    def shares_outstanding(self) -> float | None: ...
+    def __repr__(self) -> str: ...
+
+class CorporateValuationResult:
+    """Corporate valuation result from DCF analysis."""
+
+    @property
+    def equity_value(self) -> Money:
+        """Equity value."""
+        ...
+
+    @property
+    def enterprise_value(self) -> Money:
+        """Enterprise value."""
+        ...
+
+    @property
+    def net_debt(self) -> Money:
+        """Net debt."""
+        ...
+
+    @property
+    def terminal_value_pv(self) -> Money:
+        """Terminal value (present value)."""
+        ...
+
+    @property
+    def equity_value_per_share(self) -> float | None:
+        """Per-share equity value, if shares_outstanding was set."""
+        ...
+
+    @property
+    def diluted_shares(self) -> float | None:
+        """Diluted share count, if shares_outstanding was set."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+def evaluate_dcf(
+    model: FinancialModelSpec,
+    wacc: float,
+    terminal_value: TerminalValueSpec,
+    ufcf_node: str = "ufcf",
+    net_debt_override: float | None = None,
+) -> CorporateValuationResult:
+    """Evaluate a financial model using DCF methodology.
+
+    Args:
+        model: Financial model with forecast periods
+        wacc: Weighted average cost of capital (decimal, e.g., 0.10)
+        terminal_value: Terminal value specification
+        ufcf_node: Node ID containing UFCF values (default: "ufcf")
+        net_debt_override: Optional fixed net debt value
+
+    Returns:
+        CorporateValuationResult: DCF valuation results
+    """
+    ...
+
+def evaluate_dcf_with_options(
+    model: FinancialModelSpec,
+    wacc: float,
+    terminal_value: TerminalValueSpec,
+    ufcf_node: str = "ufcf",
+    net_debt_override: float | None = None,
+    options: DcfOptions | None = None,
+) -> CorporateValuationResult:
+    """Evaluate DCF with additional options.
+
+    Args:
+        model: Financial model with forecast periods
+        wacc: Weighted average cost of capital
+        terminal_value: Terminal value specification
+        ufcf_node: Node ID containing UFCF values
+        net_debt_override: Optional fixed net debt value
+        options: DCF options (mid-year convention, shares, etc.)
+
+    Returns:
+        CorporateValuationResult: DCF valuation results
+    """
+    ...
+
+def evaluate_dcf_with_market(
+    model: FinancialModelSpec,
+    wacc: float,
+    terminal_value: TerminalValueSpec,
+    ufcf_node: str = "ufcf",
+    net_debt_override: float | None = None,
+    options: DcfOptions | None = None,
+    market: MarketContext | None = None,
+) -> CorporateValuationResult:
+    """Evaluate DCF with market context.
+
+    Args:
+        model: Financial model with forecast periods
+        wacc: Weighted average cost of capital
+        terminal_value: Terminal value specification
+        ufcf_node: Node ID containing UFCF values
+        net_debt_override: Optional fixed net debt value
+        options: DCF options
+        market: Market context for curve-based discounting
+
+    Returns:
+        CorporateValuationResult: DCF valuation results
+    """
+    ...
+
+# =============================================================================
+# Covenant Analysis
+# =============================================================================
+
+def forecast_covenant(
+    covenant: CovenantSpec,
+    model: FinancialModelSpec,
+    base_case: StatementResult,
+    periods: list[PeriodId],
+    config: CovenantForecastConfig | None = None,
+) -> CovenantForecast:
+    """Forecast a single covenant's future compliance using statement results.
+
+    Args:
+        covenant: Covenant specification to forecast
+        model: Financial model with period definitions
+        base_case: Evaluated statement results (time-series of metrics)
+        periods: Periods to project over
+        config: Forecasting configuration (uses defaults when omitted)
+
+    Returns:
+        CovenantForecast: Projected covenant compliance
+    """
+    ...
+
+def forecast_covenants(
+    covenants: list[CovenantSpec],
+    model: FinancialModelSpec,
+    base_case: StatementResult,
+    periods: list[PeriodId],
+    config: CovenantForecastConfig | None = None,
+) -> list[CovenantForecast]:
+    """Forecast multiple covenants with shared statement inputs.
+
+    Args:
+        covenants: Covenant specifications to forecast
+        model: Financial model with period definitions
+        base_case: Evaluated statement results (time-series of metrics)
+        periods: Periods to project over
+        config: Forecasting configuration (uses defaults when omitted)
+
+    Returns:
+        list[CovenantForecast]: Projected covenant compliance for each specification
+    """
+    ...
+
+def forecast_breaches(
+    results: StatementResult,
+    covenant_specs: list[CovenantSpec],
+    model: FinancialModelSpec | None = None,
+    config: CovenantForecastConfig | None = None,
+) -> list[FutureBreach]:
+    """Forecast covenant breaches based on statement results.
+
+    Args:
+        results: Evaluated statement results containing metric time-series
+        covenant_specs: Covenant specifications to check for breaches
+        model: Financial model for precise period end dates (optional)
+        config: Forecasting configuration (uses defaults when omitted)
+
+    Returns:
+        list[FutureBreach]: Projected breaches across all covenants and periods
+    """
+    ...
+
+# =============================================================================
+# Corporate Analysis Orchestrator
+# =============================================================================
+
+class CreditInstrumentAnalysis:
+    """Credit analysis for a single instrument."""
+
+    @property
+    def coverage(self) -> CreditContextMetrics:
+        """Coverage and leverage metrics computed from the statement context."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+class CorporateAnalysis:
+    """Unified corporate analysis result combining statement, equity, and credit
+    perspectives.
+    """
+
+    @property
+    def statement(self) -> StatementResult:
+        """Full statement evaluation result (all nodes, all periods)."""
+        ...
+
+    @property
+    def equity(self) -> CorporateValuationResult | None:
+        """Equity valuation result (None when no DCF was configured)."""
+        ...
+
+    @property
+    def credit(self) -> Dict[str, CreditInstrumentAnalysis]:
+        """Per-instrument credit analysis keyed by instrument id."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+class CorporateAnalysisBuilder:
+    """Builder for the corporate analysis pipeline.
+
+    The builder uses move semantics internally. Calling :meth:`analyze`
+    consumes the builder; a second call raises ``RuntimeError``.
+
+    Example:
+        >>> builder = CorporateAnalysisBuilder(model)
+        >>> result = builder.dcf(0.10, tv).analyze()
+        >>> result.statement
+        StatementResult(...)
+    """
+
+    def __init__(self, model: FinancialModelSpec) -> None:
+        """Create a new builder for the given financial model.
+
+        Args:
+            model: Financial model specification
+        """
+        ...
+
+    def market(self, ctx: MarketContext) -> CorporateAnalysisBuilder:
+        """Set the market context for curve-based discounting.
+
+        Args:
+            ctx: Market context
+
+        Returns:
+            CorporateAnalysisBuilder: self (for chaining)
+        """
+        ...
+
+    def as_of(self, date: date) -> CorporateAnalysisBuilder:
+        """Set the as-of date for valuation.
+
+        Args:
+            date: Valuation date
+
+        Returns:
+            CorporateAnalysisBuilder: self (for chaining)
+        """
+        ...
+
+    def dcf(self, wacc: float, terminal_value: TerminalValueSpec) -> CorporateAnalysisBuilder:
+        """Configure DCF equity valuation with default options.
+
+        Args:
+            wacc: Weighted average cost of capital
+            terminal_value: Terminal value specification
+
+        Returns:
+            CorporateAnalysisBuilder: self (for chaining)
+        """
+        ...
+
+    def dcf_with_options(
+        self,
+        wacc: float,
+        terminal_value: TerminalValueSpec,
+        options: DcfOptions,
+    ) -> CorporateAnalysisBuilder:
+        """Configure DCF equity valuation with custom options.
+
+        Args:
+            wacc: Weighted average cost of capital
+            terminal_value: Terminal value specification
+            options: DCF options
+
+        Returns:
+            CorporateAnalysisBuilder: self (for chaining)
+        """
+        ...
+
+    def dcf_node(self, node: str) -> CorporateAnalysisBuilder:
+        """Override the UFCF node name (default: "ufcf").
+
+        Args:
+            node: Node ID for unlevered free cashflow
+
+        Returns:
+            CorporateAnalysisBuilder: self (for chaining)
+        """
+        ...
+
+    def net_debt_override(self, net_debt: float) -> CorporateAnalysisBuilder:
+        """Override net debt for the equity bridge calculation.
+
+        Args:
+            net_debt: Fixed net debt value
+
+        Returns:
+            CorporateAnalysisBuilder: self (for chaining)
+        """
+        ...
+
+    def coverage_node(self, node: str) -> CorporateAnalysisBuilder:
+        """Set the coverage node for credit metrics (default: "ebitda").
+
+        Args:
+            node: Node ID for coverage numerator
+
+        Returns:
+            CorporateAnalysisBuilder: self (for chaining)
+        """
+        ...
+
+    def analyze(self) -> CorporateAnalysis:
+        """Execute the analysis pipeline and return the combined result.
+
+        The builder is consumed; calling this a second time raises
+        ``RuntimeError``.
+
+        Returns:
+            CorporateAnalysis: Combined analysis result
+        """
+        ...
+
+    def __repr__(self) -> str: ...
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -898,4 +1371,24 @@ __all__ = [
     "ScenarioDiff",
     # Monte Carlo
     "MonteCarloConfig",
+    # Backtesting
+    "ForecastMetrics",
+    "backtest_forecast",
+    # Credit Context
+    "CreditContextMetrics",
+    "compute_credit_context",
+    # Corporate DCF Valuation
+    "DcfOptions",
+    "CorporateValuationResult",
+    "evaluate_dcf",
+    "evaluate_dcf_with_options",
+    "evaluate_dcf_with_market",
+    # Covenant Analysis
+    "forecast_covenant",
+    "forecast_covenants",
+    "forecast_breaches",
+    # Corporate Analysis Orchestrator
+    "CreditInstrumentAnalysis",
+    "CorporateAnalysis",
+    "CorporateAnalysisBuilder",
 ]

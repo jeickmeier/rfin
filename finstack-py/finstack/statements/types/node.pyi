@@ -1,7 +1,7 @@
 """Node specification bindings."""
 
 from __future__ import annotations
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from finstack.core.dates.periods import PeriodId
 from finstack.core.currency import Currency
 from .forecast import ForecastSpec
@@ -22,7 +22,7 @@ class NodeValueType:
         ...
 
     @property
-    def currency(self) -> Optional[Currency]:
+    def currency(self) -> Currency | None:
         """Get the currency if this is a monetary type, None if scalar."""
         ...
 
