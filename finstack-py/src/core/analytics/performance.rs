@@ -17,14 +17,24 @@ use pyo3_polars::PyDataFrame;
 type ExtractedData = (Vec<finstack_core::dates::Date>, Vec<Vec<f64>>, Vec<String>);
 
 /// Convert a Python object (pandas or polars DataFrame) to a Polars DataFrame.
+///
+/// For polars DataFrames:
+///   - Extracts the inner `PyDataFrame` directly.
+///
+/// For pandas DataFrames:
+///   - Calls `reset_index()` so the date index becomes a plain column.
+///   - Converts via `polars.from_pandas()`.
+///   - Casts the first column from `Datetime` to `Date` if needed, because
+///     `pandas.DatetimeIndex` maps to `Datetime` in polars, not `Date`.
 fn py_to_polars_df(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<DataFrame> {
     // Try extracting as PyDataFrame first (Polars path)
     if let Ok(pdf) = obj.extract::<PyDataFrame>() {
         return Ok(pdf.0);
     }
 
-    // Check if it's a pandas DataFrame by looking for the `reset_index` method
-    if obj.hasattr("reset_index")? {
+    // Check for pandas DataFrame using two pandas-specific attributes
+    // to avoid false positives from other types that have reset_index
+    if obj.hasattr("reset_index")? && obj.hasattr("iloc")? {
         let pl = py.import("polars")?;
         let reset = obj.call_method0("reset_index")?;
         let polars_df = pl.call_method1("from_pandas", (&reset,))?;
