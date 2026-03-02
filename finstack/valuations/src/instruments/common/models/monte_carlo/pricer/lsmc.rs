@@ -7,14 +7,14 @@
 
 use super::super::results::MoneyEstimate;
 use super::lsq::regression_with_basis;
-use crate::instruments::common_impl::mc::discretization::exact::ExactGbm;
-use crate::instruments::common_impl::mc::estimate::Estimate;
-use crate::instruments::common_impl::mc::online_stats::OnlineStats;
-use crate::instruments::common_impl::mc::process::gbm::GbmProcess;
-use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
-use crate::instruments::common_impl::mc::time_grid::TimeGrid;
-use crate::instruments::common_impl::mc::traits::{Discretization, RandomStream};
+use crate::instruments::common_impl::models::monte_carlo::discretization::exact::ExactGbm;
+use crate::instruments::common_impl::models::monte_carlo::estimate::Estimate;
+use crate::instruments::common_impl::models::monte_carlo::online_stats::OnlineStats;
 use crate::instruments::common_impl::models::monte_carlo::pricer::basis::BasisFunctions;
+use crate::instruments::common_impl::models::monte_carlo::process::gbm::GbmProcess;
+use crate::instruments::common_impl::models::monte_carlo::rng::philox::PhiloxRng;
+use crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid;
+use crate::instruments::common_impl::models::monte_carlo::traits::{Discretization, RandomStream};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -311,10 +311,10 @@ impl LsmcPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common_impl::mc::process::gbm::GbmParams;
     use crate::instruments::common_impl::models::monte_carlo::prelude::{
         LaguerreBasis, PolynomialBasis,
     };
+    use crate::instruments::common_impl::models::monte_carlo::process::gbm::GbmParams;
 
     #[test]
     fn test_polynomial_basis() {

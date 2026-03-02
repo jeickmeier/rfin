@@ -5,10 +5,10 @@
 use super::super::engine::{McEngine, McEngineConfig};
 use super::super::results::MoneyEstimate;
 use super::super::traits::Payoff;
-use crate::instruments::common_impl::mc::discretization::exact::ExactGbm;
-use crate::instruments::common_impl::mc::process::gbm::GbmProcess;
-use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
-use crate::instruments::common_impl::mc::time_grid::TimeGrid;
+use crate::instruments::common_impl::models::monte_carlo::discretization::exact::ExactGbm;
+use crate::instruments::common_impl::models::monte_carlo::process::gbm::GbmProcess;
+use crate::instruments::common_impl::models::monte_carlo::rng::philox::PhiloxRng;
+use crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -146,8 +146,8 @@ impl EuropeanPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common_impl::mc::process::gbm::GbmParams;
     use crate::instruments::common_impl::models::monte_carlo::payoff::vanilla::EuropeanCall;
+    use crate::instruments::common_impl::models::monte_carlo::process::gbm::GbmParams;
 
     #[test]
     fn test_european_pricer_basic() {

@@ -70,11 +70,11 @@
       "finstack.valuations.cashflow",
       "finstack.valuations.cashflow.builder",
       "finstack.valuations.common",
-      "finstack.valuations.common.mc",
-      "finstack.valuations.common.mc.generator",
-      "finstack.valuations.common.mc.params",
-      "finstack.valuations.common.mc.paths",
-      "finstack.valuations.common.mc.result",
+      "finstack.valuations.common.monte_carlo",
+      "finstack.valuations.common.monte_carlo.generator",
+      "finstack.valuations.common.monte_carlo.params",
+      "finstack.valuations.common.monte_carlo.paths",
+      "finstack.valuations.common.monte_carlo.result",
       "finstack.valuations.common.parameters",
       "finstack.valuations.common.parse",
       "finstack.valuations.conventions",
@@ -31758,8 +31758,8 @@
         "parse"
       ]
     },
-    "finstack.valuations.common.mc": {
-      "path": "valuations/common/mc/__init__.pyi",
+    "finstack.valuations.common.monte_carlo": {
+      "path": "valuations/common/monte_carlo/__init__.pyi",
       "classes": [],
       "functions": [],
       "constants": [],
@@ -31776,12 +31776,12 @@
         "MonteCarloResult"
       ]
     },
-    "finstack.valuations.common.mc.generator": {
-      "path": "valuations/common/mc/generator.pyi",
+    "finstack.valuations.common.monte_carlo.generator": {
+      "path": "valuations/common/monte_carlo/generator.pyi",
       "classes": [
         {
           "name": "MonteCarloPathGenerator",
-          "module": "finstack.valuations.common.mc.generator",
+          "module": "finstack.valuations.common.monte_carlo.generator",
           "methods": [
             {
               "name": "__init__",
@@ -31844,7 +31844,7 @@
       "functions": [
         {
           "name": "generate_gbm_paths",
-          "module": "finstack.valuations.common.mc.generator",
+          "module": "finstack.valuations.common.monte_carlo.generator",
           "signature": "",
           "return_type": "PathDataset",
           "parameters": [
@@ -31863,7 +31863,7 @@
         },
         {
           "name": "generate_paths",
-          "module": "finstack.valuations.common.mc.generator",
+          "module": "finstack.valuations.common.monte_carlo.generator",
           "signature": "",
           "return_type": "PathDataset",
           "parameters": [
@@ -31885,12 +31885,12 @@
         "MonteCarloPathGenerator"
       ]
     },
-    "finstack.valuations.common.mc.params": {
-      "path": "valuations/common/mc/params.pyi",
+    "finstack.valuations.common.monte_carlo.params": {
+      "path": "valuations/common/monte_carlo/params.pyi",
       "classes": [
         {
           "name": "ProcessParams",
-          "module": "finstack.valuations.common.mc.params",
+          "module": "finstack.valuations.common.monte_carlo.params",
           "methods": [
             {
               "name": "process_type",
@@ -31979,7 +31979,7 @@
       "functions": [
         {
           "name": "process_type",
-          "module": "finstack.valuations.common.mc.params",
+          "module": "finstack.valuations.common.monte_carlo.params",
           "signature": "",
           "return_type": "str",
           "parameters": [
@@ -31988,7 +31988,7 @@
         },
         {
           "name": "parameters",
-          "module": "finstack.valuations.common.mc.params",
+          "module": "finstack.valuations.common.monte_carlo.params",
           "signature": "",
           "return_type": "Dict[str, float]",
           "parameters": [
@@ -31997,7 +31997,7 @@
         },
         {
           "name": "correlation",
-          "module": "finstack.valuations.common.mc.params",
+          "module": "finstack.valuations.common.monte_carlo.params",
           "signature": "",
           "return_type": "Optional[List[float]]",
           "parameters": [
@@ -32006,7 +32006,7 @@
         },
         {
           "name": "factor_names",
-          "module": "finstack.valuations.common.mc.params",
+          "module": "finstack.valuations.common.monte_carlo.params",
           "signature": "",
           "return_type": "List[str]",
           "parameters": [
@@ -32015,7 +32015,7 @@
         },
         {
           "name": "get_param",
-          "module": "finstack.valuations.common.mc.params",
+          "module": "finstack.valuations.common.monte_carlo.params",
           "signature": "",
           "return_type": "Optional[float]",
           "parameters": [
@@ -32025,7 +32025,7 @@
         },
         {
           "name": "dim",
-          "module": "finstack.valuations.common.mc.params",
+          "module": "finstack.valuations.common.monte_carlo.params",
           "signature": "",
           "return_type": "Optional[int]",
           "parameters": [
@@ -32034,7 +32034,7 @@
         },
         {
           "name": "correlation_matrix",
-          "module": "finstack.valuations.common.mc.params",
+          "module": "finstack.valuations.common.monte_carlo.params",
           "signature": "",
           "return_type": "Optional[List[List[float]]]",
           "parameters": [
@@ -32043,7 +32043,7 @@
         },
         {
           "name": "correlation_array",
-          "module": "finstack.valuations.common.mc.params",
+          "module": "finstack.valuations.common.monte_carlo.params",
           "signature": "",
           "return_type": "Optional[Tuple[List[float], Tuple[int, int]]]",
           "parameters": [
@@ -32056,12 +32056,12 @@
         "ProcessParams"
       ]
     },
-    "finstack.valuations.common.mc.paths": {
-      "path": "valuations/common/mc/paths.pyi",
+    "finstack.valuations.common.monte_carlo.paths": {
+      "path": "valuations/common/monte_carlo/paths.pyi",
       "classes": [
         {
           "name": "CashflowType",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "methods": [],
           "properties": [],
           "bases": [
@@ -32075,7 +32075,7 @@
         },
         {
           "name": "PathPoint",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "methods": [
             {
               "name": "step",
@@ -32229,7 +32229,7 @@
         },
         {
           "name": "SimulatedPath",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "methods": [
             {
               "name": "path_id",
@@ -32365,7 +32365,7 @@
         },
         {
           "name": "PathDataset",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "methods": [
             {
               "name": "paths",
@@ -32492,7 +32492,7 @@
       "functions": [
         {
           "name": "step",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "int",
           "parameters": [
@@ -32501,7 +32501,7 @@
         },
         {
           "name": "time",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "float",
           "parameters": [
@@ -32510,7 +32510,7 @@
         },
         {
           "name": "state_vars",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Dict[str, float]",
           "parameters": [
@@ -32519,7 +32519,7 @@
         },
         {
           "name": "payoff_value",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Optional[float]",
           "parameters": [
@@ -32528,7 +32528,7 @@
         },
         {
           "name": "get_var",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Optional[float]",
           "parameters": [
@@ -32538,7 +32538,7 @@
         },
         {
           "name": "spot",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Optional[float]",
           "parameters": [
@@ -32547,7 +32547,7 @@
         },
         {
           "name": "variance",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Optional[float]",
           "parameters": [
@@ -32556,7 +32556,7 @@
         },
         {
           "name": "short_rate",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Optional[float]",
           "parameters": [
@@ -32565,7 +32565,7 @@
         },
         {
           "name": "cashflows",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "List[Tuple[float, float, CashflowType]]",
           "parameters": [
@@ -32574,7 +32574,7 @@
         },
         {
           "name": "get_cashflows_by_type",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "List[Tuple[float, float]]",
           "parameters": [
@@ -32584,7 +32584,7 @@
         },
         {
           "name": "principal_flows",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "List[Tuple[float, float]]",
           "parameters": [
@@ -32593,7 +32593,7 @@
         },
         {
           "name": "interest_flows",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "List[Tuple[float, float]]",
           "parameters": [
@@ -32602,7 +32602,7 @@
         },
         {
           "name": "total_cashflow",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "float",
           "parameters": [
@@ -32611,7 +32611,7 @@
         },
         {
           "name": "total_cashflow_by_type",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "float",
           "parameters": [
@@ -32621,7 +32621,7 @@
         },
         {
           "name": "to_dataframe",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Any",
           "parameters": [
@@ -32630,7 +32630,7 @@
         },
         {
           "name": "path_id",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "int",
           "parameters": [
@@ -32639,7 +32639,7 @@
         },
         {
           "name": "points",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "List[PathPoint]",
           "parameters": [
@@ -32648,7 +32648,7 @@
         },
         {
           "name": "final_value",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "float",
           "parameters": [
@@ -32657,7 +32657,7 @@
         },
         {
           "name": "irr",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Optional[float]",
           "parameters": [
@@ -32666,7 +32666,7 @@
         },
         {
           "name": "num_steps",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "int",
           "parameters": [
@@ -32675,7 +32675,7 @@
         },
         {
           "name": "point",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Optional[PathPoint]",
           "parameters": [
@@ -32685,7 +32685,7 @@
         },
         {
           "name": "initial_point",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Optional[PathPoint]",
           "parameters": [
@@ -32694,7 +32694,7 @@
         },
         {
           "name": "terminal_point",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Optional[PathPoint]",
           "parameters": [
@@ -32703,7 +32703,7 @@
         },
         {
           "name": "extract_cashflows",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "List[Tuple[float, float]]",
           "parameters": [
@@ -32712,7 +32712,7 @@
         },
         {
           "name": "extract_typed_cashflows",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "List[Tuple[float, float, CashflowType]]",
           "parameters": [
@@ -32721,7 +32721,7 @@
         },
         {
           "name": "extract_cashflows_by_type",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "List[Tuple[float, float]]",
           "parameters": [
@@ -32731,7 +32731,7 @@
         },
         {
           "name": "to_dataframe",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Any",
           "parameters": [
@@ -32740,7 +32740,7 @@
         },
         {
           "name": "get_cashflows_with_dates",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "List[Tuple[date, float]]",
           "parameters": [
@@ -32750,7 +32750,7 @@
         },
         {
           "name": "paths",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "List[SimulatedPath]",
           "parameters": [
@@ -32759,7 +32759,7 @@
         },
         {
           "name": "num_paths_total",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "int",
           "parameters": [
@@ -32768,7 +32768,7 @@
         },
         {
           "name": "sampling_method",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "str",
           "parameters": [
@@ -32777,7 +32777,7 @@
         },
         {
           "name": "num_captured",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "int",
           "parameters": [
@@ -32786,7 +32786,7 @@
         },
         {
           "name": "path",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Optional[SimulatedPath]",
           "parameters": [
@@ -32796,7 +32796,7 @@
         },
         {
           "name": "is_complete",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "bool",
           "parameters": [
@@ -32805,7 +32805,7 @@
         },
         {
           "name": "sampling_ratio",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "float",
           "parameters": [
@@ -32814,7 +32814,7 @@
         },
         {
           "name": "state_var_keys",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "List[str]",
           "parameters": [
@@ -32823,7 +32823,7 @@
         },
         {
           "name": "to_dict",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Dict[str, List[Any]]",
           "parameters": [
@@ -32832,7 +32832,7 @@
         },
         {
           "name": "to_wide_dict",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Dict[str, List[Any]]",
           "parameters": [
@@ -32842,7 +32842,7 @@
         },
         {
           "name": "to_dataframe",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Any",
           "parameters": [
@@ -32851,7 +32851,7 @@
         },
         {
           "name": "cashflows_to_dataframe",
-          "module": "finstack.valuations.common.mc.paths",
+          "module": "finstack.valuations.common.monte_carlo.paths",
           "signature": "",
           "return_type": "Any",
           "parameters": [
@@ -32867,12 +32867,12 @@
         "PathDataset"
       ]
     },
-    "finstack.valuations.common.mc.result": {
-      "path": "valuations/common/mc/result.pyi",
+    "finstack.valuations.common.monte_carlo.result": {
+      "path": "valuations/common/monte_carlo/result.pyi",
       "classes": [
         {
           "name": "MonteCarloResult",
-          "module": "finstack.valuations.common.mc.result",
+          "module": "finstack.valuations.common.monte_carlo.result",
           "methods": [
             {
               "name": "estimate",
@@ -32970,7 +32970,7 @@
       "functions": [
         {
           "name": "estimate",
-          "module": "finstack.valuations.common.mc.result",
+          "module": "finstack.valuations.common.monte_carlo.result",
           "signature": "",
           "return_type": "Money",
           "parameters": [
@@ -32979,7 +32979,7 @@
         },
         {
           "name": "stderr",
-          "module": "finstack.valuations.common.mc.result",
+          "module": "finstack.valuations.common.monte_carlo.result",
           "signature": "",
           "return_type": "float",
           "parameters": [
@@ -32988,7 +32988,7 @@
         },
         {
           "name": "confidence_interval",
-          "module": "finstack.valuations.common.mc.result",
+          "module": "finstack.valuations.common.monte_carlo.result",
           "signature": "",
           "return_type": "Tuple[Money, Money]",
           "parameters": [
@@ -32998,7 +32998,7 @@
         },
         {
           "name": "num_paths",
-          "module": "finstack.valuations.common.mc.result",
+          "module": "finstack.valuations.common.monte_carlo.result",
           "signature": "",
           "return_type": "int",
           "parameters": [
@@ -33007,7 +33007,7 @@
         },
         {
           "name": "paths",
-          "module": "finstack.valuations.common.mc.result",
+          "module": "finstack.valuations.common.monte_carlo.result",
           "signature": "",
           "return_type": "Optional[PathDataset]",
           "parameters": [
@@ -33016,7 +33016,7 @@
         },
         {
           "name": "has_paths",
-          "module": "finstack.valuations.common.mc.result",
+          "module": "finstack.valuations.common.monte_carlo.result",
           "signature": "",
           "return_type": "bool",
           "parameters": [
@@ -33025,7 +33025,7 @@
         },
         {
           "name": "num_captured_paths",
-          "module": "finstack.valuations.common.mc.result",
+          "module": "finstack.valuations.common.monte_carlo.result",
           "signature": "",
           "return_type": "int",
           "parameters": [
@@ -33034,7 +33034,7 @@
         },
         {
           "name": "mean",
-          "module": "finstack.valuations.common.mc.result",
+          "module": "finstack.valuations.common.monte_carlo.result",
           "signature": "",
           "return_type": "Money",
           "parameters": [
@@ -33043,7 +33043,7 @@
         },
         {
           "name": "relative_stderr",
-          "module": "finstack.valuations.common.mc.result",
+          "module": "finstack.valuations.common.monte_carlo.result",
           "signature": "",
           "return_type": "float",
           "parameters": [

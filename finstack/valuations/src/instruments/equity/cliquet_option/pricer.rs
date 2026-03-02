@@ -1,25 +1,25 @@
 //! Cliquet option Monte Carlo pricer.
 
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::paths::ProcessParams;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::process::metadata::ProcessMetadata;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::time_grid::TimeGrid;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::traits::Discretization;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::traits::StochasticProcess;
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::engine::{McEngine, McEngineConfig};
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::paths::ProcessParams;
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::payoff::cliquet::{
     CliquetCallPayoff, CliquetPayoffType as McPayoffType,
 };
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::PathDependentPricerConfig;
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::process::metadata::ProcessMetadata;
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::rng::philox::PhiloxRng;
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid;
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::traits::Discretization;
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::traits::StochasticProcess;
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
 #[cfg(feature = "mc")]

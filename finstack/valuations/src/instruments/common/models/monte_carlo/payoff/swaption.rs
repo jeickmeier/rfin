@@ -3,7 +3,7 @@
 //! Implements Bermudan swaption pricing using Longstaff-Schwartz Monte Carlo.
 //! A swaption is an option to enter into an interest rate swap at future dates.
 
-use crate::instruments::common_impl::mc::traits::PathState;
+use crate::instruments::common_impl::models::monte_carlo::traits::PathState;
 use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;

@@ -4400,8 +4400,8 @@
           ],
           "functions": []
         },
-        "valuations.common.mc.paths": {
-          "path": "valuations/common/mc/paths.rs",
+        "valuations.common.monte_carlo.paths": {
+          "path": "valuations/common/monte_carlo/paths.rs",
           "classes": [
             {
               "name": "PathPoint",
@@ -4502,8 +4502,8 @@
           ],
           "functions": []
         },
-        "valuations.common.mc.params": {
-          "path": "valuations/common/mc/params.rs",
+        "valuations.common.monte_carlo.params": {
+          "path": "valuations/common/monte_carlo/params.rs",
           "classes": [
             {
               "name": "ProcessParams",
@@ -4540,8 +4540,8 @@
           ],
           "functions": []
         },
-        "valuations.common.mc.result": {
-          "path": "valuations/common/mc/result.rs",
+        "valuations.common.monte_carlo.result": {
+          "path": "valuations/common/monte_carlo/result.rs",
           "classes": [
             {
               "name": "MonteCarloResult",
@@ -4578,8 +4578,8 @@
           ],
           "functions": []
         },
-        "valuations.common.mc.generator": {
-          "path": "valuations/common/mc/generator.rs",
+        "valuations.common.monte_carlo.generator": {
+          "path": "valuations/common/monte_carlo/generator.rs",
           "classes": [],
           "functions": []
         },

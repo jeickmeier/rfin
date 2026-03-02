@@ -1,0 +1,124 @@
+"""Standalone Monte Carlo path generation for visualization and analysis."""
+
+from __future__ import annotations
+from typing import Dict, List
+from .paths import PathDataset
+
+class MonteCarloPathGenerator:
+    """
+    Standalone Monte Carlo path generator.
+
+    This class generates Monte Carlo paths without pricing, useful for:
+    - Pure process visualization
+    - Process validation
+    - Understanding stochastic dynamics
+    - Educational purposes
+    """
+
+    def __init__(self) -> None: ...
+    def generate_gbm_paths(
+        self,
+        initial_spot: float,
+        r: float,
+        q: float,
+        sigma: float,
+        time_to_maturity: float,
+        num_steps: int,
+        num_paths: int,
+        capture_mode: str = "all",
+        sample_count: int | None = None,
+        seed: int = 42,
+    ) -> PathDataset:
+        """
+        Generate paths for a Geometric Brownian Motion process.
+
+        Args:
+            initial_spot: Initial spot price
+            r: Risk-free rate (annual)
+            q: Dividend/foreign rate (annual)
+            sigma: Volatility (annual)
+            time_to_maturity: Time horizon in years
+            num_steps: Number of time steps
+            num_paths: Total number of paths to simulate
+            capture_mode: 'all' to capture all paths, or 'sample' with count
+            sample_count: Number of paths to capture (if mode='sample')
+            seed: Random seed for reproducibility
+
+        Returns:
+            PathDataset with generated paths
+
+        Example:
+            Use :class:`MonteCarloPathGenerator` to simulate GBM paths::
+
+                from finstack.valuations.common.monte_carlo import MonteCarloPathGenerator
+
+                generator = MonteCarloPathGenerator()
+                paths = generator.generate_gbm_paths(
+                    initial_spot=100.0,
+                    r=0.05,
+                    q=0.02,
+                    sigma=0.2,
+                    time_to_maturity=0.25,
+                    num_steps=5,
+                    num_paths=8,
+                    capture_mode="sample",
+                    sample_count=3,
+                    seed=7,
+                )
+                print(paths.num_captured())
+        """
+        ...
+
+    def generate_paths(
+        self,
+        process_type: str,
+        process_params: Dict[str, float],
+        initial_state: List[float],
+        time_to_maturity: float,
+        num_steps: int,
+        num_paths: int,
+        capture_mode: str = "all",
+        sample_count: int | None = None,
+        seed: int = 42,
+    ) -> PathDataset:
+        """
+        Generate paths with custom parameters (advanced).
+
+        This is a lower-level interface for advanced users who want full control.
+
+        Args:
+            process_type: Currently only 'gbm' supported
+            process_params: Dictionary of process parameters
+            initial_state: List of initial state values
+            time_to_maturity: Time horizon in years
+            num_steps: Number of time steps
+            num_paths: Total number of paths to simulate
+            capture_mode: 'all' or 'sample'
+            sample_count: Number of paths to capture (if mode='sample')
+            seed: Random seed
+
+        Returns:
+            PathDataset with generated paths
+
+        Example:
+            The same generator can be used for the lower-level interface::
+
+                from finstack.valuations.common.monte_carlo import MonteCarloPathGenerator
+
+                generator = MonteCarloPathGenerator()
+                paths = generator.generate_paths(
+                    process_type="gbm",
+                    process_params={"r": 0.05, "q": 0.02, "sigma": 0.2},
+                    initial_state=[100.0],
+                    time_to_maturity=0.25,
+                    num_steps=5,
+                    num_paths=6,
+                    capture_mode="sample",
+                    sample_count=2,
+                    seed=11,
+                )
+                print(paths.num_captured())
+        """
+        ...
+
+__all__ = ["MonteCarloPathGenerator"]

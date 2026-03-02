@@ -6,11 +6,11 @@
 //! For each path with shocks Z, simulate a paired path with -Z.
 //! The average of the two payoffs has lower variance than either alone.
 
-use crate::instruments::common_impl::mc::online_stats::OnlineStats;
-use crate::instruments::common_impl::mc::traits::{
+use crate::instruments::common_impl::models::monte_carlo::online_stats::OnlineStats;
+use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
+use crate::instruments::common_impl::models::monte_carlo::traits::{
     Discretization, RandomStream, StochasticProcess,
 };
-use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 
 /// Configuration for antithetic variates pricing.
@@ -18,7 +18,7 @@ pub struct AntitheticConfig<'a> {
     /// Number of path pairs to simulate
     pub num_pairs: usize,
     /// Time grid for simulation
-    pub time_grid: &'a crate::instruments::common_impl::mc::time_grid::TimeGrid,
+    pub time_grid: &'a crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid,
     /// Currency for payoff amounts
     pub currency: Currency,
     /// Discount factor to present value
@@ -140,7 +140,7 @@ fn simulate_path_with_stored_shocks<P, D, F>(
     state: &mut [f64],
     z: &mut [f64],
     work: &mut [f64],
-    time_grid: &crate::instruments::common_impl::mc::time_grid::TimeGrid,
+    time_grid: &crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid,
     all_shocks: &[f64],
     shock_sign: f64,
 ) where
@@ -154,10 +154,11 @@ fn simulate_path_with_stored_shocks<P, D, F>(
     state.copy_from_slice(initial_state);
 
     // Create initial path state
-    let mut path_state = crate::instruments::common_impl::mc::traits::PathState::new(0, 0.0);
+    let mut path_state =
+        crate::instruments::common_impl::models::monte_carlo::traits::PathState::new(0, 0.0);
     if !state.is_empty() {
         path_state.set(
-            crate::instruments::common_impl::mc::traits::state_keys::SPOT,
+            crate::instruments::common_impl::models::monte_carlo::traits::state_keys::SPOT,
             state[0],
         );
     }
@@ -182,12 +183,12 @@ fn simulate_path_with_stored_shocks<P, D, F>(
         path_state.time = t + dt;
         if !state.is_empty() {
             path_state.set(
-                crate::instruments::common_impl::mc::traits::state_keys::SPOT,
+                crate::instruments::common_impl::models::monte_carlo::traits::state_keys::SPOT,
                 state[0],
             );
             if state.len() > 1 {
                 path_state.set(
-                    crate::instruments::common_impl::mc::traits::state_keys::VARIANCE,
+                    crate::instruments::common_impl::models::monte_carlo::traits::state_keys::VARIANCE,
                     state[1],
                 );
             }
@@ -202,11 +203,13 @@ fn simulate_path_with_stored_shocks<P, D, F>(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common_impl::mc::discretization::exact::ExactGbm;
-    use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
-    use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
-    use crate::instruments::common_impl::mc::time_grid::TimeGrid;
+    use crate::instruments::common_impl::models::monte_carlo::discretization::exact::ExactGbm;
     use crate::instruments::common_impl::models::monte_carlo::payoff::vanilla::EuropeanCall;
+    use crate::instruments::common_impl::models::monte_carlo::process::gbm::{
+        GbmParams, GbmProcess,
+    };
+    use crate::instruments::common_impl::models::monte_carlo::rng::philox::PhiloxRng;
+    use crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid;
     use finstack_core::currency::Currency;
 
     #[test]

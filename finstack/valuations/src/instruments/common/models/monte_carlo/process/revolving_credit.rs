@@ -19,11 +19,11 @@
 //!
 //! Where W_1, W_2, W_3 are correlated Brownian motions.
 
-use crate::instruments::common_impl::mc::paths::ProcessParams;
-use crate::instruments::common_impl::mc::process::cir::CirParams;
-use crate::instruments::common_impl::mc::process::metadata::ProcessMetadata;
-use crate::instruments::common_impl::mc::process::ou::HullWhite1FParams;
-use crate::instruments::common_impl::mc::traits::StochasticProcess;
+use crate::instruments::common_impl::models::monte_carlo::paths::ProcessParams;
+use crate::instruments::common_impl::models::monte_carlo::process::cir::CirParams;
+use crate::instruments::common_impl::models::monte_carlo::process::metadata::ProcessMetadata;
+use crate::instruments::common_impl::models::monte_carlo::process::ou::HullWhite1FParams;
+use crate::instruments::common_impl::models::monte_carlo::traits::StochasticProcess;
 
 /// Parameters for utilization process (mean-reverting OU).
 #[derive(Debug, Clone)]
@@ -260,9 +260,9 @@ impl StochasticProcess for RevolvingCreditProcess {
     fn populate_path_state(
         &self,
         x: &[f64],
-        state: &mut crate::instruments::common_impl::mc::traits::PathState,
+        state: &mut crate::instruments::common_impl::models::monte_carlo::traits::PathState,
     ) {
-        use crate::instruments::common_impl::mc::traits::state_keys;
+        use crate::instruments::common_impl::models::monte_carlo::traits::state_keys;
         if !x.is_empty() {
             state.set(state_keys::SPOT, x[0]);
         }

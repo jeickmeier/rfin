@@ -15,10 +15,6 @@ use std::sync::Arc;
 
 // LSMC imports (gated by feature)
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::process::ou::{
-    calibrate_theta_from_curve, HullWhite1FProcess,
-};
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::payoff::swaption::{
     BermudanSwaptionPayoff, SwapSchedule, SwaptionType,
 };
@@ -27,6 +23,10 @@ use crate::instruments::common_impl::models::monte_carlo::pricer::basis::Polynom
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::pricer::swaption_lsmc::{
     SwaptionLsmcConfig, SwaptionLsmcPricer as SharedSwaptionLsmcPricer,
+};
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::process::ou::{
+    calibrate_theta_from_curve, HullWhite1FProcess,
 };
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::parameters::OptionType;

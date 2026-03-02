@@ -13,11 +13,11 @@
 
 #[cfg(feature = "mc")]
 mod tests {
-    use crate::instruments::common_impl::mc::discretization::euler::EulerMaruyama;
-    use crate::instruments::common_impl::mc::discretization::exact::ExactGbm;
-    use crate::instruments::common_impl::mc::process::gbm::GbmProcess;
-    use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
-    use crate::instruments::common_impl::mc::{Discretization, RandomStream, StochasticProcess};
+    use crate::instruments::common_impl::models::monte_carlo::discretization::euler::EulerMaruyama;
+    use crate::instruments::common_impl::models::monte_carlo::discretization::exact::ExactGbm;
+    use crate::instruments::common_impl::models::monte_carlo::process::gbm::GbmProcess;
+    use crate::instruments::common_impl::models::monte_carlo::rng::philox::PhiloxRng;
+    use crate::instruments::common_impl::models::monte_carlo::{Discretization, RandomStream, StochasticProcess};
     use proptest::prelude::*;
 
     proptest! {

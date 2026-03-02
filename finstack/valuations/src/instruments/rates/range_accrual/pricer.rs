@@ -14,13 +14,13 @@
 //! - Historical fixings for mid-life valuations (via `past_fixings_in_range`)
 
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::payoff::range_accrual::RangeAccrualPayoff;
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
 #[cfg(feature = "mc")]

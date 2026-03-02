@@ -11,7 +11,7 @@
 //!
 //! The unified [`Lookback`] struct replaces legacy call/put-specific types.
 
-use crate::instruments::common_impl::mc::traits::PathState;
+use crate::instruments::common_impl::models::monte_carlo::traits::PathState;
 use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -296,7 +296,7 @@ impl Payoff for FloatingStrikeLookbackPut {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common_impl::mc::traits::state_keys;
+    use crate::instruments::common_impl::models::monte_carlo::traits::state_keys;
 
     fn create_state(step: usize, spot: f64) -> PathState {
         let mut state = PathState::new(step, step as f64 * 0.1);

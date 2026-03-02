@@ -1,8 +1,6 @@
 //! Autocallable Monte Carlo pricer.
 
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::payoff::autocallable::{
     AutocallablePayoff, FinalPayoffType as McFinalPayoffType,
 };
@@ -10,6 +8,8 @@ use crate::instruments::common_impl::models::monte_carlo::payoff::autocallable::
 use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
 #[cfg(feature = "mc")]
@@ -193,7 +193,7 @@ impl AutocallableMcPricer {
 
         // Create time grid that includes observation dates to ensure exact event timing
         #[cfg(feature = "mc")]
-        use crate::instruments::common_impl::mc::time_grid::TimeGrid;
+        use crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid;
 
         let mut grid_times = Vec::with_capacity(num_steps + observation_times.len() + 1);
         grid_times.push(0.0);

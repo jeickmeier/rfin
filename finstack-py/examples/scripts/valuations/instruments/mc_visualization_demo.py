@@ -22,7 +22,7 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 try:
     from finstack.core.currency import Currency
-    from finstack.valuations.common.mc import PathDataset, PathPoint, SimulatedPath
+    from finstack.valuations.common.monte_carlo import PathDataset, PathPoint, SimulatedPath
     import numpy as np
     import pandas as pd
 

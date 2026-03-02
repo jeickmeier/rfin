@@ -3,7 +3,7 @@
 //! Cliquet options have periodic resets where the strike is reset to the current
 //! spot at reset dates, effectively creating a series of forward-starting options.
 
-use crate::instruments::common_impl::mc::traits::PathState;
+use crate::instruments::common_impl::models::monte_carlo::traits::PathState;
 use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;

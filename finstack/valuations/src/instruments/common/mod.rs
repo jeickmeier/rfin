@@ -28,10 +28,6 @@ pub(crate) mod parameters;
 // Option pricing models and frameworks (includes closed-form, volatility, and tree models)
 pub(crate) mod models;
 
-// Monte Carlo pricing engine (requires mc feature)
-#[cfg(feature = "mc")]
-pub(crate) mod mc;
-
 // Common pricing patterns and infrastructure
 pub(crate) mod pricing;
 

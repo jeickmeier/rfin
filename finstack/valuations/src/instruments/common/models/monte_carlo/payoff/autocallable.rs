@@ -4,7 +4,7 @@
 //! is automatically called (redeemed) if certain barrier conditions are met
 //! at observation dates.
 
-use crate::instruments::common_impl::mc::traits::PathState;
+use crate::instruments::common_impl::models::monte_carlo::traits::PathState;
 use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -252,7 +252,7 @@ impl Payoff for AutocallablePayoff {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common_impl::mc::traits::state_keys;
+    use crate::instruments::common_impl::models::monte_carlo::traits::state_keys;
 
     #[test]
     fn test_autocallable_creation() {

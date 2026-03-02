@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 # Monte Carlo submodule
-from . import mc
+from . import monte_carlo
 from . import parse
 
 class InstrumentType:
@@ -247,6 +247,6 @@ __all__ = [
     "InstrumentType",
     "ModelKey",
     "PricerKey",
-    "mc",
+    "monte_carlo",
     "parse",
 ]

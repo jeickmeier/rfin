@@ -25,7 +25,7 @@
 //! - Albrecher et al. (2007) - "The Little Heston Trap"
 
 #[cfg(feature = "mc")]
-pub use crate::instruments::common_impl::mc::process::heston::HestonParams;
+pub use crate::instruments::common_impl::models::monte_carlo::process::heston::HestonParams;
 use finstack_core::math::gauss_legendre_integrate_composite;
 use num_complex::Complex;
 use std::f64::consts::PI;

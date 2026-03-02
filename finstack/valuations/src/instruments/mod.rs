@@ -185,15 +185,9 @@ pub mod common {
         pub use super::super::common_impl::traits::*;
     }
 
-    /// Pricing models (closed-form, trees, volatility, etc.).
+    /// Pricing models (closed-form, trees, volatility, Monte Carlo, etc.).
     pub mod models {
         pub use super::super::common_impl::models::*;
-    }
-
-    /// Monte Carlo primitives and engines (requires `mc` feature).
-    #[cfg(feature = "mc")]
-    pub mod mc {
-        pub use super::super::common_impl::mc::*;
     }
 }
 

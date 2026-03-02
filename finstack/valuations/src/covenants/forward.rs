@@ -15,7 +15,7 @@ use finstack_core::Result;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::traits::RandomStream;
+use crate::instruments::common_impl::models::monte_carlo::traits::RandomStream;
 
 /// Comparator for headroom calculation.
 /// Comparison operator for covenant threshold tests
@@ -36,7 +36,7 @@ impl From<BoundKind> for Comparator {
     }
 }
 
-/// MC configuration (subset; integrates with instruments/common/mc RNG).
+/// MC configuration (subset; integrates with instruments/common/models/monte_carlo RNG).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct McConfig {
     /// When true, uses antithetic variates (simple variance reduction).
@@ -226,7 +226,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         let seed = config.random_seed.unwrap_or(42);
         let antithetic = config.mc.as_ref().map(|m| m.antithetic).unwrap_or(false);
 
-        use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
+        use crate::instruments::common_impl::models::monte_carlo::rng::philox::PhiloxRng;
         let mut rng = PhiloxRng::new(seed);
 
         // For each test date, estimate breach probability

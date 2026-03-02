@@ -14,8 +14,6 @@ use finstack_core::money::Money;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::payoff::barrier::BarrierType as McBarrierType;
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::payoff::fx_barrier::FxBarrierCall;
@@ -23,6 +21,8 @@ use crate::instruments::common_impl::models::monte_carlo::payoff::fx_barrier::Fx
 use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::process::gbm::{GbmParams, GbmProcess};
 
 /// FX barrier option Monte Carlo pricer.
 #[cfg(feature = "mc")]

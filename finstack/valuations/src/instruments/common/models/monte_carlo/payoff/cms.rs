@@ -5,8 +5,8 @@
 
 use super::super::pricer::swap_rate_utils::ForwardSwapRate;
 use super::swaption::SwapSchedule;
-use crate::instruments::common_impl::mc::process::ou::HullWhite1FParams;
-use crate::instruments::common_impl::mc::traits::PathState;
+use crate::instruments::common_impl::models::monte_carlo::process::ou::HullWhite1FParams;
+use crate::instruments::common_impl::models::monte_carlo::traits::PathState;
 use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -185,7 +185,7 @@ impl Payoff for CmsPayoff {
                 // Get short rate from state
                 let short_rate = state
                     .vars
-                    .get(crate::instruments::common_impl::mc::traits::state_keys::SHORT_RATE)
+                    .get(crate::instruments::common_impl::models::monte_carlo::traits::state_keys::SHORT_RATE)
                     .copied()
                     .unwrap_or(0.0);
 
@@ -233,7 +233,7 @@ impl Payoff for CmsPayoff {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common_impl::mc::process::ou::HullWhite1FParams;
+    use crate::instruments::common_impl::models::monte_carlo::process::ou::HullWhite1FParams;
 
     #[test]
     fn test_cms_cap_creation() {

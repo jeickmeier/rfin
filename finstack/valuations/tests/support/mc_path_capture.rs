@@ -1,7 +1,7 @@
 // Tests for Monte Carlo path capture functionality (integration tests).
-use crate::instruments::common_impl::mc::process::gbm::GbmProcess;
-use crate::instruments::common_impl::mc::process::metadata::ProcessMetadata;
-use crate::instruments::common_impl::mc::time_grid::TimeGrid;
+use crate::instruments::common_impl::models::monte_carlo::process::gbm::GbmProcess;
+use crate::instruments::common_impl::models::monte_carlo::process::metadata::ProcessMetadata;
+use crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid;
 use crate::instruments::common_impl::models::monte_carlo::engine::{
     McEngineConfig, PathCaptureConfig, PathCaptureMode,
 };

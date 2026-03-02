@@ -13,17 +13,17 @@ use finstack_core::money::Money;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::estimate::Estimate;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::engine::PathCaptureConfig;
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::estimate::Estimate;
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::payoff::asian::{AsianCall, AsianPut};
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::results::MoneyEstimate;
 #[cfg(feature = "mc")]

@@ -18,7 +18,7 @@
 //!     SwaptionLsmcPricer, SwaptionLsmcConfig,
 //! };
 //! use finstack_valuations::instruments::common::models::monte_carlo::pricer::basis::PolynomialBasis;
-//! use finstack_valuations::instruments::common::mc::process::ou::{HullWhite1FProcess, HullWhite1FParams};
+//! use finstack_valuations::instruments::common::models::monte_carlo::process::ou::{HullWhite1FProcess, HullWhite1FParams};
 //!
 //! let hw_params = HullWhite1FParams::new(0.03, 0.01, 0.03);
 //! let hw_process = HullWhite1FProcess::new(hw_params);
@@ -32,16 +32,16 @@ use super::super::results::MoneyEstimate;
 use super::lsmc::LsmcConfig;
 use super::lsq::regression_with_basis;
 use super::swap_rate_utils::{ForwardSwapRate, HullWhiteBondPrice};
-use crate::instruments::common_impl::mc::discretization::exact_hw1f::ExactHullWhite1F;
-use crate::instruments::common_impl::mc::estimate::Estimate;
-use crate::instruments::common_impl::mc::online_stats::OnlineStats;
-use crate::instruments::common_impl::mc::process::ou::HullWhite1FProcess;
-use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
-use crate::instruments::common_impl::mc::time_grid::TimeGrid;
-use crate::instruments::common_impl::mc::traits::{Discretization, RandomStream};
+use crate::instruments::common_impl::models::monte_carlo::discretization::exact_hw1f::ExactHullWhite1F;
+use crate::instruments::common_impl::models::monte_carlo::estimate::Estimate;
+use crate::instruments::common_impl::models::monte_carlo::online_stats::OnlineStats;
 use crate::instruments::common_impl::models::monte_carlo::pricer::basis::{
     BasisFunctions, PolynomialBasis,
 };
+use crate::instruments::common_impl::models::monte_carlo::process::ou::HullWhite1FProcess;
+use crate::instruments::common_impl::models::monte_carlo::rng::philox::PhiloxRng;
+use crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid;
+use crate::instruments::common_impl::models::monte_carlo::traits::{Discretization, RandomStream};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 

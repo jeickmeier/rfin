@@ -8,7 +8,7 @@
 
 use super::super::barriers::bridge::{check_barrier_hit, BarrierDirection};
 use super::super::barriers::corrections::gobet_miri_adjusted_barrier;
-use crate::instruments::common_impl::mc::traits::PathState;
+use crate::instruments::common_impl::models::monte_carlo::traits::PathState;
 use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use crate::instruments::OptionType;
 use finstack_core::currency::Currency;
@@ -216,7 +216,7 @@ impl Payoff for BarrierOptionPayoff {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common_impl::mc::traits::state_keys;
+    use crate::instruments::common_impl::models::monte_carlo::traits::state_keys;
 
     fn create_path_state(step: usize, spot: f64) -> PathState {
         let mut state = PathState::new(step, step as f64 * 0.01);

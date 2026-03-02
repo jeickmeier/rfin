@@ -4,7 +4,7 @@
 //! where the barrier and/or payoff are in different currencies.
 
 use super::barrier::{BarrierOptionPayoff, BarrierType};
-use crate::instruments::common_impl::mc::traits::PathState;
+use crate::instruments::common_impl::models::monte_carlo::traits::PathState;
 use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;

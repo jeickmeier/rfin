@@ -13,8 +13,6 @@ use finstack_core::money::Money;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::payoff::lookback::{
     FloatingStrikeLookbackCall, FloatingStrikeLookbackPut, Lookback, LookbackDirection,
 };
@@ -22,6 +20,8 @@ use crate::instruments::common_impl::models::monte_carlo::payoff::lookback::{
 use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::models::monte_carlo::process::gbm::{GbmParams, GbmProcess};
 
 /// Lookback option Monte Carlo pricer.
 #[cfg(feature = "mc")]

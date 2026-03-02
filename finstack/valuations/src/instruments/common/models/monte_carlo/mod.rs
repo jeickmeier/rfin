@@ -1,71 +1,47 @@
 //! Monte Carlo simulation engine for derivative pricing.
 //!
-//! This module provides a complete Monte Carlo pricing framework for path-dependent
-//! and exotic options. It includes stochastic process simulation, payoff evaluation,
-//! variance reduction techniques, and American option pricing via LSM.
+//! This module provides a complete Monte Carlo framework including both
+//! simulation primitives (RNG, stochastic processes, discretization schemes)
+//! and pricing infrastructure (payoffs, pricers, Greeks, variance reduction).
 //!
 //! # Features
 //!
-//! - **Stochastic Processes**: GBM, Heston, Hull-White
-//! - **Payoffs**: Vanilla, Asian, barrier, basket, lookback
+//! - **RNG**: Philox counter-based RNG, Sobol quasi-random sequences, Brownian bridge
+//! - **Stochastic Processes**: GBM, Heston, Hull-White, CIR, Bates, jump diffusion
+//! - **Discretization**: Exact, Euler-Maruyama, Milstein, QE schemes
+//! - **Payoffs**: Vanilla, Asian, barrier, basket, lookback, autocallable, cliquet
 //! - **Early Exercise**: Longstaff-Schwartz LSM algorithm
-//! - **Variance Reduction**: Antithetic variates, control variates
-//! - **Greeks**: Pathwise and finite-difference sensitivities
+//! - **Variance Reduction**: Antithetic variates, control variates, importance sampling
+//! - **Greeks**: Pathwise, finite-difference, and likelihood ratio sensitivities
 //! - **Deterministic Results**: Seedable RNG for reproducibility
 //!
 //! # Supported Models
 //!
 //! | Process | Dynamics | Discretization |
 //! |---------|----------|----------------|
-//! | GBM | dS = μS dt + σS dW | Euler, Milstein |
+//! | GBM | dS = μS dt + σS dW | Exact, Euler, Milstein |
 //! | Heston | dS = μS dt + √v S dW₁, dv = κ(θ-v)dt + ξ√v dW₂ | Andersen QE |
-//! | Hull-White | dr = (θ(t) - ar)dt + σ dW | Euler |
-//!
-//! # Variance Reduction
-//!
-//! Monte Carlo variance can be reduced via:
-//! - **Antithetic variates**: Pair paths with Z and -Z
-//! - **Control variates**: Use closed-form delta as control
-//! - **Importance sampling**: Tilt drift toward exercise region
+//! | Hull-White | dr = (θ(t) - ar)dt + σ dW | Exact |
+//! | CIR | dr = κ(θ-r)dt + σ√r dW | QE |
+//! | Bates | GBM + Heston + Merton jumps | QE + Jump-Euler |
 //!
 //! # Quick Example
 //!
 //! ```rust,ignore
 //! use finstack_valuations::instruments::common::models::monte_carlo::prelude::*;
 //!
-//! // Configure Monte Carlo engine using the builder
 //! let engine = McEngine::builder()
 //!     .num_paths(100_000)
-//!     .seed(42)  // Deterministic
-//!     .uniform_grid(1.0, 252)  // 1 year, daily steps
+//!     .seed(42)
+//!     .uniform_grid(1.0, 252)
 //!     .build()
 //!     .expect("valid config");
 //!
-//! // Create European call payoff (strike, notional, maturity_step)
+//! let gbm = GbmProcess::with_params(0.03, 0.00, 0.20);
 //! let payoff = EuropeanCall::new(100.0, 1.0, 252);
-//! // let result = engine.price(&rng, &process, &disc, &initial_state, &payoff, currency, df)?;
-//! ```
-//!
-//! # LSM for American Options
-//!
-//! Longstaff-Schwartz least squares Monte Carlo for early exercise:
-//!
-//! ```rust,ignore
-//! # #[cfg(feature = "mc")]
-//! # fn example() {
-//! use finstack_valuations::instruments::common::models::monte_carlo::prelude::*;
-//!
-//! // Configure LSMC with exercise dates (step indices)
-//! let exercise_dates = vec![50, 100, 150, 200];
-//! let config = LsmcConfig::new(50_000, exercise_dates)
-//!     .with_seed(42);  // Deterministic
-//!
-//! // Create Laguerre basis (degree, strike for normalization)
-//! let basis = LaguerreBasis::new(3, 100.0);
-//!
-//! // Create LSMC pricer
-//! let pricer = LsmcPricer::new(config);
-//! # }
+//! let rng = PhiloxRng::new(42);
+//! let disc = ExactGbm::new();
+//! let result = engine.price(&rng, &gbm, &disc, &[100.0], &payoff, Currency::USD, 1.0)?;
 //! ```
 //!
 //! # Academic References
@@ -73,41 +49,101 @@
 //! - Glasserman, P. (2003). *Monte Carlo Methods in Financial Engineering*. Springer.
 //! - Longstaff, F. A., & Schwartz, E. S. (2001). "Valuing American Options by Simulation."
 //! - Andersen, L. (2008). "Simple and Efficient Simulation of the Heston Model."
-//!
-//! # See Also
-//!
-//! - [`engine::McEngine`] for the main simulation engine
-//! - [`pricer::lsmc`] for American option pricing
-//! - [`variance_reduction`] for variance reduction techniques
-//! - [`crate::instruments::common::mc`] for low-level MC infrastructure
+//! - Salmon, J. K. et al. (2011). "Parallel Random Numbers: As Easy as 1, 2, 3."
 
-pub mod barriers;
+// Allow some clippy lints for MC module (many parameters are necessary for flexibility)
+#![allow(clippy::too_many_arguments)]
+
+// --- Simulation primitives ---
 pub mod discretization;
+pub mod estimate;
+pub mod online_stats;
+pub mod paths;
+pub mod process;
+pub mod rng;
+pub mod time_grid;
+pub(crate) mod traits;
+
+// --- Pricing infrastructure ---
+pub mod barriers;
 pub mod engine;
 pub mod greeks;
 pub mod payoff;
 pub(crate) mod pricer;
-pub mod process;
 pub mod results;
 #[cfg(feature = "mc")]
 pub mod seed;
-pub(crate) mod traits;
 pub mod variance_reduction;
 
-pub use traits::{PathObserver, Payoff};
+#[cfg(test)]
+mod mc_process_params_serialization;
 
-/// Prelude for pricing-side convenient imports
+pub use traits::{
+    state_keys, Discretization, PathObserver, PathState, Payoff, RandomStream, StateVariables,
+    StochasticProcess,
+};
+
+/// Prelude for convenient imports of the full Monte Carlo framework.
 pub mod prelude {
-    // Engine and configuration
+    // --- Core traits and infrastructure ---
+    pub use super::estimate::Estimate;
+    pub use super::online_stats::{required_samples, OnlineCovariance, OnlineStats};
+    pub use super::paths::{
+        CashflowType, PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
+    };
+    pub use super::time_grid::TimeGrid;
+    pub use super::traits::{Discretization, PathState, RandomStream, StochasticProcess};
+
+    // --- RNG ---
+    pub use super::rng::philox::PhiloxRng;
+    #[cfg(feature = "mc")]
+    pub use super::rng::sobol::SobolRng;
+
+    // --- Processes ---
+    #[cfg(feature = "mc")]
+    pub use super::process::bates::{BatesParams, BatesProcess};
+    pub use super::process::brownian::{BrownianParams, BrownianProcess, MultiBrownianProcess};
+    #[cfg(feature = "mc")]
+    pub use super::process::cir::{CirParams, CirPlusPlusProcess, CirProcess};
+    pub use super::process::correlation::{apply_correlation, cholesky_decomposition};
+    pub use super::process::gbm::{GbmParams, GbmProcess, MultiGbmProcess};
+    #[cfg(feature = "mc")]
+    pub use super::process::heston::{HestonParams, HestonProcess};
+    #[cfg(feature = "mc")]
+    pub use super::process::jump_diffusion::{MertonJumpParams, MertonJumpProcess};
+    pub use super::process::multi_ou::{MultiOuParams, MultiOuProcess};
+    #[cfg(feature = "mc")]
+    pub use super::process::ou::{HullWhite1FParams, HullWhite1FProcess, VasicekProcess};
+    #[cfg(feature = "mc")]
+    pub use super::process::schwartz_smith::{SchwartzSmithParams, SchwartzSmithProcess};
+
+    // --- Discretization schemes ---
+    #[cfg(feature = "mc")]
+    pub use super::discretization::euler::{EulerMaruyama, LogEuler};
+    pub use super::discretization::exact::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
+    #[cfg(feature = "mc")]
+    pub use super::discretization::exact_hw1f::ExactHullWhite1F;
+    #[cfg(feature = "mc")]
+    pub use super::discretization::jump_euler::JumpEuler;
+    #[cfg(feature = "mc")]
+    pub use super::discretization::milstein::{LogMilstein, Milstein};
+    #[cfg(feature = "mc")]
+    pub use super::discretization::qe_cir::QeCir;
+    #[cfg(feature = "mc")]
+    pub use super::discretization::qe_heston::QeHeston;
+    #[cfg(feature = "mc")]
+    pub use super::discretization::schwartz_smith::ExactSchwartzSmith;
+
+    // --- Engine and configuration ---
     pub use super::engine::{
         McEngine, McEngineBuilder, McEngineConfig, PathCaptureConfig, PathCaptureMode,
     };
 
-    // Pricing results
+    // --- Pricing results ---
     pub use super::results::{MoneyEstimate, MonteCarloResult};
     pub use super::traits::Payoff;
 
-    // Re-export commonly used payoffs and pricers
+    // --- Payoffs ---
     #[cfg(feature = "mc")]
     pub use super::payoff::asian::{
         geometric_asian_call_closed_form, AsianCall, AsianPut, AveragingMethod,
@@ -120,6 +156,7 @@ pub mod prelude {
     };
     pub use super::payoff::vanilla::{Digital, EuropeanCall, EuropeanPut, Forward};
 
+    // --- Pricers ---
     #[cfg(feature = "mc")]
     pub use super::pricer::basis::{LaguerreBasis, PolynomialBasis};
     pub use super::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
@@ -128,18 +165,7 @@ pub mod prelude {
     #[cfg(feature = "mc")]
     pub use super::pricer::path_dependent::{PathDependentPricer, PathDependentPricerConfig};
 
-    // Variance reduction helpers
+    // --- Variance reduction ---
     pub use super::variance_reduction::antithetic::AntitheticConfig;
     pub use super::variance_reduction::control_variate::{black_scholes_call, black_scholes_put};
-
-    // Useful generic MC items
-    pub use crate::instruments::common_impl::mc::estimate::Estimate;
-    pub use crate::instruments::common_impl::mc::online_stats::OnlineStats;
-    pub use crate::instruments::common_impl::mc::paths::{
-        PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
-    };
-    pub use crate::instruments::common_impl::mc::time_grid::TimeGrid;
-    pub use crate::instruments::common_impl::mc::traits::{
-        Discretization, PathState, RandomStream, StochasticProcess,
-    };
 }

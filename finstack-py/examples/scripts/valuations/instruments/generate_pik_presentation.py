@@ -470,12 +470,12 @@ def slide_06_pik_in_hazard_model(prs):
     add_slide_number(slide, 6)
 
     rows = [
-        ["Issuer", "\u03bb (bp)", "Cash Price", "PIK Price", "\u0394 Price"],
-        ["BB+ (Solid HY)", "143", "113.35", "110.89", "\u22122.46"],
-        ["BB\u2212 (Mid HY)", "334", "107.56", "103.76", "\u22123.80"],
-        ["B (Weak HY)", "591", "99.76", "94.44", "\u22125.32"],
-        ["B\u2212 (Stressed)", "911", "90.33", "83.45", "\u22126.88"],
-        ["CCC (Deeply Stressed)", "1468", "76.13", "67.34", "\u22128.79"],
+        ["Issuer", "\u03bb (bp)", "Cash Price", "PIK Price", "\u0394Z (bp)"],
+        ["BB+ (Solid HY)", "143", "113.35", "111.46", "+40"],
+        ["BB\u2212 (Mid HY)", "334", "107.56", "104.88", "+60"],
+        ["B (Weak HY)", "591", "99.76", "96.05", "+91"],
+        ["B\u2212 (Stressed)", "911", "90.33", "85.40", "+137"],
+        ["CCC (Deeply Stressed)", "1468", "76.13", "69.59", "+224"],
     ]
     add_table(slide, Inches(0.8), Inches(1.4), Inches(8.4), rows,
               col_widths=[Inches(2.5), Inches(1.2), Inches(1.5),
@@ -486,8 +486,8 @@ def slide_06_pik_in_hazard_model(prs):
         "Under risk-neutral hazard rates (calibrated from market spreads), "
         "PIK always prices below cash \u2014 concentrated maturity exposure "
         "penalises PIK at every credit level",
-        "The gap widens with credit risk: from \u22122.5 pts (BB+) to \u22128.8 "
-        "pts (CCC)",
+        "\u0394Z = cash-equivalent Z-spread difference: PIK trades +40bp "
+        "wider (BB+) to +224bp wider (CCC) than a cash-pay bond",
         "Note: market spreads embed a credit risk premium above expected "
         "losses. For BB+ the spread (85bp) implies ~7% 5Y default prob, "
         "versus the historical rate of ~1%",
@@ -996,13 +996,13 @@ def slide_16_model_gap(prs):
     add_slide_number(slide, 16)
 
     rows = [
-        ["Issuer", "HR \u0394Price", "MC \u0394Price", "HR 5Y PD",
+        ["Issuer", "HR \u0394Z (bp)", "MC \u0394Z (bp)", "HR 5Y PD",
          "MC DefRate", "Ratio"],
-        ["BB+", "\u22122.5", "+3.0", "6.9%", "1.9%", "3.6\u00d7"],
-        ["BB\u2212", "\u22123.8", "+1.1", "15.5%", "5.8%", "2.7\u00d7"],
-        ["B", "\u22125.3", "\u22121.6", "25.6%", "13.2%", "1.9\u00d7"],
-        ["B\u2212", "\u22126.9", "\u22124.9", "36.5%", "25.7%", "1.4\u00d7"],
-        ["CCC", "\u22128.8", "\u22126.2", "52.0%", "42.3%", "1.2\u00d7"],
+        ["BB+", "+40", "\u221259", "6.9%", "1.9%", "3.6\u00d7"],
+        ["BB\u2212", "+60", "\u221222", "15.5%", "9.1%", "1.7\u00d7"],
+        ["B", "+91", "+37", "25.6%", "20.8%", "1.2\u00d7"],
+        ["B\u2212", "+137", "+141", "36.5%", "41.1%", "0.9\u00d7"],
+        ["CCC", "+224", "+262", "52.0%", "65.0%", "0.8\u00d7"],
     ]
     add_table(slide, Inches(0.5), Inches(1.3), Inches(9), rows,
               col_widths=[Inches(2.0), Inches(1.1), Inches(1.1),
@@ -1010,21 +1010,21 @@ def slide_16_model_gap(prs):
               font_size=11)
 
     add_textbox(slide, Inches(0.5), Inches(3.6), Inches(9), Inches(0.3),
-                "\u0394Price = PIK minus Cash (points). "
+                "\u0394Z = PIK Z-spread minus Cash Z-spread (bp). "
                 "HR 5Y PD = market-implied. MC DefRate = simulation default rate.",
                 font_size=11, color=TEXT_MID)
 
     add_bullet_list(slide, Inches(0.5), Inches(4.0), Inches(9), Inches(2), [
-        "The HR model uses market-implied defaults (including risk "
-        "premium) \u2192 PIK always costs. The MC model uses historical "
-        "PDs for barriers \u2192 fewer defaults \u2192 PIK compounding survives",
-        "For BB+: the HR model sees 3.6\u00d7 more defaults than the MC "
-        "model. This gap drives the sign reversal in PIK pricing",
-        "For CCC: both models see similar default rates (ratio 1.2\u00d7). "
-        "The PIK penalty is robust regardless of calibration",
-        "The practical implication: for strong credits, the PIK premium/"
-        "discount is small either way (\u00b160bp). For weak credits, it's "
-        "large (+100\u2013260bp) and model choice barely matters",
+        "For BB+: HR says PIK costs +40bp; MC says PIK saves "
+        "\u221259bp. The sign reversal is driven by the 3.6\u00d7 gap in "
+        "default assumptions \u2014 fewer MC defaults means PIK "
+        "compounding survives on ~98% of paths",
+        "For B\u2212/CCC: both models agree PIK costs +137\u2013262bp. "
+        "MC even exceeds HR for CCC (+262 vs +224bp) because "
+        "the feedback loop stacks on top of barrier crossings",
+        "Both models agree where it matters most: PIK penalty is "
+        "large for B and below (+37 to +262bp), and "
+        "small/model-dependent for BB+ and BB\u2212 (\u00b160bp)",
     ], font_size=13, color=TEXT_DARK)
 
     add_callout_box(slide, Inches(1.0), Inches(6.2), Inches(8), Inches(0.6),

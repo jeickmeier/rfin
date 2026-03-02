@@ -96,11 +96,11 @@
     "finstack.valuations.cashflow",
     "finstack.valuations.cashflow.builder",
     "finstack.valuations.common",
-    "finstack.valuations.common.mc",
-    "finstack.valuations.common.mc.generator",
-    "finstack.valuations.common.mc.params",
-    "finstack.valuations.common.mc.paths",
-    "finstack.valuations.common.mc.result",
+    "finstack.valuations.common.monte_carlo",
+    "finstack.valuations.common.monte_carlo.generator",
+    "finstack.valuations.common.monte_carlo.params",
+    "finstack.valuations.common.monte_carlo.paths",
+    "finstack.valuations.common.monte_carlo.result",
     "finstack.valuations.common.parameters",
     "finstack.valuations.common.parse",
     "finstack.valuations.conventions",
@@ -1750,49 +1750,49 @@
       "has_to_json": false
     },
     {
-      "module": "finstack.valuations.common.mc.generator",
+      "module": "finstack.valuations.common.monte_carlo.generator",
       "name": "MonteCarloPathGenerator",
       "js_name": "MonteCarloPathGenerator",
       "has_from_json": false,
       "has_to_json": false
     },
     {
-      "module": "finstack.valuations.common.mc.params",
+      "module": "finstack.valuations.common.monte_carlo.params",
       "name": "ProcessParams",
       "js_name": "ProcessParams",
       "has_from_json": false,
       "has_to_json": false
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "CashflowType",
       "js_name": "CashflowType",
       "has_from_json": false,
       "has_to_json": false
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "PathPoint",
       "js_name": "PathPoint",
       "has_from_json": false,
       "has_to_json": false
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "SimulatedPath",
       "js_name": "SimulatedPath",
       "has_from_json": false,
       "has_to_json": false
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "PathDataset",
       "js_name": "PathDataset",
       "has_from_json": false,
       "has_to_json": false
     },
     {
-      "module": "finstack.valuations.common.mc.result",
+      "module": "finstack.valuations.common.monte_carlo.result",
       "name": "MonteCarloResult",
       "js_name": "MonteCarloResult",
       "has_from_json": false,
@@ -8890,297 +8890,297 @@
       "js_name": "model"
     },
     {
-      "module": "finstack.valuations.common.mc.generator",
+      "module": "finstack.valuations.common.monte_carlo.generator",
       "name": "generate_gbm_paths",
       "js_name": "generateGbmPaths"
     },
     {
-      "module": "finstack.valuations.common.mc.generator",
+      "module": "finstack.valuations.common.monte_carlo.generator",
       "name": "generate_paths",
       "js_name": "generatePaths"
     },
     {
-      "module": "finstack.valuations.common.mc.params",
+      "module": "finstack.valuations.common.monte_carlo.params",
       "name": "process_type",
       "js_name": "processType"
     },
     {
-      "module": "finstack.valuations.common.mc.params",
+      "module": "finstack.valuations.common.monte_carlo.params",
       "name": "parameters",
       "js_name": "parameters"
     },
     {
-      "module": "finstack.valuations.common.mc.params",
+      "module": "finstack.valuations.common.monte_carlo.params",
       "name": "correlation",
       "js_name": "correlation"
     },
     {
-      "module": "finstack.valuations.common.mc.params",
+      "module": "finstack.valuations.common.monte_carlo.params",
       "name": "factor_names",
       "js_name": "factorNames"
     },
     {
-      "module": "finstack.valuations.common.mc.params",
+      "module": "finstack.valuations.common.monte_carlo.params",
       "name": "get_param",
       "js_name": "getParam"
     },
     {
-      "module": "finstack.valuations.common.mc.params",
+      "module": "finstack.valuations.common.monte_carlo.params",
       "name": "dim",
       "js_name": "dim"
     },
     {
-      "module": "finstack.valuations.common.mc.params",
+      "module": "finstack.valuations.common.monte_carlo.params",
       "name": "correlation_matrix",
       "js_name": "correlationMatrix"
     },
     {
-      "module": "finstack.valuations.common.mc.params",
+      "module": "finstack.valuations.common.monte_carlo.params",
       "name": "correlation_array",
       "js_name": "correlationArray"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "step",
       "js_name": "step"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "time",
       "js_name": "time"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "state_vars",
       "js_name": "stateVars"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "payoff_value",
       "js_name": "payoffValue"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "get_var",
       "js_name": "getVar"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "spot",
       "js_name": "spot"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "variance",
       "js_name": "variance"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "short_rate",
       "js_name": "shortRate"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "cashflows",
       "js_name": "cashflows"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "get_cashflows_by_type",
       "js_name": "getCashflowsByType"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "principal_flows",
       "js_name": "principalFlows"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "interest_flows",
       "js_name": "interestFlows"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "total_cashflow",
       "js_name": "totalCashflow"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "total_cashflow_by_type",
       "js_name": "totalCashflowByType"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "to_dataframe",
       "js_name": "toDataframe"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "path_id",
       "js_name": "pathId"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "points",
       "js_name": "points"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "final_value",
       "js_name": "finalValue"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "irr",
       "js_name": "irr"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "num_steps",
       "js_name": "numSteps"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "point",
       "js_name": "point"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "initial_point",
       "js_name": "initialPoint"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "terminal_point",
       "js_name": "terminalPoint"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "extract_cashflows",
       "js_name": "extractCashflows"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "extract_typed_cashflows",
       "js_name": "extractTypedCashflows"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "extract_cashflows_by_type",
       "js_name": "extractCashflowsByType"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "to_dataframe",
       "js_name": "toDataframe"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "get_cashflows_with_dates",
       "js_name": "getCashflowsWithDates"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "paths",
       "js_name": "paths"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "num_paths_total",
       "js_name": "numPathsTotal"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "sampling_method",
       "js_name": "samplingMethod"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "num_captured",
       "js_name": "numCaptured"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "path",
       "js_name": "path"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "is_complete",
       "js_name": "isComplete"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "sampling_ratio",
       "js_name": "samplingRatio"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "state_var_keys",
       "js_name": "stateVarKeys"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "to_dict",
       "js_name": "toDict"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "to_wide_dict",
       "js_name": "toWideDict"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "to_dataframe",
       "js_name": "toDataframe"
     },
     {
-      "module": "finstack.valuations.common.mc.paths",
+      "module": "finstack.valuations.common.monte_carlo.paths",
       "name": "cashflows_to_dataframe",
       "js_name": "cashflowsToDataframe"
     },
     {
-      "module": "finstack.valuations.common.mc.result",
+      "module": "finstack.valuations.common.monte_carlo.result",
       "name": "estimate",
       "js_name": "estimate"
     },
     {
-      "module": "finstack.valuations.common.mc.result",
+      "module": "finstack.valuations.common.monte_carlo.result",
       "name": "stderr",
       "js_name": "stderr"
     },
     {
-      "module": "finstack.valuations.common.mc.result",
+      "module": "finstack.valuations.common.monte_carlo.result",
       "name": "confidence_interval",
       "js_name": "confidenceInterval"
     },
     {
-      "module": "finstack.valuations.common.mc.result",
+      "module": "finstack.valuations.common.monte_carlo.result",
       "name": "num_paths",
       "js_name": "numPaths"
     },
     {
-      "module": "finstack.valuations.common.mc.result",
+      "module": "finstack.valuations.common.monte_carlo.result",
       "name": "paths",
       "js_name": "paths"
     },
     {
-      "module": "finstack.valuations.common.mc.result",
+      "module": "finstack.valuations.common.monte_carlo.result",
       "name": "has_paths",
       "js_name": "hasPaths"
     },
     {
-      "module": "finstack.valuations.common.mc.result",
+      "module": "finstack.valuations.common.monte_carlo.result",
       "name": "num_captured_paths",
       "js_name": "numCapturedPaths"
     },
     {
-      "module": "finstack.valuations.common.mc.result",
+      "module": "finstack.valuations.common.monte_carlo.result",
       "name": "mean",
       "js_name": "mean"
     },
     {
-      "module": "finstack.valuations.common.mc.result",
+      "module": "finstack.valuations.common.monte_carlo.result",
       "name": "relative_stderr",
       "js_name": "relativeStderr"
     },

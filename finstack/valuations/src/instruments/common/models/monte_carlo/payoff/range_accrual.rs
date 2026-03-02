@@ -3,7 +3,7 @@
 //! Range accrual products pay coupons based on the number of days the underlying
 //! stays within a specified range.
 
-use crate::instruments::common_impl::mc::traits::PathState;
+use crate::instruments::common_impl::models::monte_carlo::traits::PathState;
 use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -207,7 +207,7 @@ impl Payoff for RangeAccrualPayoff {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common_impl::mc::traits::state_keys;
+    use crate::instruments::common_impl::models::monte_carlo::traits::state_keys;
 
     #[test]
     fn test_range_accrual_creation() {

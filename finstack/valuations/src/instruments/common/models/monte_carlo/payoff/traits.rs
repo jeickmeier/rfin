@@ -3,7 +3,7 @@
 //! The core Payoff trait is already defined in super::super::traits.
 //! This module provides additional utilities and helper traits.
 
-use crate::instruments::common_impl::mc::traits::PathState;
+use crate::instruments::common_impl::models::monte_carlo::traits::PathState;
 use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -103,7 +103,7 @@ where
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common_impl::mc::traits::state_keys;
+    use crate::instruments::common_impl::models::monte_carlo::traits::state_keys;
 
     #[test]
     fn test_simple_terminal_payoff() {

@@ -580,7 +580,7 @@ pub(crate) fn intern_calendar_id(value: &str) -> &'static str {
     Box::leak(value.to_ascii_lowercase().into_boxed_str())
 }
 
-pub(crate) mod mc;
+pub(crate) mod monte_carlo;
 pub(crate) mod parameters;
 pub(crate) mod parse;
 
@@ -604,7 +604,7 @@ pub(crate) fn register<'py>(
     let parse_exports = parse::register(py, &module)?;
 
     // Register Monte Carlo submodule
-    let mc_exports = mc::register(py, &module)?;
+    let mc_exports = monte_carlo::register(py, &module)?;
 
     // Combine all exports
     let mut all_exports = vec!["InstrumentType", "ModelKey", "PricerKey"];
