@@ -838,6 +838,22 @@ impl PyOperationSpec {
     fn __repr__(&self) -> String {
         format!("{:?}", self.inner)
     }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Validate the operation specification.
+    ///
+    /// Checks for finite numeric values, non-empty identifiers, and
+    /// logical consistency (e.g. base != quote for FX operations).
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the operation is invalid.
+    fn validate(&self) -> PyResult<()> {
+        self.inner
+            .validate()
+            .map_err(crate::scenarios::error::scenario_to_py)
+    }
 }
 
 /// A complete scenario specification with metadata and ordered operations.
@@ -1049,6 +1065,22 @@ impl PyScenarioSpec {
             self.inner.operations.len(),
             self.inner.priority
         )
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Validate the scenario specification for consistency.
+    ///
+    /// Checks for non-empty ID, valid operations, and at most one
+    /// TimeRollForward operation.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the specification is invalid.
+    fn validate(&self) -> PyResult<()> {
+        self.inner
+            .validate()
+            .map_err(crate::scenarios::error::scenario_to_py)
     }
 }
 

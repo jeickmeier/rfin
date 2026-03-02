@@ -541,5 +541,66 @@ class TestTimeRollModeParity:
         assert str(TimeRollMode.Approximate) == "Approximate"
 
 
+class TestValidateParity:
+    """Test validate() methods match Rust validation behavior."""
+
+    def test_scenario_spec_validate_valid(self) -> None:
+        """Test validate() passes for valid scenario."""
+        spec = ScenarioSpec(
+            "valid_test",
+            [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-OIS", 50.0)],
+        )
+        # Should not raise
+        spec.validate()
+
+    def test_scenario_spec_validate_empty_id(self) -> None:
+        """Test validate() raises on empty scenario ID."""
+        spec = ScenarioSpec("", [])
+        with pytest.raises(ValueError, match=r"[Ee]mpty"):
+            spec.validate()
+
+    def test_scenario_spec_validate_whitespace_id(self) -> None:
+        """Test validate() raises on whitespace-only scenario ID."""
+        spec = ScenarioSpec("   ", [])
+        with pytest.raises(ValueError, match=r"[Ee]mpty"):
+            spec.validate()
+
+    def test_operation_spec_validate_valid(self) -> None:
+        """Test validate() passes for valid operation."""
+        op = OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-OIS", 50.0)
+        # Should not raise
+        op.validate()
+
+    def test_operation_spec_validate_nan(self) -> None:
+        """Test validate() raises on NaN value."""
+        op = OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-OIS", float("nan"))
+        with pytest.raises(ValueError, match="finite"):
+            op.validate()
+
+    def test_operation_spec_validate_empty_curve_id(self) -> None:
+        """Test validate() raises on empty curve ID."""
+        op = OperationSpec.curve_parallel_bp(CurveKind.Discount, "", 50.0)
+        with pytest.raises(ValueError, match=r"[Ee]mpty"):
+            op.validate()
+
+    def test_operation_spec_validate_pct_floor(self) -> None:
+        """Test validate() raises on percentage <= -100%."""
+        op = OperationSpec.equity_price_pct(["SPY"], -100.0)
+        with pytest.raises(ValueError, match="-100"):
+            op.validate()
+
+    def test_scenario_spec_validate_duplicate_time_roll(self) -> None:
+        """Test validate() raises on multiple TimeRollForward operations."""
+        spec = ScenarioSpec(
+            "double_roll",
+            [
+                OperationSpec.time_roll_forward("1M", True, None),
+                OperationSpec.time_roll_forward("3M", True, None),
+            ],
+        )
+        with pytest.raises(ValueError, match="TimeRollForward"):
+            spec.validate()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

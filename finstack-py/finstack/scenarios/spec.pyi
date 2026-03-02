@@ -414,6 +414,14 @@ class OperationSpec:
         """
         ...
 
+    def validate(self) -> None:
+        """Validate this operation for consistency.
+
+        Raises:
+            ValueError: If the operation is invalid (NaN values, empty IDs, etc.)
+        """
+        ...
+
     def __repr__(self) -> str: ...
 
 class ScenarioSpec:
@@ -584,6 +592,17 @@ class ScenarioSpec:
 
         Returns:
             ScenarioSpec: Scenario specification
+        """
+        ...
+
+    def validate(self) -> None:
+        """Validate this scenario specification for consistency.
+
+        Checks for non-empty ID, valid operations, and at most one
+        TimeRollForward operation.
+
+        Raises:
+            ValueError: If the specification is invalid
         """
         ...
 
