@@ -341,7 +341,7 @@ impl PyNodeSpec {
 ///
 /// Determines whether a node represents monetary values (with a specific
 /// currency) or unitless scalar values (ratios, percentages, counts, etc.).
-#[pyclass(module = "finstack.statements.types", name = "NodeValueType", frozen)]
+#[pyclass(module = "finstack.statements.types", name = "NodeValueType", frozen, from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyNodeValueType {
     pub(crate) inner: NodeValueType,
@@ -356,6 +356,7 @@ impl PyNodeValueType {
 #[pymethods]
 impl PyNodeValueType {
     #[classattr]
+    #[allow(non_snake_case)]
     fn SCALAR() -> Self {
         Self::new(NodeValueType::Scalar)
     }

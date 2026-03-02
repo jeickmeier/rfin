@@ -28,7 +28,8 @@ use std::collections::HashMap;
 #[pyclass(
     module = "finstack.statements.analysis",
     name = "CreditInstrumentAnalysis",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone)]
 pub struct PyCreditInstrumentAnalysis {

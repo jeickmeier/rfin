@@ -284,7 +284,7 @@ impl PyStatementResult {
         for (node_id, value_type) in &self.inner.node_value_types {
             dict.set_item(
                 node_id,
-                PyNodeValueType::new(value_type.clone()).into_pyobject(py)?,
+                PyNodeValueType::new(*value_type).into_pyobject(py)?,
             )?;
         }
         Ok(dict.into())
