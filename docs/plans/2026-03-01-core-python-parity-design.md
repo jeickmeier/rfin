@@ -8,7 +8,7 @@
 
 | Stream | Module | Approach | Effort |
 |---|---|---|---|
-| S1 | Analytics | Extend `Performance` facade with all metric methods | Large |
+| S1 | Analytics | Add pandas DataFrame input support to `Performance` | Small |
 | S2 | Market Data | Add missing curve types + MarketContext methods | Medium |
 | S3 | Math | Add `Compounding`, `TimeGrid`, `SobolRng`, `moment_match()` | Small |
 | S4 | FX + Types | Add FX providers + 3 missing ID types | Small |
@@ -37,139 +37,53 @@ The `finstack.core` Python bindings cover approximately 75-80% of the Rust `fins
 
 ---
 
-## Stream S1: Analytics Performance Facade
+## Stream S1: Analytics — Pandas DataFrame Input Support
 
-### Problem
+### Current State
 
-The Rust `finstack-core::analytics` module contains 8 sub-modules with ~50 scalar functions for risk metrics, returns, drawdown analysis, benchmark statistics, etc. Currently only the `Performance` class is bound.
+The `Performance` class already has **complete method coverage** — all ~50 analytics methods are implemented in `finstack-py/src/core/analytics/performance.rs` (1069 lines), including:
+
+- **Risk metrics:** sharpe, sortino, volatility, cagr, calmar, value_at_risk, expected_shortfall, tail_ratio, ulcer_index, risk_of_ruin, skewness, kurtosis, geometric_mean, downside_deviation, omega_ratio, gain_to_pain, martin_ratio, m_squared, modified_sharpe, parametric_var, cornish_fisher_var, recovery_factor, sterling_ratio, burke_ratio, pain_index, pain_ratio, cdar, mean_return
+- **Benchmark-relative:** tracking_error, information_ratio, r_squared, beta, greeks, up_capture, down_capture, capture_ratio, batting_average, treynor
+- **Series outputs:** cumulative_returns, drawdown_series, correlation, excess_returns, cumulative_returns_outperformance, drawdown_outperformance
+- **Rolling metrics:** rolling_volatility, rolling_sortino, rolling_sharpe, rolling_greeks
+- **Other:** multi_factor_greeks, drawdown_details, stats_during_bench_drawdowns, lookback_returns, period_stats, max_drawdown_duration, reset_date_range, reset_bench_ticker
+
+### Gap: Pandas DataFrame Input
+
+Currently the constructor only accepts Polars DataFrames (`pyo3_polars::PyDataFrame`). Users who work with pandas must manually convert before constructing `Performance`.
 
 ### Design
 
-Extend the existing `PyPerformance` class to expose all analytics through a unified facade. Users build a `Performance` object with returns data, then query any metric as a method call.
+Accept **either a pandas DataFrame or a Polars DataFrame** as input. Each column represents a different asset; the index (for pandas) or first column (for Polars) contains dates.
 
 ```python
+import pandas as pd
+import polars as pl
 from finstack.core.analytics import Performance
 
-perf = Performance(returns=[0.01, -0.02, 0.015, ...])
-perf.with_benchmark(benchmark_returns=[0.005, -0.01, ...])
+# Pandas input — index is dates, columns are assets
+df_pd = pd.DataFrame({"AAPL": [150.0, 152.0], "MSFT": [300.0, 305.0]},
+                      index=pd.to_datetime(["2024-01-01", "2024-01-02"]))
+perf = Performance(df_pd, freq="daily")
 
-# Risk metrics
-perf.sharpe()              # -> float
-perf.sortino()             # -> float
-perf.volatility()          # -> float
-perf.cagr()                # -> float
-perf.value_at_risk(0.95)   # -> float
-
-# Benchmark-relative
-perf.beta()                # -> float
-perf.alpha()               # -> float
-perf.tracking_error()      # -> float
-
-# Drawdown
-perf.max_drawdown()        # -> float
-perf.drawdown_series()     # -> list[float]
+# Polars input — first column is Date, remaining are assets (existing behavior)
+df_pl = pl.DataFrame({"date": ["2024-01-01", "2024-01-02"],
+                       "AAPL": [150.0, 152.0], "MSFT": [300.0, 305.0]})
+perf = Performance(df_pl, freq="daily")
 ```
 
-### Methods to Add
-
-**Risk Metrics** (from `analytics::risk_metrics`):
-
-| Method | Signature | Notes |
-|---|---|---|
-| `sharpe` | `(risk_free_rate: float = 0.0) -> float` | |
-| `sortino` | `(risk_free_rate: float = 0.0, target: float = 0.0) -> float` | |
-| `volatility` | `() -> float` | Annualized |
-| `cagr` | `() -> float` | |
-| `calmar` | `() -> float` | |
-| `value_at_risk` | `(confidence: float = 0.95) -> float` | Historical VaR |
-| `parametric_var` | `(confidence: float = 0.95) -> float` | |
-| `cornish_fisher_var` | `(confidence: float = 0.95) -> float` | |
-| `expected_shortfall` | `(confidence: float = 0.95) -> float` | CVaR |
-| `omega_ratio` | `(threshold: float = 0.0) -> float` | |
-| `kurtosis` | `() -> float` | |
-| `skewness` | `() -> float` | |
-| `downside_deviation` | `(target: float = 0.0) -> float` | |
-| `mean_return` | `() -> float` | |
-| `geometric_mean` | `() -> float` | |
-| `gain_to_pain` | `() -> float` | |
-| `tail_ratio` | `() -> float` | |
-| `ulcer_index` | `() -> float` | |
-| `pain_index` | `() -> float` | |
-| `pain_ratio` | `() -> float` | |
-| `martin_ratio` | `() -> float` | |
-| `burke_ratio` | `() -> float` | |
-| `sterling_ratio` | `() -> float` | |
-| `recovery_factor` | `() -> float` | |
-| `risk_of_ruin` | `() -> float` | |
-| `modified_sharpe` | `() -> float` | |
-| `m_squared` | `(benchmark_returns: list[float]) -> float` | |
-| `outlier_win_ratio` | `() -> float` | |
-| `outlier_loss_ratio` | `() -> float` | |
-
-**Rolling Metrics** (from `analytics::risk_metrics`):
-
-| Method | Signature |
-|---|---|
-| `rolling_sharpe` | `(window: int) -> list[float \| None]` |
-| `rolling_sortino` | `(window: int) -> list[float \| None]` |
-| `rolling_volatility` | `(window: int) -> list[float \| None]` |
-
-**Benchmark Metrics** (from `analytics::benchmark`, require `.with_benchmark()`):
-
-| Method | Signature |
-|---|---|
-| `beta` | `() -> float` |
-| `alpha` | `() -> float` |
-| `r_squared` | `() -> float` |
-| `information_ratio` | `() -> float` |
-| `tracking_error` | `() -> float` |
-| `treynor` | `() -> float` |
-| `up_capture` | `() -> float` |
-| `down_capture` | `() -> float` |
-| `batting_average` | `() -> float` |
-
-**Drawdown Metrics** (from `analytics::drawdown`):
-
-| Method | Signature |
-|---|---|
-| `max_drawdown` | `() -> float` |
-| `max_drawdown_duration` | `() -> int` |
-| `avg_drawdown` | `() -> float` |
-| `cdar` | `(confidence: float = 0.95) -> float` |
-| `drawdown_series` | `() -> list[float]` |
-
-**Return Helpers** (from `analytics::returns`):
-
-| Method | Signature |
-|---|---|
-| `cumulative_return` | `() -> float` |
-| `excess_returns` | `(risk_free: list[float]) -> list[float]` |
-
-**Lookback Selection** (from `analytics::lookback`, static methods):
-
-| Method | Signature |
-|---|---|
-| `ytd_select` | `@staticmethod (dates, values, as_of) -> tuple` |
-| `qtd_select` | `@staticmethod (dates, values, as_of) -> tuple` |
-| `mtd_select` | `@staticmethod (dates, values, as_of) -> tuple` |
-| `fytd_select` | `@staticmethod (dates, values, as_of, fiscal_config) -> tuple` |
-
-**Aggregation** (from `analytics::aggregation`, static methods):
-
-| Method | Signature |
-|---|---|
-| `group_by_period` | `@staticmethod (dates, values, period_kind) -> dict` |
-
-**Consecutive** (from `analytics::consecutive`, static method):
-
-| Method | Signature |
-|---|---|
-| `count_consecutive` | `@staticmethod (values, condition) -> list[int]` |
+**Implementation approach:**
+1. Change the `prices` parameter type from `PyDataFrame` to `&Bound<'_, PyAny>`
+2. Detect whether the input is a pandas or Polars DataFrame
+3. For pandas: convert to Polars via `polars.from_pandas(df.reset_index())` in Python, then proceed with existing extraction logic
+4. For Polars: proceed with existing `PyDataFrame` extraction as-is
+5. Update `.pyi` stubs to accept `polars.DataFrame | pandas.DataFrame`
 
 ### Files to Modify
 
-- `finstack-py/src/core/analytics/performance.rs` — add ~50 `#[pymethods]` implementations
-- `finstack-py/finstack/core/analytics/__init__.pyi` — add method signatures to Performance stub
+- `finstack-py/src/core/analytics/performance.rs` — modify constructor to accept pandas or polars
+- `finstack-py/finstack/core/analytics/__init__.pyi` — update type stub
 
 ---
 
@@ -598,26 +512,19 @@ from finstack.core.dates.imm import (
 from finstack.core.dates.calendar import BusinessDayConvention
 from finstack.core.cashflow import npv_amounts
 
-# Verify Performance facade has all methods
-perf_methods = [
-    'sharpe', 'sortino', 'volatility', 'cagr', 'calmar',
-    'value_at_risk', 'expected_shortfall', 'omega_ratio',
-    'kurtosis', 'skewness', 'downside_deviation', 'mean_return',
-    'geometric_mean', 'parametric_var', 'cornish_fisher_var',
-    'gain_to_pain', 'tail_ratio', 'ulcer_index', 'pain_index',
-    'pain_ratio', 'martin_ratio', 'burke_ratio', 'sterling_ratio',
-    'recovery_factor', 'risk_of_ruin', 'modified_sharpe', 'm_squared',
-    'outlier_win_ratio', 'outlier_loss_ratio',
-    'rolling_sharpe', 'rolling_sortino', 'rolling_volatility',
-    'beta', 'alpha', 'r_squared', 'information_ratio',
-    'tracking_error', 'treynor', 'up_capture', 'down_capture',
-    'batting_average',
-    'max_drawdown', 'max_drawdown_duration', 'avg_drawdown',
-    'cdar', 'drawdown_series',
-    'cumulative_return', 'excess_returns',
-]
-missing = [m for m in perf_methods if not hasattr(Performance, m)]
-assert not missing, f"Missing Performance methods: {missing}"
+# Verify Performance accepts both pandas and polars DataFrames
+import pandas as pd
+import polars as pl
+
+dates = pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"])
+prices = {"AAPL": [150.0, 152.0, 151.0], "MSFT": [300.0, 305.0, 303.0]}
+df_pd = pd.DataFrame(prices, index=dates)
+df_pl = pl.DataFrame({"date": dates, **prices})
+
+perf_pd = Performance(df_pd, freq="daily")
+perf_pl = Performance(df_pl, freq="daily")
+assert perf_pd.sharpe() is not None
+assert perf_pl.sharpe() is not None
 
 # Verify new MarketContext methods
 ctx_methods = [
