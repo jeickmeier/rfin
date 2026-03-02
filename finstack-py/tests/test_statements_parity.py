@@ -994,5 +994,13 @@ def test_backtest_forecast_mismatched_lengths() -> None:
         backtest_forecast([1.0, 2.0], [1.0])
 
 
+def test_credit_context_metrics_import() -> None:
+    """Test CreditContextMetrics struct is importable."""
+    from finstack.statements.analysis import CreditContextMetrics, compute_credit_context
+
+    assert CreditContextMetrics is not None
+    assert compute_credit_context is not None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
