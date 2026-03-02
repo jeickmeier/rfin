@@ -1187,6 +1187,68 @@ impl crate::instruments::common_impl::traits::CurveDependencies for Bond {
     }
 }
 
+#[cfg(feature = "mc")]
+impl Bond {
+    /// Price this bond using the Merton Monte Carlo structural credit model.
+    ///
+    /// Extracts coupon rate, frequency, and PIK status from the bond's cashflow spec,
+    /// then delegates to `MertonMcEngine::price`.
+    pub fn price_merton_mc(
+        &self,
+        config: &crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig,
+        discount_rate: f64,
+        as_of: time::Date,
+    ) -> finstack_core::Result<
+        crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcResult,
+    > {
+        use crate::cashflow::builder::specs::CouponType;
+        use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcEngine;
+        use rust_decimal::prelude::ToPrimitive;
+
+        // Extract notional
+        let notional = self.notional.amount();
+
+        // Extract coupon info from CashflowSpec
+        let (coupon_rate, is_pik, coupon_frequency) = match &self.cashflow_spec {
+            CashflowSpec::Fixed(spec) => {
+                let rate = spec.rate.to_f64().unwrap_or(0.0);
+                let is_pik = matches!(spec.coupon_type, CouponType::PIK);
+                let freq = (1.0 / spec.freq.to_years_simple()).round() as usize;
+                (rate, is_pik, freq)
+            }
+            CashflowSpec::Floating(_) => {
+                // Floating-rate bonds are not supported by the Merton MC engine
+                return Err(finstack_core::InputError::Invalid.into());
+            }
+            CashflowSpec::Amortizing { base, .. } => {
+                // Extract from base spec
+                match base.as_ref() {
+                    CashflowSpec::Fixed(spec) => {
+                        let rate = spec.rate.to_f64().unwrap_or(0.0);
+                        let is_pik = matches!(spec.coupon_type, CouponType::PIK);
+                        let freq = (1.0 / spec.freq.to_years_simple()).round() as usize;
+                        (rate, is_pik, freq)
+                    }
+                    _ => return Err(finstack_core::InputError::Invalid.into()),
+                }
+            }
+        };
+
+        // Calculate maturity in years
+        let maturity_years = (self.maturity - as_of).whole_days() as f64 / 365.25;
+
+        MertonMcEngine::price(
+            notional,
+            coupon_rate,
+            is_pik,
+            maturity_years,
+            coupon_frequency,
+            config,
+            discount_rate,
+        )
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
@@ -2040,6 +2102,25 @@ mod tests {
             err.to_string().contains("Bond requires `issue_date`"),
             "unexpected error: {}",
             err
+        );
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn bond_price_merton_mc_api() {
+        use crate::instruments::common::models::credit::MertonModel;
+        use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig;
+
+        let bond = Bond::example(); // Gets a 10Y fixed-rate bond
+        let merton = MertonModel::new(200.0, 0.25, 100.0, 0.04).expect("valid");
+        let config = MertonMcConfig::new(merton).num_paths(1000).seed(42);
+        let result = bond
+            .price_merton_mc(&config, 0.04, time::macros::date!(2024 - 01 - 15))
+            .expect("ok");
+        assert!(
+            result.clean_price_pct > 0.0 && result.clean_price_pct < 200.0,
+            "Price should be reasonable: got {}",
+            result.clean_price_pct
         );
     }
 }
