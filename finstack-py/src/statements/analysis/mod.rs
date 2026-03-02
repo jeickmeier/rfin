@@ -12,6 +12,7 @@ mod corporate;
 mod covenants;
 mod credit_context;
 mod explain;
+mod orchestrator;
 mod reports;
 mod scenario_set;
 mod variance;
@@ -609,6 +610,9 @@ pub(crate) fn register<'py>(
     // Register covenant analysis types
     let covenants_exports = covenants::register(py, &module)?;
 
+    // Register orchestrator types (CorporateAnalysisBuilder, CorporateAnalysis, etc.)
+    let orchestrator_exports = orchestrator::register(py, &module)?;
+
     parent.add_submodule(&module)?;
     parent.setattr("analysis", &module)?;
 
@@ -632,6 +636,7 @@ pub(crate) fn register<'py>(
     all_exports.extend(credit_context_exports);
     all_exports.extend(corporate_exports);
     all_exports.extend(covenants_exports);
+    all_exports.extend(orchestrator_exports);
 
     Ok(all_exports)
 }

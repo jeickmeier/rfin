@@ -1071,5 +1071,46 @@ def test_forecast_covenant_import() -> None:
     assert forecast_covenants is not None
 
 
+def test_corporate_analysis_builder_import() -> None:
+    """Test CorporateAnalysisBuilder and related types are importable."""
+    from finstack.statements.analysis import (
+        CorporateAnalysis,
+        CorporateAnalysisBuilder,
+        CreditInstrumentAnalysis,
+    )
+
+    assert CorporateAnalysis is not None
+    assert CorporateAnalysisBuilder is not None
+    assert CreditInstrumentAnalysis is not None
+
+
+def test_corporate_analysis_builder_basic() -> None:
+    """Test CorporateAnalysisBuilder basic pipeline."""
+    from finstack.core.dates import PeriodId
+    from finstack.statements.analysis import CorporateAnalysisBuilder
+
+    from finstack.statements import AmountOrScalar, ModelBuilder
+
+    builder = ModelBuilder.new("corp_test")
+    builder.periods("2025Q1..Q4", None)
+    builder.value(
+        "revenue",
+        [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(110000.0)),
+            (PeriodId.quarter(2025, 3), AmountOrScalar.scalar(120000.0)),
+            (PeriodId.quarter(2025, 4), AmountOrScalar.scalar(130000.0)),
+        ],
+    )
+    model = builder.build()
+
+    analysis = CorporateAnalysisBuilder(model).analyze()
+
+    assert analysis.statement is not None
+    assert analysis.equity is None  # No DCF configured
+    assert isinstance(analysis.credit, dict)
+    assert len(analysis.credit) == 0  # No capital structure
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
