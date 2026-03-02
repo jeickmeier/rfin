@@ -455,6 +455,21 @@ impl PyMonteCarloResults {
         self.inner.percentiles.clone()
     }
 
+    #[getter]
+    /// Forecast periods included in the simulation.
+    ///
+    /// Returns
+    /// -------
+    /// list[PeriodId]
+    ///     Forecast period identifiers
+    fn forecast_periods(&self) -> Vec<crate::core::dates::periods::PyPeriodId> {
+        self.inner
+            .forecast_periods
+            .iter()
+            .map(|p| crate::core::dates::periods::PyPeriodId::new(*p))
+            .collect()
+    }
+
     /// Get a percentile time series for a metric.
     ///
     /// Parameters

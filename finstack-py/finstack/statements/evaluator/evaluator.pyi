@@ -300,6 +300,11 @@ class MonteCarloResults:
         """Percentiles computed for each metric/period."""
         ...
 
+    @property
+    def forecast_periods(self) -> List[PeriodId]:
+        """Forecast periods included in the simulation."""
+        ...
+
     def get_percentile(self, metric: str, percentile: float) -> Dict[PeriodId, float] | None:
         """Get a percentile time series for a metric.
 

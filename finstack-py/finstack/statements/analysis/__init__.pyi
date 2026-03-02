@@ -440,6 +440,47 @@ def generate_tornado_chart(result: SensitivityResult, metric: str) -> List[Torna
     ...
 
 # =============================================================================
+# Monte Carlo Configuration
+# =============================================================================
+
+class MonteCarloConfig:
+    """Monte Carlo simulation configuration.
+
+    Specifies the number of paths, the random seed, and which percentiles
+    to compute from the simulated distribution.
+    """
+
+    def __init__(self, n_paths: int, seed: int) -> None:
+        """Create a new Monte Carlo configuration.
+
+        Default percentiles are ``[0.05, 0.5, 0.95]``.
+
+        Args:
+            n_paths: Number of Monte Carlo paths to simulate
+            seed: Random seed for reproducibility
+        """
+        ...
+
+    def with_percentiles(self, percentiles: List[float]) -> MonteCarloConfig:
+        """Return a new config with the given percentiles.
+
+        Args:
+            percentiles: Percentile values in [0.0, 1.0]
+
+        Returns:
+            MonteCarloConfig: New configuration with updated percentiles
+        """
+        ...
+
+    @property
+    def n_paths(self) -> int: ...
+    @property
+    def seed(self) -> int: ...
+    @property
+    def percentiles(self) -> List[float]: ...
+    def __repr__(self) -> str: ...
+
+# =============================================================================
 # Dependency Tracing & Formula Explanation
 # =============================================================================
 
@@ -855,4 +896,6 @@ __all__ = [
     "ScenarioSet",
     "ScenarioResults",
     "ScenarioDiff",
+    # Monte Carlo
+    "MonteCarloConfig",
 ]
