@@ -15,11 +15,11 @@ from finstack.valuations.instruments import (
 from finstack import Money
 
 
-def _make_merton():
+def _make_merton() -> MertonModel:
     return MertonModel(asset_value=100, asset_vol=0.25, debt_barrier=80, risk_free_rate=0.04)
 
 
-def _make_bond():
+def _make_bond() -> Bond:
     """Create a simple 5Y fixed bond for testing."""
     return (
         Bond
