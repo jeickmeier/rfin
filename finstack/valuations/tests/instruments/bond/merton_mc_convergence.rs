@@ -15,7 +15,7 @@ use finstack_valuations::instruments::common::models::credit::{
     AssetDynamics, BarrierType, DynamicRecoverySpec, EndogenousHazardSpec, MertonModel,
 };
 use finstack_valuations::instruments::fixed_income::bond::pricing::merton_mc_engine::{
-    MertonMcConfig, MertonMcEngine,
+    MertonMcConfig, MertonMcEngine, PikMode, PikSchedule,
 };
 
 // ---------------------------------------------------------------------------
@@ -93,10 +93,9 @@ fn mc_converges_as_paths_increase() {
         .seed(42)
         .antithetic(false);
 
-    let r1k = MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_1k, 0.04).expect("1k ok");
-    let r5k = MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_5k, 0.04).expect("5k ok");
-    let r25k =
-        MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_25k, 0.04).expect("25k ok");
+    let r1k = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_1k, 0.04).expect("1k ok");
+    let r5k = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_5k, 0.04).expect("5k ok");
+    let r25k = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_25k, 0.04).expect("25k ok");
 
     // SE should decrease monotonically
     assert!(
@@ -140,16 +139,26 @@ fn higher_asset_vol_increases_spread_differential() {
     let merton_low = merton_with_vol(0.15);
     let merton_high = merton_with_vol(0.40);
 
-    let config_low = MertonMcConfig::new(merton_low).num_paths(10_000).seed(42);
-    let config_high = MertonMcConfig::new(merton_high).num_paths(10_000).seed(42);
+    let config_low_cash = MertonMcConfig::new(merton_low.clone())
+        .num_paths(10_000)
+        .seed(42);
+    let config_low_pik = MertonMcConfig::new(merton_low)
+        .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
+        .num_paths(10_000)
+        .seed(42);
+    let config_high_cash = MertonMcConfig::new(merton_high.clone())
+        .num_paths(10_000)
+        .seed(42);
+    let config_high_pik = MertonMcConfig::new(merton_high)
+        .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
+        .num_paths(10_000)
+        .seed(42);
 
-    let cash_low =
-        MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_low, 0.04).expect("ok");
-    let pik_low = MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config_low, 0.04).expect("ok");
+    let cash_low = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_low_cash, 0.04).expect("ok");
+    let pik_low = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_low_pik, 0.04).expect("ok");
     let cash_high =
-        MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_high, 0.04).expect("ok");
-    let pik_high =
-        MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config_high, 0.04).expect("ok");
+        MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_high_cash, 0.04).expect("ok");
+    let pik_high = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_high_pik, 0.04).expect("ok");
 
     let spread_diff_low = (cash_low.effective_spread_bp - pik_low.effective_spread_bp).abs();
     let spread_diff_high = (cash_high.effective_spread_bp - pik_high.effective_spread_bp).abs();
@@ -171,10 +180,13 @@ fn zero_pik_coupon_matches_zero_coupon_bond() {
     let merton = base_merton();
     let config = MertonMcConfig::new(merton).num_paths(10_000).seed(42);
 
-    let cash_zero =
-        MertonMcEngine::price(100.0, 0.0, false, 5.0, 2, &config, 0.04).expect("cash zero ok");
+    let cash_zero = MertonMcEngine::price(100.0, 0.0, 5.0, 2, &config, 0.04).expect("cash zero ok");
+    let config_pik = MertonMcConfig::new(base_merton())
+        .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
+        .num_paths(10_000)
+        .seed(42);
     let pik_zero =
-        MertonMcEngine::price(100.0, 0.0, true, 5.0, 2, &config, 0.04).expect("pik zero ok");
+        MertonMcEngine::price(100.0, 0.0, 5.0, 2, &config_pik, 0.04).expect("pik zero ok");
 
     // Prices should be identical (same seed, same zero coupon -> same paths)
     let price_diff = (cash_zero.clean_price_pct - pik_zero.clean_price_pct).abs();
@@ -218,10 +230,13 @@ fn no_endogenous_no_dynamic_recovery_matches_standard() {
         .endogenous_hazard(endo)
         .dynamic_recovery(dyn_rec);
 
+    let config_plain = config_plain.pik_schedule(PikSchedule::Uniform(PikMode::Pik));
+    let config_with_extras = config_with_extras.pik_schedule(PikSchedule::Uniform(PikMode::Pik));
+
     let result_plain =
-        MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config_plain, 0.04).expect("plain ok");
-    let result_extras = MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config_with_extras, 0.04)
-        .expect("extras ok");
+        MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_plain, 0.04).expect("plain ok");
+    let result_extras =
+        MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_with_extras, 0.04).expect("extras ok");
 
     // The configs are different, so results will differ. But both should
     // produce valid, reasonable prices. The "extras" config should produce
@@ -277,10 +292,10 @@ fn antithetic_variates_improve_estimate_stability() {
             .seed(seed)
             .antithetic(true);
 
-        let r_no = MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_no_anti, 0.04)
-            .expect("no anti ok");
+        let r_no =
+            MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_no_anti, 0.04).expect("no anti ok");
         let r_anti =
-            MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_anti, 0.04).expect("anti ok");
+            MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_anti, 0.04).expect("anti ok");
 
         prices_no_anti.push(r_no.clean_price_pct);
         prices_anti.push(r_anti.clean_price_pct);
@@ -318,10 +333,9 @@ fn default_rate_increases_with_leverage() {
         .num_paths(10_000)
         .seed(42);
 
-    let result_low =
-        MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_low, 0.04).expect("low ok");
+    let result_low = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_low, 0.04).expect("low ok");
     let result_high =
-        MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_high, 0.04).expect("high ok");
+        MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_high, 0.04).expect("high ok");
 
     assert!(
         result_high.path_statistics.default_rate > result_low.path_statistics.default_rate,
@@ -350,8 +364,12 @@ fn pik_accrual_increases_terminal_notional() {
     let merton = base_merton();
     let config = MertonMcConfig::new(merton).num_paths(10_000).seed(42);
 
-    let cash = MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config, 0.04).expect("cash ok");
-    let pik = MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config, 0.04).expect("pik ok");
+    let cash = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04).expect("cash ok");
+    let config_pik = MertonMcConfig::new(base_merton())
+        .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
+        .num_paths(10_000)
+        .seed(42);
+    let pik = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_pik, 0.04).expect("pik ok");
 
     assert!(
         pik.path_statistics.avg_terminal_notional > cash.path_statistics.avg_terminal_notional,
@@ -399,9 +417,9 @@ fn higher_default_rate_implies_higher_expected_loss() {
     let config_risky = MertonMcConfig::new(merton_risky).num_paths(10_000).seed(42);
 
     let result_safe =
-        MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_safe, 0.04).expect("safe ok");
+        MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_safe, 0.04).expect("safe ok");
     let result_risky =
-        MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_risky, 0.04).expect("risky ok");
+        MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_risky, 0.04).expect("risky ok");
 
     assert!(
         result_risky.expected_loss > result_safe.expected_loss,
@@ -434,7 +452,7 @@ fn price_bounded_between_zero_and_risk_free() {
     let merton = base_merton();
     let config = MertonMcConfig::new(merton).num_paths(10_000).seed(42);
 
-    let result = MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config, 0.04).expect("ok");
+    let result = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04).expect("ok");
 
     assert!(
         result.clean_price_pct > 0.0,
@@ -461,10 +479,8 @@ fn longer_maturity_increases_expected_loss() {
 
     let config = MertonMcConfig::new(merton).num_paths(10_000).seed(42);
 
-    let result_2y =
-        MertonMcEngine::price(100.0, 0.08, false, 2.0, 2, &config, 0.04).expect("2y ok");
-    let result_10y =
-        MertonMcEngine::price(100.0, 0.08, false, 10.0, 2, &config, 0.04).expect("10y ok");
+    let result_2y = MertonMcEngine::price(100.0, 0.08, 2.0, 2, &config, 0.04).expect("2y ok");
+    let result_10y = MertonMcEngine::price(100.0, 0.08, 10.0, 2, &config, 0.04).expect("10y ok");
 
     assert!(
         result_10y.path_statistics.default_rate > result_2y.path_statistics.default_rate,

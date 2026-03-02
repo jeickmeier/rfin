@@ -201,6 +201,10 @@ impl MertonModel {
     ///   d_plus  = (ln(V/H) + mu * T) / (sigma * sqrt(T))
     ///   d_minus = (ln(V/H) - mu * T) / (sigma * sqrt(T))
     ///   PD = N(-d_plus) + (V/H)^(-2*mu/sigma^2) * N(d_minus)
+    ///
+    /// The first-passage result is clamped to `[0, 1]` because the two-term
+    /// approximation can slightly exceed 1.0 when the risk-neutral drift
+    /// is strongly negative (i.e., sigma >> sqrt(2r)).
     pub fn default_probability(&self, horizon: f64) -> f64 {
         match self.barrier_type {
             BarrierType::Terminal => {
@@ -215,18 +219,17 @@ impl MertonModel {
                 let sqrt_t = horizon.sqrt();
                 let sigma_sqrt_t = sigma * sqrt_t;
 
-                // Barrier at horizon: H = B * exp(g * T)
                 let h = self.debt_barrier * (barrier_growth_rate * horizon).exp();
                 let log_v_h = (self.asset_value / h).ln();
 
                 let d_plus = (log_v_h + mu * horizon) / sigma_sqrt_t;
                 let d_minus = (log_v_h - mu * horizon) / sigma_sqrt_t;
 
-                // (V/H)^(-2*mu/sigma^2)
                 let exponent = -2.0 * mu / (sigma * sigma);
                 let ratio_term = (self.asset_value / h).powf(exponent);
 
-                norm_cdf(-d_plus) + ratio_term * norm_cdf(d_minus)
+                let pd = norm_cdf(-d_plus) + ratio_term * norm_cdf(d_minus);
+                pd.clamp(0.0, 1.0)
             }
         }
     }

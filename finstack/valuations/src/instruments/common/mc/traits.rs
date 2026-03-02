@@ -266,6 +266,24 @@ pub trait StochasticProcess: Send + Sync {
     fn is_diagonal(&self) -> bool {
         true
     }
+
+    /// Populate a `PathState` from the raw state vector.
+    ///
+    /// Maps state vector indices to named keys (SPOT, VARIANCE, etc.)
+    /// so payoffs can access state by name. Override for processes whose
+    /// state layout differs from the default equity model.
+    ///
+    /// Default mapping (suitable for GBM and Heston-like models):
+    /// - `x[0]` => `SPOT`
+    /// - `x[1]` => `VARIANCE` (if dim >= 2)
+    fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
+        if !x.is_empty() {
+            state.set(state_keys::SPOT, x[0]);
+        }
+        if x.len() >= 2 {
+            state.set(state_keys::VARIANCE, x[1]);
+        }
+    }
 }
 
 /// Time discretization scheme for SDEs.

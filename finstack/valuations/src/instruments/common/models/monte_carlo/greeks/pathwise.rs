@@ -21,6 +21,7 @@ use crate::instruments::common_impl::mc::online_stats::OnlineStats;
 /// # Returns
 ///
 /// Delta estimate with standard error
+#[must_use]
 pub fn pathwise_delta_call(
     terminal_spots: &[f64],
     initial_spot: f64,
@@ -44,6 +45,7 @@ pub fn pathwise_delta_call(
 }
 
 /// Compute pathwise delta for European put under GBM.
+#[must_use]
 pub fn pathwise_delta_put(
     terminal_spots: &[f64],
     initial_spot: f64,
@@ -92,6 +94,7 @@ pub fn pathwise_delta_put(
 /// # References
 ///
 /// Glasserman (2003) - "Monte Carlo Methods in Financial Engineering", Chapter 7
+#[must_use]
 #[allow(clippy::too_many_arguments)]
 pub fn pathwise_vega(
     terminal_spots: &[f64],
@@ -170,16 +173,15 @@ mod tests {
 
         let (vega, _) = pathwise_vega(
             &terminal_spots,
-            100.0,
-            1.0,
-            0.2,
-            1.0,
-            1.0,
+            100.0, // initial_spot
+            100.0, // strike
+            1.0,   // time_to_maturity
+            0.2,   // volatility
+            1.0,   // discount_factor
             &wiener_increments,
             true,
         );
 
-        // Vega can be positive or negative depending on paths
         assert!(vega.is_finite());
     }
 }

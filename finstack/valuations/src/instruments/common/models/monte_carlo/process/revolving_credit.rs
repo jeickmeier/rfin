@@ -254,9 +254,24 @@ impl StochasticProcess for RevolvingCreditProcess {
     }
 
     fn is_diagonal(&self) -> bool {
-        // When correlation is used, diffusion is not diagonal
-        // Otherwise, it's diagonal (independent factors)
         self.params.correlation.is_none()
+    }
+
+    fn populate_path_state(
+        &self,
+        x: &[f64],
+        state: &mut crate::instruments::common_impl::mc::traits::PathState,
+    ) {
+        use crate::instruments::common_impl::mc::traits::state_keys;
+        if !x.is_empty() {
+            state.set(state_keys::SPOT, x[0]);
+        }
+        if x.len() >= 2 {
+            state.set(state_keys::SHORT_RATE, x[1]);
+        }
+        if x.len() >= 3 {
+            state.set("credit_spread", x[2]);
+        }
     }
 }
 

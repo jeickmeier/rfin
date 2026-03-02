@@ -192,8 +192,11 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
             + cir_params.theta * cir_params.sigma * cir_params.sigma * (1.0 - exp_kappa_dt).powi(2)
                 / (2.0 * cir_params.kappa);
 
-        let psi = if m > 1e-10 { s2 / (m * m) } else { 0.0 };
+        // When m is near zero, force Case B (exponential/uniform mixture) by
+        // setting psi above the threshold. Setting psi = 0.0 would send
+        // Case A into 2/psi = infinity → NaN (matches canonical QeCir).
         let psi_c = 1.5;
+        let psi = if m > 1e-10 { s2 / (m * m) } else { psi_c + 1.0 };
 
         let v_next = if psi <= psi_c {
             // Case A: Power/gamma approximation

@@ -16,6 +16,7 @@ from datetime import date, timedelta
 
 from finstack import Money
 from finstack.core.currency import USD
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
 from finstack.valuations.instruments import (
     Bond,
@@ -29,6 +30,7 @@ from finstack.valuations.instruments import (
     MertonMcConfig,
     MertonMcResult,
 )
+from finstack.valuations.pricer import create_standard_registry
 
 # ── Global parameters ──────────────────────────────────────────────────────
 
@@ -94,16 +96,18 @@ ISSUER_PROFILES: list[dict] = [
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
-def build_bond() -> Bond:
-    """Build a 5Y semi-annual fixed-rate bond."""
+def build_bond(coupon_type: str = "cash") -> Bond:
+    """Build a 5Y semi-annual bond with the given coupon type."""
     return (
-        Bond.builder("PIK-ANALYSIS")
+        Bond.builder(f"PIK-{coupon_type.upper()}")
         .money(Money(NOTIONAL, USD))
         .coupon_rate(COUPON_RATE)
+        .coupon_type(coupon_type)
         .issue(AS_OF)
         .maturity(MATURITY_DATE)
         .frequency(2)
         .disc_id("USD-OIS")
+        .credit_curve("CREDIT")
         .build()
     )
 
@@ -120,60 +124,44 @@ def build_merton(profile: dict) -> MertonModel:
     )
 
 
-def build_configs(
+def build_config(
     merton: MertonModel,
     profile: dict,
-) -> tuple[MertonMcConfig, MertonMcConfig, MertonMcConfig]:
-    """Return (cash_config, pik_config, toggle_config) for one issuer."""
-    # Endogenous hazard: hazard rate climbs as leverage grows
+    pik_schedule: str | list | None = None,
+    toggle: ToggleExerciseModel | None = None,
+) -> MertonMcConfig:
+    """Build an MC config with endogenous hazard + dynamic recovery.
+
+    The ``pik_schedule`` controls per-coupon PIK behavior:
+    - ``"cash"`` — all coupons paid in cash
+    - ``"pik"`` — all coupons accreted (full PIK)
+    - ``"toggle"`` — borrower decides each coupon via the toggle model
+    - ``[(0.0, "pik"), (2.0, "cash")]`` — PIK for 2 years, then cash
+    """
     endo = EndogenousHazardSpec.power_law(
         base_hazard=profile["base_hazard"],
         base_leverage=profile["debt_barrier"] / profile["asset_value"],
         exponent=2.0,
     )
-
-    # Dynamic recovery: recovery falls as PIK accrual inflates notional
     dyn_rec = DynamicRecoverySpec.floored_inverse(
         base_recovery=profile["base_recovery"],
         base_notional=NOTIONAL,
         floor=0.10,
     )
 
-    # Toggle model: borrower PIKs when hazard rate > 10%
-    toggle = ToggleExerciseModel.threshold(
-        variable="hazard_rate",
-        threshold=0.10,
-        direction="above",
-    )
-
-    base_kwargs = dict(
+    kwargs: dict = dict(
+        merton=merton,
+        pik_schedule=pik_schedule,
+        endogenous_hazard=endo,
+        dynamic_recovery=dyn_rec,
         num_paths=NUM_PATHS,
         seed=SEED,
         antithetic=True,
         time_steps_per_year=12,
     )
-
-    # Cash-pay: no toggle, no endogenous feedback (plain MC)
-    cash_config = MertonMcConfig(merton=merton, **base_kwargs)
-
-    # Full PIK: endogenous hazard + dynamic recovery, no toggle
-    pik_config = MertonMcConfig(
-        merton=merton,
-        endogenous_hazard=endo,
-        dynamic_recovery=dyn_rec,
-        **base_kwargs,
-    )
-
-    # PIK Toggle: all three extensions
-    toggle_config = MertonMcConfig(
-        merton=merton,
-        endogenous_hazard=endo,
-        dynamic_recovery=dyn_rec,
-        toggle_model=toggle,
-        **base_kwargs,
-    )
-
-    return cash_config, pik_config, toggle_config
+    if toggle is not None:
+        kwargs["toggle_model"] = toggle
+    return MertonMcConfig(**kwargs)
 
 
 def format_result_row(label: str, result: MertonMcResult) -> str:
@@ -190,86 +178,48 @@ def format_result_row(label: str, result: MertonMcResult) -> str:
     )
 
 
-# ── Hazard-rate pricing helpers (library curves) ─────────────────────────
+# ── Hazard-rate pricing helpers (library pricer) ─────────────────────────
 #
-# Use the library's HazardCurve and DiscountCurve term structures to price
-# bonds under a reduced-form flat hazard rate.  Instead of raw math.exp(),
-# we use HazardCurve.survival(t), HazardCurve.default_prob(t1, t2), and
-# DiscountCurve.df(t) — the library handles interpolation, extrapolation,
-# and day-count conventions.
+# Use the library's HazardBondEngine via the PricerRegistry to price bonds
+# under a flat hazard rate.  The engine computes survival-weighted PV for
+# the alive leg plus a fractional-recovery-of-par (FRP) default leg.
 #
-# Cash-pay: coupons + principal weighted by survival × discount factor.
-# Full-PIK: no coupons; inflated notional N×(1+c/f)^n at maturity.
-# Recovery leg: R × outstanding_notional × default_prob(t-dt, t) × df(t).
+# For the PIK bond, the cashflow builder generates the accreted notional
+# schedule, so the hazard engine naturally handles the growing notional.
+
+REGISTRY = create_standard_registry()
 
 
-def _build_curves(
-    hazard: float, recovery: float,
-) -> tuple[HazardCurve, DiscountCurve]:
-    """Build flat hazard and discount curves using the library."""
-    dc = DiscountCurve(
+def _build_market(hazard: float, recovery: float) -> MarketContext:
+    """Build a MarketContext with flat discount and hazard curves."""
+    market = MarketContext()
+    market.insert_discount(DiscountCurve(
         "USD-OIS", AS_OF,
         [(t, math.exp(-RISK_FREE_RATE * t))
          for t in [0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0]],
-    )
-    hc = HazardCurve(
+    ))
+    market.insert_hazard(HazardCurve(
         "CREDIT", AS_OF, [(0.0, hazard), (10.0, hazard)],
         recovery_rate=recovery,
-    )
-    return hc, dc
+    ))
+    return market
 
 
-def hr_price_cash(hc: HazardCurve, dc: DiscountCurve) -> float:
-    """PV of a cash-pay bond using library HazardCurve and DiscountCurve."""
-    n_periods = MATURITY_YEARS * 2  # semi-annual
-    dt = 0.5
-    cpn = COUPON_RATE / 2 * NOTIONAL
-    pv = 0.0
-    for i in range(1, n_periods + 1):
-        t = i * dt
-        surv = hc.survival(t)
-        df = dc.df(t)
-        cf = cpn + (NOTIONAL if i == n_periods else 0.0)
-        pv += cf * surv * df
-        # Recovery leg: R × N × P(default in [t-dt, t]) × D(t)
-        pv += hc.recovery_rate * NOTIONAL * hc.default_prob(t - dt, t) * df
-    return pv
-
-
-def hr_price_pik(hc: HazardCurve, dc: DiscountCurve) -> float:
-    """PV of a full-PIK bond using library HazardCurve and DiscountCurve.
-
-    PIK bond: no coupons paid; notional grows by c/f each period.
-    At maturity the investor receives N × (1 + c/f)^n.  On default the
-    recovery is based on the *inflated* notional at that point.
-    """
-    n_periods = MATURITY_YEARS * 2
-    dt = 0.5
-    growth = 1.0 + COUPON_RATE / 2
-    pv = 0.0
-    for i in range(1, n_periods + 1):
-        t = i * dt
-        surv = hc.survival(t)
-        df = dc.df(t)
-        ntl_i = NOTIONAL * growth ** i
-        if i == n_periods:
-            pv += ntl_i * surv * df
-        pv += hc.recovery_rate * ntl_i * hc.default_prob(t - dt, t) * df
-    return pv
+def hr_price_bond(bond: Bond, hazard: float, recovery: float) -> float:
+    """Price a bond using the library's hazard-rate engine."""
+    market = _build_market(hazard, recovery)
+    result = REGISTRY.price(bond, "hazard_rate", market, as_of=AS_OF)
+    return result.value.amount
 
 
 def hr_find_implied_hazard(
-    price_fn, target_pv: float, recovery: float, dc: DiscountCurve,
+    bond: Bond, target_pv: float, recovery: float,
 ) -> float:
-    """Bisect for the flat hazard rate λ that reprices to *target_pv*."""
+    """Bisect for the flat hazard rate lambda that reprices to *target_pv*."""
     lo, hi = 0.0, 5.0
     for _ in range(200):
         mid = (lo + hi) / 2.0
-        hc = HazardCurve(
-            "CREDIT", AS_OF, [(0.0, mid), (10.0, mid)],
-            recovery_rate=recovery,
-        )
-        pv = price_fn(hc, dc)
+        pv = hr_price_bond(bond, mid, recovery)
         if abs(pv - target_pv) < 1e-6:
             return mid
         if pv > target_pv:
@@ -282,8 +232,15 @@ def hr_find_implied_hazard(
 # ── Main ───────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    bond = build_bond()
+    cash_bond = build_bond("cash")
+    pik_bond = build_bond("pik")
     mc_results: dict[str, tuple[MertonMcResult, MertonMcResult, MertonMcResult]] = {}
+
+    toggle = ToggleExerciseModel.threshold(
+        variable="hazard_rate",
+        threshold=0.10,
+        direction="above",
+    )
 
     print("=" * 110)
     print("PIK Structural Credit Analysis: Breakeven Spreads by Issuer Credit Profile")
@@ -296,7 +253,6 @@ def main() -> None:
     for profile in ISSUER_PROFILES:
         merton = build_merton(profile)
 
-        # Analytical credit metrics
         dd = merton.distance_to_default(MATURITY_YEARS)
         pd = merton.default_probability(MATURITY_YEARS)
         impl_spread = merton.implied_spread(MATURITY_YEARS, profile["base_recovery"])
@@ -308,16 +264,17 @@ def main() -> None:
               f"Coverage: {profile['asset_value']/profile['debt_barrier']:.2f}x")
         print(f"  Merton DD: {dd:.2f}  |  "
               f"PD({MATURITY_YEARS}Y): {pd:.2%}  |  "
-              f"Implied Spread: {impl_spread:.0f} bp")
+              f"Implied Spread: {impl_spread * 10_000:.0f} bp")
         print()
 
-        # Build configurations
-        cash_cfg, pik_cfg, toggle_cfg = build_configs(merton, profile)
+        # Same credit model — PIK behavior comes from the bond's coupon type
+        # or the config's pik_schedule.
+        base_cfg = build_config(merton, profile)
+        toggle_cfg = build_config(merton, profile, pik_schedule="toggle", toggle=toggle)
 
-        # Price all three structures
-        cash_result = bond.price_merton_mc(config=cash_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
-        pik_result = bond.price_merton_mc(config=pik_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
-        toggle_result = bond.price_merton_mc(config=toggle_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
+        cash_result = cash_bond.price_merton_mc(config=base_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
+        pik_result = pik_bond.price_merton_mc(config=base_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
+        toggle_result = cash_bond.price_merton_mc(config=toggle_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
         mc_results[profile["name"]] = (cash_result, pik_result, toggle_result)
 
         header = (
@@ -370,31 +327,16 @@ def main() -> None:
     print("     Toggle-Cash = additional spread for PIK-toggle vs cash-pay bond")
     print()
 
-    # ── Hazard-rate-only pricing (library curves) ─────────────────────
+    # ── Hazard-rate pricing (library HazardBondEngine) ──────────────────
     #
-    # Reduced-form model: flat hazard rate λ, priced via the library's
-    # HazardCurve.survival(t), HazardCurve.default_prob(t1, t2), and
-    # DiscountCurve.df(t).
-    #
-    # Cash-pay: coupons + principal weighted by survival(t) × df(t),
-    #   plus a recovery leg using default_prob() for each period.
-    # Full-PIK: zero coupons; inflated notional N × (1+c/f)^n at
-    #   maturity, with recovery on the growing notional per period.
+    # The library's HazardBondEngine computes survival-weighted PV for the
+    # alive leg plus a fractional-recovery-of-par (FRP) default leg.
+    # For the PIK bond, the cashflow builder generates the accreted notional
+    # schedule, so the engine naturally handles the growing notional.
     #
     # Two views:
-    #   1. Price at issuer's base λ:  shows how PIK shifts value to
-    #      maturity (duration extension + notional inflation).
-    #   2. Implied λ from MC prices:  backs out the flat hazard rate
-    #      that reproduces each Merton MC model price.  The PIK implied
-    #      λ is higher than cash — that gap is the structural feedback
-    #      premium that a flat hazard model can't capture.
-
-    # Build a shared discount curve (same risk-free rate for all issuers)
-    dc = DiscountCurve(
-        "USD-OIS", AS_OF,
-        [(t, math.exp(-RISK_FREE_RATE * t))
-         for t in [0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0]],
-    )
+    #   1. Price at issuer's base lambda — how PIK shifts value.
+    #   2. Implied lambda from MC prices — the structural hazard premium.
 
     # ── View 1: prices at each issuer's base hazard rate ──────────────
     print("=" * 110)
@@ -409,12 +351,8 @@ def main() -> None:
         lam = profile["base_hazard"]
         rec = profile["base_recovery"]
 
-        hc = HazardCurve(
-            "CREDIT", AS_OF, [(0.0, lam), (10.0, lam)],
-            recovery_rate=rec,
-        )
-        hr_cash_px = hr_price_cash(hc, dc)
-        hr_pik_px = hr_price_pik(hc, dc)
+        hr_cash_px = hr_price_bond(cash_bond, lam, rec)
+        hr_pik_px = hr_price_bond(pik_bond, lam, rec)
         hr_delta = hr_pik_px - hr_cash_px
 
         cash_r, pik_r, _ = mc_results[profile["name"]]
@@ -450,12 +388,11 @@ def main() -> None:
         rec = profile["base_recovery"]
         cash_r, pik_r, _ = mc_results[profile["name"]]
 
-        # Target PV from MC prices (convert percentage to currency units)
         cash_target = cash_r.clean_price_pct / 100 * NOTIONAL
         pik_target = pik_r.clean_price_pct / 100 * NOTIONAL
 
-        lam_cash = hr_find_implied_hazard(hr_price_cash, cash_target, rec, dc)
-        lam_pik = hr_find_implied_hazard(hr_price_pik, pik_target, rec, dc)
+        lam_cash = hr_find_implied_hazard(cash_bond, cash_target, rec)
+        lam_pik = hr_find_implied_hazard(pik_bond, pik_target, rec)
         delta_lam = lam_pik - lam_cash
 
         print(

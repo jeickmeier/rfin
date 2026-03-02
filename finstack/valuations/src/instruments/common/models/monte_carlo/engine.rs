@@ -16,7 +16,6 @@ use crate::instruments::common_impl::mc::paths::{
     PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
 };
 use crate::instruments::common_impl::mc::time_grid::TimeGrid;
-use crate::instruments::common_impl::mc::traits::state_keys;
 use crate::instruments::common_impl::mc::traits::{
     Discretization, PathState, RandomStream, StochasticProcess,
 };
@@ -567,7 +566,7 @@ impl McEngine {
 
             // Check auto-stop condition
             if let Some(target) = self.config.target_ci_half_width {
-                if stats.count() > 100 && stats.ci_half_width() < target {
+                if stats.count() > 1000 && stats.ci_half_width() < target {
                     break;
                 }
             }
@@ -834,7 +833,7 @@ impl McEngine {
 
             // Check auto-stop condition
             if let Some(target) = self.config.target_ci_half_width {
-                if stats.count() > 100 && stats.ci_half_width() < target {
+                if stats.count() > 1000 && stats.ci_half_width() < target {
                     break;
                 }
             }
@@ -1046,9 +1045,11 @@ impl McEngine {
             // Re-panicking here propagates that failure rather than silently continuing
             // with potentially corrupted state.
             #[allow(clippy::expect_used)]
-            let collected_paths = captured_paths
+            let mut collected_paths = captured_paths
                 .into_inner()
                 .expect("Mutex should not be poisoned");
+            // Sort by path_id for deterministic ordering across parallel runs
+            collected_paths.sort_by_key(|p| p.path_id);
             for path in collected_paths {
                 dataset.add_path(path);
             }
@@ -1152,17 +1153,7 @@ impl McEngine {
 
         // Create initial path state
         let mut path_state = PathState::new(0, 0.0);
-        for (i, &val) in state.iter().enumerate() {
-            if i == 0 {
-                path_state.set(state_keys::SPOT, val);
-            } else if i == 1 {
-                path_state.set(state_keys::VARIANCE, val);
-                path_state.set(state_keys::SHORT_RATE, val);
-            } else if i == 2 {
-                path_state.set("credit_spread", val);
-            }
-        }
-        // Set initial uniform random for potential barrier checks
+        process.populate_path_state(state, &mut path_state);
         path_state.set_uniform_random(rng.next_u01());
         payoff.on_event(&mut path_state);
 
@@ -1171,29 +1162,12 @@ impl McEngine {
             let t = self.config.time_grid.time(step);
             let dt = self.config.time_grid.dt(step);
 
-            // Generate random shocks
             rng.fill_std_normals(z);
-
-            // Advance state
             disc.step(process, t, dt, state, z, work);
 
-            // Update path state
             path_state.step = step + 1;
             path_state.time = t + dt;
-            for (i, &val) in state.iter().enumerate() {
-                if i == 0 {
-                    path_state.set(state_keys::SPOT, val);
-                } else if i == 1 {
-                    path_state.set(state_keys::VARIANCE, val);
-                    // Also set as SHORT_RATE for multi-factor models (e.g., revolving credit)
-                    path_state.set(state_keys::SHORT_RATE, val);
-                } else if i == 2 {
-                    // Third factor (e.g., credit spread)
-                    path_state.set("credit_spread", val);
-                }
-            }
-
-            // Set independent uniform random for this timestep (for barrier bridge sampling)
+            process.populate_path_state(state, &mut path_state);
             path_state.set_uniform_random(rng.next_u01());
 
             // Process payoff event
@@ -1254,17 +1228,7 @@ impl McEngine {
 
         // Create initial path state for payoff
         let mut path_state = PathState::new(0, 0.0);
-        for (i, &val) in state.iter().enumerate() {
-            if i == 0 {
-                path_state.set(state_keys::SPOT, val);
-            } else if i == 1 {
-                path_state.set(state_keys::VARIANCE, val);
-                path_state.set(state_keys::SHORT_RATE, val);
-            } else if i == 2 {
-                path_state.set("credit_spread", val);
-            }
-        }
-        // Set initial uniform random for potential barrier checks
+        process.populate_path_state(state, &mut path_state);
         path_state.set_uniform_random(rng.next_u01());
         payoff.on_event(&mut path_state);
 
@@ -1273,27 +1237,12 @@ impl McEngine {
             let t = self.config.time_grid.time(step);
             let dt = self.config.time_grid.dt(step);
 
-            // Generate random shocks
             rng.fill_std_normals(z);
-
-            // Advance state
             disc.step(process, t, dt, state, z, work);
 
-            // Update path state
             path_state.step = step + 1;
             path_state.time = t + dt;
-            for (i, &val) in state.iter().enumerate() {
-                if i == 0 {
-                    path_state.set(state_keys::SPOT, val);
-                } else if i == 1 {
-                    path_state.set(state_keys::VARIANCE, val);
-                    path_state.set(state_keys::SHORT_RATE, val);
-                } else if i == 2 {
-                    path_state.set("credit_spread", val);
-                }
-            }
-
-            // Set independent uniform random for this timestep (for barrier bridge sampling)
+            process.populate_path_state(state, &mut path_state);
             path_state.set_uniform_random(rng.next_u01());
 
             // Process payoff event (payoff may add cashflows to path_state)
@@ -1363,17 +1312,7 @@ impl McEngine {
         let mut payoff_p = payoff.clone();
         payoff_p.reset();
         let mut path_state_p = PathState::new(0, 0.0);
-        for (i, &val) in state_p.iter().enumerate() {
-            if i == 0 {
-                path_state_p.set(state_keys::SPOT, val);
-            } else if i == 1 {
-                path_state_p.set(state_keys::VARIANCE, val);
-                path_state_p.set(state_keys::SHORT_RATE, val);
-            } else if i == 2 {
-                path_state_p.set("credit_spread", val);
-            }
-        }
-        // Set initial uniform random for potential barrier checks
+        process.populate_path_state(&state_p, &mut path_state_p);
         let u_init = rng.next_u01();
         path_state_p.set_uniform_random(u_init);
         payoff_p.on_event(&mut path_state_p);
@@ -1384,18 +1323,9 @@ impl McEngine {
         let mut payoff_a = payoff.clone();
         payoff_a.reset();
         let mut path_state_a = PathState::new(0, 0.0);
-        for (i, &val) in state_a.iter().enumerate() {
-            if i == 0 {
-                path_state_a.set(state_keys::SPOT, val);
-            } else if i == 1 {
-                path_state_a.set(state_keys::VARIANCE, val);
-                path_state_a.set(state_keys::SHORT_RATE, val);
-            } else if i == 2 {
-                path_state_a.set("credit_spread", val);
-            }
-        }
-        // Use same uniform random for antithetic path to maintain correlation
-        path_state_a.set_uniform_random(u_init);
+        process.populate_path_state(&state_a, &mut path_state_a);
+        // Use 1-u for antithetic path to preserve negative correlation in barrier sampling
+        path_state_a.set_uniform_random(1.0 - u_init);
         payoff_a.on_event(&mut path_state_a);
 
         // Shared buffers
@@ -1407,48 +1337,26 @@ impl McEngine {
             let t = self.config.time_grid.time(step);
             let dt = self.config.time_grid.dt(step);
 
-            // Draw normals and build antithetic counterparts
             rng.fill_std_normals(&mut z);
             for i in 0..z.len() {
                 z_anti[i] = -z[i];
             }
 
-            // Advance primary and antithetic states
             disc.step(process, t, dt, &mut state_p, &z, &mut work);
             disc.step(process, t, dt, &mut state_a, &z_anti, &mut work);
 
-            // Draw uniform random for this timestep (shared by both paths for correlation)
             let u_step = rng.next_u01();
 
-            // Update path states and notify payoffs
             path_state_p.step = step + 1;
             path_state_p.time = t + dt;
-            for (i, &val) in state_p.iter().enumerate() {
-                if i == 0 {
-                    path_state_p.set(state_keys::SPOT, val);
-                } else if i == 1 {
-                    path_state_p.set(state_keys::VARIANCE, val);
-                    path_state_p.set(state_keys::SHORT_RATE, val);
-                } else if i == 2 {
-                    path_state_p.set("credit_spread", val);
-                }
-            }
+            process.populate_path_state(&state_p, &mut path_state_p);
             path_state_p.set_uniform_random(u_step);
             payoff_p.on_event(&mut path_state_p);
 
             path_state_a.step = step + 1;
             path_state_a.time = t + dt;
-            for (i, &val) in state_a.iter().enumerate() {
-                if i == 0 {
-                    path_state_a.set(state_keys::SPOT, val);
-                } else if i == 1 {
-                    path_state_a.set(state_keys::VARIANCE, val);
-                    path_state_a.set(state_keys::SHORT_RATE, val);
-                } else if i == 2 {
-                    path_state_a.set("credit_spread", val);
-                }
-            }
-            path_state_a.set_uniform_random(u_step);
+            process.populate_path_state(&state_a, &mut path_state_a);
+            path_state_a.set_uniform_random(1.0 - u_step);
             payoff_a.on_event(&mut path_state_a);
         }
 

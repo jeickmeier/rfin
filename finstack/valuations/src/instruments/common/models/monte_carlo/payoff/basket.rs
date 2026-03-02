@@ -18,18 +18,31 @@ use crate::instruments::common_impl::mc::traits::PathState;
 use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use std::sync::Mutex;
+
+/// Global intern cache for "spot_0", "spot_1", ... keys.
+///
+/// Each unique index is leaked exactly once (not per basket construction).
+/// Subsequent calls return the cached `&'static str` reference.
+static SPOT_KEY_CACHE: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
 
 /// Pre-computed state keys for basket assets.
 ///
-/// Caches the "spot_0", "spot_1", etc. keys to avoid allocation on hot path.
-/// Uses leaked static strings for zero-cost lookups.
+/// Returns cached `&'static str` keys for zero-cost lookups on the hot path.
+/// Keys are interned globally so memory is bounded by the max asset index used.
 fn make_spot_keys(num_assets: usize) -> Vec<&'static str> {
-    (0..num_assets)
-        .map(|i| {
-            let key: &'static str = Box::leak(format!("spot_{}", i).into_boxed_str());
-            key
-        })
-        .collect()
+    // SAFETY: panic on poisoned mutex is acceptable here -- a prior panic in
+    // another thread indicates unrecoverable state.
+    #[allow(clippy::expect_used)]
+    let mut cache = SPOT_KEY_CACHE
+        .lock()
+        .expect("spot key cache mutex should not be poisoned");
+    while cache.len() < num_assets {
+        let idx = cache.len();
+        let key: &'static str = Box::leak(format!("spot_{}", idx).into_boxed_str());
+        cache.push(key);
+    }
+    cache[..num_assets].to_vec()
 }
 
 /// Type of basket aggregation for multi-asset payoffs.
@@ -297,8 +310,8 @@ impl ExchangeOption {
             notional,
             maturity_step,
             currency,
-            key1: Box::leak(format!("spot_{}", asset1_idx).into_boxed_str()),
-            key2: Box::leak(format!("spot_{}", asset2_idx).into_boxed_str()),
+            key1: make_spot_keys(asset1_idx + 1)[asset1_idx],
+            key2: make_spot_keys(asset2_idx + 1)[asset2_idx],
             terminal_s1: 0.0,
             terminal_s2: 0.0,
         }

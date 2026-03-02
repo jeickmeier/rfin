@@ -10,6 +10,7 @@ use crate::instruments::common_impl::mc::traits::PathState;
 use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use std::collections::HashSet;
 
 /// Asian averaging method.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +39,8 @@ pub struct AsianCall {
     pub averaging: AveragingMethod,
     /// Fixing steps (indices where we sample the spot)
     pub fixing_steps: Vec<usize>,
+    /// O(1) lookup set derived from fixing_steps
+    fixing_set: HashSet<usize>,
 
     // State
     sum_spots: f64,     // For arithmetic
@@ -67,14 +70,16 @@ impl AsianCall {
         averaging: AveragingMethod,
         fixing_steps: Vec<usize>,
     ) -> Self {
+        let fixing_set: HashSet<usize> = fixing_steps.iter().copied().collect();
         Self {
             strike,
             notional,
             averaging,
             fixing_steps,
+            fixing_set,
             sum_spots: 0.0,
             kahan_comp: 0.0,
-            product_spots: 0.0, // Will store log-sum for geometric
+            product_spots: 0.0,
             num_fixings_seen: 0,
             initial_sum_spots: 0.0,
             initial_kahan_comp: 0.0,
@@ -93,13 +98,15 @@ impl AsianCall {
         initial_product_log: f64,
         initial_count: usize,
     ) -> Self {
+        let fixing_set: HashSet<usize> = fixing_steps.iter().copied().collect();
         Self {
             strike,
             notional,
             averaging,
             fixing_steps,
+            fixing_set,
             sum_spots: initial_sum,
-            kahan_comp: 0.0, // No compensation history available
+            kahan_comp: 0.0,
             product_spots: initial_product_log,
             num_fixings_seen: initial_count,
             initial_sum_spots: initial_sum,
@@ -140,8 +147,7 @@ impl AsianCall {
 
 impl Payoff for AsianCall {
     fn on_event(&mut self, state: &mut PathState) {
-        // Check if this is a fixing date
-        if self.fixing_steps.contains(&state.step) {
+        if self.fixing_set.contains(&state.step) {
             if let Some(spot) = state.spot() {
                 match self.averaging {
                     AveragingMethod::Arithmetic => {
@@ -188,9 +194,11 @@ pub struct AsianPut {
     pub averaging: AveragingMethod,
     /// Time step indices for averaging observations
     pub fixing_steps: Vec<usize>,
+    /// O(1) lookup set derived from fixing_steps
+    fixing_set: HashSet<usize>,
 
     sum_spots: f64,
-    kahan_comp: f64, // Kahan summation compensation for arithmetic
+    kahan_comp: f64,
     product_spots: f64,
     num_fixings_seen: usize,
 
@@ -209,11 +217,13 @@ impl AsianPut {
         averaging: AveragingMethod,
         fixing_steps: Vec<usize>,
     ) -> Self {
+        let fixing_set: HashSet<usize> = fixing_steps.iter().copied().collect();
         Self {
             strike,
             notional,
             averaging,
             fixing_steps,
+            fixing_set,
             sum_spots: 0.0,
             kahan_comp: 0.0,
             product_spots: 0.0,
@@ -235,13 +245,15 @@ impl AsianPut {
         initial_product_log: f64,
         initial_count: usize,
     ) -> Self {
+        let fixing_set: HashSet<usize> = fixing_steps.iter().copied().collect();
         Self {
             strike,
             notional,
             averaging,
             fixing_steps,
+            fixing_set,
             sum_spots: initial_sum,
-            kahan_comp: 0.0, // No compensation history available
+            kahan_comp: 0.0,
             product_spots: initial_product_log,
             num_fixings_seen: initial_count,
             initial_sum_spots: initial_sum,
@@ -274,7 +286,7 @@ impl AsianPut {
 
 impl Payoff for AsianPut {
     fn on_event(&mut self, state: &mut PathState) {
-        if self.fixing_steps.contains(&state.step) {
+        if self.fixing_set.contains(&state.step) {
             if let Some(spot) = state.spot() {
                 match self.averaging {
                     AveragingMethod::Arithmetic => {

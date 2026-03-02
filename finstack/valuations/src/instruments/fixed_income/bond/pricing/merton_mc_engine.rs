@@ -28,6 +28,87 @@ use finstack_core::math::random::{Pcg64Rng, RandomNumberGenerator};
 use finstack_core::Result;
 
 // ---------------------------------------------------------------------------
+// PIK schedule types
+// ---------------------------------------------------------------------------
+
+/// Per-coupon PIK behavior for the MC engine.
+///
+/// Determines how each coupon payment is handled: paid in cash, accreted
+/// to notional (PIK), split between cash and PIK, or decided dynamically
+/// by a [`ToggleExerciseModel`].
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum PikMode {
+    /// Coupon paid in cash.
+    Cash,
+    /// Coupon accreted to notional (payment-in-kind).
+    Pik,
+    /// Coupon split between cash and PIK.
+    Split {
+        /// Fraction paid in cash (e.g. 0.5 for 50%).
+        cash_fraction: f64,
+        /// Fraction accreted to notional.
+        pik_fraction: f64,
+    },
+    /// Deferred to the [`ToggleExerciseModel`] on the config.
+    /// Falls back to `Cash` if no toggle model is set.
+    Toggle,
+}
+
+/// Time-varying PIK schedule for the MC engine.
+///
+/// Controls per-coupon PIK behavior, either uniformly or as a step
+/// function over time.
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::merton_mc_engine::{PikMode, PikSchedule};
+///
+/// // All coupons PIK
+/// let uniform = PikSchedule::Uniform(PikMode::Pik);
+///
+/// // PIK for first 2 years, then cash
+/// let stepped = PikSchedule::Stepped(vec![(0.0, PikMode::Pik), (2.0, PikMode::Cash)]);
+///
+/// // Toggle for 3 years, then mandatory cash
+/// let toggle_window = PikSchedule::Stepped(vec![(0.0, PikMode::Toggle), (3.0, PikMode::Cash)]);
+/// ```
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum PikSchedule {
+    /// Same mode for all coupon dates.
+    Uniform(PikMode),
+    /// Step function: each `(t, mode)` entry means `mode` applies from
+    /// time `t` onward. Entries must be sorted by time ascending.
+    Stepped(Vec<(f64, PikMode)>),
+}
+
+impl Default for PikSchedule {
+    fn default() -> Self {
+        Self::Uniform(PikMode::Cash)
+    }
+}
+
+impl PikSchedule {
+    /// Look up the active [`PikMode`] at time `t`.
+    pub fn mode_at(&self, t: f64) -> PikMode {
+        match self {
+            Self::Uniform(mode) => *mode,
+            Self::Stepped(steps) => {
+                let mut active = PikMode::Cash;
+                for &(step_t, mode) in steps {
+                    if t >= step_t {
+                        active = mode;
+                    } else {
+                        break;
+                    }
+                }
+                active
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
@@ -36,11 +117,15 @@ use finstack_core::Result;
 pub struct MertonMcConfig {
     /// Merton structural credit model.
     pub merton: MertonModel,
+    /// PIK schedule controlling per-coupon cash/PIK/toggle behavior.
+    pub pik_schedule: PikSchedule,
     /// Optional endogenous (leverage-dependent) hazard rate model.
     pub endogenous_hazard: Option<EndogenousHazardSpec>,
     /// Optional dynamic (notional-dependent) recovery rate model.
     pub dynamic_recovery: Option<DynamicRecoverySpec>,
     /// Optional toggle exercise model for PIK/cash coupon decisions.
+    /// Active only for coupon dates where [`PikSchedule`] resolves to
+    /// [`PikMode::Toggle`].
     pub toggle_model: Option<ToggleExerciseModel>,
     /// Number of Monte Carlo paths.
     pub num_paths: usize,
@@ -57,12 +142,13 @@ pub struct MertonMcConfig {
 impl MertonMcConfig {
     /// Create a new configuration with default simulation parameters.
     ///
-    /// Defaults: 10,000 paths, seed 42, antithetic on, 12 steps/year,
-    /// 40% recovery rate.
+    /// Defaults: cash PIK schedule, 10,000 paths, seed 42, antithetic on,
+    /// 12 steps/year, 40% recovery rate.
     #[must_use]
     pub fn new(merton: MertonModel) -> Self {
         Self {
             merton,
+            pik_schedule: PikSchedule::default(),
             endogenous_hazard: None,
             dynamic_recovery: None,
             toggle_model: None,
@@ -72,6 +158,13 @@ impl MertonMcConfig {
             time_steps_per_year: 12,
             default_recovery_rate: 0.40,
         }
+    }
+
+    /// Set the PIK schedule.
+    #[must_use]
+    pub fn pik_schedule(mut self, s: PikSchedule) -> Self {
+        self.pik_schedule = s;
+        self
     }
 
     /// Set the number of Monte Carlo paths.
@@ -183,14 +276,19 @@ impl MertonMcEngine {
     /// `discount_rate`, which may differ (e.g., a funding-adjusted rate).
     /// For standard risk-neutral pricing, set both rates equal.
     ///
+    /// Per-coupon PIK behavior is controlled by `config.pik_schedule`:
+    /// - `PikMode::Cash` → coupon paid in cash
+    /// - `PikMode::Pik` → coupon accreted to notional
+    /// - `PikMode::Split` → coupon split between cash and PIK
+    /// - `PikMode::Toggle` → deferred to `config.toggle_model`
+    ///
     /// # Arguments
     ///
     /// * `notional` - Bond face value
     /// * `coupon_rate` - Annual coupon rate (e.g., 0.08 for 8%)
-    /// * `is_pik` - `true` if full PIK, `false` if cash-pay
     /// * `maturity_years` - Time to maturity in years
     /// * `coupon_frequency` - Coupons per year (e.g., 2 for semi-annual)
-    /// * `config` - Monte Carlo configuration
+    /// * `config` - Monte Carlo configuration (includes PIK schedule)
     /// * `discount_rate` - Discount rate for cashflow PV calculation
     ///
     /// # Errors
@@ -199,7 +297,6 @@ impl MertonMcEngine {
     pub fn price(
         notional: f64,
         coupon_rate: f64,
-        is_pik: bool,
         maturity_years: f64,
         coupon_frequency: usize,
         config: &MertonMcConfig,
@@ -299,58 +396,71 @@ impl MertonMcEngine {
                     if t >= next_coupon_time - dt * 0.5 {
                         let coupon_amount = n_current * accrual_factor;
                         path_coupon_periods += 1;
+                        let df = (-discount_rate * t).exp();
 
-                        if let Some(ref toggle) = config.toggle_model {
-                            // Compute credit state for toggle decision
-                            let leverage = n_current / v;
-                            let hazard_rate = config.endogenous_hazard.as_ref().map_or_else(
-                                || {
-                                    // Use Merton-implied hazard as fallback
-                                    let pd = config.merton.default_probability(t);
-                                    if t > 0.0 {
-                                        -(1.0 - pd).ln() / t
-                                    } else {
-                                        0.0
-                                    }
-                                },
-                                |eh| eh.hazard_at_leverage(leverage),
-                            );
-                            let remaining = maturity_years - t;
-                            let dd = if sigma > 0.0 && remaining > 0.0 {
-                                let sqrt_remaining = remaining.sqrt();
-                                ((v / n_current).ln()
-                                    + (r - config.merton.payout_rate() - 0.5 * sigma * sigma)
-                                        * remaining)
-                                    / (sigma * sqrt_remaining)
-                            } else {
-                                0.0
-                            };
-
-                            let state = CreditState {
-                                hazard_rate,
-                                distance_to_default: Some(dd),
-                                leverage,
-                                accreted_notional: n_current,
-                                asset_value: Some(v),
-                            };
-
-                            if toggle.should_pik(&state, &mut rng) {
-                                // PIK: accrete notional
-                                n_current += coupon_amount;
-                                path_pik_elections += 1;
-                            } else {
-                                // Cash: discount and add to PV
-                                let df = (-discount_rate * t).exp();
+                        match config.pik_schedule.mode_at(t) {
+                            PikMode::Cash => {
                                 path_pv += coupon_amount * df;
                             }
-                        } else if is_pik {
-                            // Full PIK
-                            n_current += coupon_amount;
-                            path_pik_elections += 1;
-                        } else {
-                            // Cash pay
-                            let df = (-discount_rate * t).exp();
-                            path_pv += coupon_amount * df;
+                            PikMode::Pik => {
+                                n_current += coupon_amount;
+                                path_pik_elections += 1;
+                            }
+                            PikMode::Split {
+                                cash_fraction,
+                                pik_fraction,
+                            } => {
+                                path_pv += coupon_amount * cash_fraction * df;
+                                n_current += coupon_amount * pik_fraction;
+                                if pik_fraction > 0.0 {
+                                    path_pik_elections += 1;
+                                }
+                            }
+                            PikMode::Toggle => {
+                                if let Some(ref toggle) = config.toggle_model {
+                                    let leverage = n_current / v;
+                                    let hazard_rate =
+                                        config.endogenous_hazard.as_ref().map_or_else(
+                                            || {
+                                                let pd = config.merton.default_probability(t);
+                                                if t > 0.0 {
+                                                    -(1.0 - pd).ln() / t
+                                                } else {
+                                                    0.0
+                                                }
+                                            },
+                                            |eh| eh.hazard_at_leverage(leverage),
+                                        );
+                                    let remaining = maturity_years - t;
+                                    let dd = if sigma > 0.0 && remaining > 0.0 {
+                                        let sqrt_remaining = remaining.sqrt();
+                                        ((v / n_current).ln()
+                                            + (r - config.merton.payout_rate()
+                                                - 0.5 * sigma * sigma)
+                                                * remaining)
+                                            / (sigma * sqrt_remaining)
+                                    } else {
+                                        0.0
+                                    };
+
+                                    let state = CreditState {
+                                        hazard_rate,
+                                        distance_to_default: Some(dd),
+                                        leverage,
+                                        accreted_notional: n_current,
+                                        asset_value: Some(v),
+                                    };
+
+                                    if toggle.should_pik(&state, &mut rng) {
+                                        n_current += coupon_amount;
+                                        path_pik_elections += 1;
+                                    } else {
+                                        path_pv += coupon_amount * df;
+                                    }
+                                } else {
+                                    path_pv += coupon_amount * df;
+                                }
+                            }
                         }
 
                         next_coupon_time += coupon_period;
@@ -521,7 +631,7 @@ mod tests {
     #[test]
     fn cash_bond_produces_positive_price() {
         let config = MertonMcConfig::new(test_merton()).num_paths(5000).seed(42);
-        let result = MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config, 0.04).expect("ok");
+        let result = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04).expect("ok");
         assert!(
             result.clean_price_pct > 50.0 && result.clean_price_pct < 150.0,
             "Price should be reasonable: got {}",
@@ -531,8 +641,11 @@ mod tests {
 
     #[test]
     fn pik_bond_produces_positive_price() {
-        let config = MertonMcConfig::new(test_merton()).num_paths(5000).seed(42);
-        let result = MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config, 0.04).expect("ok");
+        let config = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
+            .num_paths(5000)
+            .seed(42);
+        let result = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04).expect("ok");
         assert!(
             result.clean_price_pct > 50.0 && result.clean_price_pct < 150.0,
             "Price should be reasonable: got {}",
@@ -544,16 +657,16 @@ mod tests {
     fn endogenous_hazard_lowers_pik_price() {
         let endo = EndogenousHazardSpec::power_law(0.06, 0.5, 2.5).expect("valid");
         let config_no = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
             .num_paths(10_000)
             .seed(42);
         let config_yes = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
             .num_paths(10_000)
             .seed(42)
             .endogenous_hazard(endo);
-        let result_no =
-            MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config_no, 0.04).expect("ok");
-        let result_yes =
-            MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config_yes, 0.04).expect("ok");
+        let result_no = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_no, 0.04).expect("ok");
+        let result_yes = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_yes, 0.04).expect("ok");
         assert!(
             result_yes.clean_price_pct <= result_no.clean_price_pct + 2.0,
             "Endogenous hazard should lower or maintain PIK price: no={}, yes={}",
@@ -566,16 +679,16 @@ mod tests {
     fn dynamic_recovery_lowers_pik_price() {
         let dyn_rec = DynamicRecoverySpec::floored_inverse(0.40, 100.0, 0.10).expect("valid");
         let config_no = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
             .num_paths(10_000)
             .seed(42);
         let config_yes = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
             .num_paths(10_000)
             .seed(42)
             .dynamic_recovery(dyn_rec);
-        let result_no =
-            MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config_no, 0.04).expect("ok");
-        let result_yes =
-            MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config_yes, 0.04).expect("ok");
+        let result_no = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_no, 0.04).expect("ok");
+        let result_yes = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_yes, 0.04).expect("ok");
         assert!(
             result_yes.clean_price_pct <= result_no.clean_price_pct + 2.0,
             "Dynamic recovery should lower or maintain PIK price: no={}, yes={}",
@@ -595,18 +708,18 @@ mod tests {
             .num_paths(10_000)
             .seed(42);
         let config_pik = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
             .num_paths(10_000)
             .seed(42);
         let config_toggle = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Toggle))
             .num_paths(10_000)
             .seed(42)
             .toggle_model(toggle);
-        let cash =
-            MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_cash, 0.04).expect("ok");
-        let pik = MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config_pik, 0.04).expect("ok");
+        let cash = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_cash, 0.04).expect("ok");
+        let pik = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_pik, 0.04).expect("ok");
         let toggle_result =
-            MertonMcEngine::price(100.0, 0.08, false, 5.0, 2, &config_toggle, 0.04).expect("ok");
-        // Toggle price should be reasonable (between extreme bounds with tolerance for MC noise)
+            MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_toggle, 0.04).expect("ok");
         let min_price = pik.clean_price_pct.min(cash.clean_price_pct) - 5.0;
         let max_price = pik.clean_price_pct.max(cash.clean_price_pct) + 5.0;
         assert!(
@@ -621,9 +734,12 @@ mod tests {
 
     #[test]
     fn mc_is_deterministic_with_seed() {
-        let config = MertonMcConfig::new(test_merton()).num_paths(1000).seed(42);
-        let r1 = MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config, 0.04).expect("ok");
-        let r2 = MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config, 0.04).expect("ok");
+        let config = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
+            .num_paths(1000)
+            .seed(42);
+        let r1 = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04).expect("ok");
+        let r2 = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04).expect("ok");
         assert!(
             (r1.clean_price_pct - r2.clean_price_pct).abs() < 1e-10,
             "Same seed should give same result"
@@ -632,8 +748,11 @@ mod tests {
 
     #[test]
     fn path_statistics_reasonable() {
-        let config = MertonMcConfig::new(test_merton()).num_paths(5000).seed(42);
-        let result = MertonMcEngine::price(100.0, 0.08, true, 5.0, 2, &config, 0.04).expect("ok");
+        let config = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
+            .num_paths(5000)
+            .seed(42);
+        let result = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04).expect("ok");
         assert!(
             result.path_statistics.default_rate >= 0.0
                 && result.path_statistics.default_rate <= 1.0
@@ -644,5 +763,156 @@ mod tests {
             result.path_statistics.avg_terminal_notional
         );
         assert!(result.standard_error > 0.0);
+    }
+
+    // -----------------------------------------------------------------------
+    // PikSchedule tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn pik_schedule_mode_at_uniform() {
+        let s = PikSchedule::Uniform(PikMode::Pik);
+        assert_eq!(s.mode_at(0.0), PikMode::Pik);
+        assert_eq!(s.mode_at(5.0), PikMode::Pik);
+    }
+
+    #[test]
+    fn pik_schedule_mode_at_stepped() {
+        let s = PikSchedule::Stepped(vec![(0.0, PikMode::Pik), (2.0, PikMode::Cash)]);
+        assert_eq!(s.mode_at(0.5), PikMode::Pik);
+        assert_eq!(s.mode_at(1.9), PikMode::Pik);
+        assert_eq!(s.mode_at(2.0), PikMode::Cash);
+        assert_eq!(s.mode_at(5.0), PikMode::Cash);
+    }
+
+    #[test]
+    fn pik_schedule_stepped_toggle_then_cash() {
+        let s = PikSchedule::Stepped(vec![(0.0, PikMode::Toggle), (3.0, PikMode::Cash)]);
+        assert_eq!(s.mode_at(1.0), PikMode::Toggle);
+        assert_eq!(s.mode_at(2.9), PikMode::Toggle);
+        assert_eq!(s.mode_at(3.0), PikMode::Cash);
+    }
+
+    #[test]
+    fn split_schedule_prices_between_cash_and_pik() {
+        let config_cash = MertonMcConfig::new(test_merton()).num_paths(5000).seed(42);
+        let config_pik = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
+            .num_paths(5000)
+            .seed(42);
+        let config_split = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Split {
+                cash_fraction: 0.5,
+                pik_fraction: 0.5,
+            }))
+            .num_paths(5000)
+            .seed(42);
+
+        let cash = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_cash, 0.04).expect("ok");
+        let pik = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_pik, 0.04).expect("ok");
+        let split = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_split, 0.04).expect("ok");
+
+        let lo = cash.clean_price_pct.min(pik.clean_price_pct) - 2.0;
+        let hi = cash.clean_price_pct.max(pik.clean_price_pct) + 2.0;
+        assert!(
+            split.clean_price_pct >= lo && split.clean_price_pct <= hi,
+            "50/50 split should be between cash ({}) and PIK ({}), got {}",
+            cash.clean_price_pct,
+            pik.clean_price_pct,
+            split.clean_price_pct
+        );
+    }
+
+    #[test]
+    fn stepped_schedule_pik_then_cash() {
+        // PIK for first 2 years, then cash for remaining 3 years.
+        // Should be between full cash and full PIK.
+        let config_cash = MertonMcConfig::new(test_merton()).num_paths(5000).seed(42);
+        let config_pik = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Pik))
+            .num_paths(5000)
+            .seed(42);
+        let config_step = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Stepped(vec![
+                (0.0, PikMode::Pik),
+                (2.0, PikMode::Cash),
+            ]))
+            .num_paths(5000)
+            .seed(42);
+
+        let cash = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_cash, 0.04).expect("ok");
+        let pik = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_pik, 0.04).expect("ok");
+        let step = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_step, 0.04).expect("ok");
+
+        let lo = cash.clean_price_pct.min(pik.clean_price_pct) - 2.0;
+        let hi = cash.clean_price_pct.max(pik.clean_price_pct) + 2.0;
+        assert!(
+            step.clean_price_pct >= lo && step.clean_price_pct <= hi,
+            "Stepped PIK→cash should be between full cash ({}) and full PIK ({}), got {}",
+            cash.clean_price_pct,
+            pik.clean_price_pct,
+            step.clean_price_pct
+        );
+        assert!(
+            step.average_pik_fraction > 0.0 && step.average_pik_fraction < 1.0,
+            "Stepped schedule should have partial PIK fraction, got {}",
+            step.average_pik_fraction
+        );
+    }
+
+    #[test]
+    fn toggle_window_then_cash() {
+        // Toggle for first 3 years, mandatory cash after.
+        let toggle = ToggleExerciseModel::threshold(
+            CreditStateVariable::HazardRate,
+            0.10,
+            ThresholdDirection::Above,
+        );
+        let config = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Stepped(vec![
+                (0.0, PikMode::Toggle),
+                (3.0, PikMode::Cash),
+            ]))
+            .toggle_model(toggle)
+            .num_paths(5000)
+            .seed(42);
+
+        let result = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04).expect("ok");
+        assert!(
+            result.clean_price_pct > 50.0 && result.clean_price_pct < 150.0,
+            "Toggle window price should be reasonable: {}",
+            result.clean_price_pct
+        );
+    }
+
+    #[test]
+    fn toggle_without_model_falls_back_to_cash() {
+        // PikMode::Toggle but no toggle_model → should behave like cash
+        let config_toggle_no_model = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Toggle))
+            .num_paths(5000)
+            .seed(42);
+        let config_cash = MertonMcConfig::new(test_merton()).num_paths(5000).seed(42);
+
+        let toggle_result =
+            MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_toggle_no_model, 0.04).expect("ok");
+        let cash_result =
+            MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_cash, 0.04).expect("ok");
+
+        assert!(
+            (toggle_result.clean_price_pct - cash_result.clean_price_pct).abs() < 1e-10,
+            "Toggle without model should equal cash: toggle={}, cash={}",
+            toggle_result.clean_price_pct,
+            cash_result.clean_price_pct,
+        );
+    }
+
+    #[test]
+    fn default_pik_schedule_is_cash() {
+        let config = MertonMcConfig::new(test_merton());
+        assert!(
+            matches!(config.pik_schedule, PikSchedule::Uniform(PikMode::Cash)),
+            "Default pik_schedule should be Uniform(Cash)"
+        );
     }
 }

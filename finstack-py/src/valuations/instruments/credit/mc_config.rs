@@ -3,10 +3,77 @@ use crate::valuations::instruments::credit::endogenous_hazard::PyEndogenousHazar
 use crate::valuations::instruments::credit::merton::PyMertonModel;
 use crate::valuations::instruments::credit::toggle_exercise::PyToggleExerciseModel;
 use finstack_valuations::instruments::fixed_income::bond::pricing::merton_mc_engine::{
-    MertonMcConfig as RustMertonMcConfig, MertonMcResult as RustMertonMcResult,
+    MertonMcConfig as RustMertonMcConfig, MertonMcResult as RustMertonMcResult, PikMode,
+    PikSchedule,
 };
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
+
+// ---------------------------------------------------------------------------
+// PIK schedule parsing
+// ---------------------------------------------------------------------------
+
+/// Parse a Python `pik_schedule` value into a Rust [`PikSchedule`].
+///
+/// Accepted forms:
+/// - `None` → `Uniform(Cash)` (default)
+/// - `"cash"` / `"pik"` / `"toggle"` → `Uniform(mode)`
+/// - `[(0.0, "pik"), (2.0, "cash")]` → `Stepped([...])`
+/// - `[(0.0, "toggle"), (3.0, {"cash": 0.5, "pik": 0.5})]` → mixed schedule
+fn parse_pik_schedule(obj: &Bound<'_, pyo3::types::PyAny>) -> PyResult<PikSchedule> {
+    if obj.is_none() {
+        return Ok(PikSchedule::default());
+    }
+    if let Ok(s) = obj.extract::<String>() {
+        return Ok(PikSchedule::Uniform(parse_pik_mode_str(&s)?));
+    }
+    // Try to iterate as a list of (float, mode) tuples
+    if let Ok(iter) = obj.try_iter() {
+        let mut steps = Vec::new();
+        for item in iter {
+            let item = item?;
+            let tuple = item.extract::<(f64, Bound<'_, pyo3::types::PyAny>)>()?;
+            let mode = parse_pik_mode(&tuple.1)?;
+            steps.push((tuple.0, mode));
+        }
+        if !steps.is_empty() {
+            return Ok(PikSchedule::Stepped(steps));
+        }
+    }
+    Err(PyValueError::new_err(
+        "pik_schedule must be None, a string ('cash'/'pik'/'toggle'), \
+         or a list of (time, mode) tuples",
+    ))
+}
+
+fn parse_pik_mode(obj: &Bound<'_, pyo3::types::PyAny>) -> PyResult<PikMode> {
+    if let Ok(s) = obj.extract::<String>() {
+        return parse_pik_mode_str(&s);
+    }
+    if let Ok(d) = obj.extract::<std::collections::HashMap<String, f64>>() {
+        let cash = d.get("cash").copied().unwrap_or(0.0);
+        let pik = d.get("pik").copied().unwrap_or(0.0);
+        return Ok(PikMode::Split {
+            cash_fraction: cash,
+            pik_fraction: pik,
+        });
+    }
+    Err(PyValueError::new_err(
+        "PIK mode must be 'cash', 'pik', 'toggle', or {'cash': ..., 'pik': ...}",
+    ))
+}
+
+fn parse_pik_mode_str(s: &str) -> PyResult<PikMode> {
+    match s.to_lowercase().as_str() {
+        "cash" => Ok(PikMode::Cash),
+        "pik" => Ok(PikMode::Pik),
+        "toggle" | "pik_toggle" => Ok(PikMode::Toggle),
+        other => Err(PyValueError::new_err(format!(
+            "Unknown PIK mode '{other}': use 'cash', 'pik', or 'toggle'"
+        ))),
+    }
+}
 
 // ---------------------------------------------------------------------------
 // PyMertonMcConfig
@@ -42,12 +109,19 @@ impl PyMertonMcConfig {
     /// ----------
     /// merton : MertonModel
     ///     Structural credit model.
+    /// pik_schedule : str | list[tuple[float, str | dict]] | None, optional
+    ///     PIK schedule controlling per-coupon behavior. Accepted forms:
+    ///
+    ///     - ``None`` (default) — derived from the bond's coupon type
+    ///     - ``"cash"`` / ``"pik"`` / ``"toggle"`` — uniform mode
+    ///     - ``[(0.0, "pik"), (2.0, "cash")]`` — stepped schedule
+    ///     - ``[(0.0, "toggle"), (3.0, {"cash": 0.5, "pik": 0.5})]`` — mixed
     /// endogenous_hazard : EndogenousHazardSpec | None, optional
     ///     Endogenous (leverage-dependent) hazard rate model.
     /// dynamic_recovery : DynamicRecoverySpec | None, optional
     ///     Dynamic (notional-dependent) recovery rate model.
     /// toggle_model : ToggleExerciseModel | None, optional
-    ///     Toggle exercise model for PIK/cash coupon decisions.
+    ///     Toggle exercise model, active for ``PikMode::Toggle`` periods.
     /// num_paths : int, optional
     ///     Number of Monte Carlo paths (default: 10,000).
     /// seed : int, optional
@@ -64,6 +138,7 @@ impl PyMertonMcConfig {
     #[pyo3(signature = (
         merton,
         *,
+        pik_schedule = None,
         endogenous_hazard = None,
         dynamic_recovery = None,
         toggle_model = None,
@@ -74,6 +149,7 @@ impl PyMertonMcConfig {
     ))]
     fn new(
         merton: &PyMertonModel,
+        pik_schedule: Option<&Bound<'_, pyo3::types::PyAny>>,
         endogenous_hazard: Option<&PyEndogenousHazardSpec>,
         dynamic_recovery: Option<&PyDynamicRecoverySpec>,
         toggle_model: Option<&PyToggleExerciseModel>,
@@ -81,8 +157,13 @@ impl PyMertonMcConfig {
         seed: u64,
         antithetic: bool,
         time_steps_per_year: usize,
-    ) -> Self {
+    ) -> PyResult<Self> {
+        let rust_schedule = match pik_schedule {
+            Some(obj) => parse_pik_schedule(obj)?,
+            None => PikSchedule::default(),
+        };
         let mut config = RustMertonMcConfig::new(merton.inner.clone())
+            .pik_schedule(rust_schedule)
             .num_paths(num_paths)
             .seed(seed)
             .antithetic(antithetic)
@@ -96,7 +177,7 @@ impl PyMertonMcConfig {
         if let Some(tm) = toggle_model {
             config = config.toggle_model(tm.inner.clone());
         }
-        Self { inner: config }
+        Ok(Self { inner: config })
     }
 
     /// Number of Monte Carlo paths.

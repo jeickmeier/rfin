@@ -1191,8 +1191,17 @@ impl crate::instruments::common_impl::traits::CurveDependencies for Bond {
 impl Bond {
     /// Price this bond using the Merton Monte Carlo structural credit model.
     ///
-    /// Extracts coupon rate, frequency, and PIK status from the bond's cashflow spec,
-    /// then delegates to `MertonMcEngine::price`.
+    /// Extracts coupon rate and frequency from the bond's `CashflowSpec`,
+    /// then delegates to [`MertonMcEngine::price`].
+    ///
+    /// If the config's `pik_schedule` is `Uniform(Cash)` (the default),
+    /// this method overrides it based on the bond's `CouponType`:
+    /// - `CouponType::Cash` → `Uniform(Cash)`
+    /// - `CouponType::PIK` → `Uniform(Pik)`
+    /// - `CouponType::Split{c, p}` → `Uniform(Split{c, p})`
+    ///
+    /// If the config already has a non-default `pik_schedule`, it is used
+    /// as-is (the config schedule takes precedence).
     pub fn price_merton_mc(
         &self,
         config: &crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig,
@@ -1202,48 +1211,64 @@ impl Bond {
         crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcResult,
     > {
         use crate::cashflow::builder::specs::CouponType;
-        use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcEngine;
+        use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::{
+            MertonMcConfig, MertonMcEngine, PikMode, PikSchedule,
+        };
         use rust_decimal::prelude::ToPrimitive;
 
-        // Extract notional
         let notional = self.notional.amount();
 
-        // Extract coupon info from CashflowSpec
-        let (coupon_rate, is_pik, coupon_frequency) = match &self.cashflow_spec {
+        let (coupon_rate, coupon_type, coupon_frequency) = match &self.cashflow_spec {
             CashflowSpec::Fixed(spec) => {
                 let rate = spec.rate.to_f64().unwrap_or(0.0);
-                let is_pik = matches!(spec.coupon_type, CouponType::PIK);
                 let freq = (1.0 / spec.freq.to_years_simple()).round() as usize;
-                (rate, is_pik, freq)
+                (rate, spec.coupon_type, freq)
             }
             CashflowSpec::Floating(_) => {
-                // Floating-rate bonds are not supported by the Merton MC engine
                 return Err(finstack_core::InputError::Invalid.into());
             }
-            CashflowSpec::Amortizing { base, .. } => {
-                // Extract from base spec
-                match base.as_ref() {
-                    CashflowSpec::Fixed(spec) => {
-                        let rate = spec.rate.to_f64().unwrap_or(0.0);
-                        let is_pik = matches!(spec.coupon_type, CouponType::PIK);
-                        let freq = (1.0 / spec.freq.to_years_simple()).round() as usize;
-                        (rate, is_pik, freq)
-                    }
-                    _ => return Err(finstack_core::InputError::Invalid.into()),
+            CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
+                CashflowSpec::Fixed(spec) => {
+                    let rate = spec.rate.to_f64().unwrap_or(0.0);
+                    let freq = (1.0 / spec.freq.to_years_simple()).round() as usize;
+                    (rate, spec.coupon_type, freq)
                 }
-            }
+                _ => return Err(finstack_core::InputError::Invalid.into()),
+            },
         };
 
-        // Calculate maturity in years
         let maturity_years = (self.maturity - as_of).whole_days() as f64 / 365.25;
+
+        // If the config uses the default schedule, derive from bond's CouponType
+        let effective_config;
+        let config_ref = if matches!(config.pik_schedule, PikSchedule::Uniform(PikMode::Cash)) {
+            let bond_mode = match coupon_type {
+                CouponType::Cash => PikMode::Cash,
+                CouponType::PIK => PikMode::Pik,
+                CouponType::Split { cash_pct, pik_pct } => PikMode::Split {
+                    cash_fraction: cash_pct.to_f64().unwrap_or(1.0),
+                    pik_fraction: pik_pct.to_f64().unwrap_or(0.0),
+                },
+            };
+            if !matches!(bond_mode, PikMode::Cash) {
+                effective_config = MertonMcConfig {
+                    pik_schedule: PikSchedule::Uniform(bond_mode),
+                    ..config.clone()
+                };
+                &effective_config
+            } else {
+                config
+            }
+        } else {
+            config
+        };
 
         MertonMcEngine::price(
             notional,
             coupon_rate,
-            is_pik,
             maturity_years,
             coupon_frequency,
-            config,
+            config_ref,
             discount_rate,
         )
     }

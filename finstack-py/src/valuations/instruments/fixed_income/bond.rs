@@ -350,6 +350,7 @@ pub struct PyBondBuilder {
     settlement_convention: Option<BondSettlementConvention>,
     custom_cashflows: Option<CashFlowSchedule>,
     coupon_rate: f64,
+    coupon_type: CouponType,
     quoted_clean_price: Option<f64>,
     forward_curve: Option<CurveId>,
     float_margin_bp: f64,
@@ -377,6 +378,7 @@ impl PyBondBuilder {
             settlement_convention: None,
             custom_cashflows: None,
             coupon_rate: 0.0,
+            coupon_type: CouponType::Cash,
             quoted_clean_price: None,
             forward_curve: None,
             float_margin_bp: 0.0,
@@ -420,13 +422,13 @@ impl PyBondBuilder {
                     overnight_compounding: None,
                     payment_lag_days: 0,
                 },
-                coupon_type: CouponType::Cash,
+                coupon_type: self.coupon_type.clone(),
                 freq: self.frequency,
                 stub: self.stub,
             })
         } else {
             let base = CashflowSpec::Fixed(FixedCouponSpec {
-                coupon_type: CouponType::Cash,
+                coupon_type: self.coupon_type.clone(),
                 rate: rust_decimal::Decimal::from_f64_retain(self.coupon_rate).unwrap_or_default(),
                 freq: self.frequency,
                 dc: self.day_count,
@@ -557,9 +559,26 @@ impl PyBondBuilder {
 
     #[pyo3(text_signature = "($self, rate)")]
     fn coupon_rate(mut slf: PyRefMut<'_, Self>, rate: f64) -> PyRefMut<'_, Self> {
-        // Let Rust validation handle negative rate checks
         slf.coupon_rate = rate;
         slf
+    }
+
+    /// Set the coupon type: ``"cash"`` (default) or ``"pik"``.
+    #[pyo3(text_signature = "($self, coupon_type)")]
+    fn coupon_type(
+        mut slf: PyRefMut<'_, Self>,
+        coupon_type: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        match coupon_type.to_lowercase().as_str() {
+            "cash" => slf.coupon_type = CouponType::Cash,
+            "pik" => slf.coupon_type = CouponType::PIK,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "Unknown coupon type '{other}': use 'cash' or 'pik'"
+                )));
+            }
+        }
+        Ok(slf)
     }
 
     #[pyo3(text_signature = "($self, frequency)")]

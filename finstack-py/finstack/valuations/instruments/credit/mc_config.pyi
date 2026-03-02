@@ -1,21 +1,33 @@
 """Monte Carlo configuration and results for Merton structural credit pricing."""
 
 from __future__ import annotations
+from typing import Sequence
 from .merton import MertonModel
 from .endogenous_hazard import EndogenousHazardSpec
 from .dynamic_recovery import DynamicRecoverySpec
 from .toggle_exercise import ToggleExerciseModel
 
+PikScheduleInput = str | Sequence[tuple[float, str | dict[str, float]]] | None
+"""Accepted forms for ``pik_schedule``:
+
+- ``None`` — derived from the bond's coupon type
+- ``"cash"`` / ``"pik"`` / ``"toggle"`` — uniform mode for all coupons
+- ``[(0.0, "pik"), (2.0, "cash")]`` — stepped schedule (time in years, mode)
+- ``[(0.0, "toggle"), (3.0, {"cash": 0.5, "pik": 0.5})]`` — mixed schedule
+"""
+
 class MertonMcConfig:
     """Monte Carlo configuration for Merton structural credit pricing.
 
-    Bundles a MertonModel with optional credit extensions and simulation parameters.
+    Bundles a MertonModel with optional credit extensions, a PIK schedule,
+    and simulation parameters.
     """
 
     def __init__(
         self,
         merton: MertonModel,
         *,
+        pik_schedule: PikScheduleInput = None,
         endogenous_hazard: EndogenousHazardSpec | None = None,
         dynamic_recovery: DynamicRecoverySpec | None = None,
         toggle_model: ToggleExerciseModel | None = None,
