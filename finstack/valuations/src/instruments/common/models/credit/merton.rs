@@ -26,6 +26,9 @@ use finstack_core::math::norm_cdf;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::{InputError, Result};
 
+#[cfg(feature = "mc")]
+use finstack_core::math::random::{poisson_inverse_cdf, RandomNumberGenerator};
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -586,6 +589,172 @@ impl MertonModel {
 }
 
 // ---------------------------------------------------------------------------
+// Monte Carlo path simulation (feature-gated)
+// ---------------------------------------------------------------------------
+
+/// Results from Monte Carlo path simulation.
+#[cfg(feature = "mc")]
+#[derive(Debug, Clone)]
+pub struct SimulatedPaths {
+    /// Time grid from 0 to T.
+    pub times: Vec<f64>,
+    /// Asset values: paths[path_idx][time_idx].
+    pub asset_values: Vec<Vec<f64>>,
+    /// Number of paths simulated.
+    pub num_paths: usize,
+    /// Number of time steps.
+    pub num_steps: usize,
+}
+
+#[cfg(feature = "mc")]
+impl MertonModel {
+    /// Simulate asset value paths using Monte Carlo.
+    ///
+    /// Supports GBM and jump-diffusion dynamics. Optionally uses antithetic
+    /// variates to reduce variance.
+    ///
+    /// # Arguments
+    ///
+    /// * `num_paths` - Number of paths to simulate
+    /// * `num_steps` - Number of time steps per path
+    /// * `horizon` - Time horizon T in years
+    /// * `rng` - Random number generator (trait object)
+    /// * `antithetic` - If true, use antithetic variates for variance reduction
+    ///
+    /// # Returns
+    ///
+    /// [`SimulatedPaths`] containing the time grid and all simulated asset paths.
+    pub fn simulate_paths(
+        &self,
+        num_paths: usize,
+        num_steps: usize,
+        horizon: f64,
+        rng: &mut dyn RandomNumberGenerator,
+        antithetic: bool,
+    ) -> SimulatedPaths {
+        let dt = horizon / num_steps as f64;
+        let sqrt_dt = dt.sqrt();
+
+        // Build time grid: t = 0, dt, 2*dt, ..., T
+        let times: Vec<f64> = (0..=num_steps).map(|i| i as f64 * dt).collect();
+
+        let v0 = self.asset_value;
+        let sigma = self.asset_vol;
+        let r = self.risk_free_rate;
+        let q = self.payout_rate;
+
+        // Determine drift and whether we have jumps
+        let (drift_per_step, jump_params) = match &self.dynamics {
+            AssetDynamics::GeometricBrownian | AssetDynamics::CreditGrades { .. } => {
+                let drift = (r - q - 0.5 * sigma * sigma) * dt;
+                (drift, None)
+            }
+            AssetDynamics::JumpDiffusion {
+                jump_intensity,
+                jump_mean,
+                jump_vol,
+            } => {
+                // kappa = E[e^J] - 1 where J ~ N(mu_J, sigma_J^2)
+                let kappa = (jump_mean + 0.5 * jump_vol * jump_vol).exp() - 1.0;
+                // Compensated drift to keep E[V(T)] = V0 * e^{(r-q)T}
+                let drift = (r - q - jump_intensity * kappa - 0.5 * sigma * sigma) * dt;
+                (drift, Some((*jump_intensity, *jump_mean, *jump_vol)))
+            }
+        };
+
+        let diffusion = sigma * sqrt_dt;
+
+        // Determine how many base paths to generate
+        let (n_base, gen_antithetic) = if antithetic {
+            // For num_paths requested: generate ceil(num_paths/2) base paths
+            // and their mirrors. Total = 2 * n_base.
+            // If num_paths is odd, we generate one extra base path without mirror
+            // to hit exactly num_paths.
+            let n_base = num_paths.div_ceil(2);
+            (n_base, true)
+        } else {
+            (num_paths, false)
+        };
+
+        let mut all_paths: Vec<Vec<f64>> = Vec::with_capacity(num_paths);
+
+        for _ in 0..n_base {
+            // Generate normals for this base path
+            let normals: Vec<f64> = (0..num_steps).map(|_| rng.normal(0.0, 1.0)).collect();
+
+            // Generate jump data if needed
+            let jump_data: Option<Vec<(usize, Vec<f64>)>> = jump_params.map(|(lambda, _, _)| {
+                let lambda_dt = lambda * dt;
+                (0..num_steps)
+                    .map(|_| {
+                        let n_jumps = poisson_inverse_cdf(lambda_dt, rng.uniform());
+                        let jump_normals: Vec<f64> =
+                            (0..n_jumps).map(|_| rng.normal(0.0, 1.0)).collect();
+                        (n_jumps, jump_normals)
+                    })
+                    .collect()
+            });
+
+            // Build the base path
+            let mut base_path = Vec::with_capacity(num_steps + 1);
+            base_path.push(v0);
+            let mut v = v0;
+
+            for step in 0..num_steps {
+                let z = normals[step];
+                v *= (drift_per_step + diffusion * z).exp();
+
+                // Apply jumps if present
+                if let (Some(ref jd), Some((_, mu_j, sigma_j))) = (&jump_data, jump_params) {
+                    let (_n_jumps, ref jump_z) = jd[step];
+                    for &jz in jump_z {
+                        v *= (mu_j - 0.5 * sigma_j * sigma_j + sigma_j * jz).exp();
+                    }
+                }
+
+                base_path.push(v);
+            }
+
+            all_paths.push(base_path);
+
+            // Build the antithetic (mirror) path if requested
+            if gen_antithetic && all_paths.len() < num_paths {
+                let mut anti_path = Vec::with_capacity(num_steps + 1);
+                anti_path.push(v0);
+                let mut v_anti = v0;
+
+                for step in 0..num_steps {
+                    let z = -normals[step]; // Negated normal
+                    v_anti *= (drift_per_step + diffusion * z).exp();
+
+                    // Apply jumps (same jump counts and jump normals — only diffusion Z is negated)
+                    if let (Some(ref jd), Some((_, mu_j, sigma_j))) = (&jump_data, jump_params) {
+                        let (_n_jumps, ref jump_z) = jd[step];
+                        for &jz in jump_z {
+                            v_anti *= (mu_j - 0.5 * sigma_j * sigma_j + sigma_j * jz).exp();
+                        }
+                    }
+
+                    anti_path.push(v_anti);
+                }
+
+                all_paths.push(anti_path);
+            }
+        }
+
+        // Trim to exact num_paths in case antithetic generated one extra
+        all_paths.truncate(num_paths);
+
+        SimulatedPaths {
+            times,
+            asset_values: all_paths,
+            num_paths,
+            num_steps,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -777,5 +946,111 @@ mod tests {
         assert!(matches!(m.barrier_type(), BarrierType::FirstPassage { .. }));
         let pd = m.default_probability(5.0);
         assert!(pd > 0.0 && pd < 1.0, "PD should be in (0,1), got {pd}");
+    }
+
+    // -----------------------------------------------------------------------
+    // Monte Carlo path simulation tests
+    // -----------------------------------------------------------------------
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn simulate_paths_deterministic_with_seed() {
+        use finstack_core::math::random::Pcg64Rng;
+        let m = MertonModel::new(100.0, 0.20, 80.0, 0.05).expect("valid");
+        let mut rng1 = Pcg64Rng::new(42);
+        let mut rng2 = Pcg64Rng::new(42);
+        let paths1 = m.simulate_paths(10, 60, 5.0, &mut rng1, false);
+        let paths2 = m.simulate_paths(10, 60, 5.0, &mut rng2, false);
+        assert_eq!(
+            paths1.asset_values[0], paths2.asset_values[0],
+            "Same seed should give same paths"
+        );
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn simulate_paths_gbm_mean_converges() {
+        use finstack_core::math::random::Pcg64Rng;
+        let m = MertonModel::new(100.0, 0.20, 80.0, 0.05).expect("valid");
+        let mut rng = Pcg64Rng::new(42);
+        let paths = m.simulate_paths(50_000, 60, 5.0, &mut rng, true);
+        let mean_terminal: f64 = paths
+            .asset_values
+            .iter()
+            .map(|p| *p.last().expect("non-empty"))
+            .sum::<f64>()
+            / paths.num_paths as f64;
+        let expected = 100.0 * (0.05_f64 * 5.0).exp();
+        let rel_error = (mean_terminal - expected).abs() / expected;
+        assert!(
+            rel_error < 0.02,
+            "Mean terminal should converge to E[V(T)] = V\u{2080}\u{00d7}e^(rT) = {expected}, got {mean_terminal}, rel_err={rel_error}"
+        );
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn simulate_paths_correct_dimensions() {
+        use finstack_core::math::random::Pcg64Rng;
+        let m = MertonModel::new(100.0, 0.20, 80.0, 0.05).expect("valid");
+        let mut rng = Pcg64Rng::new(42);
+        let paths = m.simulate_paths(100, 60, 5.0, &mut rng, false);
+        assert_eq!(paths.num_paths, 100);
+        assert_eq!(paths.num_steps, 60);
+        assert_eq!(paths.times.len(), 61); // includes t=0
+        assert_eq!(paths.asset_values.len(), 100);
+        assert_eq!(paths.asset_values[0].len(), 61);
+        assert!(
+            (paths.times[0] - 0.0).abs() < 1e-10,
+            "First time should be 0"
+        );
+        assert!(
+            (paths.times[60] - 5.0).abs() < 1e-10,
+            "Last time should be horizon"
+        );
+        assert!(
+            (paths.asset_values[0][0] - 100.0).abs() < 1e-10,
+            "Should start at V\u{2080}"
+        );
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn jump_diffusion_produces_different_paths() {
+        use finstack_core::math::random::Pcg64Rng;
+        let m_gbm = MertonModel::new(100.0, 0.20, 80.0, 0.05).expect("valid");
+        let m_jd = MertonModel::new_with_dynamics(
+            100.0,
+            0.20,
+            80.0,
+            0.05,
+            0.0,
+            BarrierType::Terminal,
+            AssetDynamics::JumpDiffusion {
+                jump_intensity: 0.5,
+                jump_mean: -0.05,
+                jump_vol: 0.10,
+            },
+        )
+        .expect("valid");
+        let mut rng1 = Pcg64Rng::new(42);
+        let mut rng2 = Pcg64Rng::new(42);
+        let paths_gbm = m_gbm.simulate_paths(100, 60, 5.0, &mut rng1, false);
+        let paths_jd = m_jd.simulate_paths(100, 60, 5.0, &mut rng2, false);
+        // JD paths should differ from GBM (different drift compensation + jumps)
+        let gbm_terminal: f64 = paths_gbm
+            .asset_values
+            .iter()
+            .map(|p| *p.last().expect("non-empty"))
+            .sum::<f64>();
+        let jd_terminal: f64 = paths_jd
+            .asset_values
+            .iter()
+            .map(|p| *p.last().expect("non-empty"))
+            .sum::<f64>();
+        assert!(
+            (gbm_terminal - jd_terminal).abs() > 1.0,
+            "JD should produce different terminal values"
+        );
     }
 }
