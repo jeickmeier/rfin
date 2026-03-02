@@ -631,5 +631,98 @@ class TestEdgeCases:
         assert len(portfolio.positions) == 10
 
 
+class TestScenarioParity:
+    """Test scenario return values match Rust API."""
+
+    def test_apply_scenario_returns_tuple(self) -> None:
+        """apply_scenario must return (Portfolio, MarketContext, ApplicationReport)."""
+        from finstack.portfolio import apply_scenario
+        from finstack.scenarios import ApplicationReport, ScenarioSpec
+
+        entity = Entity("E1").with_name("Test")
+        bond = (
+            Bond
+            .builder("BOND-1")
+            .notional(1_000_000.0)
+            .currency("USD")
+            .issue(date(2024, 1, 1))
+            .maturity(date(2029, 1, 1))
+            .coupon_rate(0.05)
+            .frequency(Frequency.SEMI_ANNUAL)
+            .day_count(DayCount.THIRTY_360)
+            .disc_id("USD-OIS")
+            .build()
+        )
+        pos = Position("P1", "E1", bond.instrument_id, bond, 1.0, PositionUnit.UNITS)
+        portfolio = (
+            PortfolioBuilder("TEST").base_ccy("USD").as_of(date(2024, 1, 1)).entity(entity).position(pos).build()
+        )
+
+        market = MarketContext()
+        discount_curve = DiscountCurve(
+            "USD-OIS",
+            date(2024, 1, 1),
+            [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
+            day_count="act_365f",
+        )
+        market.insert_discount(discount_curve)
+
+        # Build a simple scenario (no operations)
+        scenario = ScenarioSpec("test_shift", [])
+
+        result = apply_scenario(portfolio, scenario, market)
+        assert isinstance(result, tuple), "apply_scenario must return a tuple"
+        assert len(result) == 3, "tuple must have 3 elements"
+        from finstack.portfolio import Portfolio
+
+        portfolio_out, market_out, report = result
+        assert isinstance(portfolio_out, Portfolio)
+        assert isinstance(market_out, MarketContext)
+        assert isinstance(report, ApplicationReport)
+        assert isinstance(report.operations_applied, int)
+        assert isinstance(report.warnings, list)
+
+    def test_apply_and_revalue_returns_tuple(self) -> None:
+        """apply_and_revalue must return (PortfolioValuation, ApplicationReport)."""
+        from finstack.portfolio import PortfolioValuation, apply_and_revalue
+        from finstack.scenarios import ApplicationReport, ScenarioSpec
+
+        entity = Entity("E1").with_name("Test")
+        bond = (
+            Bond
+            .builder("BOND-1")
+            .notional(1_000_000.0)
+            .currency("USD")
+            .issue(date(2024, 1, 1))
+            .maturity(date(2029, 1, 1))
+            .coupon_rate(0.05)
+            .frequency(Frequency.SEMI_ANNUAL)
+            .day_count(DayCount.THIRTY_360)
+            .disc_id("USD-OIS")
+            .build()
+        )
+        pos = Position("P1", "E1", bond.instrument_id, bond, 1.0, PositionUnit.UNITS)
+        portfolio = (
+            PortfolioBuilder("TEST").base_ccy("USD").as_of(date(2024, 1, 1)).entity(entity).position(pos).build()
+        )
+
+        market = MarketContext()
+        discount_curve = DiscountCurve(
+            "USD-OIS",
+            date(2024, 1, 1),
+            [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
+            day_count="act_365f",
+        )
+        market.insert_discount(discount_curve)
+
+        scenario = ScenarioSpec("test_shift", [])
+        result = apply_and_revalue(portfolio, scenario, market)
+        assert isinstance(result, tuple), "apply_and_revalue must return a tuple"
+        assert len(result) == 2
+        valuation, report = result
+        assert isinstance(valuation, PortfolioValuation)
+        assert isinstance(report, ApplicationReport)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

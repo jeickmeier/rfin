@@ -3,6 +3,7 @@
 from __future__ import annotations
 from finstack.core.config import FinstackConfig
 from finstack.core.market_data.context import MarketContext
+from finstack.scenarios.reports import ApplicationReport
 from finstack.scenarios.spec import ScenarioSpec
 from .portfolio import Portfolio
 from .valuation import PortfolioValuation
@@ -11,11 +12,12 @@ def apply_scenario(
     portfolio: Portfolio,
     scenario: ScenarioSpec,
     market_context: MarketContext,
-) -> Portfolio:
+) -> tuple[Portfolio, MarketContext, ApplicationReport]:
     """Apply a scenario to a portfolio.
 
     Transforms the portfolio by applying scenario operations. The original portfolio
-    is not modified; a new portfolio with transformed positions is returned.
+    is not modified; a new portfolio with transformed positions is returned along
+    with the stressed market context and an application report.
 
     Args:
         portfolio: Portfolio to transform.
@@ -23,7 +25,8 @@ def apply_scenario(
         market_context: Market data context.
 
     Returns:
-        Portfolio: Transformed portfolio.
+        tuple[Portfolio, MarketContext, ApplicationReport]: Transformed portfolio,
+            stressed market context, and application report.
 
     Raises:
         RuntimeError: If scenario application fails.
@@ -40,7 +43,7 @@ def apply_and_revalue(
     scenario: ScenarioSpec,
     market_context: MarketContext,
     config: FinstackConfig | None = None,
-) -> PortfolioValuation:
+) -> tuple[PortfolioValuation, ApplicationReport]:
     """Apply a scenario to a portfolio and revalue it.
 
     Convenience function that applies a scenario and then values the resulting portfolio.
@@ -53,7 +56,8 @@ def apply_and_revalue(
         config: Finstack configuration (optional, uses default if not provided).
 
     Returns:
-        PortfolioValuation: Portfolio valuation results.
+        tuple[PortfolioValuation, ApplicationReport]: Portfolio valuation results
+            and application report.
 
     Raises:
         RuntimeError: If scenario application or valuation fails.
@@ -62,6 +66,6 @@ def apply_and_revalue(
     -----
     This helper simply composes :func:`apply_scenario` and
     :func:`value_portfolio`, returning the resulting
-    :class:`PortfolioValuation`.
+    :class:`PortfolioValuation` and :class:`ApplicationReport`.
     """
     ...

@@ -13,8 +13,10 @@ use finstack_core::cashflow::npv;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::FlatCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::market_data::term_structures::InflationCurve;
+use finstack_core::market_data::term_structures::PriceCurve;
 use finstack_core::market_data::term_structures::{HazardCurve, Seniority};
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::HashMap;
@@ -1536,6 +1538,377 @@ impl PyVolatilityIndexCurve {
     }
 }
 
+/// Forward price curve for commodities and other price-based assets.
+///
+/// Used for pricing commodity derivatives, forwards, and options.
+///
+/// Parameters
+/// ----------
+/// id : str
+///     Identifier for the price curve.
+/// base_date : datetime.date
+///     Anchor date for the curve (t = 0).
+/// knots : list[tuple[float, float]]
+///     `(time, forward_price)` pairs.
+/// spot_price : float, optional
+///     Current spot price. Defaults to first knot price.
+/// day_count : DayCount, optional
+///     Day-count convention for time calculations.
+/// interp : str, optional
+///     Interpolation style (defaults to ``"linear"``).
+/// extrapolation : str, optional
+///     Extrapolation policy (defaults to ``"flat_zero"``).
+///
+/// Returns
+/// -------
+/// PriceCurve
+///     Forward price curve wrapper.
+#[pyclass(
+    module = "finstack.core.market_data.term_structures",
+    name = "PriceCurve",
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyPriceCurve {
+    pub(crate) inner: Arc<PriceCurve>,
+}
+
+impl PyPriceCurve {
+    pub(crate) fn new_arc(inner: Arc<PriceCurve>) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyPriceCurve {
+    /// Create a forward price curve from `(time, price)` knot points.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Curve identifier.
+    /// base_date : datetime.date
+    ///     Date corresponding to t = 0.
+    /// knots : list[tuple[float, float]]
+    ///     ``(time, forward_price)`` pairs in ascending time order.
+    /// spot_price : float, optional
+    ///     Current spot price. Defaults to first knot price.
+    /// day_count : DayCount, optional
+    ///     Override the default Act/365F convention.
+    /// interp : str, optional
+    ///     Interpolation style (``"linear"``, ``"monotone_convex"``, etc.).
+    /// extrapolation : str, optional
+    ///     Extrapolation policy name.
+    ///
+    /// Returns
+    /// -------
+    /// PriceCurve
+    ///     Forward price curve.
+    #[new]
+    #[pyo3(signature = (id, base_date, knots, spot_price=None, day_count=None, interp=None, extrapolation=None))]
+    fn ctor(
+        id: &str,
+        base_date: Bound<'_, PyAny>,
+        knots: Bound<'_, PyAny>,
+        spot_price: Option<f64>,
+        day_count: Option<Bound<'_, PyAny>>,
+        interp: Option<Bound<'_, PyAny>>,
+        extrapolation: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let knots_vec = extract_float_pairs(&knots)?;
+        if knots_vec.len() < 2 {
+            return Err(PyValueError::new_err(
+                "knots must contain at least two (time, price) pairs",
+            ));
+        }
+        let base = py_to_date(&base_date).context("base_date")?;
+        let style = match interp {
+            None => InterpStyle::Linear,
+            Some(obj) => {
+                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
+                    v
+                } else if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
+                    py_style.inner
+                } else if let Ok(name) = obj.extract::<&str>() {
+                    parse_interp_enum(Some(name), InterpStyle::Linear)?
+                } else {
+                    return Err(pyo3::exceptions::PyTypeError::new_err(
+                        "interp must be InterpStyle or string",
+                    ));
+                }
+            }
+        };
+        let extra = match extrapolation {
+            None => parse_extrap_enum(None)?,
+            Some(obj) => {
+                if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
+                    v
+                } else if let Ok(py_ex) = obj.extract::<PyRef<PyExtrapolationPolicy>>() {
+                    py_ex.inner
+                } else if let Ok(name) = obj.extract::<&str>() {
+                    parse_extrap_enum(Some(name))?
+                } else {
+                    return Err(pyo3::exceptions::PyTypeError::new_err(
+                        "extrapolation must be ExtrapolationPolicy or string",
+                    ));
+                }
+            }
+        };
+        let mut builder = PriceCurve::builder(id)
+            .base_date(base)
+            .knots(knots_vec)
+            .interp(style)
+            .extrapolation(extra);
+        if let Some(dc) = parse_day_count(day_count)? {
+            builder = builder.day_count(dc);
+        }
+        if let Some(spot) = spot_price {
+            builder = builder.spot_price(spot);
+        }
+        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        Ok(Self::new_arc(Arc::new(curve)))
+    }
+
+    /// Return the curve identifier.
+    #[getter]
+    fn id(&self) -> String {
+        self.inner.id().to_string()
+    }
+
+    /// Base date used for forward price calculations.
+    #[getter]
+    fn base_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.base_date())
+    }
+
+    /// Day-count convention used for time calculations.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count())
+    }
+
+    /// Current spot price.
+    #[getter]
+    fn spot_price(&self) -> f64 {
+        self.inner.spot_price()
+    }
+
+    /// Knot points as ``(time, price)`` pairs.
+    #[getter]
+    fn points(&self) -> Vec<(f64, f64)> {
+        self.inner
+            .knots()
+            .iter()
+            .zip(self.inner.prices().iter())
+            .map(|(&t, &p)| (t, p))
+            .collect()
+    }
+
+    /// Forward price at time ``t`` in years.
+    ///
+    /// Parameters
+    /// ----------
+    /// t : float
+    ///     Time in years from the base date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Forward price at ``t``.
+    #[pyo3(text_signature = "(self, t)")]
+    fn price(&self, t: f64) -> f64 {
+        self.inner.price(t)
+    }
+
+    /// Forward price on a specific calendar date.
+    ///
+    /// Parameters
+    /// ----------
+    /// date : datetime.date
+    ///     Calendar date to evaluate.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Forward price at the supplied date.
+    #[pyo3(text_signature = "(self, date)")]
+    fn price_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
+        let d = py_to_date(&date).context("date")?;
+        self.inner.price_on_date(d).map_err(core_to_py)
+    }
+
+    /// Create a new curve with a parallel bump applied (additive, in price units).
+    ///
+    /// Parameters
+    /// ----------
+    /// bump : float
+    ///     Bump size in price units (e.g., 1.0 adds $1 to all prices).
+    ///
+    /// Returns
+    /// -------
+    /// PriceCurve
+    ///     A new price curve with bumped prices.
+    #[pyo3(text_signature = "(self, bump)")]
+    fn bumped_parallel(&self, bump: f64) -> PyResult<Self> {
+        let bumped = self.inner.with_parallel_bump(bump).map_err(core_to_py)?;
+        Ok(Self::new_arc(Arc::new(bumped)))
+    }
+
+    /// Create a new curve with a percentage bump applied (multiplicative).
+    ///
+    /// Parameters
+    /// ----------
+    /// pct : float
+    ///     Percentage bump (e.g., 0.01 = +1%, -0.05 = -5%).
+    ///
+    /// Returns
+    /// -------
+    /// PriceCurve
+    ///     A new price curve with scaled prices.
+    #[pyo3(text_signature = "(self, pct)")]
+    fn bumped_percentage(&self, pct: f64) -> PyResult<Self> {
+        let bumped = self.inner.with_percentage_bump(pct).map_err(core_to_py)?;
+        Ok(Self::new_arc(Arc::new(bumped)))
+    }
+
+    /// Roll the curve forward by a specified number of days.
+    ///
+    /// Parameters
+    /// ----------
+    /// days : int
+    ///     Number of days to roll forward.
+    ///
+    /// Returns
+    /// -------
+    /// PriceCurve
+    ///     A new price curve with updated base date and shifted knots.
+    #[pyo3(text_signature = "(self, days)")]
+    fn roll_forward(&self, days: i64) -> PyResult<Self> {
+        let rolled = self.inner.roll_forward(days).map_err(core_to_py)?;
+        Ok(Self::new_arc(Arc::new(rolled)))
+    }
+}
+
+/// Flat forward/discount curve with a constant continuously compounded rate.
+///
+/// Convenience wrapper for quick valuations and testing.
+///
+/// Parameters
+/// ----------
+/// rate : float
+///     Continuously compounded annual rate (decimal, e.g. 0.05 for 5%).
+/// base_date : datetime.date
+///     Reference date for the curve.
+/// day_count : DayCount or str
+///     Day-count convention for year fractions.
+/// id : str
+///     Curve identifier.
+///
+/// Returns
+/// -------
+/// FlatCurve
+///     Flat curve exposing discount-factor evaluation.
+#[pyclass(
+    module = "finstack.core.market_data.term_structures",
+    name = "FlatCurve",
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyFlatCurve {
+    pub(crate) inner: FlatCurve,
+}
+
+impl PyFlatCurve {
+    pub(crate) fn new(inner: FlatCurve) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyFlatCurve {
+    /// Create a flat curve with a constant continuously compounded rate.
+    ///
+    /// Parameters
+    /// ----------
+    /// rate : float
+    ///     Continuously compounded annual rate (e.g. 0.05 for 5%).
+    /// base_date : datetime.date
+    ///     Reference date for the curve.
+    /// day_count : DayCount or str
+    ///     Day-count convention for year fractions.
+    /// id : str
+    ///     Curve identifier.
+    ///
+    /// Returns
+    /// -------
+    /// FlatCurve
+    ///     Flat curve wrapper.
+    #[new]
+    #[pyo3(signature = (rate, base_date, day_count, id))]
+    fn ctor(
+        rate: f64,
+        base_date: Bound<'_, PyAny>,
+        day_count: Bound<'_, PyAny>,
+        id: &str,
+    ) -> PyResult<Self> {
+        let bd = py_to_date(&base_date).context("base_date")?;
+        let dc = if let Ok(dc) = day_count.extract::<PyRef<PyDayCount>>() {
+            dc.inner
+        } else if let Ok(DayCountArg(inner)) = day_count.extract::<DayCountArg>() {
+            inner
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "day_count must be DayCount or string",
+            ));
+        };
+        Ok(Self::new(FlatCurve::new(rate, bd, dc, id)))
+    }
+
+    /// Return the curve identifier.
+    #[getter]
+    fn id(&self) -> String {
+        use finstack_core::market_data::traits::TermStructure;
+        self.inner.id().to_string()
+    }
+
+    /// The constant continuously compounded rate.
+    #[getter]
+    fn rate(&self) -> f64 {
+        self.inner.rate()
+    }
+
+    /// Curve base date.
+    #[getter]
+    fn base_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        use finstack_core::market_data::traits::Discounting;
+        date_to_py(py, self.inner.base_date())
+    }
+
+    /// Day-count convention.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        use finstack_core::market_data::traits::Discounting;
+        PyDayCount::new(self.inner.day_count())
+    }
+
+    /// Discount factor at time ``t`` years.
+    ///
+    /// Parameters
+    /// ----------
+    /// t : float
+    ///     Time in years from the base date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Discount factor ``exp(-rate * t)``.
+    #[pyo3(text_signature = "(self, t)")]
+    fn df(&self, t: f64) -> f64 {
+        use finstack_core::market_data::traits::Discounting;
+        self.inner.df(t)
+    }
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -1552,6 +1925,8 @@ pub(crate) fn register<'py>(
     module.add_class::<PyBaseCorrelationCurve>()?;
     module.add_class::<PyCreditIndexData>()?;
     module.add_class::<PyVolatilityIndexCurve>()?;
+    module.add_class::<PyPriceCurve>()?;
+    module.add_class::<PyFlatCurve>()?;
 
     let exports = [
         "DiscountCurve",
@@ -1561,6 +1936,8 @@ pub(crate) fn register<'py>(
         "BaseCorrelationCurve",
         "CreditIndexData",
         "VolatilityIndexCurve",
+        "PriceCurve",
+        "FlatCurve",
     ];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;

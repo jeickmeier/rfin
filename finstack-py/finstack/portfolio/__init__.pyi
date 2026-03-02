@@ -92,6 +92,7 @@ def optimize_max_yield_with_ccc_limit(
 # Scenario integration (if available)
 try:
     from .scenarios import apply_scenario, apply_and_revalue
+    from finstack.scenarios import ApplicationReport
 
     __all__ = [
         "Entity",
@@ -152,6 +153,7 @@ try:
         "PortfolioOptimizationProblem",
         "apply_scenario",
         "apply_and_revalue",
+        "ApplicationReport",
     ]
 except ImportError:
     __all__ = [

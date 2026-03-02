@@ -5,6 +5,7 @@ use crate::core::market_data::context::PyMarketContext;
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::positions::{extract_portfolio, PyPortfolio};
 use crate::portfolio::valuation::PyPortfolioValuation;
+use crate::scenarios::reports::PyApplicationReport;
 use crate::scenarios::spec::PyScenarioSpec;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule};
@@ -15,7 +16,8 @@ use finstack_portfolio::scenarios::{apply_and_revalue, apply_scenario};
 /// Apply a scenario to a portfolio.
 ///
 /// Transforms the portfolio by applying scenario operations. The original portfolio
-/// is not modified; a new portfolio with transformed positions is returned.
+/// is not modified; a new portfolio with transformed positions is returned along
+/// with the stressed market context and an application report.
 ///
 /// Args:
 ///     portfolio: Portfolio to transform.
@@ -23,7 +25,8 @@ use finstack_portfolio::scenarios::{apply_and_revalue, apply_scenario};
 ///     market_context: Market data context.
 ///
 /// Returns:
-///     Portfolio: Transformed portfolio.
+///     tuple[Portfolio, MarketContext, ApplicationReport]: Transformed portfolio,
+///         stressed market context, and application report.
 ///
 /// Raises:
 ///     RuntimeError: If scenario application fails.
@@ -31,23 +34,29 @@ use finstack_portfolio::scenarios::{apply_and_revalue, apply_scenario};
 /// Examples:
 ///     >>> from finstack.portfolio import apply_scenario
 ///     >>> from finstack.scenarios import ScenarioSpec
-///     >>> transformed = apply_scenario(portfolio, scenario, market_context)
+///     >>> portfolio, market, report = apply_scenario(portfolio, scenario, market_context)
 #[pyfunction]
 #[pyo3(signature = (portfolio, scenario, market_context))]
 fn py_apply_scenario(
     portfolio: &Bound<'_, PyAny>,
     scenario: &Bound<'_, PyAny>,
     market_context: &Bound<'_, PyAny>,
-) -> PyResult<PyPortfolio> {
+) -> PyResult<(PyPortfolio, PyMarketContext, PyApplicationReport)> {
     let portfolio_inner = extract_portfolio(portfolio)?;
     let scenario_inner = scenario.extract::<PyRef<PyScenarioSpec>>()?.inner.clone();
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
 
-    let (transformed, _market, _report) =
+    let (transformed, stressed_market, report) =
         apply_scenario(&portfolio_inner, &scenario_inner, &market_ctx.inner)
             .map_err(portfolio_to_py)?;
 
-    Ok(PyPortfolio::new(transformed))
+    Ok((
+        PyPortfolio::new(transformed),
+        PyMarketContext {
+            inner: stressed_market,
+        },
+        PyApplicationReport::new(report),
+    ))
 }
 
 /// Apply a scenario to a portfolio and revalue it.
@@ -62,7 +71,8 @@ fn py_apply_scenario(
 ///     config: Finstack configuration (optional, uses default if not provided).
 ///
 /// Returns:
-///     PortfolioValuation: Portfolio valuation results.
+///     tuple[PortfolioValuation, ApplicationReport]: Portfolio valuation results
+///         and application report.
 ///
 /// Raises:
 ///     RuntimeError: If scenario application or valuation fails.
@@ -70,7 +80,7 @@ fn py_apply_scenario(
 /// Examples:
 ///     >>> from finstack.portfolio import apply_and_revalue
 ///     >>> from finstack.scenarios import ScenarioSpec
-///     >>> valuation = apply_and_revalue(portfolio, scenario, market_context)
+///     >>> valuation, report = apply_and_revalue(portfolio, scenario, market_context)
 ///     >>> valuation.total_base_ccy
 ///     Money(USD, 9500000.0)
 #[pyfunction]
@@ -80,7 +90,7 @@ fn py_apply_and_revalue(
     scenario: &Bound<'_, PyAny>,
     market_context: &Bound<'_, PyAny>,
     config: Option<&Bound<'_, PyAny>>,
-) -> PyResult<PyPortfolioValuation> {
+) -> PyResult<(PyPortfolioValuation, PyApplicationReport)> {
     let portfolio_inner = extract_portfolio(portfolio)?;
     let scenario_inner = scenario.extract::<PyRef<PyScenarioSpec>>()?.inner.clone();
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
@@ -94,11 +104,14 @@ fn py_apply_and_revalue(
         finstack_core::config::FinstackConfig::default()
     };
 
-    let (valuation, _report) =
+    let (valuation, report) =
         apply_and_revalue(&portfolio_inner, &scenario_inner, &market_ctx.inner, &cfg)
             .map_err(portfolio_to_py)?;
 
-    Ok(PyPortfolioValuation::new(valuation))
+    Ok((
+        PyPortfolioValuation::new(valuation),
+        PyApplicationReport::new(report),
+    ))
 }
 
 /// Register scenarios module exports.
