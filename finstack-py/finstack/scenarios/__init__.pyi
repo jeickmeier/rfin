@@ -16,7 +16,7 @@ Highlights
 
 from __future__ import annotations
 from .enums import CurveKind, VolSurfaceKind, TenorMatchMode
-from .spec import Compounding, OperationSpec, RateBindingSpec, ScenarioSpec
+from .spec import Compounding, OperationSpec, RateBindingSpec, ScenarioSpec, TimeRollMode
 from .reports import ApplicationReport, RollForwardReport
 from .engine import ExecutionContext, ScenarioEngine
 
@@ -30,6 +30,7 @@ __all__ = [
     "ScenarioSpec",
     "ApplicationReport",
     "RollForwardReport",
+    "TimeRollMode",
     "ExecutionContext",
     "ScenarioEngine",
 ]

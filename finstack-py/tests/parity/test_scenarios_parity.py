@@ -513,5 +513,33 @@ class TestSerializationParity:
         assert len(restored.operations) == len(original.operations)
 
 
+class TestTimeRollModeParity:
+    """Test TimeRollMode enum is exported and matches Rust."""
+
+    def test_time_roll_mode_importable(self) -> None:
+        """Test TimeRollMode is importable from finstack.scenarios."""
+        from finstack.scenarios import TimeRollMode
+
+        assert TimeRollMode.BusinessDays is not None
+        assert TimeRollMode.CalendarDays is not None
+        assert TimeRollMode.Approximate is not None
+
+    def test_time_roll_mode_equality(self) -> None:
+        """Test TimeRollMode equality and hashing."""
+        from finstack.scenarios import TimeRollMode
+
+        assert TimeRollMode.BusinessDays == TimeRollMode.BusinessDays
+        assert TimeRollMode.BusinessDays != TimeRollMode.CalendarDays
+        assert hash(TimeRollMode.BusinessDays) == hash(TimeRollMode.BusinessDays)
+
+    def test_time_roll_mode_str(self) -> None:
+        """Test TimeRollMode string representations."""
+        from finstack.scenarios import TimeRollMode
+
+        assert str(TimeRollMode.BusinessDays) == "BusinessDays"
+        assert str(TimeRollMode.CalendarDays) == "CalendarDays"
+        assert str(TimeRollMode.Approximate) == "Approximate"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
