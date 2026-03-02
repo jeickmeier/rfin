@@ -81,6 +81,30 @@ impl PyAmountOrScalar {
     }
 
     #[getter]
+    /// Check if this is a currency amount.
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     True if amount, False if scalar
+    fn is_amount(&self) -> bool {
+        matches!(self.inner, AmountOrScalar::Amount(_))
+    }
+
+    /// Get the value as a Money object.
+    ///
+    /// Returns
+    /// -------
+    /// Money | None
+    ///     Money if this is an amount, None if scalar
+    fn as_money(&self) -> Option<crate::core::money::PyMoney> {
+        match &self.inner {
+            AmountOrScalar::Amount(m) => Some(crate::core::money::PyMoney::new(*m)),
+            AmountOrScalar::Scalar(_) => None,
+        }
+    }
+
+    #[getter]
     /// Get the numeric value.
     ///
     /// Returns

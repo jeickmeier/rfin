@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from ...core.currency import Currency
+from ...core.money import Money
 
 class AmountOrScalar:
     """Union type for scalar values or currency amounts.
@@ -42,6 +43,23 @@ class AmountOrScalar:
 
         Returns:
             bool: True if scalar, False if amount
+        """
+        ...
+
+    @property
+    def is_amount(self) -> bool:
+        """Check if this is a currency amount.
+
+        Returns:
+            bool: True if amount, False if scalar
+        """
+        ...
+
+    def as_money(self) -> Money | None:
+        """Get the value as a Money object.
+
+        Returns:
+            Money | None: Money if this is an amount, None if scalar
         """
         ...
 

@@ -767,5 +767,33 @@ class TestRegistry:
         assert not registry.has_metric("nonexistent.metric")
 
 
+def test_amount_or_scalar_is_amount() -> None:
+    """Test is_amount property on AmountOrScalar."""
+    from finstack.core.currency import USD
+    from finstack.statements.types import AmountOrScalar
+
+    scalar = AmountOrScalar.scalar(42.0)
+    assert scalar.is_scalar is True
+    assert scalar.is_amount is False
+
+    amount = AmountOrScalar.amount(100.0, USD)
+    assert amount.is_scalar is False
+    assert amount.is_amount is True
+
+
+def test_amount_or_scalar_as_money() -> None:
+    """Test as_money method on AmountOrScalar."""
+    from finstack.core.currency import USD
+    from finstack.statements.types import AmountOrScalar
+
+    scalar = AmountOrScalar.scalar(42.0)
+    assert scalar.as_money() is None
+
+    amount = AmountOrScalar.amount(100.0, USD)
+    money = amount.as_money()
+    assert money is not None
+    assert money.amount == pytest.approx(100.0)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
