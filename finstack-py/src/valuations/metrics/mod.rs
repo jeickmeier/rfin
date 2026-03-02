@@ -1,5 +1,6 @@
 pub(crate) mod ids;
 pub(crate) mod registry;
+pub(crate) mod risk;
 
 pub(crate) use ids::MetricIdArg;
 

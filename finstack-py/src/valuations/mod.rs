@@ -1,21 +1,16 @@
 pub(crate) mod attribution;
-pub(crate) mod bumps;
 pub(crate) mod calibration;
 pub(crate) mod cashflow;
 pub(crate) mod common;
 pub(crate) mod constants;
-pub(crate) mod conventions;
 pub(crate) mod covenants;
-pub(crate) mod dataframe;
 pub(crate) mod instruments;
 pub(crate) mod lsmc;
 pub(crate) mod margin;
 pub(crate) mod market;
 pub(crate) mod metrics;
-pub(crate) mod performance;
 pub(crate) mod pricer;
 pub(crate) mod results;
-pub(crate) mod risk;
 pub(crate) mod schema;
 pub(crate) mod xva;
 
@@ -53,7 +48,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     exports.extend(metrics_exports.iter().copied());
     promote_exports(&module, "metrics", &metrics_exports)?;
 
-    let performance_exports = performance::register(py, &module)?;
+    let performance_exports = cashflow::performance::register(py, &module)?;
     exports.extend(performance_exports.iter().copied());
     promote_exports(&module, "performance", &performance_exports)?;
 
@@ -65,11 +60,11 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     exports.extend(calibration_exports.iter().copied());
     promote_exports(&module, "calibration", &calibration_exports)?;
 
-    let dataframe_exports = dataframe::register(py, &module)?;
+    let dataframe_exports = results::dataframe::register(py, &module)?;
     exports.extend(dataframe_exports.iter().copied());
     promote_exports(&module, "dataframe", &dataframe_exports)?;
 
-    let risk_exports = risk::register(py, &module)?;
+    let risk_exports = metrics::risk::register(py, &module)?;
     exports.extend(risk_exports.iter().copied());
     promote_exports(&module, "risk", &risk_exports)?;
 
@@ -86,7 +81,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     exports.extend(attr_exports.iter().copied());
 
     // Register conventions module
-    let conventions_exports = conventions::register(py, &module)?;
+    let conventions_exports = market::conventions::register(py, &module)?;
     exports.extend(conventions_exports.iter().copied());
     promote_exports(&module, "conventions", &conventions_exports)?;
 
@@ -101,7 +96,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     promote_exports(&module, "market", &market_exports)?;
 
     // Register bumps module
-    let bumps_exports = bumps::register(py, &module)?;
+    let bumps_exports = calibration::bumps::register(py, &module)?;
     exports.extend(bumps_exports.iter().copied());
     promote_exports(&module, "bumps", &bumps_exports)?;
 

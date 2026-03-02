@@ -1,3 +1,5 @@
+pub(crate) mod dataframe;
+
 use crate::core::config::PyRoundingMode;
 use crate::core::dates::utils as core_utils;
 use crate::core::money::PyMoney;

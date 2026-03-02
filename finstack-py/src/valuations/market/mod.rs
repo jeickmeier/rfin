@@ -5,10 +5,12 @@
 //! - Build context (`BuildCtx`)
 //! - Builder functions that produce an instrument ready for pricing
 
+pub(crate) mod conventions;
+
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::dates::{PyBusinessDayConvention, PyDayCount, PyTenor};
 use crate::valuations::common::PyInstrumentType;
-use crate::valuations::conventions::PyCdsConventionKey;
+use crate::valuations::market::conventions::PyCdsConventionKey;
 use finstack_core::dates::Tenor;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::Instrument;

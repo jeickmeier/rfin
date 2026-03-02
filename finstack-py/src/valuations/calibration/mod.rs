@@ -1,3 +1,4 @@
+pub(crate) mod bumps;
 pub mod config;
 pub mod engine;
 pub mod hull_white;
