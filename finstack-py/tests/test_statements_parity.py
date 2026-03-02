@@ -1030,5 +1030,46 @@ class TestDcfCorporateValuation:
         assert evaluate_dcf_with_market is not None
 
 
+def test_monte_carlo_config() -> None:
+    """Test MonteCarloConfig construction."""
+    from finstack.statements.analysis import MonteCarloConfig
+
+    config = MonteCarloConfig(n_paths=1000, seed=42)
+    assert config.n_paths == 1000
+    assert config.seed == 42
+
+    config2 = config.with_percentiles([0.1, 0.5, 0.9])
+    assert config2.percentiles == pytest.approx([0.1, 0.5, 0.9])
+
+
+def test_monte_carlo_config_defaults() -> None:
+    """Test MonteCarloConfig default percentiles."""
+    from finstack.statements.analysis import MonteCarloConfig
+
+    config = MonteCarloConfig(n_paths=500, seed=123)
+    # Default percentiles are [0.05, 0.5, 0.95]
+    assert len(config.percentiles) == 3
+    assert config.percentiles[0] == pytest.approx(0.05)
+
+
+def test_monte_carlo_config_repr() -> None:
+    """Test MonteCarloConfig __repr__."""
+    from finstack.statements.analysis import MonteCarloConfig
+
+    config = MonteCarloConfig(n_paths=1000, seed=42)
+    assert "MonteCarloConfig" in repr(config)
+    assert "1000" in repr(config)
+    assert "42" in repr(config)
+
+
+def test_forecast_covenant_import() -> None:
+    """Test covenant analysis functions are importable."""
+    from finstack.statements.analysis import forecast_breaches, forecast_covenant, forecast_covenants
+
+    assert forecast_breaches is not None
+    assert forecast_covenant is not None
+    assert forecast_covenants is not None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

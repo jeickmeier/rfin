@@ -9,6 +9,7 @@
 
 mod backtesting;
 mod corporate;
+mod covenants;
 mod credit_context;
 mod explain;
 mod reports;
@@ -19,6 +20,7 @@ use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::analysis::types::SensitivityScenario;
+use finstack_statements::analysis::MonteCarloConfig;
 use finstack_statements::analysis::{
     ParameterSpec, SensitivityAnalyzer, SensitivityConfig, SensitivityMode, SensitivityResult,
 };
@@ -457,6 +459,104 @@ impl PySensitivityAnalyzer {
     }
 }
 
+/// Monte Carlo simulation configuration.
+///
+/// Specifies the number of paths, the random seed, and which percentiles
+/// to compute from the simulated distribution.
+#[pyclass(
+    module = "finstack.statements.analysis",
+    name = "MonteCarloConfig",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyMonteCarloConfig {
+    pub(crate) inner: MonteCarloConfig,
+}
+
+#[pymethods]
+impl PyMonteCarloConfig {
+    #[new]
+    #[pyo3(signature = (n_paths, seed))]
+    /// Create a new Monte Carlo configuration.
+    ///
+    /// Default percentiles are ``[0.05, 0.5, 0.95]``.
+    ///
+    /// Parameters
+    /// ----------
+    /// n_paths : int
+    ///     Number of Monte Carlo paths to simulate
+    /// seed : int
+    ///     Random seed for reproducibility
+    ///
+    /// Returns
+    /// -------
+    /// MonteCarloConfig
+    ///     Configuration instance
+    fn new(n_paths: usize, seed: u64) -> Self {
+        Self {
+            inner: MonteCarloConfig::new(n_paths, seed),
+        }
+    }
+
+    /// Return a new config with the given percentiles.
+    ///
+    /// Parameters
+    /// ----------
+    /// percentiles : list[float]
+    ///     Percentile values in [0.0, 1.0]
+    ///
+    /// Returns
+    /// -------
+    /// MonteCarloConfig
+    ///     New configuration with updated percentiles
+    fn with_percentiles(&self, percentiles: Vec<f64>) -> Self {
+        Self {
+            inner: self.inner.clone().with_percentiles(percentiles),
+        }
+    }
+
+    #[getter]
+    /// Number of Monte Carlo paths.
+    ///
+    /// Returns
+    /// -------
+    /// int
+    ///     Number of paths
+    fn n_paths(&self) -> usize {
+        self.inner.n_paths
+    }
+
+    #[getter]
+    /// Random seed.
+    ///
+    /// Returns
+    /// -------
+    /// int
+    ///     Seed value
+    fn seed(&self) -> u64 {
+        self.inner.seed
+    }
+
+    #[getter]
+    /// Percentiles to compute.
+    ///
+    /// Returns
+    /// -------
+    /// list[float]
+    ///     Percentile values in [0.0, 1.0]
+    fn percentiles(&self) -> Vec<f64> {
+        self.inner.percentiles.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "MonteCarloConfig(n_paths={}, seed={})",
+            self.inner.n_paths, self.inner.seed
+        )
+    }
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -482,6 +582,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PySensitivityResult>()?;
     module.add_class::<PySensitivityAnalyzer>()?;
     module.add_class::<PyTornadoEntry>()?;
+    module.add_class::<PyMonteCarloConfig>()?;
     module.add_function(wrap_pyfunction!(generate_tornado_chart, &module)?)?;
 
     // Register explain types (dependency tracing, formula explanation)
@@ -505,6 +606,9 @@ pub(crate) fn register<'py>(
     // Register corporate DCF valuation types
     let corporate_exports = corporate::register(py, &module)?;
 
+    // Register covenant analysis types
+    let covenants_exports = covenants::register(py, &module)?;
+
     parent.add_submodule(&module)?;
     parent.setattr("analysis", &module)?;
 
@@ -517,6 +621,7 @@ pub(crate) fn register<'py>(
         "SensitivityResult",
         "SensitivityAnalyzer",
         "TornadoEntry",
+        "MonteCarloConfig",
         "generate_tornado_chart",
     ];
     all_exports.extend(explain_exports);
@@ -526,6 +631,7 @@ pub(crate) fn register<'py>(
     all_exports.extend(backtesting_exports);
     all_exports.extend(credit_context_exports);
     all_exports.extend(corporate_exports);
+    all_exports.extend(covenants_exports);
 
     Ok(all_exports)
 }
