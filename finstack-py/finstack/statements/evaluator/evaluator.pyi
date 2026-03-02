@@ -432,4 +432,16 @@ class Evaluator:
         """
         ...
 
+    def with_market_context(self, market_ctx: MarketContext, as_of: date) -> EvaluatorWithContext:
+        """Create evaluator with pre-configured market context.
+
+        Args:
+            market_ctx: Market context with curves
+            as_of: Valuation date
+
+        Returns:
+            EvaluatorWithContext: Evaluator with stored context
+        """
+        ...
+
     def __repr__(self) -> str: ...

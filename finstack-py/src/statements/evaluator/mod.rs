@@ -622,6 +622,36 @@ impl PyEvaluator {
 
         Ok(PyMonteCarloResults::new(inner))
     }
+
+    #[pyo3(text_signature = "(self, market_ctx, as_of)")]
+    /// Create an evaluator with pre-configured market context.
+    ///
+    /// This is a convenience method that creates a new EvaluatorWithContext
+    /// using the provided market context and as-of date.
+    ///
+    /// Parameters
+    /// ----------
+    /// market_ctx : MarketContext
+    ///     Market context with discount/forward curves
+    /// as_of : date
+    ///     Valuation date for pricing
+    ///
+    /// Returns
+    /// -------
+    /// EvaluatorWithContext
+    ///     Evaluator with stored market context
+    fn with_market_context(
+        &self,
+        market_ctx: &PyMarketContext,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<PyEvaluatorWithContext> {
+        let as_of_date = py_to_date(as_of)?;
+        let inner = finstack_statements::evaluator::Evaluator::with_market_context(
+            &market_ctx.inner,
+            as_of_date,
+        );
+        Ok(PyEvaluatorWithContext { inner })
+    }
 }
 
 /// Evaluator with pre-configured market context.

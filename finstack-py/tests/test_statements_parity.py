@@ -855,5 +855,35 @@ def test_statement_result_get_scalar() -> None:
     assert results.get_scalar("nonexistent", q1) is None
 
 
+def test_evaluator_with_market_context() -> None:
+    """Test Evaluator.with_market_context returns EvaluatorWithContext."""
+    from datetime import date
+
+    from finstack.core.dates import PeriodId
+    from finstack.core.market_data import MarketContext
+
+    from finstack.statements import AmountOrScalar, Evaluator, ModelBuilder
+
+    builder = ModelBuilder.new("ctx_test")
+    builder.periods("2025Q1..Q2", None)
+    builder.value(
+        "revenue",
+        [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(100.0)),
+        ],
+    )
+    model = builder.build()
+
+    evaluator = Evaluator.new()
+    market_ctx = MarketContext()
+    ctx_evaluator = evaluator.with_market_context(market_ctx, date(2025, 1, 1))
+
+    # Should be able to evaluate with the context evaluator
+    results = ctx_evaluator.evaluate(model)
+    assert results is not None
+    assert results.get("revenue", PeriodId.quarter(2025, 1)) == pytest.approx(100.0)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
