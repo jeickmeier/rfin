@@ -9,8 +9,10 @@
 //! - [`merton`]: Merton structural model with distance-to-default, default
 //!   probability (terminal and first-passage), and implied credit spread.
 
+pub mod dynamic_recovery;
 pub mod endogenous_hazard;
 pub mod merton;
 
+pub use dynamic_recovery::DynamicRecoverySpec;
 pub use endogenous_hazard::EndogenousHazardSpec;
 pub use merton::{AssetDynamics, BarrierType, MertonModel};
