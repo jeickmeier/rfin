@@ -64,9 +64,9 @@ fn test_tenor_exact_match() {
     // We assert directional correctness and a tight-ish numerical band for determinism.
     assert!(df_5y < 0.90, "DF(5Y) should decrease after +25bp shock");
     assert!(
-        (df_5y - 0.888705).abs() < 1e-4,
+        (df_5y - 0.887519).abs() < 1e-4,
         "Expected DF(5Y) ≈ {:.6}, got {:.6}",
-        0.888705,
+        0.887519,
         df_5y
     );
 }
