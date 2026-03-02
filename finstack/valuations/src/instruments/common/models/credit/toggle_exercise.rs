@@ -241,8 +241,13 @@ fn optimal_toggle_decision(
         horizon: o.horizon,
     };
 
-    let avg_equity_cash =
-        nested_equity_mc(o.nested_paths, v_cash_start, barrier_cash, model_cash, seed_bits);
+    let avg_equity_cash = nested_equity_mc(
+        o.nested_paths,
+        v_cash_start,
+        barrier_cash,
+        model_cash,
+        seed_bits,
+    );
 
     let avg_equity_pik = nested_equity_mc(
         o.nested_paths,

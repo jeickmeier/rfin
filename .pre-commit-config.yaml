@@ -34,7 +34,7 @@ repos:
       - id: detect-private-key
 
   # ============================================
-  # Rust formatting and linting
+  # Formatting (all languages)
   # ============================================
   - repo: local
     hooks:
@@ -45,50 +45,13 @@ repos:
         types: [rust]
         pass_filenames: false
 
-      - id: rust-clippy
-        name: Rust lint (cargo clippy)
-        entry: bash -c 'CARGO_INCREMENTAL=1 cargo clippy --all-targets --features mc,test-utils -- -D warnings'
-        language: system
-        types: [rust]
-        pass_filenames: false
-
-  # ============================================
-  # Python formatting and linting
-  # ============================================
-  - repo: local
-    hooks:
       - id: ruff-format
         name: Python format (ruff)
         entry: uv run ruff format .
         language: system
         types: [python]
         pass_filenames: false
-      - id: ruff-lint
-        name: Python lint (ruff)
-        entry: uv run ruff check . --fix --unsafe-fixes
-        language: system
-        types: [python]
-        pass_filenames: false
-      - id: ty
-        name: Python typecheck (ty)
-        entry: uv run ty check finstack-py/finstack
-        language: system
-        types: [python]
-        pass_filenames: false
-        stages: [pre-commit, pre-push]
-      - id: pyright
-        name: Python typecheck (pyright)
-        entry: uv run pyright
-        language: system
-        types: [python]
-        pass_filenames: false
-        stages: [pre-commit, pre-push]
 
-  # ============================================
-  # TypeScript/JavaScript (WASM bindings)
-  # ============================================
-  - repo: local
-    hooks:
       - id: wasm-format
         name: WASM format (prettier)
         entry: bash -c 'cd finstack-wasm && npm run format .'
@@ -96,16 +59,6 @@ repos:
         files: ^finstack-wasm/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
 
-      - id: wasm-lint
-        name: WASM lint (eslint)
-        entry: bash -c 'cd finstack-wasm && npm run lint'
-        language: system
-        files: ^finstack-wasm/.*\.(ts|tsx|js|jsx)$
-        pass_filenames: false
-
-  # ============================================
-  # Markdown
-  # ============================================
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.43.0
     hooks:
@@ -119,7 +72,54 @@ repos:
         exclude: ^(CHANGELOG\.md|PARITY_AUDIT\.md|finstack-wasm/pkg|node_modules|vendor|\.cursor|\.agent|\.zenflow|\.zencoder)
 
   # ============================================
-  # Security
+  # Linting (all languages)
+  # ============================================
+  - repo: local
+    hooks:
+      - id: rust-clippy
+        name: Rust lint (cargo clippy)
+        entry: bash -c 'CARGO_INCREMENTAL=1 cargo clippy --all-targets -- -D warnings'
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: ruff-lint
+        name: Python lint (ruff)
+        entry: uv run ruff check . --fix --unsafe-fixes
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: wasm-lint
+        name: WASM lint (eslint)
+        entry: bash -c 'cd finstack-wasm && npm run lint'
+        language: system
+        files: ^finstack-wasm/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+  # ============================================
+  # Typechecking (all languages)
+  # ============================================
+  - repo: local
+    hooks:
+      - id: ty
+        name: Python typecheck (ty)
+        entry: uv run ty check finstack-py/finstack
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-commit, pre-push]
+
+      - id: pyright
+        name: Python typecheck (pyright)
+        entry: uv run pyright
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-commit, pre-push]
+
+  # ============================================
+  # Security audits (all languages)
   # ============================================
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.22.1
@@ -127,11 +127,32 @@ repos:
       - id: gitleaks
         name: Detect secrets (gitleaks)
 
-  # ============================================
-  # Supply-chain security (cargo-deny)
-  # ============================================
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.6
+    hooks:
+      - id: bandit
+        name: Python security checks (bandit)
+        args: ["-r", "finstack-py/finstack", "-x", "finstack-py/tests"]
+        pass_filenames: false
+
   - repo: local
     hooks:
+      - id: cargo-audit
+        name: Rust security (cargo audit)
+        entry: cargo audit
+        language: system
+        files: (Cargo\.toml|Cargo\.lock)$
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: wasm-audit
+        name: WASM security (npm audit)
+        entry: bash -c 'cd finstack-wasm && npm audit --audit-level=high --omit=dev'
+        language: system
+        files: ^finstack-wasm/(package\.json|package-lock\.json)$
+        pass_filenames: false
+
       - id: cargo-deny
         name: Supply-chain security (cargo deny)
         entry: cargo deny check
@@ -141,7 +162,7 @@ repos:
         stages: [pre-push]
 
   # ============================================
-  # Version sync
+  # Repo policy / consistency
   # ============================================
   - repo: local
     hooks:
@@ -153,7 +174,7 @@ repos:
         pass_filenames: false
 
   # ============================================
-  # Cargo.toml validation
+  # Build / validation (slower, pre-push)
   # ============================================
   - repo: local
     hooks:

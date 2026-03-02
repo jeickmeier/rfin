@@ -81,11 +81,7 @@ impl PyDynamicRecoverySpec {
     /// DynamicRecoverySpec
     #[classmethod]
     #[pyo3(text_signature = "(cls, base_recovery, base_notional)")]
-    fn inverse_linear(
-        _cls: &Bound<'_, PyType>,
-        base_recovery: f64,
-        base_notional: f64,
-    ) -> Self {
+    fn inverse_linear(_cls: &Bound<'_, PyType>, base_recovery: f64, base_notional: f64) -> Self {
         Self {
             inner: RustDynamicRecoverySpec::inverse_linear(base_recovery, base_notional),
         }

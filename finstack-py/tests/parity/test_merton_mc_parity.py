@@ -9,9 +9,6 @@ to ensure determinism and correctness.
 import datetime
 import math
 
-import pytest
-
-from finstack import Money
 from finstack.valuations.instruments import (
     Bond,
     DynamicRecoverySpec,
@@ -21,7 +18,9 @@ from finstack.valuations.instruments import (
     MertonModel,
     ToggleExerciseModel,
 )
+import pytest
 
+from finstack import Money
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -52,7 +51,8 @@ def _make_bond(
 ) -> Bond:
     """Create a fixed-rate bond for MC pricing tests."""
     return (
-        Bond.builder(bond_id)
+        Bond
+        .builder(bond_id)
         .money(Money(notional, "USD"))
         .coupon_rate(coupon_rate)
         .issue(issue)
@@ -87,9 +87,7 @@ class TestMertonDdParity:
         v, b, sigma, r, t = 100.0, 80.0, 0.20, 0.05, 1.0
         expected_dd = (math.log(v / b) + (r - 0.5 * sigma**2) * t) / (sigma * math.sqrt(t))
 
-        assert dd == pytest.approx(expected_dd, abs=1e-10), (
-            f"Python DD={dd} does not match analytical DD={expected_dd}"
-        )
+        assert dd == pytest.approx(expected_dd, abs=1e-10), f"Python DD={dd} does not match analytical DD={expected_dd}"
         # Also verify against the Rust test's known value
         assert dd == pytest.approx(1.2657, abs=0.01)
 
@@ -386,7 +384,7 @@ class TestPikVsCashSpread:
         # should generally differ. In extreme cases they could be close
         # (e.g., if the toggle never fires), but for a 25% vol firm they
         # should meaningfully differ.
-        spread_diff = abs(result_pik.effective_spread_bp - result_cash.effective_spread_bp)
+        abs(result_pik.effective_spread_bp - result_cash.effective_spread_bp)
         # We just verify both are accessible and positive; a strict inequality
         # could fail if the toggle never triggers for this particular parameterisation.
         assert result_cash.effective_spread_bp >= 0
