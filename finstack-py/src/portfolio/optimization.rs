@@ -4,6 +4,7 @@
 //! including constraint types, objectives, trade universe, and optimization problems.
 
 use crate::core::config::PyFinstackConfig;
+use crate::core::config::PyResultsMeta;
 use crate::core::market_data::context::PyMarketContext;
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::positions::{extract_portfolio, PyPortfolio};
@@ -11,9 +12,10 @@ use crate::valuations::instruments::extract_instrument;
 use crate::valuations::metrics::ids::PyMetricId;
 use finstack_portfolio::optimization::{
     optimize_max_yield_with_ccc_limit, CandidatePosition, Constraint, DefaultLpOptimizer,
-    Inequality, MetricExpr, MissingMetricPolicy, Objective, OptimizationStatus, PerPositionMetric,
-    PortfolioOptimizationProblem, PortfolioOptimizationResult, PortfolioOptimizer, PositionFilter,
-    TradeDirection, TradeSpec, TradeType, TradeUniverse, WeightingScheme,
+    Inequality, MaxYieldWithCccLimitResult, MetricExpr, MissingMetricPolicy, Objective,
+    OptimizationStatus, PerPositionMetric, PortfolioOptimizationProblem,
+    PortfolioOptimizationResult, PortfolioOptimizer, PositionFilter, TradeDirection, TradeSpec,
+    TradeType, TradeUniverse, WeightingScheme,
 };
 use finstack_portfolio::position::PositionUnit;
 use pyo3::exceptions::PyValueError;
@@ -39,13 +41,12 @@ use pyo3::Bound;
     signature = (portfolio, market_context, ccc_limit=0.20, strict_risk=false, config=None)
 )]
 fn py_optimize_max_yield_with_ccc_limit(
-    py: Python<'_>,
     portfolio: &Bound<'_, PyAny>,
     market_context: &Bound<'_, PyAny>,
     ccc_limit: f64,
     strict_risk: bool,
     config: Option<&Bound<'_, PyAny>>,
-) -> PyResult<Py<PyAny>> {
+) -> PyResult<PyMaxYieldWithCccLimitResult> {
     let portfolio_inner = extract_portfolio(portfolio)?;
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
 
@@ -67,21 +68,7 @@ fn py_optimize_max_yield_with_ccc_limit(
     )
     .map_err(portfolio_to_py)?;
 
-    let out = PyDict::new(py);
-
-    out.set_item("label", result.label.clone())?;
-    out.set_item("status", result.status_label.clone())?;
-    out.set_item("objective_value", result.objective_value)?;
-    out.set_item("ccc_weight", result.ccc_weight)?;
-
-    // Optimal weights: { position_id: weight }.
-    out.set_item("optimal_weights", map_weights(py, &result.optimal_weights)?)?;
-
-    // Current weights and deltas can be useful for trade generation.
-    out.set_item("current_weights", map_weights(py, &result.current_weights)?)?;
-    out.set_item("weight_deltas", map_weights(py, &result.weight_deltas)?)?;
-
-    Ok(out.into())
+    Ok(PyMaxYieldWithCccLimitResult { inner: result })
 }
 
 fn map_weights(
@@ -237,8 +224,52 @@ pub struct PyOptimizationStatus {
 
 #[pymethods]
 impl PyOptimizationStatus {
+    #[classattr]
+    const OPTIMAL: Self = Self {
+        inner: OptimizationStatus::Optimal,
+    };
+
+    #[classattr]
+    const FEASIBLE_BUT_SUBOPTIMAL: Self = Self {
+        inner: OptimizationStatus::FeasibleButSuboptimal,
+    };
+
+    #[classattr]
+    const UNBOUNDED: Self = Self {
+        inner: OptimizationStatus::Unbounded,
+    };
+
     fn is_feasible(&self) -> bool {
         self.inner.is_feasible()
+    }
+
+    /// Return a string identifying the variant (e.g. "Optimal", "Infeasible").
+    fn status_name(&self) -> &str {
+        match &self.inner {
+            OptimizationStatus::Optimal => "Optimal",
+            OptimizationStatus::FeasibleButSuboptimal => "FeasibleButSuboptimal",
+            OptimizationStatus::Infeasible { .. } => "Infeasible",
+            OptimizationStatus::Unbounded => "Unbounded",
+            OptimizationStatus::Error { .. } => "Error",
+        }
+    }
+
+    /// Return conflicting constraint labels (only for Infeasible status).
+    fn conflicting_constraints(&self) -> Vec<String> {
+        match &self.inner {
+            OptimizationStatus::Infeasible {
+                conflicting_constraints,
+            } => conflicting_constraints.clone(),
+            _ => vec![],
+        }
+    }
+
+    /// Return error message (only for Error status).
+    fn error_message(&self) -> Option<String> {
+        match &self.inner {
+            OptimizationStatus::Error { message } => Some(message.clone()),
+            _ => None,
+        }
     }
 
     fn __repr__(&self) -> String {
@@ -871,6 +902,50 @@ impl PyOptimizationResult {
         }
     }
 
+    #[getter]
+    fn implied_quantities(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        map_weights(py, &self.inner.implied_quantities)
+    }
+
+    #[getter]
+    fn metric_values(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        for (k, v) in &self.inner.metric_values {
+            dict.set_item(k.as_str(), *v)?;
+        }
+        Ok(dict.into())
+    }
+
+    #[getter]
+    fn dual_values(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        for (k, v) in &self.inner.dual_values {
+            dict.set_item(k.as_str(), *v)?;
+        }
+        Ok(dict.into())
+    }
+
+    #[getter]
+    fn constraint_slacks(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        for (k, v) in &self.inner.constraint_slacks {
+            dict.set_item(k.as_str(), *v)?;
+        }
+        Ok(dict.into())
+    }
+
+    #[getter]
+    fn meta(&self) -> PyResultsMeta {
+        PyResultsMeta::new(self.inner.meta.clone())
+    }
+
+    #[getter]
+    fn problem(&self) -> PyPortfolioOptimizationProblem {
+        PyPortfolioOptimizationProblem {
+            inner: self.inner.problem.clone(),
+        }
+    }
+
     /// Generate a new portfolio with quantities adjusted to target weights.
     fn to_rebalanced_portfolio(&self) -> PyResult<PyPortfolio> {
         let portfolio = self
@@ -1160,6 +1235,39 @@ impl PyPortfolioOptimizationProblem {
         self.inner.label = label;
     }
 
+    #[getter]
+    fn get_label(&self) -> Option<String> {
+        self.inner.label.clone()
+    }
+
+    #[getter]
+    fn get_weighting(&self) -> PyWeightingScheme {
+        PyWeightingScheme {
+            inner: self.inner.weighting,
+        }
+    }
+
+    #[getter]
+    fn get_missing_metric_policy(&self) -> PyMissingMetricPolicy {
+        PyMissingMetricPolicy {
+            inner: self.inner.missing_metric_policy,
+        }
+    }
+
+    #[getter]
+    fn constraints(&self) -> Vec<PyConstraint> {
+        self.inner
+            .constraints
+            .iter()
+            .map(|c| PyConstraint { inner: c.clone() })
+            .collect()
+    }
+
+    #[getter]
+    fn portfolio(&self) -> PyPortfolio {
+        PyPortfolio::new(self.inner.portfolio.clone())
+    }
+
     /// Optimize the problem.
     #[pyo3(signature = (market_context, config=None))]
     fn optimize(
@@ -1195,6 +1303,146 @@ impl PyPortfolioOptimizationProblem {
     }
 }
 
+// ===========================
+// MaxYieldWithCccLimitResult
+// ===========================
+
+/// Typed result from `optimize_max_yield_with_ccc_limit`.
+#[pyclass(
+    name = "MaxYieldWithCccLimitResult",
+    module = "finstack.portfolio.optimization"
+)]
+pub struct PyMaxYieldWithCccLimitResult {
+    pub inner: MaxYieldWithCccLimitResult,
+}
+
+#[pymethods]
+impl PyMaxYieldWithCccLimitResult {
+    #[getter]
+    fn label(&self) -> Option<String> {
+        self.inner.label.clone()
+    }
+
+    #[getter]
+    fn status(&self) -> PyOptimizationStatus {
+        PyOptimizationStatus {
+            inner: self.inner.status.clone(),
+        }
+    }
+
+    #[getter]
+    fn status_label(&self) -> String {
+        self.inner.status_label.clone()
+    }
+
+    #[getter]
+    fn objective_value(&self) -> f64 {
+        self.inner.objective_value
+    }
+
+    #[getter]
+    fn ccc_weight(&self) -> f64 {
+        self.inner.ccc_weight
+    }
+
+    #[getter]
+    fn optimal_weights(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        map_weights(py, &self.inner.optimal_weights)
+    }
+
+    #[getter]
+    fn current_weights(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        map_weights(py, &self.inner.current_weights)
+    }
+
+    #[getter]
+    fn weight_deltas(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        map_weights(py, &self.inner.weight_deltas)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "MaxYieldWithCccLimitResult(status={}, objective={:.6}, ccc_weight={:.4})",
+            self.inner.status_label, self.inner.objective_value, self.inner.ccc_weight
+        )
+    }
+}
+
+// ===========================
+// DefaultLpOptimizer
+// ===========================
+
+/// Default LP optimizer for portfolio optimization.
+///
+/// Examples
+/// --------
+/// >>> from finstack.portfolio.optimization import DefaultLpOptimizer
+/// >>> opt = DefaultLpOptimizer()
+/// >>> opt = DefaultLpOptimizer(tolerance=1e-6, max_iterations=5000)
+/// >>> result = opt.optimize(problem, market_context)
+#[pyclass(
+    name = "DefaultLpOptimizer",
+    module = "finstack.portfolio.optimization"
+)]
+pub struct PyDefaultLpOptimizer {
+    pub inner: DefaultLpOptimizer,
+}
+
+#[pymethods]
+impl PyDefaultLpOptimizer {
+    #[new]
+    #[pyo3(signature = (tolerance=1.0e-8, max_iterations=10_000))]
+    fn new(tolerance: f64, max_iterations: usize) -> Self {
+        Self {
+            inner: DefaultLpOptimizer {
+                tolerance,
+                max_iterations,
+            },
+        }
+    }
+
+    #[getter]
+    fn tolerance(&self) -> f64 {
+        self.inner.tolerance
+    }
+
+    #[getter]
+    fn max_iterations(&self) -> usize {
+        self.inner.max_iterations
+    }
+
+    #[pyo3(signature = (problem, market_context, config=None))]
+    fn optimize(
+        &self,
+        problem: &PyPortfolioOptimizationProblem,
+        market_context: &Bound<'_, PyAny>,
+        config: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyOptimizationResult> {
+        let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
+        let cfg = if let Some(config_obj) = config {
+            config_obj
+                .extract::<PyRef<PyFinstackConfig>>()?
+                .inner
+                .clone()
+        } else {
+            finstack_core::config::FinstackConfig::default()
+        };
+
+        let result = self
+            .inner
+            .optimize(&problem.inner, &market_ctx.inner, &cfg)
+            .map_err(portfolio_to_py)?;
+        Ok(PyOptimizationResult { inner: result })
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "DefaultLpOptimizer(tolerance={}, max_iterations={})",
+            self.inner.tolerance, self.inner.max_iterations
+        )
+    }
+}
+
 /// Register optimization helpers.
 pub(crate) fn register<'py>(
     _py: Python<'py>,
@@ -1221,6 +1469,8 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyCandidatePosition>()?;
     parent.add_class::<PyTradeUniverse>()?;
     parent.add_class::<PyPortfolioOptimizationProblem>()?;
+    parent.add_class::<PyMaxYieldWithCccLimitResult>()?;
+    parent.add_class::<PyDefaultLpOptimizer>()?;
 
     Ok(vec![
         "optimize_max_yield_with_ccc_limit".to_string(),
@@ -1240,5 +1490,7 @@ pub(crate) fn register<'py>(
         "CandidatePosition".to_string(),
         "TradeUniverse".to_string(),
         "PortfolioOptimizationProblem".to_string(),
+        "MaxYieldWithCccLimitResult".to_string(),
+        "DefaultLpOptimizer".to_string(),
     ])
 }

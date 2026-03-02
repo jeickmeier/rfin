@@ -121,6 +121,10 @@ class OptimizationStatus:
     True
     """
 
+    OPTIMAL: OptimizationStatus
+    FEASIBLE_BUT_SUBOPTIMAL: OptimizationStatus
+    UNBOUNDED: OptimizationStatus
+
     def is_feasible(self) -> bool:
         """Return ``True`` when the solution is feasible (optimal or sub-optimal).
 
@@ -128,6 +132,36 @@ class OptimizationStatus:
         -------
         bool
             Whether the solver found a feasible solution.
+        """
+        ...
+
+    def status_name(self) -> str:
+        """Return a string identifying the variant (e.g. ``"Optimal"``, ``"Infeasible"``).
+
+        Returns
+        -------
+        str
+            Variant name.
+        """
+        ...
+
+    def conflicting_constraints(self) -> list[str]:
+        """Return conflicting constraint labels (only for Infeasible status).
+
+        Returns
+        -------
+        list[str]
+            Constraint labels that conflict, or empty list if not infeasible.
+        """
+        ...
+
+    def error_message(self) -> str | None:
+        """Return error message (only for Error status).
+
+        Returns
+        -------
+        str or None
+            Error message, or ``None`` if status is not Error.
         """
         ...
 
@@ -826,6 +860,72 @@ class OptimizationResult:
         """
         ...
 
+    @property
+    def implied_quantities(self) -> dict[str, float]:
+        """Implied target quantities for each position.
+
+        Returns
+        -------
+        dict[str, float]
+            Mapping of position id to target quantity.
+        """
+        ...
+
+    @property
+    def metric_values(self) -> dict[str, float]:
+        """Evaluated portfolio-level metrics at the solution.
+
+        Returns
+        -------
+        dict[str, float]
+            Mapping of metric expression key to value.
+        """
+        ...
+
+    @property
+    def dual_values(self) -> dict[str, float]:
+        """Shadow prices / dual values for constraints.
+
+        Returns
+        -------
+        dict[str, float]
+            Mapping of constraint label to dual value.
+        """
+        ...
+
+    @property
+    def constraint_slacks(self) -> dict[str, float]:
+        """Constraint slack values (positive = slack, zero = binding).
+
+        Returns
+        -------
+        dict[str, float]
+            Mapping of constraint label to slack value.
+        """
+        ...
+
+    @property
+    def meta(self) -> Any:
+        """Calculation metadata (numeric mode, rounding context, timing).
+
+        Returns
+        -------
+        ResultsMeta
+            Metadata about the computation.
+        """
+        ...
+
+    @property
+    def problem(self) -> PortfolioOptimizationProblem:
+        """Echo of the original problem for traceability.
+
+        Returns
+        -------
+        PortfolioOptimizationProblem
+            The problem that was solved.
+        """
+        ...
+
     def to_rebalanced_portfolio(self) -> Portfolio:
         """Generate a new portfolio with quantities adjusted to target weights.
 
@@ -1106,14 +1206,48 @@ class PortfolioOptimizationProblem:
     >>> result = problem.optimize(market_context)
     """
 
-    weighting: WeightingScheme
-    """Weighting scheme for the optimisation (write-only setter)."""
+    @property
+    def weighting(self) -> WeightingScheme:
+        """Weighting scheme for the optimisation."""
+        ...
 
-    missing_metric_policy: MissingMetricPolicy
-    """Policy for positions missing a required metric (write-only setter)."""
+    @weighting.setter
+    def weighting(self, value: WeightingScheme) -> None: ...
+    @property
+    def missing_metric_policy(self) -> MissingMetricPolicy:
+        """Policy for positions missing a required metric."""
+        ...
 
-    label: str | None
-    """Human-readable label for the problem (write-only setter)."""
+    @missing_metric_policy.setter
+    def missing_metric_policy(self, value: MissingMetricPolicy) -> None: ...
+    @property
+    def label(self) -> str | None:
+        """Human-readable label for the problem."""
+        ...
+
+    @label.setter
+    def label(self, value: str | None) -> None: ...
+    @property
+    def constraints(self) -> list[Constraint]:
+        """Constraints added to the problem.
+
+        Returns
+        -------
+        list[Constraint]
+            List of constraints.
+        """
+        ...
+
+    @property
+    def portfolio(self) -> Portfolio:
+        """Portfolio being optimized.
+
+        Returns
+        -------
+        Portfolio
+            The portfolio.
+        """
+        ...
 
     @staticmethod
     def new(portfolio: Portfolio, objective: Objective) -> PortfolioOptimizationProblem:
@@ -1206,6 +1340,113 @@ class PortfolioOptimizationProblem:
 
     def __repr__(self) -> str: ...
 
+# ---------------------------------------------------------------------------
+# MaxYieldWithCccLimitResult
+# ---------------------------------------------------------------------------
+
+class MaxYieldWithCccLimitResult:
+    """Typed result from :func:`optimize_max_yield_with_ccc_limit`.
+
+    Attributes
+    ----------
+    label : str or None
+        Label propagated from the optimization problem.
+    status : OptimizationStatus
+        Optimization status.
+    status_label : str
+        Human-readable status string.
+    objective_value : float
+        Objective value at the solution.
+    ccc_weight : float
+        Aggregate weight of positions tagged ``rating="CCC"``.
+    optimal_weights : dict[str, float]
+        Optimal weights per position.
+    current_weights : dict[str, float]
+        Current weights per position (pre-trade).
+    weight_deltas : dict[str, float]
+        Weight deltas (optimal - current).
+    """
+
+    @property
+    def label(self) -> str | None: ...
+    @property
+    def status(self) -> OptimizationStatus: ...
+    @property
+    def status_label(self) -> str: ...
+    @property
+    def objective_value(self) -> float: ...
+    @property
+    def ccc_weight(self) -> float: ...
+    @property
+    def optimal_weights(self) -> dict[str, float]: ...
+    @property
+    def current_weights(self) -> dict[str, float]: ...
+    @property
+    def weight_deltas(self) -> dict[str, float]: ...
+    def __repr__(self) -> str: ...
+
+# ---------------------------------------------------------------------------
+# DefaultLpOptimizer
+# ---------------------------------------------------------------------------
+
+class DefaultLpOptimizer:
+    """Default LP optimizer for portfolio optimization.
+
+    Parameters
+    ----------
+    tolerance : float, optional
+        Solver tolerance for optimality (default ``1e-8``).
+    max_iterations : int, optional
+        Maximum iterations (default ``10_000``).
+
+    Examples
+    --------
+    >>> from finstack.portfolio.optimization import DefaultLpOptimizer
+    >>> opt = DefaultLpOptimizer()
+    >>> opt = DefaultLpOptimizer(tolerance=1e-6, max_iterations=5000)
+    """
+
+    def __init__(
+        self,
+        tolerance: float = 1e-8,
+        max_iterations: int = 10_000,
+    ) -> None: ...
+    @property
+    def tolerance(self) -> float:
+        """Solver tolerance for optimality."""
+        ...
+
+    @property
+    def max_iterations(self) -> int:
+        """Maximum iterations."""
+        ...
+
+    def optimize(
+        self,
+        problem: PortfolioOptimizationProblem,
+        market_context: MarketContext,
+        config: FinstackConfig | None = None,
+    ) -> OptimizationResult:
+        """Solve the optimization problem.
+
+        Parameters
+        ----------
+        problem : PortfolioOptimizationProblem
+            Problem to solve.
+        market_context : MarketContext
+            Market data context for metric evaluation.
+        config : FinstackConfig or None, optional
+            Configuration overrides.
+
+        Returns
+        -------
+        OptimizationResult
+            Solution with optimal weights, status, and diagnostics.
+        """
+        ...
+
+    def __repr__(self) -> str: ...
+
 __all__ = [
     "WeightingScheme",
     "MissingMetricPolicy",
@@ -1223,4 +1464,6 @@ __all__ = [
     "CandidatePosition",
     "TradeUniverse",
     "PortfolioOptimizationProblem",
+    "MaxYieldWithCccLimitResult",
+    "DefaultLpOptimizer",
 ]

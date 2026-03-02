@@ -7,8 +7,6 @@ P&L attribution, margin aggregation, and DataFrame exports for analysis.
 
 from __future__ import annotations
 
-from typing import TypedDict
-
 from finstack.core.config import FinstackConfig
 from finstack.core.market_data.context import MarketContext
 
@@ -64,22 +62,9 @@ from .optimization import (
     CandidatePosition,
     TradeUniverse,
     PortfolioOptimizationProblem,
+    MaxYieldWithCccLimitResult,
+    DefaultLpOptimizer,
 )
-
-class MaxYieldWithCccLimitResult(TypedDict):
-    """Return shape for :func:`optimize_max_yield_with_ccc_limit`.
-
-    This mirrors the Rust/PyO3 helper output (a dict) but provides IDE-friendly
-    typing for notebooks and examples.
-    """
-
-    label: str | None
-    status: str
-    objective_value: float
-    ccc_weight: float
-    optimal_weights: dict[str, float]
-    current_weights: dict[str, float]
-    weight_deltas: dict[str, float]
 
 def optimize_max_yield_with_ccc_limit(
     portfolio: Portfolio,
@@ -151,6 +136,7 @@ try:
         "CandidatePosition",
         "TradeUniverse",
         "PortfolioOptimizationProblem",
+        "DefaultLpOptimizer",
         "apply_scenario",
         "apply_and_revalue",
         "ApplicationReport",
@@ -213,4 +199,5 @@ except ImportError:
         "CandidatePosition",
         "TradeUniverse",
         "PortfolioOptimizationProblem",
+        "DefaultLpOptimizer",
     ]

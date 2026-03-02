@@ -807,5 +807,89 @@ class TestValuationOptionsParity:
         assert opts.replace_standard_metrics is False
 
 
+class TestOptimizationParity:
+    """Test optimization bindings match Rust API."""
+
+    def test_optimization_result_has_all_fields(self) -> None:
+        """OptimizationResult should expose all 11 Rust fields."""
+        from finstack.portfolio.optimization import OptimizationResult
+
+        for attr in [
+            "optimal_weights",
+            "current_weights",
+            "weight_deltas",
+            "objective_value",
+            "status",
+            "implied_quantities",
+            "metric_values",
+            "dual_values",
+            "constraint_slacks",
+            "meta",
+            "problem",
+        ]:
+            assert hasattr(OptimizationResult, attr), f"Missing: {attr}"
+
+    def test_optimization_status_variants(self) -> None:
+        """OptimizationStatus should expose variant access."""
+        from finstack.portfolio.optimization import OptimizationStatus
+
+        # Class attributes for unit variants
+        assert hasattr(OptimizationStatus, "OPTIMAL")
+        assert hasattr(OptimizationStatus, "FEASIBLE_BUT_SUBOPTIMAL")
+        assert hasattr(OptimizationStatus, "UNBOUNDED")
+        # Methods
+        status = OptimizationStatus.OPTIMAL
+        assert status.status_name() == "Optimal"
+        assert status.is_feasible() is True
+        assert status.conflicting_constraints() == []
+        assert status.error_message() is None
+
+    def test_default_lp_optimizer_construction(self) -> None:
+        """DefaultLpOptimizer should be constructible with defaults."""
+        from finstack.portfolio.optimization import DefaultLpOptimizer
+
+        opt = DefaultLpOptimizer()
+        assert opt.tolerance == 1e-8
+        assert opt.max_iterations == 10_000
+
+    def test_default_lp_optimizer_custom(self) -> None:
+        """DefaultLpOptimizer should accept custom params."""
+        from finstack.portfolio.optimization import DefaultLpOptimizer
+
+        opt = DefaultLpOptimizer(tolerance=1e-6, max_iterations=5000)
+        assert opt.tolerance == 1e-6
+        assert opt.max_iterations == 5000
+
+    def test_max_yield_result_is_typed(self) -> None:
+        """optimize_max_yield_with_ccc_limit should return typed class."""
+        from finstack.portfolio.optimization import MaxYieldWithCccLimitResult
+
+        # Check that the class has expected properties
+        for attr in [
+            "label",
+            "status",
+            "status_label",
+            "objective_value",
+            "ccc_weight",
+            "optimal_weights",
+            "current_weights",
+            "weight_deltas",
+        ]:
+            assert hasattr(MaxYieldWithCccLimitResult, attr), f"Missing: {attr}"
+
+    def test_optimization_problem_readable_getters(self) -> None:
+        """PortfolioOptimizationProblem should have readable properties."""
+        from finstack.portfolio.optimization import PortfolioOptimizationProblem
+
+        for attr in [
+            "label",
+            "weighting",
+            "missing_metric_policy",
+            "constraints",
+            "portfolio",
+        ]:
+            assert hasattr(PortfolioOptimizationProblem, attr), f"Missing getter: {attr}"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
