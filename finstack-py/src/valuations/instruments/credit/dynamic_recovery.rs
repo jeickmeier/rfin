@@ -1,6 +1,7 @@
 use finstack_valuations::instruments::common::models::credit::dynamic_recovery::{
     DynamicRecoverySpec as RustDynamicRecoverySpec, RecoveryModel,
 };
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};
 
@@ -59,10 +60,10 @@ impl PyDynamicRecoverySpec {
     /// DynamicRecoverySpec
     #[classmethod]
     #[pyo3(text_signature = "(cls, recovery)")]
-    fn constant(_cls: &Bound<'_, PyType>, recovery: f64) -> Self {
-        Self {
-            inner: RustDynamicRecoverySpec::constant(recovery),
-        }
+    fn constant(_cls: &Bound<'_, PyType>, recovery: f64) -> PyResult<Self> {
+        let inner = RustDynamicRecoverySpec::constant(recovery)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Create an inverse-linear recovery spec.
@@ -81,10 +82,14 @@ impl PyDynamicRecoverySpec {
     /// DynamicRecoverySpec
     #[classmethod]
     #[pyo3(text_signature = "(cls, base_recovery, base_notional)")]
-    fn inverse_linear(_cls: &Bound<'_, PyType>, base_recovery: f64, base_notional: f64) -> Self {
-        Self {
-            inner: RustDynamicRecoverySpec::inverse_linear(base_recovery, base_notional),
-        }
+    fn inverse_linear(
+        _cls: &Bound<'_, PyType>,
+        base_recovery: f64,
+        base_notional: f64,
+    ) -> PyResult<Self> {
+        let inner = RustDynamicRecoverySpec::inverse_linear(base_recovery, base_notional)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Create an inverse-power recovery spec.
@@ -110,10 +115,10 @@ impl PyDynamicRecoverySpec {
         base_recovery: f64,
         base_notional: f64,
         exponent: f64,
-    ) -> Self {
-        Self {
-            inner: RustDynamicRecoverySpec::inverse_power(base_recovery, base_notional, exponent),
-        }
+    ) -> PyResult<Self> {
+        let inner = RustDynamicRecoverySpec::inverse_power(base_recovery, base_notional, exponent)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Create a floored inverse recovery spec.
@@ -139,10 +144,10 @@ impl PyDynamicRecoverySpec {
         base_recovery: f64,
         base_notional: f64,
         floor: f64,
-    ) -> Self {
-        Self {
-            inner: RustDynamicRecoverySpec::floored_inverse(base_recovery, base_notional, floor),
-        }
+    ) -> PyResult<Self> {
+        let inner = RustDynamicRecoverySpec::floored_inverse(base_recovery, base_notional, floor)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Create a linear-decline recovery spec.
@@ -171,15 +176,15 @@ impl PyDynamicRecoverySpec {
         base_notional: f64,
         sensitivity: f64,
         floor: f64,
-    ) -> Self {
-        Self {
-            inner: RustDynamicRecoverySpec::linear_decline(
-                base_recovery,
-                base_notional,
-                sensitivity,
-                floor,
-            ),
-        }
+    ) -> PyResult<Self> {
+        let inner = RustDynamicRecoverySpec::linear_decline(
+            base_recovery,
+            base_notional,
+            sensitivity,
+            floor,
+        )
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Compute recovery rate given current accreted notional.

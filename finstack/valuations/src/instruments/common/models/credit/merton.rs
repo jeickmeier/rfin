@@ -49,9 +49,16 @@ pub enum AssetDynamics {
         /// Volatility of log-jump size.
         jump_vol: f64,
     },
-    /// CreditGrades model extension with uncertain recovery barrier.
+    /// CreditGrades model extension (simplified).
+    ///
+    /// This is a simplified version of the CreditGrades model (Finger et al. 2002)
+    /// that uses a deterministic barrier `B = D * R_mean` without the stochastic
+    /// barrier term. The full CreditGrades model includes barrier uncertainty via
+    /// `B = D * L_bar * exp(lambda * sigma_L^2 / 2)`, which modifies the survival
+    /// probability formula. The `barrier_uncertainty` parameter is stored for
+    /// future extension but does not currently affect `default_probability()`.
     CreditGrades {
-        /// Uncertainty in the default barrier level.
+        /// Uncertainty in the default barrier level (reserved for future use).
         barrier_uncertainty: f64,
         /// Mean recovery rate at default.
         mean_recovery: f64,
@@ -244,12 +251,13 @@ impl MertonModel {
     /// Compute implied equity value and equity volatility from the structural model.
     ///
     /// Uses the Black-Scholes call option formula where equity is a call on
-    /// the firm's assets with strike equal to the debt barrier:
+    /// the firm's assets with strike equal to the debt barrier, accounting
+    /// for continuous payout rate q (Hull, 9th ed., Chapter 17):
     ///
-    /// - d1 = (ln(V/B) + (r + sigma^2/2) * T) / (sigma * sqrt(T))
+    /// - d1 = (ln(V/B) + (r - q + sigma^2/2) * T) / (sigma * sqrt(T))
     /// - d2 = d1 - sigma * sqrt(T)
-    /// - E = V * N(d1) - B * exp(-r*T) * N(d2)
-    /// - sigma_E = N(d1) * sigma_V * V / E
+    /// - E = V * exp(-q*T) * N(d1) - B * exp(-r*T) * N(d2)
+    /// - sigma_E = N(d1) * exp(-q*T) * sigma_V * V / E
     ///
     /// # Arguments
     ///
@@ -263,16 +271,18 @@ impl MertonModel {
         let sigma = self.asset_vol;
         let b = self.debt_barrier;
         let r = self.risk_free_rate;
+        let q = self.payout_rate;
         let sqrt_t = horizon.sqrt();
 
-        let d1 = ((v / b).ln() + (r + 0.5 * sigma * sigma) * horizon) / (sigma * sqrt_t);
+        let d1 = ((v / b).ln() + (r - q + 0.5 * sigma * sigma) * horizon) / (sigma * sqrt_t);
         let d2 = d1 - sigma * sqrt_t;
 
         let nd1 = norm_cdf(d1);
         let nd2 = norm_cdf(d2);
 
-        let equity = v * nd1 - b * (-r * horizon).exp() * nd2;
-        let equity_vol = nd1 * sigma * v / equity;
+        let exp_neg_qt = (-q * horizon).exp();
+        let equity = v * exp_neg_qt * nd1 - b * (-r * horizon).exp() * nd2;
+        let equity_vol = nd1 * exp_neg_qt * sigma * v / equity;
 
         (equity, equity_vol)
     }
@@ -280,9 +290,11 @@ impl MertonModel {
     /// KMV calibration: recover asset value and asset volatility from observed
     /// equity value and equity volatility.
     ///
-    /// Solves the 2x2 nonlinear system iteratively (fixed-point iteration):
-    /// - E = V * N(d1) - B * exp(-r*T) * N(d2)
-    /// - sigma_E * E = N(d1) * sigma_V * V
+    /// Solves the 2x2 nonlinear system iteratively (fixed-point iteration),
+    /// including the continuous payout rate q:
+    ///
+    /// - E = V * exp(-q*T) * N(d1) - B * exp(-r*T) * N(d2)
+    /// - sigma_E * E = N(d1) * exp(-q*T) * sigma_V * V
     ///
     /// Convergence is typically fast (10-20 iterations).
     ///
@@ -292,6 +304,7 @@ impl MertonModel {
     /// * `equity_vol` - Observed equity volatility sigma_E
     /// * `total_debt` - Face value of debt B
     /// * `risk_free_rate` - Risk-free rate r
+    /// * `payout_rate` - Continuous dividend / payout yield q
     /// * `maturity` - Time to maturity T in years
     ///
     /// # Errors
@@ -302,6 +315,7 @@ impl MertonModel {
         equity_vol: f64,
         total_debt: f64,
         risk_free_rate: f64,
+        payout_rate: f64,
         maturity: f64,
     ) -> Result<Self> {
         if equity_value <= 0.0 || total_debt <= 0.0 || maturity <= 0.0 {
@@ -315,8 +329,10 @@ impl MertonModel {
         let sigma_e = equity_vol;
         let b = total_debt;
         let r = risk_free_rate;
+        let q = payout_rate;
         let t = maturity;
         let sqrt_t = t.sqrt();
+        let exp_neg_qt = (-q * t).exp();
 
         // Initial guesses
         let mut v = e + b;
@@ -328,32 +344,57 @@ impl MertonModel {
         for _ in 0..max_iter {
             let v_prev = v;
 
-            let d1 = ((v / b).ln() + (r + 0.5 * sigma_v * sigma_v) * t) / (sigma_v * sqrt_t);
+            let d1 = ((v / b).ln() + (r - q + 0.5 * sigma_v * sigma_v) * t) / (sigma_v * sqrt_t);
             let d2 = d1 - sigma_v * sqrt_t;
 
             let nd1 = norm_cdf(d1);
             let nd2 = norm_cdf(d2);
 
-            // Update V from the call pricing equation
-            v = (e + b * (-r * t).exp() * nd2) / nd1;
+            // Update V from the call pricing equation: E = V*exp(-qT)*N(d1) - B*exp(-rT)*N(d2)
+            v = (e + b * (-r * t).exp() * nd2) / (exp_neg_qt * nd1);
             // Update sigma_V from the volatility relation
-            sigma_v = sigma_e * e / (nd1 * v);
+            sigma_v = sigma_e * e / (nd1 * exp_neg_qt * v);
 
-            // Check convergence on relative change in V
             if ((v - v_prev) / v_prev).abs() < tol {
-                return Self::new(v, sigma_v, b, r);
+                return Self::new_with_dynamics(
+                    v,
+                    sigma_v,
+                    b,
+                    r,
+                    q,
+                    BarrierType::Terminal,
+                    AssetDynamics::GeometricBrownian,
+                );
             }
         }
 
-        // Return best estimate even if not fully converged
-        Self::new(v, sigma_v, b, r)
+        Err(InputError::SolverConvergenceFailed {
+            iterations: max_iter,
+            residual: {
+                let d1 =
+                    ((v / b).ln() + (r - q + 0.5 * sigma_v * sigma_v) * t) / (sigma_v * sqrt_t);
+                let nd1 = norm_cdf(d1);
+                let nd2 = norm_cdf(d1 - sigma_v * sqrt_t);
+                (v * exp_neg_qt * nd1 - b * (-r * t).exp() * nd2 - e).abs()
+            },
+            last_x: v,
+            reason: "KMV fixed-point iteration did not converge".to_string(),
+        }
+        .into())
     }
 
     /// CDS spread calibration: find asset volatility that matches a target
     /// CDS spread.
     ///
     /// Uses Brent's method to solve for sigma_V such that the model's
-    /// implied spread equals the target CDS spread.
+    /// implied spread equals the target CDS spread. The calibration uses
+    /// the terminal-barrier (classic Merton) default probability formula
+    /// `PD = N(-DD)` and the resulting model has `BarrierType::Terminal`
+    /// with `AssetDynamics::GeometricBrownian` and `payout_rate = 0`.
+    ///
+    /// To use first-passage barriers after calibration, construct a new
+    /// model via [`new_with_dynamics`](Self::new_with_dynamics) using the
+    /// calibrated `asset_vol`.
     ///
     /// # Arguments
     ///
@@ -406,11 +447,20 @@ impl MertonModel {
         Self::new(asset_value, sigma_v, total_debt, risk_free_rate)
     }
 
-    /// CreditGrades model construction from equity observables.
+    /// CreditGrades model construction from equity observables (simplified).
     ///
-    /// A simplified calibration that derives asset value and asset volatility
-    /// from equity data and constructs a model with `CreditGrades` dynamics
-    /// and `FirstPassage` barrier.
+    /// Derives asset value and asset volatility from equity data and
+    /// constructs a model with `CreditGrades` dynamics and `FirstPassage`
+    /// barrier. This is a simplified version of the CreditGrades model
+    /// (Finger et al. 2002) that uses:
+    ///
+    /// - Asset value: `V_0 = E + D * R_mean`
+    /// - Asset volatility: `sigma_V = sigma_E * E / V_0`
+    /// - Barrier: `B = D * R_mean` (deterministic)
+    ///
+    /// The `barrier_uncertainty` parameter is stored but does not currently
+    /// modify the default probability calculation. The full CreditGrades
+    /// stochastic barrier term may be added in a future release.
     ///
     /// # Arguments
     ///
@@ -418,7 +468,7 @@ impl MertonModel {
     /// * `equity_vol` - Observed equity volatility sigma_E
     /// * `total_debt` - Face value of debt
     /// * `risk_free_rate` - Risk-free rate r
-    /// * `barrier_uncertainty` - Uncertainty in the default barrier level
+    /// * `barrier_uncertainty` - Uncertainty in the default barrier level (reserved)
     /// * `mean_recovery` - Mean recovery rate at default
     ///
     /// # Errors
@@ -529,7 +579,7 @@ impl MertonModel {
     ///
     /// * `id` - Curve identifier
     /// * `base_date` - Valuation date for the curve
-    /// * `tenors` - Tenor grid in years (must be non-empty, positive, sorted)
+    /// * `tenors` - Tenor grid in years (must be non-empty, positive; need not be sorted)
     /// * `recovery` - Recovery rate assumption (e.g. 0.40)
     ///
     /// # Errors
@@ -858,8 +908,8 @@ mod tests {
     fn from_equity_recovers_known_values() {
         let m_known = MertonModel::new(100.0, 0.20, 80.0, 0.05).expect("valid");
         let (equity, equity_vol) = m_known.implied_equity(1.0);
-        let m_calibrated =
-            MertonModel::from_equity(equity, equity_vol, 80.0, 0.05, 1.0).expect("calibration");
+        let m_calibrated = MertonModel::from_equity(equity, equity_vol, 80.0, 0.05, 0.0, 1.0)
+            .expect("calibration");
         assert!(
             (m_calibrated.asset_value() - 100.0).abs() < 0.5,
             "Asset value should recover: got {}",
@@ -946,6 +996,250 @@ mod tests {
         assert!(matches!(m.barrier_type(), BarrierType::FirstPassage { .. }));
         let pd = m.default_probability(5.0);
         assert!(pd > 0.0 && pd < 1.0, "PD should be in (0,1), got {pd}");
+    }
+
+    // -----------------------------------------------------------------------
+    // Non-zero payout rate tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn implied_equity_with_payout_rate() {
+        // With q > 0, equity should be lower than the q=0 case because
+        // the asset leaks value via dividends.
+        let m_no_q = MertonModel::new(100.0, 0.20, 80.0, 0.05).expect("valid");
+        let m_with_q = MertonModel::new_with_dynamics(
+            100.0,
+            0.20,
+            80.0,
+            0.05,
+            0.03,
+            BarrierType::Terminal,
+            AssetDynamics::GeometricBrownian,
+        )
+        .expect("valid");
+
+        let (eq_no_q, _) = m_no_q.implied_equity(1.0);
+        let (eq_with_q, _) = m_with_q.implied_equity(1.0);
+
+        assert!(
+            eq_with_q < eq_no_q,
+            "Equity with payout should be lower: q=0 -> {eq_no_q}, q=0.03 -> {eq_with_q}"
+        );
+    }
+
+    #[test]
+    fn from_equity_roundtrips_with_payout_rate() {
+        let m_known = MertonModel::new_with_dynamics(
+            100.0,
+            0.20,
+            80.0,
+            0.05,
+            0.02,
+            BarrierType::Terminal,
+            AssetDynamics::GeometricBrownian,
+        )
+        .expect("valid");
+        let (equity, equity_vol) = m_known.implied_equity(1.0);
+
+        let m_cal = MertonModel::from_equity(equity, equity_vol, 80.0, 0.05, 0.02, 1.0)
+            .expect("calibration");
+
+        assert!(
+            (m_cal.asset_value() - 100.0).abs() < 0.5,
+            "Asset value should recover with q=0.02: got {}",
+            m_cal.asset_value()
+        );
+        assert!(
+            (m_cal.asset_vol() - 0.20).abs() < 0.01,
+            "Asset vol should recover with q=0.02: got {}",
+            m_cal.asset_vol()
+        );
+        assert!(
+            (m_cal.payout_rate() - 0.02).abs() < 1e-10,
+            "Payout rate should be preserved: got {}",
+            m_cal.payout_rate()
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Non-convergence test
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn from_equity_rejects_invalid_inputs() {
+        assert!(
+            MertonModel::from_equity(0.0, 0.30, 80.0, 0.05, 0.0, 1.0).is_err(),
+            "Zero equity should be rejected"
+        );
+        assert!(
+            MertonModel::from_equity(25.0, -0.30, 80.0, 0.05, 0.0, 1.0).is_err(),
+            "Negative vol should be rejected"
+        );
+        assert!(
+            MertonModel::from_equity(25.0, 0.30, 0.0, 0.05, 0.0, 1.0).is_err(),
+            "Zero debt should be rejected"
+        );
+        assert!(
+            MertonModel::from_equity(25.0, 0.30, 80.0, 0.05, 0.0, 0.0).is_err(),
+            "Zero maturity should be rejected"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Extreme parameter edge cases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn high_vol_pd_approaches_one() {
+        // With very high vol and high leverage, PD should approach 1.
+        let m = MertonModel::new(100.0, 2.0, 99.0, 0.01).expect("valid");
+        let pd = m.default_probability(10.0);
+        assert!(
+            pd > 0.5,
+            "High vol + high leverage PD should be > 0.5, got {pd}"
+        );
+    }
+
+    #[test]
+    fn very_low_leverage_pd_near_zero() {
+        // V >> B should give near-zero PD.
+        let m = MertonModel::new(1000.0, 0.20, 10.0, 0.05).expect("valid");
+        let pd = m.default_probability(1.0);
+        assert!(pd < 1e-6, "Very low leverage PD should be ~0, got {pd}");
+    }
+
+    #[test]
+    fn first_passage_pd_bounded() {
+        let m = MertonModel::new_with_dynamics(
+            100.0,
+            0.25,
+            80.0,
+            0.05,
+            0.0,
+            BarrierType::FirstPassage {
+                barrier_growth_rate: 0.02,
+            },
+            AssetDynamics::GeometricBrownian,
+        )
+        .expect("valid");
+
+        for &t in &[0.5, 1.0, 5.0, 10.0, 30.0] {
+            let pd = m.default_probability(t);
+            assert!((0.0..=1.0).contains(&pd), "PD({t}) = {pd} out of [0, 1]");
+        }
+    }
+
+    #[test]
+    fn first_passage_higher_barrier_growth_higher_pd() {
+        // Higher barrier growth rate should produce higher PD at any given horizon,
+        // since the default barrier rises faster.
+        let m_low = MertonModel::new_with_dynamics(
+            100.0,
+            0.25,
+            80.0,
+            0.05,
+            0.0,
+            BarrierType::FirstPassage {
+                barrier_growth_rate: 0.0,
+            },
+            AssetDynamics::GeometricBrownian,
+        )
+        .expect("valid");
+        let m_high = MertonModel::new_with_dynamics(
+            100.0,
+            0.25,
+            80.0,
+            0.05,
+            0.0,
+            BarrierType::FirstPassage {
+                barrier_growth_rate: 0.05,
+            },
+            AssetDynamics::GeometricBrownian,
+        )
+        .expect("valid");
+
+        let pd_low = m_low.default_probability(5.0);
+        let pd_high = m_high.default_probability(5.0);
+        assert!(
+            pd_high > pd_low,
+            "Higher barrier growth should increase PD: g=0 -> {pd_low}, g=0.05 -> {pd_high}"
+        );
+    }
+
+    #[test]
+    fn implied_spread_monotonic_in_leverage() {
+        let low_lev = MertonModel::new(100.0, 0.25, 40.0, 0.04).expect("valid");
+        let mid_lev = MertonModel::new(100.0, 0.25, 70.0, 0.04).expect("valid");
+        let high_lev = MertonModel::new(100.0, 0.25, 95.0, 0.04).expect("valid");
+
+        let s_low = low_lev.implied_spread(5.0, 0.40);
+        let s_mid = mid_lev.implied_spread(5.0, 0.40);
+        let s_high = high_lev.implied_spread(5.0, 0.40);
+
+        assert!(
+            s_low < s_mid && s_mid < s_high,
+            "Spread should increase with leverage: {s_low} < {s_mid} < {s_high}"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // CreditGrades cross-checks
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn credit_grades_asset_value_matches_formula() {
+        // V_0 = E + D * R_mean
+        let e = 25.0;
+        let d = 80.0;
+        let r_mean = 0.40;
+        let m = MertonModel::credit_grades(e, 0.50, d, 0.04, 0.30, r_mean).expect("cg");
+        let expected_v = e + d * r_mean;
+        assert!(
+            (m.asset_value() - expected_v).abs() < 1e-10,
+            "V = E + D*R_mean = {expected_v}, got {}",
+            m.asset_value()
+        );
+    }
+
+    #[test]
+    fn credit_grades_barrier_matches_formula() {
+        // Barrier = D * R_mean
+        let d = 80.0;
+        let r_mean = 0.40;
+        let m = MertonModel::credit_grades(25.0, 0.50, d, 0.04, 0.30, r_mean).expect("cg");
+        let expected_barrier = d * r_mean;
+        assert!(
+            (m.debt_barrier() - expected_barrier).abs() < 1e-10,
+            "Barrier = D*R_mean = {expected_barrier}, got {}",
+            m.debt_barrier()
+        );
+    }
+
+    #[test]
+    fn credit_grades_asset_vol_matches_formula() {
+        // sigma_V = sigma_E * E / V_0
+        let e = 25.0;
+        let sigma_e = 0.50;
+        let d = 80.0;
+        let r_mean = 0.40;
+        let m = MertonModel::credit_grades(e, sigma_e, d, 0.04, 0.30, r_mean).expect("cg");
+        let v0 = e + d * r_mean;
+        let expected_sigma_v = sigma_e * e / v0;
+        assert!(
+            (m.asset_vol() - expected_sigma_v).abs() < 1e-10,
+            "sigma_V = sigma_E * E / V_0 = {expected_sigma_v}, got {}",
+            m.asset_vol()
+        );
+    }
+
+    #[test]
+    fn credit_grades_higher_equity_vol_higher_pd() {
+        let m_low = MertonModel::credit_grades(25.0, 0.30, 80.0, 0.04, 0.30, 0.40).expect("cg");
+        let m_high = MertonModel::credit_grades(25.0, 0.70, 80.0, 0.04, 0.30, 0.40).expect("cg");
+        assert!(
+            m_high.default_probability(5.0) > m_low.default_probability(5.0),
+            "Higher equity vol should increase CG PD"
+        );
     }
 
     // -----------------------------------------------------------------------

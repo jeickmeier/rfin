@@ -313,6 +313,8 @@ impl PyMertonModel {
     ///     Face value of debt.
     /// risk_free_rate : float
     ///     Risk-free rate.
+    /// payout_rate : float, optional
+    ///     Continuous dividend / payout yield (default: 0.0).
     /// maturity : float, optional
     ///     Time to maturity in years (default: 1.0).
     ///
@@ -323,15 +325,16 @@ impl PyMertonModel {
     /// Raises
     /// ------
     /// ValueError
-    ///     If inputs are invalid or calibration fails.
+    ///     If inputs are invalid or calibration fails to converge.
     #[classmethod]
-    #[pyo3(signature = (equity_value, equity_vol, total_debt, risk_free_rate, maturity=1.0))]
+    #[pyo3(signature = (equity_value, equity_vol, total_debt, risk_free_rate, payout_rate=0.0, maturity=1.0))]
     fn from_equity(
         _cls: &Bound<'_, PyType>,
         equity_value: f64,
         equity_vol: f64,
         total_debt: f64,
         risk_free_rate: f64,
+        payout_rate: f64,
         maturity: f64,
     ) -> PyResult<Self> {
         let model = RustMertonModel::from_equity(
@@ -339,6 +342,7 @@ impl PyMertonModel {
             equity_vol,
             total_debt,
             risk_free_rate,
+            payout_rate,
             maturity,
         )
         .map_err(|e| PyValueError::new_err(e.to_string()))?;

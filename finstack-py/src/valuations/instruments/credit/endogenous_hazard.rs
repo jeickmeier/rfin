@@ -67,10 +67,10 @@ impl PyEndogenousHazardSpec {
         base_hazard: f64,
         base_leverage: f64,
         exponent: f64,
-    ) -> Self {
-        Self {
-            inner: RustEndogenousHazardSpec::power_law(base_hazard, base_leverage, exponent),
-        }
+    ) -> PyResult<Self> {
+        let inner = RustEndogenousHazardSpec::power_law(base_hazard, base_leverage, exponent)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Create an exponential endogenous hazard spec.
@@ -96,10 +96,10 @@ impl PyEndogenousHazardSpec {
         base_hazard: f64,
         base_leverage: f64,
         sensitivity: f64,
-    ) -> Self {
-        Self {
-            inner: RustEndogenousHazardSpec::exponential(base_hazard, base_leverage, sensitivity),
-        }
+    ) -> PyResult<Self> {
+        let inner = RustEndogenousHazardSpec::exponential(base_hazard, base_leverage, sensitivity)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Create a tabular endogenous hazard spec from empirical calibration.
@@ -130,21 +130,9 @@ impl PyEndogenousHazardSpec {
         leverage_points: Vec<f64>,
         hazard_points: Vec<f64>,
     ) -> PyResult<Self> {
-        if leverage_points.is_empty() || hazard_points.is_empty() {
-            return Err(PyValueError::new_err(
-                "leverage_points and hazard_points must be non-empty",
-            ));
-        }
-        if leverage_points.len() != hazard_points.len() {
-            return Err(PyValueError::new_err(format!(
-                "leverage_points (len={}) and hazard_points (len={}) must have the same length",
-                leverage_points.len(),
-                hazard_points.len()
-            )));
-        }
-        Ok(Self {
-            inner: RustEndogenousHazardSpec::tabular(leverage_points, hazard_points),
-        })
+        let inner = RustEndogenousHazardSpec::tabular(leverage_points, hazard_points)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Compute the hazard rate at a given leverage level.

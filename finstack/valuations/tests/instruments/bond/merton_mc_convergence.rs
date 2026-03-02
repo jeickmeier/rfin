@@ -210,8 +210,8 @@ fn no_endogenous_no_dynamic_recovery_matches_standard() {
         .seed(42);
 
     // Config with endogenous hazard and dynamic recovery
-    let endo = EndogenousHazardSpec::power_law(0.06, 0.5, 2.5);
-    let dyn_rec = DynamicRecoverySpec::floored_inverse(0.40, 100.0, 0.10);
+    let endo = EndogenousHazardSpec::power_law(0.06, 0.5, 2.5).expect("valid");
+    let dyn_rec = DynamicRecoverySpec::floored_inverse(0.40, 100.0, 0.10).expect("valid");
     let config_with_extras = MertonMcConfig::new(merton)
         .num_paths(10_000)
         .seed(42)

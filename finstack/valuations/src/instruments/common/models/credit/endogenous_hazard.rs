@@ -11,6 +11,7 @@
 //!
 //! All computed hazard rates are floored at 0.0 (never negative).
 
+use finstack_core::{InputError, Result};
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -61,26 +62,47 @@ pub struct EndogenousHazardSpec {
 impl EndogenousHazardSpec {
     // -- Convenience constructors -------------------------------------------
 
+    /// Validate base parameters common to all parametric models.
+    fn validate(base_hazard: f64, base_leverage: f64) -> Result<()> {
+        if base_hazard < 0.0 {
+            return Err(InputError::NegativeValue.into());
+        }
+        if base_leverage <= 0.0 {
+            return Err(InputError::NonPositiveValue.into());
+        }
+        Ok(())
+    }
+
     /// Create a power-law endogenous hazard spec.
     ///
     /// `lambda(L) = base_hazard * (L / base_leverage)^exponent`
-    pub fn power_law(base_hazard: f64, base_leverage: f64, exponent: f64) -> Self {
-        Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `base_hazard < 0` or `base_leverage <= 0`.
+    pub fn power_law(base_hazard: f64, base_leverage: f64, exponent: f64) -> Result<Self> {
+        Self::validate(base_hazard, base_leverage)?;
+        Ok(Self {
             base_hazard_rate: base_hazard,
             base_leverage,
             leverage_hazard_map: LeverageHazardMap::PowerLaw { exponent },
-        }
+        })
     }
 
     /// Create an exponential endogenous hazard spec.
     ///
     /// `lambda(L) = base_hazard * exp(sensitivity * (L - base_leverage))`
-    pub fn exponential(base_hazard: f64, base_leverage: f64, sensitivity: f64) -> Self {
-        Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `base_hazard < 0` or `base_leverage <= 0`.
+    pub fn exponential(base_hazard: f64, base_leverage: f64, sensitivity: f64) -> Result<Self> {
+        Self::validate(base_hazard, base_leverage)?;
+        Ok(Self {
             base_hazard_rate: base_hazard,
             base_leverage,
             leverage_hazard_map: LeverageHazardMap::Exponential { sensitivity },
-        }
+        })
     }
 
     /// Create a tabular endogenous hazard spec from empirical calibration.
@@ -88,17 +110,24 @@ impl EndogenousHazardSpec {
     /// Uses linear interpolation between the given points and flat
     /// extrapolation beyond the edges. `base_hazard_rate` and `base_leverage`
     /// are derived from the first tabular point.
-    pub fn tabular(leverage_points: Vec<f64>, hazard_points: Vec<f64>) -> Self {
-        let base_leverage = leverage_points.first().copied().unwrap_or(1.0);
-        let base_hazard_rate = hazard_points.first().copied().unwrap_or(0.0);
-        Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if vectors are empty or have different lengths.
+    pub fn tabular(leverage_points: Vec<f64>, hazard_points: Vec<f64>) -> Result<Self> {
+        if leverage_points.is_empty() || leverage_points.len() != hazard_points.len() {
+            return Err(InputError::DimensionMismatch.into());
+        }
+        let base_leverage = leverage_points[0];
+        let base_hazard_rate = hazard_points[0];
+        Ok(Self {
             base_hazard_rate,
             base_leverage,
             leverage_hazard_map: LeverageHazardMap::Tabular {
                 leverage_points,
                 hazard_points,
             },
-        }
+        })
     }
 
     // -- Core computation ---------------------------------------------------
@@ -165,7 +194,7 @@ impl EndogenousHazardSpec {
 /// - `xs` and `ys` have the same length and at least one element.
 /// - `xs` is sorted in ascending order.
 fn tabular_interpolate(xs: &[f64], ys: &[f64], x: f64) -> f64 {
-    debug_assert!(
+    assert!(
         !xs.is_empty() && xs.len() == ys.len(),
         "tabular_interpolate: xs and ys must be non-empty and equal length"
     );
@@ -202,13 +231,13 @@ mod tests {
 
     #[test]
     fn power_law_at_base_leverage_returns_base_hazard() {
-        let spec = EndogenousHazardSpec::power_law(0.10, 1.5, 2.5);
+        let spec = EndogenousHazardSpec::power_law(0.10, 1.5, 2.5).unwrap();
         assert!((spec.hazard_at_leverage(1.5) - 0.10).abs() < 1e-10);
     }
 
     #[test]
     fn power_law_increases_with_leverage() {
-        let spec = EndogenousHazardSpec::power_law(0.10, 1.5, 2.5);
+        let spec = EndogenousHazardSpec::power_law(0.10, 1.5, 2.5).unwrap();
         let h_low = spec.hazard_at_leverage(1.5);
         let h_high = spec.hazard_at_leverage(2.0);
         assert!(h_high > h_low, "h_low={h_low}, h_high={h_high}");
@@ -216,13 +245,13 @@ mod tests {
 
     #[test]
     fn exponential_at_base_returns_base() {
-        let spec = EndogenousHazardSpec::exponential(0.10, 1.5, 5.0);
+        let spec = EndogenousHazardSpec::exponential(0.10, 1.5, 5.0).unwrap();
         assert!((spec.hazard_at_leverage(1.5) - 0.10).abs() < 1e-10);
     }
 
     #[test]
     fn exponential_increases_with_leverage() {
-        let spec = EndogenousHazardSpec::exponential(0.10, 1.5, 5.0);
+        let spec = EndogenousHazardSpec::exponential(0.10, 1.5, 5.0).unwrap();
         let h_low = spec.hazard_at_leverage(1.5);
         let h_high = spec.hazard_at_leverage(2.0);
         assert!(h_high > h_low);
@@ -230,10 +259,8 @@ mod tests {
 
     #[test]
     fn pik_accrual_increases_hazard() {
-        let spec = EndogenousHazardSpec::power_law(0.10, 1.5, 2.5);
-        // Initial: N=100, V=66.67 -> L = 100/66.67 = 1.5
+        let spec = EndogenousHazardSpec::power_law(0.10, 1.5, 2.5).unwrap();
         let h_before = spec.hazard_after_pik_accrual(100.0, 100.0, 66.67);
-        // After PIK: N=120, V=66.67 -> L = 120/66.67 = 1.8
         let h_after = spec.hazard_after_pik_accrual(100.0, 120.0, 66.67);
         assert!(
             h_after > h_before,
@@ -244,15 +271,15 @@ mod tests {
     #[test]
     fn tabular_interpolates() {
         let spec =
-            EndogenousHazardSpec::tabular(vec![1.0, 1.5, 2.0, 3.0], vec![0.02, 0.05, 0.12, 0.30]);
+            EndogenousHazardSpec::tabular(vec![1.0, 1.5, 2.0, 3.0], vec![0.02, 0.05, 0.12, 0.30])
+                .unwrap();
         let h = spec.hazard_at_leverage(1.75);
-        // Should be between 0.05 and 0.12
         assert!(h > 0.05 && h < 0.12, "h={h}");
     }
 
     #[test]
     fn tabular_flat_extrapolation() {
-        let spec = EndogenousHazardSpec::tabular(vec![1.0, 2.0], vec![0.05, 0.15]);
+        let spec = EndogenousHazardSpec::tabular(vec![1.0, 2.0], vec![0.05, 0.15]).unwrap();
         let h_below = spec.hazard_at_leverage(0.5);
         let h_above = spec.hazard_at_leverage(5.0);
         assert!(
@@ -263,5 +290,14 @@ mod tests {
             (h_above - 0.15).abs() < 1e-10,
             "Above range: flat extrapolation"
         );
+    }
+
+    #[test]
+    fn rejects_invalid_inputs() {
+        assert!(EndogenousHazardSpec::power_law(-0.10, 1.5, 2.5).is_err());
+        assert!(EndogenousHazardSpec::power_law(0.10, 0.0, 2.5).is_err());
+        assert!(EndogenousHazardSpec::exponential(0.10, -1.0, 5.0).is_err());
+        assert!(EndogenousHazardSpec::tabular(vec![], vec![]).is_err());
+        assert!(EndogenousHazardSpec::tabular(vec![1.0], vec![0.05, 0.10]).is_err());
     }
 }

@@ -174,6 +174,7 @@ class MertonModel:
         equity_vol: float,
         total_debt: float,
         risk_free_rate: float,
+        payout_rate: float = 0.0,
         maturity: float = 1.0,
     ) -> MertonModel:
         """KMV calibration from observed equity value and equity volatility.
@@ -188,6 +189,8 @@ class MertonModel:
             Face value of debt.
         risk_free_rate : float
             Risk-free rate.
+        payout_rate : float, optional
+            Continuous dividend / payout yield (default: 0.0).
         maturity : float, optional
             Time to maturity in years (default: 1.0).
 

@@ -50,12 +50,15 @@ pub struct MertonMcConfig {
     pub antithetic: bool,
     /// Time steps per year for the simulation grid.
     pub time_steps_per_year: usize,
+    /// Default recovery rate used when no `dynamic_recovery` model is set.
+    pub default_recovery_rate: f64,
 }
 
 impl MertonMcConfig {
     /// Create a new configuration with default simulation parameters.
     ///
-    /// Defaults: 10,000 paths, seed 42, antithetic on, 12 steps/year.
+    /// Defaults: 10,000 paths, seed 42, antithetic on, 12 steps/year,
+    /// 40% recovery rate.
     #[must_use]
     pub fn new(merton: MertonModel) -> Self {
         Self {
@@ -67,6 +70,7 @@ impl MertonMcConfig {
             seed: 42,
             antithetic: true,
             time_steps_per_year: 12,
+            default_recovery_rate: 0.40,
         }
     }
 
@@ -174,6 +178,11 @@ pub struct MertonMcEngine;
 impl MertonMcEngine {
     /// Price a bond with structural credit model via Monte Carlo.
     ///
+    /// Asset paths evolve under the risk-neutral measure using the Merton
+    /// model's `risk_free_rate` as drift. Cashflows are discounted at
+    /// `discount_rate`, which may differ (e.g., a funding-adjusted rate).
+    /// For standard risk-neutral pricing, set both rates equal.
+    ///
     /// # Arguments
     ///
     /// * `notional` - Bond face value
@@ -182,7 +191,7 @@ impl MertonMcEngine {
     /// * `maturity_years` - Time to maturity in years
     /// * `coupon_frequency` - Coupons per year (e.g., 2 for semi-annual)
     /// * `config` - Monte Carlo configuration
-    /// * `discount_rate` - Risk-free discount rate
+    /// * `discount_rate` - Discount rate for cashflow PV calculation
     ///
     /// # Errors
     ///
@@ -203,7 +212,8 @@ impl MertonMcEngine {
         let coupon_period = 1.0 / coupon_frequency as f64;
         let accrual_factor = coupon_rate / coupon_frequency as f64;
         let sigma = config.merton.asset_vol();
-        let mu = discount_rate - config.merton.payout_rate() - 0.5 * sigma * sigma;
+        let r = config.merton.risk_free_rate();
+        let mu = r - config.merton.payout_rate() - 0.5 * sigma * sigma;
 
         // Barrier parameters
         let debt_barrier = config.merton.debt_barrier();
@@ -272,7 +282,9 @@ impl MertonMcEngine {
                         let recovery_rate = config
                             .dynamic_recovery
                             .as_ref()
-                            .map_or(0.40, |dr| dr.recovery_at_notional(n_current));
+                            .map_or(config.default_recovery_rate, |dr| {
+                                dr.recovery_at_notional(n_current)
+                            });
                         let recovery_cashflow = recovery_rate * n_current;
                         let df = (-discount_rate * t).exp();
                         path_pv += recovery_cashflow * df;
@@ -303,8 +315,13 @@ impl MertonMcEngine {
                                 },
                                 |eh| eh.hazard_at_leverage(leverage),
                             );
-                            let dd = if sigma * sqrt_dt > 0.0 {
-                                (v / n_current).ln() / (sigma * sqrt_dt)
+                            let remaining = maturity_years - t;
+                            let dd = if sigma > 0.0 && remaining > 0.0 {
+                                let sqrt_remaining = remaining.sqrt();
+                                ((v / n_current).ln()
+                                    + (r - config.merton.payout_rate() - 0.5 * sigma * sigma)
+                                        * remaining)
+                                    / (sigma * sqrt_remaining)
                             } else {
                                 0.0
                             };
@@ -525,7 +542,7 @@ mod tests {
 
     #[test]
     fn endogenous_hazard_lowers_pik_price() {
-        let endo = EndogenousHazardSpec::power_law(0.06, 0.5, 2.5);
+        let endo = EndogenousHazardSpec::power_law(0.06, 0.5, 2.5).expect("valid");
         let config_no = MertonMcConfig::new(test_merton())
             .num_paths(10_000)
             .seed(42);
@@ -547,7 +564,7 @@ mod tests {
 
     #[test]
     fn dynamic_recovery_lowers_pik_price() {
-        let dyn_rec = DynamicRecoverySpec::floored_inverse(0.40, 100.0, 0.10);
+        let dyn_rec = DynamicRecoverySpec::floored_inverse(0.40, 100.0, 0.10).expect("valid");
         let config_no = MertonMcConfig::new(test_merton())
             .num_paths(10_000)
             .seed(42);

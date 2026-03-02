@@ -16,6 +16,7 @@ from datetime import date, timedelta
 
 from finstack import Money
 from finstack.core.currency import USD
+from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
 from finstack.valuations.instruments import (
     Bond,
     BondBuilder,
@@ -189,87 +190,89 @@ def format_result_row(label: str, result: MertonMcResult) -> str:
     )
 
 
-# ── Hazard-rate-only pricing ──────────────────────────────────────────────
+# ── Hazard-rate pricing helpers (library curves) ─────────────────────────
 #
-# Reduced-form model: flat hazard rate λ, survival S(t) = exp(-λt).
-# Cash-pay: coupons + principal weighted by S(t_i) × D(t_i).
+# Use the library's HazardCurve and DiscountCurve term structures to price
+# bonds under a reduced-form flat hazard rate.  Instead of raw math.exp(),
+# we use HazardCurve.survival(t), HazardCurve.default_prob(t1, t2), and
+# DiscountCurve.df(t) — the library handles interpolation, extrapolation,
+# and day-count conventions.
+#
+# Cash-pay: coupons + principal weighted by survival × discount factor.
 # Full-PIK: no coupons; inflated notional N×(1+c/f)^n at maturity.
-# Recovery leg: R × outstanding_notional(t) × ΔS(t) for each period.
+# Recovery leg: R × outstanding_notional × default_prob(t-dt, t) × df(t).
 
 
-def hazard_pv_cash(
-    hazard: float,
-    recovery: float,
-    risk_free: float,
-    coupon: float,
-    freq: int,
-    notional: float,
-    maturity_years: float,
-) -> float:
-    """PV of a cash-pay bond using flat hazard rate."""
-    n_periods = int(maturity_years * freq)
-    dt = 1.0 / freq
-    cpn = coupon / freq * notional
+def _build_curves(
+    hazard: float, recovery: float,
+) -> tuple[HazardCurve, DiscountCurve]:
+    """Build flat hazard and discount curves using the library."""
+    dc = DiscountCurve(
+        "USD-OIS", AS_OF,
+        [(t, math.exp(-RISK_FREE_RATE * t))
+         for t in [0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0]],
+    )
+    hc = HazardCurve(
+        "CREDIT", AS_OF, [(0.0, hazard), (10.0, hazard)],
+        recovery_rate=recovery,
+    )
+    return hc, dc
+
+
+def hr_price_cash(hc: HazardCurve, dc: DiscountCurve) -> float:
+    """PV of a cash-pay bond using library HazardCurve and DiscountCurve."""
+    n_periods = MATURITY_YEARS * 2  # semi-annual
+    dt = 0.5
+    cpn = COUPON_RATE / 2 * NOTIONAL
     pv = 0.0
     for i in range(1, n_periods + 1):
         t = i * dt
-        surv = math.exp(-hazard * t)
-        surv_prev = math.exp(-hazard * (t - dt))
-        df = math.exp(-risk_free * t)
-        # Coupon (+ principal at maturity)
-        cf = cpn + (notional if i == n_periods else 0.0)
+        surv = hc.survival(t)
+        df = dc.df(t)
+        cf = cpn + (NOTIONAL if i == n_periods else 0.0)
         pv += cf * surv * df
-        # Recovery leg: R × N × (S(t-1) - S(t)) × D(t)
-        pv += recovery * notional * (surv_prev - surv) * df
+        # Recovery leg: R × N × P(default in [t-dt, t]) × D(t)
+        pv += hc.recovery_rate * NOTIONAL * hc.default_prob(t - dt, t) * df
     return pv
 
 
-def hazard_pv_pik(
-    hazard: float,
-    recovery: float,
-    risk_free: float,
-    coupon: float,
-    freq: int,
-    notional: float,
-    maturity_years: float,
-) -> float:
-    """PV of a full-PIK bond with growing notional, flat hazard rate."""
-    n_periods = int(maturity_years * freq)
-    dt = 1.0 / freq
-    growth = 1.0 + coupon / freq  # per-period notional growth
+def hr_price_pik(hc: HazardCurve, dc: DiscountCurve) -> float:
+    """PV of a full-PIK bond using library HazardCurve and DiscountCurve.
+
+    PIK bond: no coupons paid; notional grows by c/f each period.
+    At maturity the investor receives N × (1 + c/f)^n.  On default the
+    recovery is based on the *inflated* notional at that point.
+    """
+    n_periods = MATURITY_YEARS * 2
+    dt = 0.5
+    growth = 1.0 + COUPON_RATE / 2
     pv = 0.0
     for i in range(1, n_periods + 1):
         t = i * dt
-        surv = math.exp(-hazard * t)
-        surv_prev = math.exp(-hazard * (t - dt))
-        df = math.exp(-risk_free * t)
-        ntl_i = notional * growth ** i  # PIK-inflated notional at period i
-        # No coupon cash flows; at maturity receive inflated notional
+        surv = hc.survival(t)
+        df = dc.df(t)
+        ntl_i = NOTIONAL * growth ** i
         if i == n_periods:
             pv += ntl_i * surv * df
-        # Recovery on inflated notional: R × N_pik(i) × (S(t-1) - S(t)) × D(t)
-        pv += recovery * ntl_i * (surv_prev - surv) * df
+        pv += hc.recovery_rate * ntl_i * hc.default_prob(t - dt, t) * df
     return pv
 
 
-def find_implied_hazard(
-    pv_fn,
-    target_price: float,
-    recovery: float,
-    risk_free: float,
-    coupon: float,
-    freq: int,
-    notional: float,
-    maturity_years: float,
+def hr_find_implied_hazard(
+    price_fn, target_pv: float, recovery: float, dc: DiscountCurve,
 ) -> float:
-    """Bisect for the flat hazard rate λ that reprices a bond to *target_price*."""
+    """Bisect for the flat hazard rate λ that reprices to *target_pv*."""
     lo, hi = 0.0, 5.0
     for _ in range(200):
         mid = (lo + hi) / 2.0
-        pv = pv_fn(mid, recovery, risk_free, coupon, freq, notional, maturity_years)
-        if abs(pv - target_price) < 1e-8:
+        hc = HazardCurve(
+            "CREDIT", AS_OF, [(0.0, mid), (10.0, mid)],
+            recovery_rate=recovery,
+        )
+        pv = price_fn(hc, dc)
+        if abs(pv - target_pv) < 1e-6:
             return mid
-        if pv > target_price:
+        if pv > target_pv:
             lo = mid
         else:
             hi = mid
@@ -367,21 +370,31 @@ def main() -> None:
     print("     Toggle-Cash = additional spread for PIK-toggle vs cash-pay bond")
     print()
 
-    # ── Hazard-rate-only pricing ──────────────────────────────────────
+    # ── Hazard-rate-only pricing (library curves) ─────────────────────
     #
-    # Reduced-form model: flat hazard rate λ → S(t) = exp(-λt).
+    # Reduced-form model: flat hazard rate λ, priced via the library's
+    # HazardCurve.survival(t), HazardCurve.default_prob(t1, t2), and
+    # DiscountCurve.df(t).
     #
-    # Cash-pay: coupons arrive each period, weighted by S(t_i) × D(t_i).
-    # Full-PIK: no coupons; inflated notional N×(1+c/f)^n at maturity.
-    # Recovery: R × outstanding_notional(t) × ΔS(t) each period.
+    # Cash-pay: coupons + principal weighted by survival(t) × df(t),
+    #   plus a recovery leg using default_prob() for each period.
+    # Full-PIK: zero coupons; inflated notional N × (1+c/f)^n at
+    #   maturity, with recovery on the growing notional per period.
     #
     # Two views:
-    #   1. Price at issuer's base λ:  shows how PIK shifts value to maturity
-    #      (duration extension + notional inflation).
-    #   2. Implied λ from MC prices:  backs out the flat hazard rate that
-    #      reproduces each Merton MC model price.  The PIK implied λ is
-    #      higher than the cash implied λ — that gap is the market's PIK
-    #      hazard premium, including structural feedback.
+    #   1. Price at issuer's base λ:  shows how PIK shifts value to
+    #      maturity (duration extension + notional inflation).
+    #   2. Implied λ from MC prices:  backs out the flat hazard rate
+    #      that reproduces each Merton MC model price.  The PIK implied
+    #      λ is higher than cash — that gap is the structural feedback
+    #      premium that a flat hazard model can't capture.
+
+    # Build a shared discount curve (same risk-free rate for all issuers)
+    dc = DiscountCurve(
+        "USD-OIS", AS_OF,
+        [(t, math.exp(-RISK_FREE_RATE * t))
+         for t in [0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0]],
+    )
 
     # ── View 1: prices at each issuer's base hazard rate ──────────────
     print("=" * 110)
@@ -396,12 +409,12 @@ def main() -> None:
         lam = profile["base_hazard"]
         rec = profile["base_recovery"]
 
-        hr_cash_px = hazard_pv_cash(
-            lam, rec, RISK_FREE_RATE, COUPON_RATE, 2, NOTIONAL, MATURITY_YEARS,
+        hc = HazardCurve(
+            "CREDIT", AS_OF, [(0.0, lam), (10.0, lam)],
+            recovery_rate=rec,
         )
-        hr_pik_px = hazard_pv_pik(
-            lam, rec, RISK_FREE_RATE, COUPON_RATE, 2, NOTIONAL, MATURITY_YEARS,
-        )
+        hr_cash_px = hr_price_cash(hc, dc)
+        hr_pik_px = hr_price_pik(hc, dc)
         hr_delta = hr_pik_px - hr_cash_px
 
         cash_r, pik_r, _ = mc_results[profile["name"]]
@@ -437,15 +450,12 @@ def main() -> None:
         rec = profile["base_recovery"]
         cash_r, pik_r, _ = mc_results[profile["name"]]
 
-        # Find hazard rate that reproduces each MC price under the HR model
-        lam_cash = find_implied_hazard(
-            hazard_pv_cash, cash_r.clean_price_pct, rec,
-            RISK_FREE_RATE, COUPON_RATE, 2, NOTIONAL, MATURITY_YEARS,
-        )
-        lam_pik = find_implied_hazard(
-            hazard_pv_pik, pik_r.clean_price_pct, rec,
-            RISK_FREE_RATE, COUPON_RATE, 2, NOTIONAL, MATURITY_YEARS,
-        )
+        # Target PV from MC prices (convert percentage to currency units)
+        cash_target = cash_r.clean_price_pct / 100 * NOTIONAL
+        pik_target = pik_r.clean_price_pct / 100 * NOTIONAL
+
+        lam_cash = hr_find_implied_hazard(hr_price_cash, cash_target, rec, dc)
+        lam_pik = hr_find_implied_hazard(hr_price_pik, pik_target, rec, dc)
         delta_lam = lam_pik - lam_cash
 
         print(
