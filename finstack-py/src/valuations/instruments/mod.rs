@@ -8,6 +8,7 @@
 //! `crate::core::common::args` to ensure consistent behavior across all instruments.
 
 mod commodity;
+mod credit;
 mod credit_derivatives;
 pub(crate) mod equity;
 mod exotics;
@@ -348,6 +349,9 @@ pub(crate) fn register<'py>(
 
     let credit_exports = credit_derivatives::register(py, &module)?;
     exports.extend(credit_exports.iter().copied());
+
+    let credit_model_exports = credit::register(py, &module)?;
+    exports.extend(credit_model_exports.iter().copied());
 
     exports.sort_unstable();
     exports.dedup();
