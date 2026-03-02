@@ -450,6 +450,60 @@ impl MertonModel {
         Self::new(asset_value, sigma_v, total_debt, risk_free_rate)
     }
 
+    /// Calibrate the debt barrier to match a target cumulative default
+    /// probability over the given maturity.
+    ///
+    /// Uses terminal-barrier (classic Merton) `PD = N(-DD)` and Brent's
+    /// method to find the barrier B such that `default_probability(maturity)
+    /// == target_pd`.
+    ///
+    /// # Arguments
+    ///
+    /// * `asset_value` - Current asset value V
+    /// * `asset_vol` - Asset volatility sigma_V
+    /// * `risk_free_rate` - Risk-free rate r
+    /// * `target_pd` - Target cumulative default probability (e.g. 0.01
+    ///   for 1%)
+    /// * `maturity` - Time horizon T in years
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if inputs are invalid or the solver fails.
+    pub fn from_target_pd(
+        asset_value: f64,
+        asset_vol: f64,
+        risk_free_rate: f64,
+        target_pd: f64,
+        maturity: f64,
+    ) -> Result<Self> {
+        if asset_value <= 0.0 || maturity <= 0.0 {
+            return Err(InputError::NonPositiveValue.into());
+        }
+        if asset_vol < 0.0 {
+            return Err(InputError::NegativeValue.into());
+        }
+        if !(0.0..1.0).contains(&target_pd) {
+            return Err(InputError::Invalid.into());
+        }
+
+        let solver = BrentSolver::new()
+            .tolerance(1e-10)
+            .bracket_bounds(0.001 * asset_value, 0.999 * asset_value);
+
+        let barrier = solver.solve(
+            |b| {
+                let sigma = asset_vol;
+                let mu = risk_free_rate - 0.5 * sigma * sigma;
+                let sqrt_t = maturity.sqrt();
+                let dd = ((asset_value / b).ln() + mu * maturity) / (sigma * sqrt_t);
+                norm_cdf(-dd) - target_pd
+            },
+            0.5 * asset_value,
+        )?;
+
+        Self::new(asset_value, asset_vol, barrier, risk_free_rate)
+    }
+
     /// CreditGrades model construction from equity observables (simplified).
     ///
     /// Derives asset value and asset volatility from equity data and
@@ -1183,6 +1237,72 @@ mod tests {
             s_low < s_mid && s_mid < s_high,
             "Spread should increase with leverage: {s_low} < {s_mid} < {s_high}"
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // from_target_pd calibration tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn from_target_pd_roundtrips() {
+        let target_pd = 0.05; // 5% cumulative PD over 5 years
+        let m = MertonModel::from_target_pd(200.0, 0.25, 0.04, target_pd, 5.0).expect("cal");
+        let actual_pd = m.default_probability(5.0);
+        assert!(
+            (actual_pd - target_pd).abs() < 1e-6,
+            "PD should match target: got {actual_pd}, want {target_pd}"
+        );
+    }
+
+    #[test]
+    fn from_target_pd_higher_pd_higher_barrier() {
+        let m_low = MertonModel::from_target_pd(200.0, 0.25, 0.04, 0.01, 5.0).expect("low");
+        let m_high = MertonModel::from_target_pd(200.0, 0.25, 0.04, 0.10, 5.0).expect("high");
+        assert!(
+            m_high.debt_barrier() > m_low.debt_barrier(),
+            "Higher PD target should need higher barrier: low={}, high={}",
+            m_low.debt_barrier(),
+            m_high.debt_barrier()
+        );
+    }
+
+    #[test]
+    fn from_target_pd_realistic_credit_grades() {
+        // BB: annual PD ~20bp → 5Y cumulative ~1.0%
+        let bb_pd = 1.0 - (-0.0020_f64 * 5.0).exp();
+        let m_bb = MertonModel::from_target_pd(200.0, 0.20, 0.045, bb_pd, 5.0).expect("BB");
+        assert!(
+            (m_bb.default_probability(5.0) - bb_pd).abs() < 1e-6,
+            "BB PD mismatch"
+        );
+
+        // B: annual PD ~200bp → 5Y cumulative ~9.5%
+        let b_pd = 1.0 - (-0.0200_f64 * 5.0).exp();
+        let m_b = MertonModel::from_target_pd(140.0, 0.30, 0.045, b_pd, 5.0).expect("B");
+        assert!(
+            (m_b.default_probability(5.0) - b_pd).abs() < 1e-6,
+            "B PD mismatch"
+        );
+
+        // CCC: annual PD ~400bp → 5Y cumulative ~18.1%
+        let ccc_pd = 1.0 - (-0.0400_f64 * 5.0).exp();
+        let m_ccc = MertonModel::from_target_pd(115.0, 0.40, 0.045, ccc_pd, 5.0).expect("CCC");
+        assert!(
+            (m_ccc.default_probability(5.0) - ccc_pd).abs() < 1e-6,
+            "CCC PD mismatch"
+        );
+
+        // All calibrated barriers should be below asset value
+        assert!(m_bb.debt_barrier() < 200.0);
+        assert!(m_b.debt_barrier() < 140.0);
+        assert!(m_ccc.debt_barrier() < 115.0);
+    }
+
+    #[test]
+    fn from_target_pd_rejects_invalid_inputs() {
+        assert!(MertonModel::from_target_pd(0.0, 0.25, 0.04, 0.05, 5.0).is_err());
+        assert!(MertonModel::from_target_pd(200.0, 0.25, 0.04, 1.0, 5.0).is_err());
+        assert!(MertonModel::from_target_pd(200.0, 0.25, 0.04, -0.01, 5.0).is_err());
     }
 
     // -----------------------------------------------------------------------

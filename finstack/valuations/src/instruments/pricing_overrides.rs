@@ -186,6 +186,17 @@ impl BumpConfig {
 // Sub-struct: Model configuration
 // ---------------------------------------------------------------------------
 
+/// Merton Monte Carlo configuration stored on the bond for registry-based pricing.
+///
+/// This is an opaque wrapper around [`MertonMcConfig`] that allows the pricer
+/// registry to access the MC configuration from `PricingOverrides`.
+/// Not serializable (set programmatically, not from JSON).
+#[cfg(feature = "mc")]
+#[derive(Debug, Clone)]
+pub struct MertonMcOverride(
+    pub crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig,
+);
+
 /// Model selection and tree pricing parameters.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -213,6 +224,13 @@ pub struct ModelConfig {
     /// monitoring pricing.
     #[serde(default)]
     pub use_gobet_miri: bool,
+    /// Merton Monte Carlo configuration for structural credit PIK pricing.
+    ///
+    /// When set, the `MertonMc` pricer in the registry uses this config.
+    /// Set programmatically; not serialized.
+    #[cfg(feature = "mc")]
+    #[serde(skip)]
+    pub merton_mc_config: Option<MertonMcOverride>,
     /// Exercise friction cost for issuer/borrower calls, expressed as **cents per 100 of par**.
     ///
     /// This models the real-world costs of refinancing / reissue (fees, OID, documentation),
@@ -441,6 +459,16 @@ impl PricingOverrides {
     /// Set issuer/borrower call exercise friction, in **cents per 100** of par.
     pub fn with_call_friction_cents(mut self, cents: f64) -> Self {
         self.model_config.call_friction_cents = Some(cents);
+        self
+    }
+
+    /// Set the Merton Monte Carlo configuration for structural credit pricing.
+    #[cfg(feature = "mc")]
+    pub fn with_merton_mc(
+        mut self,
+        config: crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig,
+    ) -> Self {
+        self.model_config.merton_mc_config = Some(MertonMcOverride(config));
         self
     }
 

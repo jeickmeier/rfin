@@ -236,8 +236,6 @@ pub struct MertonMcResult {
     pub expected_shortfall_95: f64,
     /// Average PIK fraction across all coupon dates and paths.
     pub average_pik_fraction: f64,
-    /// Effective credit spread in basis points.
-    pub effective_spread_bp: f64,
     /// Path-level statistics.
     pub path_statistics: PathStatistics,
     /// Number of paths used.
@@ -529,14 +527,6 @@ impl MertonMcEngine {
             0.0
         };
 
-        // Effective spread in basis points
-        let effective_spread_bp = if maturity_years > 0.0 && mean_pv > 0.0 {
-            let implied_yield = -(mean_pv / notional).ln() / maturity_years;
-            (implied_yield - discount_rate) * 10_000.0
-        } else {
-            0.0
-        };
-
         // Path statistics
         let default_rate = total_defaults as f64 / actual_paths;
         let avg_default_time = if total_defaults > 0 {
@@ -563,7 +553,6 @@ impl MertonMcEngine {
             unexpected_loss,
             expected_shortfall_95,
             average_pik_fraction,
-            effective_spread_bp,
             path_statistics: PathStatistics {
                 default_rate,
                 avg_default_time,

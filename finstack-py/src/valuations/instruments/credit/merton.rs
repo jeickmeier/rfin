@@ -399,6 +399,50 @@ impl PyMertonModel {
         Ok(Self { inner: model })
     }
 
+    /// Calibrate the debt barrier to match a target default probability.
+    ///
+    /// Parameters
+    /// ----------
+    /// asset_value : float
+    ///     Current asset value V.
+    /// asset_vol : float
+    ///     Asset volatility sigma_V.
+    /// risk_free_rate : float
+    ///     Risk-free rate r.
+    /// target_pd : float
+    ///     Target cumulative default probability (e.g. 0.01 for 1%).
+    /// maturity : float, optional
+    ///     Time horizon in years (default: 5.0).
+    ///
+    /// Returns
+    /// -------
+    /// MertonModel
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If inputs are invalid or calibration fails.
+    #[classmethod]
+    #[pyo3(signature = (asset_value, asset_vol, risk_free_rate, target_pd, maturity=5.0))]
+    fn from_target_pd(
+        _cls: &Bound<'_, PyType>,
+        asset_value: f64,
+        asset_vol: f64,
+        risk_free_rate: f64,
+        target_pd: f64,
+        maturity: f64,
+    ) -> PyResult<Self> {
+        let model = RustMertonModel::from_target_pd(
+            asset_value,
+            asset_vol,
+            risk_free_rate,
+            target_pd,
+            maturity,
+        )
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner: model })
+    }
+
     /// CreditGrades model construction from equity observables.
     ///
     /// Parameters

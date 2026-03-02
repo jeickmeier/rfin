@@ -8,7 +8,7 @@ use finstack_core::Result;
 use crate::cashflow::traits::CashflowProvider;
 // Discountable trait not required after switching to curve day-count path
 
-use super::super::types::Bond;
+use super::super::super::types::Bond;
 
 /// Bond pricing engine providing core valuation methods.
 ///

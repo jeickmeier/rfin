@@ -270,12 +270,6 @@ impl PyMertonMcResult {
         self.inner.average_pik_fraction
     }
 
-    /// Effective credit spread in basis points.
-    #[getter]
-    fn effective_spread_bp(&self) -> f64 {
-        self.inner.effective_spread_bp
-    }
-
     /// Fraction of paths that defaulted.
     #[getter]
     fn default_rate(&self) -> f64 {
@@ -320,9 +314,8 @@ impl PyMertonMcResult {
 
     fn __repr__(&self) -> String {
         format!(
-            "MertonMcResult(clean_price_pct={:.4}, effective_spread_bp={:.2}, default_rate={:.4}, num_paths={})",
+            "MertonMcResult(clean_price_pct={:.4}, default_rate={:.4}, num_paths={})",
             self.inner.clean_price_pct,
-            self.inner.effective_spread_bp,
             self.inner.path_statistics.default_rate,
             self.inner.num_paths,
         )

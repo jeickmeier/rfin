@@ -39,10 +39,10 @@
 
 #![allow(clippy::module_inception)]
 #![allow(dead_code)] // Public API items may be used by external bindings or tests
-use super::super::types::Bond;
+use super::super::super::types::Bond;
 
 #[cfg(test)]
-use super::super::types::CallPut;
+use super::super::super::types::CallPut;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
     RatesCreditConfig, RatesCreditTree,

@@ -1,63 +1,35 @@
-//! Bond pricing entrypoints and pricers.
+//! Bond pricing engines, registry pricers, and utilities.
 //!
-//! This module provides bond pricing engines and pricers for various pricing models:
+//! # Engines (`engine/`)
 //!
-//! # Pricing Engines
+//! Core pricing math for each model:
+//! - **Discount**: PV = sum(CF_i * DF_i) using discount curves
+//! - **Hazard**: Survival-weighted PV + fractional recovery of par (FRP)
+//! - **Tree**: Binomial tree for callable/putable bonds and OAS
+//! - **Merton MC**: Structural credit Monte Carlo for PIK bonds (feature-gated)
 //!
-//! - **Discount Engine**: Standard present value calculation using discount curves
-//! - **Hazard Engine**: Credit-adjusted pricing using hazard curves with fractional recovery of par
-//! - **Tree Engine**: Tree-based pricing for callable/putable bonds and option-adjusted spread (OAS)
-//! - **Quote Engine**: Conversion between price, yield, and spread metrics
-//! - **YTM Solver**: Robust yield-to-maturity calculation using hybrid Newton-Brent method
+//! # Pricers (`pricer/`)
 //!
-//! # Examples
+//! Thin registry adapters that downcast instruments, call engines, and return
+//! `ValuationResult` for the pricer registry.
 //!
-//! Price a bond using the [`Instrument`] trait:
+//! # Utilities
 //!
-//! ```rust,ignore
-//! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::instruments::common::traits::Instrument;
-//! use finstack_core::market_data::context::MarketContext;
-//! use time::macros::date;
-//!
-//! let bond = Bond::example();
-//! let market = MarketContext::new();
-//! let as_of = date!(2024-01-15);
-//!
-//! // Use Instrument trait for pricing
-//! let pv = bond.value(&market, as_of)?;
-//! ```
-//!
-//! [`Instrument`]: crate::instruments::common::traits::Instrument
-//!
-//! # See Also
-//!
-//! - Bond for bond construction
-//! - discount engine (`discount_engine::BondEngine`) for standard discounting
-//! - hazard engine (`hazard_engine::HazardBondEngine`) for credit-adjusted pricing
-//! - tree engine (`tree_engine`) for OAS and embedded options
+//! - `quote_conversions`: Price/yield/spread conversion functions
+//! - `ytm_solver`: Robust yield-to-maturity calculation
+//! - `settlement`: Settlement date and accrued interest utilities
 
-/// Bond pricing engine (discount curve-based valuation logic)
-pub mod discount_engine;
-/// Hazard-rate FRP bond pricing engine (HazardCurve + recovery)
-pub mod hazard_engine;
-/// Bond pricer implementation (registry integration)
+pub mod engine;
 pub(crate) mod pricer;
-/// Quote engine for mapping between price, yields, and spreads
-pub mod quote_engine;
-/// Tree-based pricing for callable/putable bonds and OAS
-pub mod tree_engine;
+pub mod quote_conversions;
+pub(crate) mod settlement;
 pub mod ytm_solver;
 
-/// Merton Monte Carlo engine for PIK bonds with structural credit risk
+// Backward-compatible re-exports so existing `use ...::discount_engine::BondEngine`
+// paths continue to work.
+pub use engine::discount as discount_engine;
+pub use engine::hazard as hazard_engine;
 #[cfg(feature = "mc")]
-pub mod merton_mc_engine;
-
-/// Settlement date and quote-date utilities for bond pricing.
-///
-/// This module provides the `QuoteDateContext` struct which computes:
-/// - `quote_date`: Settlement date (as_of + settlement_days) or as_of if no settlement convention
-/// - `accrued_at_quote_date`: Accrued interest at the quote date
-///
-/// These are used by yield/spread metrics to properly interpret market quotes.
-pub(crate) mod settlement;
+pub use engine::merton_mc as merton_mc_engine;
+pub use engine::tree as tree_engine;
+pub use quote_conversions as quote_engine;

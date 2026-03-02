@@ -356,6 +356,7 @@ pub struct PyBondBuilder {
     float_margin_bp: f64,
     float_gearing: f64,
     float_reset_lag_days: i32,
+    merton_mc_config: Option<finstack_valuations::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig>,
 }
 
 impl PyBondBuilder {
@@ -384,6 +385,7 @@ impl PyBondBuilder {
             float_margin_bp: 0.0,
             float_gearing: 1.0,
             float_reset_lag_days: 2,
+            merton_mc_config: None,
         }
     }
 
@@ -579,6 +581,17 @@ impl PyBondBuilder {
             }
         }
         Ok(slf)
+    }
+
+    /// Attach a Merton MC configuration for structural credit pricing
+    /// via the pricer registry.
+    #[pyo3(text_signature = "($self, config)")]
+    fn merton_mc<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        config: &Bound<'py, crate::valuations::instruments::credit::mc_config::PyMertonMcConfig>,
+    ) -> PyRefMut<'py, Self> {
+        slf.merton_mc_config = Some(config.borrow().inner.clone());
+        slf
     }
 
     #[pyo3(text_signature = "($self, frequency)")]
@@ -791,6 +804,14 @@ impl PyBondBuilder {
             )
         })?;
 
+        let mut overrides = PricingOverrides::default();
+        if let Some(mc_config) = slf.merton_mc_config.clone() {
+            overrides = overrides.with_merton_mc(mc_config);
+        }
+        if let Some(px) = slf.quoted_clean_price {
+            overrides = overrides.with_clean_price(px);
+        }
+
         let mut builder = Bond::builder()
             .id(slf.instrument_id.clone())
             .notional(money)
@@ -798,16 +819,12 @@ impl PyBondBuilder {
             .maturity(maturity)
             .discount_curve_id(discount)
             .cashflow_spec(slf.make_cashflow_spec())
-            .pricing_overrides(PricingOverrides::default())
+            .pricing_overrides(overrides)
             .attributes(Attributes::new())
             .settlement_convention_opt(slf.settlement_convention.clone());
 
         if let Some(credit) = slf.credit_curve.clone() {
             builder = builder.credit_curve_id_opt(Some(credit));
-        }
-
-        if let Some(px) = slf.quoted_clean_price {
-            builder = builder.pricing_overrides(PricingOverrides::default().with_clean_price(px));
         }
 
         if let Some(schedule) = slf.call_put.clone() {

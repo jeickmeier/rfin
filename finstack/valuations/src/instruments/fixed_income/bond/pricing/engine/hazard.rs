@@ -42,8 +42,8 @@ use crate::cashflow::builder::CashFlowSchedule;
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::traits::CashflowProvider;
 
-use super::super::types::Bond;
-use super::discount_engine::BondEngine;
+use super::super::super::types::Bond;
+use super::discount::BondEngine;
 
 /// Hazard-rate bond pricing engine using FRP and `HazardCurve`.
 ///

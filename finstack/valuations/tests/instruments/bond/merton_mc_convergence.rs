@@ -160,12 +160,14 @@ fn higher_asset_vol_increases_spread_differential() {
         MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_high_cash, 0.04).expect("ok");
     let pik_high = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_high_pik, 0.04).expect("ok");
 
-    let spread_diff_low = (cash_low.effective_spread_bp - pik_low.effective_spread_bp).abs();
-    let spread_diff_high = (cash_high.effective_spread_bp - pik_high.effective_spread_bp).abs();
+    // Higher vol should cause a larger *relative* price discount for PIK
+    // (PIK price / cash price is lower when vol is higher).
+    let ratio_low = pik_low.clean_price_pct / cash_low.clean_price_pct;
+    let ratio_high = pik_high.clean_price_pct / cash_high.clean_price_pct;
 
     assert!(
-        spread_diff_high > spread_diff_low,
-        "Higher vol spread diff ({spread_diff_high} bp) should exceed lower vol diff ({spread_diff_low} bp)",
+        ratio_high < ratio_low,
+        "Higher vol PIK/cash ratio ({ratio_high:.4}) should be lower than low vol ({ratio_low:.4})",
     );
 }
 
@@ -428,12 +430,12 @@ fn higher_default_rate_implies_higher_expected_loss() {
         result_safe.expected_loss,
     );
 
-    // Spread should also be higher for the riskier bond
+    // Riskier bond should have a lower price
     assert!(
-        result_risky.effective_spread_bp > result_safe.effective_spread_bp,
-        "Risky spread ({} bp) should exceed safe ({} bp)",
-        result_risky.effective_spread_bp,
-        result_safe.effective_spread_bp,
+        result_risky.clean_price_pct < result_safe.clean_price_pct,
+        "Risky price ({}) should be below safe ({})",
+        result_risky.clean_price_pct,
+        result_safe.clean_price_pct,
     );
 }
 

@@ -432,6 +432,10 @@ pub enum ModelKey {
     ///
     /// Used for: European options requiring stochastic vol.
     HestonFourier = 26,
+    /// Merton structural credit Monte Carlo with PIK support.
+    ///
+    /// Used for: PIK bonds, credit-risky bonds with structural default model.
+    MertonMc = 30,
 }
 
 impl std::fmt::Display for ModelKey {
@@ -453,6 +457,7 @@ impl std::fmt::Display for ModelKey {
             ModelKey::QuantoBS => "quanto_bs",
             ModelKey::FxBarrierBSContinuous => "fx_barrier_bs_continuous",
             ModelKey::HestonFourier => "heston_fourier",
+            ModelKey::MertonMc => "merton_mc",
         };
         write!(f, "{}", label)
     }
@@ -496,6 +501,7 @@ impl std::str::FromStr for ModelKey {
             "heston_fourier" | "heston_semi_analytical" | "heston_analytical" => {
                 Ok(ModelKey::HestonFourier)
             }
+            "merton_mc" | "merton" | "structural_mc" => Ok(ModelKey::MertonMc),
             other => Err(format!("Unknown model key: {}", other)),
         }
     }
@@ -1358,6 +1364,13 @@ pub fn register_rates_pricers(registry: &mut PricerRegistry) {
         Bond,
         Tree,
         crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondOasPricer
+    );
+    #[cfg(feature = "mc")]
+    register_pricer!(
+        registry,
+        Bond,
+        MertonMc,
+        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondMertonMcPricer
     );
 
     // Interest Rate Swaps

@@ -244,6 +244,41 @@ class MertonModel:
         ...
 
     @classmethod
+    def from_target_pd(
+        cls,
+        asset_value: float,
+        asset_vol: float,
+        risk_free_rate: float,
+        target_pd: float,
+        maturity: float = 5.0,
+    ) -> MertonModel:
+        """Calibrate the debt barrier to match a target default probability.
+
+        Parameters
+        ----------
+        asset_value : float
+            Current asset value V.
+        asset_vol : float
+            Asset volatility sigma_V.
+        risk_free_rate : float
+            Risk-free rate r.
+        target_pd : float
+            Target cumulative default probability (e.g. 0.01 for 1%).
+        maturity : float, optional
+            Time horizon in years (default: 5.0).
+
+        Returns
+        -------
+        MertonModel
+
+        Raises
+        ------
+        ValueError
+            If inputs are invalid or calibration fails.
+        """
+        ...
+
+    @classmethod
     def credit_grades(
         cls,
         equity_value: float,
