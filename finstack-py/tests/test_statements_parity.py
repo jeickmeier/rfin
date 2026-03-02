@@ -1002,5 +1002,33 @@ def test_credit_context_metrics_import() -> None:
     assert compute_credit_context is not None
 
 
+class TestDcfCorporateValuation:
+    """Test corporate DCF valuation module."""
+
+    def test_dcf_options(self) -> None:
+        """Test DcfOptions construction."""
+        from finstack.statements.analysis import DcfOptions
+
+        opts = DcfOptions(mid_year_convention=True, shares_outstanding=1000000.0)
+        assert opts.mid_year_convention is True
+        assert opts.shares_outstanding == pytest.approx(1000000.0)
+
+    def test_dcf_types_import(self) -> None:
+        """Test DCF types are importable."""
+        from finstack.statements.analysis import (
+            CorporateValuationResult,
+            DcfOptions,
+            evaluate_dcf,
+            evaluate_dcf_with_market,
+            evaluate_dcf_with_options,
+        )
+
+        assert DcfOptions is not None
+        assert CorporateValuationResult is not None
+        assert evaluate_dcf is not None
+        assert evaluate_dcf_with_options is not None
+        assert evaluate_dcf_with_market is not None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -8,6 +8,7 @@
 //! - **Scenario management** - Named scenario sets with diff/comparison helpers
 
 mod backtesting;
+mod corporate;
 mod credit_context;
 mod explain;
 mod reports;
@@ -501,6 +502,9 @@ pub(crate) fn register<'py>(
     // Register credit context types
     let credit_context_exports = credit_context::register(py, &module)?;
 
+    // Register corporate DCF valuation types
+    let corporate_exports = corporate::register(py, &module)?;
+
     parent.add_submodule(&module)?;
     parent.setattr("analysis", &module)?;
 
@@ -521,6 +525,7 @@ pub(crate) fn register<'py>(
     all_exports.extend(scenario_exports);
     all_exports.extend(backtesting_exports);
     all_exports.extend(credit_context_exports);
+    all_exports.extend(corporate_exports);
 
     Ok(all_exports)
 }

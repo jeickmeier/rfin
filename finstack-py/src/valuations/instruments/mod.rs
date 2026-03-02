@@ -9,7 +9,7 @@
 
 mod commodity;
 mod credit_derivatives;
-mod equity;
+pub(crate) mod equity;
 mod exotics;
 mod fixed_income;
 mod fx;
