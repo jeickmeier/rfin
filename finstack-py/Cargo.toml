@@ -9,7 +9,12 @@ repository.workspace = true
 
 [lib]
 name = "finstack"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+# `pyo3` extension modules are meant to be loaded by a Python interpreter.
+# Running Rust unit tests directly (`cargo test`) produces a standalone binary
+# that fails to resolve Python symbols on macOS.
+test = false
+doctest = false
 
 [dependencies]
 finstack-core = { path = "../finstack/core" }

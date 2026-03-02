@@ -10,6 +10,7 @@ mod solver_multi;
 mod special_functions;
 mod stats;
 mod summation;
+pub(crate) mod volatility;
 
 use finstack_core::HashSet;
 use pyo3::prelude::*;
