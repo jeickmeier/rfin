@@ -29,6 +29,71 @@ fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
     }
 }
 
+// ============================================================================
+// RateOptionType wrapper
+// ============================================================================
+
+/// Type of interest rate option (Cap, Floor, Caplet, Floorlet).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "RateOptionType",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyRateOptionType {
+    pub(crate) inner: RateOptionType,
+}
+
+impl PyRateOptionType {
+    pub(crate) const fn new(inner: RateOptionType) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyRateOptionType {
+    #[classattr]
+    const CAP: Self = Self::new(RateOptionType::Cap);
+    #[classattr]
+    const FLOOR: Self = Self::new(RateOptionType::Floor);
+    #[classattr]
+    const CAPLET: Self = Self::new(RateOptionType::Caplet);
+    #[classattr]
+    const FLOORLET: Self = Self::new(RateOptionType::Floorlet);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("RateOptionType('{}')", self.inner)
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+}
+
+impl From<PyRateOptionType> for RateOptionType {
+    fn from(value: PyRateOptionType) -> Self {
+        value.inner
+    }
+}
+
+// ============================================================================
+// InterestRateOption wrapper
+// ============================================================================
+
 /// Interest rate cap/floor instruments using Black pricing.
 ///
 /// Examples:
@@ -172,10 +237,19 @@ impl PyInterestRateOptionBuilder {
     }
 
     #[pyo3(text_signature = "($self, kind)")]
-    fn kind(mut slf: PyRefMut<'_, Self>, kind: String) -> PyResult<PyRefMut<'_, Self>> {
-        slf.rate_option_type = kind
-            .parse::<RateOptionType>()
-            .map_err(|e| PyValueError::new_err(e))?;
+    fn kind<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        kind: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        if let Ok(typed) = kind.extract::<PyRef<PyRateOptionType>>() {
+            slf.rate_option_type = typed.inner;
+        } else if let Ok(name) = kind.extract::<String>() {
+            slf.rate_option_type = name
+                .parse::<RateOptionType>()
+                .map_err(|e| PyValueError::new_err(e))?;
+        } else {
+            return Err(PyTypeError::new_err("kind() expects RateOptionType or str"));
+        }
         Ok(slf)
     }
 
@@ -578,7 +652,12 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyRateOptionType>()?;
     module.add_class::<PyInterestRateOption>()?;
     module.add_class::<PyInterestRateOptionBuilder>()?;
-    Ok(vec!["InterestRateOption", "InterestRateOptionBuilder"])
+    Ok(vec![
+        "RateOptionType",
+        "InterestRateOption",
+        "InterestRateOptionBuilder",
+    ])
 }

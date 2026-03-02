@@ -114,7 +114,7 @@ impl JsAmortizationSpec {
     /// ```
     #[wasm_bindgen(js_name = percentPerPeriod)]
     pub fn percent_per_period(pct: f64) -> JsAmortizationSpec {
-        AmortizationSpec::PercentPerPeriod { pct }.into()
+        AmortizationSpec::PercentOfOriginalPerPeriod { pct }.into()
     }
 
     /// Custom principal payment schedule.
@@ -168,7 +168,7 @@ impl JsAmortizationSpec {
             AmortizationSpec::StepRemaining { .. } => {
                 "AmortizationSpec.stepRemaining(...)".to_string()
             }
-            AmortizationSpec::PercentPerPeriod { pct } => {
+            AmortizationSpec::PercentOfOriginalPerPeriod { pct } => {
                 format!("AmortizationSpec.percentPerPeriod({pct})")
             }
             AmortizationSpec::CustomPrincipal { .. } => {

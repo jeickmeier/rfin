@@ -10,10 +10,10 @@ use finstack_valuations::instruments::fixed_income::structured_credit::{
     TrancheCashflows as RustTrancheCashflows, TrancheValuation as RustTrancheValuation,
     WaterfallDistribution as RustWaterfallDistribution,
 };
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyModule;
 use std::collections::HashMap;
+
+use super::utils::to_dict_via_serde;
 
 // ============================================================================
 // HELPERS
@@ -27,16 +27,6 @@ fn dated_flows_to_py(
         .iter()
         .map(|(date, money)| Ok((date_to_py(py, *date)?, PyMoney::new(*money))))
         .collect()
-}
-
-fn to_dict_via_serde<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<Py<PyAny>> {
-    let json_str = serde_json::to_string(value)
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {e}")))?;
-    let json_value: serde_json::Value = serde_json::from_str(&json_str)
-        .map_err(|e| PyValueError::new_err(format!("Failed to parse JSON: {e}")))?;
-    pythonize::pythonize(py, &json_value)
-        .map(|bound| bound.into())
-        .map_err(|e| PyValueError::new_err(format!("Failed to convert to Python: {e}")))
 }
 
 // ============================================================================

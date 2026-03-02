@@ -8,6 +8,122 @@ use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
 use std::sync::Arc;
 
+// ============================================================================
+// FinalPayoffType wrapper
+// ============================================================================
+
+/// Final payoff type for autocallable products.
+///
+/// Construct with classmethods:
+///   - ``FinalPayoffType.capital_protection(floor=1.0)``
+///   - ``FinalPayoffType.participation(rate=1.0)``
+///   - ``FinalPayoffType.knock_in_put(strike=0.7)``
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "FinalPayoffType",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyFinalPayoffType {
+    pub(crate) inner: FinalPayoffType,
+}
+
+impl PyFinalPayoffType {
+    pub(crate) fn new(inner: FinalPayoffType) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyFinalPayoffType {
+    /// Capital protection with a floor level.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, floor)")]
+    fn capital_protection(_cls: &Bound<'_, PyType>, floor: f64) -> Self {
+        Self::new(FinalPayoffType::CapitalProtection { floor })
+    }
+
+    /// Participation in upside with a participation rate.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, rate)")]
+    fn participation(_cls: &Bound<'_, PyType>, rate: f64) -> Self {
+        Self::new(FinalPayoffType::Participation { rate })
+    }
+
+    /// Knock-in put with a strike level.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, strike)")]
+    fn knock_in_put(_cls: &Bound<'_, PyType>, strike: f64) -> Self {
+        Self::new(FinalPayoffType::KnockInPut { strike })
+    }
+
+    /// Payoff type name.
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self.inner {
+            FinalPayoffType::CapitalProtection { .. } => "capital_protection",
+            FinalPayoffType::Participation { .. } => "participation",
+            FinalPayoffType::KnockInPut { .. } => "knock_in_put",
+        }
+    }
+
+    /// Floor level (only for capital_protection).
+    #[getter]
+    fn floor(&self) -> Option<f64> {
+        match self.inner {
+            FinalPayoffType::CapitalProtection { floor } => Some(floor),
+            _ => None,
+        }
+    }
+
+    /// Participation rate (only for participation).
+    #[getter]
+    fn rate(&self) -> Option<f64> {
+        match self.inner {
+            FinalPayoffType::Participation { rate } => Some(rate),
+            _ => None,
+        }
+    }
+
+    /// Strike level (only for knock_in_put).
+    #[getter]
+    fn strike(&self) -> Option<f64> {
+        match self.inner {
+            FinalPayoffType::KnockInPut { strike } => Some(strike),
+            _ => None,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match self.inner {
+            FinalPayoffType::CapitalProtection { floor } => {
+                format!("FinalPayoffType.capital_protection(floor={})", floor)
+            }
+            FinalPayoffType::Participation { rate } => {
+                format!("FinalPayoffType.participation(rate={})", rate)
+            }
+            FinalPayoffType::KnockInPut { strike } => {
+                format!("FinalPayoffType.knock_in_put(strike={})", strike)
+            }
+        }
+    }
+
+    fn __str__(&self) -> &'static str {
+        self.name()
+    }
+}
+
+impl From<PyFinalPayoffType> for FinalPayoffType {
+    fn from(value: PyFinalPayoffType) -> Self {
+        value.inner
+    }
+}
+
+// ============================================================================
+// Autocallable wrapper
+// ============================================================================
+
 /// Autocallable structured product instrument.
 #[pyclass(
     module = "finstack.valuations.instruments",
@@ -105,8 +221,11 @@ impl PyAutocallable {
             coupon_rates.push(item.extract::<f64>().context("coupons")?);
         }
 
-        // Parse final payoff type from dict or string
-        let payoff_type = if let Ok(dict) = final_payoff_type.cast::<pyo3::types::PyDict>() {
+        // Parse final payoff type from PyFinalPayoffType, dict, or string
+        let payoff_type = if let Ok(typed) = final_payoff_type.extract::<PyRef<PyFinalPayoffType>>()
+        {
+            typed.inner
+        } else if let Ok(dict) = final_payoff_type.cast::<pyo3::types::PyDict>() {
             let py_type_val = dict
                 .get_item("type")?
                 .ok_or_else(|| PyValueError::new_err("Missing 'type' key in final_payoff_type"))?;
@@ -309,6 +428,7 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    parent.add_class::<PyFinalPayoffType>()?;
     parent.add_class::<PyAutocallable>()?;
-    Ok(vec!["Autocallable"])
+    Ok(vec!["FinalPayoffType", "Autocallable"])
 }

@@ -9,18 +9,18 @@ from ....core.market_data.fx import FxConversionPolicy
 from ....core.market_data.context import MarketContext
 from ...common import InstrumentType
 
-class AssetType:
+class BasketAssetType:
     """Asset type classification for basket constituents."""
 
-    EQUITY: "AssetType"
-    BOND: "AssetType"
-    ETF: "AssetType"
-    CASH: "AssetType"
-    COMMODITY: "AssetType"
-    DERIVATIVE: "AssetType"
+    EQUITY: "BasketAssetType"
+    BOND: "BasketAssetType"
+    ETF: "BasketAssetType"
+    CASH: "BasketAssetType"
+    COMMODITY: "BasketAssetType"
+    DERIVATIVE: "BasketAssetType"
 
     @classmethod
-    def from_name(cls, name: str) -> "AssetType": ...
+    def from_name(cls, name: str) -> "BasketAssetType": ...
     @property
     def name(self) -> str: ...
     def __repr__(self) -> str: ...

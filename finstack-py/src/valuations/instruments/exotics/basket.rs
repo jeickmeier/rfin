@@ -35,7 +35,7 @@ fn parse_json(value: &Bound<'_, PyAny>) -> PyResult<Basket> {
 /// Asset type classification for basket constituents.
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "AssetType",
+    name = "BasketAssetType",
     frozen,
     from_py_object
 )]
@@ -225,7 +225,8 @@ impl PyBasketPricingConfig {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "BasketConstituent",
-    frozen
+    frozen,
+    from_py_object
 )]
 #[derive(Clone, Debug)]
 pub struct PyBasketConstituent {
@@ -619,7 +620,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyBasketCalculator>()?;
     module.add_class::<PyBasket>()?;
     Ok(vec![
-        "AssetType",
+        "BasketAssetType",
         "BasketPricingConfig",
         "BasketConstituent",
         "BasketCalculator",

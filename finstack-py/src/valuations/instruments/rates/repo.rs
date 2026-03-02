@@ -24,6 +24,69 @@ fn parse_repo_type(label: Option<&str>) -> PyResult<RepoType> {
     }
 }
 
+// ============================================================================
+// RepoType wrapper
+// ============================================================================
+
+/// Repo type (Term, Open, or Overnight).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "RepoType",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyRepoType {
+    pub(crate) inner: RepoType,
+}
+
+impl PyRepoType {
+    pub(crate) const fn new(inner: RepoType) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyRepoType {
+    #[classattr]
+    const TERM: Self = Self::new(RepoType::Term);
+    #[classattr]
+    const OPEN: Self = Self::new(RepoType::Open);
+    #[classattr]
+    const OVERNIGHT: Self = Self::new(RepoType::Overnight);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("RepoType('{}')", self.inner)
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+}
+
+impl From<PyRepoType> for RepoType {
+    fn from(value: PyRepoType) -> Self {
+        value.inner
+    }
+}
+
+// ============================================================================
+// RepoCollateral wrapper
+// ============================================================================
+
 /// Collateral specification helper mirroring `CollateralSpec`.
 #[pyclass(
     module = "finstack.valuations.instruments",
@@ -288,11 +351,19 @@ impl PyRepoBuilder {
     }
 
     #[pyo3(text_signature = "($self, repo_type)")]
-    fn repo_type(
-        mut slf: PyRefMut<'_, Self>,
-        repo_type: Option<String>,
-    ) -> PyResult<PyRefMut<'_, Self>> {
-        slf.repo_type = parse_repo_type(repo_type.as_deref())?;
+    fn repo_type<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        repo_type: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        if let Ok(typed) = repo_type.extract::<PyRef<PyRepoType>>() {
+            slf.repo_type = typed.inner;
+        } else if let Ok(name) = repo_type.extract::<String>() {
+            slf.repo_type = parse_repo_type(Some(name.as_str()))?;
+        } else if repo_type.is_none() {
+            slf.repo_type = RepoType::Term;
+        } else {
+            return Err(PyTypeError::new_err("repo_type() expects RepoType or str"));
+        }
         Ok(slf)
     }
 
@@ -516,8 +587,9 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyRepoType>()?;
     module.add_class::<PyRepoCollateral>()?;
     module.add_class::<PyRepo>()?;
     module.add_class::<PyRepoBuilder>()?;
-    Ok(vec!["RepoCollateral", "Repo", "RepoBuilder"])
+    Ok(vec!["RepoType", "RepoCollateral", "Repo", "RepoBuilder"])
 }

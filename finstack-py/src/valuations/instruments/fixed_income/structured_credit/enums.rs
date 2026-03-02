@@ -15,46 +15,10 @@ use finstack_valuations::instruments::fixed_income::structured_credit::{
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyModule, PyType};
+use pyo3::types::PyType;
 
+use super::utils::{from_dict_json, to_dict_via_serde, value_to_json};
 use crate::core::dates::utils::py_to_date;
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-fn dict_to_json(dict: &Bound<'_, PyDict>) -> PyResult<String> {
-    let py = dict.py();
-    let json = PyModule::import(py, "json")?
-        .call_method1("dumps", (dict,))?
-        .extract::<String>()
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize dict: {e}")))?;
-    Ok(json)
-}
-
-fn value_to_json(value: &Bound<'_, PyAny>) -> PyResult<String> {
-    if let Ok(s) = value.extract::<String>() {
-        return Ok(s);
-    }
-    if let Ok(dict) = value.cast::<PyDict>() {
-        return dict_to_json(dict);
-    }
-    Err(PyValueError::new_err("Expected JSON string or dict"))
-}
-
-fn to_dict_via_serde<T: serde::Serialize>(py: Python<'_>, val: &T) -> PyResult<Py<PyAny>> {
-    let json_str = serde_json::to_string(val)
-        .map_err(|e| PyValueError::new_err(format!("Serialization failed: {e}")))?;
-    let json_mod = PyModule::import(py, "json")?;
-    let obj = json_mod.call_method1("loads", (json_str,))?;
-    Ok(obj.into())
-}
-
-fn from_dict_json<T: serde::de::DeserializeOwned>(data: &Bound<'_, PyAny>) -> PyResult<T> {
-    let json_str = value_to_json(data)?;
-    serde_json::from_str(&json_str)
-        .map_err(|e| PyValueError::new_err(format!("Deserialization failed: {e}")))
-}
 
 // ============================================================================
 // ASSET TYPE
@@ -68,15 +32,15 @@ fn from_dict_json<T: serde::de::DeserializeOwned>(data: &Bound<'_, PyAny>) -> Py
 /// Use the category-specific classmethods and classattrs for construction.
 ///
 /// Examples:
-///     >>> asset = AssetType.first_lien_loan(industry="Technology")
+///     >>> asset = PoolAssetType.first_lien_loan(industry="Technology")
 ///     >>> asset.is_amortizing()
 ///     False
-///     >>> mortgage = AssetType.single_family_mortgage(ltv=0.80)
+///     >>> mortgage = PoolAssetType.single_family_mortgage(ltv=0.80)
 ///     >>> mortgage.is_amortizing()
 ///     True
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "AssetType",
+    name = "PoolAssetType",
     frozen,
     from_py_object
 )]
@@ -1300,7 +1264,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyPaymentCalculation>()?;
 
     Ok(vec![
-        "AssetType",
+        "PoolAssetType",
         "PaymentMode",
         "TriggerConsequence",
         "TrancheBehaviorType",

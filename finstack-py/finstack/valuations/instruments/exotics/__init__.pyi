@@ -4,7 +4,7 @@ from __future__ import annotations
 from .asian_option import AsianOption as AsianOption, AveragingMethod as AveragingMethod
 from .barrier_option import BarrierOption as BarrierOption, BarrierType as BarrierType
 from .basket import (
-    AssetType as AssetType,
+    BasketAssetType as BasketAssetType,
     Basket as Basket,
     BasketCalculator as BasketCalculator,
     BasketConstituent as BasketConstituent,
@@ -14,7 +14,7 @@ from .lookback_option import LookbackOption as LookbackOption, LookbackType as L
 
 __all__ = [
     "AsianOption",
-    "AssetType",
+    "BasketAssetType",
     "AveragingMethod",
     "BarrierOption",
     "BarrierType",

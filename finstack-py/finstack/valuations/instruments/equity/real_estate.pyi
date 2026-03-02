@@ -10,6 +10,16 @@ from ....core.dates.daycount import DayCount
 from ....core.money import Money
 from ...common import InstrumentType
 
+class RealEstateValuationMethod:
+    """Real estate valuation method."""
+
+    DCF: RealEstateValuationMethod
+    DIRECT_CAP: RealEstateValuationMethod
+    @classmethod
+    def from_name(cls, name: str) -> RealEstateValuationMethod: ...
+    @property
+    def name(self) -> str: ...
+
 class RealEstateAsset:
     """Real estate asset valuation instrument.
 

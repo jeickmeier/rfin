@@ -21,6 +21,85 @@ use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
+// ============================================================================
+// InflationCapFloorType wrapper
+// ============================================================================
+
+/// Type of inflation cap/floor (Cap, Floor, Caplet, Floorlet).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "InflationCapFloorType",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyInflationCapFloorType {
+    pub(crate) inner: InflationCapFloorType,
+}
+
+impl PyInflationCapFloorType {
+    pub(crate) const fn new(inner: InflationCapFloorType) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyInflationCapFloorType {
+    #[classattr]
+    const CAP: Self = Self::new(InflationCapFloorType::Cap);
+    #[classattr]
+    const FLOOR: Self = Self::new(InflationCapFloorType::Floor);
+    #[classattr]
+    const CAPLET: Self = Self::new(InflationCapFloorType::Caplet);
+    #[classattr]
+    const FLOORLET: Self = Self::new(InflationCapFloorType::Floorlet);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        let val = Self::parse_option_type_static(name)?;
+        Ok(Self::new(val))
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("InflationCapFloorType('{}')", self.inner)
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+}
+
+impl PyInflationCapFloorType {
+    fn parse_option_type_static(value: &str) -> PyResult<InflationCapFloorType> {
+        match value.to_lowercase().as_str() {
+            "cap" => Ok(InflationCapFloorType::Cap),
+            "floor" => Ok(InflationCapFloorType::Floor),
+            "caplet" => Ok(InflationCapFloorType::Caplet),
+            "floorlet" => Ok(InflationCapFloorType::Floorlet),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown InflationCapFloorType: '{}'. Valid: cap, floor, caplet, floorlet",
+                other
+            ))),
+        }
+    }
+}
+
+impl From<PyInflationCapFloorType> for InflationCapFloorType {
+    fn from(value: PyInflationCapFloorType) -> Self {
+        value.inner
+    }
+}
+
+// ============================================================================
+// InflationCapFloor wrapper
+// ============================================================================
+
 /// Year-on-year inflation cap or floor instrument.
 ///
 /// Prices YoY inflation caps/floors using Black-76 (lognormal) or Bachelier (normal)
@@ -228,14 +307,22 @@ impl PyInflationCapFloorBuilder {
     ///
     /// Parameters
     /// ----------
-    /// option_type : str
-    ///     One of: "cap", "floor", "caplet", "floorlet"
+    /// option_type : str or InflationCapFloorType
+    ///     One of: "cap", "floor", "caplet", "floorlet", or typed enum.
     #[pyo3(text_signature = "($self, option_type)")]
     fn option_type<'py>(
         mut slf: PyRefMut<'py, Self>,
-        option_type: &str,
+        option_type: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.option_type = Self::parse_option_type(option_type)?;
+        if let Ok(typed) = option_type.extract::<PyRef<PyInflationCapFloorType>>() {
+            slf.option_type = typed.inner;
+        } else if let Ok(name) = option_type.extract::<&str>() {
+            slf.option_type = Self::parse_option_type(name)?;
+        } else {
+            return Err(PyTypeError::new_err(
+                "option_type() expects InflationCapFloorType or str",
+            ));
+        }
         Ok(slf)
     }
 
@@ -559,7 +646,12 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyInflationCapFloorType>()?;
     module.add_class::<PyInflationCapFloor>()?;
     module.add_class::<PyInflationCapFloorBuilder>()?;
-    Ok(vec!["InflationCapFloor", "InflationCapFloorBuilder"])
+    Ok(vec![
+        "InflationCapFloorType",
+        "InflationCapFloor",
+        "InflationCapFloorBuilder",
+    ])
 }

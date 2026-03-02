@@ -18,6 +18,75 @@ use pyo3::{Bound, Py};
 use std::fmt;
 use std::sync::Arc;
 
+// ============================================================================
+// RealEstateValuationMethod wrapper
+// ============================================================================
+
+/// Valuation method for real estate assets (Dcf or DirectCap).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "RealEstateValuationMethod",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyRealEstateValuationMethod {
+    pub(crate) inner: RealEstateValuationMethod,
+}
+
+impl PyRealEstateValuationMethod {
+    pub(crate) const fn new(inner: RealEstateValuationMethod) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyRealEstateValuationMethod {
+    #[classattr]
+    const DCF: Self = Self::new(RealEstateValuationMethod::Dcf);
+    #[classattr]
+    const DIRECT_CAP: Self = Self::new(RealEstateValuationMethod::DirectCap);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        match name.to_lowercase().as_str() {
+            "dcf" => Ok(Self::new(RealEstateValuationMethod::Dcf)),
+            "direct_cap" | "directcap" => Ok(Self::new(RealEstateValuationMethod::DirectCap)),
+            other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Unknown RealEstateValuationMethod: '{}'. Valid: dcf, direct_cap",
+                other
+            ))),
+        }
+    }
+
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self.inner {
+            RealEstateValuationMethod::Dcf => "dcf",
+            RealEstateValuationMethod::DirectCap => "direct_cap",
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("RealEstateValuationMethod('{}')", self.name())
+    }
+
+    fn __str__(&self) -> &'static str {
+        self.name()
+    }
+}
+
+impl From<PyRealEstateValuationMethod> for RealEstateValuationMethod {
+    fn from(value: PyRealEstateValuationMethod) -> Self {
+        value.inner
+    }
+}
+
+// ============================================================================
+// RealEstateAsset wrapper
+// ============================================================================
+
 /// Real estate asset valuation instrument.
 ///
 /// Supports DCF (discounted cashflow with explicit NOI schedule) and
@@ -631,6 +700,7 @@ impl fmt::Display for PyRealEstateAsset {
 
 /// Export module items for registration.
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
+    parent.add_class::<PyRealEstateValuationMethod>()?;
     parent.add_class::<PyRealEstateAsset>()?;
     Ok(())
 }

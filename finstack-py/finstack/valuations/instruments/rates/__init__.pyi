@@ -2,20 +2,26 @@
 
 from __future__ import annotations
 from .deposit import Deposit as Deposit, DepositBuilder as DepositBuilder
-from .basis_swap import BasisSwap as BasisSwap, BasisSwapLeg as BasisSwapLeg
+from .basis_swap import BasisSwap as BasisSwap, BasisSwapLeg as BasisSwapLeg, BasisSwapBuilder as BasisSwapBuilder
 from .fra import (
     ForwardRateAgreement as ForwardRateAgreement,
     ForwardRateAgreementBuilder as ForwardRateAgreementBuilder,
 )
-from .cap_floor import InterestRateOption as InterestRateOption
+from .cap_floor import (
+    InterestRateOption as InterestRateOption,
+    InterestRateOptionBuilder as InterestRateOptionBuilder,
+    RateOptionType as RateOptionType,
+)
 from .ir_future import (
     InterestRateFuture as InterestRateFuture,
     InterestRateFutureBuilder as InterestRateFutureBuilder,
 )
 from .irs import (
     InterestRateSwap as InterestRateSwap,
+    InterestRateSwapBuilder as InterestRateSwapBuilder,
     FloatingLegCompounding as FloatingLegCompounding,
     ParRateMethod as ParRateMethod,
+    PayReceive as PayReceive,
 )
 from .swaption import (
     Swaption as Swaption,
@@ -23,6 +29,8 @@ from .swaption import (
     BermudanSchedule as BermudanSchedule,
     BermudanType as BermudanType,
     SABRParameters as SABRParameters,
+    SwaptionSettlement as SwaptionSettlement,
+    SwaptionExercise as SwaptionExercise,
 )
 from .inflation_swap import (
     InflationSwap as InflationSwap,
@@ -33,15 +41,19 @@ from .inflation_swap import (
 from .inflation_cap_floor import (
     InflationCapFloor as InflationCapFloor,
     InflationCapFloorBuilder as InflationCapFloorBuilder,
+    InflationCapFloorType as InflationCapFloorType,
 )
 from .repo import (
     Repo as Repo,
     RepoBuilder as RepoBuilder,
     RepoCollateral as RepoCollateral,
+    RepoType as RepoType,
 )
 from .xccy_swap import (
     CrossCurrencySwap as CrossCurrencySwap,
     CrossCurrencySwapBuilder as CrossCurrencySwapBuilder,
+    LegSide as LegSide,
+    NotionalExchange as NotionalExchange,
 )
 from .cms_option import CmsOption as CmsOption
 from .range_accrual import (
@@ -55,15 +67,23 @@ __all__ = [
     "DepositBuilder",
     "BasisSwap",
     "BasisSwapLeg",
+    "BasisSwapBuilder",
     "ForwardRateAgreement",
     "ForwardRateAgreementBuilder",
     "InterestRateOption",
+    "InterestRateOptionBuilder",
     "InterestRateFuture",
     "InterestRateFutureBuilder",
     "InterestRateSwap",
+    "InterestRateSwapBuilder",
+    "LegSide",
+    "NotionalExchange",
     "FloatingLegCompounding",
     "ParRateMethod",
+    "PayReceive",
     "Swaption",
+    "SwaptionExercise",
+    "SwaptionSettlement",
     "BermudanSwaption",
     "BermudanSchedule",
     "BermudanType",
@@ -74,12 +94,15 @@ __all__ = [
     "YoYInflationSwapBuilder",
     "InflationCapFloor",
     "InflationCapFloorBuilder",
+    "InflationCapFloorType",
     "Repo",
     "RepoBuilder",
     "RepoCollateral",
+    "RepoType",
     "CrossCurrencySwap",
     "CrossCurrencySwapBuilder",
     "CmsOption",
+    "RateOptionType",
     "RangeAccrual",
     "RangeAccrualBuilder",
     "BoundsType",

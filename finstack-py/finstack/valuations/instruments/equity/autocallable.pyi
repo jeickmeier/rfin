@@ -5,6 +5,23 @@ from typing import List, Dict, Any
 from datetime import date
 from ....core.money import Money
 
+class FinalPayoffType:
+    """Final payoff type for autocallable structured products."""
+    @classmethod
+    def capital_protection(cls, floor: float) -> FinalPayoffType: ...
+    @classmethod
+    def participation(cls, rate: float) -> FinalPayoffType: ...
+    @classmethod
+    def knock_in_put(cls, strike: float) -> FinalPayoffType: ...
+    @property
+    def floor(self) -> float | None: ...
+    @property
+    def rate(self) -> float | None: ...
+    @property
+    def strike(self) -> float | None: ...
+    @property
+    def name(self) -> str: ...
+
 class Autocallable:
     """Autocallable structured product with early redemption features.
 
@@ -77,7 +94,7 @@ class Autocallable:
         autocall_barriers: List[float],
         coupons: List[float],
         final_barrier: float,
-        final_payoff_type: str | Dict[str, Any],
+        final_payoff_type: str | FinalPayoffType | Dict[str, Any],
         participation_rate: float,
         cap_level: float,
         notional: Money,

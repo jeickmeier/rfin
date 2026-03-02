@@ -234,11 +234,27 @@ impl PyInterestRateFutureBuilder {
     }
 
     #[pyo3(text_signature = "($self, position)")]
-    fn position(
-        mut slf: PyRefMut<'_, Self>,
-        position: Option<String>,
-    ) -> PyResult<PyRefMut<'_, Self>> {
-        slf.position = parse_position(position.as_deref())?;
+    fn position<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        position: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        if let Ok(name) = position.extract::<String>() {
+            slf.position = parse_position(Some(name.as_str()))?;
+        } else if position.is_none() {
+            slf.position = Position::Long;
+        } else {
+            // Try extracting as the equity FuturePosition type for convenience
+            let repr = position.str()?.to_string();
+            match repr.to_lowercase().as_str() {
+                "long" => slf.position = Position::Long,
+                "short" => slf.position = Position::Short,
+                _ => {
+                    return Err(PyTypeError::new_err(
+                        "position() expects 'long', 'short', or FuturePosition",
+                    ))
+                }
+            }
+        }
         Ok(slf)
     }
 

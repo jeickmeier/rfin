@@ -34,6 +34,122 @@ fn parse_exercise(label: Option<&str>) -> PyResult<SwaptionExercise> {
 }
 
 // ============================================================================
+// SwaptionSettlement wrapper
+// ============================================================================
+
+/// Settlement type for swaptions (Physical or Cash).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "SwaptionSettlement",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PySwaptionSettlement {
+    pub(crate) inner: SwaptionSettlement,
+}
+
+impl PySwaptionSettlement {
+    pub(crate) const fn new(inner: SwaptionSettlement) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PySwaptionSettlement {
+    #[classattr]
+    const PHYSICAL: Self = Self::new(SwaptionSettlement::Physical);
+    #[classattr]
+    const CASH: Self = Self::new(SwaptionSettlement::Cash);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("SwaptionSettlement('{}')", self.inner)
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+}
+
+impl From<PySwaptionSettlement> for SwaptionSettlement {
+    fn from(value: PySwaptionSettlement) -> Self {
+        value.inner
+    }
+}
+
+// ============================================================================
+// SwaptionExercise wrapper
+// ============================================================================
+
+/// Exercise style for swaptions (European, Bermudan, or American).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "SwaptionExercise",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PySwaptionExercise {
+    pub(crate) inner: SwaptionExercise,
+}
+
+impl PySwaptionExercise {
+    pub(crate) const fn new(inner: SwaptionExercise) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PySwaptionExercise {
+    #[classattr]
+    const EUROPEAN: Self = Self::new(SwaptionExercise::European);
+    #[classattr]
+    const BERMUDAN: Self = Self::new(SwaptionExercise::Bermudan);
+    #[classattr]
+    const AMERICAN: Self = Self::new(SwaptionExercise::American);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("SwaptionExercise('{}')", self.inner)
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+}
+
+impl From<PySwaptionExercise> for SwaptionExercise {
+    fn from(value: PySwaptionExercise) -> Self {
+        value.inner
+    }
+}
+
+// ============================================================================
 // BermudanType wrapper
 // ============================================================================
 
@@ -960,12 +1076,16 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PySwaptionSettlement>()?;
+    module.add_class::<PySwaptionExercise>()?;
     module.add_class::<PySwaption>()?;
     module.add_class::<PyBermudanType>()?;
     module.add_class::<PySABRParameters>()?;
     module.add_class::<PyBermudanSchedule>()?;
     module.add_class::<PyBermudanSwaption>()?;
     Ok(vec![
+        "SwaptionSettlement",
+        "SwaptionExercise",
         "Swaption",
         "BermudanType",
         "SABRParameters",

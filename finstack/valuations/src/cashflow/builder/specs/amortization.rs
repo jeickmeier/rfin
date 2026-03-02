@@ -87,7 +87,7 @@ impl Notional {
     /// - `LinearTo`: Currency must match initial; final_notional must not exceed initial.
     /// - `StepRemaining`: Dates must be strictly increasing (sorted, no duplicates);
     ///   currencies must match; remaining amounts must be non-increasing.
-    /// - `PercentPerPeriod`: Percentage must be finite and in range `[0.0, 1.0]`.
+    /// - `PercentOfOriginalPerPeriod`: Percentage must be finite and in range `[0.0, 1.0]`.
     /// - `CustomPrincipal`: All currencies must match initial.
     ///
     /// # Errors

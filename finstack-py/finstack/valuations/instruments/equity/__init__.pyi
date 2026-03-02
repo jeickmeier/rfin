@@ -12,13 +12,15 @@ from .equity_index_future import (
 from .vol_index_future import (
     VolatilityIndexFuture as VolatilityIndexFuture,
     VolatilityIndexFutureBuilder as VolatilityIndexFutureBuilder,
+    VolIndexContractSpecs as VolIndexContractSpecs,
 )
 from .vol_index_option import (
     VolatilityIndexOption as VolatilityIndexOption,
     VolatilityIndexOptionBuilder as VolatilityIndexOptionBuilder,
+    VolIndexOptionSpecs as VolIndexOptionSpecs,
 )
 from .cliquet_option import CliquetOption as CliquetOption
-from .autocallable import Autocallable as Autocallable
+from .autocallable import Autocallable as Autocallable, FinalPayoffType as FinalPayoffType
 from .variance_swap import (
     VarianceSwap as VarianceSwap,
     VarianceSwapBuilder as VarianceSwapBuilder,
@@ -35,9 +37,9 @@ from .trs import (
     EquityTotalReturnSwap as EquityTotalReturnSwap,
 )
 from .private_markets_fund import PrivateMarketsFund as PrivateMarketsFund
-from .real_estate import RealEstateAsset as RealEstateAsset
+from .real_estate import RealEstateAsset as RealEstateAsset, RealEstateValuationMethod as RealEstateValuationMethod
 from .levered_real_estate_equity import LeveredRealEstateEquity as LeveredRealEstateEquity
-from .dcf import evaluate_dcf as evaluate_dcf
+from .dcf import evaluate_dcf as evaluate_dcf, TerminalValueSpec as TerminalValueSpec
 
 __all__ = [
     "Equity",
@@ -56,8 +58,11 @@ __all__ = [
     "Autocallable",
     "VarianceSwap",
     "VarianceSwapBuilder",
+    "VolIndexContractSpecs",
+    "VolIndexOptionSpecs",
     "VarianceDirection",
     "RealizedVarianceMethod",
+    "TerminalValueSpec",
     "TrsSide",
     "TrsFinancingLegSpec",
     "TrsScheduleSpec",
@@ -65,8 +70,10 @@ __all__ = [
     "IndexUnderlying",
     "EquityTotalReturnSwapBuilder",
     "EquityTotalReturnSwap",
+    "FinalPayoffType",
     "PrivateMarketsFund",
     "RealEstateAsset",
+    "RealEstateValuationMethod",
     "LeveredRealEstateEquity",
     "evaluate_dcf",
 ]

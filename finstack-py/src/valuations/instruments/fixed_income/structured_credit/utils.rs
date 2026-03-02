@@ -12,7 +12,59 @@ use finstack_valuations::instruments::fixed_income::structured_credit::{
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyModule;
+use pyo3::types::{PyDict, PyModule};
+
+// ============================================================================
+// SHARED HELPERS
+// ============================================================================
+
+/// Serialize a Rust value to a Python dict using `pythonize`.
+///
+/// Preferred over the `json.loads` round-trip because it converts
+/// directly from `serde_json::Value` to Python objects without
+/// an extra Python module import.
+pub(crate) fn to_dict_via_serde<T: serde::Serialize>(
+    py: Python<'_>,
+    value: &T,
+) -> PyResult<Py<PyAny>> {
+    let json_str = serde_json::to_string(value)
+        .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {e}")))?;
+    let json_value: serde_json::Value = serde_json::from_str(&json_str)
+        .map_err(|e| PyValueError::new_err(format!("Failed to parse JSON: {e}")))?;
+    pythonize::pythonize(py, &json_value)
+        .map(|bound| bound.into())
+        .map_err(|e| PyValueError::new_err(format!("Failed to convert to Python: {e}")))
+}
+
+/// Convert a Python `dict` to a JSON string via `json.dumps`.
+pub(crate) fn dict_to_json(dict: &Bound<'_, PyDict>) -> PyResult<String> {
+    let py = dict.py();
+    let json = PyModule::import(py, "json")?
+        .call_method1("dumps", (dict,))?
+        .extract::<String>()
+        .map_err(|e| PyValueError::new_err(format!("Failed to serialize dict: {e}")))?;
+    Ok(json)
+}
+
+/// Accept either a JSON string or a Python dict and return a JSON string.
+pub(crate) fn value_to_json(value: &Bound<'_, PyAny>) -> PyResult<String> {
+    if let Ok(s) = value.extract::<String>() {
+        return Ok(s);
+    }
+    if let Ok(dict) = value.cast::<PyDict>() {
+        return dict_to_json(dict);
+    }
+    Err(PyValueError::new_err("Expected JSON string or dict"))
+}
+
+/// Deserialize a Python dict or JSON string into a Rust type.
+pub(crate) fn from_dict_json<T: serde::de::DeserializeOwned>(
+    data: &Bound<'_, PyAny>,
+) -> PyResult<T> {
+    let json_str = value_to_json(data)?;
+    serde_json::from_str(&json_str)
+        .map_err(|e| PyValueError::new_err(format!("Deserialization failed: {e}")))
+}
 
 // ============================================================================
 // RATE CONVERSIONS

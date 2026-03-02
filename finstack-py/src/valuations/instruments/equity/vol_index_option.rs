@@ -401,6 +401,29 @@ impl PyVolatilityIndexOption {
         self.inner.vol_of_vol_surface_id.as_str().to_string()
     }
 
+    /// Contract multiplier.
+    #[getter]
+    fn multiplier(&self) -> f64 {
+        self.inner.contract_specs.multiplier
+    }
+
+    /// Volatility index identifier.
+    #[getter]
+    fn index_id_spec(&self) -> &str {
+        &self.inner.contract_specs.index_id
+    }
+
+    /// Contract specifications as a structured object.
+    #[getter]
+    fn contract_specs(&self) -> PyVolIndexOptionSpecs {
+        PyVolIndexOptionSpecs {
+            inner: VolIndexOptionSpecs {
+                multiplier: self.inner.contract_specs.multiplier,
+                index_id: self.inner.contract_specs.index_id.clone(),
+            },
+        }
+    }
+
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::VolatilityIndexOption)
@@ -550,14 +573,74 @@ impl fmt::Display for PyVolatilityIndexOption {
     }
 }
 
+// ============================================================================
+// OPTION SPECS WRAPPER
+// ============================================================================
+
+/// Volatility index option specifications.
+///
+/// Parameters
+/// ----------
+/// multiplier : float
+///     Contract multiplier (e.g., 100 for VIX options).
+/// index_id : str
+///     Volatility index identifier (e.g., "VIX").
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "VolIndexOptionSpecs",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyVolIndexOptionSpecs {
+    pub(crate) inner: VolIndexOptionSpecs,
+}
+
+#[pymethods]
+impl PyVolIndexOptionSpecs {
+    #[new]
+    #[pyo3(text_signature = "(multiplier, index_id)")]
+    fn new_py(multiplier: f64, index_id: String) -> Self {
+        Self {
+            inner: VolIndexOptionSpecs {
+                multiplier,
+                index_id,
+            },
+        }
+    }
+
+    #[getter]
+    fn multiplier(&self) -> f64 {
+        self.inner.multiplier
+    }
+
+    #[getter]
+    fn index_id(&self) -> &str {
+        &self.inner.index_id
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VolIndexOptionSpecs(multiplier={}, index_id='{}')",
+            self.inner.multiplier, self.inner.index_id
+        )
+    }
+
+    fn __str__(&self) -> String {
+        self.__repr__()
+    }
+}
+
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyVolatilityIndexOption>()?;
     module.add_class::<PyVolatilityIndexOptionBuilder>()?;
+    module.add_class::<PyVolIndexOptionSpecs>()?;
     Ok(vec![
         "VolatilityIndexOption",
         "VolatilityIndexOptionBuilder",
+        "VolIndexOptionSpecs",
     ])
 }

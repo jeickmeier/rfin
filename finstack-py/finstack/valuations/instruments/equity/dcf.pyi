@@ -5,6 +5,31 @@ from typing import Dict, Any
 from ....statements.types import FinancialModelSpec
 from ....core.money import Money
 
+class TerminalValueSpec:
+    """Terminal value specification for DCF analysis."""
+    @classmethod
+    def gordon_growth(cls, growth_rate: float) -> TerminalValueSpec: ...
+    @classmethod
+    def exit_multiple(cls, terminal_metric: float, multiple: float) -> TerminalValueSpec: ...
+    @classmethod
+    def h_model(
+        cls, high_growth_rate: float, stable_growth_rate: float, half_life_years: float
+    ) -> TerminalValueSpec: ...
+    @property
+    def growth_rate(self) -> float | None: ...
+    @property
+    def terminal_metric(self) -> float | None: ...
+    @property
+    def multiple(self) -> float | None: ...
+    @property
+    def high_growth_rate(self) -> float | None: ...
+    @property
+    def stable_growth_rate(self) -> float | None: ...
+    @property
+    def half_life_years(self) -> float | None: ...
+    @property
+    def name(self) -> str: ...
+
 def evaluate_dcf(
     model: FinancialModelSpec,
     wacc: float = 0.10,
@@ -13,7 +38,7 @@ def evaluate_dcf(
     net_debt_override: float | None = None,
     *,
     mid_year_convention: bool = False,
-    terminal_type: str = "gordon_growth",
+    terminal_type: str | TerminalValueSpec = "gordon_growth",
     terminal_metric: float | None = None,
     terminal_multiple: float | None = None,
     high_growth_rate: float | None = None,

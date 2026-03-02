@@ -26,6 +26,146 @@ use rust_decimal::Decimal;
 use std::fmt;
 use std::sync::Arc;
 
+// ============================================================================
+// LegSide wrapper
+// ============================================================================
+
+/// Side of a swap leg (Pay or Receive).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "LegSide",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyLegSide {
+    pub(crate) inner: LegSide,
+}
+
+impl PyLegSide {
+    pub(crate) const fn new(inner: LegSide) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyLegSide {
+    #[classattr]
+    const PAY: Self = Self::new(LegSide::Pay);
+    #[classattr]
+    const RECEIVE: Self = Self::new(LegSide::Receive);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        match name.to_lowercase().as_str() {
+            "pay" => Ok(Self::new(LegSide::Pay)),
+            "receive" | "rec" => Ok(Self::new(LegSide::Receive)),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown LegSide: '{}'. Valid: pay, receive",
+                other
+            ))),
+        }
+    }
+
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self.inner {
+            LegSide::Pay => "pay",
+            LegSide::Receive => "receive",
+            _ => unreachable!("unknown LegSide variant"),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("LegSide('{}')", self.name())
+    }
+
+    fn __str__(&self) -> &'static str {
+        self.name()
+    }
+}
+
+impl From<PyLegSide> for LegSide {
+    fn from(value: PyLegSide) -> Self {
+        value.inner
+    }
+}
+
+// ============================================================================
+// NotionalExchange wrapper
+// ============================================================================
+
+/// Notional exchange convention for cross-currency swaps.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "NotionalExchange",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyNotionalExchange {
+    pub(crate) inner: NotionalExchange,
+}
+
+impl PyNotionalExchange {
+    pub(crate) const fn new(inner: NotionalExchange) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyNotionalExchange {
+    #[classattr]
+    const NONE: Self = Self::new(NotionalExchange::None);
+    #[classattr]
+    const FINAL: Self = Self::new(NotionalExchange::Final);
+    #[classattr]
+    const INITIAL_AND_FINAL: Self = Self::new(NotionalExchange::InitialAndFinal);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        match name.to_lowercase().as_str() {
+            "none" => Ok(Self::new(NotionalExchange::None)),
+            "final" => Ok(Self::new(NotionalExchange::Final)),
+            "initial_and_final" | "both" => Ok(Self::new(NotionalExchange::InitialAndFinal)),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown NotionalExchange: '{}'. Valid: none, final, initial_and_final",
+                other
+            ))),
+        }
+    }
+
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self.inner {
+            NotionalExchange::None => "none",
+            NotionalExchange::Final => "final",
+            NotionalExchange::InitialAndFinal => "initial_and_final",
+            _ => unreachable!("unknown NotionalExchange variant"),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("NotionalExchange('{}')", self.name())
+    }
+
+    fn __str__(&self) -> &'static str {
+        self.name()
+    }
+}
+
+impl From<PyNotionalExchange> for NotionalExchange {
+    fn from(value: PyNotionalExchange) -> Self {
+        value.inner
+    }
+}
+
+// ============================================================================
+// CrossCurrencySwap wrapper
+// ============================================================================
+
 /// Cross-currency floating-for-floating swap.
 ///
 /// Swaps floating cashflows in two currencies with optional notional exchange.
@@ -213,9 +353,17 @@ impl PyCrossCurrencySwapBuilder {
     #[pyo3(text_signature = "($self, exchange)")]
     fn notional_exchange<'py>(
         mut slf: PyRefMut<'py, Self>,
-        exchange: &str,
+        exchange: &Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.notional_exchange = Self::parse_notional_exchange(exchange)?;
+        if let Ok(typed) = exchange.extract::<pyo3::PyRef<PyNotionalExchange>>() {
+            slf.notional_exchange = typed.inner;
+        } else if let Ok(name) = exchange.extract::<&str>() {
+            slf.notional_exchange = Self::parse_notional_exchange(name)?;
+        } else {
+            return Err(PyValueError::new_err(
+                "notional_exchange() expects NotionalExchange or str",
+            ));
+        }
         Ok(slf)
     }
 
@@ -263,8 +411,17 @@ impl PyCrossCurrencySwapBuilder {
     }
 
     #[pyo3(text_signature = "($self, side)")]
-    fn leg1_side<'py>(mut slf: PyRefMut<'py, Self>, side: &str) -> PyResult<PyRefMut<'py, Self>> {
-        slf.leg1_side = Self::parse_leg_side(side)?;
+    fn leg1_side<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        side: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        if let Ok(typed) = side.extract::<pyo3::PyRef<PyLegSide>>() {
+            slf.leg1_side = typed.inner;
+        } else if let Ok(name) = side.extract::<&str>() {
+            slf.leg1_side = Self::parse_leg_side(name)?;
+        } else {
+            return Err(PyValueError::new_err("leg1_side() expects LegSide or str"));
+        }
         Ok(slf)
     }
 
@@ -384,8 +541,17 @@ impl PyCrossCurrencySwapBuilder {
     }
 
     #[pyo3(text_signature = "($self, side)")]
-    fn leg2_side<'py>(mut slf: PyRefMut<'py, Self>, side: &str) -> PyResult<PyRefMut<'py, Self>> {
-        slf.leg2_side = Self::parse_leg_side(side)?;
+    fn leg2_side<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        side: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        if let Ok(typed) = side.extract::<pyo3::PyRef<PyLegSide>>() {
+            slf.leg2_side = typed.inner;
+        } else if let Ok(name) = side.extract::<&str>() {
+            slf.leg2_side = Self::parse_leg_side(name)?;
+        } else {
+            return Err(PyValueError::new_err("leg2_side() expects LegSide or str"));
+        }
         Ok(slf)
     }
 
@@ -627,7 +793,14 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyLegSide>()?;
+    module.add_class::<PyNotionalExchange>()?;
     module.add_class::<PyCrossCurrencySwap>()?;
     module.add_class::<PyCrossCurrencySwapBuilder>()?;
-    Ok(vec!["CrossCurrencySwap", "CrossCurrencySwapBuilder"])
+    Ok(vec![
+        "LegSide",
+        "NotionalExchange",
+        "CrossCurrencySwap",
+        "CrossCurrencySwapBuilder",
+    ])
 }

@@ -8,6 +8,27 @@ from ....core.dates.daycount import DayCount
 from ...common import InstrumentType
 from ...common.parameters import VolatilityModel, CashSettlementMethod
 
+class SwaptionSettlement:
+    """Swaption settlement type."""
+
+    PHYSICAL: SwaptionSettlement
+    CASH: SwaptionSettlement
+    @classmethod
+    def from_name(cls, name: str) -> SwaptionSettlement: ...
+    @property
+    def name(self) -> str: ...
+
+class SwaptionExercise:
+    """Swaption exercise style."""
+
+    EUROPEAN: SwaptionExercise
+    BERMUDAN: SwaptionExercise
+    AMERICAN: SwaptionExercise
+    @classmethod
+    def from_name(cls, name: str) -> SwaptionExercise: ...
+    @property
+    def name(self) -> str: ...
+
 class BermudanType:
     """Bermudan swaption exercise schedule type."""
 

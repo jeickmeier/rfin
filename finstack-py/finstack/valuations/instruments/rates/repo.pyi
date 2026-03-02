@@ -8,6 +8,17 @@ from ....core.dates.daycount import DayCount
 from ....core.dates.calendar import BusinessDayConvention
 from ...common import InstrumentType
 
+class RepoType:
+    """Repo type classification."""
+
+    TERM: RepoType
+    OPEN: RepoType
+    OVERNIGHT: RepoType
+    @classmethod
+    def from_name(cls, name: str) -> RepoType: ...
+    @property
+    def name(self) -> str: ...
+
 class RepoCollateral:
     """Collateral specification for Repo."""
     def __init__(
@@ -42,7 +53,7 @@ class RepoBuilder:
     def disc_id(self, curve_id: str) -> RepoBuilder:
         """Deprecated: use :meth:`discount_curve` instead."""
         ...
-    def repo_type(self, repo_type: str | None = ...) -> RepoBuilder: ...
+    def repo_type(self, repo_type: str | RepoType | None = ...) -> RepoBuilder: ...
     def haircut(self, haircut: float) -> RepoBuilder: ...
     def day_count(self, day_count: DayCount | str) -> RepoBuilder: ...
     def business_day_convention(self, business_day_convention: BusinessDayConvention | str) -> RepoBuilder: ...

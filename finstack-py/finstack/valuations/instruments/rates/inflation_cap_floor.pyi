@@ -10,11 +10,23 @@ from ....core.dates.schedule import Frequency, StubKind
 from ....core.money import Money
 from ...common import InstrumentType
 
+class InflationCapFloorType:
+    """Inflation cap/floor option type."""
+
+    CAP: InflationCapFloorType
+    FLOOR: InflationCapFloorType
+    CAPLET: InflationCapFloorType
+    FLOORLET: InflationCapFloorType
+    @classmethod
+    def from_name(cls, name: str) -> InflationCapFloorType: ...
+    @property
+    def name(self) -> str: ...
+
 class InflationCapFloorBuilder:
     """Fluent builder returned by :meth:`InflationCapFloor.builder`."""
 
     def __init__(self, instrument_id: str) -> None: ...
-    def option_type(self, option_type: str) -> InflationCapFloorBuilder:
+    def option_type(self, option_type: str | InflationCapFloorType) -> InflationCapFloorBuilder:
         """Set option type ('cap', 'floor', 'caplet', or 'floorlet')."""
         ...
     def notional(self, amount: float, currency: str) -> InflationCapFloorBuilder:
