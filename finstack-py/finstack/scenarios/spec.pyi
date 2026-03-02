@@ -91,6 +91,15 @@ class RateBindingSpec:
     def from_legacy(cls, node_id: str, curve_id: str) -> RateBindingSpec:
         """Build from a legacy ``(node_id, curve_id)`` mapping using 1Y continuous compounding."""
 
+    @classmethod
+    def map_from_legacy(cls, legacy: Dict[str, str]) -> Dict[str, RateBindingSpec]:
+        """Convert a legacy ``{node_id: curve_id}`` dict to detailed binding specs.
+
+        Each entry is converted with 1Y tenor, continuous compounding,
+        and no day-count override.
+        """
+        ...
+
     def __repr__(self) -> str: ...
 
 class OperationSpec:

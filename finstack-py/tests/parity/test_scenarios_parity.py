@@ -602,5 +602,40 @@ class TestValidateParity:
             spec.validate()
 
 
+class TestRateBindingSpecParity:
+    """Test RateBindingSpec parity with Rust."""
+
+    def test_map_from_legacy(self) -> None:
+        """Test bulk conversion from legacy dict[str, str] bindings."""
+        from finstack.scenarios import Compounding, RateBindingSpec
+
+        legacy = {
+            "InterestRate": "USD_SOFR",
+            "DiscountRate": "EUR_ESTR",
+        }
+
+        result = RateBindingSpec.map_from_legacy(legacy)
+
+        assert isinstance(result, dict)
+        assert len(result) == 2
+        assert "InterestRate" in result
+        assert "DiscountRate" in result
+
+        binding = result["InterestRate"]
+        assert isinstance(binding, RateBindingSpec)
+        assert binding.node_id == "InterestRate"
+        assert binding.curve_id == "USD_SOFR"
+        assert binding.tenor == "1Y"
+        assert binding.compounding == Compounding.Continuous
+        assert binding.day_count is None
+
+    def test_map_from_legacy_empty(self) -> None:
+        """Test map_from_legacy with empty dict."""
+        from finstack.scenarios import RateBindingSpec
+
+        result = RateBindingSpec.map_from_legacy({})
+        assert result == {}
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
