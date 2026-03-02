@@ -5,15 +5,30 @@ from typing import Dict, Any
 from finstack.core.money import Money
 from finstack.core.market_data.context import MarketContext
 from finstack.core.config import FinstackConfig
+from finstack.valuations.metrics import MetricId
 from .portfolio import Portfolio
 
 class PortfolioValuationOptions:
     """Options controlling portfolio valuation behaviour."""
 
-    def __init__(self, *, strict_risk: bool = False) -> None: ...
+    def __init__(
+        self,
+        *,
+        strict_risk: bool = False,
+        additional_metrics: list[MetricId] | None = None,
+        replace_standard_metrics: bool = False,
+    ) -> None: ...
     @property
     def strict_risk(self) -> bool:
         """When True, fail if requested risk metrics cannot be computed for a position."""
+        ...
+    @property
+    def additional_metrics(self) -> list[MetricId] | None:
+        """Extra metrics to compute beyond the standard set, or None."""
+        ...
+    @property
+    def replace_standard_metrics(self) -> bool:
+        """When True, compute only additional_metrics instead of appending to the standard set."""
         ...
 
 class PositionValue:

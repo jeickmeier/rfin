@@ -5,6 +5,7 @@ use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::PyMoney;
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::positions::extract_portfolio;
+use crate::valuations::metrics::ids::PyMetricId;
 use finstack_portfolio::valuation::{
     value_portfolio, value_portfolio_with_options, PortfolioValuation, PortfolioValuationOptions,
     PositionValue,
@@ -34,16 +35,24 @@ impl PyPortfolioValuationOptions {
 #[pymethods]
 impl PyPortfolioValuationOptions {
     #[new]
-    #[pyo3(signature = (*, strict_risk=false))]
+    #[pyo3(signature = (*, strict_risk=false, additional_metrics=None, replace_standard_metrics=false))]
     /// Create valuation options.
     ///
     /// Args:
     ///     strict_risk: When true, fail if risk metrics cannot be computed.
-    fn new_py(strict_risk: bool) -> Self {
+    ///     additional_metrics: Extra metrics to compute beyond the standard set.
+    ///     replace_standard_metrics: When true, compute only ``additional_metrics``
+    ///         instead of appending them to the standard set.
+    fn new_py(
+        strict_risk: bool,
+        additional_metrics: Option<Vec<PyMetricId>>,
+        replace_standard_metrics: bool,
+    ) -> Self {
+        let metrics = additional_metrics.map(|ids| ids.into_iter().map(|m| m.inner).collect());
         Self::new(PortfolioValuationOptions {
             strict_risk,
-            additional_metrics: None,
-            replace_standard_metrics: false,
+            additional_metrics: metrics,
+            replace_standard_metrics,
         })
     }
 
@@ -52,10 +61,30 @@ impl PyPortfolioValuationOptions {
         self.inner.strict_risk
     }
 
+    #[getter]
+    fn additional_metrics(&self) -> Option<Vec<PyMetricId>> {
+        self.inner
+            .additional_metrics
+            .as_ref()
+            .map(|ids| ids.iter().map(|id| PyMetricId::new(id.clone())).collect())
+    }
+
+    #[getter]
+    fn replace_standard_metrics(&self) -> bool {
+        self.inner.replace_standard_metrics
+    }
+
     fn __repr__(&self) -> String {
+        let metrics_str = match &self.inner.additional_metrics {
+            Some(ids) => {
+                let names: Vec<&str> = ids.iter().map(|id| id.as_str()).collect();
+                format!("Some({:?})", names)
+            }
+            None => "None".to_string(),
+        };
         format!(
-            "PortfolioValuationOptions(strict_risk={})",
-            self.inner.strict_risk
+            "PortfolioValuationOptions(strict_risk={}, additional_metrics={}, replace_standard_metrics={})",
+            self.inner.strict_risk, metrics_str, self.inner.replace_standard_metrics
         )
     }
 }

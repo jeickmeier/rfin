@@ -724,5 +724,43 @@ class TestScenarioParity:
         assert isinstance(report, ApplicationReport)
 
 
+class TestValuationOptionsParity:
+    """Test PortfolioValuationOptions fields match Rust API."""
+
+    def test_additional_metrics(self) -> None:
+        from finstack.valuations.metrics import MetricId
+
+        from finstack.portfolio import PortfolioValuationOptions
+
+        opts = PortfolioValuationOptions(
+            additional_metrics=[
+                MetricId.from_name("duration_modified"),
+                MetricId.from_name("convexity"),
+            ]
+        )
+        assert opts.additional_metrics is not None
+        assert len(opts.additional_metrics) == 2
+        assert opts.replace_standard_metrics is False
+
+    def test_replace_standard_metrics(self) -> None:
+        from finstack.valuations.metrics import MetricId
+
+        from finstack.portfolio import PortfolioValuationOptions
+
+        opts = PortfolioValuationOptions(
+            additional_metrics=[MetricId.from_name("ytm")],
+            replace_standard_metrics=True,
+        )
+        assert opts.replace_standard_metrics is True
+
+    def test_defaults_unchanged(self) -> None:
+        from finstack.portfolio import PortfolioValuationOptions
+
+        opts = PortfolioValuationOptions()
+        assert opts.strict_risk is False
+        assert opts.additional_metrics is None
+        assert opts.replace_standard_metrics is False
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
