@@ -1,6 +1,6 @@
 //! Python bindings for the `Performance` analytics struct.
 //!
-//! Accepts Polars DataFrames on the Python side, extracts columns to Rust
+//! Accepts Polars or pandas DataFrames on the Python side, extracts columns to Rust
 //! slices, delegates to `finstack_core::analytics::Performance`, and packs
 //! results back into Polars DataFrames or Python dicts.
 
@@ -15,6 +15,43 @@ use pyo3::types::{PyDict, PyList};
 use pyo3_polars::PyDataFrame;
 
 type ExtractedData = (Vec<finstack_core::dates::Date>, Vec<Vec<f64>>, Vec<String>);
+
+/// Convert a Python object (pandas or polars DataFrame) to a Polars DataFrame.
+fn py_to_polars_df(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<DataFrame> {
+    // Try extracting as PyDataFrame first (Polars path)
+    if let Ok(pdf) = obj.extract::<PyDataFrame>() {
+        return Ok(pdf.0);
+    }
+
+    // Check if it's a pandas DataFrame by looking for the `reset_index` method
+    if obj.hasattr("reset_index")? {
+        let pl = py.import("polars")?;
+        let reset = obj.call_method0("reset_index")?;
+        let polars_df = pl.call_method1("from_pandas", (&reset,))?;
+        let pdf: PyDataFrame = polars_df.extract()?;
+        let mut df = pdf.0;
+
+        // pandas DatetimeIndex becomes Datetime in polars; cast to Date so
+        // extract_dates_and_prices can handle it.
+        if let Some(col) = df.columns().first() {
+            if matches!(col.dtype(), DataType::Datetime(_, _)) {
+                let name = col.name().clone();
+                let casted = col.cast(&DataType::Date).map_err(|e| {
+                    PyTypeError::new_err(format!("Cannot cast datetime column to Date: {e}"))
+                })?;
+                df.replace(&name, casted)
+                    .map_err(|e| PyValueError::new_err(format!("Cannot replace column: {e}")))?;
+            }
+        }
+
+        return Ok(df);
+    }
+
+    Err(PyTypeError::new_err(format!(
+        "Expected a polars.DataFrame or pandas.DataFrame, got {}",
+        obj.get_type().name()?
+    )))
+}
 
 fn parse_freq(s: &str) -> PyResult<PeriodKind> {
     s.parse::<PeriodKind>().map_err(|_| {
@@ -164,14 +201,15 @@ fn scalars_i64_to_df(tickers: &[String], values: &[i64], metric_name: &str) -> P
 
 /// Performance analytics engine.
 ///
-/// Construct from a Polars DataFrame with a Date column followed by price columns
-/// (one per ticker). Computes returns, drawdowns, and benchmark-relative metrics.
+/// Construct from a Polars or pandas DataFrame. For Polars, the first column
+/// must be a Date column followed by price columns (one per ticker). For pandas,
+/// the index should contain dates and each column should be a price series.
 ///
 /// Parameters
 /// ----------
-/// prices : polars.DataFrame
-///     DataFrame with ``Date`` column as the first column and price series
-///     as subsequent columns (one per ticker).
+/// prices : polars.DataFrame | pandas.DataFrame
+///     For polars: first column is Date, remaining are price series.
+///     For pandas: index is dates, columns are price series.
 /// benchmark_ticker : str, optional
 ///     Name of the benchmark column. Defaults to the first price column.
 /// freq : str
@@ -208,13 +246,15 @@ impl PyPerformance {
     #[new]
     #[pyo3(signature = (prices, benchmark_ticker=None, freq="daily", log_returns=false))]
     fn new(
-        prices: PyDataFrame,
+        py: Python<'_>,
+        prices: &Bound<'_, PyAny>,
         benchmark_ticker: Option<&str>,
         freq: &str,
         log_returns: bool,
     ) -> PyResult<Self> {
         let period_kind = parse_freq(freq)?;
-        let (dates, price_cols, tickers) = extract_dates_and_prices(&prices.0)?;
+        let df = py_to_polars_df(py, prices)?;
+        let (dates, price_cols, tickers) = extract_dates_and_prices(&df)?;
         let inner = Performance::new(
             dates,
             price_cols,
