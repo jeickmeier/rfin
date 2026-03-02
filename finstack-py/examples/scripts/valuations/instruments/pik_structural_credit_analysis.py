@@ -11,6 +11,7 @@ Usage:
 
 from __future__ import annotations
 
+import math
 from datetime import date, timedelta
 
 from finstack import Money
@@ -188,10 +189,98 @@ def format_result_row(label: str, result: MertonMcResult) -> str:
     )
 
 
+# ── Hazard-rate-only pricing ──────────────────────────────────────────────
+#
+# Reduced-form model: flat hazard rate λ, survival S(t) = exp(-λt).
+# Cash-pay: coupons + principal weighted by S(t_i) × D(t_i).
+# Full-PIK: no coupons; inflated notional N×(1+c/f)^n at maturity.
+# Recovery leg: R × outstanding_notional(t) × ΔS(t) for each period.
+
+
+def hazard_pv_cash(
+    hazard: float,
+    recovery: float,
+    risk_free: float,
+    coupon: float,
+    freq: int,
+    notional: float,
+    maturity_years: float,
+) -> float:
+    """PV of a cash-pay bond using flat hazard rate."""
+    n_periods = int(maturity_years * freq)
+    dt = 1.0 / freq
+    cpn = coupon / freq * notional
+    pv = 0.0
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        surv = math.exp(-hazard * t)
+        surv_prev = math.exp(-hazard * (t - dt))
+        df = math.exp(-risk_free * t)
+        # Coupon (+ principal at maturity)
+        cf = cpn + (notional if i == n_periods else 0.0)
+        pv += cf * surv * df
+        # Recovery leg: R × N × (S(t-1) - S(t)) × D(t)
+        pv += recovery * notional * (surv_prev - surv) * df
+    return pv
+
+
+def hazard_pv_pik(
+    hazard: float,
+    recovery: float,
+    risk_free: float,
+    coupon: float,
+    freq: int,
+    notional: float,
+    maturity_years: float,
+) -> float:
+    """PV of a full-PIK bond with growing notional, flat hazard rate."""
+    n_periods = int(maturity_years * freq)
+    dt = 1.0 / freq
+    growth = 1.0 + coupon / freq  # per-period notional growth
+    pv = 0.0
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        surv = math.exp(-hazard * t)
+        surv_prev = math.exp(-hazard * (t - dt))
+        df = math.exp(-risk_free * t)
+        ntl_i = notional * growth ** i  # PIK-inflated notional at period i
+        # No coupon cash flows; at maturity receive inflated notional
+        if i == n_periods:
+            pv += ntl_i * surv * df
+        # Recovery on inflated notional: R × N_pik(i) × (S(t-1) - S(t)) × D(t)
+        pv += recovery * ntl_i * (surv_prev - surv) * df
+    return pv
+
+
+def find_implied_hazard(
+    pv_fn,
+    target_price: float,
+    recovery: float,
+    risk_free: float,
+    coupon: float,
+    freq: int,
+    notional: float,
+    maturity_years: float,
+) -> float:
+    """Bisect for the flat hazard rate λ that reprices a bond to *target_price*."""
+    lo, hi = 0.0, 5.0
+    for _ in range(200):
+        mid = (lo + hi) / 2.0
+        pv = pv_fn(mid, recovery, risk_free, coupon, freq, notional, maturity_years)
+        if abs(pv - target_price) < 1e-8:
+            return mid
+        if pv > target_price:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2.0
+
+
 # ── Main ───────────────────────────────────────────────────────────────────
 
 def main() -> None:
     bond = build_bond()
+    mc_results: dict[str, tuple[MertonMcResult, MertonMcResult, MertonMcResult]] = {}
 
     print("=" * 110)
     print("PIK Structural Credit Analysis: Breakeven Spreads by Issuer Credit Profile")
@@ -226,6 +315,7 @@ def main() -> None:
         cash_result = bond.price_merton_mc(config=cash_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
         pik_result = bond.price_merton_mc(config=pik_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
         toggle_result = bond.price_merton_mc(config=toggle_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
+        mc_results[profile["name"]] = (cash_result, pik_result, toggle_result)
 
         header = (
             f"  {'Structure':<20s}  "
@@ -251,25 +341,18 @@ def main() -> None:
         print(f"  Toggle premium over cash:  {toggle_premium:+.0f} bp")
         print()
 
-    # ── Summary table ──────────────────────────────────────────────────
+    # ── Summary table (Merton MC) ────────────────────────────────────
     print("=" * 110)
-    print("SUMMARY: Breakeven Spreads (bp) by Structure and Credit Quality")
+    print("SUMMARY: Merton MC Breakeven Spreads (bp) by Structure and Credit Quality")
     print("=" * 110)
     print(f"  {'Issuer':<25s}  {'Cash':>8s}  {'Full PIK':>8s}  {'Toggle':>8s}  "
           f"{'PIK-Cash':>8s}  {'Toggle-Cash':>11s}")
     print("  " + "-" * 80)
 
     for profile in ISSUER_PROFILES:
-        merton = build_merton(profile)
-        cash_cfg, pik_cfg, toggle_cfg = build_configs(merton, profile)
-
-        cash_r = bond.price_merton_mc(config=cash_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
-        pik_r = bond.price_merton_mc(config=pik_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
-        toggle_r = bond.price_merton_mc(config=toggle_cfg, discount_rate=RISK_FREE_RATE, as_of=AS_OF)
-
+        cash_r, pik_r, toggle_r = mc_results[profile["name"]]
         pik_d = pik_r.effective_spread_bp - cash_r.effective_spread_bp
         tog_d = toggle_r.effective_spread_bp - cash_r.effective_spread_bp
-
         print(
             f"  {profile['name']:<25s}  "
             f"{cash_r.effective_spread_bp:8.0f}  "
@@ -282,6 +365,107 @@ def main() -> None:
     print()
     print("Key: PIK-Cash = additional spread required for full-PIK vs cash-pay bond")
     print("     Toggle-Cash = additional spread for PIK-toggle vs cash-pay bond")
+    print()
+
+    # ── Hazard-rate-only pricing ──────────────────────────────────────
+    #
+    # Reduced-form model: flat hazard rate λ → S(t) = exp(-λt).
+    #
+    # Cash-pay: coupons arrive each period, weighted by S(t_i) × D(t_i).
+    # Full-PIK: no coupons; inflated notional N×(1+c/f)^n at maturity.
+    # Recovery: R × outstanding_notional(t) × ΔS(t) each period.
+    #
+    # Two views:
+    #   1. Price at issuer's base λ:  shows how PIK shifts value to maturity
+    #      (duration extension + notional inflation).
+    #   2. Implied λ from MC prices:  backs out the flat hazard rate that
+    #      reproduces each Merton MC model price.  The PIK implied λ is
+    #      higher than the cash implied λ — that gap is the market's PIK
+    #      hazard premium, including structural feedback.
+
+    # ── View 1: prices at each issuer's base hazard rate ──────────────
+    print("=" * 110)
+    print("HAZARD-RATE PRICES: Cash-Pay vs PIK at Each Issuer's Flat Hazard Rate")
+    print("=" * 110)
+    print(f"  {'Issuer':<25s}  {'λ (bp)':>7s}  "
+          f"{'HR Cash':>9s}  {'HR PIK':>9s}  {'Δ Price':>8s}  "
+          f"{'MC Cash':>9s}  {'MC PIK':>9s}  {'Δ Price':>8s}")
+    print("  " + "-" * 100)
+
+    for profile in ISSUER_PROFILES:
+        lam = profile["base_hazard"]
+        rec = profile["base_recovery"]
+
+        hr_cash_px = hazard_pv_cash(
+            lam, rec, RISK_FREE_RATE, COUPON_RATE, 2, NOTIONAL, MATURITY_YEARS,
+        )
+        hr_pik_px = hazard_pv_pik(
+            lam, rec, RISK_FREE_RATE, COUPON_RATE, 2, NOTIONAL, MATURITY_YEARS,
+        )
+        hr_delta = hr_pik_px - hr_cash_px
+
+        cash_r, pik_r, _ = mc_results[profile["name"]]
+        mc_delta = pik_r.clean_price_pct - cash_r.clean_price_pct
+
+        print(
+            f"  {profile['name']:<25s}  "
+            f"{lam * 10_000:7.0f}  "
+            f"{hr_cash_px:9.2f}  "
+            f"{hr_pik_px:9.2f}  "
+            f"{hr_delta:+8.2f}  "
+            f"{cash_r.clean_price_pct:9.2f}  "
+            f"{pik_r.clean_price_pct:9.2f}  "
+            f"{mc_delta:+8.2f}"
+        )
+
+    print()
+    print("  Δ Price = PIK price minus Cash price (negative = PIK trades cheaper)")
+    print("  The HR model captures timing + notional effects only.")
+    print("  The MC model adds endogenous feedback → larger PIK discount for weak credits.")
+    print()
+
+    # ── View 2: implied hazard rates from MC model prices ─────────────
+    print("=" * 110)
+    print("IMPLIED HAZARD RATES: Flat λ Backing Out Each Merton MC Price")
+    print("=" * 110)
+    print(f"  {'Issuer':<25s}  {'Base λ':>7s}  "
+          f"{'λ Cash':>7s}  {'λ PIK':>7s}  {'Δλ':>7s}  "
+          f"{'MC Sprd':>7s}  {'MC PIK':>7s}  {'Δ Sprd':>7s}")
+    print("  " + "-" * 90)
+
+    for profile in ISSUER_PROFILES:
+        rec = profile["base_recovery"]
+        cash_r, pik_r, _ = mc_results[profile["name"]]
+
+        # Find hazard rate that reproduces each MC price under the HR model
+        lam_cash = find_implied_hazard(
+            hazard_pv_cash, cash_r.clean_price_pct, rec,
+            RISK_FREE_RATE, COUPON_RATE, 2, NOTIONAL, MATURITY_YEARS,
+        )
+        lam_pik = find_implied_hazard(
+            hazard_pv_pik, pik_r.clean_price_pct, rec,
+            RISK_FREE_RATE, COUPON_RATE, 2, NOTIONAL, MATURITY_YEARS,
+        )
+        delta_lam = lam_pik - lam_cash
+
+        print(
+            f"  {profile['name']:<25s}  "
+            f"{profile['base_hazard'] * 10_000:7.0f}  "
+            f"{lam_cash * 10_000:7.0f}  "
+            f"{lam_pik * 10_000:7.0f}  "
+            f"{delta_lam * 10_000:+7.0f}  "
+            f"{cash_r.effective_spread_bp:7.0f}  "
+            f"{pik_r.effective_spread_bp:7.0f}  "
+            f"{pik_r.effective_spread_bp - cash_r.effective_spread_bp:+7.0f}"
+        )
+
+    print()
+    print("Key: Base λ  = issuer's input hazard rate (bp)")
+    print("     λ Cash  = flat hazard rate reproducing the MC cash-pay price")
+    print("     λ PIK   = flat hazard rate reproducing the MC full-PIK price")
+    print("     Δλ      = PIK hazard premium: extra hazard the market charges for PIK")
+    print("     MC Sprd = Merton MC effective spread (bp)")
+    print("     Δ Sprd  = MC PIK spread minus MC Cash spread")
     print()
 
 
