@@ -18,6 +18,8 @@ class CurveKind:
     Forecast: ClassVar[CurveKind]
     ParCDS: ClassVar[CurveKind]
     Inflation: ClassVar[CurveKind]
+    Commodity: ClassVar[CurveKind]
+    VolIndex: ClassVar[CurveKind]
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

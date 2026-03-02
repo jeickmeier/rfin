@@ -246,6 +246,16 @@ class TestCurveKindParity:
         assert CurveKind.ParCDS is not None
         assert CurveKind.Inflation is not None
 
+    def test_curve_kind_commodity_and_volindex(self) -> None:
+        """Test CurveKind.Commodity and CurveKind.VolIndex are accessible."""
+        assert CurveKind.Commodity is not None
+        assert CurveKind.VolIndex is not None
+        assert str(CurveKind.Commodity) == "Commodity"
+        assert str(CurveKind.VolIndex) == "VolIndex"
+        # Verify they are distinct from other variants
+        assert CurveKind.Commodity != CurveKind.Discount
+        assert CurveKind.VolIndex != CurveKind.Discount
+
 
 class TestTenorMatchModeParity:
     """Test tenor match mode enum matches Rust."""
