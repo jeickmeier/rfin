@@ -21,6 +21,7 @@
 //! let spread = model.implied_spread(5.0, 0.40);
 //! ```
 
+use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::math::norm_cdf;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::{InputError, Result};
@@ -503,6 +504,85 @@ impl MertonModel {
     pub fn dynamics(&self) -> &AssetDynamics {
         &self.dynamics
     }
+
+    // -----------------------------------------------------------------------
+    // Hazard curve generation
+    // -----------------------------------------------------------------------
+
+    /// Generate a [`HazardCurve`] compatible with existing pricing engines.
+    ///
+    /// Converts structural model default probabilities to piecewise-constant
+    /// hazard rates at the specified tenor grid.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. Compute survival probability S(t) = 1 - PD(t) at each tenor.
+    /// 2. Back out piecewise-constant hazard rates between consecutive tenors:
+    ///    - λ_0 = -ln(S(t_0)) / t_0
+    ///    - λ_i = -ln(S(t_{i+1}) / S(t_i)) / (t_{i+1} - t_i) for i >= 1
+    /// 3. Build via `HazardCurve::builder`.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Curve identifier
+    /// * `base_date` - Valuation date for the curve
+    /// * `tenors` - Tenor grid in years (must be non-empty, positive, sorted)
+    /// * `recovery` - Recovery rate assumption (e.g. 0.40)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `tenors` is empty, contains non-positive values,
+    /// or if the `HazardCurve` builder fails.
+    pub fn to_hazard_curve(
+        &self,
+        id: &str,
+        base_date: time::Date,
+        tenors: &[f64],
+        recovery: f64,
+    ) -> Result<HazardCurve> {
+        if tenors.is_empty() {
+            return Err(InputError::TooFewPoints.into());
+        }
+
+        // Sort tenors and validate positivity
+        let mut sorted_tenors: Vec<f64> = tenors.to_vec();
+        sorted_tenors.sort_by(|a, b| a.total_cmp(b));
+
+        if sorted_tenors[0] <= 0.0 {
+            return Err(InputError::NonPositiveValue.into());
+        }
+
+        const EPSILON: f64 = 1e-15;
+
+        // Compute survival probabilities, clamped to [epsilon, 1.0]
+        let survivals: Vec<f64> = sorted_tenors
+            .iter()
+            .map(|&t| {
+                let pd = self.default_probability(t);
+                (1.0 - pd).clamp(EPSILON, 1.0)
+            })
+            .collect();
+
+        // Build knot points: (tenor, hazard_rate)
+        let mut knots: Vec<(f64, f64)> = Vec::with_capacity(sorted_tenors.len());
+
+        // First point: λ_0 = -ln(S(t_0)) / t_0
+        let lambda_0 = -survivals[0].ln() / sorted_tenors[0];
+        knots.push((sorted_tenors[0], lambda_0));
+
+        // Subsequent points: λ_i = -ln(S(t_{i+1}) / S(t_i)) / (t_{i+1} - t_i)
+        for i in 1..sorted_tenors.len() {
+            let dt = sorted_tenors[i] - sorted_tenors[i - 1];
+            let lambda_i = -(survivals[i] / survivals[i - 1]).ln() / dt;
+            knots.push((sorted_tenors[i], lambda_i.max(0.0)));
+        }
+
+        HazardCurve::builder(id)
+            .base_date(base_date)
+            .knots(knots)
+            .recovery_rate(recovery)
+            .build()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -634,6 +714,57 @@ mod tests {
             (m2.asset_vol() - 0.25).abs() < 0.02,
             "Asset vol should recover: got {}",
             m2.asset_vol()
+        );
+    }
+
+    #[test]
+    fn to_hazard_curve_survival_matches_pd() {
+        let m = MertonModel::new(100.0, 0.25, 80.0, 0.04).expect("valid");
+        let base = time::Date::from_calendar_date(2026, time::Month::March, 1).expect("valid date");
+        let hc = m
+            .to_hazard_curve("TEST", base, &[1.0, 3.0, 5.0, 7.0, 10.0], 0.40)
+            .expect("hc");
+        // Survival at 5Y should match 1 - PD(5)
+        let sp5 = hc.sp(5.0);
+        let pd5 = m.default_probability(5.0);
+        assert!(
+            (sp5 - (1.0 - pd5)).abs() < 0.02,
+            "sp5={sp5}, 1-pd5={}",
+            1.0 - pd5
+        );
+    }
+
+    #[test]
+    fn to_hazard_curve_hazard_rates_positive() {
+        let m = MertonModel::new(100.0, 0.30, 80.0, 0.04).expect("valid");
+        let base = time::Date::from_calendar_date(2026, time::Month::March, 1).expect("valid date");
+        let hc = m
+            .to_hazard_curve("TEST2", base, &[1.0, 3.0, 5.0], 0.40)
+            .expect("hc");
+        // All hazard rates should be positive for a risky firm
+        for t in [0.5, 1.0, 2.0, 3.0, 4.0, 5.0] {
+            let hr = hc.hazard_rate(t);
+            assert!(
+                hr > 0.0,
+                "Hazard rate at t={t} should be positive, got {hr}"
+            );
+        }
+    }
+
+    #[test]
+    fn to_hazard_curve_riskier_firm_higher_hazard() {
+        let base = time::Date::from_calendar_date(2026, time::Month::March, 1).expect("valid date");
+        let m_safe = MertonModel::new(100.0, 0.15, 50.0, 0.04).expect("valid");
+        let m_risky = MertonModel::new(100.0, 0.30, 85.0, 0.04).expect("valid");
+        let hc_safe = m_safe
+            .to_hazard_curve("SAFE", base, &[1.0, 5.0, 10.0], 0.40)
+            .expect("hc");
+        let hc_risky = m_risky
+            .to_hazard_curve("RISKY", base, &[1.0, 5.0, 10.0], 0.40)
+            .expect("hc");
+        assert!(
+            hc_risky.hazard_rate(3.0) > hc_safe.hazard_rate(3.0),
+            "Riskier firm should have higher hazard rate"
         );
     }
 
