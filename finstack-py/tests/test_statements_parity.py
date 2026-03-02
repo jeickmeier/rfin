@@ -957,5 +957,42 @@ def test_statement_result_cs_cashflows_none() -> None:
     assert results.cs_cashflows is None
 
 
+def test_backtest_forecast() -> None:
+    """Test forecast backtesting metrics."""
+    from finstack.statements.analysis import backtest_forecast
+
+    actual = [100.0, 110.0, 105.0, 115.0]
+    forecast = [98.0, 112.0, 104.0, 116.0]
+
+    metrics = backtest_forecast(actual, forecast)
+    assert metrics.mae > 0.0
+    assert metrics.mape > 0.0
+    assert metrics.rmse >= metrics.mae  # RMSE >= MAE always
+    assert metrics.n == 4
+
+    summary = metrics.summary()
+    assert "MAE" in summary
+    assert "MAPE" in summary
+    assert "RMSE" in summary
+
+
+def test_backtest_forecast_perfect() -> None:
+    """Test perfect forecast has zero errors."""
+    from finstack.statements.analysis import backtest_forecast
+
+    actual = [100.0, 110.0, 120.0]
+    metrics = backtest_forecast(actual, actual)
+    assert metrics.mae == pytest.approx(0.0)
+    assert metrics.rmse == pytest.approx(0.0)
+
+
+def test_backtest_forecast_mismatched_lengths() -> None:
+    """Test error on mismatched array lengths."""
+    from finstack.statements.analysis import backtest_forecast
+
+    with pytest.raises(RuntimeError, match="same length"):
+        backtest_forecast([1.0, 2.0], [1.0])
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
