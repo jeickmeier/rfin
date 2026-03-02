@@ -526,16 +526,19 @@ impl CashFlowSchedule {
                 spv.push(Some(h.sp(t)));
             }
 
-            // PV
+            // PV — PIK rows are notional accruals, not cash flows, so they
+            // contribute zero PV.  Their economic value is already captured
+            // in the inflated notional redemption at maturity.
+            let is_non_cash = cf.kind == CFKind::PIK;
             let sp_mult = if let Some(ref spv) = out.survival_probs {
                 spv.last().copied().flatten().unwrap_or(1.0)
             } else {
                 1.0
             };
-            let pv_amt = if cf.date > base {
-                cf.amount.amount() * df * sp_mult
-            } else {
+            let pv_amt = if is_non_cash || cf.date <= base {
                 0.0
+            } else {
+                cf.amount.amount() * df * sp_mult
             };
             out.pvs.push(pv_amt);
 
