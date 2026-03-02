@@ -270,6 +270,12 @@ impl PyMertonMcResult {
         self.inner.average_pik_fraction
     }
 
+    /// Effective spread in basis points (spread implied by MC price vs risk-free).
+    #[getter]
+    fn effective_spread_bp(&self) -> f64 {
+        self.inner.effective_spread_bp
+    }
+
     /// Fraction of paths that defaulted.
     #[getter]
     fn default_rate(&self) -> f64 {

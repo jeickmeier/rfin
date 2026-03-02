@@ -97,34 +97,37 @@ class InterestRateOption:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import InterestRateOption
         >>> from finstack.valuations.pricer import create_standard_registry
+        >>> as_of = date(2026, 12, 1)
         >>> cap = (
         ...     InterestRateOption
         ...     .builder("CAP-5Y")
         ...     .kind("cap")
         ...     .money(Money(5_000_000, Currency("USD")))
         ...     .strike(0.03)
-        ...     .start_date(date(2024, 1, 1))
-        ...     .end_date(date(2029, 1, 1))
+        ...     .start_date(date(2027, 1, 1))
+        ...     .end_date(date(2032, 1, 1))
         ...     .discount_curve("USD-OIS")
         ...     .forward_curve("USD-SOFR-3M")
         ...     .vol_surface("USD-CAP-VOL")
         ...     .build()
         ... )
         >>> ctx = MarketContext()
-        >>> ctx.insert_discount(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.95)]))
+        >>> ctx.insert_discount(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (1.0, 0.97), (6.0, 0.88)]))
         >>> ctx.insert_forward(
-        ...     ForwardCurve("USD-SOFR-3M", 0.25, [(0.0, 0.03), (5.0, 0.032)], base_date=date(2024, 1, 1))
+        ...     ForwardCurve("USD-SOFR-3M", 0.25, [(0.0, 0.03), (3.0, 0.035), (6.0, 0.04)], base_date=as_of)
         ... )
-        >>> expiries = [1.0, 3.0, 5.0]
+        >>> expiries = [0.5, 1.0, 3.0, 5.0, 7.0]
         >>> strikes = [0.02, 0.03, 0.04]
         >>> grid = [
-        ...     [0.22, 0.21, 0.23],
-        ...     [0.21, 0.20, 0.22],
-        ...     [0.20, 0.19, 0.21],
+        ...     [0.23, 0.22, 0.23],
+        ...     [0.22, 0.21, 0.22],
+        ...     [0.21, 0.20, 0.21],
+        ...     [0.20, 0.19, 0.20],
+        ...     [0.19, 0.18, 0.19],
         ... ]
         >>> ctx.insert_surface(VolSurface("USD-CAP-VOL", expiries, strikes, grid))
         >>> registry = create_standard_registry()
-        >>> pv = registry.price(cap, "black76", ctx).value
+        >>> pv = registry.price(cap, "black76", ctx, as_of=as_of).value
         >>> pv.currency.code
         'USD'
 

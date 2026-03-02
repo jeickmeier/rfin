@@ -102,6 +102,7 @@ impl PyBarrierOption {
 impl PyBarrierOption {
     #[classmethod]
     #[pyo3(
+        signature = (instrument_id, ticker, strike, barrier, option_type, barrier_type, expiry, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None, rebate=None, use_gobet_miri=None),
         text_signature = "(cls, instrument_id, ticker, strike, barrier, option_type, barrier_type, expiry, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None, rebate=None, use_gobet_miri=True)"
     )]
     #[allow(clippy::too_many_arguments)]

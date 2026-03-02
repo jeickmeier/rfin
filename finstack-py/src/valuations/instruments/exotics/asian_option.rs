@@ -100,6 +100,7 @@ impl PyAsianOption {
 impl PyAsianOption {
     #[classmethod]
     #[pyo3(
+        signature = (instrument_id, ticker, strike, expiry, fixing_dates, notional, discount_curve, spot_id, vol_surface, *, averaging_method=None, option_type=None, div_yield_id=None, past_fixings=None),
         text_signature = "(cls, instrument_id, ticker, strike, expiry, fixing_dates, notional, discount_curve, spot_id, vol_surface, *, averaging_method='arithmetic', option_type='call', div_yield_id=None, past_fixings=None)"
     )]
     #[allow(clippy::too_many_arguments)]

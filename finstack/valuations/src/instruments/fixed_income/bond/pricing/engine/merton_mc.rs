@@ -236,6 +236,8 @@ pub struct MertonMcResult {
     pub expected_shortfall_95: f64,
     /// Average PIK fraction across all coupon dates and paths.
     pub average_pik_fraction: f64,
+    /// Effective spread in basis points implied by MC price vs risk-free.
+    pub effective_spread_bp: f64,
     /// Path-level statistics.
     pub path_statistics: PathStatistics,
     /// Number of paths used.
@@ -502,6 +504,13 @@ impl MertonMcEngine {
             0.0
         };
 
+        // Effective spread: constant spread over risk-free that equates PVs
+        let effective_spread_bp = if mean_pv > 0.0 && risk_free_pv > mean_pv {
+            10_000.0 * (risk_free_pv / mean_pv).ln() / maturity_years
+        } else {
+            0.0
+        };
+
         // Unexpected loss (std dev of path PVs / notional)
         let variance = path_pvs
             .iter()
@@ -553,6 +562,7 @@ impl MertonMcEngine {
             unexpected_loss,
             expected_shortfall_95,
             average_pik_fraction,
+            effective_spread_bp,
             path_statistics: PathStatistics {
                 default_rate,
                 avg_default_time,

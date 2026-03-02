@@ -16,7 +16,7 @@ Typical workflow::
     )
     from finstack.valuations.metrics import MetricId
 
-    ytm = PerPositionMetric.metric(MetricId.YTM)
+    ytm = PerPositionMetric.metric(MetricId.from_name("ytm"))
     obj = Objective.maximize(MetricExpr.value_weighted_average(ytm))
     problem = PortfolioOptimizationProblem.new(portfolio, obj)
     problem = problem.with_constraint(Constraint.tag_exposure_limit(None, "rating", "CCC", 0.10))
@@ -231,7 +231,7 @@ class PerPositionMetric:
     --------
     >>> from finstack.portfolio.optimization import PerPositionMetric
     >>> from finstack.valuations.metrics import MetricId
-    >>> PerPositionMetric.metric(MetricId.DURATION_MOD)
+    >>> PerPositionMetric.metric(MetricId.from_name("duration_modified"))
     >>> PerPositionMetric.pv_base()
     >>> PerPositionMetric.constant(1.0)
     """
@@ -341,8 +341,8 @@ class MetricExpr:
     --------
     >>> from finstack.portfolio.optimization import MetricExpr, PerPositionMetric
     >>> from finstack.valuations.metrics import MetricId
-    >>> MetricExpr.weighted_sum(PerPositionMetric.metric(MetricId.DURATION_MOD))
-    >>> MetricExpr.value_weighted_average(PerPositionMetric.metric(MetricId.YTM))
+    >>> MetricExpr.weighted_sum(PerPositionMetric.metric(MetricId.from_name("duration_modified")))
+    >>> MetricExpr.value_weighted_average(PerPositionMetric.metric(MetricId.from_name("ytm")))
     >>> MetricExpr.tag_exposure_share("rating", "HY")
     """
 
@@ -409,7 +409,7 @@ class Objective:
     --------
     >>> from finstack.portfolio.optimization import Objective, MetricExpr, PerPositionMetric
     >>> from finstack.valuations.metrics import MetricId
-    >>> ytm = PerPositionMetric.metric(MetricId.YTM)
+    >>> ytm = PerPositionMetric.metric(MetricId.from_name("ytm"))
     >>> Objective.maximize(MetricExpr.value_weighted_average(ytm))
     """
 
@@ -560,7 +560,7 @@ class Constraint:
     ...     Inequality,
     ... )
     >>> from finstack.valuations.metrics import MetricId
-    >>> dur = PerPositionMetric.metric(MetricId.DURATION_MOD)
+    >>> dur = PerPositionMetric.metric(MetricId.from_name("duration_modified"))
     >>> Constraint.metric_bound("dur_limit", MetricExpr.weighted_sum(dur), Inequality.LE, 4.0)
     >>> Constraint.tag_exposure_limit("ccc_cap", "rating", "CCC", 0.10)
     >>> Constraint.max_turnover("low_turnover", 0.20)
@@ -1199,11 +1199,8 @@ class PortfolioOptimizationProblem:
     ...     Constraint,
     ... )
     >>> from finstack.valuations.metrics import MetricId
-    >>> ytm = PerPositionMetric.metric(MetricId.YTM)
+    >>> ytm = PerPositionMetric.metric(MetricId.from_name("ytm"))
     >>> obj = Objective.maximize(MetricExpr.value_weighted_average(ytm))
-    >>> problem = PortfolioOptimizationProblem.new(portfolio, obj)
-    >>> problem = problem.with_constraint(Constraint.tag_exposure_limit(None, "rating", "CCC", 0.10))
-    >>> result = problem.optimize(market_context)
     """
 
     @property
