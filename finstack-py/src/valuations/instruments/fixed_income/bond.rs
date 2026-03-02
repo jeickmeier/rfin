@@ -1009,6 +1009,42 @@ impl PyBond {
         Ok(PyCashFlowSchedule::new(schedule))
     }
 
+    /// Cashflow schedule with discount factors, survival probabilities, and PVs.
+    ///
+    /// Generates the bond's full cashflow schedule and enriches each row with the
+    /// discount factor and (when a credit/hazard curve is configured) survival
+    /// probability used to compute its present value. The bond's own
+    /// ``discount_curve`` and ``hazard_curve`` are wired automatically.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data containing discount and optional hazard curves.
+    /// as_of : datetime.date, optional
+    ///     Valuation date. Defaults to the discount curve's base date.
+    ///
+    /// Returns
+    /// -------
+    /// polars.DataFrame
+    ///     One row per cashflow with columns: ``pay_date``, ``kind``, ``amount``,
+    ///     ``discount_factor``, ``pv``, and optionally ``survival_prob``.
+    #[pyo3(
+        signature = (market, *, as_of=None),
+        text_signature = "($self, market, *, as_of=None)"
+    )]
+    fn pricing_cashflows(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<pyo3_polars::PyDataFrame> {
+        let as_of_date = as_of.map(|d| py_to_date(&d)).transpose()?;
+        let frame = py
+            .detach(|| self.inner.pricing_cashflows(&market.inner, as_of_date))
+            .map_err(core_to_py)?;
+        crate::valuations::cashflow::dataframe::period_dataframe_to_polars(frame)
+    }
+
     #[getter]
     fn cashflow_spec(&self) -> PyCashflowSpec {
         PyCashflowSpec {

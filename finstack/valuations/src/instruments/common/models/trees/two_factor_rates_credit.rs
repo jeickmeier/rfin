@@ -355,7 +355,7 @@ impl TreeModel for RatesCreditTree {
 
                     vars.insert(state_keys::INTEREST_RATE, r_t.max(1e-8));
                     vars.insert(state_keys::HAZARD_RATE, h_t.max(0.0));
-                    vars.insert("df", df);
+                    vars.insert(state_keys::DF, df);
                     vars.insert("step", k as f64);
                     vars.insert("node_i", i as f64);
                     vars.insert("node_j", j as f64);

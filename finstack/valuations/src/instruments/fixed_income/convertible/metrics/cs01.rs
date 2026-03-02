@@ -32,14 +32,15 @@ impl MetricCalculator for Cs01Calculator {
             return Ok(0.0);
         }
 
-        // Bump the credit curve if available, otherwise fall back to the discount curve.
-        // The credit curve captures the issuer's spread; bumping it gives the true CS01.
+        // CS01 measures credit spread sensitivity. This requires a separate credit
+        // curve; if none is provided, credit risk is not modeled independently and
+        // CS01 is zero (bumping the discount curve would give Rho, not CS01).
         let bump_bp = 0.0001; // 1bp for credit spread
 
-        let curve_to_bump = bond
-            .credit_curve_id
-            .as_ref()
-            .unwrap_or(&bond.discount_curve_id);
+        let curve_to_bump = match &bond.credit_curve_id {
+            Some(id) => id,
+            None => return Ok(0.0),
+        };
 
         // Central finite difference: bump both up and down for O(h^2) accuracy,
         // consistent with the rho and dividend01 calculators.

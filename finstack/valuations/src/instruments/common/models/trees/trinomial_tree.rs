@@ -56,8 +56,15 @@ impl TrinomialTree {
         t: f64,
         q: f64,
     ) -> Result<(f64, f64, f64, f64, f64, f64)> {
-        if t <= 0.0 || sigma <= 0.0 {
-            return Err(Error::Internal);
+        if t <= 0.0 {
+            return Err(Error::Validation(format!(
+                "Trinomial tree requires positive time to maturity, got t={t}"
+            )));
+        }
+        if sigma <= 0.0 {
+            return Err(Error::Validation(format!(
+                "Trinomial tree requires positive volatility, got sigma={sigma}"
+            )));
         }
 
         let dt = t / self.steps as f64;
@@ -82,9 +89,12 @@ impl TrinomialTree {
                 let p_d = ((exp_vol_up - exp_drift_half) / denominator).powi(2);
                 let p_m = 1.0 - p_u - p_d;
 
-                // Validate probabilities
                 if p_u < 0.0 || p_d < 0.0 || p_m < 0.0 {
-                    return Err(Error::Internal);
+                    return Err(Error::Validation(format!(
+                        "Standard trinomial probabilities negative: \
+                         p_u={p_u}, p_d={p_d}, p_m={p_m}. \
+                         Check parameters: sigma={sigma}, r={r}, q={q}, dt={dt}"
+                    )));
                 }
 
                 (u, d, m, p_u, p_d, p_m)
@@ -104,9 +114,12 @@ impl TrinomialTree {
                         - drift * dt / lambda);
                 let p_m = 1.0 - p_u - p_d;
 
-                // Validate probabilities
                 if p_u < 0.0 || p_d < 0.0 || p_m < 0.0 {
-                    return Err(Error::Internal);
+                    return Err(Error::Validation(format!(
+                        "Boyle trinomial probabilities negative: \
+                         p_u={p_u}, p_d={p_d}, p_m={p_m}. \
+                         Check parameters: sigma={sigma}, r={r}, q={q}, dt={dt}"
+                    )));
                 }
 
                 (u, d, m, p_u, p_d, p_m)

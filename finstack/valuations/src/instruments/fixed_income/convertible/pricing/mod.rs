@@ -8,5 +8,5 @@ pub(crate) mod pricer;
 
 pub use pricer::{
     calculate_conversion_premium, calculate_convertible_greeks, calculate_parity,
-    price_convertible_bond, ConvertibleTreeType,
+    compute_conversion_value, price_convertible_bond, ConvertibleTreeType,
 };

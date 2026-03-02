@@ -55,35 +55,6 @@ impl Default for SoftCallTrigger {
     }
 }
 
-impl SoftCallTrigger {
-    /// Check if the soft-call condition is met based on the current spot price.
-    ///
-    /// This is a **simple instantaneous barrier check** without volatility adjustment.
-    /// The tree pricer uses `ConvertibleBondValuator::soft_call_triggered()` which
-    /// includes a volatility-adjusted barrier for the multi-day observation window.
-    ///
-    /// Prefer the pricer's `soft_call_triggered()` for pricing. This method is useful
-    /// for quick screening or non-pricing contexts where volatility is unavailable.
-    ///
-    /// # Arguments
-    ///
-    /// * `current_spot` - Current underlying stock price
-    /// * `conversion_price` - Current conversion price per share
-    ///
-    /// # Returns
-    ///
-    /// `true` if the soft-call condition is satisfied (spot above nominal threshold).
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use the pricer's soft_call_triggered() which includes volatility-adjusted barrier. \
-                This method ignores the observation window and will be removed in a future release."
-    )]
-    pub fn is_triggered(&self, current_spot: f64, conversion_price: f64) -> bool {
-        let trigger_level = conversion_price * (self.threshold_pct / 100.0);
-        current_spot >= trigger_level
-    }
-}
-
 /// Convertible bond instrument with embedded equity conversion option.
 ///
 /// This fixed income instrument combines debt characteristics (coupons, principal)

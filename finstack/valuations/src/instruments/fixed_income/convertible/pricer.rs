@@ -43,7 +43,7 @@ use crate::metrics::bump_discount_curve_parallel;
 ///   - `spot <= lower_price`: `(face / lower_price) * spot` (max shares, loss)
 ///   - `lower < spot <= upper`: `face` (variable ratio delivers par)
 ///   - `spot > upper_price`: `(face / upper_price) * spot` (min shares, capped)
-fn compute_conversion_value(bond: &ConvertibleBond, spot: f64) -> Result<f64> {
+pub(crate) fn compute_conversion_value(bond: &ConvertibleBond, spot: f64) -> Result<f64> {
     match &bond.conversion.policy {
         ConversionPolicy::MandatoryVariable {
             upper_conversion_price,
@@ -81,7 +81,7 @@ pub enum ConvertibleTreeType {
 
 impl Default for ConvertibleTreeType {
     fn default() -> Self {
-        Self::Binomial(100) // Default to 100-step binomial
+        Self::Binomial(200)
     }
 }
 
@@ -301,6 +301,18 @@ impl ConvertibleBondValuator {
         })
     }
 
+    /// Whether conversion is mandatory (forced) when allowed, regardless of optimality.
+    ///
+    /// For `MandatoryOn` and `MandatoryVariable` policies, the holder **must** convert
+    /// at the specified date -- even if conversion value is below redemption value.
+    /// This correctly models PERCS/DECS where holders bear downside equity risk.
+    fn conversion_is_mandatory(&self) -> bool {
+        matches!(
+            self.conversion_policy,
+            ConversionPolicy::MandatoryOn(_) | ConversionPolicy::MandatoryVariable { .. }
+        )
+    }
+
     /// Check if conversion is allowed at a given time step.
     ///
     /// Date-based policies (`MandatoryOn`, `Window`, `MandatoryVariable`) use
@@ -413,42 +425,65 @@ impl ConvertibleBondValuator {
     /// multi-day observation window.
     ///
     /// The standard 20-of-30 observation window is approximated by raising the
-    /// effective trigger level to account for the difficulty of sustaining the
-    /// stock above the threshold for the required number of days. The adjustment
-    /// uses equity volatility and the observation window length.
+    /// effective trigger level. Since the tree models a single spot per node
+    /// (not the path over the observation window), we adjust the barrier upward
+    /// to account for the probability of *sustaining* the level.
     ///
-    /// Reference: Adaptation of Broadie-Glasserman-Kou (1997) discrete monitoring
-    /// correction for sustained barrier observation requirements.
+    /// ## Adjustment methodology
+    ///
+    /// The Broadie-Glasserman-Kou (1997) correction for discrete barrier
+    /// monitoring shifts the barrier by `exp(beta * sigma * sqrt(dt))` where
+    /// `beta = zeta(1/2) / sqrt(2*pi) ≈ 0.5826` and `dt` is the monitoring
+    /// interval. That correction applies to a single discrete observation.
+    ///
+    /// For the "k-of-n days above" requirement, no closed-form correction
+    /// exists. We use a heuristic that scales the BGK-style adjustment by the
+    /// required fraction `k/n`, reflecting that higher required fractions make
+    /// the trigger harder to satisfy. The `0.5826` constant is rounded to the
+    /// exact BGK beta. This is intentionally conservative (slightly over-adjusts).
+    ///
+    /// ## Reference
+    ///
+    /// Broadie, M., Glasserman, P., & Kou, S. (1997). "A Continuity Correction
+    /// for Discrete Barrier Options." *Mathematical Finance*, 7(4), 325-349.
     fn soft_call_triggered(&self, node_spot: f64) -> bool {
         match self.soft_call_trigger {
             Some(ref trigger) => {
                 let nominal_trigger = self.conversion_price * (trigger.threshold_pct / 100.0);
 
-                // M3: Adjust for multi-day observation window.
-                // The required_fraction * vol * sqrt(window_years) term raises the
-                // effective barrier to account for the difficulty of sustaining the
-                // stock above the level for required_days out of observation_days.
                 let window_years = trigger.observation_days as f64 / 252.0;
                 let required_fraction =
                     trigger.required_days_above as f64 / trigger.observation_days.max(1) as f64;
 
-                // Scale factor: higher required fraction or higher vol makes trigger harder
-                let adj = 0.5 * required_fraction * self.volatility * window_years.sqrt();
+                // BGK beta ≈ zeta(1/2) / sqrt(2*pi) ≈ 0.5826, scaled by required_fraction
+                // for the sustained observation requirement (heuristic extension).
+                const BGK_BETA: f64 = 0.5826;
+                let adj = BGK_BETA * required_fraction * self.volatility * window_years.sqrt();
                 let effective_trigger = nominal_trigger * (1.0 + adj);
 
                 node_spot >= effective_trigger
             }
-            None => true, // No soft-call trigger means unconditional call
+            None => true,
         }
     }
 }
 
 /// Implementation of Tsiveriotis-Zhang tree pricing logic.
 ///
-/// Uses per-step discount factors from the full term structure (M1) instead of
+/// Uses per-step discount factors from the full term structure instead of
 /// flat-rate discounting. The equity component is discounted at the risk-free
 /// forward rate and the cash component at the risky forward rate, both extracted
 /// step-by-step from the respective discount curves.
+///
+/// ## Credit model assumption
+///
+/// The risky discount factors implicitly assume **zero recovery** on default.
+/// The full risky DF reflects `survival_prob * rf_df`; there is no
+/// `(1 - survival_prob) * recovery_rate` term. This overstates the credit
+/// spread effect for investment-grade issuers (where recovery rates are
+/// typically 40-60%) and understates it near default. For production use
+/// with IG convertibles, consider providing a credit curve that already
+/// incorporates the recovery assumption in its construction.
 struct TsiveriotisZhangEngine<'a> {
     valuator: &'a ConvertibleBondValuator,
     steps: usize,
@@ -491,18 +526,15 @@ impl<'a> TsiveriotisZhangEngine<'a> {
         // Evolution parameters for the recombining tree.
         //
         // KNOWN LIMITATION (drift-discount mismatch):
-        // The tree evolution uses a single flat risk-free rate for the CRR/trinomial
-        // up/down factors and probabilities (ensuring the tree recombines), while the
-        // backward-induction discounting uses per-step forward discount factors from
-        // the full term structure. In a theoretically consistent risk-neutral tree,
-        // the drift at each step should equal the step's forward rate. The flat-drift
-        // approximation introduces a small pricing bias when the yield curve is steep
-        // (estimated ~0.1-0.5% of notional for 200bp slope over 5Y). For mild curves
-        // the error is negligible.
+        // The tree evolution uses a single short rate (instantaneous forward at t=0)
+        // for the CRR/trinomial up/down factors and probabilities to preserve the
+        // recombining tree structure. Backward induction uses per-step forward
+        // discount factors from the full term structure. Using the short rate
+        // (rather than the average zero rate to maturity) reduces the drift
+        // mismatch but does not eliminate it for non-flat curves.
         //
-        // A fully consistent implementation would require per-step evolution parameters,
-        // which breaks the standard CRR recombining structure and requires a more
-        // general (non-recombining or adjusted) tree framework.
+        // A fully consistent implementation would require per-step evolution
+        // parameters, which breaks standard CRR recombination.
         let params = match tree_type {
             ConvertibleTreeType::Binomial(_) => {
                 EvolutionParams::equity_crr(volatility, risk_free_rate, dividend_yield, dt)
@@ -537,6 +569,8 @@ impl<'a> TsiveriotisZhangEngine<'a> {
             ConvertibleTreeType::Trinomial(n) => 2 * n + 1,
         };
 
+        let mandatory = self.valuator.conversion_is_mandatory();
+
         for i in 0..num_nodes {
             let node_spot = get_spot(self.steps, i);
             let conversion_val = self.valuator.conversion_value(node_spot);
@@ -549,7 +583,14 @@ impl<'a> TsiveriotisZhangEngine<'a> {
                 .unwrap_or(0.0);
             let redemption_val = self.valuator.face_value + coupon;
 
-            let (total_val, cash_val) = if conversion_val > redemption_val {
+            let can_convert = self.valuator.conversion_allowed(self.steps, node_spot);
+
+            let (total_val, cash_val) = if can_convert && mandatory {
+                // Mandatory conversion: holder must convert regardless of optimality.
+                // For PERCS/DECS below the lower strike, this correctly reflects
+                // the holder bearing equity downside risk.
+                (conversion_val, 0.0)
+            } else if conversion_val > redemption_val {
                 (conversion_val, 0.0)
             } else {
                 (redemption_val, redemption_val)
@@ -616,7 +657,11 @@ impl<'a> TsiveriotisZhangEngine<'a> {
                 let mut final_total = continuation_total;
                 let mut final_cash = continuation_cash;
 
-                if can_convert && conversion_val > final_total {
+                if can_convert && mandatory {
+                    // Mandatory conversion: forced regardless of optimality.
+                    final_total = conversion_val;
+                    final_cash = 0.0;
+                } else if can_convert && conversion_val > final_total {
                     final_total = conversion_val;
                     final_cash = 0.0;
                 }
@@ -694,7 +739,6 @@ fn extract_equity_state(
         finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
     };
 
-    // Get risk-free rate from discount curve (used for tree drift, not discounting)
     let discount_curve = ctx.get_discount(bond.discount_curve_id.as_str())?;
     let time_to_maturity = day_count
         .year_fraction(
@@ -704,8 +748,21 @@ fn extract_equity_state(
         )
         .unwrap_or(0.0);
 
+    // Use the short-rate (instantaneous forward at t=0) for tree drift rather
+    // than the average zero rate to maturity. This better approximates the
+    // local risk-neutral drift at each step when combined with the per-step
+    // discount factors used in backward induction.
+    //
+    // Approximated as -ln(DF(epsilon))/epsilon with epsilon = 1/252 (~1 day).
+    // Falls back to zero rate to maturity when TTM is very short.
     let risk_free_rate = if time_to_maturity > 0.0 {
-        -discount_curve.df(time_to_maturity).ln() / time_to_maturity
+        let epsilon = (1.0_f64 / 252.0).min(time_to_maturity);
+        let df_short = discount_curve.df(epsilon);
+        if df_short > 0.0 {
+            -df_short.ln() / epsilon
+        } else {
+            0.0
+        }
     } else {
         0.0
     };
@@ -870,9 +927,17 @@ fn price_convertible_bond_with_inputs(
             .sum();
 
         let redemption_value = bond.notional.amount() + maturity_coupon;
-        // Use compute_conversion_value to handle all policies including MandatoryVariable
         let conversion_value = compute_conversion_value(bond, inputs.spot)?;
-        let payoff = redemption_value.max(conversion_value);
+
+        let is_mandatory = matches!(
+            bond.conversion.policy,
+            ConversionPolicy::MandatoryOn(_) | ConversionPolicy::MandatoryVariable { .. }
+        );
+        let payoff = if is_mandatory {
+            conversion_value
+        } else {
+            redemption_value.max(conversion_value)
+        };
 
         return Ok(Money::new(payoff, bond.notional.currency()));
     }
@@ -1347,5 +1412,125 @@ mod tests {
         let accrued = calculate_accrued_interest(&bond, mid).expect("should compute");
         // ~half of semi-annual coupon (5%/2 * 1000 = 25, half ~ 12.5)
         assert!(accrued > 5.0 && accrued < 20.0, "accrued = {}", accrued);
+    }
+
+    #[test]
+    fn test_mandatory_conversion_forced_at_loss() {
+        // DECS/PERCS: mandatory conversion even when conversion_value < redemption.
+        // Spot=50, ratio=10, notional=1000 → conversion_value=500 < 1000.
+        // Mandatory bond at maturity should price at conversion value, not redemption.
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("valid date");
+
+        let mut bond = create_test_bond();
+        bond.conversion.policy = ConversionPolicy::MandatoryOn(maturity);
+
+        // Market with OTM spot: conversion_value = 50 * 10 = 500 < 1000 face
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let discount_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .knots([(0.0, 1.0), (10.0, 0.90)])
+            .interp(finstack_core::math::interp::InterpStyle::Linear)
+            .build()
+            .expect("should succeed");
+
+        let market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_price("AAPL", MarketScalar::Unitless(50.0))
+            .insert_price("AAPL-VOL", MarketScalar::Unitless(0.25))
+            .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02));
+
+        // At maturity: forced conversion at loss
+        let price_at_mat =
+            price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(10), maturity)
+                .expect("should price");
+
+        // conversion_value = 50 * 10 = 500 (must convert, can't choose 1000 redemption)
+        assert!(
+            (price_at_mat.amount() - 500.0).abs() < 1.0,
+            "Mandatory at maturity should force conversion: got {}",
+            price_at_mat.amount()
+        );
+
+        // Before maturity: should be below straight bond floor due to forced conversion risk
+        let price_before =
+            price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), issue)
+                .expect("should price");
+
+        assert!(
+            price_before.amount() < 1000.0,
+            "Mandatory OTM bond should price below par: got {}",
+            price_before.amount()
+        );
+    }
+
+    #[test]
+    fn test_thirty_360_day_count_corporate_convention() {
+        // Verify that 30/360 day count (US corporate standard) works correctly.
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("valid date");
+
+        let conversion_spec = ConversionSpec {
+            ratio: Some(10.0),
+            price: None,
+            policy: ConversionPolicy::Voluntary,
+            anti_dilution: super::super::AntiDilutionPolicy::None,
+            dividend_adjustment: super::super::DividendAdjustment::None,
+            dilution_events: Vec::new(),
+        };
+
+        let fixed_coupon = FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            freq: Tenor::semi_annual(),
+            dc: DayCount::Thirty360, // US corporate convention
+            bdc: BusinessDayConvention::Following,
+            calendar_id: "weekends_only".to_string(),
+            stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
+        };
+
+        let bond = ConvertibleBond {
+            id: "TEST_30360".to_string().into(),
+            notional: Money::new(1000.0, Currency::USD),
+            issue_date: issue,
+            maturity,
+            discount_curve_id: "USD-OIS".into(),
+            credit_curve_id: None,
+            conversion: conversion_spec,
+            underlying_equity_id: Some("AAPL".to_string()),
+            call_put: None,
+            soft_call_trigger: None,
+            fixed_coupon: Some(fixed_coupon),
+            floating_coupon: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
+            attributes: Default::default(),
+        };
+
+        let market = create_test_market_context();
+        let as_of = issue;
+
+        let price =
+            price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), as_of)
+                .expect("30/360 should price successfully");
+
+        // Same economics as Act365F, should be in similar range
+        let conversion_value = 150.0 * 10.0;
+        assert!(price.amount() >= conversion_value);
+        assert!(
+            price.amount() > 1000.0 && price.amount() < 2000.0,
+            "30/360 price out of range: {}",
+            price.amount()
+        );
+
+        // Verify accrued interest works with 30/360
+        let mid = Date::from_calendar_date(2025, Month::April, 1).expect("valid date");
+        let accrued = calculate_accrued_interest(&bond, mid).expect("should compute");
+        assert!(
+            accrued > 5.0 && accrued < 20.0,
+            "30/360 accrued should be reasonable: {}",
+            accrued
+        );
     }
 }

@@ -813,8 +813,6 @@ impl PyCashFlowSchedule {
         discount_day_count: Option<Bound<'_, PyAny>>,
         facility_limit: Option<Bound<'_, PyAny>>,
     ) -> PyResult<pyo3_polars::PyDataFrame> {
-        use polars::prelude::*;
-
         let as_of_date = as_of.map(|d| py_to_date(&d)).transpose()?;
         let dc = day_count
             .map(|d| extract_day_count(Some(d), self.inner.day_count))
@@ -856,91 +854,7 @@ impl PyCashFlowSchedule {
             .to_period_dataframe(&periods, &market.inner, discount_curve_id, options)
             .map_err(core_to_py)?;
 
-        // Convert dates to Polars Date (days since epoch)
-        let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).map_err(|e| {
-            pyo3::exceptions::PyRuntimeError::new_err(format!(
-                "Failed to construct epoch date: {e}"
-            ))
-        })?;
-        let start_dates: Vec<i32> = frame
-            .start_dates
-            .iter()
-            .map(|d| (*d - epoch).whole_days() as i32)
-            .collect();
-        let end_dates: Vec<i32> = frame
-            .end_dates
-            .iter()
-            .map(|d| (*d - epoch).whole_days() as i32)
-            .collect();
-        let pay_dates: Vec<i32> = frame
-            .pay_dates
-            .iter()
-            .map(|d| (*d - epoch).whole_days() as i32)
-            .collect();
-
-        // Convert kinds to string labels
-        let kinds: Vec<String> = frame
-            .cf_types
-            .iter()
-            .map(|k| {
-                crate::core::cashflow::primitives::PyCFKind::new(*k)
-                    .name()
-                    .to_string()
-            })
-            .collect();
-
-        // Convert reset dates to Option<i32> (days since epoch)
-        let reset_dates: Vec<Option<i32>> = frame
-            .reset_dates
-            .iter()
-            .map(|opt_d| opt_d.map(|d| (d - epoch).whole_days() as i32))
-            .collect();
-
-        // Convert notionals from Option<f64> to f64 (None -> NaN)
-        let notionals_f64: Vec<f64> = frame
-            .notionals
-            .iter()
-            .map(|opt| opt.unwrap_or(f64::NAN))
-            .collect();
-
-        // Build base DataFrame with core columns
-        let start_dates = Series::new("start_date".into(), start_dates)
-            .cast(&DataType::Date)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        let end_dates = Series::new("end_date".into(), end_dates)
-            .cast(&DataType::Date)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        let pay_dates = Series::new("pay_date".into(), pay_dates)
-            .cast(&DataType::Date)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        let reset_dates = Series::new("reset_date".into(), reset_dates)
-            .cast(&DataType::Date)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        let mut df = DataFrame::new_infer_height(vec![
-            start_dates.into(),
-            end_dates.into(),
-            pay_dates.into(),
-            reset_dates.into(),
-            Series::new("kind".into(), kinds).into(),
-            Series::new("amount".into(), frame.amounts).into(),
-            Series::new("accrual_factor".into(), frame.accrual_factors).into(),
-            Series::new("rate".into(), frame.rates).into(),
-            Series::new("notional".into(), notionals_f64).into(),
-            Series::new("yr_fraq".into(), frame.yr_fraqs).into(),
-            Series::new("discount_factor".into(), frame.discount_factors).into(),
-            Series::new("pv".into(), frame.pvs).into(),
-        ])
-        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        // Add optional columns
-        if let Some(undrawn) = frame.undrawn_notionals {
-            let undrawn_f64: Vec<f64> = undrawn.iter().map(|opt| opt.unwrap_or(f64::NAN)).collect();
-            let col = Series::new("undrawn_notional".into(), undrawn_f64);
-            df.with_column(col.into())
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        }
-
-        Ok(pyo3_polars::PyDataFrame(df))
+        super::dataframe::period_dataframe_to_polars(frame)
     }
 
     /// Compute present values aggregated by period.

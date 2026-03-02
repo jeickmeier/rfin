@@ -1,9 +1,9 @@
 //! Conversion value calculator for convertible bonds.
 //!
 //! Reports the absolute conversion value based on the current spot price and
-//! conversion terms. For standard policies this is `conversion_ratio * spot`.
-//! For `MandatoryVariable` (PERCS/DECS/ACES) the value depends on the spot
-//! relative to the upper/lower conversion prices.
+//! conversion terms. Delegates to the canonical `compute_conversion_value`
+//! function which handles all policies including `MandatoryVariable`
+//! (PERCS/DECS/ACES).
 
 use crate::instruments::fixed_income::convertible::ConvertibleBond;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -11,10 +11,9 @@ use finstack_core::Result;
 
 /// Conversion value calculator.
 ///
-/// Uses the same variable delivery logic as the pricer for `MandatoryVariable`:
-/// - spot <= lower_price: `(face / lower_price) * spot` (max shares, loss)
-/// - lower < spot <= upper: `face` (variable ratio delivers par)
-/// - spot > upper_price: `(face / upper_price) * spot` (min shares, capped)
+/// For standard policies: `conversion_ratio * spot`.
+/// For `MandatoryVariable` (PERCS/DECS/ACES): variable delivery ratio based
+/// on spot relative to upper/lower conversion prices.
 pub struct ConversionValueCalculator;
 
 impl MetricCalculator for ConversionValueCalculator {
@@ -33,27 +32,6 @@ impl MetricCalculator for ConversionValueCalculator {
             finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
         };
 
-        use crate::instruments::fixed_income::convertible::ConversionPolicy;
-
-        match &bond.conversion.policy {
-            ConversionPolicy::MandatoryVariable {
-                upper_conversion_price,
-                lower_conversion_price,
-                ..
-            } => {
-                let face = bond.notional.amount();
-                if spot <= *lower_conversion_price {
-                    Ok((face / lower_conversion_price) * spot)
-                } else if spot <= *upper_conversion_price {
-                    Ok(face)
-                } else {
-                    Ok((face / upper_conversion_price) * spot)
-                }
-            }
-            _ => {
-                let conversion_ratio = bond.effective_conversion_ratio().unwrap_or(0.0);
-                Ok(spot * conversion_ratio)
-            }
-        }
+        crate::instruments::fixed_income::convertible::pricer::compute_conversion_value(bond, spot)
     }
 }

@@ -937,6 +937,50 @@ impl Bond {
         b.build_with_curves(Some(curves))
     }
 
+    /// Cashflow schedule enriched with discount factors, survival probabilities, and PVs.
+    ///
+    /// Builds the bond's cashflow schedule via [`get_full_schedule`](Self::get_full_schedule)
+    /// and computes per-cashflow discount factors and (when a credit curve is configured)
+    /// survival probabilities, returning a [`PeriodDataFrame`] that is ready for
+    /// tabular export or further analysis.
+    ///
+    /// # Arguments
+    /// * `market` - Market context containing discount and optional hazard curves
+    /// * `as_of` - Valuation date; defaults to the discount curve's base date when `None`
+    ///
+    /// # Returns
+    /// A [`PeriodDataFrame`] with `discount_factors`, optional `survival_probs`, and `pvs`.
+    pub fn pricing_cashflows(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Option<Date>,
+    ) -> Result<crate::cashflow::builder::PeriodDataFrame> {
+        use crate::cashflow::builder::PeriodDataFrameOptions;
+        use finstack_core::dates::{Period, PeriodId};
+
+        let schedule = self.get_full_schedule(market)?;
+
+        let periods: Vec<Period> =
+            if let (Some(first), Some(last)) = (schedule.flows.first(), schedule.flows.last()) {
+                vec![Period {
+                    id: PeriodId::annual(first.date.year()),
+                    start: first.date,
+                    end: last.date,
+                    is_actual: true,
+                }]
+            } else {
+                Vec::new()
+            };
+
+        let options = PeriodDataFrameOptions {
+            credit_curve_id: self.credit_curve_id.as_ref().map(|id| id.as_str()),
+            as_of,
+            ..Default::default()
+        };
+
+        schedule.to_period_dataframe(&periods, market, self.discount_curve_id.as_str(), options)
+    }
+
     /// Price bond using tree-based pricing for embedded options (calls/puts).
     ///
     /// This method is automatically called by `value()` when the bond has a non-empty
@@ -1047,7 +1091,7 @@ impl Bond {
         // Validate coupon rate for fixed-rate bonds (including amortizing with fixed base)
         Self::validate_coupon_rate(&self.cashflow_spec)?;
 
-        // Validate call/put prices
+        // Validate call/put prices and exercise date ranges
         if let Some(ref call_put) = self.call_put {
             for call in &call_put.calls {
                 if call.price_pct_of_par <= 0.0 {
@@ -1056,6 +1100,20 @@ impl Bond {
                         call.price_pct_of_par, call.date
                     )));
                 }
+                if call.date < self.issue_date || call.date > self.maturity {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Call exercise date {} is outside bond life [{}, {}]",
+                        call.date, self.issue_date, self.maturity
+                    )));
+                }
+                if let Some(end) = call.end_date {
+                    if end > self.maturity {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "Call exercise end date {} is after maturity {}",
+                            end, self.maturity
+                        )));
+                    }
+                }
             }
             for put in &call_put.puts {
                 if put.price_pct_of_par <= 0.0 {
@@ -1063,6 +1121,20 @@ impl Bond {
                         "Bond put price must be positive, got {} on {}",
                         put.price_pct_of_par, put.date
                     )));
+                }
+                if put.date < self.issue_date || put.date > self.maturity {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Put exercise date {} is outside bond life [{}, {}]",
+                        put.date, self.issue_date, self.maturity
+                    )));
+                }
+                if let Some(end) = put.end_date {
+                    if end > self.maturity {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "Put exercise end date {} is after maturity {}",
+                            end, self.maturity
+                        )));
+                    }
                 }
             }
         }
@@ -2147,5 +2219,135 @@ mod tests {
             "Price should be reasonable: got {}",
             result.clean_price_pct
         );
+    }
+
+    #[test]
+    fn pricing_cashflows_discount_only() {
+        use finstack_core::types::CurveId;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 15).expect("Valid test date");
+
+        let bond = Bond::builder()
+            .id("PC_DISC".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue_date(issue)
+            .maturity(maturity)
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                Tenor::semi_annual(),
+                DayCount::Act365F,
+            ))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Bond builder should succeed");
+
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (3.0, 0.92)])
+            .interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed");
+        let market = MarketContext::new().insert_discount(disc);
+
+        let frame = bond
+            .pricing_cashflows(&market, Some(issue))
+            .expect("pricing_cashflows should succeed");
+
+        assert!(
+            !frame.discount_factors.is_empty(),
+            "Should have discount factors"
+        );
+        assert!(
+            frame.survival_probs.is_none(),
+            "No hazard curve -> no survival probs"
+        );
+        for df in &frame.discount_factors {
+            assert!(*df > 0.0 && *df <= 1.0, "DF should be in (0,1]: got {df}");
+        }
+        assert_eq!(frame.pvs.len(), frame.discount_factors.len());
+    }
+
+    #[test]
+    fn pricing_cashflows_with_hazard_curve() {
+        use finstack_core::market_data::term_structures::HazardCurve;
+        use finstack_core::types::CurveId;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 15).expect("Valid test date");
+
+        let bond = Bond::builder()
+            .id("PC_HAZARD".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue_date(issue)
+            .maturity(maturity)
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                Tenor::semi_annual(),
+                DayCount::Act365F,
+            ))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(Some(CurveId::new("USD-CREDIT")))
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Bond builder should succeed");
+
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (3.0, 0.92)])
+            .interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed");
+
+        let hazard = HazardCurve::builder("USD-CREDIT")
+            .base_date(issue)
+            .recovery_rate(0.40)
+            .knots([(0.0, 0.02), (3.0, 0.02)])
+            .build()
+            .expect("HazardCurve builder should succeed");
+
+        let market = MarketContext::new()
+            .insert_discount(disc)
+            .insert_hazard(hazard);
+
+        let frame = bond
+            .pricing_cashflows(&market, Some(issue))
+            .expect("pricing_cashflows should succeed");
+
+        assert!(
+            !frame.discount_factors.is_empty(),
+            "Should have discount factors"
+        );
+        let sp = frame
+            .survival_probs
+            .as_ref()
+            .expect("Hazard curve provided -> survival probs should be present");
+        assert_eq!(
+            sp.len(),
+            frame.discount_factors.len(),
+            "survival_probs and discount_factors must have same length"
+        );
+
+        for (i, sp_opt) in sp.iter().enumerate() {
+            let s = sp_opt.expect("Each row should have a survival probability");
+            assert!(
+                s > 0.0 && s <= 1.0,
+                "Survival prob should be in (0,1]: got {s} at row {i}"
+            );
+        }
+
+        // PV = amount * DF * survival_prob (for future cashflows)
+        for (i, pv) in frame.pvs.iter().enumerate() {
+            if frame.pay_dates[i] > issue {
+                let expected = frame.amounts[i] * frame.discount_factors[i] * sp[i].unwrap_or(1.0);
+                assert!(
+                    (*pv - expected).abs() < 1e-6,
+                    "PV mismatch at row {i}: got {pv}, expected {expected}"
+                );
+            }
+        }
     }
 }

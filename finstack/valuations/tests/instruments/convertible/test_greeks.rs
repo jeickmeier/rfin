@@ -162,20 +162,18 @@ fn test_gamma_non_negative() {
 fn test_gamma_peaks_near_atm() {
     let bond = create_standard_convertible();
 
+    // Use enough tree steps for stable gamma (second derivative is noisy with few steps).
+    let tree = ConvertibleTreeType::Binomial(100);
+
     // OTM
     let market_otm = create_market_context_with_params(
         market_params::SPOT_LOW,
         market_params::VOL_STANDARD,
         market_params::DIV_YIELD,
     );
-    let greeks_otm = calculate_convertible_greeks(
-        &bond,
-        &market_otm,
-        ConvertibleTreeType::Binomial(50),
-        Some(0.01),
-        dates::base_date(),
-    )
-    .unwrap();
+    let greeks_otm =
+        calculate_convertible_greeks(&bond, &market_otm, tree, Some(0.01), dates::base_date())
+            .unwrap();
 
     // ATM
     let market_atm = create_market_context_with_params(
@@ -183,14 +181,9 @@ fn test_gamma_peaks_near_atm() {
         market_params::VOL_STANDARD,
         market_params::DIV_YIELD,
     );
-    let greeks_atm = calculate_convertible_greeks(
-        &bond,
-        &market_atm,
-        ConvertibleTreeType::Binomial(50),
-        Some(0.01),
-        dates::base_date(),
-    )
-    .unwrap();
+    let greeks_atm =
+        calculate_convertible_greeks(&bond, &market_atm, tree, Some(0.01), dates::base_date())
+            .unwrap();
 
     // ITM
     let market_itm = create_market_context_with_params(
@@ -198,14 +191,9 @@ fn test_gamma_peaks_near_atm() {
         market_params::VOL_STANDARD,
         market_params::DIV_YIELD,
     );
-    let _greeks_itm = calculate_convertible_greeks(
-        &bond,
-        &market_itm,
-        ConvertibleTreeType::Binomial(50),
-        Some(0.01),
-        dates::base_date(),
-    )
-    .unwrap();
+    let _greeks_itm =
+        calculate_convertible_greeks(&bond, &market_itm, tree, Some(0.01), dates::base_date())
+            .unwrap();
 
     // Gamma typically peaks near ATM. With coarse trees and full repricing,
     // small numerical artifacts can make gamma slightly negative. We check

@@ -207,21 +207,42 @@ impl BinomialTree {
                 let d = ((r - q - 0.5 * sigma * sigma) * dt - sigma * dt.sqrt()).exp();
                 let p = 0.5;
 
+                if !(u.is_finite() && d.is_finite() && u > 0.0 && d > 0.0) {
+                    return Err(Error::Validation(format!(
+                        "JR parameters invalid: u={u}, d={d}. \
+                         Check parameters: sigma={sigma}, r={r}, q={q}, dt={dt}"
+                    )));
+                }
+
                 (u, d, p)
             }
             TreeType::Tian => {
-                // Tian moment-matching parameters
-                let v = ((r - q) * dt).exp();
-                let u = 0.5
-                    * v
-                    * (sigma * dt.sqrt()).exp()
-                    * (1.0 + (1.0 + (sigma * sigma * dt) / (v * v)).sqrt());
-                let d = 0.5
-                    * v
-                    * (sigma * dt.sqrt()).exp()
-                    * (1.0 + (1.0 + (sigma * sigma * dt) / (v * v)).sqrt())
-                    - v * (sigma * dt.sqrt()).exp();
-                let p = (v - d) / (u - d);
+                // Tian (1993) third-order moment matching.
+                //
+                // Reference: Tian, Y. (1993). "A Modified Lattice Approach to
+                // Option Pricing." Journal of Futures Markets, 13(5), 563-577.
+                //
+                // Three-moment conditions: pu^k + (1-p)d^k = M_k for k=1,2,3
+                //   M1 = exp((r-q)*dt),  V = exp(sigma^2*dt)
+                //   A = u+d = M1*V*(V+1),  B = u*d = M1^2*V^2
+                //
+                // u = (M1*V/2) * (V + 1 + sqrt(V^2 + 2V - 3))
+                // d = (M1*V/2) * (V + 1 - sqrt(V^2 + 2V - 3))
+                // p = (M1 - d) / (u - d)
+                let m1 = ((r - q) * dt).exp();
+                let v = (sigma * sigma * dt).exp();
+                let disc = (v * v + 2.0 * v - 3.0).sqrt();
+                let half_m1v = m1 * v / 2.0;
+                let u = half_m1v * (v + 1.0 + disc);
+                let d = half_m1v * (v + 1.0 - disc);
+                let p = (m1 - d) / (u - d);
+
+                if !(0.0..=1.0).contains(&p) {
+                    return Err(Error::Validation(format!(
+                        "Tian probability p={p} out of bounds. \
+                         Check parameters: sigma={sigma}, r={r}, q={q}, dt={dt}"
+                    )));
+                }
 
                 (u, d, p)
             }
@@ -1064,6 +1085,48 @@ mod tests {
             crr_price,
             bs_analytical,
             relative_error * 100.0
+        );
+    }
+
+    /// Golden test: Tian tree converges to Black-Scholes for European call
+    #[test]
+    fn test_tian_converges_to_black_scholes() {
+        let market_params = OptionMarketParams::call(100.0, 100.0, 0.05, 0.20, 1.0);
+        let bs_analytical = 10.4506;
+
+        let tree = BinomialTree::new(500, TreeType::Tian);
+        let tian_price = tree.price_european(&market_params).expect("should succeed");
+
+        let relative_error = ((tian_price - bs_analytical) / bs_analytical).abs();
+        assert!(
+            relative_error < 0.001,
+            "Tian(500) price {} should be within 0.1% of BS {} (error={}%)",
+            tian_price,
+            bs_analytical,
+            relative_error * 100.0
+        );
+    }
+
+    /// Golden test: Tian matches put-call parity
+    #[test]
+    fn test_tian_put_call_parity() {
+        let call_params = OptionMarketParams::call(100.0, 100.0, 0.05, 0.20, 1.0);
+        let put_params = OptionMarketParams::put(100.0, 100.0, 0.05, 0.20, 1.0);
+
+        let tree = BinomialTree::new(200, TreeType::Tian);
+        let call_price = tree.price_european(&call_params).expect("should succeed");
+        let put_price = tree.price_european(&put_params).expect("should succeed");
+
+        // Put-call parity: C - P = S - K*exp(-rT)
+        let parity_lhs = call_price - put_price;
+        let parity_rhs = 100.0 - 100.0 * (-0.05_f64).exp();
+
+        assert!(
+            (parity_lhs - parity_rhs).abs() < 0.10,
+            "Put-call parity violation: C-P={}, S-Ke^(-rT)={}, diff={}",
+            parity_lhs,
+            parity_rhs,
+            (parity_lhs - parity_rhs).abs()
         );
     }
 

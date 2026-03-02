@@ -322,6 +322,33 @@ class Bond:
     def get_full_schedule(self, market: MarketContext) -> CashFlowSchedule:
         """Generate the full cashflow schedule for this bond."""
         ...
+    def pricing_cashflows(
+        self,
+        market: MarketContext,
+        *,
+        as_of: datetime.date | None = None,
+    ) -> Any:
+        """Cashflow schedule with discount factors, survival probabilities, and PVs.
+
+        Generates the bond's full cashflow schedule and enriches each row with the
+        discount factor and (when a credit/hazard curve is configured) survival
+        probability used to compute its present value. The bond's own
+        ``discount_curve`` and ``hazard_curve`` are wired automatically.
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data containing discount and optional hazard curves.
+        as_of : datetime.date, optional
+            Valuation date. Defaults to the discount curve's base date.
+
+        Returns
+        -------
+        polars.DataFrame
+            One row per cashflow with columns: ``pay_date``, ``kind``, ``amount``,
+            ``discount_factor``, ``pv``, and optionally ``survival_prob``.
+        """
+        ...
 
     @property
     def cashflow_spec(self) -> CashflowSpec: ...

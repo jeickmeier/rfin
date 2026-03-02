@@ -216,14 +216,17 @@ def slide_02_the_question(prs):
     add_callout_box(slide, Inches(5.3), Inches(2.2), Inches(4.2), Inches(0.45),
                     "What the Models Show", bg_color=ACCENT_BLUE)
     add_bullet_list(slide, Inches(5.3), Inches(2.8), Inches(4.2), Inches(2.5), [
-        "For strong credits (BB+): PIK can trade tighter",
-        "For stressed credits (CCC): PIK premium > +260bp",
-        "Below ~300bp market spread: PIK actually benefits the investor",
+        "For strong credits (BB+): PIK premium is small (\u00b160bp) "
+        "and sign is model-dependent",
+        "For stressed credits (CCC): PIK premium > +260bp, "
+        "robust across models",
+        "The non-linearity means flat spread bumps are dangerous",
     ], font_size=14, color=TEXT_DARK)
 
     add_callout_box(slide, Inches(1.5), Inches(5.3), Inches(7), Inches(0.7),
                     "The answer depends on credit quality in a way that is impossible "
-                    "to guess without a model. The premium can even be negative.",
+                    "to guess without a model. The premium is non-linear and, for "
+                    "strong credits, depends on calibration assumptions.",
                     bg_color=ACCENT_ORANGE, font_size=14)
 
 
@@ -463,7 +466,7 @@ def slide_06_pik_in_hazard_model(prs):
     set_slide_bg(slide, BODY_BG)
     add_section_number(slide, "2")
     add_slide_title(slide, "PIK in the Hazard Rate Model",
-                    "What the simple model predicts \u2014 but is it right?")
+                    "Risk-neutral pricing: hazard rates from market spreads")
     add_slide_number(slide, 6)
 
     rows = [
@@ -480,20 +483,20 @@ def slide_06_pik_in_hazard_model(prs):
               font_size=13)
 
     add_bullet_list(slide, Inches(0.5), Inches(4.2), Inches(9), Inches(1.5), [
-        "Under fixed hazard rates, the model predicts PIK always trades "
-        "below cash \u2014 concentrated maturity exposure penalises PIK "
-        "at every credit level",
-        "The predicted gap widens with credit risk: from \u22122.5 pts (BB+) "
-        "to \u22128.8 pts (CCC)",
-        "But this conclusion turns out to be WRONG for strong credits. "
-        "A structural model (next section) shows PIK actually trades "
-        "ABOVE cash for BB+ and BB\u2212 issuers",
+        "Under risk-neutral hazard rates (calibrated from market spreads), "
+        "PIK always prices below cash \u2014 concentrated maturity exposure "
+        "penalises PIK at every credit level",
+        "The gap widens with credit risk: from \u22122.5 pts (BB+) to \u22128.8 "
+        "pts (CCC)",
+        "Note: market spreads embed a credit risk premium above expected "
+        "losses. For BB+ the spread (85bp) implies ~7% 5Y default prob, "
+        "versus the historical rate of ~1%",
     ], font_size=14, color=TEXT_DARK)
 
     add_callout_box(slide, Inches(1.5), Inches(6.0), Inches(7), Inches(0.7),
-                    "This is the simple model\u2019s answer \u2014 not the final answer. "
-                    "The structural model will reverse the sign for strong credits, "
-                    "where rare defaults make PIK compounding a net benefit.",
+                    "Under risk-neutral pricing, PIK always costs the investor. "
+                    "The question is whether the structural model \u2014 which uses "
+                    "historical PDs \u2014 tells a different story.",
                     bg_color=HEADER_BLUE, font_size=12)
 
 
@@ -501,41 +504,47 @@ def slide_07_what_simple_misses(prs):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     set_slide_bg(slide, BODY_BG)
     add_section_number(slide, "2")
-    add_slide_title(slide, "What the Simple Model Misses",
-                    "Hazard-rate vs structural: the price gap")
+    add_slide_title(slide, "The Calibration Gap",
+                    "Why two models disagree on PIK for strong credits")
     add_slide_number(slide, 7)
 
     rows = [
-        ["Issuer", "HR \u0394Price", "MC \u0394Price", "Gap"],
-        ["BB+ (Solid HY)", "\u22122.46", "+2.98", "5.4 pts"],
-        ["BB\u2212 (Mid HY)", "\u22123.80", "+1.05", "4.9 pts"],
-        ["B (Weak HY)", "\u22125.32", "\u22121.61", "3.7 pts"],
-        ["B\u2212 (Stressed)", "\u22126.88", "\u22124.89", "2.0 pts"],
-        ["CCC (Deeply Stressed)", "\u22128.79", "\u22126.17", "2.6 pts"],
+        ["Issuer", "Mkt Sprd", "HR 5Y PD", "Hist 5Y PD", "Ratio"],
+        ["BB+ (Solid HY)", "85bp", "6.9%", "1.0%", "6.9\u00d7"],
+        ["BB\u2212 (Mid HY)", "210bp", "15.5%", "4.9%", "3.2\u00d7"],
+        ["B (Weak HY)", "390bp", "25.6%", "11.8%", "2.2\u00d7"],
+        ["B\u2212 (Stressed)", "630bp", "36.5%", "24.0%", "1.5\u00d7"],
+        ["CCC (Deeply Stressed)", "1050bp", "52.0%", "39.3%", "1.3\u00d7"],
     ]
-    add_table(slide, Inches(1.5), Inches(1.4), Inches(7), rows,
-              col_widths=[Inches(2.5), Inches(1.2), Inches(1.2), Inches(1.2)],
-              font_size=13)
+    add_table(slide, Inches(0.8), Inches(1.3), Inches(8.4), rows,
+              col_widths=[Inches(2.5), Inches(1.2), Inches(1.2),
+                          Inches(1.4), Inches(1.0)],
+              font_size=12)
 
     add_textbox(slide, Inches(0.5), Inches(3.8), Inches(9), Inches(0.5),
-                "HR = hazard rate model (fixed \u03bb).  "
-                "MC = Merton Monte Carlo (structural model with feedback).\n"
-                "\u0394Price = PIK price minus Cash price.",
+                "HR 5Y PD = implied from market spread.  "
+                "Hist 5Y PD = from historical annual default rate.\n"
+                "Ratio = how much the market \u2018overstates\u2019 default risk "
+                "vs historical experience.",
                 font_size=12, color=TEXT_MID)
 
-    add_bullet_list(slide, Inches(0.5), Inches(4.3), Inches(9), Inches(1.5), [
-        "For BB+: the HR model says PIK trades 2.5 pts cheaper. The MC model "
-        "says PIK trades 3 pts ABOVE cash. Sign reversal!",
-        "For strong credits, defaults are rare enough that PIK compounding "
-        "is a net benefit \u2014 a fact that the simple model entirely misses",
-        "For weak credits, both models agree PIK is cheaper, but the MC model "
-        "captures the structural feedback that amplifies the penalty",
+    add_bullet_list(slide, Inches(0.5), Inches(4.4), Inches(9), Inches(1.5), [
+        "Market spreads embed a risk premium \u2014 compensation for bearing "
+        "credit risk beyond expected losses. For BB+, the spread implies "
+        "7\u00d7the historical default rate",
+        "The HR model uses market-implied hazard \u2192 PIK always costs. "
+        "The MC model uses historical PDs for barriers \u2192 few defaults "
+        "\u2192 PIK compounding survives \u2192 PIK appears to benefit investors",
+        "The gap shrinks for weaker credits (1.3\u00d7 for CCC) \u2014 "
+        "the risk premium is a smaller fraction of the total spread",
     ], font_size=14, color=TEXT_DARK)
 
-    add_callout_box(slide, Inches(1.5), Inches(6.2), Inches(7), Inches(0.6),
-                    "A flat hazard-rate model gets the SIGN wrong for investment-grade "
-                    "PIK, and understates the dynamics for stressed credits.",
-                    bg_color=ACCENT_RED, font_size=13)
+    add_callout_box(slide, Inches(1.0), Inches(6.2), Inches(8), Inches(0.6),
+                    "Whether PIK benefits investors for strong credits depends on "
+                    "which default measure you use. Both models agree the effect "
+                    "is small (\u00b160bp) for strong credits and large (100\u2013260bp) "
+                    "for weak ones.",
+                    bg_color=ACCENT_ORANGE, font_size=12)
 
 
 def slide_08_merton_model(prs):
@@ -803,8 +812,8 @@ def slide_13_breakeven_table(prs):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     set_slide_bg(slide, BODY_BG)
     add_section_number(slide, "4")
-    add_slide_title(slide, "Breakeven Z-Spreads: The Answer",
-                    "Cash-equivalent Z-spreads by structure and credit quality")
+    add_slide_title(slide, "Structural Model: Breakeven Z-Spreads",
+                    "MC results using historical PDs for barrier calibration")
     add_slide_number(slide, 13)
 
     rows = [
@@ -821,25 +830,26 @@ def slide_13_breakeven_table(prs):
               font_size=12)
 
     add_textbox(slide, Inches(0.5), Inches(4.0), Inches(9), Inches(0.4),
-                "Z-spreads are cash-equivalent: the Z-spread on a standard "
-                "cash-pay bond that reproduces each structure\u2019s MC price.",
+                "Z-spreads are cash-equivalent.  MC barriers calibrated from "
+                "historical PDs (BB+ = 0.2%/yr \u2192 ~2% 5Y default rate).",
                 font_size=11, color=TEXT_MID)
 
     add_bullet_list(slide, Inches(0.5), Inches(4.5), Inches(9), Inches(2), [
-        "BB+ to BB\u2212: PIK Z-spread is BELOW cash \u2014 compounding benefit "
-        "exceeds survival penalty when defaults are rare. "
-        "The simple model (slide 6) predicted PIK always trades below "
-        "cash \u2014 the structural model reverses this for strong credits",
-        "Crossover near B: the feedback loop starts to overcome the "
-        "compounding benefit (\u0394Z = +37bp)",
-        "B\u2212 to CCC: PIK premium of +141bp to +262bp. Here both "
-        "models agree PIK is cheaper, but the structural model captures "
-        "the self-reinforcing spiral that the simple model missed",
+        "BB+ to BB\u2212: the MC model shows PIK Z-spread below cash. "
+        "Under historical default rates (1\u20135% over 5Y), PIK compounding "
+        "survives on ~98% of paths \u2014 but recall this uses lower PDs "
+        "than market spreads imply (slide 7)",
+        "Crossover near B: the feedback loop starts to dominate "
+        "(\u0394Z = +37bp). Both models agree PIK costs from here",
+        "B\u2212 to CCC: PIK premium of +141bp to +262bp. The leverage "
+        "spiral is unambiguous \u2014 this result is robust across "
+        "calibration assumptions",
     ], font_size=14, color=TEXT_DARK)
 
-    add_callout_box(slide, Inches(1.5), Inches(6.5), Inches(7), Inches(0.5),
-                    "The PIK premium crosses zero near 300bp market spread. "
-                    "Below that, PIK actually benefits investors.",
+    add_callout_box(slide, Inches(1.0), Inches(6.5), Inches(8), Inches(0.5),
+                    "For weak credits (B and below): PIK premium is large "
+                    "and robust. For strong credits: the sign depends on "
+                    "whether you calibrate to market or historical defaults.",
                     bg_color=ACCENT_ORANGE, font_size=13)
 
 
@@ -919,10 +929,10 @@ def slide_14_credit_quality_sweep(prs):
 
     # Zones
     add_callout_box(slide, Inches(0.5), Inches(5.5), Inches(2.8), Inches(0.5),
-                    "PIK BENEFITS INVESTOR", bg_color=ACCENT_GREEN,
+                    "LOW IMPACT ZONE", bg_color=ACCENT_GREEN,
                     font_size=11)
     add_textbox(slide, Inches(0.5), Inches(6.1), Inches(2.8), Inches(0.4),
-                "Market spread < 300bp:\nPIK compounding dominates",
+                "Market spread < 300bp:\nPremium small, sign model-dep.",
                 font_size=11, color=TEXT_DARK)
 
     add_callout_box(slide, Inches(3.5), Inches(5.5), Inches(2.8), Inches(0.5),
@@ -981,50 +991,46 @@ def slide_16_model_gap(prs):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     set_slide_bg(slide, BODY_BG)
     add_section_number(slide, "4")
-    add_slide_title(slide, "Simple vs Structural: Why the Model Matters",
-                    "Hazard-rate model vs Merton MC across the credit spectrum")
+    add_slide_title(slide, "Why the Models Disagree",
+                    "Calibration assumptions drive the answer for strong credits")
     add_slide_number(slide, 16)
 
     rows = [
-        ["Issuer", "HR Cash", "HR PIK", "MC Cash", "MC PIK",
-         "HR \u0394Z", "MC \u0394Z"],
-        ["BB+", "113.35", "110.89", "116.48", "119.46",
-         "\u22122.5", "+3.0"],
-        ["BB\u2212", "107.56", "103.76", "112.12", "113.17",
-         "\u22123.8", "+1.1"],
-        ["B", "99.76", "94.44", "103.87", "102.26",
-         "\u22125.3", "\u22121.6"],
-        ["B\u2212", "90.33", "83.45", "87.28", "82.39",
-         "\u22126.9", "\u22124.9"],
-        ["CCC", "76.13", "67.34", "63.60", "57.43",
-         "\u22128.8", "\u22126.2"],
+        ["Issuer", "HR \u0394Price", "MC \u0394Price", "HR 5Y PD",
+         "MC DefRate", "Ratio"],
+        ["BB+", "\u22122.5", "+3.0", "6.9%", "1.9%", "3.6\u00d7"],
+        ["BB\u2212", "\u22123.8", "+1.1", "15.5%", "5.8%", "2.7\u00d7"],
+        ["B", "\u22125.3", "\u22121.6", "25.6%", "13.2%", "1.9\u00d7"],
+        ["B\u2212", "\u22126.9", "\u22124.9", "36.5%", "25.7%", "1.4\u00d7"],
+        ["CCC", "\u22128.8", "\u22126.2", "52.0%", "42.3%", "1.2\u00d7"],
     ]
     add_table(slide, Inches(0.5), Inches(1.3), Inches(9), rows,
-              col_widths=[Inches(1.3), Inches(1.0), Inches(1.0),
-                          Inches(1.0), Inches(1.0), Inches(1.0), Inches(1.0)],
+              col_widths=[Inches(2.0), Inches(1.1), Inches(1.1),
+                          Inches(1.2), Inches(1.2), Inches(1.0)],
               font_size=11)
 
     add_textbox(slide, Inches(0.5), Inches(3.6), Inches(9), Inches(0.3),
-                "\u0394 = PIK price minus Cash price (in points). "
-                "HR = hazard-rate model. MC = Merton Monte Carlo.",
+                "\u0394Price = PIK minus Cash (points). "
+                "HR 5Y PD = market-implied. MC DefRate = simulation default rate.",
                 font_size=11, color=TEXT_MID)
 
     add_bullet_list(slide, Inches(0.5), Inches(4.0), Inches(9), Inches(2), [
-        "The HR model always prices PIK below cash (negative \u0394). "
-        "It sees only the concentrated maturity exposure.",
-        "The MC model prices PIK ABOVE cash for BB+/BB\u2212 (positive \u0394). "
-        "Rare defaults mean PIK compounding is a net benefit.",
-        "For stressed credits (B\u2212, CCC), both models agree PIK is "
-        "cheaper, but the gap narrows because MC includes the leverage "
-        "spiral that the HR model misses.",
-        "The sign reversal for strong credits is the key insight: "
-        "a flat hazard model cannot capture this dynamic.",
-    ], font_size=14, color=TEXT_DARK)
+        "The HR model uses market-implied defaults (including risk "
+        "premium) \u2192 PIK always costs. The MC model uses historical "
+        "PDs for barriers \u2192 fewer defaults \u2192 PIK compounding survives",
+        "For BB+: the HR model sees 3.6\u00d7 more defaults than the MC "
+        "model. This gap drives the sign reversal in PIK pricing",
+        "For CCC: both models see similar default rates (ratio 1.2\u00d7). "
+        "The PIK penalty is robust regardless of calibration",
+        "The practical implication: for strong credits, the PIK premium/"
+        "discount is small either way (\u00b160bp). For weak credits, it's "
+        "large (+100\u2013260bp) and model choice barely matters",
+    ], font_size=13, color=TEXT_DARK)
 
-    add_callout_box(slide, Inches(1.5), Inches(6.2), Inches(7), Inches(0.6),
-                    "The structural model captures two things the hazard model "
-                    "cannot: (1) the compounding benefit when defaults are rare, "
-                    "and (2) the feedback spiral when defaults are likely.",
+    add_callout_box(slide, Inches(1.0), Inches(6.2), Inches(8), Inches(0.6),
+                    "Model choice matters most where the answer matters least "
+                    "(strong credits). Where the premium is large and actionable "
+                    "(weak credits), both models agree.",
                     bg_color=HEADER_BLUE, font_size=12)
 
 
@@ -1037,12 +1043,12 @@ def slide_17_when_does_it_matter(prs):
     add_slide_number(slide, 17)
 
     zones = [
-        ("PIK BENEFITS INVESTOR", ACCENT_GREEN, Inches(0.5),
+        ("LOW IMPACT ZONE", ACCENT_GREEN, Inches(0.5),
          "BB+ to BB  |  Mkt spread < 300bp",
-         ["PIK Z-spread is BELOW cash",
-          "Compounding benefit dominates",
+         ["PIK premium is small (\u00b160bp)",
+          "Sign is calibration-dependent",
           "Feedback loop is negligible",
-          "Price PIK at or inside cash"]),
+          "PIK vs cash difference is minor"]),
         ("CROSSOVER ZONE", ACCENT_ORANGE, Inches(3.6),
          "B  |  Mkt spread 300\u2013500bp",
          ["PIK premium 0\u201375bp",
@@ -1071,14 +1077,14 @@ def slide_17_when_does_it_matter(prs):
                 color=HEADER_BLUE)
 
     guide_rows = [
-        ["Question", "PIK Benefits", "Crossover", "Structural Risk"],
-        ["PIK Z-spread premium", "\u221260 to \u221220bp", "0 to +75bp",
+        ["Question", "Low Impact", "Crossover", "Structural Risk"],
+        ["PIK Z-spread premium", "\u00b160bp (model-dep.)", "0 to +75bp",
          "+100 to +290bp"],
-        ["Model needed?", "No \u2014 PIK trades inside",
+        ["Model needed?", "Either model adequate",
          "Structural recommended", "Structural required"],
         ["Toggle vs full PIK", "Minimal difference",
          "Toggle may exceed PIK", "Toggle \u2248 PIK or worse"],
-        ["Key risk factor", "Maturity extension risk",
+        ["Key risk factor", "Calibration assumption",
          "Leverage trajectory", "Feedback loop intensity"],
     ]
     add_table(slide, Inches(0.5), Inches(4.6), Inches(9), guide_rows,
@@ -1101,21 +1107,22 @@ def slide_18_takeaways(prs):
     bar.line.fill.background()
 
     takeaways = [
-        ("1", "PIK premium depends entirely on credit quality",
-         "For strong credits (BB+/BB\u2212), PIK can actually trade tighter "
-         "than cash \u2014 compounding benefits outweigh rare defaults. For "
-         "stressed credits (CCC), the premium exceeds +260bp."),
-        ("2", "Simple hazard models get the sign wrong for strong credits",
-         "The flat-\u03bb model always penalises PIK. The structural model "
-         "shows PIK trades ABOVE cash for BB+. The crossover is near "
-         "300bp market spread."),
+        ("1", "PIK premium is non-linear and credit-quality-dependent",
+         "For strong credits (BB+/BB\u2212), the premium is small (\u00b160bp) "
+         "and its sign depends on calibration. For stressed credits "
+         "(CCC), the premium exceeds +260bp and is robust across models."),
+        ("2", "Model disagreement is largest where the stakes are smallest",
+         "For strong credits, models disagree on the sign but the magnitude "
+         "is small. For weak credits, models agree: PIK premium is large "
+         "and the feedback spiral dominates."),
         ("3", "The toggle option does not protect the investor",
          "Borrowers PIK when credit deteriorates \u2014 adverse selection. "
          "Toggle Z-spreads can exceed full PIK because the feedback loop "
          "is concentrated on the worst paths."),
-        ("4", "Above ~500bp market spread, structural modelling is essential",
-         "In the structural risk zone, the feedback loop dominates pricing. "
-         "A spread bump approach will materially misprice PIK risk."),
+        ("4", "Above ~400bp market spread, structural modelling is essential",
+         "In the structural risk zone, the feedback loop dominates pricing "
+         "regardless of calibration. A flat spread bump approach will "
+         "materially misprice PIK risk."),
     ]
 
     for i, (num, title, detail) in enumerate(takeaways):

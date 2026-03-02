@@ -183,6 +183,17 @@ impl HazardBondEngine {
             .map(|(d, _)| *d)
             .filter(|d| *d > as_of)
             .collect();
+
+        // Include dates where the outstanding balance changes (PIK
+        // capitalizations, amortization) even when they don't produce
+        // holder-view cashflows, so the recovery leg tracks the correct
+        // notional at each interval boundary.
+        for cf in &schedule.flows {
+            if cf.date > as_of && matches!(cf.kind, CFKind::PIK | CFKind::Amortization) {
+                dates.push(cf.date);
+            }
+        }
+
         dates.sort();
         dates.dedup();
 
@@ -235,28 +246,37 @@ impl HazardBondEngine {
         let pv_cf = Money::new(kahan_sum(pv_values), ccy);
 
         // Recovery leg: FRP on outstanding notional.
+        // Outstanding tracks amortization (down) and PIK capitalizations (up)
+        // so that recovery is computed on the correct accreted balance.
         let mut pv_rec = 0.0;
         if recovery > 0.0 {
-            // Compute outstanding notional at as_of and future reductions.
             let mut full_flows = schedule.flows.clone();
             full_flows.sort_by_key(|cf| cf.date);
 
             let mut outstanding = schedule.notional.initial.amount();
-            let mut future_principal = std::collections::BTreeMap::<Date, f64>::new();
+            let mut future_balance_delta = std::collections::BTreeMap::<Date, f64>::new();
 
             for cf in &full_flows {
                 let amt = cf.amount.amount();
                 if amt <= 0.0 {
                     continue;
                 }
-                let is_principal = matches!(cf.kind, CFKind::Amortization | CFKind::Notional);
-                if !is_principal {
-                    continue;
-                }
-                if cf.date <= as_of {
-                    outstanding -= amt;
-                } else {
-                    *future_principal.entry(cf.date).or_insert(0.0) += amt;
+                match cf.kind {
+                    CFKind::Amortization | CFKind::Notional => {
+                        if cf.date <= as_of {
+                            outstanding -= amt;
+                        } else {
+                            *future_balance_delta.entry(cf.date).or_insert(0.0) -= amt;
+                        }
+                    }
+                    CFKind::PIK => {
+                        if cf.date <= as_of {
+                            outstanding += amt;
+                        } else {
+                            *future_balance_delta.entry(cf.date).or_insert(0.0) += amt;
+                        }
+                    }
+                    _ => {}
                 }
             }
 
@@ -271,13 +291,13 @@ impl HazardBondEngine {
                         // Geometric mean of endpoint DFs equals exact midpoint DF under
                         // continuous compounding: sqrt(df(t_start) * df(t_end)) = df((t_start + t_end)/2).
                         let df_midpoint = (dfs[k - 1] * dfs[k]).sqrt();
-                        // Recovery payment at midpoint
                         pv_rec += recovery * n_prev * delta_s * df_midpoint;
                     }
                 }
-                // Apply principal repayments at the end of the interval.
-                if let Some(amt) = future_principal.remove(&dates[k]) {
-                    current_outstanding = (current_outstanding - amt).max(0.0);
+                // Apply balance changes: amortization/redemption (negative delta)
+                // and PIK capitalizations (positive delta).
+                if let Some(delta) = future_balance_delta.remove(&dates[k]) {
+                    current_outstanding = (current_outstanding + delta).max(0.0);
                 }
             }
         }
@@ -292,6 +312,7 @@ impl HazardBondEngine {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::builder::CouponType;
     use crate::instruments::common_impl::traits::Attributes;
     use crate::instruments::common_impl::traits::Instrument;
     use crate::instruments::fixed_income::bond::pricing::quote_engine::{
@@ -345,6 +366,25 @@ mod tests {
             .knots([(0.0, lambda), (10.0, lambda)])
             .build()
             .expect("HazardCurve builder should succeed in hazard engine test")
+    }
+
+    fn build_pik_bond(issue: Date, maturity: Date) -> Bond {
+        let mut spec = CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Act365F);
+        if let CashflowSpec::Fixed(ref mut inner) = spec {
+            inner.coupon_type = CouponType::PIK;
+        }
+        Bond::builder()
+            .id("TEST_PIK_BOND_HAZARD".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue_date(issue)
+            .maturity(maturity)
+            .cashflow_spec(spec)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(Some(CurveId::new("USD-CREDIT")))
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("PIK bond builder should succeed in hazard engine test")
     }
 
     #[test]
@@ -511,6 +551,105 @@ mod tests {
         assert!(
             quotes.z_spread.is_some(),
             "Z-spread should be computed for quoted bond"
+        );
+    }
+
+    #[test]
+    fn hazard_zero_matches_discounting_for_pik_bond() {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
+
+        let bond = build_pik_bond(issue, maturity);
+        let disc = build_flat_discount(issue);
+        let hazard_zero = build_flat_hazard("USD-CREDIT", issue, 0.0, 0.4);
+
+        let market = MarketContext::new()
+            .insert_discount(disc)
+            .insert_hazard(hazard_zero);
+
+        let pv_rf = BondEngine::price(&bond, &market, issue).expect("RF price should succeed");
+        let pv_haz =
+            HazardBondEngine::price(&bond, &market, issue).expect("Hazard price should succeed");
+
+        let diff = (pv_rf.amount() - pv_haz.amount()).abs();
+        assert!(
+            diff < 1e-6,
+            "PIK hazard price with zero intensity should match risk-free price; \
+             pv_rf={}, pv_haz={}, diff={}",
+            pv_rf.amount(),
+            pv_haz.amount(),
+            diff
+        );
+    }
+
+    #[test]
+    fn pik_recovery_uses_accreted_notional() {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
+
+        let cash_bond = build_test_bond(issue, maturity);
+        let pik_bond = build_pik_bond(issue, maturity);
+
+        let lambda = 0.05;
+        let recovery = 0.4;
+        let market = MarketContext::new()
+            .insert_discount(build_flat_discount(issue))
+            .insert_hazard(build_flat_hazard("USD-CREDIT", issue, lambda, recovery));
+
+        let pv_cash =
+            HazardBondEngine::price(&cash_bond, &market, issue).expect("Cash bond price succeeds");
+        let pv_pik =
+            HazardBondEngine::price(&pik_bond, &market, issue).expect("PIK bond price succeeds");
+
+        // With zero recovery, isolate the alive-leg difference.
+        let market_no_rec = MarketContext::new()
+            .insert_discount(build_flat_discount(issue))
+            .insert_hazard(build_flat_hazard("USD-CREDIT", issue, lambda, 0.0));
+
+        let pv_cash_norec = HazardBondEngine::price(&cash_bond, &market_no_rec, issue)
+            .expect("Cash bond no-recovery price");
+        let pv_pik_norec = HazardBondEngine::price(&pik_bond, &market_no_rec, issue)
+            .expect("PIK bond no-recovery price");
+
+        // Recovery benefit = PV(with recovery) - PV(without recovery)
+        let rec_benefit_cash = pv_cash.amount() - pv_cash_norec.amount();
+        let rec_benefit_pik = pv_pik.amount() - pv_pik_norec.amount();
+
+        // PIK accretes notional above par, so its recovery base is larger on
+        // average → the PIK recovery benefit must exceed the cash bond's.
+        assert!(
+            rec_benefit_pik > rec_benefit_cash,
+            "PIK recovery benefit ({:.2}) should exceed cash bond recovery benefit ({:.2}) \
+             because PIK accretes notional above par",
+            rec_benefit_pik,
+            rec_benefit_cash
+        );
+    }
+
+    #[test]
+    fn pik_higher_hazard_produces_lower_price() {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
+
+        let bond = build_pik_bond(issue, maturity);
+
+        let market_low = MarketContext::new()
+            .insert_discount(build_flat_discount(issue))
+            .insert_hazard(build_flat_hazard("USD-CREDIT", issue, 0.01, 0.4));
+        let market_high = MarketContext::new()
+            .insert_discount(build_flat_discount(issue))
+            .insert_hazard(build_flat_hazard("USD-CREDIT", issue, 0.05, 0.4));
+
+        let pv_low =
+            HazardBondEngine::price(&bond, &market_low, issue).expect("Low hazard price succeeds");
+        let pv_high = HazardBondEngine::price(&bond, &market_high, issue)
+            .expect("High hazard price succeeds");
+
+        assert!(
+            pv_high.amount() < pv_low.amount(),
+            "PIK price with higher hazard should be lower (pv_high={}, pv_low={})",
+            pv_high.amount(),
+            pv_low.amount()
         );
     }
 }

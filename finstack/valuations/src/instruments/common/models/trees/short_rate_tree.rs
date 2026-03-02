@@ -624,10 +624,40 @@ impl ShortRateTree {
             state_prices = next_state_prices;
         }
 
-        // Ho-Lee calibration is analytical (exact theta formula), so error should be minimal
+        // Measure actual calibration error (floating-point accumulation)
+        let mut max_error_bps = 0.0_f64;
+        let mut max_error_step = 0_usize;
+        {
+            let mut q = vec![1.0_f64]; // Arrow-Debreu prices
+            for (step, rates_step) in rates.iter().enumerate().take(self.config.steps) {
+                let next_nodes = step + 2;
+                let mut next_q = vec![0.0; next_nodes];
+                for (i, &rate_i) in rates_step.iter().enumerate() {
+                    let df_i = (-rate_i * dt).exp();
+                    if i + 1 < next_nodes {
+                        next_q[i + 1] += q[i] * df_i * 0.5;
+                    }
+                    if i < next_nodes {
+                        next_q[i] += q[i] * df_i * 0.5;
+                    }
+                }
+                let model_df: f64 = next_q.iter().sum();
+                let t_next = self.time_steps[step + 1];
+                let target_df = discount_curve.df(t_next);
+                if target_df > 0.0 {
+                    let err = ((model_df - target_df) / target_df).abs() * 10_000.0;
+                    if err > max_error_bps {
+                        max_error_bps = err;
+                        max_error_step = step;
+                    }
+                }
+                q = next_q;
+            }
+        }
+
         self.calibration_quality = Some(CalibrationResult {
-            max_error_bps: 0.0,
-            max_error_step: 0,
+            max_error_bps,
+            max_error_step,
             fallback_count: 0,
             converged: true,
         });

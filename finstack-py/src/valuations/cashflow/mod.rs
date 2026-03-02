@@ -1,4 +1,5 @@
 pub mod builder;
+pub(crate) mod dataframe;
 pub(crate) mod performance;
 pub mod specs;
 pub mod utils;

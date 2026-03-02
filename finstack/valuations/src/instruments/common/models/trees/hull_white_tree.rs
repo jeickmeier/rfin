@@ -327,45 +327,34 @@ impl HullWhiteTree {
         let mut p_mid = 2.0 / 3.0 - jf * jf * m * m;
         let mut p_down = 1.0 / 6.0 + (jf * jf * m * m - jf * m) / 2.0;
 
-        // At boundaries, use drift-adjusted probabilities that maintain martingale property
-        // The mean reversion drift is: -κ * x = -κ * j * dx
-        // We need probabilities that match the first two moments of the process
+        // At boundaries (|j| >= j_max), use Hull & White (1994) two-branch
+        // approximation: suppress the outward branch and match the first moment.
+        //
+        // The exact Hull-White boundary treatment uses shifted branching:
+        //   Type B (j=+j_max): branches to j, j-1, j-2  (offsets 0, -1, -2)
+        //   Type C (j=-j_max): branches to j+2, j+1, j   (offsets +2, +1, 0)
+        // which matches both first and second moments exactly. However, this
+        // requires topology changes to forward_state_prices/backward_induction.
+        //
+        // This simplified version suppresses the outward branch (p_up=0 at upper,
+        // p_down=0 at lower) and matches the first moment only. The second moment
+        // is only approximately matched, but the calibration error remains <1bp
+        // for typical parameters (kappa < 0.10, steps >= 100).
         let j_abs = j.unsigned_abs() as usize;
         if j_abs >= j_max && j_max > 0 {
-            // x-value at this node
-            let x_j = jf * dx;
-
-            // Mean reversion drift: E[dx] = -κ * x * dt
-            // We use modified branching at boundaries to keep within bounds
-            // while respecting the drift
-            let drift = -kappa * x_j * dt;
-
             if j > 0 {
-                // Upper boundary: can only go down or stay (no up move)
-                // Match first moment: p_mid * 0 + p_down * (-dx) = drift
-                // Match second moment: p_mid * 0 + p_down * dx² = σ²dt
-                // With constraint: p_mid + p_down = 1, p_up = 0
-
-                // Simplified: p_down = -drift/dx + variance_term
-                // where variance_term ensures second moment is matched
-                let variance_term = 1.0 / 6.0; // Approximation for variance matching
-
-                // Drift-adjusted probability (mean reversion pulls toward center)
-                let p_down_adj = (-drift / dx + variance_term).clamp(0.0, 1.0);
+                // Upper boundary: suppress up-move, match E[Δx] = -κjdx·dt
+                // p_down·(-dx) = -κjdx·dt  =>  p_down = κj·dt = jM
+                let p_down_target = jf * m;
                 p_up = 0.0;
-                p_down = p_down_adj.min(1.0);
+                p_down = p_down_target.clamp(0.0, 1.0);
                 p_mid = 1.0 - p_down;
             } else if j < 0 {
-                // Lower boundary: can only go up or stay (no down move)
-                // Match first moment: p_up * dx + p_mid * 0 = drift
-                // Note: drift is positive here (pulling up toward center)
-
-                let variance_term = 1.0 / 6.0;
-
-                // Drift-adjusted probability (mean reversion pulls toward center)
-                let p_up_adj = (drift / dx + variance_term).clamp(0.0, 1.0);
+                // Lower boundary: suppress down-move, match E[Δx] = -κjdx·dt
+                // p_up·(+dx) = -κjdx·dt  =>  p_up = -jM (positive since j < 0)
+                let p_up_target = -jf * m;
                 p_down = 0.0;
-                p_up = p_up_adj.min(1.0);
+                p_up = p_up_target.clamp(0.0, 1.0);
                 p_mid = 1.0 - p_up;
             }
         }
@@ -943,6 +932,59 @@ mod tests {
             value,
             target_df,
             error_bps
+        );
+    }
+
+    #[test]
+    fn test_high_kappa_boundary_nodes_hit() {
+        // High mean reversion forces boundary nodes to be exercised.
+        // j_max = ceil(0.184 / (kappa * dt)). With kappa=0.15, steps=100, T=5:
+        // dt = 0.05, j_max = ceil(0.184 / 0.0075) = 25. At step 100, tree
+        // would extend to j=100 but is capped at j=25, so boundaries are active.
+        let config = HullWhiteTreeConfig::new(0.15, 0.01, 100);
+        let curve = test_discount_curve();
+
+        let tree =
+            HullWhiteTree::calibrate(config, &curve, 5.0).expect("Calibration should succeed");
+
+        // Verify boundary is actually hit: j_max should be small
+        assert!(
+            tree.j_max < 50,
+            "j_max={} should be < 50 to exercise boundary code",
+            tree.j_max
+        );
+
+        // State prices should still approximately match discount factors
+        // Relaxed tolerance to 5bp for boundary-heavy scenarios
+        for step in [25, 50, 75, 100] {
+            let t = tree.time_at_step(step);
+            let target_df = curve.df(t);
+            let sum_q: f64 = (0..tree.num_nodes(step))
+                .map(|j| tree.state_price(step, j))
+                .sum();
+
+            let error_bps = ((sum_q - target_df) / target_df).abs() * 10000.0;
+            assert!(
+                error_bps < 5.0,
+                "Boundary-heavy calibration error {:.2} bps at step {} (t={:.2})",
+                error_bps,
+                step,
+                t
+            );
+        }
+
+        // Unit payoff backward induction should still approximately recover df
+        let final_step = tree.num_steps();
+        let terminal = vec![1.0; tree.num_nodes(final_step)];
+        let value = tree.backward_induction(&terminal, |_, _, cont| cont);
+        let target_df = curve.df(5.0);
+        let error_bps = ((value - target_df) / target_df).abs() * 10000.0;
+        assert!(
+            error_bps < 5.0,
+            "Backward induction error {:.2} bps with boundary nodes (value={:.8}, df={:.8})",
+            error_bps,
+            value,
+            target_df
         );
     }
 }

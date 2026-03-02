@@ -54,6 +54,10 @@ pub mod state_keys {
     pub const BARRIER_TOUCHED_UP: &str = "barrier_touched_up";
     /// Barrier touched down-flag (1.0 if touched at this node, else 0.0)
     pub const BARRIER_TOUCHED_DOWN: &str = "barrier_touched_down";
+    /// Discount factor at the current node (pre-computed for performance)
+    pub const DF: &str = "df";
+    /// Rate volatility for two-factor equity+rates models
+    pub const RATE_VOLATILITY: &str = "rate_volatility";
 }
 
 /// Map of state variables for a tree node
@@ -119,7 +123,7 @@ impl<'a> NodeState<'a> {
         let spot = vars.get(state_keys::SPOT).copied();
         let interest_rate = vars.get(state_keys::INTEREST_RATE).copied();
         let hazard_rate = vars.get(state_keys::HAZARD_RATE).copied();
-        let df = vars.get("df").copied();
+        let df = vars.get(state_keys::DF).copied();
 
         Self {
             step,
@@ -146,7 +150,7 @@ impl<'a> NodeState<'a> {
         let spot = vars.get(state_keys::SPOT).copied();
         let interest_rate = vars.get(state_keys::INTEREST_RATE).copied();
         let hazard_rate = vars.get(state_keys::HAZARD_RATE).copied();
-        let df = vars.get("df").copied();
+        let df = vars.get(state_keys::DF).copied();
 
         Self {
             step,
@@ -450,10 +454,17 @@ impl TreeGreeks {
     ///
     /// This cancels the O(h²) error term, achieving O(h⁴) accuracy.
     ///
+    /// # Important: Refinement Ratio
+    ///
+    /// The `(4*fine - coarse)/3` formula is only correct when `fine` uses
+    /// exactly **2x** the number of steps as `coarse` (i.e., step size ratio = 2).
+    /// For a different refinement ratio r, the formula becomes:
+    /// `(r² × fine - coarse) / (r² - 1)`.
+    ///
     /// # Arguments
     ///
     /// * `coarse` - Greeks from tree with N steps
-    /// * `fine` - Greeks from tree with 2N steps
+    /// * `fine` - Greeks from tree with 2N steps (must be exactly 2x)
     ///
     /// # Returns
     ///
@@ -703,14 +714,28 @@ impl EvolutionParams {
         }
     }
 
-    /// Create evolution parameters for interest rate factor (Vasicek-style)
+    /// Create evolution parameters for interest rate factor (Vasicek-style).
+    ///
+    /// # Deprecated
+    ///
+    /// This method uses an incorrect Vasicek drift (`kappa * theta * dt`) that
+    /// ignores the current rate level. The correct Vasicek drift is
+    /// `kappa * (theta - r(t)) * dt`, which requires level-dependent probabilities.
+    /// The fixed `p=0.5` probabilities also fail to account for drift.
+    ///
+    /// Use [`HullWhiteTree`](super::hull_white_tree::HullWhiteTree) or
+    /// [`ShortRateTree`](super::short_rate_tree::ShortRateTree) for calibrated
+    /// short-rate tree models that correctly handle mean reversion.
+    #[deprecated(
+        since = "0.5.0",
+        note = "Incorrect Vasicek drift. Use HullWhiteTree or ShortRateTree instead."
+    )]
     pub fn interest_rate(
         mean_reversion: f64,
         long_term_rate: f64,
         volatility: f64,
         dt: f64,
     ) -> Self {
-        // Simplified Vasicek evolution for demonstration
         let drift = mean_reversion * long_term_rate * dt;
         let vol_factor = volatility * dt.sqrt();
 
@@ -740,11 +765,21 @@ pub enum BarrierStyle {
 ///
 /// Defines barrier levels, rebate, and style for incorporating barrier
 /// conditions into recombining tree valuation.
+///
+/// # Barrier Touch Convention
+///
+/// This implementation uses **non-strict inequality** for barrier observation:
+/// - Up barrier: triggered when `spot >= up_level`
+/// - Down barrier: triggered when `spot <= down_level`
+///
+/// This differs from QuantLib's default (strict inequality: `>` and `<`).
+/// The non-strict convention is more conservative for knock-out options
+/// (barrier is triggered at the exact level) and matches Bloomberg's behavior.
 #[derive(Debug, Clone)]
 pub struct BarrierSpec {
-    /// Up barrier level (S >= up triggers a touch)
+    /// Up barrier level (S >= up triggers a touch; non-strict inequality)
     pub up_level: Option<f64>,
-    /// Down barrier level (S <= down triggers a touch)
+    /// Down barrier level (S <= down triggers a touch; non-strict inequality)
     pub down_level: Option<f64>,
     /// Rebate amount paid on knock-out (or at expiry if knock-in never triggers)
     pub rebate: f64,
@@ -1109,8 +1144,6 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 .or_else(|| inputs.initial_vars.get(state_keys::INTEREST_RATE))
                 .ok_or(finstack_core::Error::Internal)?;
 
-            // In standard recombining trinomial, the middle factor is 1.0; respect provided m
-            let _m = inputs.middle_factor.unwrap_or(1.0);
             let p_m = inputs.prob_middle.unwrap_or(0.0);
 
             let max_nodes = 2 * inputs.steps + 1;
@@ -1382,6 +1415,6 @@ pub fn two_factor_equity_rates_state(
     vars.insert(state_keys::INTEREST_RATE, risk_free_rate);
     vars.insert(state_keys::DIVIDEND_YIELD, dividend_yield);
     vars.insert(state_keys::VOLATILITY, equity_volatility);
-    vars.insert("rate_volatility", rate_volatility);
+    vars.insert(state_keys::RATE_VOLATILITY, rate_volatility);
     vars
 }

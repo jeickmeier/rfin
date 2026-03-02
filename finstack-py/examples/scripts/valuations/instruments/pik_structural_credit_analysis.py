@@ -20,6 +20,8 @@ from __future__ import annotations
 import math
 from datetime import date, timedelta
 
+import polars as pl
+
 from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
@@ -389,6 +391,46 @@ def main() -> None:
     print("  cost' of the toggle option.")
     print()
 
+    # ── PIK cashflow schedules ────────────────────────────────────────
+    #
+    # Before diving into prices, show the raw cashflow schedules with
+    # discount factors and survival probabilities for a representative
+    # issuer.  This makes explicit the timing/notional difference between
+    # cash-pay and PIK bonds that the hazard-rate model must capture.
+
+    demo_profile = ISSUER_PROFILES[3]  # B- (Stressed)
+    demo_market = build_market()
+    demo_market.insert_hazard(HazardCurve(
+        "CREDIT", AS_OF,
+        [(0.0, demo_profile["base_hazard"]), (10.0, demo_profile["base_hazard"])],
+        recovery_rate=demo_profile["base_recovery"],
+    ))
+
+    cash_hr = build_plain_bond("cash")
+    pik_hr = build_plain_bond("pik")
+
+    print("=" * 110)
+    print("PIK CASHFLOW SCHEDULES (B- Stressed): Discount Factors & Survival Probabilities")
+    print("=" * 110)
+    print(f"  Flat hazard = {demo_profile['base_hazard']:.2%}  |  "
+          f"Recovery = {demo_profile['base_recovery']:.0%}")
+    print()
+
+    for label, bond in [("CASH-PAY", cash_hr), ("FULL PIK", pik_hr)]:
+        df = bond.pricing_cashflows(demo_market, as_of=AS_OF)
+        display_df = df.select([
+            pl.col("pay_date"),
+            pl.col("kind"),
+            pl.col("amount").round(2),
+            pl.col("discount_factor").round(6),
+            pl.col("survival_prob").round(6),
+            pl.col("pv").round(2),
+        ])
+        print(f"  ── {label} ──")
+        print(display_df)
+        print(f"  Total PV = {df['pv'].sum():.2f}")
+        print()
+
     # ── Hazard-rate comparison ────────────────────────────────────────
     print("=" * 110)
     print("HAZARD-RATE PRICES: Cash-Pay vs PIK at Each Issuer's Flat Hazard Rate")
@@ -397,9 +439,6 @@ def main() -> None:
           f"{'HR Cash':>9s}  {'HR PIK':>9s}  {'Δ Price':>8s}  "
           f"{'MC Cash':>9s}  {'MC PIK':>9s}  {'Δ Price':>8s}")
     print("  " + "-" * 100)
-
-    cash_hr = build_plain_bond("cash")
-    pik_hr = build_plain_bond("pik")
 
     for profile in ISSUER_PROFILES:
         lam, rec = profile["base_hazard"], profile["base_recovery"]

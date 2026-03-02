@@ -365,12 +365,10 @@ fn test_conversion_policy_with_otm_bond() {
         market_params::DIV_YIELD,
     );
 
-    let policies = vec![
+    // Voluntary and Window policies: OTM bond should have bond floor support
+    // because conversion is optional.
+    let optional_policies = vec![
         ("Voluntary", ConversionPolicy::Voluntary),
-        (
-            "Mandatory",
-            ConversionPolicy::MandatoryOn(dates::mid_date()),
-        ),
         (
             "Window",
             ConversionPolicy::Window {
@@ -380,7 +378,11 @@ fn test_conversion_policy_with_otm_bond() {
         ),
     ];
 
-    for (name, policy) in policies {
+    let approx_bond_floor =
+        calculate_bond_floor(bond_params::COUPON_RATE, 5.0, market_params::RISK_FREE_RATE)
+            * bond_params::NOTIONAL;
+
+    for (name, policy) in optional_policies {
         let bond = create_convertible_with_policy(policy);
         let price = price_convertible_bond(
             &bond,
@@ -390,11 +392,6 @@ fn test_conversion_policy_with_otm_bond() {
         )
         .unwrap();
 
-        // OTM bonds should be closer to bond floor
-        let approx_bond_floor =
-            calculate_bond_floor(bond_params::COUPON_RATE, 5.0, market_params::RISK_FREE_RATE)
-                * bond_params::NOTIONAL;
-
         assert!(
             price.amount() >= approx_bond_floor * 0.90,
             "{} policy OTM bond should have bond floor support: {} vs {}",
@@ -403,6 +400,32 @@ fn test_conversion_policy_with_otm_bond() {
             approx_bond_floor
         );
     }
+
+    // Mandatory conversion: the holder is FORCED to convert even at a loss.
+    // OTM mandatory bonds trade below the straight bond floor because the
+    // holder bears equity downside risk (this is the defining feature of
+    // PERCS/DECS structures).
+    let mandatory_bond =
+        create_convertible_with_policy(ConversionPolicy::MandatoryOn(dates::mid_date()));
+    let mandatory_price = price_convertible_bond(
+        &mandatory_bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
+
+    assert!(
+        mandatory_price.amount() < approx_bond_floor,
+        "Mandatory OTM bond should price BELOW bond floor (forced conversion at a loss): {} vs {}",
+        mandatory_price.amount(),
+        approx_bond_floor
+    );
+    assert!(
+        mandatory_price.amount() > 0.0,
+        "Mandatory OTM bond should still have positive value: {}",
+        mandatory_price.amount()
+    );
 }
 
 #[test]
