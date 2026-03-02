@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import TypedDict
 from datetime import date
 
+import pandas
 import polars
 
 class BetaResult(TypedDict):
@@ -55,15 +56,15 @@ class PeriodStatsResult(TypedDict):
 class Performance:
     """Performance analytics engine.
 
-    Construct from a Polars DataFrame with a Date column followed by price
-    columns (one per ticker). Computes returns, drawdowns, and benchmark-
-    relative metrics.
+    Construct from a Polars or pandas DataFrame. For Polars, the first column
+    must be a Date column followed by price columns (one per ticker). For pandas,
+    the index should contain dates and each column should be a price series.
 
     Parameters
     ----------
-    prices : polars.DataFrame
-        DataFrame with ``Date`` column as the first column and price series
-        as subsequent columns (one per ticker).
+    prices : polars.DataFrame | pandas.DataFrame
+        For polars: first column is Date, remaining are price series.
+        For pandas: index is dates, columns are price series.
     benchmark_ticker : str, optional
         Name of the benchmark column. Defaults to the first price column.
     freq : str
@@ -75,7 +76,7 @@ class Performance:
 
     def __init__(
         self,
-        prices: polars.DataFrame,
+        prices: polars.DataFrame | pandas.DataFrame,
         benchmark_ticker: str | None = None,
         freq: str = "daily",
         log_returns: bool = False,
