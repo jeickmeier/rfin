@@ -6,6 +6,7 @@ from datetime import date
 from ..types.model import FinancialModelSpec
 from ...core.dates.periods import PeriodId
 from ...core.market_data.context import MarketContext
+from ...core.money import Money
 
 class ResultsMeta:
     """Metadata about evaluation results."""
@@ -75,6 +76,30 @@ class StatementResult:
 
         Returns:
             float: Value or default
+        """
+        ...
+
+    def get_money(self, node_id: str, period_id: PeriodId) -> Money | None:
+        """Get monetary value for a node at a specific period.
+
+        Args:
+            node_id: Node identifier
+            period_id: Period identifier
+
+        Returns:
+            Money | None: Money value if monetary node, None otherwise
+        """
+        ...
+
+    def get_scalar(self, node_id: str, period_id: PeriodId) -> float | None:
+        """Get scalar value for a node at a specific period.
+
+        Args:
+            node_id: Node identifier
+            period_id: Period identifier
+
+        Returns:
+            float | None: Scalar value if scalar node, None otherwise
         """
         ...
 

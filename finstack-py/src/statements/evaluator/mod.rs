@@ -173,6 +173,53 @@ impl PyStatementResult {
         self.inner.get_or(node_id, &period_id.inner, default)
     }
 
+    #[pyo3(text_signature = "(self, node_id, period_id)")]
+    /// Get the monetary value (Money) for a node at a specific period.
+    ///
+    /// Returns the value as a Money object if the node is monetary,
+    /// None if the node is scalar or not found.
+    ///
+    /// Parameters
+    /// ----------
+    /// node_id : str
+    ///     Node identifier
+    /// period_id : PeriodId
+    ///     Period identifier
+    ///
+    /// Returns
+    /// -------
+    /// Money | None
+    ///     Money value if found and monetary, None otherwise
+    fn get_money(
+        &self,
+        node_id: &str,
+        period_id: &PyPeriodId,
+    ) -> Option<crate::core::money::PyMoney> {
+        self.inner
+            .get_money(node_id, &period_id.inner)
+            .map(crate::core::money::PyMoney::new)
+    }
+
+    #[pyo3(text_signature = "(self, node_id, period_id)")]
+    /// Get the scalar value for a node at a specific period.
+    ///
+    /// Returns the value if the node is scalar, None if monetary or not found.
+    ///
+    /// Parameters
+    /// ----------
+    /// node_id : str
+    ///     Node identifier
+    /// period_id : PeriodId
+    ///     Period identifier
+    ///
+    /// Returns
+    /// -------
+    /// float | None
+    ///     Scalar value if found and scalar, None otherwise
+    fn get_scalar(&self, node_id: &str, period_id: &PyPeriodId) -> Option<f64> {
+        self.inner.get_scalar(node_id, &period_id.inner)
+    }
+
     #[pyo3(text_signature = "(self, node_id)")]
     /// Get an iterator over all periods for a node.
     ///

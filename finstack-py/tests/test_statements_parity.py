@@ -795,5 +795,65 @@ def test_amount_or_scalar_as_money() -> None:
     assert money.amount == pytest.approx(100.0)
 
 
+def test_statement_result_get_money() -> None:
+    """Test get_money method on StatementResult."""
+    from finstack.core.currency import USD
+    from finstack.core.dates import PeriodId
+    from finstack.core.money import Money
+
+    from finstack.statements import Evaluator, ModelBuilder
+
+    builder = ModelBuilder.new("money_test")
+    builder.periods("2025Q1..Q2", None)
+    builder.value_money(
+        "revenue",
+        [
+            (PeriodId.quarter(2025, 1), Money(100000.0, USD)),
+            (PeriodId.quarter(2025, 2), Money(110000.0, USD)),
+        ],
+    )
+    model = builder.build()
+
+    evaluator = Evaluator.new()
+    results = evaluator.evaluate(model)
+
+    q1 = PeriodId.quarter(2025, 1)
+    money = results.get_money("revenue", q1)
+    assert money is not None
+    assert money.amount == pytest.approx(100000.0)
+
+    # Non-existent node should return None
+    assert results.get_money("nonexistent", q1) is None
+
+
+def test_statement_result_get_scalar() -> None:
+    """Test get_scalar method on StatementResult."""
+    from finstack.core.dates import PeriodId
+
+    from finstack.statements import Evaluator, ModelBuilder
+
+    builder = ModelBuilder.new("scalar_test")
+    builder.periods("2025Q1..Q2", None)
+    builder.value_scalar(
+        "margin",
+        [
+            (PeriodId.quarter(2025, 1), 0.35),
+            (PeriodId.quarter(2025, 2), 0.40),
+        ],
+    )
+    model = builder.build()
+
+    evaluator = Evaluator.new()
+    results = evaluator.evaluate(model)
+
+    q1 = PeriodId.quarter(2025, 1)
+    scalar = results.get_scalar("margin", q1)
+    assert scalar is not None
+    assert scalar == pytest.approx(0.35)
+
+    # Non-existent node should return None
+    assert results.get_scalar("nonexistent", q1) is None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
