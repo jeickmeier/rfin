@@ -12,7 +12,9 @@
 pub mod dynamic_recovery;
 pub mod endogenous_hazard;
 pub mod merton;
+pub mod toggle_exercise;
 
 pub use dynamic_recovery::DynamicRecoverySpec;
 pub use endogenous_hazard::EndogenousHazardSpec;
 pub use merton::{AssetDynamics, BarrierType, MertonModel};
+pub use toggle_exercise::{CreditState, CreditStateVariable, ToggleExerciseModel};
