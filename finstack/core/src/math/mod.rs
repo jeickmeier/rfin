@@ -138,7 +138,7 @@ pub use compounding::Compounding;
 pub use solver::{BracketHint, BrentSolver, NewtonSolver, Solver};
 pub use solver_multi::{AnalyticalDerivatives, LevenbergMarquardtSolver, MultiSolver};
 pub use special_functions::{
-    erf, norm_cdf, norm_pdf, standard_normal_inv_cdf, student_t_cdf, student_t_inv_cdf,
+    erf, ln_gamma, norm_cdf, norm_pdf, standard_normal_inv_cdf, student_t_cdf, student_t_inv_cdf,
 };
 pub use stats::{
     correlation, covariance, mean, mean_var, moment_match, population_variance, quantile,

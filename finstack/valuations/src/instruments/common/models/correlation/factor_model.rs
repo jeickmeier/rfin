@@ -214,9 +214,12 @@ pub trait FactorModel: Send + Sync + std::fmt::Debug {
     /// Model name for diagnostics.
     fn model_name(&self) -> &'static str;
 
-    /// Compute conditional factor value given a standard normal draw.
+    /// Compute a single factor value given one standard normal draw.
     ///
-    /// For correlated factors, uses Cholesky decomposition internally.
+    /// **Important:** For multi-factor models this returns only the *diagonal*
+    /// Cholesky contribution `L[i,i] * z * vol[i]`, ignoring cross-factor
+    /// correlation.  To generate properly correlated factor vectors, use
+    /// [`MultiFactorModel::generate_correlated_factors`] instead.
     fn conditional_factor(&self, factor_index: usize, z: f64) -> f64;
 }
 
@@ -559,9 +562,14 @@ impl MultiFactorModel {
     /// * `correlations` - Correlation matrix (flattened row-major, n×n values)
     #[must_use]
     pub fn new(num_factors: usize, volatilities: Vec<f64>, correlations: Vec<f64>) -> Self {
-        // Try validated construction first, fall back to identity on error
-        Self::validated(num_factors, volatilities.clone(), correlations)
-            .unwrap_or_else(|_| Self::uncorrelated(num_factors, volatilities))
+        Self::validated(num_factors, volatilities.clone(), correlations).unwrap_or_else(|err| {
+            tracing::warn!(
+                num_factors,
+                %err,
+                "Invalid correlation matrix; falling back to uncorrelated (identity) model"
+            );
+            Self::uncorrelated(num_factors, volatilities)
+        })
     }
 
     /// Create a multi-factor model with validation.

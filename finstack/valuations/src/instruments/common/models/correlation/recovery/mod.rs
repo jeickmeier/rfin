@@ -121,6 +121,10 @@ pub enum RecoverySpec {
     },
 
     /// Beta-distributed recovery (bounded [0, 1]).
+    ///
+    /// **Approximation stub:** Currently implemented via [`CorrelatedRecovery`] with
+    /// zero factor correlation, which does not preserve the Beta distribution shape.
+    /// The mean is matched but tail behavior differs from a true Beta(α, β) model.
     Beta {
         /// Mean recovery
         mean: f64,
@@ -128,7 +132,12 @@ pub enum RecoverySpec {
         std_dev: f64,
     },
 
-    /// Frye model: LGD = α + β * DefaultRate
+    /// Frye model: LGD = α + β * DefaultRate.
+    ///
+    /// **Approximation stub:** Currently mapped to [`CorrelatedRecovery`] with
+    /// `implied_vol = sensitivity * 0.1` and `correlation = -0.5`. These are
+    /// heuristic parameters; a production implementation should calibrate
+    /// directly to portfolio default rate data.
     Frye {
         /// Base LGD when default rate is zero
         base_lgd: f64,

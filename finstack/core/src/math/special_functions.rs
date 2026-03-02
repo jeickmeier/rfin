@@ -149,6 +149,22 @@ pub fn erf(x: f64) -> f64 {
     statrs::function::erf::erf(x)
 }
 
+/// Natural logarithm of the Gamma function.
+///
+/// Computes ln(Γ(x)) for x > 0.
+///
+/// # Arguments
+///
+/// * `x` - Input value (must be positive)
+///
+/// # Returns
+///
+/// ln(Γ(x)). Returns `f64::INFINITY` for x ≤ 0.
+#[inline]
+pub fn ln_gamma(x: f64) -> f64 {
+    statrs::function::gamma::ln_gamma(x)
+}
+
 /// Cumulative standard normal distribution function Φ(x).
 ///
 /// Computes the probability that a standard normal random variable is less

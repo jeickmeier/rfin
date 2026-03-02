@@ -4,17 +4,27 @@
 //! by modeling tail dependence - the empirically observed phenomenon that joint
 //! defaults cluster in stressed markets more than Gaussian correlation predicts.
 //!
-//! # Mathematical Model
+//! # Mathematical Model (Standard Multivariate t-Copula)
 //!
-//! Latent variable for entity i:
+//! All entities share a common mixing variable W ~ Gamma(ν/2, ν/2):
 //! ```text
-//! Aᵢ = √ρ · T + √(1-ρ) · εᵢ
+//! M  = Z_M / √W     (systematic factor, t(ν)-distributed)
+//! εᵢ = Zᵢ  / √W     (idiosyncratic, t(ν)-distributed, same W)
+//! Aᵢ = √ρ · M + √(1-ρ) · εᵢ
 //! ```
 //!
-//! where T ~ t(ν) and εᵢ ~ t(ν) are Student-t distributed with ν degrees of freedom.
+//! The shared W creates tail dependence: when W is small (heavy-tail event),
+//! ALL variables are simultaneously large in magnitude.
 //!
-//! The key insight is that T and εᵢ share a common variance scaling χ ~ χ²(ν)/ν,
-//! creating dependence in the tails that Gaussian lacks.
+//! # Conditional Default Probability
+//!
+//! Given the systematic factor M = m:
+//! ```text
+//! P(default | M=m) = t_{ν+1}( (c - √ρ·m) / √(1-ρ) · √((ν+1)/(ν + m²)) )
+//! ```
+//!
+//! where c = t_ν⁻¹(PD) is the default threshold and the ν+1 degrees of freedom
+//! arise from conditioning on M in the multivariate t-distribution.
 //!
 //! # Tail Dependence
 //!
@@ -29,9 +39,10 @@
 //!
 //! # Integration Approach
 //!
-//! Uses variance-gamma mixing representation for computational efficiency:
-//! - Outer integral over χ²(ν)/ν scaling variable using Gauss-Laguerre quadrature
-//! - Inner Gaussian integration conditional on scaling
+//! Uses variance-gamma mixing representation:
+//! - Outer integral over W ~ Gamma(ν/2, ν/2) using Gauss-Laguerre quadrature
+//! - Inner Gaussian integration conditional on W
+//! - Factor transformation: M = Z / √W converts Gaussian to t-distributed
 //!
 //! # References
 //!
@@ -41,7 +52,7 @@
 //!   dependent credit derivatives using a structural model."
 
 use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
-use finstack_core::math::{student_t_cdf, student_t_inv_cdf, GaussHermiteQuadrature};
+use finstack_core::math::{ln_gamma, student_t_cdf, student_t_inv_cdf, GaussHermiteQuadrature};
 
 /// Minimum correlation for numerical stability.
 const MIN_CORRELATION: f64 = 0.01;
@@ -53,17 +64,17 @@ const MAX_CORRELATION: f64 = 0.99;
 /// Captures tail dependence - the tendency for defaults to cluster
 /// during market stress more than Gaussian correlation predicts.
 ///
-/// Uses the proper Student-t CDF/inverse CDF implementations from statrs
-/// for accurate tail behavior at low degrees of freedom.
+/// Implements the standard multivariate t-copula (shared mixing variable)
+/// per Demarta & McNeil (2005), with proper ν+1 conditional degrees of freedom.
 pub struct StudentTCopula {
     /// Degrees of freedom (ν > 2 required for finite variance)
     degrees_of_freedom: f64,
     /// Quadrature order for integration
     quadrature_order: u8,
-    /// Cached inner quadrature for performance
+    /// Cached inner quadrature for Gaussian integration given W
     inner_quadrature: GaussHermiteQuadrature,
-    /// Cached Gauss-Laguerre quadrature nodes and weights for χ²(ν)/ν
-    chi_sq_quadrature: Vec<(f64, f64)>,
+    /// Cached Gauss-Laguerre quadrature nodes and weights for Gamma(ν/2, ν/2)
+    gamma_quadrature: Vec<(f64, f64)>,
 }
 
 impl Clone for StudentTCopula {
@@ -72,7 +83,7 @@ impl Clone for StudentTCopula {
             degrees_of_freedom: self.degrees_of_freedom,
             quadrature_order: self.quadrature_order,
             inner_quadrature: select_quadrature(self.quadrature_order),
-            chi_sq_quadrature: self.chi_sq_quadrature.clone(),
+            gamma_quadrature: self.gamma_quadrature.clone(),
         }
     }
 }
@@ -82,7 +93,7 @@ impl std::fmt::Debug for StudentTCopula {
         f.debug_struct("StudentTCopula")
             .field("degrees_of_freedom", &self.degrees_of_freedom)
             .field("quadrature_order", &self.quadrature_order)
-            .field("chi_sq_points", &self.chi_sq_quadrature.len())
+            .field("gamma_points", &self.gamma_quadrature.len())
             .finish()
     }
 }
@@ -103,7 +114,7 @@ impl StudentTCopula {
             degrees_of_freedom: df,
             quadrature_order: order,
             inner_quadrature: select_quadrature(order),
-            chi_sq_quadrature: Self::compute_chi_sq_quadrature(df, order as usize),
+            gamma_quadrature: Self::compute_gamma_quadrature(df, order as usize),
         }
     }
 
@@ -119,7 +130,7 @@ impl StudentTCopula {
             degrees_of_freedom: df,
             quadrature_order: order,
             inner_quadrature: select_quadrature(order),
-            chi_sq_quadrature: Self::compute_chi_sq_quadrature(df, order as usize),
+            gamma_quadrature: Self::compute_gamma_quadrature(df, order as usize),
         }
     }
 
@@ -134,19 +145,18 @@ impl StudentTCopula {
         correlation.clamp(MIN_CORRELATION, MAX_CORRELATION)
     }
 
-    /// Compute Gauss-Laguerre quadrature for χ²(ν)/ν integration.
+    /// Compute quadrature for W ~ Gamma(ν/2, ν/2) integration.
     ///
-    /// Uses Gauss-Laguerre nodes transformed to integrate over Gamma(ν/2, 2/ν) distribution.
-    /// This is more accurate than uniform grid for capturing tail behavior.
+    /// W = χ²(ν)/ν has a Gamma(ν/2, 2/ν) distribution (shape=ν/2, scale=2/ν).
     ///
-    /// For χ²(ν)/ν = Gamma(ν/2, 2/ν), we use the transformation:
-    /// - E[χ²(ν)/ν] = 1
-    /// - Var[χ²(ν)/ν] = 2/ν
-    fn compute_chi_sq_quadrature(nu: f64, n: usize) -> Vec<(f64, f64)> {
-        // Gauss-Laguerre nodes and weights for integrating x^α * e^(-x) over [0, ∞)
-        // For Gamma(α, β) distribution, we transform: Y = X/β, with α = ν/2, β = 2/ν
-        //
-        // Standard Gauss-Laguerre nodes for α = 0 (weights include e^x factor):
+    /// The density is: f(w) = (ν/2)^{ν/2} / Γ(ν/2) · w^{ν/2-1} · exp(-νw/2)
+    ///
+    /// Using the substitution u = νw/2 (so w = 2u/ν, dw = 2/ν du):
+    /// ∫ g(w) f(w) dw = ∫ g(2u/ν) · u^{ν/2-1} · exp(-u) / Γ(ν/2) du
+    ///
+    /// Standard Gauss-Laguerre (α=0) integrates ∫ h(u) exp(-u) du, so each
+    /// weight must include the u^{ν/2-1} / Γ(ν/2) correction.
+    fn compute_gamma_quadrature(nu: f64, n: usize) -> Vec<(f64, f64)> {
         let laguerre_nodes_weights: &[(f64, f64)] = match n {
             n if n <= 5 => &[
                 (0.263_560_319_7, 0.521_755_610_6),
@@ -179,19 +189,28 @@ impl StudentTCopula {
         };
 
         let num_points = laguerre_nodes_weights.len().min(n);
-
-        // Transform Laguerre nodes to χ²(ν)/ν scale
-        // χ²(ν)/ν has mean 1 and variance 2/ν
-        // We use: x_transformed = node * (2/ν) which maps Laguerre to χ²/ν
-        let scale = 2.0 / nu;
+        let alpha = nu / 2.0;
+        let ln_gamma_alpha = ln_gamma(alpha);
 
         laguerre_nodes_weights[..num_points]
             .iter()
-            .map(|&(node, weight)| {
-                // Transform node and adjust weight for change of variables
-                let x = node * scale;
-                // Weight includes transformation Jacobian
-                (x.max(0.01), weight)
+            .filter_map(|&(node, laguerre_weight)| {
+                if node < 1e-15 {
+                    return None;
+                }
+                // w = 2·node/ν  (transform from Laguerre variable u to Gamma variate w)
+                let w = 2.0 * node / nu;
+
+                // Weight correction: u^{α-1} / Γ(α)
+                // = exp((α-1)·ln(u) - ln_gamma(α))
+                let gamma_correction = ((alpha - 1.0) * node.ln() - ln_gamma_alpha).exp();
+                let weight = laguerre_weight * gamma_correction;
+
+                if weight < 1e-30 || !weight.is_finite() {
+                    return None;
+                }
+
+                Some((w.max(1e-6), weight))
             })
             .collect()
     }
@@ -204,53 +223,49 @@ impl Copula for StudentTCopula {
         factor_realization: &[f64],
         correlation: f64,
     ) -> f64 {
-        let z = factor_realization.first().copied().unwrap_or(0.0);
+        let m = factor_realization.first().copied().unwrap_or(0.0);
         let rho = self.smooth_correlation(correlation);
         let nu = self.degrees_of_freedom;
 
-        // Handle extreme correlation cases
         if rho < 1e-10 {
             return student_t_cdf(default_threshold, nu);
         }
         if rho > 1.0 - 1e-10 {
-            let threshold_adj = default_threshold - z;
+            let threshold_adj = default_threshold - m;
             return student_t_cdf(threshold_adj, nu);
         }
 
         let sqrt_rho = rho.sqrt();
         let sqrt_1mr = (1.0 - rho).sqrt();
 
-        // For Student-t, the conditional threshold involves the t-distribution:
-        // P(default | T=z) = t_ν((t^{-1}(PD) - √ρ·z) / √(1-ρ))
-        //
-        // The caller (`default_threshold_for_copula`) already provides the threshold
-        // in t-scale (i.e., default_threshold = t_inv(PD)), so we use it directly.
-        let conditional_threshold = (default_threshold - sqrt_rho * z) / sqrt_1mr;
+        // Standard multivariate t-copula conditional (Demarta & McNeil 2005):
+        // P(default | M=m) = t_{ν+1}( (c - √ρ·m)/√(1-ρ) · √((ν+1)/(ν+m²)) )
+        let base_arg = (default_threshold - sqrt_rho * m) / sqrt_1mr;
+        let scaling = ((nu + 1.0) / (nu + m * m)).sqrt();
+        let conditional_threshold = base_arg * scaling;
 
-        student_t_cdf(conditional_threshold, nu)
+        student_t_cdf(conditional_threshold, nu + 1.0)
     }
 
     fn integrate_fn(&self, f: &dyn Fn(&[f64]) -> f64) -> f64 {
-        // For Student-t, we use a two-layer integration:
-        // 1. Outer: over the variance scaling χ²(ν)/ν variable using Gauss-Laguerre
-        // 2. Inner: Gaussian integration given the scaling
+        // Two-layer integration using variance-gamma mixing:
+        // M ~ t(ν) can be represented as M = Z/√W where Z ~ N(0,1), W ~ Gamma(ν/2, ν/2)
         //
-        // This exploits: T = Z / √(χ²/ν) where Z ~ N(0,1), χ² ~ χ²(ν)
+        // E[g(M)] = E_W[ E_Z[ g(Z/√W) | W ] ]
+        //
+        // Outer: over W using Gauss-Laguerre with Gamma density correction
+        // Inner: over Z using Gauss-Hermite (standard normal)
 
         let mut result = 0.0;
-        for &(chi_sq_val, chi_weight) in &self.chi_sq_quadrature {
-            // Scale factor for converting Gaussian to t
-            // T = Z / √(χ²/ν), so scale = √(χ²/ν)
-            let scale = chi_sq_val.sqrt();
+        for &(w_val, w_weight) in &self.gamma_quadrature {
+            let inv_sqrt_w = 1.0 / w_val.sqrt();
 
-            // Inner Gaussian integration with scaled factor
             let inner = self.inner_quadrature.integrate(|z_gauss| {
-                // Convert Gaussian realization to t-distributed
-                let z_t = z_gauss / scale;
-                f(&[z_t])
+                let m = z_gauss * inv_sqrt_w;
+                f(&[m])
             });
 
-            result += chi_weight * inner;
+            result += w_weight * inner;
         }
 
         result
@@ -269,7 +284,6 @@ impl Copula for StudentTCopula {
         let nu = self.degrees_of_freedom;
 
         // λ_L = 2 · t_{ν+1}(-√((ν+1)(1-ρ)/(1+ρ)))
-        // This is the exact formula for lower tail dependence
         let arg = -((nu + 1.0) * (1.0 - rho) / (1.0 + rho)).sqrt();
         2.0 * student_t_cdf(arg, nu + 1.0)
     }
@@ -279,6 +293,7 @@ impl Copula for StudentTCopula {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use finstack_core::math::standard_normal_inv_cdf;
 
     #[test]
     fn test_student_t_creation() {
@@ -299,7 +314,6 @@ mod tests {
         let copula = StudentTCopula::new(5.0);
         let lambda = copula.tail_dependence(0.5);
 
-        // Student-t should have positive tail dependence
         assert!(lambda > 0.0, "Tail dependence should be positive");
         assert!(lambda < 1.0, "Tail dependence should be < 1");
     }
@@ -312,7 +326,6 @@ mod tests {
         let lambda_mid = copula.tail_dependence(0.5);
         let lambda_high = copula.tail_dependence(0.8);
 
-        // Higher correlation should give higher tail dependence
         assert!(
             lambda_mid > lambda_low,
             "Tail dependence should increase with correlation"
@@ -325,7 +338,6 @@ mod tests {
 
     #[test]
     fn test_tail_dependence_decreases_with_df() {
-        // Lower df = heavier tails = more tail dependence
         let copula_low_df = StudentTCopula::new(4.0);
         let copula_high_df = StudentTCopula::new(20.0);
 
@@ -343,7 +355,6 @@ mod tests {
         let copula_high_df = StudentTCopula::new(100.0);
         let lambda = copula_high_df.tail_dependence(0.5);
 
-        // For very high df, should approach Gaussian (zero tail dependence)
         assert!(
             lambda < 0.05,
             "High df should give near-zero tail dependence"
@@ -353,35 +364,69 @@ mod tests {
     #[test]
     fn test_conditional_prob_sensitive_to_factor() {
         let copula = StudentTCopula::new(5.0);
-        let threshold = finstack_core::math::standard_normal_inv_cdf(0.05);
+        let threshold = student_t_inv_cdf(0.05, 5.0);
         let correlation = 0.3;
 
         let prob_neg = copula.conditional_default_prob(threshold, &[-2.0], correlation);
         let prob_zero = copula.conditional_default_prob(threshold, &[0.0], correlation);
         let prob_pos = copula.conditional_default_prob(threshold, &[2.0], correlation);
 
-        // Same pattern as Gaussian: negative factor increases default prob
         assert!(prob_neg > prob_zero);
         assert!(prob_pos < prob_zero);
     }
 
     #[test]
-    fn test_tail_dependence_golden_values() {
-        // Test the exact formula: λ_L = 2 · t_{ν+1}(-√((ν+1)(1-ρ)/(1+ρ)))
-        // These are computed using the formula with proper Student-t CDF
+    fn test_integration_recovers_unconditional() {
+        // Critical self-consistency test: E[P(default|M)] must equal PD
+        for &df in &[4.0, 5.0, 10.0, 30.0] {
+            let copula = StudentTCopula::new(df);
+            let pd = 0.05;
+            let threshold = student_t_inv_cdf(pd, df);
+            let correlation = 0.30;
 
-        let test_cases = [
-            // (df, rho) - we just verify the values are reasonable and monotonic
-            (4.0, 0.5),
-            (5.0, 0.5),
-            (10.0, 0.5),
-        ];
+            let integrated_prob = copula
+                .integrate_fn(&|z| copula.conditional_default_prob(threshold, z, correlation));
+
+            assert!(
+                (integrated_prob - pd).abs() < 0.005,
+                "df={}: Integrated probability {} should equal unconditional {} (error={})",
+                df,
+                integrated_prob,
+                pd,
+                (integrated_prob - pd).abs()
+            );
+        }
+    }
+
+    #[test]
+    fn test_integration_recovers_unconditional_various_pd() {
+        let copula = StudentTCopula::new(5.0);
+
+        for &pd in &[0.01, 0.05, 0.10, 0.20] {
+            let threshold = student_t_inv_cdf(pd, 5.0);
+            let correlation = 0.30;
+
+            let integrated_prob = copula
+                .integrate_fn(&|z| copula.conditional_default_prob(threshold, z, correlation));
+
+            assert!(
+                (integrated_prob - pd).abs() < 0.005,
+                "pd={}: Integrated probability {} (error={})",
+                pd,
+                integrated_prob,
+                (integrated_prob - pd).abs()
+            );
+        }
+    }
+
+    #[test]
+    fn test_tail_dependence_golden_values() {
+        let test_cases = [(4.0, 0.5), (5.0, 0.5), (10.0, 0.5)];
 
         for (df, rho) in test_cases {
             let copula = StudentTCopula::new(df);
             let lambda = copula.tail_dependence(rho);
 
-            // Tail dependence must be in [0, 1]
             assert!(
                 (0.0..=1.0).contains(&lambda),
                 "Tail dependence for df={}, ρ={}: got {}, expected in [0,1]",
@@ -390,7 +435,6 @@ mod tests {
                 lambda
             );
 
-            // For moderate correlation and df, tail dependence should be positive but not huge
             assert!(
                 lambda < 0.5,
                 "Tail dependence {} seems too high for df={}, ρ={}",
@@ -400,7 +444,6 @@ mod tests {
             );
         }
 
-        // Verify monotonicity: higher df → lower tail dependence
         let copula_4 = StudentTCopula::new(4.0);
         let copula_10 = StudentTCopula::new(10.0);
         assert!(
@@ -411,10 +454,6 @@ mod tests {
 
     #[test]
     fn test_student_t_cdf_accuracy() {
-        // Test that we're using the proper Student-t CDF (not approximation)
-        // by checking known values from statistical tables
-
-        // t-distribution with df=5, x=-2.0 should give CDF ≈ 0.051
         let cdf = student_t_cdf(-2.0, 5.0);
         assert!(
             (cdf - 0.051).abs() < 0.002,
@@ -422,7 +461,6 @@ mod tests {
             cdf
         );
 
-        // df=10, x=-1.812 should give CDF ≈ 0.05 (97.5th percentile critical value)
         let cdf_10 = student_t_cdf(-1.812, 10.0);
         assert!(
             (cdf_10 - 0.05).abs() < 0.005,
@@ -453,17 +491,11 @@ mod tests {
     }
 
     #[test]
-    fn test_chi_sq_quadrature_properties() {
-        // Verify that the χ²(ν)/ν quadrature has reasonable properties:
-        // - All nodes are positive (χ²/ν > 0)
-        // - Weights sum to approximately 1 (or close to 1)
-        // - Nodes are in a reasonable range
-
+    fn test_gamma_quadrature_properties() {
         for df in [4.0, 5.0, 10.0, 20.0] {
             let copula = StudentTCopula::new(df);
-            let points = &copula.chi_sq_quadrature;
+            let points = &copula.gamma_quadrature;
 
-            // All nodes must be positive
             for &(x, w) in points {
                 assert!(x > 0.0, "Quadrature node must be positive, got {}", x);
                 assert!(
@@ -476,18 +508,42 @@ mod tests {
             // Weights should sum to approximately 1
             let weight_sum: f64 = points.iter().map(|&(_, w)| w).sum();
             assert!(
-                (weight_sum - 1.0).abs() < 0.01,
-                "χ²({}) weights sum to {}, expected ~1.0",
+                (weight_sum - 1.0).abs() < 0.05,
+                "Gamma({}/2) weights sum to {}, expected ~1.0",
                 df,
                 weight_sum
             );
 
-            // Should have at least a few quadrature points
             assert!(
-                points.len() >= 5,
-                "Expected at least 5 quadrature points, got {}",
+                points.len() >= 3,
+                "Expected at least 3 quadrature points, got {}",
                 points.len()
             );
         }
+    }
+
+    #[test]
+    fn test_high_df_converges_to_gaussian() {
+        use finstack_core::math::norm_cdf;
+
+        let df = 50.0;
+        let copula = StudentTCopula::new(df);
+        let pd = 0.05;
+        let threshold = student_t_inv_cdf(pd, df);
+        let correlation = 0.30;
+
+        let t_prob = copula.conditional_default_prob(threshold, &[0.0], correlation);
+
+        let gauss_threshold = standard_normal_inv_cdf(pd);
+        let sqrt_rho = correlation.sqrt();
+        let sqrt_1mr = (1.0 - correlation).sqrt();
+        let gauss_prob = norm_cdf((gauss_threshold - sqrt_rho * 0.0) / sqrt_1mr);
+
+        assert!(
+            (t_prob - gauss_prob).abs() < 0.02,
+            "High-df t ({}) should be close to Gaussian ({})",
+            t_prob,
+            gauss_prob
+        );
     }
 }

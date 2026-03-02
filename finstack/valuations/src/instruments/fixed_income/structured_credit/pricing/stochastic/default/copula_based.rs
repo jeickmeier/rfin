@@ -28,7 +28,7 @@ use crate::instruments::common_impl::models::correlation::copula::{
 };
 use crate::instruments::fixed_income::structured_credit::utils::rates::cdr_to_mdr;
 use finstack_core::math::distributions::binomial_distribution;
-use finstack_core::math::standard_normal_inv_cdf;
+use finstack_core::math::{standard_normal_inv_cdf, student_t_inv_cdf};
 
 /// Seasoning curve specification for default models.
 ///
@@ -125,18 +125,44 @@ impl SeasoningCurve {
 ///
 /// Uses the shared copula infrastructure for default correlation modeling.
 /// Supports seasoning-adjusted default rates via optional seasoning curve.
-#[derive(Debug, Clone)]
+///
+/// Dispatches threshold computation based on copula type:
+/// - Gaussian/RFL/Multi-factor: Φ⁻¹(PD)
+/// - Student-t: t_ν⁻¹(PD)
 pub struct CopulaBasedDefault {
     /// Base annual CDR
     base_cdr: f64,
-    /// Copula specification
+    /// Copula specification (kept for Clone and threshold dispatch)
     copula_spec: CopulaSpec,
     /// Asset correlation
     correlation: f64,
     /// Copula instance
-    copula: GaussianCopula,
+    copula: Box<dyn Copula>,
     /// Optional seasoning curve for time-varying default rates
     seasoning_curve: SeasoningCurve,
+}
+
+impl std::fmt::Debug for CopulaBasedDefault {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CopulaBasedDefault")
+            .field("base_cdr", &self.base_cdr)
+            .field("copula_spec", &self.copula_spec)
+            .field("correlation", &self.correlation)
+            .field("copula_model", &self.copula.model_name())
+            .finish()
+    }
+}
+
+impl Clone for CopulaBasedDefault {
+    fn clone(&self) -> Self {
+        Self {
+            base_cdr: self.base_cdr,
+            copula_spec: self.copula_spec.clone(),
+            correlation: self.correlation,
+            copula: Self::build_copula(&self.copula_spec),
+            seasoning_curve: self.seasoning_curve.clone(),
+        }
+    }
 }
 
 impl CopulaBasedDefault {
@@ -147,12 +173,7 @@ impl CopulaBasedDefault {
     /// * `copula_spec` - Copula model specification
     /// * `correlation` - Asset correlation
     pub fn new(base_cdr: f64, copula_spec: CopulaSpec, correlation: f64) -> Self {
-        let copula = match &copula_spec {
-            CopulaSpec::Gaussian => GaussianCopula::new(),
-            // For other copulas, use Gaussian as fallback for now
-            // Full implementation would dispatch to appropriate copula
-            _ => GaussianCopula::new(),
-        };
+        let copula = Self::build_copula(&copula_spec);
 
         Self {
             base_cdr: base_cdr.clamp(0.0, 1.0),
@@ -160,6 +181,35 @@ impl CopulaBasedDefault {
             correlation: correlation.clamp(0.0, 0.99),
             copula,
             seasoning_curve: SeasoningCurve::Flat,
+        }
+    }
+
+    fn build_copula(spec: &CopulaSpec) -> Box<dyn Copula> {
+        match spec {
+            CopulaSpec::Gaussian => Box::new(GaussianCopula::new()),
+            CopulaSpec::StudentT { degrees_of_freedom } => {
+                Box::new(crate::instruments::common_impl::models::correlation::copula::StudentTCopula::new(*degrees_of_freedom))
+            }
+            CopulaSpec::RandomFactorLoading { loading_volatility } => {
+                Box::new(crate::instruments::common_impl::models::correlation::copula::RandomFactorLoadingCopula::new(*loading_volatility))
+            }
+            CopulaSpec::MultiFactor { num_factors } => {
+                Box::new(crate::instruments::common_impl::models::correlation::copula::MultiFactorCopula::new(*num_factors))
+            }
+        }
+    }
+
+    /// Compute the default threshold appropriate for the copula type.
+    ///
+    /// - Gaussian/RFL/Multi-factor: Φ⁻¹(PD)
+    /// - Student-t: t_ν⁻¹(PD)
+    fn default_threshold(&self, pd: f64) -> f64 {
+        let p = pd.clamp(1e-10, 1.0 - 1e-10);
+        match &self.copula_spec {
+            CopulaSpec::StudentT { degrees_of_freedom } => {
+                student_t_inv_cdf(p, *degrees_of_freedom)
+            }
+            _ => standard_normal_inv_cdf(p),
         }
     }
 
@@ -233,12 +283,11 @@ impl StochasticDefault for CopulaBasedDefault {
         let adjusted_cdr = self.seasoned_cdr(seasoning);
 
         // Use annual CDR directly for copula threshold (annual-horizon calibration).
-        // The Gaussian copula threshold Φ⁻¹(PD) must use the same horizon as the
-        // calibration; converting to MDR first would apply a monthly horizon to an
+        // The copula threshold must use the same horizon as the calibration;
+        // converting to MDR first would apply a monthly horizon to an
         // annually-calibrated copula, understating conditional default probability.
-        let threshold = standard_normal_inv_cdf(adjusted_cdr.min(0.9999));
+        let threshold = self.default_threshold(adjusted_cdr);
 
-        // Get conditional *annual* default probability from copula
         let annual_cond_pd =
             self.copula
                 .conditional_default_prob(threshold, factors, self.correlation);
@@ -260,7 +309,7 @@ impl StochasticDefault for CopulaBasedDefault {
         // with conditional default probability
 
         let pd = pds.first().copied().unwrap_or(self.base_cdr);
-        let threshold = standard_normal_inv_cdf(pd.min(0.9999));
+        let threshold = self.default_threshold(pd);
 
         let cond_pd = self
             .copula

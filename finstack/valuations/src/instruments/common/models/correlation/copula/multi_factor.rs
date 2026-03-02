@@ -47,21 +47,29 @@ const MULTI_FACTOR_QUADRATURE_ORDER: u8 = 5;
 
 /// Multi-factor Gaussian copula with sector structure.
 ///
-/// Uses a global factor plus sector-specific factors to model
+/// Uses a global factor plus one sector-specific factor to model
 /// intra-sector vs. inter-sector correlation differences.
+///
+/// # Factor Limit
+///
+/// Currently supports 1 or 2 factors (global + one sector).
+/// For >2 sector factors, Monte Carlo integration would be required.
 ///
 /// # Default Parameters
 ///
 /// - Global loading: 0.4 (gives ~16% inter-sector correlation)
 /// - Sector loading: 0.3 (gives ~25% additional intra-sector correlation)
+/// - Sector fraction: 0.4 (40% of total correlation from sector factor)
 /// - Quadrature order: 5 (lower for multi-dimensional efficiency)
 pub struct MultiFactorCopula {
-    /// Number of systematic factors (global + sectors)
+    /// Number of systematic factors (1 or 2, capped)
     num_factors_count: usize,
     /// Global factor loading (default for all entities)
     default_global_loading: f64,
     /// Sector factor loading (default for all entities)
     default_sector_loading: f64,
+    /// Fraction of total correlation attributed to sector factor in decompose_correlation
+    sector_fraction: f64,
     /// Cached quadrature for integration
     quadrature: GaussHermiteQuadrature,
 }
@@ -72,6 +80,7 @@ impl Clone for MultiFactorCopula {
             num_factors_count: self.num_factors_count,
             default_global_loading: self.default_global_loading,
             default_sector_loading: self.default_sector_loading,
+            sector_fraction: self.sector_fraction,
             quadrature: select_quadrature(MULTI_FACTOR_QUADRATURE_ORDER),
         }
     }
@@ -83,24 +92,29 @@ impl std::fmt::Debug for MultiFactorCopula {
             .field("num_factors_count", &self.num_factors_count)
             .field("default_global_loading", &self.default_global_loading)
             .field("default_sector_loading", &self.default_sector_loading)
+            .field("sector_fraction", &self.sector_fraction)
             .finish()
     }
 }
 
+/// Maximum supported factors (global + sector). Beyond 2, Monte Carlo is needed.
+const MAX_FACTORS: usize = 2;
+
 impl MultiFactorCopula {
     /// Create a multi-factor copula with specified number of factors.
     ///
-    /// Uses default loadings: β_G=0.4, β_S=0.3
+    /// Uses default loadings: β_G=0.4, β_S=0.3, sector_fraction=0.4
     ///
     /// # Arguments
-    /// * `num_factors` - Total number of factors (1 global + N-1 sector factors)
+    /// * `num_factors` - Number of factors (1 or 2; capped at 2)
     #[must_use]
     pub fn new(num_factors: usize) -> Self {
-        let num_factors = num_factors.max(1);
+        let num_factors = num_factors.clamp(1, MAX_FACTORS);
         Self {
             num_factors_count: num_factors,
-            default_global_loading: 0.4, // ~16% inter-sector correlation
-            default_sector_loading: 0.3, // Additional ~25% intra-sector
+            default_global_loading: 0.4,
+            default_sector_loading: 0.3,
+            sector_fraction: 0.4,
             quadrature: select_quadrature(MULTI_FACTOR_QUADRATURE_ORDER),
         }
     }
@@ -110,22 +124,41 @@ impl MultiFactorCopula {
     /// Loadings are clamped to ensure β_G² + β_S² ≤ 1 (valid variance).
     ///
     /// # Arguments
-    /// * `num_factors` - Total number of factors
+    /// * `num_factors` - Number of factors (1 or 2; capped at 2)
     /// * `global_loading` - Loading on global factor (β_G), clamped to [0, 0.99]
     /// * `sector_loading` - Loading on sector factor (β_S), clamped to maintain variance constraint
     #[must_use]
     pub fn with_loadings(num_factors: usize, global_loading: f64, sector_loading: f64) -> Self {
-        // Ensure loadings are valid: β_G² + β_S² ≤ 1
         let gl = global_loading.clamp(0.0, 0.99);
         let max_sector = (1.0 - gl * gl).sqrt();
         let sl = sector_loading.clamp(0.0, max_sector * 0.99);
 
         Self {
-            num_factors_count: num_factors.max(1),
+            num_factors_count: num_factors.clamp(1, MAX_FACTORS),
             default_global_loading: gl,
             default_sector_loading: sl,
+            sector_fraction: 0.4,
             quadrature: select_quadrature(MULTI_FACTOR_QUADRATURE_ORDER),
         }
+    }
+
+    /// Create with custom loadings and sector fraction.
+    ///
+    /// # Arguments
+    /// * `num_factors` - Number of factors (1 or 2; capped at 2)
+    /// * `global_loading` - Loading on global factor (β_G), clamped to [0, 0.99]
+    /// * `sector_loading` - Loading on sector factor (β_S), clamped to maintain variance constraint
+    /// * `sector_fraction` - Fraction of total correlation from sector factor, clamped to [0, 1]
+    #[must_use]
+    pub fn with_loadings_and_sector_fraction(
+        num_factors: usize,
+        global_loading: f64,
+        sector_loading: f64,
+        sector_fraction: f64,
+    ) -> Self {
+        let mut copula = Self::with_loadings(num_factors, global_loading, sector_loading);
+        copula.sector_fraction = sector_fraction.clamp(0.0, 1.0);
+        copula
     }
 
     /// Get the inter-sector correlation (global factor only).
@@ -186,9 +219,8 @@ impl Copula for MultiFactorCopula {
         factor_realization: &[f64],
         correlation: f64,
     ) -> f64 {
-        // Decompose correlation into global and sector components
-        // Default: 60% global, 40% sector
-        let (global_loading, sector_loading) = self.decompose_correlation(correlation, 0.4);
+        let (global_loading, sector_loading) =
+            self.decompose_correlation(correlation, self.sector_fraction);
 
         // factor_realization[0] = Z_G (global factor)
         // factor_realization[1..] = Z_S (sector factors, if present)
@@ -250,9 +282,15 @@ mod tests {
 
     #[test]
     fn test_multi_factor_creation() {
-        let copula = MultiFactorCopula::new(3);
-        assert_eq!(copula.num_factors(), 3);
+        let copula = MultiFactorCopula::new(2);
+        assert_eq!(copula.num_factors(), 2);
         assert_eq!(copula.model_name(), "Multi-Factor Gaussian Copula");
+    }
+
+    #[test]
+    fn test_multi_factor_capped_at_two() {
+        let copula = MultiFactorCopula::new(5);
+        assert_eq!(copula.num_factors(), 2, "Factors should be capped at 2");
     }
 
     #[test]
@@ -318,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_zero_tail_dependence() {
-        let copula = MultiFactorCopula::new(3);
+        let copula = MultiFactorCopula::new(2);
         assert_eq!(copula.tail_dependence(0.5), 0.0);
     }
 

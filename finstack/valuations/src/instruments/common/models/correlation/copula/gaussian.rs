@@ -88,7 +88,8 @@ impl Default for GaussianCopula {
 impl GaussianCopula {
     /// Create a new Gaussian copula with default parameters.
     ///
-    /// Uses 7-point Gauss-Hermite quadrature for integration.
+    /// Uses 20-point Gauss-Hermite quadrature for integration
+    /// (industry standard range: 20-50 points for tranche pricing).
     #[must_use]
     pub fn new() -> Self {
         let order = DEFAULT_QUADRATURE_ORDER;
@@ -101,7 +102,7 @@ impl GaussianCopula {
     /// Create with custom quadrature order for higher precision.
     ///
     /// # Arguments
-    /// * `order` - Quadrature order (5, 7, or 10). Higher order = more accuracy.
+    /// * `order` - Number of Gauss-Hermite quadrature points. Higher = more accuracy.
     #[must_use]
     pub fn with_quadrature_order(order: u8) -> Self {
         Self {
@@ -126,28 +127,23 @@ impl Copula for GaussianCopula {
         correlation: f64,
     ) -> f64 {
         let z = factor_realization.first().copied().unwrap_or(0.0);
-        let rho = self.smooth_correlation(correlation);
 
-        // Handle extreme correlation cases
-        if rho < 1e-10 {
-            // Independent case: conditional = unconditional
+        // Handle extreme correlation before clamping
+        if correlation < 1e-10 {
             return norm_cdf(default_threshold);
         }
-        if rho > 1.0 - 1e-10 {
-            // Perfect correlation: deterministic given Z
-            let threshold_adj = default_threshold - z;
-            return norm_cdf(threshold_adj);
+        if correlation > 1.0 - 1e-10 {
+            return norm_cdf(default_threshold - z);
         }
 
+        let rho = self.smooth_correlation(correlation);
         let sqrt_rho = rho.sqrt();
         let sqrt_1mr = (1.0 - rho).sqrt();
 
         // P(default | Z) = Φ((Φ⁻¹(PD) - √ρ·Z) / √(1-ρ))
         let conditional_threshold = (default_threshold - sqrt_rho * z) / sqrt_1mr;
 
-        // Clip to prevent CDF overflow
-        let clipped = conditional_threshold.clamp(-CDF_CLIP, CDF_CLIP);
-        norm_cdf(clipped)
+        norm_cdf(conditional_threshold.clamp(-CDF_CLIP, CDF_CLIP))
     }
 
     fn integrate_fn(&self, f: &dyn Fn(&[f64]) -> f64) -> f64 {
