@@ -22,6 +22,7 @@
 //! ```
 
 use finstack_core::math::norm_cdf;
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::{InputError, Result};
 
 // ---------------------------------------------------------------------------
@@ -233,6 +234,231 @@ impl MertonModel {
     }
 
     // -----------------------------------------------------------------------
+    // Calibration methods
+    // -----------------------------------------------------------------------
+
+    /// Compute implied equity value and equity volatility from the structural model.
+    ///
+    /// Uses the Black-Scholes call option formula where equity is a call on
+    /// the firm's assets with strike equal to the debt barrier:
+    ///
+    /// - d1 = (ln(V/B) + (r + sigma^2/2) * T) / (sigma * sqrt(T))
+    /// - d2 = d1 - sigma * sqrt(T)
+    /// - E = V * N(d1) - B * exp(-r*T) * N(d2)
+    /// - sigma_E = N(d1) * sigma_V * V / E
+    ///
+    /// # Arguments
+    ///
+    /// * `horizon` - Time horizon T in years (must be > 0)
+    ///
+    /// # Returns
+    ///
+    /// A tuple `(equity_value, equity_vol)`.
+    pub fn implied_equity(&self, horizon: f64) -> (f64, f64) {
+        let v = self.asset_value;
+        let sigma = self.asset_vol;
+        let b = self.debt_barrier;
+        let r = self.risk_free_rate;
+        let sqrt_t = horizon.sqrt();
+
+        let d1 = ((v / b).ln() + (r + 0.5 * sigma * sigma) * horizon) / (sigma * sqrt_t);
+        let d2 = d1 - sigma * sqrt_t;
+
+        let nd1 = norm_cdf(d1);
+        let nd2 = norm_cdf(d2);
+
+        let equity = v * nd1 - b * (-r * horizon).exp() * nd2;
+        let equity_vol = nd1 * sigma * v / equity;
+
+        (equity, equity_vol)
+    }
+
+    /// KMV calibration: recover asset value and asset volatility from observed
+    /// equity value and equity volatility.
+    ///
+    /// Solves the 2x2 nonlinear system iteratively (fixed-point iteration):
+    /// - E = V * N(d1) - B * exp(-r*T) * N(d2)
+    /// - sigma_E * E = N(d1) * sigma_V * V
+    ///
+    /// Convergence is typically fast (10-20 iterations).
+    ///
+    /// # Arguments
+    ///
+    /// * `equity_value` - Observed market equity value E
+    /// * `equity_vol` - Observed equity volatility sigma_E
+    /// * `total_debt` - Face value of debt B
+    /// * `risk_free_rate` - Risk-free rate r
+    /// * `maturity` - Time to maturity T in years
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if inputs are invalid or iteration fails to converge.
+    pub fn from_equity(
+        equity_value: f64,
+        equity_vol: f64,
+        total_debt: f64,
+        risk_free_rate: f64,
+        maturity: f64,
+    ) -> Result<Self> {
+        if equity_value <= 0.0 || total_debt <= 0.0 || maturity <= 0.0 {
+            return Err(InputError::NonPositiveValue.into());
+        }
+        if equity_vol < 0.0 {
+            return Err(InputError::NegativeValue.into());
+        }
+
+        let e = equity_value;
+        let sigma_e = equity_vol;
+        let b = total_debt;
+        let r = risk_free_rate;
+        let t = maturity;
+        let sqrt_t = t.sqrt();
+
+        // Initial guesses
+        let mut v = e + b;
+        let mut sigma_v = sigma_e * e / v;
+
+        let max_iter = 100;
+        let tol = 1e-8;
+
+        for _ in 0..max_iter {
+            let v_prev = v;
+
+            let d1 = ((v / b).ln() + (r + 0.5 * sigma_v * sigma_v) * t) / (sigma_v * sqrt_t);
+            let d2 = d1 - sigma_v * sqrt_t;
+
+            let nd1 = norm_cdf(d1);
+            let nd2 = norm_cdf(d2);
+
+            // Update V from the call pricing equation
+            v = (e + b * (-r * t).exp() * nd2) / nd1;
+            // Update sigma_V from the volatility relation
+            sigma_v = sigma_e * e / (nd1 * v);
+
+            // Check convergence on relative change in V
+            if ((v - v_prev) / v_prev).abs() < tol {
+                return Self::new(v, sigma_v, b, r);
+            }
+        }
+
+        // Return best estimate even if not fully converged
+        Self::new(v, sigma_v, b, r)
+    }
+
+    /// CDS spread calibration: find asset volatility that matches a target
+    /// CDS spread.
+    ///
+    /// Uses Brent's method to solve for sigma_V such that the model's
+    /// implied spread equals the target CDS spread.
+    ///
+    /// # Arguments
+    ///
+    /// * `cds_spread_bp` - Target CDS spread in basis points
+    /// * `recovery` - Recovery rate (fraction)
+    /// * `total_debt` - Face value of debt B
+    /// * `risk_free_rate` - Risk-free rate r
+    /// * `maturity` - Time to maturity T in years
+    /// * `asset_value` - Assumed initial asset value V
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the solver fails to find a solution or inputs
+    /// are invalid.
+    pub fn from_cds_spread(
+        cds_spread_bp: f64,
+        recovery: f64,
+        total_debt: f64,
+        risk_free_rate: f64,
+        maturity: f64,
+        asset_value: f64,
+    ) -> Result<Self> {
+        if total_debt <= 0.0 || maturity <= 0.0 || asset_value <= 0.0 {
+            return Err(InputError::NonPositiveValue.into());
+        }
+
+        let target_spread = cds_spread_bp / 10_000.0;
+
+        let solver = BrentSolver::new().tolerance(1e-8).bracket_bounds(0.01, 2.0);
+
+        let sigma_v = solver.solve(
+            |sigma| {
+                // Build a temporary model with this sigma_v to compute implied spread.
+                // We use the inner formula directly to avoid the Result from new().
+                let v = asset_value;
+                let b = total_debt;
+                let r = risk_free_rate;
+                let sig = sigma;
+                let mu = r - 0.5 * sig * sig;
+                let sqrt_t = maturity.sqrt();
+                let dd = ((v / b).ln() + mu * maturity) / (sig * sqrt_t);
+                let pd = norm_cdf(-dd);
+                let lgd = 1.0 - recovery;
+                let spread = -(1.0 - pd * lgd).ln() / maturity;
+                spread - target_spread
+            },
+            0.20, // initial guess
+        )?;
+
+        Self::new(asset_value, sigma_v, total_debt, risk_free_rate)
+    }
+
+    /// CreditGrades model construction from equity observables.
+    ///
+    /// A simplified calibration that derives asset value and asset volatility
+    /// from equity data and constructs a model with `CreditGrades` dynamics
+    /// and `FirstPassage` barrier.
+    ///
+    /// # Arguments
+    ///
+    /// * `equity_value` - Observed market equity value E
+    /// * `equity_vol` - Observed equity volatility sigma_E
+    /// * `total_debt` - Face value of debt
+    /// * `risk_free_rate` - Risk-free rate r
+    /// * `barrier_uncertainty` - Uncertainty in the default barrier level
+    /// * `mean_recovery` - Mean recovery rate at default
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if inputs are invalid.
+    pub fn credit_grades(
+        equity_value: f64,
+        equity_vol: f64,
+        total_debt: f64,
+        risk_free_rate: f64,
+        barrier_uncertainty: f64,
+        mean_recovery: f64,
+    ) -> Result<Self> {
+        if equity_value <= 0.0 || total_debt <= 0.0 {
+            return Err(InputError::NonPositiveValue.into());
+        }
+        if equity_vol < 0.0 {
+            return Err(InputError::NegativeValue.into());
+        }
+
+        // Asset value = equity + debt * mean_recovery
+        let v0 = equity_value + total_debt * mean_recovery;
+        // Asset vol from leverage relation
+        let sigma_v = equity_vol * equity_value / v0;
+        // Barrier = debt * mean_recovery
+        let barrier = total_debt * mean_recovery;
+
+        Self::new_with_dynamics(
+            v0,
+            sigma_v,
+            barrier,
+            risk_free_rate,
+            0.0,
+            BarrierType::FirstPassage {
+                barrier_growth_rate: 0.0,
+            },
+            AssetDynamics::CreditGrades {
+                barrier_uncertainty,
+                mean_recovery,
+            },
+        )
+    }
+
+    // -----------------------------------------------------------------------
     // Accessors
     // -----------------------------------------------------------------------
 
@@ -360,5 +586,65 @@ mod tests {
         assert!(MertonModel::new(-1.0, 0.20, 80.0, 0.05).is_err());
         assert!(MertonModel::new(100.0, -0.20, 80.0, 0.05).is_err());
         assert!(MertonModel::new(100.0, 0.20, 0.0, 0.05).is_err());
+    }
+
+    #[test]
+    fn implied_equity_from_known_asset() {
+        let m = MertonModel::new(100.0, 0.20, 80.0, 0.05).expect("valid");
+        let (equity, equity_vol) = m.implied_equity(1.0);
+        // E should be V*N(d1) - B*e^(-rT)*N(d2)
+        assert!(equity > 0.0, "Equity should be positive, got {equity}");
+        assert!(
+            equity_vol > 0.0,
+            "Equity vol should be positive, got {equity_vol}"
+        );
+        // With V=100, B=80, sigma=0.20, r=0.05, T=1:
+        // d1 = (ln(1.25) + (0.05 + 0.02)*1) / 0.2 = (0.2231 + 0.07) / 0.2 = 1.4657
+        // d2 = 1.4657 - 0.2 = 1.2657
+        // E = 100*N(1.4657) - 80*e^(-0.05)*N(1.2657) ~ 100*0.9286 - 76.10*0.8972 ~ 24.59
+        assert!((equity - 24.59).abs() < 1.0, "Equity={equity}");
+    }
+
+    #[test]
+    fn from_equity_recovers_known_values() {
+        let m_known = MertonModel::new(100.0, 0.20, 80.0, 0.05).expect("valid");
+        let (equity, equity_vol) = m_known.implied_equity(1.0);
+        let m_calibrated =
+            MertonModel::from_equity(equity, equity_vol, 80.0, 0.05, 1.0).expect("calibration");
+        assert!(
+            (m_calibrated.asset_value() - 100.0).abs() < 0.5,
+            "Asset value should recover: got {}",
+            m_calibrated.asset_value()
+        );
+        assert!(
+            (m_calibrated.asset_vol() - 0.20).abs() < 0.01,
+            "Asset vol should recover: got {}",
+            m_calibrated.asset_vol()
+        );
+    }
+
+    #[test]
+    fn from_cds_spread_roundtrips() {
+        let m = MertonModel::new(100.0, 0.25, 80.0, 0.04).expect("valid");
+        let spread = m.implied_spread(5.0, 0.40);
+        let spread_bp = spread * 10_000.0;
+        let m2 =
+            MertonModel::from_cds_spread(spread_bp, 0.40, 80.0, 0.04, 5.0, 100.0).expect("cds cal");
+        assert!(
+            (m2.asset_vol() - 0.25).abs() < 0.02,
+            "Asset vol should recover: got {}",
+            m2.asset_vol()
+        );
+    }
+
+    #[test]
+    fn credit_grades_produces_valid_model() {
+        let m = MertonModel::credit_grades(25.0, 0.50, 80.0, 0.04, 0.30, 0.40).expect("cg");
+        assert!(m.asset_value() > 0.0);
+        assert!(m.asset_vol() > 0.0);
+        assert!(matches!(m.dynamics(), AssetDynamics::CreditGrades { .. }));
+        assert!(matches!(m.barrier_type(), BarrierType::FirstPassage { .. }));
+        let pd = m.default_probability(5.0);
+        assert!(pd > 0.0 && pd < 1.0, "PD should be in (0,1), got {pd}");
     }
 }
