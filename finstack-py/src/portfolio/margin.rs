@@ -11,7 +11,7 @@ use finstack_portfolio::margin::{
     NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,
     PortfolioMarginResult,
 };
-use finstack_valuations::margin::NettingSetId;
+use finstack_valuations::margin::{ImMethodology, NettingSetId};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule};
@@ -90,6 +90,32 @@ impl PyNettingSetMargin {
 
 #[pymethods]
 impl PyNettingSetMargin {
+    #[new]
+    #[pyo3(signature = (netting_set_id, as_of, initial_margin, variation_margin, position_count, im_methodology))]
+    fn new_py(
+        netting_set_id: &PyNettingSetId,
+        as_of: &Bound<'_, PyAny>,
+        initial_margin: &Bound<'_, PyAny>,
+        variation_margin: &Bound<'_, PyAny>,
+        position_count: usize,
+        im_methodology: &str,
+    ) -> PyResult<Self> {
+        let as_of_date = crate::core::dates::utils::py_to_date(as_of)?;
+        let im = initial_margin.extract::<PyRef<PyMoney>>()?.inner;
+        let vm = variation_margin.extract::<PyRef<PyMoney>>()?.inner;
+        let methodology: ImMethodology = im_methodology.parse().map_err(|e: String| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid IM methodology: {}", e))
+        })?;
+        Ok(Self::new(NettingSetMargin::new(
+            netting_set_id.inner.clone(),
+            as_of_date,
+            im,
+            vm,
+            position_count,
+            methodology,
+        )))
+    }
+
     #[getter]
     fn netting_set_id(&self) -> String {
         self.inner.netting_set_id.to_string()
@@ -228,6 +254,23 @@ impl PyPortfolioMarginResult {
         (PyMoney::new(cleared), PyMoney::new(bilateral))
     }
 
+    fn netting_set_count(&self) -> usize {
+        self.inner.netting_set_count()
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.netting_set_count()
+    }
+
+    fn __iter__(&self) -> PyPortfolioMarginResultIterator {
+        let items: Vec<(NettingSetId, NettingSetMargin)> = self
+            .inner
+            .iter()
+            .map(|(id, m)| (id.clone(), m.clone()))
+            .collect();
+        PyPortfolioMarginResultIterator { items, index: 0 }
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "PortfolioMarginResult(im={}, vm={}, netting_sets={})",
@@ -293,6 +336,37 @@ impl PyNettingSetManager {
     fn get(&self, id: &PyNettingSetId) -> Option<PyNettingSet> {
         self.inner.get(&id.inner).cloned().map(PyNettingSet::new)
     }
+
+    fn __len__(&self) -> usize {
+        self.inner.count()
+    }
+
+    fn __iter__(&self) -> PyNettingSetManagerIterator {
+        let items: Vec<(NettingSetId, NettingSet)> = self
+            .inner
+            .iter()
+            .map(|(id, ns)| (id.clone(), ns.clone()))
+            .collect();
+        PyNettingSetManagerIterator { items, index: 0 }
+    }
+
+    fn get_or_create(&mut self, id: &PyNettingSetId) -> PyNettingSet {
+        let ns = self.inner.get_or_create(id.inner.clone());
+        PyNettingSet::new(ns.clone())
+    }
+
+    fn merge_sensitivities(
+        &mut self,
+        netting_set_id: &PyNettingSetId,
+        sensitivities: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let sens: finstack_valuations::margin::SimmSensitivities = depythonize(sensitivities)
+            .map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid sensitivities: {}", e))
+            })?;
+        self.inner.merge_sensitivities(&netting_set_id.inner, &sens);
+        Ok(())
+    }
 }
 
 /// A netting set containing positions for margin aggregation.
@@ -350,6 +424,54 @@ impl PyNettingSet {
     }
 }
 
+/// Iterator over (NettingSetId, NettingSet) pairs from NettingSetManager.
+#[pyclass(module = "finstack.portfolio", name = "NettingSetManagerIterator")]
+pub struct PyNettingSetManagerIterator {
+    items: Vec<(NettingSetId, NettingSet)>,
+    index: usize,
+}
+
+#[pymethods]
+impl PyNettingSetManagerIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<(PyNettingSetId, PyNettingSet)> {
+        if slf.index < slf.items.len() {
+            let (id, ns) = slf.items[slf.index].clone();
+            slf.index += 1;
+            Some((PyNettingSetId::new(id), PyNettingSet::new(ns)))
+        } else {
+            None
+        }
+    }
+}
+
+/// Iterator over (netting_set_id_str, NettingSetMargin) pairs from PortfolioMarginResult.
+#[pyclass(module = "finstack.portfolio", name = "PortfolioMarginResultIterator")]
+pub struct PyPortfolioMarginResultIterator {
+    items: Vec<(NettingSetId, NettingSetMargin)>,
+    index: usize,
+}
+
+#[pymethods]
+impl PyPortfolioMarginResultIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<(String, PyNettingSetMargin)> {
+        if slf.index < slf.items.len() {
+            let (id, margin) = slf.items[slf.index].clone();
+            slf.index += 1;
+            Some((id.to_string(), PyNettingSetMargin::new(margin)))
+        } else {
+            None
+        }
+    }
+}
+
 fn parse_currency(ccy: &Bound<'_, PyAny>) -> PyResult<finstack_core::currency::Currency> {
     if let Ok(py_ccy) = ccy.extract::<PyRef<PyCurrency>>() {
         Ok(py_ccy.inner)
@@ -392,6 +514,10 @@ impl PyPortfolioMarginAggregator {
         Ok(())
     }
 
+    fn netting_set_count(&self) -> usize {
+        self.inner.netting_set_count()
+    }
+
     fn calculate(
         &mut self,
         portfolio: &Bound<'_, PyAny>,
@@ -419,6 +545,8 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyNettingSetMargin>()?;
     parent.add_class::<PyPortfolioMarginResult>()?;
     parent.add_class::<PyPortfolioMarginAggregator>()?;
+    parent.add_class::<PyNettingSetManagerIterator>()?;
+    parent.add_class::<PyPortfolioMarginResultIterator>()?;
 
     Ok(vec![
         "NettingSetId".to_string(),

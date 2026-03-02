@@ -1051,5 +1051,71 @@ class TestSpecParity:
         assert "TEST" in json_str
 
 
+class TestMarginParity:
+    """Test margin module matches Rust API (Stream 5)."""
+
+    def test_netting_set_manager_len(self) -> None:
+        """NettingSetManager should support len()."""
+        from finstack.portfolio import NettingSetId, NettingSetManager
+
+        mgr = NettingSetManager()
+        assert len(mgr) == 0
+        mgr = mgr.with_default_set(NettingSetId.bilateral("CP1", "CSA1"))
+        assert len(mgr) == 1
+
+    def test_netting_set_manager_iter(self) -> None:
+        """NettingSetManager should be iterable."""
+        from finstack.portfolio import NettingSetId, NettingSetManager
+
+        mgr = NettingSetManager()
+        mgr = mgr.with_default_set(NettingSetId.bilateral("CP1", "CSA1"))
+        items = list(mgr)
+        assert len(items) == 1
+        nid, _ns = items[0]
+        assert isinstance(nid, NettingSetId)
+
+    def test_netting_set_manager_get_or_create(self) -> None:
+        """NettingSetManager.get_or_create should create a new set."""
+        from finstack.portfolio import NettingSet, NettingSetId, NettingSetManager
+
+        mgr = NettingSetManager()
+        nid = NettingSetId.bilateral("CP1", "CSA1")
+        ns = mgr.get_or_create(nid)
+        assert isinstance(ns, NettingSet)
+        assert mgr.count() == 1
+
+    def test_portfolio_margin_result_netting_set_count(self) -> None:
+        """PortfolioMarginResult should have netting_set_count."""
+        from finstack.portfolio import PortfolioMarginResult
+
+        assert hasattr(PortfolioMarginResult, "netting_set_count")
+
+    def test_portfolio_margin_aggregator_netting_set_count(self) -> None:
+        """PortfolioMarginAggregator should have netting_set_count."""
+        from finstack.core.currency import USD
+
+        from finstack.portfolio import PortfolioMarginAggregator
+
+        agg = PortfolioMarginAggregator(USD)
+        assert agg.netting_set_count() == 0
+
+    def test_netting_set_margin_constructor(self) -> None:
+        """NettingSetMargin should be constructable."""
+        from datetime import date
+
+        from finstack.core.currency import USD
+        from finstack.core.money import Money
+
+        from finstack.portfolio import NettingSetId, NettingSetMargin
+
+        nid = NettingSetId.bilateral("CP1", "CSA1")
+        im = Money(5_000_000.0, USD)
+        vm = Money(1_000_000.0, USD)
+        margin = NettingSetMargin(nid, date(2024, 6, 15), im, vm, 10, "Simm")
+        assert margin.position_count == 10
+        assert margin.initial_margin.amount == 5_000_000.0
+        assert margin.total_margin.amount == 6_000_000.0  # IM + positive VM
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

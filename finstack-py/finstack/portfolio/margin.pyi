@@ -1,7 +1,7 @@
 """Portfolio margin aggregation bindings."""
 
 from __future__ import annotations
-from typing import Dict, List, Tuple, Any
+from typing import Dict, Iterator, List, Tuple, Any
 from datetime import date
 from finstack.core.currency import Currency
 from finstack.core.money import Money
@@ -56,6 +56,27 @@ class NettingSet:
 
 class NettingSetMargin:
     """Margin results for a single netting set."""
+
+    def __init__(
+        self,
+        netting_set_id: NettingSetId,
+        as_of: date,
+        initial_margin: Money,
+        variation_margin: Money,
+        position_count: int,
+        im_methodology: str,
+    ) -> None:
+        """Create a NettingSetMargin result.
+
+        Args:
+            netting_set_id: Netting set identifier.
+            as_of: Calculation date.
+            initial_margin: IM requirement.
+            variation_margin: VM requirement.
+            position_count: Number of positions.
+            im_methodology: IM methodology name (e.g., "Simm", "Schedule", "ClearingHouse").
+        """
+        ...
 
     @property
     def netting_set_id(self) -> str:
@@ -132,6 +153,22 @@ class NettingSetManager:
         """Fetch a netting set by id."""
         ...
 
+    def __len__(self) -> int:
+        """Number of netting sets."""
+        ...
+
+    def __iter__(self) -> Iterator[Tuple[NettingSetId, NettingSet]]:
+        """Iterate over (NettingSetId, NettingSet) pairs."""
+        ...
+
+    def get_or_create(self, id: NettingSetId) -> NettingSet:
+        """Get or create a netting set by id."""
+        ...
+
+    def merge_sensitivities(self, netting_set_id: NettingSetId, sensitivities: SimmSensitivities) -> None:
+        """Merge sensitivities into a netting set."""
+        ...
+
 class PortfolioMarginResult:
     """Portfolio-wide margin calculation results."""
 
@@ -179,6 +216,18 @@ class PortfolioMarginResult:
         """Return (cleared_total, bilateral_total) margin amounts."""
         ...
 
+    def netting_set_count(self) -> int:
+        """Number of netting sets in the result."""
+        ...
+
+    def __len__(self) -> int:
+        """Number of netting sets."""
+        ...
+
+    def __iter__(self) -> Iterator[Tuple[str, NettingSetMargin]]:
+        """Iterate over (netting_set_id_str, NettingSetMargin) pairs."""
+        ...
+
     def __repr__(self) -> str: ...
 
 class PortfolioMarginAggregator:
@@ -195,6 +244,10 @@ class PortfolioMarginAggregator:
 
     def add_position(self, position: Position) -> None:
         """Add a single position to aggregation."""
+        ...
+
+    def netting_set_count(self) -> int:
+        """Number of netting sets being tracked."""
         ...
 
     def calculate(
