@@ -271,6 +271,40 @@ impl PyStatementResult {
         PyStatementResultMeta::new(self.inner.meta.clone())
     }
 
+    #[getter]
+    /// Get node value types (monetary vs scalar).
+    ///
+    /// Returns
+    /// -------
+    /// dict[str, NodeValueType]
+    ///     Map of node_id to value type
+    fn node_value_types(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        use crate::statements::types::node::PyNodeValueType;
+        let dict = PyDict::new(py);
+        for (node_id, value_type) in &self.inner.node_value_types {
+            dict.set_item(
+                node_id,
+                PyNodeValueType::new(value_type.clone()).into_pyobject(py)?,
+            )?;
+        }
+        Ok(dict.into())
+    }
+
+    #[getter]
+    /// Get capital structure cashflows if available.
+    ///
+    /// Returns
+    /// -------
+    /// CapitalStructureCashflows | None
+    ///     Capital structure cashflows if model has capital structure
+    fn cs_cashflows(
+        &self,
+    ) -> Option<crate::statements::capital_structure::PyCapitalStructureCashflows> {
+        self.inner.cs_cashflows.as_ref().map(|cs| {
+            crate::statements::capital_structure::PyCapitalStructureCashflows::new(cs.clone())
+        })
+    }
+
     /// Convert to JSON string.
     ///
     /// Returns

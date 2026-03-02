@@ -18,6 +18,7 @@ from __future__ import annotations
 from .types import (
     NodeType,
     NodeSpec,
+    NodeValueType,
     ForecastMethod,
     ForecastSpec,
     SeasonalMode,
@@ -107,6 +108,7 @@ __all__ = [
     # Types
     "NodeType",
     "NodeSpec",
+    "NodeValueType",
     "ForecastMethod",
     "ForecastSpec",
     "SeasonalMode",

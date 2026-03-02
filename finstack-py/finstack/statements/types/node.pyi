@@ -1,10 +1,32 @@
 """Node specification bindings."""
 
 from __future__ import annotations
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from finstack.core.dates.periods import PeriodId
+from finstack.core.currency import Currency
 from .forecast import ForecastSpec
 from .value import AmountOrScalar
+
+class NodeValueType:
+    """Node value type classification.
+
+    Determines whether a node represents monetary values (with a specific
+    currency) or unitless scalar values.
+    """
+
+    SCALAR: NodeValueType
+
+    @staticmethod
+    def monetary(currency: Currency) -> NodeValueType:
+        """Create a monetary value type with the given currency."""
+        ...
+
+    @property
+    def currency(self) -> Optional[Currency]:
+        """Get the currency if this is a monetary type, None if scalar."""
+        ...
+
+    def __repr__(self) -> str: ...
 
 class NodeType:
     """Node computation type.

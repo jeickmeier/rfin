@@ -885,5 +885,77 @@ def test_evaluator_with_market_context() -> None:
     assert results.get("revenue", PeriodId.quarter(2025, 1)) == pytest.approx(100.0)
 
 
+def test_node_value_type_enum() -> None:
+    """Test NodeValueType enum exposure."""
+    from finstack.core.currency import USD
+    from finstack.statements.types import NodeValueType
+
+    scalar = NodeValueType.SCALAR
+    assert scalar is not None
+    assert scalar.currency is None
+
+    monetary = NodeValueType.monetary(USD)
+    assert monetary is not None
+    assert monetary.currency is not None
+
+
+def test_statement_result_node_value_types() -> None:
+    """Test node_value_types property on StatementResult."""
+    from finstack.core.currency import USD
+    from finstack.core.dates import PeriodId
+    from finstack.core.money import Money
+
+    from finstack.statements import Evaluator, ModelBuilder
+
+    builder = ModelBuilder.new("value_types_test")
+    builder.periods("2025Q1..Q2", None)
+    builder.value_money(
+        "revenue",
+        [
+            (PeriodId.quarter(2025, 1), Money(100000.0, USD)),
+            (PeriodId.quarter(2025, 2), Money(110000.0, USD)),
+        ],
+    )
+    builder.value_scalar(
+        "margin",
+        [
+            (PeriodId.quarter(2025, 1), 0.35),
+            (PeriodId.quarter(2025, 2), 0.36),
+        ],
+    )
+    model = builder.build()
+
+    evaluator = Evaluator.new()
+    results = evaluator.evaluate(model)
+
+    value_types = results.node_value_types
+    assert isinstance(value_types, dict)
+    # Monetary and scalar nodes should be reflected in value_types
+
+
+def test_statement_result_cs_cashflows_none() -> None:
+    """Test cs_cashflows is None when no capital structure."""
+    from finstack.core.dates import PeriodId
+
+    from finstack.statements import AmountOrScalar, Evaluator, ModelBuilder
+
+    builder = ModelBuilder.new("no_cs_test")
+    builder.periods("2025Q1..Q2", None)
+    builder.value(
+        "revenue",
+        [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(100.0)),
+        ],
+    )
+    model = builder.build()
+
+    evaluator = Evaluator.new()
+    results = evaluator.evaluate(model)
+
+    # No capital structure, so cs_cashflows should be None
+    assert results.cs_cashflows is None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

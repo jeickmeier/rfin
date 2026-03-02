@@ -30,6 +30,7 @@ pub(crate) fn register<'py>(
     Ok(vec![
         "NodeType",
         "NodeSpec",
+        "NodeValueType",
         "ForecastMethod",
         "ForecastSpec",
         "SeasonalMode",

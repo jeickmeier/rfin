@@ -5,7 +5,7 @@ use super::value::PyAmountOrScalar;
 use crate::core::dates::periods::PyPeriodId;
 use crate::statements::utils::json_to_py;
 use finstack_core::dates::PeriodId;
-use finstack_statements::types::{NodeSpec, NodeType};
+use finstack_statements::types::{NodeSpec, NodeType, NodeValueType};
 use indexmap::IndexMap;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -337,6 +337,55 @@ impl PyNodeSpec {
     }
 }
 
+/// Node value type classification.
+///
+/// Determines whether a node represents monetary values (with a specific
+/// currency) or unitless scalar values (ratios, percentages, counts, etc.).
+#[pyclass(module = "finstack.statements.types", name = "NodeValueType", frozen)]
+#[derive(Clone, Debug)]
+pub struct PyNodeValueType {
+    pub(crate) inner: NodeValueType,
+}
+
+impl PyNodeValueType {
+    pub(crate) fn new(inner: NodeValueType) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyNodeValueType {
+    #[classattr]
+    fn SCALAR() -> Self {
+        Self::new(NodeValueType::Scalar)
+    }
+
+    #[staticmethod]
+    #[pyo3(text_signature = "(currency)")]
+    fn monetary(currency: &crate::core::currency::PyCurrency) -> Self {
+        Self::new(NodeValueType::Monetary {
+            currency: currency.inner,
+        })
+    }
+
+    #[getter]
+    fn currency(&self) -> Option<crate::core::currency::PyCurrency> {
+        match &self.inner {
+            NodeValueType::Monetary { currency } => {
+                Some(crate::core::currency::PyCurrency::new(*currency))
+            }
+            NodeValueType::Scalar => None,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            NodeValueType::Monetary { currency } => format!("NodeValueType.monetary({})", currency),
+            NodeValueType::Scalar => "NodeValueType.SCALAR".to_string(),
+        }
+    }
+}
+
 /// Helper to parse period values from dict or list of tuples.
 fn parse_period_values(
     values: &Bound<'_, PyAny>,
@@ -374,5 +423,6 @@ fn parse_period_values(
 pub(crate) fn register<'py>(_py: Python<'py>, module: &Bound<'py, PyModule>) -> PyResult<()> {
     module.add_class::<PyNodeType>()?;
     module.add_class::<PyNodeSpec>()?;
+    module.add_class::<PyNodeValueType>()?;
     Ok(())
 }

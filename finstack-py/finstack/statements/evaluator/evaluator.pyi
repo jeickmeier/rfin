@@ -1,9 +1,11 @@
 """Evaluator for financial models."""
 
 from __future__ import annotations
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Optional, Tuple
 from datetime import date
 from ..types.model import FinancialModelSpec
+from ..types.node import NodeValueType
+from ..capital_structure import CapitalStructureCashflows
 from ...core.dates.periods import PeriodId
 from ...core.market_data.context import MarketContext
 from ...core.money import Money
@@ -129,6 +131,24 @@ class StatementResult:
 
         Returns:
             ResultsMeta: Evaluation metadata
+        """
+        ...
+
+    @property
+    def node_value_types(self) -> Dict[str, NodeValueType]:
+        """Get node value types (monetary vs scalar).
+
+        Returns:
+            dict[str, NodeValueType]: Map of node_id to value type
+        """
+        ...
+
+    @property
+    def cs_cashflows(self) -> Optional[CapitalStructureCashflows]:
+        """Get capital structure cashflows if available.
+
+        Returns:
+            CapitalStructureCashflows | None: Capital structure cashflows if model has capital structure
         """
         ...
 

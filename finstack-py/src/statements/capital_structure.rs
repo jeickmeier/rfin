@@ -103,7 +103,13 @@ impl PyCashflowBreakdown {
 )]
 #[derive(Clone)]
 pub struct PyCapitalStructureCashflows {
-    inner: CapitalStructureCashflows,
+    pub(crate) inner: CapitalStructureCashflows,
+}
+
+impl PyCapitalStructureCashflows {
+    pub(crate) fn new(inner: CapitalStructureCashflows) -> Self {
+        Self { inner }
+    }
 }
 
 #[pymethods]

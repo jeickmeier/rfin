@@ -9,6 +9,7 @@ from .model import (
 from .node import (
     NodeType,
     NodeSpec,
+    NodeValueType,
 )
 from .forecast import (
     ForecastMethod,
@@ -28,6 +29,7 @@ from .waterfall import (
 __all__ = [
     "NodeType",
     "NodeSpec",
+    "NodeValueType",
     "ForecastMethod",
     "ForecastSpec",
     "SeasonalMode",
