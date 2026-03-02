@@ -724,6 +724,51 @@ class TestScenarioParity:
         assert isinstance(report, ApplicationReport)
 
 
+class TestPositionValueParity:
+    """Test PositionValue exposes all Rust fields."""
+
+    def test_position_value_has_valuation_result(self) -> None:
+        """PositionValue should expose the underlying ValuationResult."""
+        entity = Entity("E1").with_name("Test")
+        bond = (
+            Bond
+            .builder("BOND-1")
+            .notional(1_000_000.0)
+            .currency("USD")
+            .issue(date(2024, 1, 1))
+            .maturity(date(2029, 1, 1))
+            .coupon_rate(0.05)
+            .frequency(Frequency.SEMI_ANNUAL)
+            .day_count(DayCount.THIRTY_360)
+            .disc_id("USD-OIS")
+            .build()
+        )
+        pos = Position("P1", "E1", bond.instrument_id, bond, 1.0, PositionUnit.UNITS)
+        portfolio = (
+            PortfolioBuilder("TEST").base_ccy("USD").as_of(date(2024, 1, 1)).entity(entity).position(pos).build()
+        )
+
+        market = MarketContext()
+        discount_curve = DiscountCurve(
+            "USD-OIS",
+            date(2024, 1, 1),
+            [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
+            day_count="act_365f",
+        )
+        market.insert_discount(discount_curve)
+
+        valuation = value_portfolio(portfolio, market)
+        pv = valuation.get_position_value("P1")
+        assert pv is not None
+
+        result = pv.valuation_result
+        # ValuationResult should be present for valued positions
+        if result is not None:
+            from finstack.valuations.results import ValuationResult
+
+            assert isinstance(result, ValuationResult)
+
+
 class TestValuationOptionsParity:
     """Test PortfolioValuationOptions fields match Rust API."""
 

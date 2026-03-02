@@ -6,6 +6,7 @@ from finstack.core.money import Money
 from finstack.core.market_data.context import MarketContext
 from finstack.core.config import FinstackConfig
 from finstack.valuations.metrics import MetricId
+from finstack.valuations.results import ValuationResult
 from .portfolio import Portfolio
 
 class PortfolioValuationOptions:
@@ -84,6 +85,11 @@ class PositionValue:
     @property
     def value_base(self) -> Money:
         """Get the value converted to portfolio base currency."""
+        ...
+
+    @property
+    def valuation_result(self) -> ValuationResult | None:
+        """Full valuation result if available (includes metrics, cashflows, covenants)."""
         ...
 
     def __repr__(self) -> str: ...

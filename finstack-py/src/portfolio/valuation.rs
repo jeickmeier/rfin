@@ -6,6 +6,7 @@ use crate::core::money::PyMoney;
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::positions::extract_portfolio;
 use crate::valuations::metrics::ids::PyMetricId;
+use crate::valuations::results::PyValuationResult;
 use finstack_portfolio::valuation::{
     value_portfolio, value_portfolio_with_options, PortfolioValuation, PortfolioValuationOptions,
     PositionValue,
@@ -134,6 +135,15 @@ impl PyPositionValue {
     /// Get the value converted to portfolio base currency.
     fn value_base(&self) -> PyMoney {
         PyMoney::new(self.inner.value_base)
+    }
+
+    #[getter]
+    /// Get the full valuation result if available.
+    fn valuation_result(&self) -> Option<PyValuationResult> {
+        self.inner
+            .valuation_result
+            .as_ref()
+            .map(|vr| PyValuationResult::new(vr.clone()))
     }
 
     fn __repr__(&self) -> String {
