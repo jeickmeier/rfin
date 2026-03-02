@@ -16,6 +16,7 @@
 
 pub mod closed_form;
 pub mod correlation;
+pub mod credit;
 #[cfg(feature = "mc")]
 pub mod monte_carlo;
 pub mod trees;
