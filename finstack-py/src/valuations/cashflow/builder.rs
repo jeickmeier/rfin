@@ -1057,6 +1057,31 @@ impl PyCashFlowSchedule {
 
         Ok(result)
     }
+
+    /// Return the number of cashflows in the schedule.
+    fn __len__(&self) -> usize {
+        self.inner.flows.len()
+    }
+
+    /// Access a cashflow by index (supports negative indices).
+    fn __getitem__(&self, index: isize) -> PyResult<crate::core::cashflow::primitives::PyCashFlow> {
+        let len = self.inner.flows.len() as isize;
+        let actual = if index < 0 { len + index } else { index };
+        if actual < 0 || actual >= len {
+            return Err(pyo3::exceptions::PyIndexError::new_err(
+                "index out of range",
+            ));
+        }
+        Ok(crate::core::cashflow::primitives::PyCashFlow::new(
+            self.inner.flows[actual as usize],
+        ))
+    }
+
+    /// Return an iterator over the cashflows in the schedule.
+    fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<PyCashFlowScheduleIterator>> {
+        let flows: Vec<finstack_core::cashflow::CashFlow> = slf.inner.flows.clone();
+        Py::new(slf.py(), PyCashFlowScheduleIterator { flows, index: 0 })
+    }
 }
 
 /// Fee base for periodic basis point fees.
@@ -1369,6 +1394,35 @@ impl PyFloatWindow {
     }
 }
 
+/// Iterator over cashflows in a CashFlowSchedule.
+#[pyclass(
+    module = "finstack.valuations.cashflow.builder",
+    name = "CashFlowScheduleIterator"
+)]
+pub struct PyCashFlowScheduleIterator {
+    flows: Vec<finstack_core::cashflow::CashFlow>,
+    index: usize,
+}
+
+#[pymethods]
+impl PyCashFlowScheduleIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(
+        mut slf: PyRefMut<'_, Self>,
+    ) -> Option<crate::core::cashflow::primitives::PyCashFlow> {
+        if slf.index < slf.flows.len() {
+            let flow = slf.flows[slf.index];
+            slf.index += 1;
+            Some(crate::core::cashflow::primitives::PyCashFlow::new(flow))
+        } else {
+            None
+        }
+    }
+}
+
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
@@ -1380,6 +1434,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyFloatingCouponSpec>()?;
     module.add_class::<PyCashFlowBuilder>()?;
     module.add_class::<PyCashFlowSchedule>()?;
+    module.add_class::<PyCashFlowScheduleIterator>()?;
     module.add_class::<PyFeeBase>()?;
     module.add_class::<PyFeeSpec>()?;
     module.add_class::<PyFixedWindow>()?;
@@ -1392,6 +1447,7 @@ pub(crate) fn register<'py>(
         "FloatingCouponSpec",
         "CashFlowBuilder",
         "CashFlowSchedule",
+        "CashFlowScheduleIterator",
         "FeeBase",
         "FeeSpec",
         "FixedWindow",

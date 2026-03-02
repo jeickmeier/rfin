@@ -4,7 +4,8 @@ Provides a central repository for all market data including curves,
 surfaces, FX rates, and other market information.
 """
 
-from typing import Dict, List, Optional, Any, Union
+from __future__ import annotations
+from typing import Dict, List, Any
 from .term_structures import (
     DiscountCurve,
     ForwardCurve,
@@ -399,7 +400,7 @@ class MarketContext:
         """
         ...
 
-    def dividend_schedule(self, id: str) -> Optional[DividendSchedule]:
+    def dividend_schedule(self, id: str) -> DividendSchedule | None:
         """Get a dividend schedule by ID.
 
         Parameters

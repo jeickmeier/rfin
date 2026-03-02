@@ -1,7 +1,7 @@
 """Evaluator for financial models."""
 
 from __future__ import annotations
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Tuple
 from datetime import date
 from ..types.model import FinancialModelSpec
 from ..types.node import NodeValueType
@@ -144,7 +144,7 @@ class StatementResult:
         ...
 
     @property
-    def cs_cashflows(self) -> Optional[CapitalStructureCashflows]:
+    def cs_cashflows(self) -> CapitalStructureCashflows | None:
         """Get capital structure cashflows if available.
 
         Returns:

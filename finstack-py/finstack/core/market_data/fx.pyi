@@ -1,6 +1,7 @@
 """Foreign exchange bindings for FX policies, configuration, and matrices."""
 
-from typing import List, Tuple, Optional, Union
+from __future__ import annotations
+from typing import List, Tuple
 from datetime import date
 from ..currency import Currency
 
@@ -101,9 +102,9 @@ class FxConfig:
 
     def __init__(
         self,
-        pivot_currency: Optional[Currency] = None,
-        enable_triangulation: Optional[bool] = None,
-        cache_capacity: Optional[int] = None,
+        pivot_currency: Currency | None = None,
+        enable_triangulation: bool | None = None,
+        cache_capacity: int | None = None,
     ) -> None: ...
     @property
     def pivot_currency(self) -> Currency:
@@ -209,7 +210,7 @@ class FxMatrix:
     :class:`MarketBump`: Time-dependent FX shifts for scenarios
     """
 
-    def __init__(self, config: Optional[FxConfig] = None) -> None: ...
+    def __init__(self, config: FxConfig | None = None) -> None: ...
     def set_quote(
         self,
         from_currency: Currency,
@@ -243,8 +244,8 @@ class FxMatrix:
         self,
         from_currency: Currency,
         to_currency: Currency,
-        on: Union[str, date],
-        policy: Optional[Union[str, FxConversionPolicy]] = None,
+        on: str | date,
+        policy: str | FxConversionPolicy | None = None,
     ) -> FxRateResult:
         """Evaluate the FX rate between two currencies on a given date.
 

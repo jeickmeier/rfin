@@ -1,7 +1,8 @@
 """Monte Carlo path data structures for visualization and analysis."""
 
+from __future__ import annotations
 from datetime import date
-from typing import Optional, Dict, Iterator, List, Tuple, Any
+from typing import Dict, Iterator, List, Tuple, Any
 from enum import Enum
 
 class CashflowType(Enum):
@@ -53,23 +54,23 @@ class PathPoint:
         ...
 
     @property
-    def payoff_value(self) -> Optional[float]:
+    def payoff_value(self) -> float | None:
         """Get the payoff value at this point (if captured)."""
         ...
 
-    def get_var(self, key: str) -> Optional[float]:
+    def get_var(self, key: str) -> float | None:
         """Get a specific state variable by name."""
         ...
 
-    def spot(self) -> Optional[float]:
+    def spot(self) -> float | None:
         """Get the spot price (convenience method)."""
         ...
 
-    def variance(self) -> Optional[float]:
+    def variance(self) -> float | None:
         """Get the variance (convenience method)."""
         ...
 
-    def short_rate(self) -> Optional[float]:
+    def short_rate(self) -> float | None:
         """Get the short rate (convenience method)."""
         ...
 
@@ -152,7 +153,7 @@ class SimulatedPath:
         ...
 
     @property
-    def irr(self) -> Optional[float]:
+    def irr(self) -> float | None:
         """Get the IRR for this path (if calculated).
 
         Returns:
@@ -165,15 +166,15 @@ class SimulatedPath:
         """Get the number of time steps."""
         ...
 
-    def point(self, step: int) -> Optional[PathPoint]:
+    def point(self, step: int) -> PathPoint | None:
         """Get a specific point by step index."""
         ...
 
-    def initial_point(self) -> Optional[PathPoint]:
+    def initial_point(self) -> PathPoint | None:
         """Get the initial point."""
         ...
 
-    def terminal_point(self) -> Optional[PathPoint]:
+    def terminal_point(self) -> PathPoint | None:
         """Get the terminal point."""
         ...
 
@@ -254,7 +255,7 @@ class PathDataset:
         """Get the number of captured paths."""
         ...
 
-    def path(self, index: int) -> Optional[SimulatedPath]:
+    def path(self, index: int) -> SimulatedPath | None:
         """Get a specific path by index."""
         ...
 

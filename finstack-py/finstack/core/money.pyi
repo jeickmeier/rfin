@@ -1,6 +1,7 @@
 """Money bindings: currency-tagged amounts with safe arithmetic and FX conversion."""
 
-from typing import Union, Tuple, Optional
+from __future__ import annotations
+from typing import Tuple
 from datetime import date
 from .currency import Currency
 from .config import FinstackConfig
@@ -60,9 +61,9 @@ class Money:
     :class:`FinstackConfig`: Configuration for rounding and decimal scales
     """
 
-    def __init__(self, amount: float, currency: Union[str, Currency]) -> None: ...
+    def __init__(self, amount: float, currency: str | Currency) -> None: ...
     @classmethod
-    def from_config(cls, amount: float, currency: Union[str, Currency], config: "FinstackConfig") -> Money:
+    def from_config(cls, amount: float, currency: str | Currency, config: "FinstackConfig") -> Money:
         """Construct a money value using a configuration for ingest rounding.
 
         Parameters
@@ -91,7 +92,7 @@ class Money:
         ...
 
     @classmethod
-    def zero(cls, currency: Union[str, Currency]) -> Money:
+    def zero(cls, currency: str | Currency) -> Money:
         """Create a zero amount in the specified currency.
 
         Parameters
@@ -189,10 +190,10 @@ class Money:
 
     def convert(
         self,
-        to_currency: Union[str, Currency],
+        to_currency: str | Currency,
         on: "date",
         fx_matrix: FxMatrix,
-        policy: Optional[Union[str, FxConversionPolicy]] = None,
+        policy: str | FxConversionPolicy | None = None,
     ) -> Money:
         """Convert this amount into another currency using an FX matrix.
 

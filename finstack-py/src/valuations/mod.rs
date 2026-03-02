@@ -3,6 +3,7 @@ pub(crate) mod bumps;
 pub(crate) mod calibration;
 pub(crate) mod cashflow;
 pub(crate) mod common;
+pub(crate) mod constants;
 pub(crate) mod conventions;
 pub(crate) mod covenants;
 pub(crate) mod dataframe;
@@ -113,6 +114,11 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let schema_exports = schema::register(py, &module)?;
     exports.extend(schema_exports.iter().copied());
     promote_exports(&module, "schema", &schema_exports)?;
+
+    // Register constants module (numerical constants for pricing & risk)
+    let constants_exports = constants::register(py, &module)?;
+    exports.extend(constants_exports.iter().copied());
+    promote_exports(&module, "constants", &constants_exports)?;
 
     // Register XVA module (CVA, exposure, netting, collateral)
     let xva_exports = xva::register(py, &module)?;

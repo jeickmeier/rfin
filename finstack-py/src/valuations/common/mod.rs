@@ -116,6 +116,52 @@ impl PyInstrumentType {
     const LEVERED_REAL_ESTATE_EQUITY: Self = Self::new(InstrumentType::LeveredRealEstateEquity);
     #[classattr]
     const REVOLVING_CREDIT: Self = Self::new(InstrumentType::RevolvingCredit);
+    #[classattr]
+    const BERMUDAN_SWAPTION: Self = Self::new(InstrumentType::BermudanSwaption);
+    #[classattr]
+    const XCCY_SWAP: Self = Self::new(InstrumentType::XccySwap);
+    #[classattr]
+    const YOY_INFLATION_SWAP: Self = Self::new(InstrumentType::YoYInflationSwap);
+    #[classattr]
+    const INFLATION_CAP_FLOOR: Self = Self::new(InstrumentType::InflationCapFloor);
+    #[classattr]
+    const FX_VARIANCE_SWAP: Self = Self::new(InstrumentType::FxVarianceSwap);
+    #[classattr]
+    const TERM_LOAN: Self = Self::new(InstrumentType::TermLoan);
+    #[classattr]
+    const DCF: Self = Self::new(InstrumentType::DCF);
+    #[classattr]
+    const BOND_FUTURE: Self = Self::new(InstrumentType::BondFuture);
+    #[classattr]
+    const COMMODITY_FORWARD: Self = Self::new(InstrumentType::CommodityForward);
+    #[classattr]
+    const COMMODITY_SWAP: Self = Self::new(InstrumentType::CommoditySwap);
+    #[classattr]
+    const COMMODITY_OPTION: Self = Self::new(InstrumentType::CommodityOption);
+    #[classattr]
+    const COMMODITY_ASIAN_OPTION: Self = Self::new(InstrumentType::CommodityAsianOption);
+    #[classattr]
+    const VOLATILITY_INDEX_FUTURE: Self = Self::new(InstrumentType::VolatilityIndexFuture);
+    #[classattr]
+    const VOLATILITY_INDEX_OPTION: Self = Self::new(InstrumentType::VolatilityIndexOption);
+    #[classattr]
+    const EQUITY_INDEX_FUTURE: Self = Self::new(InstrumentType::EquityIndexFuture);
+    #[classattr]
+    const FX_FORWARD: Self = Self::new(InstrumentType::FxForward);
+    #[classattr]
+    const NDF: Self = Self::new(InstrumentType::Ndf);
+    #[classattr]
+    const AGENCY_MBS_PASSTHROUGH: Self = Self::new(InstrumentType::AgencyMbsPassthrough);
+    #[classattr]
+    const AGENCY_TBA: Self = Self::new(InstrumentType::AgencyTba);
+    #[classattr]
+    const DOLLAR_ROLL: Self = Self::new(InstrumentType::DollarRoll);
+    #[classattr]
+    const AGENCY_CMO: Self = Self::new(InstrumentType::AgencyCmo);
+    #[classattr]
+    const FX_DIGITAL_OPTION: Self = Self::new(InstrumentType::FxDigitalOption);
+    #[classattr]
+    const FX_TOUCH_OPTION: Self = Self::new(InstrumentType::FxTouchOption);
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]

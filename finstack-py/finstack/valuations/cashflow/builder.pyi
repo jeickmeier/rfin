@@ -1,7 +1,7 @@
 """Valuations cash-flow builder exposing complex coupon windows, PIK splits, and amortization."""
 
 from __future__ import annotations
-from typing import List, Any, Dict, Tuple
+from typing import Iterator, List, Any, Dict, Tuple
 from datetime import date as _Date
 from ...core.currency import Currency
 from ...core.money import Money
@@ -679,6 +679,10 @@ class CashFlowSchedule:
     ) -> Any:
         """Convert the cashflow schedule to a Polars DataFrame."""
         ...
+
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int) -> CashFlow: ...
+    def __iter__(self) -> Iterator[CashFlow]: ...
 
 # ---------------------------------------------------------------------------
 # Utility functions

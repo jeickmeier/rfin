@@ -9,6 +9,8 @@ This module provides:
 These types prevent accidental mismatches and provide clear conversion semantics.
 """
 
+from __future__ import annotations
+
 from typing import Any, Tuple
 
 class CurveId:

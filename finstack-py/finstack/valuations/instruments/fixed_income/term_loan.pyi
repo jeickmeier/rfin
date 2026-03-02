@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import datetime
-from typing import Optional, Sequence
+from typing import Sequence
 from ....core.money import Money
 from ....core.currency import Currency
 from ...common import InstrumentType
@@ -34,8 +34,8 @@ class RateSpec:
         spread_bp: float,
         reset_freq: str = "3M",
         reset_lag_days: int = 2,
-        floor_bp: Optional[float] = None,
-        cap_bp: Optional[float] = None,
+        floor_bp: float | None = None,
+        cap_bp: float | None = None,
     ) -> RateSpec:
         """Create a floating-rate specification.
 
@@ -254,10 +254,10 @@ class CovenantSpec:
 
     def __init__(
         self,
-        margin_stepups: Optional[Sequence[MarginStepUp]] = None,
-        pik_toggles: Optional[Sequence[PikToggle]] = None,
-        cash_sweeps: Optional[Sequence[CashSweepEvent]] = None,
-        draw_stop_dates: Optional[Sequence[datetime.date]] = None,
+        margin_stepups: Sequence[MarginStepUp] | None = None,
+        pik_toggles: Sequence[PikToggle] | None = None,
+        cash_sweeps: Sequence[CashSweepEvent] | None = None,
+        draw_stop_dates: Sequence[datetime.date] | None = None,
     ) -> None:
         """Create a covenant specification.
 
@@ -284,12 +284,12 @@ class DdtlSpec:
         commitment_limit: Money,
         availability_start: datetime.date,
         availability_end: datetime.date,
-        draws: Optional[Sequence[DrawEvent]] = None,
-        commitment_step_downs: Optional[Sequence[CommitmentStepDown]] = None,
+        draws: Sequence[DrawEvent] | None = None,
+        commitment_step_downs: Sequence[CommitmentStepDown] | None = None,
         usage_fee_bp: int = 0,
         commitment_fee_bp: int = 0,
-        fee_base: Optional[CommitmentFeeBase] = None,
-        oid_policy: Optional[OidPolicy] = None,
+        fee_base: CommitmentFeeBase | None = None,
+        oid_policy: OidPolicy | None = None,
     ) -> None:
         """Create a DDTL specification.
 
@@ -427,7 +427,7 @@ class LoanCall:
         self,
         date: datetime.date,
         price_pct_of_par: float,
-        call_type: Optional[LoanCallType] = None,
+        call_type: LoanCallType | None = None,
     ) -> None:
         """Create a call option.
 
@@ -492,17 +492,17 @@ class TermLoanBuilder:
     def frequency(self, freq: str) -> TermLoanBuilder: ...
     def day_count(self, dc: str) -> TermLoanBuilder: ...
     def bdc(self, bdc: str) -> TermLoanBuilder: ...
-    def calendar(self, calendar_id: Optional[str] = None) -> TermLoanBuilder: ...
+    def calendar(self, calendar_id: str | None = None) -> TermLoanBuilder: ...
     def stub(self, stub: str) -> TermLoanBuilder: ...
     def disc_id(self, curve_id: str) -> TermLoanBuilder: ...
-    def credit_curve(self, curve_id: Optional[str] = None) -> TermLoanBuilder: ...
+    def credit_curve(self, curve_id: str | None = None) -> TermLoanBuilder: ...
     def amortization(self, spec: TermLoanAmortizationSpec) -> TermLoanBuilder: ...
     def coupon_type(self, ct: CouponType) -> TermLoanBuilder: ...
-    def upfront_fee(self, fee: Optional[Money] = None) -> TermLoanBuilder: ...
-    def ddtl(self, spec: Optional[DdtlSpec] = None) -> TermLoanBuilder: ...
-    def covenants(self, spec: Optional[CovenantSpec] = None) -> TermLoanBuilder: ...
-    def oid_eir(self, spec: Optional[OidEirSpec] = None) -> TermLoanBuilder: ...
-    def call_schedule(self, schedule: Optional[LoanCallSchedule] = None) -> TermLoanBuilder: ...
+    def upfront_fee(self, fee: Money | None = None) -> TermLoanBuilder: ...
+    def ddtl(self, spec: DdtlSpec | None = None) -> TermLoanBuilder: ...
+    def covenants(self, spec: CovenantSpec | None = None) -> TermLoanBuilder: ...
+    def oid_eir(self, spec: OidEirSpec | None = None) -> TermLoanBuilder: ...
+    def call_schedule(self, schedule: LoanCallSchedule | None = None) -> TermLoanBuilder: ...
     def settlement_days(self, days: int) -> TermLoanBuilder: ...
     def build(self) -> TermLoan: ...
     def __repr__(self) -> str: ...
