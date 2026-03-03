@@ -97,6 +97,7 @@ pub fn create_call(_as_of: Date, expiry: Date, strike: f64) -> EquityOption {
         div_yield_id: Some(DIV_ID.into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     }
 }
@@ -119,6 +120,7 @@ pub fn create_put(_as_of: Date, expiry: Date, strike: f64) -> EquityOption {
         div_yield_id: Some(DIV_ID.into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     }
 }

@@ -96,6 +96,7 @@ fn create_test_option(
         div_yield_id: Some("AAPL_DIV".into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     }
 }

@@ -102,6 +102,9 @@ class BondFutureBuilder:
     def disc_id(self, curve_id: str) -> BondFutureBuilder:
         """Set discount curve identifier."""
         ...
+    def repo_curve_id(self, curve_id: str) -> BondFutureBuilder:
+        """Set repo/financing curve identifier for implied repo and carry calculations."""
+        ...
     def build(self) -> BondFuture:
         """Build the BondFuture instrument."""
         ...

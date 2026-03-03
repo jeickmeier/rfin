@@ -42,9 +42,10 @@ impl StochasticPricer {
     ) -> Result<StochasticPricingResult, String> {
         match &self.config.pricing_mode {
             PricingMode::Tree => self.price_tree(notional, currency),
-            PricingMode::MonteCarlo { num_paths, .. } => {
-                self.price_monte_carlo(notional, currency, *num_paths)
-            }
+            PricingMode::MonteCarlo {
+                num_paths,
+                antithetic,
+            } => self.price_monte_carlo(notional, currency, *num_paths, *antithetic),
             PricingMode::Hybrid {
                 tree_periods,
                 mc_paths,
@@ -169,6 +170,7 @@ impl StochasticPricer {
         notional: f64,
         currency: Currency,
         num_paths: usize,
+        antithetic: bool,
     ) -> Result<StochasticPricingResult, String> {
         if num_paths == 0 {
             return Err("Monte Carlo pricing requires at least one simulation path".to_string());
@@ -190,6 +192,8 @@ impl StochasticPricer {
         for _ in 0..num_paths {
             workspace.tier_workspace.clear();
             let u = rng.uniform();
+
+            // Normal path
             let terminal_idx = workspace.sample_index(u);
             let node_index = workspace.terminal_indices[terminal_idx];
             let path_loss = tree.nodes()[node_index].cumulative_losses * scale;
@@ -200,10 +204,32 @@ impl StochasticPricer {
                 currency,
                 &mut workspace.tier_workspace,
             );
-            workspace.record_path(path_pv, path_loss);
+
+            if antithetic {
+                // Antithetic path using 1 - u for variance reduction
+                workspace.tier_workspace.clear();
+                let anti_idx = workspace.sample_index(1.0 - u);
+                let anti_node = workspace.terminal_indices[anti_idx];
+                let anti_loss = tree.nodes()[anti_node].cumulative_losses * scale;
+                let anti_pv = self.path_present_value(
+                    &tree,
+                    anti_node,
+                    scale,
+                    currency,
+                    &mut workspace.tier_workspace,
+                );
+                // Record averaged pair for variance reduction
+                workspace.record_path((path_pv + anti_pv) / 2.0, (path_loss + anti_loss) / 2.0);
+            } else {
+                workspace.record_path(path_pv, path_loss);
+            }
         }
 
-        let pricing_mode = format!("MonteCarlo({})", num_paths);
+        let pricing_mode = if antithetic {
+            format!("MonteCarlo({}, antithetic)", num_paths)
+        } else {
+            format!("MonteCarlo({})", num_paths)
+        };
         let mut result = workspace.finalize(
             currency,
             num_paths,
@@ -224,7 +250,7 @@ impl StochasticPricer {
         mc_paths: usize,
     ) -> Result<StochasticPricingResult, String> {
         if tree_periods == 0 {
-            return self.price_monte_carlo(notional, currency, mc_paths);
+            return self.price_monte_carlo(notional, currency, mc_paths, true);
         }
 
         if tree_periods >= self.config.tree_config.num_periods || mc_paths == 0 {
@@ -235,7 +261,7 @@ impl StochasticPricer {
         truncated_config.num_periods = tree_periods;
         let truncated_tree = ScenarioTree::build(&truncated_config)?;
         let tree_result = self.build_tree_result(&truncated_tree, notional, currency)?;
-        let mc_result = self.price_monte_carlo(notional, currency, mc_paths)?;
+        let mc_result = self.price_monte_carlo(notional, currency, mc_paths, true)?;
 
         let total_periods = self.config.tree_config.num_periods.max(1);
         let weight_tree = tree_periods as f64 / total_periods as f64;

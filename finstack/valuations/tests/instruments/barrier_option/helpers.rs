@@ -95,6 +95,7 @@ pub fn create_down_and_out_call(
         vol_surface_id: VOL_ID.into(),
         div_yield_id: Some(DIV_ID.into()),
         pricing_overrides: PricingOverrides::default(),
+        monitoring_frequency: None,
         attributes: Default::default(),
     }
 }

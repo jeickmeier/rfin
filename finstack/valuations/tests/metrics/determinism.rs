@@ -282,6 +282,7 @@ mod tests {
             pricing_overrides: Default::default(),
             attributes: Default::default(),
             rebate: None,
+            monitoring_frequency: None,
         };
 
         let market = create_mc_market(as_of, 100.0, 0.25, 0.05);

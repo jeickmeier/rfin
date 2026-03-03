@@ -91,6 +91,20 @@ pub struct BarrierOption {
     #[builder(default = default_gobet_miri())]
     #[serde(default = "default_gobet_miri")]
     pub use_gobet_miri: bool,
+    /// Monitoring frequency for discrete barrier adjustment (years between observations).
+    ///
+    /// When set, the analytical pricer applies the Broadie-Glasserman correction
+    /// to adjust the barrier level for discrete monitoring. Common values:
+    /// - `1.0/252.0` — daily monitoring
+    /// - `1.0/52.0` — weekly monitoring
+    /// - `1.0/12.0` — monthly monitoring
+    ///
+    /// When `None`, the analytical pricer uses continuous monitoring formulas.
+    /// Note: The MC pricer (`use_gobet_miri = true`) handles discrete monitoring
+    /// independently via per-step corrections.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub monitoring_frequency: Option<f64>,
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
     /// Spot price identifier

@@ -42,6 +42,7 @@ struct ParallelBatchBuilder<'a> {
     plan: &'a CalibrationPlan,
     curve_outputs: HashSet<finstack_core::types::CurveId>,
     surface_outputs: HashSet<finstack_core::types::CurveId>,
+    scalar_outputs: HashSet<String>,
     batch: Vec<StepBatchItem<'a>>,
 }
 
@@ -51,6 +52,7 @@ impl<'a> ParallelBatchBuilder<'a> {
             plan,
             curve_outputs: HashSet::default(),
             surface_outputs: HashSet::default(),
+            scalar_outputs: HashSet::default(),
             batch: Vec::new(),
         }
     }
@@ -88,6 +90,7 @@ impl<'a> ParallelBatchBuilder<'a> {
         match step_runtime::output_key(step) {
             OutputKey::Curve(id) => !self.curve_outputs.insert(id),
             OutputKey::Surface(id) => !self.surface_outputs.insert(id),
+            OutputKey::Scalar(key) => !self.scalar_outputs.insert(key),
         }
     }
 
@@ -104,6 +107,7 @@ impl<'a> ParallelBatchBuilder<'a> {
     fn take_batch(&mut self) -> Vec<StepBatchItem<'a>> {
         self.curve_outputs.clear();
         self.surface_outputs.clear();
+        self.scalar_outputs.clear();
         std::mem::take(&mut self.batch)
     }
 

@@ -55,6 +55,28 @@ impl Default for SoftCallTrigger {
     }
 }
 
+impl SoftCallTrigger {
+    /// Validate soft-call trigger parameters.
+    ///
+    /// - `threshold_pct` must exceed 100% (otherwise the trigger is trivially satisfied).
+    /// - `required_days_above` cannot exceed `observation_days`.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.threshold_pct <= 100.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "soft-call threshold_pct ({:.1}%) must exceed 100%",
+                self.threshold_pct,
+            )));
+        }
+        if self.required_days_above > self.observation_days {
+            return Err(finstack_core::Error::Validation(format!(
+                "soft-call required_days_above ({}) cannot exceed observation_days ({})",
+                self.required_days_above, self.observation_days,
+            )));
+        }
+        Ok(())
+    }
+}
+
 /// Convertible bond instrument with embedded equity conversion option.
 ///
 /// This fixed income instrument combines debt characteristics (coupons, principal)
@@ -557,6 +579,9 @@ impl crate::instruments::common_impl::traits::Instrument for ConvertibleBond {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        if let Some(ref trigger) = self.soft_call_trigger {
+            trigger.validate()?;
+        }
         pricer::price_convertible_bond(self, curves, pricer::ConvertibleTreeType::default(), as_of)
     }
 

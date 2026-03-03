@@ -994,6 +994,7 @@ pub struct PyDollarRollBuilder {
     back_price: Option<f64>,
     discount_curve_id: Option<String>,
     trade_date: Option<time::Date>,
+    repo_curve_id: Option<String>,
 }
 
 impl PyDollarRollBuilder {
@@ -1013,6 +1014,7 @@ impl PyDollarRollBuilder {
             back_price: None,
             discount_curve_id: None,
             trade_date: None,
+            repo_curve_id: None,
         }
     }
 
@@ -1150,6 +1152,15 @@ impl PyDollarRollBuilder {
         slf
     }
 
+    /// Set repo/financing curve identifier.
+    ///
+    /// When set, this curve is used for financing/carry calculations instead of
+    /// the general discount curve, capturing repo specials.
+    fn repo_curve_id(mut slf: PyRefMut<'_, Self>, repo_curve_id: String) -> PyRefMut<'_, Self> {
+        slf.repo_curve_id = Some(repo_curve_id);
+        slf
+    }
+
     #[pyo3(signature = (trade_date=None))]
     fn trade_date<'py>(
         mut slf: PyRefMut<'py, Self>,
@@ -1180,6 +1191,10 @@ impl PyDollarRollBuilder {
 
         if let Some(td) = slf.trade_date {
             builder = builder.trade_date_opt(Some(td));
+        }
+
+        if let Some(ref repo_id) = slf.repo_curve_id {
+            builder = builder.repo_curve_id_opt(Some(CurveId::new(repo_id)));
         }
 
         let roll = builder

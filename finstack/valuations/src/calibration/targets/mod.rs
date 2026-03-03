@@ -23,6 +23,8 @@ pub mod forward;
 pub mod hazard;
 /// Inflation curve bootstrapping from inflation swap quotes.
 pub mod inflation;
+/// Student-t copula degrees of freedom calibration.
+pub mod student_t;
 /// Swaption volatility surface calibration.
 pub mod swaption;
 /// Shared utility functions for calibration targets.

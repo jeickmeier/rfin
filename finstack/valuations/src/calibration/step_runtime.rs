@@ -5,12 +5,14 @@ use crate::calibration::targets::discount::DiscountCurveTarget;
 use crate::calibration::targets::forward::ForwardCurveTarget;
 use crate::calibration::targets::hazard::HazardBootstrapper;
 use crate::calibration::targets::inflation::InflationBootstrapper;
+use crate::calibration::targets::student_t::StudentTCalibrator;
 use crate::calibration::targets::swaption::SwaptionVolBootstrapper;
 use crate::calibration::targets::vol::VolSurfaceBootstrapper;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::explain::TraceEntry;
 use finstack_core::market_data::context::{CurveStorage, MarketContext};
+use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::types::CurveId;
@@ -21,12 +23,14 @@ use std::sync::Arc;
 pub(crate) enum OutputKey {
     Curve(CurveId),
     Surface(CurveId),
+    Scalar(String),
 }
 
 /// Normalized output payload for a step.
 pub(crate) enum StepOutput {
     Curve(CurveStorage),
     Surface(Arc<VolSurface>),
+    Scalar { key: String, value: MarketScalar },
 }
 
 /// Aggregated outcome of a single calibration step.
@@ -48,6 +52,9 @@ pub(crate) fn output_key(step: &CalibrationStep) -> OutputKey {
         }
         StepParams::VolSurface(p) => OutputKey::Surface(CurveId::from(p.surface_id.as_str())),
         StepParams::SwaptionVol(p) => OutputKey::Surface(CurveId::from(p.surface_id.as_str())),
+        StepParams::StudentT(p) => {
+            OutputKey::Scalar(format!("{}_STUDENT_T_DF", p.tranche_instrument_id))
+        }
     }
 }
 
@@ -63,6 +70,9 @@ pub(crate) fn apply_output(
         }
         StepOutput::Surface(surface) => {
             *context = std::mem::take(context).insert_surface(surface);
+        }
+        StepOutput::Scalar { key, value } => {
+            *context = std::mem::take(context).insert_price(&key, value);
         }
     }
 
@@ -157,6 +167,19 @@ pub(crate) fn execute_params(
                 SwaptionVolBootstrapper::solve(p, quotes, context, global_config)?;
             Ok(StepOutcome {
                 output: StepOutput::Surface(surface.into()),
+                credit_index_update: None,
+                report,
+            })
+        }
+        StepParams::StudentT(p) => {
+            let (_, calibrated_df, report) =
+                StudentTCalibrator::solve(p, quotes, context, global_config)?;
+            let scalar_key = format!("{}_STUDENT_T_DF", p.tranche_instrument_id);
+            Ok(StepOutcome {
+                output: StepOutput::Scalar {
+                    key: scalar_key,
+                    value: MarketScalar::Unitless(calibrated_df),
+                },
                 credit_index_update: None,
                 report,
             })

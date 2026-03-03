@@ -119,6 +119,7 @@ pub struct PyEquityOptionBuilder {
     vol_surface_id: Option<CurveId>,
     div_yield_id: Option<String>,
     discrete_dividends: Vec<(time::Date, f64)>,
+    exercise_schedule: Option<Vec<time::Date>>,
 }
 
 impl PyEquityOptionBuilder {
@@ -138,6 +139,7 @@ impl PyEquityOptionBuilder {
             vol_surface_id: None,
             div_yield_id: None,
             discrete_dividends: Vec::new(),
+            exercise_schedule: None,
         }
     }
 
@@ -325,6 +327,20 @@ impl PyEquityOptionBuilder {
         Ok(slf)
     }
 
+    /// Set exercise schedule for Bermudan options.
+    #[pyo3(text_signature = "($self, dates)")]
+    fn exercise_schedule<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        dates: Vec<Bound<'py, PyAny>>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let schedule: Vec<time::Date> = dates
+            .iter()
+            .map(|d| py_to_date(d).context("exercise_schedule date"))
+            .collect::<Result<_, _>>()?;
+        slf.exercise_schedule = Some(schedule);
+        Ok(slf)
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyEquityOption> {
         slf.ensure_ready()?;
@@ -378,6 +394,7 @@ impl PyEquityOptionBuilder {
             .vol_surface_id(vol_surface)
             .div_yield_id_opt(slf.div_yield_id.clone().map(CurveId::new))
             .discrete_dividends(slf.discrete_dividends.clone())
+            .exercise_schedule_opt(slf.exercise_schedule.clone())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()

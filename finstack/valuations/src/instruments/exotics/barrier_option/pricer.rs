@@ -384,6 +384,9 @@ use crate::instruments::common_impl::models::closed_form::barrier::{
     barrier_call_continuous, barrier_put_continuous, barrier_rebate_continuous,
     BarrierType as AnalyticalBarrierType,
 };
+/// Broadie-Glasserman-Kou / Gobet-Miri discrete barrier adjustment constant.
+/// β = -ζ(1/2) / √(2π) ≈ 0.5826
+const BG_BETA: f64 = 0.5826;
 
 /// Barrier option analytical pricer (continuous monitoring).
 ///
@@ -474,11 +477,27 @@ impl Pricer for BarrierOptionAnalyticalPricer {
             BarrierType::DownAndOut => AnalyticalBarrierType::DownOut,
         };
 
+        // Apply Broadie-Glasserman discrete monitoring correction when monitoring_frequency is set
+        let is_down = matches!(
+            barrier_opt.barrier_type,
+            BarrierType::DownAndIn | BarrierType::DownAndOut
+        );
+        let effective_barrier = if let Some(dt) = barrier_opt.monitoring_frequency {
+            let shift = BG_BETA * sigma * dt.sqrt();
+            if is_down {
+                barrier_opt.barrier.amount() * (-shift).exp()
+            } else {
+                barrier_opt.barrier.amount() * shift.exp()
+            }
+        } else {
+            barrier_opt.barrier.amount()
+        };
+
         let price = match barrier_opt.option_type {
             crate::instruments::OptionType::Call => barrier_call_continuous(
                 spot,
                 barrier_opt.strike,
-                barrier_opt.barrier.amount(),
+                effective_barrier,
                 t,
                 r,
                 q,
@@ -488,7 +507,7 @@ impl Pricer for BarrierOptionAnalyticalPricer {
             crate::instruments::OptionType::Put => barrier_put_continuous(
                 spot,
                 barrier_opt.strike,
-                barrier_opt.barrier.amount(),
+                effective_barrier,
                 t,
                 r,
                 q,
@@ -500,7 +519,7 @@ impl Pricer for BarrierOptionAnalyticalPricer {
         let rebate_val = if let Some(rebate) = barrier_opt.rebate {
             barrier_rebate_continuous(
                 spot,
-                barrier_opt.barrier.amount(),
+                effective_barrier,
                 rebate.amount(),
                 t,
                 r,

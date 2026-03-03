@@ -534,6 +534,11 @@ impl VarianceSwap {
                         // Fallback to ATM vol at spot as strike
                         let vol_atm = surface.value_clamped(t.max(1e-8), spot);
                         if vol_atm.is_finite() && vol_atm > 0.0 {
+                            tracing::warn!(
+                                instrument_id = %self.id,
+                                vol_atm = vol_atm,
+                                "Carr-Madan replication failed; falling back to ATM vol^2 for forward variance"
+                            );
                             return Ok(vol_atm * vol_atm);
                         }
                     }

@@ -251,6 +251,7 @@ pub struct PyBondFutureBuilder {
     deliverable_basket: Vec<DeliverableBond>,
     ctd_bond_id: Option<InstrumentId>,
     discount_curve: Option<CurveId>,
+    repo_curve: Option<CurveId>,
 }
 
 impl PyBondFutureBuilder {
@@ -268,6 +269,7 @@ impl PyBondFutureBuilder {
             deliverable_basket: Vec::new(),
             ctd_bond_id: None,
             discount_curve: None,
+            repo_curve: None,
         }
     }
 
@@ -461,6 +463,22 @@ impl PyBondFutureBuilder {
         slf
     }
 
+    /// Set repo/financing curve identifier.
+    ///
+    /// When set, this curve is used for implied repo rate calculations and
+    /// carry analysis instead of the general discount curve. This allows
+    /// capturing repo specials.
+    ///
+    /// Parameters
+    /// ----------
+    /// curve_id : str
+    ///     Curve identifier for the repo/financing curve
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn repo_curve_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.repo_curve = Some(CurveId::new(&curve_id));
+        slf
+    }
+
     /// Build the BondFuture instrument.
     ///
     /// Returns
@@ -518,6 +536,7 @@ impl PyBondFutureBuilder {
             ctd_bond_id: slf.ctd_bond_id.clone(),
             ctd_bond: None,
             discount_curve_id,
+            repo_curve_id: slf.repo_curve.clone(),
             pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         };

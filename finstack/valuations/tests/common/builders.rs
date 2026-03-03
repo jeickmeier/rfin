@@ -274,6 +274,7 @@ impl TestOptionBuilder {
             div_yield_id: self.div_yield_id,
             discrete_dividends: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
+            exercise_schedule: None,
             attributes: Default::default(),
         }
     }

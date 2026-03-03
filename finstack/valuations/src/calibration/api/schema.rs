@@ -130,6 +130,9 @@ pub enum StepParams {
 
     /// Base correlation calibration.
     BaseCorrelation(BaseCorrelationParams),
+
+    /// Student-t copula degrees of freedom calibration.
+    StudentT(StudentTParams),
 }
 
 // =============================================================================
@@ -458,6 +461,53 @@ pub struct BaseCorrelationParams {
     /// Whether to use IMM dates for coupon schedules.
     #[serde(default)]
     pub use_imm_dates: bool,
+}
+
+/// Parameters for Student-t copula degrees of freedom calibration.
+///
+/// Calibrates the `df` (degrees of freedom) parameter of a Student-t copula
+/// by repricing a market tranche upfront quote and minimizing the residual
+/// using Brent root-finding.
+///
+/// # Fields
+///
+/// - `tranche_instrument_id`: Identifier for the reference tranche instrument
+///   used as the calibration target.
+/// - `base_correlation_curve_id`: Identifier for the pre-calibrated base
+///   correlation curve (must already exist in the market context).
+/// - `initial_df`: Starting guess for the degrees of freedom (e.g., 5.0).
+/// - `df_bounds`: Feasible domain for `df` as `(lo, hi)`, e.g., `(2.1, 50.0)`.
+/// - `correlation`: Market-implied flat correlation for the tranche.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StudentTParams {
+    /// Identifier for the reference tranche instrument.
+    pub tranche_instrument_id: String,
+    /// Identifier for the pre-calibrated base correlation curve.
+    pub base_correlation_curve_id: String,
+    /// Starting guess for degrees of freedom (typically 4-10).
+    #[serde(default = "default_student_t_initial_df")]
+    pub initial_df: f64,
+    /// Feasible domain for `df` as `(lower_bound, upper_bound)`.
+    ///
+    /// `df` must be > 2 for finite variance. Typical range: `(2.1, 50.0)`.
+    #[serde(default = "default_student_t_df_bounds")]
+    pub df_bounds: (f64, f64),
+    /// Market-implied flat correlation for the tranche.
+    #[serde(default = "default_student_t_correlation")]
+    pub correlation: f64,
+}
+
+fn default_student_t_initial_df() -> f64 {
+    5.0
+}
+
+fn default_student_t_df_bounds() -> (f64, f64) {
+    (2.1, 50.0)
+}
+
+fn default_student_t_correlation() -> f64 {
+    0.3
 }
 
 /// Volatility quoting convention for swaptions.

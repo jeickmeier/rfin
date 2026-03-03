@@ -269,6 +269,17 @@ impl crate::instruments::common_impl::traits::Instrument for CmsOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        // Validate vector lengths match (from_schedule guarantees this, but direct builder usage may not)
+        if self.fixing_dates.len() != self.payment_dates.len()
+            || self.fixing_dates.len() != self.accrual_fractions.len()
+        {
+            return Err(finstack_core::Error::Validation(format!(
+                "CMS option vectors must have equal length: fixing_dates={}, payment_dates={}, accrual_fractions={}",
+                self.fixing_dates.len(),
+                self.payment_dates.len(),
+                self.accrual_fractions.len(),
+            )));
+        }
         crate::instruments::rates::cms_option::pricer::compute_pv(self, market, as_of)
     }
 

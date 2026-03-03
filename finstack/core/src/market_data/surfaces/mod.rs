@@ -26,7 +26,9 @@
 //! # }
 //! ```
 
+mod delta_vol_surface;
 mod vol_surface;
 
 // Re-export for ergonomic access (curated list)
+pub use delta_vol_surface::FxDeltaVolSurfaceBuilder;
 pub use vol_surface::{VolSurface, VolSurfaceBuilder};

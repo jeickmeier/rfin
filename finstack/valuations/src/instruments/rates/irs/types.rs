@@ -449,8 +449,6 @@ impl InterestRateSwap {
         }
 
         // Warn-level check: legs should typically have matching date ranges
-        // (Not an error, but log for diagnostics in debug builds)
-        #[cfg(debug_assertions)]
         if self.fixed.start != self.float.start || self.fixed.end != self.float.end {
             tracing::warn!(
                 swap_id = %self.id,

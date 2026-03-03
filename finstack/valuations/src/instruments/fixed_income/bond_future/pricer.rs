@@ -333,9 +333,15 @@ impl BondFuturePricer {
         // Calculate price differential
         let price_diff = future.quoted_price - model_price;
 
-        // Get discount curve for settlement
+        // Get discount curve for settlement.
+        // Use repo curve when specified (captures repo specials for financing),
+        // otherwise fall back to the general discount curve.
         use finstack_core::market_data::traits::Discounting;
-        let discount_arc = market.get_discount(future.discount_curve_id.as_str())?;
+        let financing_curve_id = future
+            .repo_curve_id
+            .as_ref()
+            .unwrap_or(&future.discount_curve_id);
+        let discount_arc = market.get_discount(financing_curve_id.as_str())?;
         let discount_curve: &dyn Discounting = discount_arc.as_ref();
 
         // Calculate settlement date (expiry + settlement_days business days)

@@ -225,6 +225,7 @@ fn test_zero_volatility_option_limits() {
         div_yield_id: None,
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -264,6 +265,7 @@ fn test_zero_volatility_option_limits() {
         div_yield_id: None,
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -317,6 +319,7 @@ fn test_zero_notional_handling() {
         div_yield_id: None,
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -381,6 +384,7 @@ fn test_deep_otm_option_greeks() {
         div_yield_id: None,
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -432,6 +436,7 @@ fn test_deep_itm_put_greeks() {
         div_yield_id: None,
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -482,6 +487,7 @@ fn test_deep_otm_put_greeks() {
         div_yield_id: None,
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -547,6 +553,7 @@ fn test_atm_option_gamma_peak() {
             div_yield_id: None,
             discrete_dividends: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
+            exercise_schedule: None,
             attributes: Default::default(),
         };
 
@@ -607,6 +614,7 @@ fn test_extreme_volatility_handling() {
         div_yield_id: None,
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -661,6 +669,7 @@ fn test_very_short_dated_option() {
         div_yield_id: None,
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -737,6 +746,7 @@ fn test_very_low_interest_rate_greeks() {
         div_yield_id: None,
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -818,6 +828,7 @@ fn test_vol_smile_greeks() {
         div_yield_id: None,
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 

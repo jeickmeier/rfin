@@ -88,6 +88,16 @@ pub struct DollarRoll {
     pub trade_date: Option<Date>,
     /// Discount curve identifier.
     pub discount_curve_id: CurveId,
+    /// Optional repo/financing curve identifier.
+    ///
+    /// When set, this curve is used for financing/carry calculations instead of
+    /// the general discount curve. This allows capturing repo specials, where
+    /// specific collateral trades at rates different from the general funding curve.
+    ///
+    /// If `None`, the `discount_curve_id` is used for financing calculations.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repo_curve_id: Option<CurveId>,
     /// Pricing overrides.
     #[builder(default)]
     #[serde(default)]
@@ -197,9 +207,14 @@ impl crate::instruments::common_impl::traits::CurveDependencies for DollarRoll {
     fn curve_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
-        crate::instruments::common_impl::traits::InstrumentCurves::builder()
-            .discount(self.discount_curve_id.clone())
-            .build()
+        let builder = crate::instruments::common_impl::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone());
+        let builder = if let Some(repo_curve) = &self.repo_curve_id {
+            builder.forward(repo_curve.clone())
+        } else {
+            builder
+        };
+        builder.build()
     }
 }
 

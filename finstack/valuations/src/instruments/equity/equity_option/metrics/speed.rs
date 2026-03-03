@@ -38,21 +38,30 @@ impl MetricCalculator for SpeedCalculator {
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
-        let spot_bump = current_spot * bump_sizes::SPOT;
+        // Use adaptive/custom bump from pricing overrides if configured
+        let overrides = &option.pricing_overrides.bump_config;
+        let bump_pct = if let Some(custom) = overrides.spot_bump_pct {
+            custom
+        } else if overrides.adaptive_bumps {
+            let moneyness = (current_spot - option.strike).abs() / option.strike;
+            bump_sizes::SPOT * (1.0 + 2.0 * moneyness).min(5.0)
+        } else {
+            bump_sizes::SPOT
+        };
+        let spot_bump = current_spot * bump_pct;
 
         // Compute gamma at S + h
-        let curves_up_up =
-            bump_scalar_price(&context.curves, &option.spot_id, 2.0 * bump_sizes::SPOT)?;
+        let curves_up_up = bump_scalar_price(&context.curves, &option.spot_id, 2.0 * bump_pct)?;
         let pv_up_up = option.value(&curves_up_up, as_of)?.amount();
-        let curves_up = bump_scalar_price(&context.curves, &option.spot_id, bump_sizes::SPOT)?;
+        let curves_up = bump_scalar_price(&context.curves, &option.spot_id, bump_pct)?;
         let pv_up = option.value(&curves_up, as_of)?.amount();
         let gamma_up = (pv_up_up - 2.0 * pv_up + base_pv) / (spot_bump * spot_bump);
 
         // Compute gamma at S - h
-        let curves_down = bump_scalar_price(&context.curves, &option.spot_id, -bump_sizes::SPOT)?;
+        let curves_down = bump_scalar_price(&context.curves, &option.spot_id, -bump_pct)?;
         let pv_down = option.value(&curves_down, as_of)?.amount();
         let curves_down_down =
-            bump_scalar_price(&context.curves, &option.spot_id, -2.0 * bump_sizes::SPOT)?;
+            bump_scalar_price(&context.curves, &option.spot_id, -2.0 * bump_pct)?;
         let pv_down_down = option.value(&curves_down_down, as_of)?.amount();
         let gamma_down = (base_pv - 2.0 * pv_down + pv_down_down) / (spot_bump * spot_bump);
 

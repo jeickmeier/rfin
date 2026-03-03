@@ -54,6 +54,7 @@ pub fn preflight_step(
         StepParams::VolSurface(p) => validate_vol_surface_step(p, context),
         StepParams::SwaptionVol(p) => validate_swaption_vol_step(p, context),
         StepParams::BaseCorrelation(p) => validate_base_correlation_step(p, quotes, context),
+        StepParams::StudentT(_) => Ok(()), // Student-t df calibration has no preflight requirements
     }
 }
 

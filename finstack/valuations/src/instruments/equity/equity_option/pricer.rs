@@ -49,8 +49,12 @@ pub(crate) fn compute_pv(
         }
         ExerciseStyle::American => {
             // Use Leisen-Reimer tree for American options
-            // 201 steps gives good accuracy/performance trade-off (~10c precision)
-            let tree = BinomialTree::leisen_reimer(201);
+            let steps = inst
+                .pricing_overrides
+                .model_config
+                .tree_steps
+                .unwrap_or(201);
+            let tree = BinomialTree::leisen_reimer(steps);
             let params = OptionMarketParams {
                 spot,
                 strike: inst.strike,
@@ -63,10 +67,40 @@ pub(crate) fn compute_pv(
             tree.price_american(&params)?
         }
         ExerciseStyle::Bermudan => {
-            return Err(finstack_core::Error::Validation(
-                "Bermudan equity option requires an exercise schedule; pricing not supported yet"
-                    .to_string(),
-            ));
+            let schedule = inst.exercise_schedule.as_ref().ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "Bermudan equity option requires exercise_schedule".to_string(),
+                )
+            })?;
+            let steps = inst
+                .pricing_overrides
+                .model_config
+                .tree_steps
+                .unwrap_or(201);
+            let tree = BinomialTree::leisen_reimer(steps);
+            let params = OptionMarketParams {
+                spot,
+                strike: inst.strike,
+                rate: r,
+                dividend_yield: q,
+                volatility: sigma,
+                time_to_expiry: t,
+                option_type: inst.option_type,
+            };
+            let exercise_times: Vec<f64> = schedule
+                .iter()
+                .filter_map(|d| {
+                    let yf = DayCount::Act365F
+                        .year_fraction(as_of, *d, Default::default())
+                        .ok()?;
+                    if yf > 0.0 && yf <= t {
+                        Some(yf)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            tree.price_bermudan(&params, &exercise_times)?
         }
     };
 
@@ -372,7 +406,12 @@ pub fn compute_greeks(
         }
         ExerciseStyle::American => {
             // American: Use Tree with Finite Differences
-            let tree = BinomialTree::leisen_reimer(201);
+            let steps = inst
+                .pricing_overrides
+                .model_config
+                .tree_steps
+                .unwrap_or(201);
+            let tree = BinomialTree::leisen_reimer(steps);
             let params = OptionMarketParams {
                 spot,
                 strike: inst.strike,
@@ -440,10 +479,98 @@ pub fn compute_greeks(
                 rho: rho_unit * scale,
             })
         }
-        ExerciseStyle::Bermudan => Err(finstack_core::Error::Validation(
-            "Bermudan equity option requires an exercise schedule; greeks not supported yet"
-                .to_string(),
-        )),
+        ExerciseStyle::Bermudan => {
+            let schedule = inst.exercise_schedule.as_ref().ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "Bermudan equity option requires exercise_schedule".to_string(),
+                )
+            })?;
+            let steps = inst
+                .pricing_overrides
+                .model_config
+                .tree_steps
+                .unwrap_or(201);
+            let tree = BinomialTree::leisen_reimer(steps);
+            let params = OptionMarketParams {
+                spot,
+                strike: inst.strike,
+                rate: r,
+                dividend_yield: q,
+                volatility: sigma,
+                time_to_expiry: t,
+                option_type: inst.option_type,
+            };
+            let exercise_times: Vec<f64> = schedule
+                .iter()
+                .filter_map(|d| {
+                    let yf = DayCount::Act365F
+                        .year_fraction(as_of, *d, Default::default())
+                        .ok()?;
+                    if yf > 0.0 && yf <= t {
+                        Some(yf)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            let price_fn =
+                |p: &OptionMarketParams| -> Result<f64> { tree.price_bermudan(p, &exercise_times) };
+
+            let base_price = price_fn(&params)?;
+
+            // Delta & Gamma (1% spot bump, central difference)
+            let h_s = spot * 0.01;
+            let mut p_up = params.clone();
+            p_up.spot += h_s;
+            let price_up = price_fn(&p_up)?;
+            let mut p_dn = params.clone();
+            p_dn.spot -= h_s;
+            let price_dn = price_fn(&p_dn)?;
+
+            let delta_unit = (price_up - price_dn) / (2.0 * h_s);
+            let gamma_unit = (price_up - 2.0 * base_price + price_dn) / (h_s * h_s);
+
+            // Vega (1% vol bump)
+            let h_v = 0.01;
+            let mut p_v_up = params.clone();
+            p_v_up.volatility += h_v;
+            let price_v_up = price_fn(&p_v_up)?;
+            let mut p_v_dn = params.clone();
+            p_v_dn.volatility = (p_v_dn.volatility - h_v).max(1e-8);
+            let price_v_dn = price_fn(&p_v_dn)?;
+            let vega_unit = (price_v_up - price_v_dn) / 2.0;
+
+            // Rho (1% rate bump)
+            let h_r = 0.01;
+            let mut p_r_up = params.clone();
+            p_r_up.rate += h_r;
+            let price_r_up = price_fn(&p_r_up)?;
+            let mut p_r_dn = params.clone();
+            p_r_dn.rate -= h_r;
+            let price_r_dn = price_fn(&p_r_dn)?;
+            let rho_unit = (price_r_up - price_r_dn) / 2.0;
+
+            // Theta (1 trading-day bump)
+            let dt = 1.0 / TRADING_DAYS_PER_YEAR;
+            let theta_unit = if t > dt {
+                let mut p_t = params.clone();
+                p_t.time_to_expiry -= dt;
+                let price_t = price_fn(&p_t)?;
+                price_t - base_price
+            } else {
+                0.0
+            };
+
+            let scale = inst.notional.amount();
+            Ok(EquityOptionGreeks {
+                delta: delta_unit * scale,
+                gamma: gamma_unit * scale,
+                vega: vega_unit * scale,
+                theta: theta_unit * scale,
+                rho: rho_unit * scale,
+            })
+        }
     }
 }
 

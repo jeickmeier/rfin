@@ -82,6 +82,7 @@ fn test_call_delta_positive() {
         div_yield_id: Some("AAPL_DIV".into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -126,6 +127,7 @@ fn test_put_delta_negative() {
         div_yield_id: Some("AAPL_DIV".into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -173,6 +175,7 @@ fn test_theta_negative_for_long_positions() {
             div_yield_id: Some("AAPL_DIV".into()),
             discrete_dividends: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
+            exercise_schedule: None,
             attributes: Default::default(),
         };
 
@@ -265,6 +268,7 @@ fn test_vega_always_positive() {
             div_yield_id: Some("AAPL_DIV".into()),
             discrete_dividends: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
+            exercise_schedule: None,
             attributes: Default::default(),
         };
 
@@ -318,6 +322,7 @@ fn test_gamma_always_positive() {
             div_yield_id: Some("AAPL_DIV".into()),
             discrete_dividends: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
+            exercise_schedule: None,
             attributes: Default::default(),
         };
 
@@ -370,6 +375,7 @@ fn test_call_rho_positive() {
         div_yield_id: Some("AAPL_DIV".into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -412,6 +418,7 @@ fn test_put_rho_negative() {
         div_yield_id: Some("AAPL_DIV".into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -724,6 +731,7 @@ fn test_put_call_parity() {
         div_yield_id: Some("AAPL_DIV".into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -744,6 +752,7 @@ fn test_put_call_parity() {
         div_yield_id: Some("AAPL_DIV".into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -812,6 +821,7 @@ fn test_put_call_parity_delta_relationship() {
         div_yield_id: Some("AAPL_DIV".into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 
@@ -831,6 +841,7 @@ fn test_put_call_parity_delta_relationship() {
         div_yield_id: Some("AAPL_DIV".into()),
         discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
+        exercise_schedule: None,
         attributes: Default::default(),
     };
 

@@ -26,7 +26,13 @@ use finstack_core::Result;
 /// from the front sale than you pay for the back purchase).
 pub fn price_dollar_roll(roll: &DollarRoll, market: &MarketContext, as_of: Date) -> Result<Money> {
     let front_leg = roll.front_leg()?;
-    let back_leg = roll.back_leg()?;
+    let mut back_leg = roll.back_leg()?;
+
+    // Use repo curve for the financing (back) leg when specified,
+    // capturing repo specials that differ from the general discount curve.
+    if let Some(repo_curve) = &roll.repo_curve_id {
+        back_leg.discount_curve_id = repo_curve.clone();
+    }
 
     // Price each leg
     let front_value = price_tba(&front_leg, market, as_of)?;

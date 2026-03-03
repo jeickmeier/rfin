@@ -139,6 +139,14 @@ pub struct EquityOption {
     #[builder(default)]
     #[serde(default)]
     pub discrete_dividends: Vec<(Date, f64)>,
+    /// Exercise schedule for Bermudan options.
+    ///
+    /// Required when `exercise_style` is `Bermudan`. Each date represents a time
+    /// at which early exercise is permitted. Dates before as_of or after expiry
+    /// are filtered out automatically.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exercise_schedule: Option<Vec<Date>>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
@@ -326,6 +334,7 @@ impl EquityOption {
             vol_surface_id,
             div_yield_id: underlying_params.div_yield_id.clone(),
             discrete_dividends: Vec::new(),
+            exercise_schedule: None,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
