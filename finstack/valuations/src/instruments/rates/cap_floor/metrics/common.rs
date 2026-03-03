@@ -4,8 +4,6 @@
 //! contributions for a given functional form (e.g., delta/gamma/vega/theta).
 
 use crate::instruments::rates::cap_floor::InterestRateOption;
-use crate::market::conventions::ids::IndexId;
-use crate::market::conventions::ConventionRegistry;
 use crate::metrics::MetricContext;
 
 /// Iterate over caplets/floorlets and aggregate contributions.
@@ -13,6 +11,11 @@ use crate::metrics::MetricContext;
 /// The supplied function `f` should return the "per-unit" measure for a single
 /// caplet/floorlet given (forward, sigma, time_to_fixing). The helper will
 /// scale by notional × period_length × df and sum across periods.
+///
+/// The fixing date used for vol surface lookup and t_fix computation is the
+/// `reset_date` when provided (matching the pricer), falling back to
+/// `accrual_start`. This ensures Greeks are computed on the same dates as
+/// pricing, which matters for indices with non-zero reset lags (e.g., SOFR 2-day lookback).
 pub fn aggregate_over_caplets<FN>(
     option: &InterestRateOption,
     context: &MetricContext,
@@ -30,15 +33,18 @@ where
         .get_forward(option.forward_curve_id.as_ref())?;
     let strike = option.strike_f64()?;
 
-    // Helper to compute contribution for a single period
-    let mut accumulate = |start: finstack_core::dates::Date,
-                          end: finstack_core::dates::Date,
+    // Helper to compute contribution for a single period.
+    // `fixing_date`: the date on which the rate fixes (used for vol lookup / t_fix).
+    // `accrual_start` / `accrual_end`: the period boundaries used for the forward rate.
+    let mut accumulate = |fixing_date: finstack_core::dates::Date,
+                          accrual_start: finstack_core::dates::Date,
+                          accrual_end: finstack_core::dates::Date,
                           payment_date: finstack_core::dates::Date,
                           tau: f64|
      -> finstack_core::Result<f64> {
         let t_fix = option.day_count.year_fraction(
             context.as_of,
-            start,
+            fixing_date,
             finstack_core::dates::DayCountCtx::default(),
         )?;
 
@@ -48,8 +54,8 @@ where
 
         let forward = crate::instruments::common_impl::pricing::time::rate_period_on_dates(
             fwd_curve.as_ref(),
-            start,
-            end,
+            accrual_start,
+            accrual_end,
         )?;
         let df = crate::instruments::common_impl::pricing::time::relative_df_discount_curve(
             disc_curve.as_ref(),
@@ -65,7 +71,7 @@ where
         Ok(per_unit * option.notional.amount() * tau * df)
     };
 
-    // Caplet/floorlet: single period
+    // Caplet/floorlet: single period — no reset lag, fixing = accrual_start.
     if matches!(
         option.rate_option_type,
         super::super::RateOptionType::Caplet | super::super::RateOptionType::Floorlet
@@ -83,23 +89,16 @@ where
             option.maturity,
             finstack_core::dates::DayCountCtx::default(),
         )?;
-        return accumulate(option.start_date, option.maturity, payment_date, tau);
+        return accumulate(
+            option.start_date,
+            option.start_date,
+            option.maturity,
+            payment_date,
+            tau,
+        );
     }
 
-    // Cap/floor: iterate schedule
-    let (payment_lag_days, reset_lag_days) = match ConventionRegistry::try_global() {
-        Ok(registry) => {
-            let idx = IndexId::new(option.forward_curve_id.as_str());
-            match registry.require_rate_index(&idx) {
-                Ok(conv) => (
-                    conv.default_payment_lag_days,
-                    Some(conv.default_reset_lag_days),
-                ),
-                Err(_) => (0, None),
-            }
-        }
-        Err(_) => (0, None),
-    };
+    // Cap/floor: iterate schedule using the same lag parameters as the pricer.
     let periods = crate::cashflow::builder::periods::build_periods(
         crate::cashflow::builder::periods::BuildPeriodsParams {
             start: option.start_date,
@@ -113,8 +112,8 @@ where
                 .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             end_of_month: false,
             day_count: option.day_count,
-            payment_lag_days,
-            reset_lag_days,
+            payment_lag_days: option.resolved_payment_lag_days(),
+            reset_lag_days: option.resolved_reset_lag_days(),
         },
     )?;
     if periods.is_empty() {
@@ -123,7 +122,10 @@ where
 
     let mut sum = 0.0;
     for period in periods {
+        // Use reset_date (actual fixing date) when available, matching the pricer.
+        let fixing_date = period.reset_date.unwrap_or(period.accrual_start);
         sum += accumulate(
+            fixing_date,
             period.accrual_start,
             period.accrual_end,
             period.payment_date,

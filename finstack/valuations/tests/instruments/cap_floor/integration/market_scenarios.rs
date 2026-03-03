@@ -87,6 +87,7 @@ fn test_realistic_usd_cap_pricing() {
         forward_curve_id: "USD_SOFR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -135,6 +136,7 @@ fn test_realistic_otm_floor_pricing() {
         forward_curve_id: "USD_SOFR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -180,6 +182,7 @@ fn test_all_greeks_with_realistic_market() {
         forward_curve_id: "USD_SOFR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -241,6 +244,7 @@ fn test_semi_annual_vs_quarterly_frequency() {
         forward_curve_id: "USD_SOFR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -264,6 +268,7 @@ fn test_semi_annual_vs_quarterly_frequency() {
         forward_curve_id: "USD_SOFR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),

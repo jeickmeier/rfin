@@ -143,6 +143,7 @@ fn test_caplet_creation() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -176,6 +177,7 @@ fn test_floorlet_creation() {
         forward_curve_id: "EUR_EURIBOR_6M".into(),
         vol_surface_id: "EUR_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),

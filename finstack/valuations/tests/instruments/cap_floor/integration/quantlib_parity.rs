@@ -79,6 +79,7 @@ fn test_quantlib_parity_atm_cap() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -130,6 +131,7 @@ fn test_quantlib_parity_cap_floor_parity() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -153,6 +155,7 @@ fn test_quantlib_parity_cap_floor_parity() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -209,6 +212,7 @@ fn test_quantlib_parity_vol_sensitivity() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -277,6 +281,7 @@ fn test_quantlib_parity_caplet_pricing() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -327,6 +332,7 @@ fn test_quantlib_parity_moneyness() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -350,6 +356,7 @@ fn test_quantlib_parity_moneyness() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -373,6 +380,7 @@ fn test_quantlib_parity_moneyness() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -431,6 +439,7 @@ fn test_quantlib_parity_delta_sign() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -454,6 +463,7 @@ fn test_quantlib_parity_delta_sign() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -518,6 +528,7 @@ fn test_quantlib_parity_gamma_positive() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -541,6 +552,7 @@ fn test_quantlib_parity_gamma_positive() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -602,6 +614,7 @@ fn test_quantlib_parity_time_to_maturity() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -625,6 +638,7 @@ fn test_quantlib_parity_time_to_maturity() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -676,6 +690,7 @@ fn test_quantlib_parity_zero_vol_itm() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -727,6 +742,7 @@ fn test_quantlib_parity_frequency_impact() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -750,6 +766,7 @@ fn test_quantlib_parity_frequency_impact() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),

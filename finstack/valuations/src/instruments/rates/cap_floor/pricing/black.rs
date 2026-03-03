@@ -28,7 +28,7 @@
 //! - Black, F. (1976). "The pricing of commodity contracts."
 //!   *Journal of Financial Economics*, 3(1-2), 167-179.
 
-use crate::instruments::common_impl::models::{d1_black76, d2_black76};
+use crate::instruments::common_impl::models::{d1_black76, d1_d2_black76};
 use finstack_core::currency::Currency;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
@@ -128,8 +128,7 @@ pub fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Res
         );
     }
 
-    let d1 = d1_black76(forward, strike, sigma, t_fix);
-    let d2 = d2_black76(forward, strike, sigma, t_fix);
+    let (d1, d2) = d1_d2_black76(forward, strike, sigma, t_fix);
 
     // Check for NaN in d1/d2 which can happen with extreme inputs
     if !d1.is_finite() || !d2.is_finite() {

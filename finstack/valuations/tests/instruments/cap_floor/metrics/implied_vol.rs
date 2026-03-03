@@ -75,6 +75,7 @@ fn test_implied_vol_requires_market_price() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -139,6 +140,7 @@ fn test_implied_vol_fails_without_market_price_override() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),

@@ -96,7 +96,7 @@ impl std::str::FromStr for CapFloorVolType {
 /// Minimum time-to-fixing for vol surface lookup (in years).
 ///
 /// When a caplet is at or past its fixing date (`t_fix <= 0`), the vol surface lookup
-/// still requires a positive time input. This constant provides a small floor (~8.6 hours)
+/// still requires a positive time input. This constant provides a small floor (~31.5 seconds)
 /// to avoid numerical issues while still returning a near-expiry volatility.
 ///
 /// The choice of 1e-6 years is small enough to not materially affect the volatility lookup
@@ -210,6 +210,19 @@ pub struct InterestRateOption {
     /// - `Normal`: Bachelier model, handles negative rates
     #[serde(default)]
     pub vol_type: CapFloorVolType,
+    /// Displacement shift for shifted-lognormal pricing (default: 0.0 = no shift).
+    ///
+    /// When `vol_type = ShiftedLognormal`, rates and strikes are shifted by this amount:
+    /// `F' = F + vol_shift`, `K' = K + vol_shift`.
+    ///
+    /// Typical values are 0.01–0.03 (1%–3%) to push rates into positive territory
+    /// in low-rate environments. A shift of 0.0 is equivalent to plain lognormal.
+    ///
+    /// **Validation**: Must be ≥ 0.0. The shifted forward `F + vol_shift` must be
+    /// positive for the Black model to be well-defined.
+    #[serde(default)]
+    #[builder(default = 0.0_f64)]
+    pub vol_shift: f64,
     /// Additional attributes
     #[serde(default)]
     #[builder(default)]
@@ -253,6 +266,7 @@ impl InterestRateOption {
             forward_curve_id: forward_curve_id.into(),
             vol_surface_id: vol_surface_id.into(),
             vol_type: CapFloorVolType::default(),
+            vol_shift: 0.0,
             pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
         }
@@ -323,7 +337,8 @@ impl InterestRateOption {
     /// use time::Month;
     ///
     /// # fn main() -> finstack_core::Result<()> {
-    /// // Create a floor with normal volatility for EUR market
+    /// // Create a floor with normal volatility for EUR market (ACT/360 is the standard day count
+    /// // for EUR ESTR/EURIBOR caps and floors per ISDA conventions).
     /// let floor = InterestRateOption::new_floor(
     ///     InstrumentId::new("EUR-FLOOR-001"),
     ///     Money::new(1_000_000.0, Currency::EUR),
@@ -331,7 +346,7 @@ impl InterestRateOption {
     ///     create_date(2026, Month::January, 1)?,
     ///     create_date(2027, Month::January, 1)?,
     ///     Tenor::quarterly(),
-    ///     DayCount::Act365F,
+    ///     DayCount::Act360,
     ///     CurveId::new("EUR-OIS"),
     ///     CurveId::new("EUR-ESTR-3M"),
     ///     CurveId::new("EUR-CAPFLOOR-VOL"),
@@ -347,14 +362,17 @@ impl InterestRateOption {
     }
 
     /// Set displacement shift used for shifted-lognormal pricing.
+    ///
+    /// # Arguments
+    ///
+    /// * `vol_shift` — Displacement added to forward and strike: `F' = F + shift`, `K' = K + shift`.
+    ///   Must be ≥ 0.0 to keep shifted rates positive. Typical range: 0.01–0.03 (1%–3%).
     pub fn with_vol_shift(mut self, vol_shift: f64) -> Self {
-        self.attributes
-            .meta
-            .insert("vol_shift".to_string(), vol_shift.to_string());
+        self.vol_shift = vol_shift;
         self
     }
 
-    fn resolved_payment_lag_days(&self) -> i32 {
+    pub(crate) fn resolved_payment_lag_days(&self) -> i32 {
         let Ok(registry) = ConventionRegistry::try_global() else {
             return 0;
         };
@@ -365,7 +383,7 @@ impl InterestRateOption {
             .unwrap_or(0)
     }
 
-    fn resolved_reset_lag_days(&self) -> Option<i32> {
+    pub(crate) fn resolved_reset_lag_days(&self) -> Option<i32> {
         let Ok(registry) = ConventionRegistry::try_global() else {
             return None;
         };
@@ -376,11 +394,8 @@ impl InterestRateOption {
             .ok()
     }
 
-    fn resolved_vol_shift(&self) -> f64 {
-        self.attributes
-            .get_meta("vol_shift")
-            .and_then(|v| v.parse::<f64>().ok())
-            .unwrap_or(0.0)
+    pub(crate) fn resolved_vol_shift(&self) -> f64 {
+        self.vol_shift
     }
 }
 

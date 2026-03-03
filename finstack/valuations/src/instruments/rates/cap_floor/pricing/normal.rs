@@ -3,9 +3,10 @@
 //! This pricing path is used when cap/floor volatility is quoted in normal terms
 //! (absolute rate units), which is common in low/negative-rate environments.
 
-use crate::instruments::common_impl::models::volatility::normal::bachelier_price;
+use crate::instruments::common_impl::models::volatility::normal::{bachelier_price, d_bachelier};
 use crate::instruments::common_impl::parameters::OptionType;
 use finstack_core::currency::Currency;
+use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 
 /// Inputs for normal (Bachelier) caplet/floorlet pricing.
@@ -99,4 +100,69 @@ pub fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Res
     }
 
     Ok(Money::new(pv, ccy))
+}
+
+/// Bachelier forward delta (per unit forward).
+///
+/// Returns the sensitivity of the option price to changes in the forward rate.
+///
+/// # Sign Convention
+///
+/// - **Caplet**: Returns `N(d)`, positive in \[0, 1\].
+/// - **Floorlet**: Returns `N(d) - 1 = -N(-d)`, negative in \[-1, 0\].
+///
+/// At expiry or with zero volatility, returns the intrinsic delta:
+/// - Caplet: 1 if ITM (F > K), 0 if OTM
+/// - Floorlet: -1 if ITM (F < K), 0 if OTM
+///
+/// # References
+///
+/// - Brigo, D., & Mercurio, F. (2006). *Interest Rate Models*, Ch. 1.
+pub fn delta(is_cap: bool, strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
+    if t_fix <= 0.0 || sigma <= 0.0 {
+        if is_cap {
+            return if forward > strike { 1.0 } else { 0.0 };
+        } else {
+            return if forward < strike { -1.0 } else { 0.0 };
+        }
+    }
+    let d = d_bachelier(forward, strike, sigma, t_fix);
+    if is_cap {
+        norm_cdf(d)
+    } else {
+        -norm_cdf(-d)
+    }
+}
+
+/// Bachelier forward gamma (per unit forward).
+///
+/// Returns the second derivative of option price with respect to forward rate.
+/// Gamma is always non-negative for long options.
+///
+/// Gamma = n(d) / (σ√T)
+pub fn gamma(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
+    if t_fix <= 0.0 || sigma <= 0.0 {
+        return 0.0;
+    }
+    let d = d_bachelier(forward, strike, sigma, t_fix);
+    let denom = (sigma * t_fix.sqrt()).max(1e-12);
+    norm_pdf(d) / denom
+}
+
+/// Bachelier vega per 1% normal vol.
+///
+/// Returns the sensitivity of option price to a 1% (absolute) change in normal volatility.
+/// Vega is always non-negative for long options.
+///
+/// Vega = √T · n(d) / 100
+pub fn vega_per_pct(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
+    if t_fix <= 0.0 {
+        return 0.0;
+    }
+    let d = if sigma > 0.0 {
+        d_bachelier(forward, strike, sigma, t_fix)
+    } else {
+        0.0
+    };
+    norm_pdf(d) * t_fix.sqrt() / 100.0
 }

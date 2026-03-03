@@ -73,6 +73,7 @@ fn test_zero_vol_itm_cap() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -116,6 +117,7 @@ fn test_zero_vol_otm_cap() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -163,6 +165,7 @@ fn test_very_high_strike() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -207,6 +210,7 @@ fn test_very_low_strike_floor() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -251,6 +255,7 @@ fn test_very_short_maturity() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -295,6 +300,7 @@ fn test_expired_cap() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -344,6 +350,7 @@ fn test_zero_notional() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
@@ -392,6 +399,7 @@ fn test_very_high_vol() {
         forward_curve_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
         vol_type: Default::default(),
+        vol_shift: 0.0,
 
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),

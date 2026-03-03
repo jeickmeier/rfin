@@ -43,7 +43,7 @@ impl InterestRateOptionParams {
             strike: Decimal::try_from(strike).unwrap_or_default(),
             frequency,
             day_count,
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }
@@ -57,7 +57,7 @@ impl InterestRateOptionParams {
             strike: Decimal::try_from(strike.as_decimal()).unwrap_or_default(),
             frequency,
             day_count,
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }
@@ -71,7 +71,7 @@ impl InterestRateOptionParams {
             strike: Decimal::try_from(strike).unwrap_or_default(),
             frequency,
             day_count,
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }
@@ -90,7 +90,7 @@ impl InterestRateOptionParams {
             strike: Decimal::try_from(strike.as_decimal()).unwrap_or_default(),
             frequency,
             day_count,
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }

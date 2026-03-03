@@ -6,10 +6,9 @@
 //! # Limitations
 //!
 //! This calculator is designed for **single-period caplets/floorlets only**.
-//! For multi-period caps/floors, the implied volatility would require solving
-//! across all caplet contributions (cap stripping), which is not yet implemented.
-//! When applied to a multi-period cap/floor, this calculator uses only the first
-//! period's forward rate, which may not reflect the true flat volatility.
+//! For multi-period caps/floors, use cap stripping to bootstrap per-caplet
+//! implied volatilities. Calling this metric on a `Cap` or `Floor` instrument
+//! will return an error directing the caller to the appropriate workflow.
 
 use crate::instruments::common_impl::pricing::time::{
     rate_period_on_dates, relative_df_discount_curve,
@@ -24,17 +23,32 @@ use finstack_core::Result;
 
 /// Implied volatility calculator using Black model.
 ///
-/// # Note
+/// # Supported Instruments
 ///
-/// This metric is only accurate for single-period caplets/floorlets.
-/// For multi-period caps/floors, consider using cap stripping or
-/// bootstrapping techniques to extract per-caplet implied volatilities.
+/// Only `Caplet` and `Floorlet` (single-period) instruments are supported.
+/// Calling this metric on a multi-period `Cap` or `Floor` will return an error.
+/// For multi-period instruments, use cap stripping to extract per-caplet vols.
 pub struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &InterestRateOption = context.instrument_as()?;
         let strike = option.strike_f64()?;
+
+        // Implied vol is only well-defined for single-period caplets/floorlets.
+        // For multi-period caps/floors, a flat implied vol would require cap stripping
+        // (bootstrapping per-caplet vols), which is not supported here.
+        if matches!(
+            option.rate_option_type,
+            RateOptionType::Cap | RateOptionType::Floor
+        ) {
+            return Err(finstack_core::Error::Validation(
+                "ImpliedVol is only supported for single-period Caplet/Floorlet instruments. \
+                 For multi-period Cap/Floor instruments, use cap stripping to extract per-caplet \
+                 implied volatilities."
+                    .to_string(),
+            ));
+        }
 
         // Need market price to solve for implied volatility.
         // The quoted_clean_price is passed via the MetricContext pricing overrides,

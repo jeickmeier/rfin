@@ -3,4 +3,6 @@
 //! Tests edge cases, boundary conditions, and numerical accuracy.
 
 mod edge_cases;
+mod normal_greeks;
+mod normal_vol;
 mod numerical;

@@ -128,7 +128,11 @@ fn normal_cap_delta_positive() {
         .unwrap();
     let delta = *result.measures.get("delta").unwrap();
 
-    assert!(delta > 0.0, "Normal cap delta should be positive: {}", delta);
+    assert!(
+        delta > 0.0,
+        "Normal cap delta should be positive: {}",
+        delta
+    );
     assert!(delta.is_finite(), "Normal cap delta should be finite");
 }
 
@@ -143,7 +147,11 @@ fn normal_floor_delta_negative() {
         .unwrap();
     let delta = *result.measures.get("delta").unwrap();
 
-    assert!(delta < 0.0, "Normal floor delta should be negative: {}", delta);
+    assert!(
+        delta < 0.0,
+        "Normal floor delta should be negative: {}",
+        delta
+    );
 }
 
 #[test]
@@ -167,8 +175,16 @@ fn normal_gamma_non_negative() {
         .get("gamma")
         .unwrap();
 
-    assert!(cap_gamma >= 0.0, "Normal cap gamma non-negative: {}", cap_gamma);
-    assert!(floor_gamma >= 0.0, "Normal floor gamma non-negative: {}", floor_gamma);
+    assert!(
+        cap_gamma >= 0.0,
+        "Normal cap gamma non-negative: {}",
+        cap_gamma
+    );
+    assert!(
+        floor_gamma >= 0.0,
+        "Normal floor gamma non-negative: {}",
+        floor_gamma
+    );
 }
 
 #[test]
@@ -243,7 +259,9 @@ fn normal_delta_matches_finite_difference() {
     assert!(
         within_relative || within_absolute,
         "Normal FD delta ({:.4}) vs analytic ({:.4}): abs_diff={:.4}",
-        fd_delta, analytic_delta, abs_diff
+        fd_delta,
+        analytic_delta,
+        abs_diff
     );
 }
 
@@ -315,7 +333,9 @@ fn normal_vega_matches_finite_difference() {
     assert!(
         within_relative || within_absolute,
         "Normal FD vega ({:.6}) vs analytic ({:.6}): abs_diff={:.6}",
-        fd_vega, analytic_vega, abs_diff
+        fd_vega,
+        analytic_vega,
+        abs_diff
     );
 }
 
@@ -357,16 +377,27 @@ fn normal_greeks_with_negative_forward() {
         .insert_surface(vol);
 
     let pv = cap.value(&ctx, as_of).unwrap();
-    assert!(pv.amount().is_finite(), "Normal PV should be finite with negative fwd");
+    assert!(
+        pv.amount().is_finite(),
+        "Normal PV should be finite with negative fwd"
+    );
 
     let metrics = [MetricId::Delta, MetricId::Gamma, MetricId::Vega];
     for metric in &metrics {
-        let result = cap.price_with_metrics(&ctx, as_of, &[metric.clone()]);
-        assert!(result.is_ok(), "Normal {:?} should succeed with negative fwd", metric);
+        let result = cap.price_with_metrics(&ctx, as_of, std::slice::from_ref(metric));
+        assert!(
+            result.is_ok(),
+            "Normal {:?} should succeed with negative fwd",
+            metric
+        );
         let val = result.unwrap();
         let metric_name = format!("{metric:?}").to_lowercase();
         if let Some(&v) = val.measures.get(metric_name.as_str()) {
-            assert!(v.is_finite(), "Normal {:?} should be finite with negative fwd, got: {v}", metric);
+            assert!(
+                v.is_finite(),
+                "Normal {:?} should be finite with negative fwd, got: {v}",
+                metric
+            );
         }
     }
 }
@@ -400,6 +431,16 @@ fn normal_delta_increases_with_moneyness() {
         .get("delta")
         .unwrap();
 
-    assert!(itm_delta > atm_delta, "Normal ITM delta ({}) > ATM ({})", itm_delta, atm_delta);
-    assert!(atm_delta > otm_delta, "Normal ATM delta ({}) > OTM ({})", atm_delta, otm_delta);
+    assert!(
+        itm_delta > atm_delta,
+        "Normal ITM delta ({}) > ATM ({})",
+        itm_delta,
+        atm_delta
+    );
+    assert!(
+        atm_delta > otm_delta,
+        "Normal ATM delta ({}) > OTM ({})",
+        atm_delta,
+        otm_delta
+    );
 }
