@@ -190,7 +190,12 @@ pub struct FloatLegSpec {
     /// Stub period handling rule
     #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
-    /// Reset lag in business days for floating rate
+    /// Reset lag in business days for floating rate fixing.
+    ///
+    /// - **0**: Spot reset (fixing on accrual start date).
+    /// - **Positive** (e.g., 2): T-2 fixing (2 business days before accrual start).
+    /// - **Negative** (e.g., -1): Sentinel meaning "use convention default from
+    ///   `ConventionRegistry`".
     pub reset_lag_days: i32,
     /// Optional calendar for rate fixing (reset lag)
     #[serde(default)]

@@ -4,7 +4,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
-#[cfg(feature = "mc")]
+#[cfg(all(feature = "mc", feature = "slow"))]
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;

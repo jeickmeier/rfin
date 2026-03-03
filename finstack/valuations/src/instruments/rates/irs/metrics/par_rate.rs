@@ -93,6 +93,7 @@ impl MetricCalculator for ParRateCalculator {
         if matches!(
             irs.float.compounding,
             FloatingLegCompounding::CompoundedInArrears { .. }
+                | FloatingLegCompounding::CompoundedWithObservationShift { .. }
         ) {
             return par_rate_pv_based(irs, context, &disc);
         }
@@ -183,7 +184,8 @@ fn par_rate_pv_based(
             let fwd = ctx.curves.get_forward(&irs.float.forward_curve_id)?;
             irs.pv_float_leg(disc, fwd.as_ref(), as_of, fixings)?
         }
-        FloatingLegCompounding::CompoundedInArrears { .. } => {
+        FloatingLegCompounding::CompoundedInArrears { .. }
+        | FloatingLegCompounding::CompoundedWithObservationShift { .. } => {
             let proj = if irs.is_single_curve_ois() {
                 ctx.curves.get_forward(&irs.float.forward_curve_id).ok()
             } else {

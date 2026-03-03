@@ -98,8 +98,8 @@ fn test_irs_par_rate_market_standard() {
     .unwrap();
     let npv = par_swap.value(&market, as_of).unwrap();
     assert!(
-        npv.amount().abs() < 100.0, // 1bp tolerance
-        "Par swap NPV should be ~0 (within 1bp), got {:.2} ({:.2}bp)",
+        npv.amount().abs() < 1.0, // 0.01bp tolerance on 1MM notional
+        "Par swap NPV should be ~0 (within 0.01bp), got {:.2} ({:.4}bp)",
         npv.amount(),
         npv.amount() / 100.0
     );

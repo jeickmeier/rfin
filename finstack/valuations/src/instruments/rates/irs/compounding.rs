@@ -171,6 +171,21 @@ pub enum FloatingLegCompounding {
         /// dedicated variant should be added.
         observation_shift: Option<i32>,
     },
+
+    /// Compounded in arrears with true ISDA 2021 observation shift.
+    ///
+    /// Unlike `CompoundedInArrears` (lookback semantics), this variant shifts
+    /// **both** the observation dates AND the day-count-fraction (DCF) weights.
+    /// This matches ISDA 2021 Definitions Section 4.5(c).
+    ///
+    /// ```text
+    /// Lookback:           DCF(d, d+1)           × rate(d - shift, d+1 - shift)
+    /// Observation Shift:  DCF(d - shift, d+1 - shift) × rate(d - shift, d+1 - shift)
+    /// ```
+    CompoundedWithObservationShift {
+        /// Number of business days to shift both observation dates and DCF weights.
+        shift_days: i32,
+    },
 }
 
 impl Default for FloatingLegCompounding {
@@ -224,6 +239,16 @@ impl FloatingLegCompounding {
             observation_shift: None,
         }
     }
+
+    /// USD SOFR with ISDA 2021 observation shift (2-day shift).
+    pub fn sofr_observation_shift() -> Self {
+        Self::CompoundedWithObservationShift { shift_days: 2 }
+    }
+
+    /// GBP SONIA with ISDA 2021 observation shift (5-day shift).
+    pub fn sonia_observation_shift() -> Self {
+        Self::CompoundedWithObservationShift { shift_days: 5 }
+    }
 }
 
 impl std::fmt::Display for FloatingLegCompounding {
@@ -232,6 +257,9 @@ impl std::fmt::Display for FloatingLegCompounding {
             FloatingLegCompounding::Simple => write!(f, "simple"),
             FloatingLegCompounding::CompoundedInArrears { .. } => {
                 write!(f, "compounded_in_arrears")
+            }
+            FloatingLegCompounding::CompoundedWithObservationShift { .. } => {
+                write!(f, "compounded_observation_shift")
             }
         }
     }
@@ -253,8 +281,15 @@ impl std::str::FromStr for FloatingLegCompounding {
                 lookback_days: 0,
                 observation_shift: None,
             }),
+            "compounded_observation_shift" | "observation_shift" => {
+                Ok(Self::CompoundedWithObservationShift { shift_days: 0 })
+            }
+            "sofr_observation_shift" => Ok(Self::sofr_observation_shift()),
+            "sonia_observation_shift" => Ok(Self::sonia_observation_shift()),
             other => Err(format!(
-                "Unknown floating leg compounding: '{}'. Valid: simple, sofr, sonia, estr, tona, fedfunds, compounded_in_arrears, compounded",
+                "Unknown floating leg compounding: '{}'. Valid: simple, sofr, sonia, estr, tona, \
+                 fedfunds, compounded_in_arrears, compounded, compounded_observation_shift, \
+                 sofr_observation_shift, sonia_observation_shift",
                 other
             )),
         }

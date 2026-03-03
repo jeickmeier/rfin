@@ -60,7 +60,8 @@ impl MetricCalculator for FloatLegPvCalculator {
                 let fwd = context.curves.get_forward(&irs.float.forward_curve_id)?;
                 irs.pv_float_leg(&disc, fwd.as_ref(), as_of, fixings)?
             }
-            FloatingLegCompounding::CompoundedInArrears { .. } => {
+            FloatingLegCompounding::CompoundedInArrears { .. }
+            | FloatingLegCompounding::CompoundedWithObservationShift { .. } => {
                 // Compounded RFR swap (single-curve or multi-curve).
                 //
                 // In single-curve setups the forward curve may not be loaded; in that case

@@ -71,6 +71,7 @@ impl InterestRateSwap {
         matches!(
             self.float.compounding,
             FloatingLegCompounding::CompoundedInArrears { .. }
+                | FloatingLegCompounding::CompoundedWithObservationShift { .. }
         ) && self.float.forward_curve_id == self.fixed.discount_curve_id
     }
 
@@ -89,8 +90,16 @@ impl InterestRateSwap {
                 lookback_days,
                 observation_shift,
             } => -lookback_days + observation_shift.unwrap_or(0),
+            FloatingLegCompounding::CompoundedWithObservationShift { shift_days } => -shift_days,
             _ => 0,
         }
+    }
+
+    fn uses_observation_shift_dcf(&self) -> bool {
+        matches!(
+            self.float.compounding,
+            FloatingLegCompounding::CompoundedWithObservationShift { .. }
+        )
     }
 
     /// Compute PV of an overnight-indexed (compounded-in-arrears) floating leg.
@@ -162,6 +171,7 @@ impl InterestRateSwap {
         };
 
         let total_shift = self.compounded_total_shift_days();
+        let shift_dcf = self.uses_observation_shift_dcf();
 
         let mut acc = NeumaierAccumulator::new();
 
@@ -202,15 +212,6 @@ impl InterestRateSwap {
                         next_d
                     };
 
-                    // DCF is computed from the original accrual dates (d, step_end),
-                    // NOT from the shifted observation dates.  This implements
-                    // "lookback" semantics per ARRC/ISDA conventions for SOFR,
-                    // SONIA, ESTR, and TONA.  See compounding.rs for details.
-                    let dcf =
-                        self.float
-                            .day_count
-                            .year_fraction(d, step_end, DayCountCtx::default())?;
-
                     let obs_start = if total_shift == 0 {
                         d
                     } else if let Some(cal) = cal {
@@ -226,6 +227,17 @@ impl InterestRateSwap {
                         step_end.add_weekdays(total_shift)
                     };
 
+                    let (dcf_start, dcf_end) = if shift_dcf {
+                        (obs_start, obs_end)
+                    } else {
+                        (d, step_end)
+                    };
+                    let dcf = self.float.day_count.year_fraction(
+                        dcf_start,
+                        dcf_end,
+                        DayCountCtx::default(),
+                    )?;
+
                     // Validate observation period ordering after applying shifts.
                     // Large negative shifts (e.g., lookback > period length) could invert the
                     // observation window, leading to negative year fractions or invalid rate lookups.
@@ -240,6 +252,8 @@ impl InterestRateSwap {
 
                     // Seasoned compounded swaps: for observation dates before `as_of`,
                     // require explicit fixings (do not silently extrapolate).
+                    // Uses value_on (carry-forward) so that a Friday fixing covers
+                    // Saturday/Sunday observation dates without requiring weekend entries.
                     let r = if obs_start < as_of {
                         let series = fixings.ok_or_else(|| {
                             finstack_core::Error::Validation(format!(
@@ -248,7 +262,7 @@ impl InterestRateSwap {
                                 float.forward_curve_id.as_str()
                             ))
                         })?;
-                        series.value_on_exact(obs_start)?
+                        series.value_on(obs_start)?
                     } else if let Some(proj) = proj {
                         let t0 = if obs_start <= proj.base_date() {
                             0.0
@@ -268,11 +282,7 @@ impl InterestRateSwap {
                                 DayCountCtx::default(),
                             )?
                         };
-                        // Use rate_period only when the time interval is meaningful.
-                        // For very small intervals (< 1 day in year fraction terms), the
-                        // interpolation may be noisy; fall back to spot rate.
-                        const MIN_PERIOD_YF: f64 = 1.0 / 366.0; // ~1 day minimum
-                        if t1 - t0 >= MIN_PERIOD_YF {
+                        if (t1 - t0).abs() > f64::EPSILON {
                             proj.rate_period(t0, t1)
                         } else {
                             proj.rate(t0)
@@ -586,7 +596,8 @@ pub(crate) fn compute_pv_raw(
             let fwd = context.get_forward(irs.float.forward_curve_id.as_ref())?;
             irs.pv_float_leg(disc.as_ref(), fwd.as_ref(), as_of, fixings)?
         }
-        FloatingLegCompounding::CompoundedInArrears { .. } => {
+        FloatingLegCompounding::CompoundedInArrears { .. }
+        | FloatingLegCompounding::CompoundedWithObservationShift { .. } => {
             // Compounded RFR swap (single-curve or multi-curve).
             //
             // For single-curve setups it is common to have only a discount curve loaded;

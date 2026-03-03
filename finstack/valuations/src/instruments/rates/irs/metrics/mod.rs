@@ -48,6 +48,7 @@
 //! ```
 
 pub mod annuity;
+pub mod ir_convexity;
 pub mod par_rate;
 pub mod pv_fixed;
 pub mod pv_float;
@@ -80,6 +81,7 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
 
             (PvFixed, pv_fixed::FixedLegPvCalculator),
             (PvFloat, pv_float::FloatLegPvCalculator),
+            (IrConvexity, ir_convexity::IrConvexityCalculator),
         ]
     }
 }

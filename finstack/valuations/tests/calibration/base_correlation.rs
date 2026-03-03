@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Integration test for base correlation calibration (v2).
 
 #![cfg(feature = "slow")]

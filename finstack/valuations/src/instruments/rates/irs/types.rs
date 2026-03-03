@@ -59,6 +59,30 @@ pub struct IrsLegConventions {
     pub payment_lag_days: i32,
 }
 
+impl IrsLegConventions {
+    /// Resolve conventions from a rate index in the global `ConventionRegistry`.
+    pub fn from_rate_index(index_id: &str) -> finstack_core::Result<Self> {
+        let registry = ConventionRegistry::try_global().map_err(|_| {
+            finstack_core::Error::Validation("ConventionRegistry not initialized.".into())
+        })?;
+        let idx = IndexId::new(index_id);
+        let conv = registry.require_rate_index(&idx)?;
+
+        Ok(Self {
+            fixed_freq: conv.default_fixed_leg_frequency,
+            float_freq: conv.default_payment_frequency,
+            fixed_dc: conv.default_fixed_leg_day_count,
+            float_dc: conv.day_count,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            payment_calendar_id: Some(conv.market_calendar_id.clone()),
+            fixing_calendar_id: Some(conv.market_calendar_id.clone()),
+            stub: StubKind::ShortFront,
+            reset_lag_days: conv.default_reset_lag_days,
+            payment_lag_days: conv.default_payment_lag_days,
+        })
+    }
+}
+
 /// Interest rate swap with fixed and floating legs.
 ///
 /// Represents a standard interest rate swap where one party pays
@@ -134,7 +158,98 @@ pub struct InterestRateSwap {
     pub attributes: Attributes,
 }
 
-impl InterestRateSwap {}
+/// Parameters for constructing a vanilla IRS from market conventions.
+#[derive(Debug, Clone)]
+pub struct ConventionSwapParams<'a> {
+    /// Unique instrument identifier.
+    pub id: InstrumentId,
+    /// Notional principal amount.
+    pub notional: Money,
+    /// Pay or receive fixed.
+    pub side: PayReceive,
+    /// Fixed coupon rate (as a decimal, e.g. 0.03 = 3%).
+    pub fixed_rate: f64,
+    /// Effective (start) date.
+    pub start: Date,
+    /// Maturity (end) date.
+    pub end: Date,
+    /// Rate index identifier used to resolve conventions (e.g. `"USD-SOFR"`).
+    pub index_id: &'a str,
+    /// Discount curve identifier.
+    pub discount_curve_id: &'a str,
+    /// Forward projection curve identifier.
+    pub forward_curve_id: &'a str,
+}
+
+impl InterestRateSwap {
+    /// Create an IRS from market conventions resolved via `ConventionRegistry`.
+    ///
+    /// This is the preferred way to construct standard swaps. Conventions
+    /// (day counts, frequencies, calendars, lags) are resolved from the
+    /// registered rate index, matching QuantLib `MakeVanillaSwap` ergonomics.
+    pub fn from_conventions(params: ConventionSwapParams<'_>) -> finstack_core::Result<Self> {
+        let ConventionSwapParams {
+            id,
+            notional,
+            side,
+            fixed_rate,
+            start,
+            end,
+            index_id,
+            discount_curve_id,
+            forward_curve_id,
+        } = params;
+        let conv = IrsLegConventions::from_rate_index(index_id)?;
+        let registry = ConventionRegistry::try_global().map_err(|_| {
+            finstack_core::Error::Validation("ConventionRegistry not initialized.".into())
+        })?;
+        let idx = IndexId::new(index_id);
+        let rate_conv = registry.require_rate_index(&idx)?;
+
+        let compounding = rate_conv.ois_compounding.clone().unwrap_or_default();
+
+        let swap = Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(side)
+            .fixed(FixedLegSpec {
+                discount_curve_id: CurveId::new(discount_curve_id),
+                rate: Decimal::try_from(fixed_rate).unwrap_or(Decimal::ZERO),
+                frequency: conv.fixed_freq,
+                day_count: conv.fixed_dc,
+                bdc: conv.bdc,
+                calendar_id: conv.payment_calendar_id.clone(),
+                stub: conv.stub,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+                payment_lag_days: conv.payment_lag_days,
+                end_of_month: false,
+            })
+            .float(FloatLegSpec {
+                discount_curve_id: CurveId::new(discount_curve_id),
+                forward_curve_id: CurveId::new(forward_curve_id),
+                spread_bp: Decimal::ZERO,
+                frequency: conv.float_freq,
+                day_count: conv.float_dc,
+                bdc: conv.bdc,
+                calendar_id: conv.payment_calendar_id.clone(),
+                stub: conv.stub,
+                reset_lag_days: conv.reset_lag_days,
+                fixing_calendar_id: conv.fixing_calendar_id,
+                start,
+                end,
+                compounding,
+                payment_lag_days: conv.payment_lag_days,
+                end_of_month: false,
+            })
+            .build()?;
+
+        swap.validate()?;
+        Ok(swap)
+    }
+}
 
 /// Minimum notional threshold for numerical stability.
 ///
@@ -273,6 +388,21 @@ impl InterestRateSwap {
                 }
             }
         }
+        if let crate::instruments::rates::irs::FloatingLegCompounding::CompoundedWithObservationShift {
+            shift_days,
+        } = self.float.compounding
+        {
+            if shift_days < 0 {
+                return Err(finstack_core::Error::Validation(
+                    "Invalid observation shift days: must be non-negative.".into(),
+                ));
+            }
+            if shift_days > 31 {
+                return Err(finstack_core::Error::Validation(
+                    "Invalid observation shift days: too large.".into(),
+                ));
+            }
+        }
 
         // Validate fixed leg date range
         validation::validate_date_range_strict_with(
@@ -333,17 +463,14 @@ impl InterestRateSwap {
         Ok(())
     }
 
-    /// Create a canonical example IRS for testing and documentation.
+    /// Create a minimal example IRS for testing and documentation.
     ///
     /// Returns a 5-year pay-fixed swap with semi-annual fixed vs quarterly floating.
     ///
-    /// # Validation
-    ///
-    /// Automatically validates the swap after construction.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if example construction fails (e.g., invalid dates).
+    /// **Note:** This example uses simplified defaults (`reset_lag_days: 0`,
+    /// `payment_lag_days: 0`, no calendar) to avoid requiring historical fixings
+    /// or calendar data. For an ISDA-standard USD swap with proper market
+    /// conventions, use [`example_standard()`](Self::example_standard).
     #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
@@ -398,6 +525,66 @@ impl InterestRateSwap {
         // Validate the swap parameters
         swap.validate()?;
 
+        Ok(swap)
+    }
+
+    /// Create an ISDA-standard USD 5Y IRS for testing and documentation.
+    ///
+    /// Returns a 5-year pay-fixed USD swap with market-standard conventions:
+    /// - **Fixed leg:** Semi-annual, 30/360, Modified Following
+    /// - **Float leg:** Quarterly, ACT/360, Modified Following
+    /// - **Reset lag:** T-2 (per ISDA 2006 Section 4.2)
+    /// - **Calendar:** USNY
+    #[allow(clippy::expect_used)]
+    pub fn example_standard() -> finstack_core::Result<Self> {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+
+        let start = Date::from_calendar_date(2024, time::Month::January, 2).map_err(|e| {
+            finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
+        })?;
+        let end = Date::from_calendar_date(2029, time::Month::January, 2).map_err(|e| {
+            finstack_core::Error::Validation(format!("Invalid example end date: {}", e))
+        })?;
+
+        let swap = Self::builder()
+            .id(InstrumentId::new("IRS-5Y-USD-STD"))
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .side(PayReceive::PayFixed)
+            .fixed(crate::instruments::common_impl::parameters::FixedLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                rate: Decimal::try_from(0.04).unwrap_or(Decimal::ZERO),
+                frequency: Tenor::semi_annual(),
+                day_count: DayCount::Thirty360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: Some("usny".to_string()),
+                stub: StubKind::ShortFront,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+                payment_lag_days: 0,
+                end_of_month: false,
+            })
+            .float(crate::instruments::common_impl::parameters::FloatLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                spread_bp: Decimal::ZERO,
+                frequency: Tenor::quarterly(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: Some("usny".to_string()),
+                stub: StubKind::ShortFront,
+                reset_lag_days: 2,
+                fixing_calendar_id: Some("usny".to_string()),
+                start,
+                end,
+                compounding: Default::default(),
+                payment_lag_days: 0,
+                end_of_month: false,
+            })
+            .build()?;
+
+        swap.validate()?;
         Ok(swap)
     }
 }
