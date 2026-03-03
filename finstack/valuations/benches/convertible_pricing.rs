@@ -112,6 +112,8 @@ fn create_standard_convertible() -> ConvertibleBond {
         soft_call_trigger: None,
         fixed_coupon: Some(fixed_coupon),
         floating_coupon: None,
+        settlement_days: None,
+        recovery_rate: None,
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }
@@ -155,6 +157,8 @@ fn create_zero_coupon_convertible() -> ConvertibleBond {
         soft_call_trigger: None,
         fixed_coupon: None,
         floating_coupon: None,
+        settlement_days: None,
+        recovery_rate: None,
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         attributes: Default::default(),
     }

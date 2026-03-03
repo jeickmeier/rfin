@@ -16,6 +16,7 @@
 mod fixtures;
 mod quantlib_parity;
 mod test_conversion_policies;
+mod test_credit_curve;
 mod test_edge_cases;
 mod test_embedded_options;
 mod test_greeks;

@@ -957,6 +957,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             underlying_equity_id: Some("AAPL".to_string()),
             call_put: None,
             soft_call_trigger: None,
+            settlement_days: None,
+            recovery_rate: None,
             fixed_coupon: Some(fixed_coupon),
             floating_coupon: None,
             pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),

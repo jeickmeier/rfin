@@ -13,12 +13,15 @@
 //! - Greeks: Delta, Gamma, Vega, Rho, Theta
 
 mod accrued_interest;
+mod bond_floor;
 mod conversion01;
 mod conversion_premium;
 mod conversion_value;
 mod cs01;
 mod dividend_risk;
 mod greeks;
+mod implied_vol;
+mod oas;
 mod parity;
 // risk_bucketed_dv01 and theta now using generic implementations
 
@@ -64,6 +67,22 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Conversion01,
         Arc::new(conversion01::Conversion01Calculator),
+        &[InstrumentType::Convertible],
+    );
+
+    registry.register_metric(
+        MetricId::Oas,
+        Arc::new(oas::OasCalculator),
+        &[InstrumentType::Convertible],
+    );
+    registry.register_metric(
+        MetricId::custom("bond_floor"),
+        Arc::new(bond_floor::BondFloorCalculator),
+        &[InstrumentType::Convertible],
+    );
+    registry.register_metric(
+        MetricId::custom("implied_vol"),
+        Arc::new(implied_vol::ImpliedVolCalculator),
         &[InstrumentType::Convertible],
     );
 

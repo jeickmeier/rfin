@@ -1773,7 +1773,7 @@ pub fn register_fixed_income_pricers(registry: &mut PricerRegistry) {
         registry,
         Convertible,
         Discounting,
-        crate::instruments::fixed_income::convertible::pricer::SimpleConvertibleDiscountingPricer
+        crate::instruments::fixed_income::convertible::pricer::ConvertibleTreePricer
     );
 
     // Inflation Linked Bond

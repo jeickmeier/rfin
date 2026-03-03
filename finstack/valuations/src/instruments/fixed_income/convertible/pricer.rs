@@ -13,7 +13,7 @@
 //! - `calculate_conversion_premium`: Conversion premium versus equity value
 //! - `calculate_accrued_interest`: Accrued coupon interest as of valuation date
 
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::PriceId;
@@ -112,8 +112,13 @@ pub struct ConvertibleBondValuator {
     /// Per-step risk-free discount factors: `rf_step_dfs[i] = curve.df(t_{i+1}) / curve.df(t_i)`.
     /// Uses the full discount curve term structure instead of a flat rate.
     rf_step_dfs: Vec<f64>,
-    /// Per-step risky discount factors (includes credit spread).
-    /// `risky_step_dfs[i] = credit_curve.df(t_{i+1}) / credit_curve.df(t_i)`.
+    /// Per-step risky discount factors (includes credit spread, adjusted for recovery).
+    ///
+    /// With recovery rate R:
+    /// `risky_fwd_adj = risky_fwd * (1 - R) + rf_fwd * R`
+    ///
+    /// At R=0 this equals the raw credit-curve forward (zero-recovery TZ model).
+    /// At R=1 this equals the risk-free forward (no credit effect).
     risky_step_dfs: Vec<f64>,
     /// Equity volatility (stored for soft-call trigger adjustment).
     volatility: f64,
@@ -260,6 +265,8 @@ impl ConvertibleBondValuator {
             None
         };
 
+        let recovery = bond.recovery_rate.unwrap_or(0.0).clamp(0.0, 1.0);
+
         let mut rf_step_dfs = Vec::with_capacity(steps);
         let mut risky_step_dfs = Vec::with_capacity(steps);
 
@@ -275,7 +282,12 @@ impl ConvertibleBondValuator {
             if let Some(ref cc) = credit_curve {
                 let cdf_i = cc.df(t_i);
                 let cdf_next = cc.df(t_next);
-                let risky_fwd = if cdf_i > 0.0 { cdf_next / cdf_i } else { 1.0 };
+                let raw_risky_fwd = if cdf_i > 0.0 { cdf_next / cdf_i } else { 1.0 };
+                // Blend risky and risk-free using recovery:
+                //   adjusted = risky * (1 - R) + rf * R
+                // At R=0: pure zero-recovery TZ model.
+                // At R=1: cash component discounted at risk-free (no credit effect).
+                let risky_fwd = raw_risky_fwd * (1.0 - recovery) + rf_fwd * recovery;
                 risky_step_dfs.push(risky_fwd);
             } else {
                 risky_step_dfs.push(rf_fwd);
@@ -472,18 +484,21 @@ impl ConvertibleBondValuator {
 ///
 /// Uses per-step discount factors from the full term structure instead of
 /// flat-rate discounting. The equity component is discounted at the risk-free
-/// forward rate and the cash component at the risky forward rate, both extracted
-/// step-by-step from the respective discount curves.
+/// forward rate and the cash component at the recovery-adjusted risky forward
+/// rate, both extracted step-by-step from the respective discount curves.
 ///
-/// ## Credit model assumption
+/// ## Credit model
 ///
-/// The risky discount factors implicitly assume **zero recovery** on default.
-/// The full risky DF reflects `survival_prob * rf_df`; there is no
-/// `(1 - survival_prob) * recovery_rate` term. This overstates the credit
-/// spread effect for investment-grade issuers (where recovery rates are
-/// typically 40-60%) and understates it near default. For production use
-/// with IG convertibles, consider providing a credit curve that already
-/// incorporates the recovery assumption in its construction.
+/// The risky step discount factors are adjusted for recovery:
+///
+/// ```text
+/// risky_fwd_adj = risky_fwd * (1 - R) + rf_fwd * R
+/// ```
+///
+/// where `R` is the recovery rate (0.0 to 1.0). At R=0 this reduces to the
+/// zero-recovery TZ model. Setting R=0.40 (ISDA standard for senior unsecured)
+/// reflects that bondholders recover 40% of face value on default, reducing
+/// the effective credit spread impact on the cash component.
 struct TsiveriotisZhangEngine<'a> {
     valuator: &'a ConvertibleBondValuator,
     steps: usize,
@@ -713,23 +728,32 @@ struct ResolvedIds {
     vol_id: String,
 }
 
+/// Extracted equity market state.
+struct EquityState {
+    spot: f64,
+    spot_scalar: finstack_core::market_data::scalars::MarketScalar,
+    volatility: f64,
+    dividend_yield: f64,
+    risk_free_rate: f64,
+    time_to_maturity: f64,
+    resolved_ids: ResolvedIds,
+}
+
 /// Extract equity market state from market context.
-///
-/// Returns `(spot, volatility, dividend_yield, risk_free_rate, time_to_maturity, resolved_ids)`.
 fn extract_equity_state(
     bond: &ConvertibleBond,
     ctx: &MarketContext,
     as_of: Date,
     day_count: DayCount,
-) -> Result<(f64, f64, f64, f64, f64, ResolvedIds)> {
+) -> Result<EquityState> {
     let underlying_id = bond
         .underlying_equity_id
         .as_deref()
         .ok_or(Error::Internal)?;
 
-    // Get spot price
-    let spot_price = ctx.price(underlying_id)?;
-    let spot = match spot_price {
+    // Get spot price, preserving the original scalar variant for type-safe bumping
+    let spot_scalar = ctx.price(underlying_id)?.clone();
+    let spot = match &spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Price(money) => {
             if money.currency() != bond.notional.currency() {
                 return Err(Error::Internal);
@@ -795,14 +819,15 @@ fn extract_equity_state(
         vol_id: resolved_vol_id,
     };
 
-    Ok((
+    Ok(EquityState {
         spot,
+        spot_scalar,
         volatility,
         dividend_yield,
         risk_free_rate,
         time_to_maturity,
         resolved_ids,
-    ))
+    })
 }
 
 fn resolve_unitless_scalar(ctx: &MarketContext, candidate_ids: &[String]) -> Result<Option<f64>> {
@@ -879,6 +904,8 @@ struct PricingInputs {
     risk_free_rate: f64,
     time_to_maturity: f64,
     resolved_ids: ResolvedIds,
+    /// Original spot scalar from market context, preserved for type-safe bumping.
+    spot_scalar: finstack_core::market_data::scalars::MarketScalar,
 }
 
 /// Prepare all necessary inputs for pricing and greeks calculation.
@@ -889,17 +916,17 @@ fn prepare_for_pricing(
 ) -> Result<PricingInputs> {
     let cashflow_schedule = build_convertible_schedule(bond)?;
     let day_count = cashflow_schedule.day_count;
-    let (spot, volatility, dividend_yield, risk_free_rate, time_to_maturity, resolved_ids) =
-        extract_equity_state(bond, market_context, as_of, day_count)?;
+    let eq = extract_equity_state(bond, market_context, as_of, day_count)?;
 
     Ok(PricingInputs {
         cashflow_schedule,
-        spot,
-        volatility,
-        dividend_yield,
-        risk_free_rate,
-        time_to_maturity,
-        resolved_ids,
+        spot: eq.spot,
+        volatility: eq.volatility,
+        dividend_yield: eq.dividend_yield,
+        risk_free_rate: eq.risk_free_rate,
+        time_to_maturity: eq.time_to_maturity,
+        resolved_ids: eq.resolved_ids,
+        spot_scalar: eq.spot_scalar,
     })
 }
 
@@ -1030,14 +1057,26 @@ pub fn calculate_convertible_greeks(
     // ---- Delta & Gamma: bump equity spot (central differences) ----
     let h_spot = bump_pct * inputs.spot;
     if h_spot > 0.0 {
-        use finstack_core::market_data::scalars::MarketScalar;
+        let bump_scalar = |amount: f64| -> finstack_core::market_data::scalars::MarketScalar {
+            match &inputs.spot_scalar {
+                finstack_core::market_data::scalars::MarketScalar::Price(money) => {
+                    finstack_core::market_data::scalars::MarketScalar::Price(
+                        finstack_core::money::Money::new(amount, money.currency()),
+                    )
+                }
+                finstack_core::market_data::scalars::MarketScalar::Unitless(_) => {
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(amount)
+                }
+            }
+        };
+
         let market_up = market_context.clone().insert_price(
             inputs.resolved_ids.spot_id.as_str(),
-            MarketScalar::Unitless(inputs.spot + h_spot),
+            bump_scalar(inputs.spot + h_spot),
         );
         let market_down = market_context.clone().insert_price(
             inputs.resolved_ids.spot_id.as_str(),
-            MarketScalar::Unitless(inputs.spot - h_spot),
+            bump_scalar(inputs.spot - h_spot),
         );
 
         let price_up = price_convertible_bond(bond, &market_up, tree_type, as_of)?.amount();
@@ -1107,7 +1146,7 @@ pub fn calculate_convertible_greeks(
 }
 
 /// Build the convertible bond cashflow schedule using common builder flow.
-fn build_convertible_schedule(bond: &ConvertibleBond) -> Result<CashFlowSchedule> {
+pub(crate) fn build_convertible_schedule(bond: &ConvertibleBond) -> Result<CashFlowSchedule> {
     let mut builder = CashFlowSchedule::builder();
     let _ = builder.principal(bond.notional, bond.issue_date, bond.maturity);
     if let Some(fixed_spec) = &bond.fixed_coupon {
@@ -1143,16 +1182,34 @@ pub fn calculate_conversion_premium(
     }
 }
 
-/// Calculate accrued interest for a convertible bond as of a given date.
+/// Compute the settlement date for a convertible bond.
 ///
-/// Finds the accrual period containing `as_of` from the cashflow schedule and
-/// computes the pro-rata portion of the coupon that has accrued.
+/// If `settlement_days` is set, adds that many weekdays to `as_of`.
+/// Otherwise returns `as_of` unchanged.
+pub fn settlement_date(bond: &ConvertibleBond, as_of: Date) -> Date {
+    match bond.settlement_days {
+        Some(days) if days > 0 => as_of.add_weekdays(days as i32),
+        _ => as_of,
+    }
+}
+
+/// Calculate accrued interest for a convertible bond.
 ///
-/// Returns 0.0 for zero-coupon convertibles or if `as_of` is outside all accrual periods.
+/// Accrued interest is computed as of the **settlement date** (trade date +
+/// `settlement_days` business days). If `settlement_days` is not set, `as_of`
+/// is used directly.
+///
+/// Finds the accrual period containing the settlement date from the cashflow
+/// schedule and computes the pro-rata portion of the coupon that has accrued.
+///
+/// Returns 0.0 for zero-coupon convertibles or if the date is outside all
+/// accrual periods.
 pub fn calculate_accrued_interest(bond: &ConvertibleBond, as_of: Date) -> Result<f64> {
     if bond.fixed_coupon.is_none() && bond.floating_coupon.is_none() {
         return Ok(0.0); // Zero-coupon
     }
+
+    let settle = settlement_date(bond, as_of);
 
     let schedule = build_convertible_schedule(bond)?;
     let coupons: Vec<_> = schedule.coupons().collect();
@@ -1161,14 +1218,10 @@ pub fn calculate_accrued_interest(bond: &ConvertibleBond, as_of: Date) -> Result
         return Ok(0.0);
     }
 
-    // Find the accrual period containing as_of.
-    // Coupon dates are payment dates; accrual periods run between consecutive dates.
-    // The first period starts at issue.
     let mut period_start = bond.issue_date;
     for cf in &coupons {
         let period_end = cf.date;
-        if as_of >= period_start && as_of < period_end {
-            // as_of falls within this accrual period
+        if settle >= period_start && settle < period_end {
             let period_yf = schedule
                 .day_count
                 .year_fraction(
@@ -1181,7 +1234,7 @@ pub fn calculate_accrued_interest(bond: &ConvertibleBond, as_of: Date) -> Result
                 .day_count
                 .year_fraction(
                     period_start,
-                    as_of,
+                    settle,
                     finstack_core::dates::DayCountCtx::default(),
                 )
                 .unwrap_or(0.0);
@@ -1195,28 +1248,28 @@ pub fn calculate_accrued_interest(bond: &ConvertibleBond, as_of: Date) -> Result
         period_start = period_end;
     }
 
-    Ok(0.0) // as_of is after last coupon or before issue
+    Ok(0.0)
 }
 
 // ========================= REGISTRY PRICER =========================
 
-/// Registry pricer for Convertible Bond using tree-based pricing
-pub struct SimpleConvertibleDiscountingPricer;
+/// Registry pricer for Convertible Bond using Tsiveriotis-Zhang tree-based pricing.
+pub struct ConvertibleTreePricer;
 
-impl SimpleConvertibleDiscountingPricer {
-    /// Create a new convertible bond discounting pricer
+impl ConvertibleTreePricer {
+    /// Create a new convertible bond tree pricer.
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Default for SimpleConvertibleDiscountingPricer {
+impl Default for ConvertibleTreePricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
+impl crate::pricer::Pricer for ConvertibleTreePricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(
             crate::pricer::InstrumentType::Convertible,
@@ -1242,18 +1295,13 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
                 )
             })?;
 
-        let pv = price_convertible_bond(
-            convertible,
-            market,
-            ConvertibleTreeType::Binomial(100),
-            as_of,
-        )
-        .map_err(|e| {
-            crate::pricer::PricingError::model_failure_with_context(
-                e.to_string(),
-                crate::pricer::PricingErrorContext::default(),
-            )
-        })?;
+        let pv = price_convertible_bond(convertible, market, ConvertibleTreeType::default(), as_of)
+            .map_err(|e| {
+                crate::pricer::PricingError::model_failure_with_context(
+                    e.to_string(),
+                    crate::pricer::PricingErrorContext::default(),
+                )
+            })?;
 
         Ok(crate::results::ValuationResult::stamped(
             convertible.id(),
@@ -1309,6 +1357,8 @@ mod tests {
             maturity,
             discount_curve_id: "USD-OIS".into(),
             credit_curve_id: None,
+            settlement_days: None,
+            recovery_rate: None,
             conversion: conversion_spec,
             underlying_equity_id: Some("AAPL".to_string()),
             call_put: None,
@@ -1498,6 +1548,8 @@ mod tests {
             maturity,
             discount_curve_id: "USD-OIS".into(),
             credit_curve_id: None,
+            settlement_days: None,
+            recovery_rate: None,
             conversion: conversion_spec,
             underlying_equity_id: Some("AAPL".to_string()),
             call_put: None,

@@ -96,6 +96,31 @@ pub struct ConvertibleBond {
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub soft_call_trigger: Option<SoftCallTrigger>,
+    /// Number of business days from trade date to settlement date.
+    ///
+    /// When set, accrued interest and clean price are computed relative to the
+    /// settlement date (trade date + settlement_days business days) rather than
+    /// the valuation date. Standard values:
+    /// - **US corporate convertibles**: 2 (T+2)
+    /// - **US Treasury**: 1 (T+1)
+    ///
+    /// If `None`, settlement is assumed same-day (as_of = settlement date).
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settlement_days: Option<u32>,
+    /// Assumed recovery rate on default, as a fraction (e.g., 0.40 = 40%).
+    ///
+    /// Used in the Tsiveriotis-Zhang credit model to blend risky and risk-free
+    /// discounting on the cash component. A recovery rate of 0 (the default)
+    /// reduces to the standard zero-recovery TZ model. Typical values:
+    /// - **Investment grade**: 0.40 (ISDA standard assumption)
+    /// - **High yield**: 0.25-0.35
+    /// - **Distressed**: 0.10-0.20
+    ///
+    /// Only relevant when `credit_curve_id` is set.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_rate: Option<f64>,
     /// Fixed coupon specification (if applicable).
     #[builder(optional)]
     pub fixed_coupon: Option<FixedCouponSpec>,

@@ -179,6 +179,8 @@ pub fn create_convertible_with_policy(policy: ConversionPolicy) -> ConvertibleBo
         maturity,
         discount_curve_id: "USD-OIS".into(),
         credit_curve_id: None,
+        settlement_days: None,
+        recovery_rate: None,
         conversion: conversion_spec,
         underlying_equity_id: Some("AAPL".to_string()),
         call_put: None,
@@ -223,6 +225,8 @@ pub fn create_convertible_with_conversion_price() -> ConvertibleBond {
         maturity,
         discount_curve_id: "USD-OIS".into(),
         credit_curve_id: None,
+        settlement_days: None,
+        recovery_rate: None,
         conversion: conversion_spec,
         underlying_equity_id: Some("AAPL".to_string()),
         call_put: None,
@@ -280,6 +284,8 @@ pub fn create_floating_convertible() -> ConvertibleBond {
         maturity,
         discount_curve_id: "USD-OIS".into(),
         credit_curve_id: None,
+        settlement_days: None,
+        recovery_rate: None,
         conversion: conversion_spec,
         underlying_equity_id: Some("AAPL".to_string()),
         call_put: None,
@@ -371,6 +377,8 @@ pub fn create_zero_coupon_convertible() -> ConvertibleBond {
         maturity,
         discount_curve_id: "USD-OIS".into(),
         credit_curve_id: None,
+        settlement_days: None,
+        recovery_rate: None,
         conversion: conversion_spec,
         underlying_equity_id: Some("AAPL".to_string()),
         call_put: None,
@@ -405,6 +413,51 @@ pub fn theoretical_conversion_value(spot: f64, conversion_ratio: f64) -> f64 {
 /// Calculate theoretical parity
 pub fn theoretical_parity(spot: f64, conversion_ratio: f64, notional: f64) -> f64 {
     theoretical_conversion_value(spot, conversion_ratio) / notional
+}
+
+/// Create market context with a separate credit curve (higher spread than risk-free).
+///
+/// The credit curve is constructed with a spread above the risk-free curve to
+/// exercise the TZ credit/equity decomposition path, which is skipped when
+/// `credit_curve_id` is `None`.
+pub fn create_market_context_with_credit(credit_spread_bps: f64) -> MarketContext {
+    let base_date = dates::base_date();
+    let rf_rate = market_params::RISK_FREE_RATE;
+    let credit_rate = rf_rate + credit_spread_bps / 10_000.0;
+
+    let rf_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(base_date)
+        .knots([(0.0, 1.0), (10.0, (-rf_rate * 10.0).exp())])
+        .interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    let credit_curve = DiscountCurve::builder("USD-CREDIT")
+        .base_date(base_date)
+        .knots([(0.0, 1.0), (10.0, (-credit_rate * 10.0).exp())])
+        .interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    MarketContext::new()
+        .insert_discount(rf_curve)
+        .insert_discount(credit_curve)
+        .insert_price("AAPL", MarketScalar::Unitless(market_params::SPOT_PRICE))
+        .insert_price(
+            "AAPL-VOL",
+            MarketScalar::Unitless(market_params::VOL_STANDARD),
+        )
+        .insert_price(
+            "AAPL-DIVYIELD",
+            MarketScalar::Unitless(market_params::DIV_YIELD),
+        )
+}
+
+/// Create convertible bond with a separate credit curve.
+pub fn create_convertible_with_credit() -> ConvertibleBond {
+    let mut bond = create_standard_convertible();
+    bond.credit_curve_id = Some("USD-CREDIT".into());
+    bond
 }
 
 /// Tolerance for floating point comparisons

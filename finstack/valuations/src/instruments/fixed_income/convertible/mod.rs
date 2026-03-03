@@ -58,5 +58,5 @@ pub use types::{
 // Re-export pricing helpers for benches/tools.
 pub use pricer::{
     calculate_accrued_interest, calculate_conversion_premium, calculate_convertible_greeks,
-    calculate_parity, price_convertible_bond, ConvertibleTreeType,
+    calculate_parity, price_convertible_bond, settlement_date, ConvertibleTreeType,
 };

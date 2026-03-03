@@ -3,7 +3,8 @@
 ## Features
 
 - Hybrid fixed-income/equity instrument with conversion terms (`ConversionSpec`), call/put schedules, and optional fixed or floating coupons.
-- Separate discount and credit curves for Tsiveriotis-Zhang style split between debt and equity components.
+- Separate discount and credit curves for Tsiveriotis-Zhang style split between debt and equity components, with configurable recovery rate.
+- Settlement lag support (`settlement_days`) for correct accrued interest and clean price calculation.
 - Supports voluntary/mandatory/windowed conversion, anti-dilution policies, dividend adjustments, and underlying equity linkage.
 - Mandatory variable delivery (PERCS/DECS/ACES) with upper/lower conversion price bounds.
 - Call/put exercise periods (not just discrete dates) with optional make-whole call specifications.
@@ -14,7 +15,7 @@
 ## Methodology & References
 
 - Tree-based Tsiveriotis-Zhang (1995) convertible framework with binomial or trinomial lattices (`ConvertibleTreeType`).
-- **Full term structure discounting**: Per-step discount factors extracted from the risk-free and credit curves, capturing yield curve shape instead of using a single flat rate.
+- **Full term structure discounting**: Per-step discount factors extracted from the risk-free and credit curves, capturing yield curve shape instead of using a single flat rate. Risky DFs are blended with recovery rate: `risky_adj = risky * (1-R) + rf * R`.
 - Cashflow generation reused from the bond cashflow builder; conversion, call, and put events mapped onto tree steps.
 - **Central finite differences** for all Greeks (delta, gamma, vega, rho) ensuring O(h^2) accuracy.
 - Soft-call trigger uses a volatility-adjusted barrier to approximate the standard 20-of-30 day observation window (adapted from Broadie-Glasserman-Kou 1997 discrete monitoring correction).
@@ -54,9 +55,12 @@ let pv = cb.value(&market_context, as_of)?;
 
 - PV plus tree-based Greeks (delta/gamma/vega/theta/rho) from full repricing with central differences.
 - Parity, conversion premium, and conversion value analytics.
-- Accrued interest and clean price for market quote reconciliation.
+- Accrued interest and clean price for market quote reconciliation (settlement-date aware).
 - Credit DV01/CS01 via credit-curve bumps; Dividend01; Conversion01.
 - Bucketed DV01 via key-rate shifts.
+- **OAS**: Option-adjusted spread via Brent solver (requires `quoted_clean_price`).
+- **Bond floor**: Straight-bond value (PV of cashflows without conversion option).
+- **Implied volatility**: Equity vol implied from market CB price via Brent solver.
 
 ## Limitations / Known Issues
 
@@ -73,4 +77,5 @@ let pv = cb.value(&market_context, as_of)?;
 - Support stochastic credit/equity correlation and jump processes.
 - Implement make-whole call pricing in the tree engine (Treasury + spread PV calculation).
 - Add CoCo/AT1 contingent convertible support with capital trigger mechanisms.
-- Improve calibration helpers for implied volatility/credit from market CB quotes.
+- Add discrete dividend schedule support (currently continuous yield only).
+- Add cross-currency convertible support.
