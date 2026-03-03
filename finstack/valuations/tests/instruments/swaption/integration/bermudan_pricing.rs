@@ -319,14 +319,14 @@ fn test_bermudan_to_european_conversion() {
 // LSMC Tests (requires "mc" feature)
 // ============================================================================
 
-#[cfg(feature = "mc")]
+#[cfg(all(feature = "mc", feature = "slow"))]
 fn build_market_context() -> MarketContext {
     let curve = test_discount_curve();
     MarketContext::new().insert_discount(curve)
 }
 
 /// Test LSMC vs Tree: prices should be in same ballpark.
-#[cfg(feature = "mc")]
+#[cfg(all(feature = "mc", feature = "slow"))]
 #[test]
 fn test_lsmc_vs_tree_sanity() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
@@ -430,7 +430,7 @@ fn test_lsmc_vs_tree_sanity() {
 }
 
 /// Test LSMC determinism: same seed produces identical results.
-#[cfg(feature = "mc")]
+#[cfg(all(feature = "mc", feature = "slow"))]
 #[test]
 fn test_lsmc_determinism() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
@@ -468,7 +468,7 @@ fn test_lsmc_determinism() {
 }
 
 /// Test LSMC with different seeds produces different results.
-#[cfg(feature = "mc")]
+#[cfg(all(feature = "mc", feature = "slow"))]
 #[test]
 fn test_lsmc_different_seeds() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");

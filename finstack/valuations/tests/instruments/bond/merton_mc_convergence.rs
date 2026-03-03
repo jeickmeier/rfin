@@ -9,8 +9,6 @@
 //! - Default rate increases with leverage
 //! - PIK accrual increases terminal notional
 
-#![cfg(feature = "mc")]
-
 use finstack_valuations::instruments::common::models::credit::{
     AssetDynamics, BarrierType, DynamicRecoverySpec, EndogenousHazardSpec, MertonModel,
 };

@@ -91,44 +91,40 @@
 //!
 //! ## Black-Scholes Greeks
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::common::models::closed_form::greeks::{
 //!     bs_call_delta, bs_gamma, bs_vega
 //! };
 //!
 //! let spot = 100.0;
 //! let strike = 100.0;
-//! let time = 1.0;        // 1 year
-//! let rate = 0.05;       // 5% risk-free rate
-//! let div_yield = 0.02;  // 2% dividend yield
-//! let vol = 0.20;        // 20% volatility
-//!
-//! let delta = bs_call_delta(spot, strike, time, rate, div_yield, vol);
-//! let gamma = bs_gamma(spot, strike, time, rate, div_yield, vol);
-//! let vega = bs_vega(spot, strike, time, rate, div_yield, vol);
-//!
-//! // Delta near 0.5 for ATM option
-//! assert!((delta - 0.5).abs() < 0.1);
-//! ```
-//!
-//! ## Barrier Option
-//!
-//! ```rust,ignore
-//! use finstack_valuations::instruments::common::models::closed_form::barrier::{
-//!     down_out_call
-//! };
-//!
-//! let spot = 100.0;
-//! let strike = 100.0;
-//! let barrier = 90.0;    // Barrier below spot
 //! let time = 1.0;
 //! let rate = 0.05;
 //! let div_yield = 0.02;
 //! let vol = 0.20;
 //!
-//! // Down-and-out call: knocked out if spot hits barrier
+//! let delta = bs_call_delta(spot, strike, time, rate, div_yield, vol);
+//! let gamma = bs_gamma(spot, strike, time, rate, div_yield, vol);
+//! let vega = bs_vega(spot, strike, time, rate, div_yield, vol);
+//!
+//! assert!((delta - 0.5).abs() < 0.1);
+//! ```
+//!
+//! ## Barrier Option
+//!
+//! ```rust,no_run
+//! use finstack_valuations::instruments::common::models::closed_form::barrier::down_out_call;
+//!
+//! let spot = 100.0;
+//! let strike = 100.0;
+//! let barrier = 90.0;
+//! let time = 1.0;
+//! let rate = 0.05;
+//! let div_yield = 0.02;
+//! let vol = 0.20;
+//!
 //! let price = down_out_call(spot, strike, barrier, time, rate, div_yield, vol);
-//! // Price should be less than vanilla call due to knockout feature
+//! assert!(price > 0.0);
 //! ```
 //!
 //! # See Also

@@ -244,6 +244,15 @@ pub struct ModelConfig {
     /// The friction affects the **exercise decision threshold**, but redemption still occurs
     /// at the contractual call price.
     pub call_friction_cents: Option<f64>,
+    /// Mean reversion speed for Hull-White tree model (annualized).
+    ///
+    /// When set with Ho-Lee model, transforms the tree into Hull-White 1F:
+    /// `dr = [theta(t) - a*r] dt + sigma dW`
+    ///
+    /// Typical values: 0.01-0.10 (1-10% per year). Higher values produce
+    /// tighter rate dispersion at long maturities.
+    /// When `None` or zero, the tree uses pure Ho-Lee dynamics (no mean reversion).
+    pub mean_reversion: Option<f64>,
 }
 
 impl ModelConfig {

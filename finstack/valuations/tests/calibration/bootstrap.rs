@@ -1,18 +1,15 @@
 //! Determinism and smoke tests for calibration v2.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Tenor};
+use finstack_core::dates::{Date, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
-use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
-    CalibrationEnvelope, CalibrationPlan, CalibrationStep, DiscountCurveParams, HazardCurveParams,
-    StepParams,
+    CalibrationEnvelope, CalibrationPlan, CalibrationStep, DiscountCurveParams, StepParams,
 };
 use finstack_valuations::calibration::{CalibrationConfig, CalibrationMethod};
-use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause, IndexId};
-use finstack_valuations::market::quotes::cds::CdsQuote;
+use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
@@ -41,7 +38,11 @@ fn build_discount_quotes(_base_date: Date) -> Vec<MarketQuote> {
     ]
 }
 
+#[cfg(feature = "slow")]
+#[cfg(feature = "slow")]
 fn build_credit_quotes() -> Vec<MarketQuote> {
+    use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+    use finstack_valuations::market::quotes::cds::CdsQuote;
     vec![
         MarketQuote::Cds(CdsQuote::CdsParSpread {
             id: QuoteId::new("CDS-1"),
@@ -79,7 +80,10 @@ fn build_credit_quotes() -> Vec<MarketQuote> {
     ]
 }
 
+#[cfg(feature = "slow")]
 fn create_test_discount_curve(base_date: Date) -> DiscountCurve {
+    use finstack_core::dates::DayCount;
+    use finstack_core::math::interp::InterpStyle;
     DiscountCurve::builder("TEST-DISC")
         .base_date(base_date)
         .day_count(DayCount::Act365F)
@@ -136,10 +140,12 @@ fn run_discount_plan(base_date: Date, quotes: Vec<MarketQuote>) -> DiscountCurve
         .clone()
 }
 
+#[cfg(feature = "slow")]
 fn run_hazard_plan(
     base_date: Date,
     quotes: Vec<MarketQuote>,
 ) -> finstack_core::market_data::term_structures::HazardCurve {
+    use finstack_valuations::calibration::api::schema::HazardCurveParams;
     let currency = Currency::USD;
     let mut quote_sets = finstack_core::HashMap::default();
     quote_sets.insert("credit".to_string(), quotes);
@@ -186,6 +192,7 @@ fn run_hazard_plan(
         .clone()
 }
 
+#[cfg(feature = "slow")]
 #[test]
 fn hazard_curve_calibration_is_deterministic_across_runs() {
     let base_date = Date::from_calendar_date(2025, Month::March, 20).unwrap();

@@ -327,6 +327,14 @@ impl PyTermLoanAmortizationSpec {
     }
 
     #[classmethod]
+    #[pyo3(text_signature = "(cls, bp)")]
+    fn percent_of_original_notional(_cls: &Bound<'_, PyType>, bp: i32) -> Self {
+        Self {
+            inner: TermLoanAmortizationSpec::PercentOfOriginalNotional { bp },
+        }
+    }
+
+    #[classmethod]
     #[pyo3(text_signature = "(cls, schedule)")]
     fn custom(
         _cls: &Bound<'_, PyType>,
@@ -351,6 +359,9 @@ impl PyTermLoanAmortizationSpec {
             }
             TermLoanAmortizationSpec::PercentPerPeriod { bp } => {
                 format!("TermLoanAmortizationSpec.percent_per_period(bp={bp})")
+            }
+            TermLoanAmortizationSpec::PercentOfOriginalNotional { bp } => {
+                format!("TermLoanAmortizationSpec.percent_of_original_notional(bp={bp})")
             }
             TermLoanAmortizationSpec::Custom(items) => {
                 format!("TermLoanAmortizationSpec.custom(len={})", items.len())

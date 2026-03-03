@@ -56,6 +56,7 @@ fn run_rounding_test(amount: f64, rounding: RoundingConvention) -> f64 {
         market: &market,
         tranche_balances: None,
         reserve_balance: Money::new(0.0, currency),
+        recovery_proceeds: Money::new(0.0, currency),
     };
 
     let result =

@@ -215,6 +215,36 @@ pub fn generate_cashflows(
                 running_balance -= amort_amount;
             }
         }
+        super::spec::AmortizationSpec::PercentOfOriginalNotional { bp } => {
+            // For DDTL loans, use the actual drawn (funded) amount as the original notional.
+            // For regular loans, use notional_limit.
+            let original_notional = if let Some(ddtl) = &loan.ddtl {
+                let draw_stop = effective_draw_stop(loan);
+                ddtl.draws
+                    .iter()
+                    .filter(|ev| {
+                        ev.date >= ddtl.availability_start
+                            && ev.date <= ddtl.availability_end
+                            && draw_stop.is_none_or(|ds| ev.date < ds)
+                    })
+                    .map(|ev| ev.amount.amount())
+                    .sum::<f64>()
+                    .min(loan.notional_limit.amount())
+            } else {
+                loan.notional_limit.amount()
+            };
+            let pct = f64::from(*bp) * 1e-4;
+            let flat_payment = original_notional * pct;
+            for d in coupon_dates.iter().copied().skip(1) {
+                let pay = Money::new(flat_payment, loan.currency);
+                principal_events.push(PrincipalEvent {
+                    date: d,
+                    delta: Money::new(-pay.amount(), pay.currency()),
+                    cash: pay,
+                    kind: CFKind::Amortization,
+                });
+            }
+        }
         super::spec::AmortizationSpec::Linear { start, end } => {
             // Amortization payments occur at period END dates strictly after the
             // start date and up to (and including) the end date.  Using `> *start`

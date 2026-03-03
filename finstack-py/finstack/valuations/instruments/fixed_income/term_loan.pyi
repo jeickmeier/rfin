@@ -97,6 +97,21 @@ class TermLoanAmortizationSpec:
         ...
 
     @classmethod
+    def percent_of_original_notional(cls, bp: int) -> TermLoanAmortizationSpec:
+        """Percentage of original notional per period (flat dollar TLB convention).
+
+        Each period pays ``bp / 10000 * original_notional``, producing equal
+        dollar payments.  Standard for institutional Term Loan Bs where
+        amortization is quoted as "1% per annum" (25 bp/quarter of face).
+
+        Parameters
+        ----------
+        bp : int
+            Basis points per period applied to original notional.
+        """
+        ...
+
+    @classmethod
     def custom(cls, schedule: Sequence[tuple[datetime.date, Money]]) -> TermLoanAmortizationSpec:
         """Custom amortization schedule.
 

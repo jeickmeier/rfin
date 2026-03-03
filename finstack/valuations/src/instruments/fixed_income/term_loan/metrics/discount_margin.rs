@@ -87,6 +87,20 @@ impl MetricCalculator for DiscountMarginCalculator {
             return Err(finstack_core::InputError::Invalid.into());
         }
 
+        // Callable loans require a quoted price for DM: without an observed market price,
+        // the DM would trivially be zero (model PV == target PV) and is not meaningful.
+        if loan.call_schedule.is_some()
+            && loan
+                .pricing_overrides
+                .market_quotes
+                .quoted_clean_price
+                .is_none()
+        {
+            return Err(finstack_core::Error::Validation(
+                "DiscountMargin requires quoted_clean_price for callable loans".to_string(),
+            ));
+        }
+
         // Target price: quoted_clean_price% of par if set, else base PV
         let target = if let Some(px) = loan.pricing_overrides.market_quotes.quoted_clean_price {
             // Interpreting as % of notional_limit

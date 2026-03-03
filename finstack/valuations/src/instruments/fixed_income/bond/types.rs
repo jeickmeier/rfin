@@ -71,7 +71,7 @@ pub struct Bond {
     pub call_put: Option<CallPutSchedule>,
     /// Optional pre-built cashflow schedule. If provided, this will be used instead of
     /// generating cashflows from the cashflow_spec.
-    #[serde(skip)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub custom_cashflows: Option<CashFlowSchedule>,
     /// Accrual method for interest calculation between coupon dates.
     ///
@@ -108,6 +108,8 @@ impl<'de> serde::Deserialize<'de> for Bond {
             #[serde(default)]
             pricing_overrides: PricingOverrides,
             call_put: Option<CallPutSchedule>,
+            #[serde(default)]
+            custom_cashflows: Option<CashFlowSchedule>,
             #[serde(default)]
             accrual_method: crate::cashflow::accrual::AccrualMethod,
             attributes: Attributes,
@@ -157,7 +159,7 @@ impl<'de> serde::Deserialize<'de> for Bond {
             credit_curve_id: helper.credit_curve_id,
             pricing_overrides: helper.pricing_overrides,
             call_put: helper.call_put,
-            custom_cashflows: None,
+            custom_cashflows: helper.custom_cashflows,
             accrual_method: helper.accrual_method,
             attributes: helper.attributes,
             settlement_convention,
@@ -286,12 +288,13 @@ impl Bond {
     /// Returns a 10-year USD Treasury-style bond with realistic parameters.
     pub fn example() -> Self {
         // SAFETY: All inputs are compile-time validated constants
-        Self::fixed(
+        Self::with_convention(
             "US912828XG33",
             Money::new(1_000_000.0, Currency::USD),
             Rate::from_decimal(0.0425),
             date!(2024 - 01 - 15),
             date!(2034 - 01 - 15),
+            crate::instruments::common_impl::parameters::BondConvention::USTreasury,
             "USD-TREASURY",
         )
         .unwrap_or_else(|_| unreachable!("Example bond with valid constants should never fail"))
@@ -722,6 +725,7 @@ impl Bond {
                     355..=375 => 365, // Annual
                     175..=192 => 182, // Semi-annual
                     85..=98 => 91,    // Quarterly
+                    55..=68 => 60,    // Bimonthly
                     25..=37 => 30,    // Monthly
                     5..=9 => 7,       // Weekly
                     _ => days,        // Non-standard interval
@@ -741,6 +745,7 @@ impl Bond {
                 365 => Tenor::annual(),
                 182 => Tenor::semi_annual(),
                 91 => Tenor::quarterly(),
+                60 => Tenor::new(2, finstack_core::dates::TenorUnit::Months),
                 30 => Tenor::monthly(),
                 7 => Tenor::weekly(),
                 _ => finstack_core::dates::Tenor::new(
@@ -1027,6 +1032,7 @@ impl Bond {
         let tree_config = ShortRateTreeConfig {
             steps: tree_steps,
             volatility,
+            mean_reversion: config.mean_reversion,
             ..Default::default()
         };
 
@@ -1113,6 +1119,12 @@ impl Bond {
                             end, self.maturity
                         )));
                     }
+                    if call.date > end {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "Call exercise start date {} is after end date {}",
+                            call.date, end
+                        )));
+                    }
                 }
             }
             for put in &call_put.puts {
@@ -1133,6 +1145,12 @@ impl Bond {
                         return Err(finstack_core::Error::Validation(format!(
                             "Put exercise end date {} is after maturity {}",
                             end, self.maturity
+                        )));
+                    }
+                    if put.date > end {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "Put exercise start date {} is after end date {}",
+                            put.date, end
                         )));
                     }
                 }
@@ -1309,7 +1327,11 @@ impl Bond {
             },
         };
 
-        let maturity_years = (self.maturity - as_of).whole_days() as f64 / 365.25;
+        let maturity_years = self.cashflow_spec.day_count().year_fraction(
+            as_of,
+            self.maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         // If the config uses the default schedule, derive from bond's CouponType
         let effective_config;
@@ -2202,13 +2224,66 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_bond_custom_cashflows_serde_roundtrip() {
+        use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+
+        let issue = Date::from_calendar_date(2025, Month::January, 15).expect("valid");
+        let maturity = Date::from_calendar_date(2027, Month::January, 15).expect("valid");
+
+        let schedule = CashFlowSchedule::builder()
+            .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+            .fixed_cf(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: Decimal::try_from(0.06).expect("valid"),
+                freq: Tenor::semi_annual(),
+                dc: DayCount::Act365F,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: "weekends_only".to_string(),
+                stub: StubKind::None,
+                end_of_month: false,
+                payment_lag_days: 0,
+            })
+            .build_with_curves(None)
+            .expect("schedule build");
+
+        let flow_count = schedule.flows.len();
+        let bond = Bond::from_cashflows("SERDE-RT", schedule, "USD-OIS", Some(98.0))
+            .expect("bond from cashflows");
+
+        let json = serde_json::to_string(&bond).expect("serialize");
+        let restored: Bond = serde_json::from_str(&json).expect("deserialize");
+
+        assert!(restored.custom_cashflows.is_some());
+        assert_eq!(
+            restored
+                .custom_cashflows
+                .as_ref()
+                .expect("should have custom cashflows")
+                .flows
+                .len(),
+            flow_count
+        );
+    }
+
     #[cfg(feature = "mc")]
     #[test]
     fn bond_price_merton_mc_api() {
         use crate::instruments::common::models::credit::MertonModel;
         use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig;
 
-        let bond = Bond::example(); // Gets a 10Y fixed-rate bond
+        // Use Corporate convention (30/360) to avoid ActActIsma frequency requirement
+        let bond = Bond::with_convention(
+            "CORP-TEST",
+            finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD),
+            finstack_core::types::Rate::from_decimal(0.05),
+            time::macros::date!(2024 - 01 - 15),
+            time::macros::date!(2034 - 01 - 15),
+            crate::instruments::common_impl::parameters::BondConvention::Corporate,
+            "USD-OIS",
+        )
+        .expect("valid corporate bond");
         let merton = MertonModel::new(200.0, 0.25, 100.0, 0.04).expect("valid");
         let config = MertonMcConfig::new(merton).num_paths(1000).seed(42);
         let result = bond

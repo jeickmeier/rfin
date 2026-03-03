@@ -207,6 +207,16 @@ pub struct TreePricerConfig {
     /// Wider brackets handle distressed/high-spread bonds but may
     /// slow convergence for tight spreads. Default: 1000 bp.
     pub initial_bracket_size_bp: Option<f64>,
+
+    /// Mean reversion speed for Hull-White extension (annualized).
+    ///
+    /// When set with Ho-Lee model, transforms the tree into Hull-White 1F:
+    /// `dr = [theta(t) - a*r] dt + sigma dW`
+    ///
+    /// - `None` (default): pure Ho-Lee (no mean reversion)
+    /// - `Some(0.03)`: 3% annual mean reversion (moderate)
+    /// - `Some(0.10)`: 10% annual mean reversion (strong)
+    pub mean_reversion: Option<f64>,
 }
 
 impl Default for TreePricerConfig {
@@ -222,6 +232,7 @@ impl Default for TreePricerConfig {
             tolerance: 1e-6,
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
+            mean_reversion: None,
         }
     }
 }
@@ -266,6 +277,7 @@ pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
         tolerance: 1e-6,
         max_iterations: 50,
         initial_bracket_size_bp: Some(1000.0),
+        mean_reversion: bond.pricing_overrides.model_config.mean_reversion,
     }
 }
 
@@ -305,6 +317,7 @@ impl TreePricerConfig {
             tolerance: 1e-6,
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
+            mean_reversion: None,
         }
     }
 
@@ -316,6 +329,7 @@ impl TreePricerConfig {
             tolerance: 1e-6,
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
+            mean_reversion: None,
         }
     }
 
@@ -351,6 +365,7 @@ impl TreePricerConfig {
             tolerance: 1e-6,
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
+            mean_reversion: None,
         }
     }
 
@@ -362,6 +377,7 @@ impl TreePricerConfig {
             tolerance: 1e-6,
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
+            mean_reversion: None,
         }
     }
 
@@ -396,6 +412,7 @@ impl TreePricerConfig {
             tolerance: 1e-8,
             max_iterations: 100,
             initial_bracket_size_bp: Some(1500.0),
+            mean_reversion: None,
         }
     }
 
@@ -407,6 +424,7 @@ impl TreePricerConfig {
             tolerance: 1e-8,
             max_iterations: 100,
             initial_bracket_size_bp: Some(1500.0),
+            mean_reversion: None,
         }
     }
 
@@ -435,6 +453,7 @@ impl TreePricerConfig {
             tolerance: 1e-4,
             max_iterations: 30,
             initial_bracket_size_bp: Some(1000.0),
+            mean_reversion: None,
         }
     }
 
@@ -446,6 +465,7 @@ impl TreePricerConfig {
             tolerance: 1e-4,
             max_iterations: 30,
             initial_bracket_size_bp: Some(1000.0),
+            mean_reversion: None,
         }
     }
 }
@@ -1084,6 +1104,7 @@ impl TreePricer {
             let tree_config = ShortRateTreeConfig {
                 steps: self.config.tree_steps,
                 volatility: self.config.volatility,
+                mean_reversion: self.config.mean_reversion,
                 ..Default::default()
             };
             let mut tree = ShortRateTree::new(tree_config);

@@ -182,6 +182,7 @@ fn py_execute_waterfall(
         market: &market.inner,
         tranche_balances: None,
         reserve_balance: Money::new(0.0, ccy),
+        recovery_proceeds: Money::new(0.0, ccy),
     };
 
     let result = rust_execute_waterfall(&waterfall_inner, &tranches.inner, &pool.inner, context)

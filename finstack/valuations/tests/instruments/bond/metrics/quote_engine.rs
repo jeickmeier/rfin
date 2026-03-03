@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Bond quote engine round-trip tests for price / yield / spread metrics.
 //!
 //! These tests verify that using a metric as the *input* to the quote

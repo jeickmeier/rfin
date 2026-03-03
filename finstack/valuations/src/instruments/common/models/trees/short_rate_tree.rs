@@ -17,14 +17,12 @@
 //!
 //! Use `finstack_core::math::volatility::convert_atm_volatility` to convert:
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_core::math::volatility::{convert_atm_volatility, VolatilityConvention};
 //!
-//! // Given 100 bps normal vol at a 5% rate level
-//! let normal_vol = 0.01;  // 100 bps
-//! let rate_level = 0.05;  // 5%
+//! let normal_vol = 0.01;
+//! let rate_level = 0.05;
 //!
-//! // Convert to lognormal (approximately normal_vol / rate_level ≈ 20%)
 //! let lognormal_vol = convert_atm_volatility(
 //!     normal_vol,
 //!     VolatilityConvention::Normal,
@@ -34,7 +32,6 @@
 //! )?;
 //! assert!(lognormal_vol > 0.15 && lognormal_vol < 0.25);
 //!
-//! // Round-trip conversion recovers original
 //! let back_to_normal = convert_atm_volatility(
 //!     lognormal_vol,
 //!     VolatilityConvention::Lognormal,
@@ -565,21 +562,25 @@ impl ShortRateTree {
             let mut next_state_prices = vec![0.0; next_nodes];
 
             // 1. Calculate next state prices and base rates (without theta)
+            //
+            // Hull-White extension: when mean_reversion `a` is set, the drift
+            // includes a pull toward zero: dr = [theta(t) - a*r] dt + sigma dW
+            // This reduces rate dispersion at long maturities compared to Ho-Lee.
+            let mr_drift = self.config.mean_reversion.unwrap_or(0.0);
             for (i, &current_rate) in rates[step].iter().enumerate() {
                 let q = state_prices[i];
                 let df = (-current_rate * dt).exp();
+                let mean_rev_adj = mr_drift * current_rate * dt;
 
                 // Up move (to i+1)
-                // Base rate change: +sigma*sqrt(dt)
-                let r_up_base = current_rate + sigma * dt.sqrt();
+                let r_up_base = current_rate + sigma * dt.sqrt() - mean_rev_adj;
                 if i + 1 < next_nodes {
                     next_rates_base[i + 1] = r_up_base;
                     next_state_prices[i + 1] += q * df * 0.5;
                 }
 
                 // Down move (to i)
-                // Base rate change: -sigma*sqrt(dt)
-                let r_down_base = current_rate - sigma * dt.sqrt();
+                let r_down_base = current_rate - sigma * dt.sqrt() - mean_rev_adj;
                 if i < next_nodes {
                     next_rates_base[i] = r_down_base;
                     next_state_prices[i] += q * df * 0.5;

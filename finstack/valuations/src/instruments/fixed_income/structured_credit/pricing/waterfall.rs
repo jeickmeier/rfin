@@ -75,6 +75,8 @@ pub struct WaterfallContext<'a> {
     /// Current reserve account balance (passed dynamically each period).
     /// Used by `PaymentCalculation::ReserveReplenishment` to compute shortfall.
     pub reserve_balance: Money,
+    /// Recovery proceeds released this period (tracked separately for reporting).
+    pub recovery_proceeds: Money,
 }
 
 /// Execute waterfall to distribute available cash.
@@ -283,6 +285,7 @@ fn execute_waterfall_core(
         remaining_cash: remaining,
         had_diversions,
         diversion_reason,
+        recovery_proceeds: context.recovery_proceeds,
         explanation: allocation_output.trace,
     };
 

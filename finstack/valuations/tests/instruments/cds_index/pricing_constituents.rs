@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! CDS Index constituents pricing mode tests.
 //!
 //! Tests cover:

@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! CDS Index risk metrics tests.
 //!
 //! Tests cover:

@@ -150,6 +150,7 @@ fn run_waterfall(
         market,
         tranche_balances: None,
         reserve_balance: Money::new(0.0, available_cash.currency()),
+        recovery_proceeds: Money::new(0.0, available_cash.currency()),
     };
     finstack_valuations::instruments::fixed_income::structured_credit::execute_waterfall(
         waterfall, tranches, pool, context,

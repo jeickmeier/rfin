@@ -3,6 +3,15 @@
 //! This module provides closed-form solutions for lookback options with continuous monitoring
 //! under the Black-Scholes framework.
 //!
+//! # Conventions
+//!
+//! | Parameter | Convention | Units |
+//! |-----------|-----------|-------|
+//! | Rates (r, q) | Continuously compounded | Decimal (0.05 = 5%) |
+//! | Volatility (σ) | Annualized | Decimal (0.20 = 20%) |
+//! | Time (T) | ACT/365-style | Years (1.0 = 1 year) |
+//! | Prices | Per unit of underlying | Currency units |
+//!
 //! # References
 //!
 //! - Conze, A., & Viswanathan, R. (1991), "Path Dependent Options: The Case of Lookback Options"

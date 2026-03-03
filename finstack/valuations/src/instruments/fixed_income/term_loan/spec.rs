@@ -390,6 +390,21 @@ pub enum AmortizationSpec {
         /// Percentage in basis points per payment period (applied to current outstanding)
         bp: i32,
     },
+    /// Flat dollar amortization each period (percentage of original notional).
+    ///
+    /// Each period, the amortization amount equals `bp / 10000 × original_notional`.
+    /// Because the percentage is applied to the fixed original balance, the dollar
+    /// amount is identical every period (unlike `PercentPerPeriod` which decays).
+    ///
+    /// For example, 250 bp (2.5%) per quarter applied to $10M produces:
+    /// - Q1: $250,000 (2.5% × $10M)
+    /// - Q2: $250,000 (2.5% × $10M)
+    /// - Q3: $250,000 (2.5% × $10M)
+    /// - etc.
+    PercentOfOriginalNotional {
+        /// Percentage in basis points per payment period (applied to original notional)
+        bp: i32,
+    },
     /// Custom amortization schedule with explicit principal payments
     Custom(Vec<(Date, Money)>),
 }

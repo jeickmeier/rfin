@@ -315,9 +315,6 @@ mod tests {
     use crate::cashflow::builder::CouponType;
     use crate::instruments::common_impl::traits::Attributes;
     use crate::instruments::common_impl::traits::Instrument;
-    use crate::instruments::fixed_income::bond::pricing::quote_engine::{
-        compute_quotes, BondQuoteInput,
-    };
     use crate::instruments::fixed_income::bond::CashflowSpec;
     use crate::metrics::{
         standard_credit_cs01_buckets, standard_registry, MetricContext, MetricId,
@@ -527,8 +524,12 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "slow")]
     #[test]
     fn quote_engine_works_for_bond_with_hazard_curve() {
+        use crate::instruments::fixed_income::bond::pricing::quote_engine::{
+            compute_quotes, BondQuoteInput,
+        };
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
 

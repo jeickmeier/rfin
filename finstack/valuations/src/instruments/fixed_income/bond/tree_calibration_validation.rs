@@ -289,3 +289,107 @@ fn test_putable_bond_tree_pricing_reasonable() {
         "Option value should be < 15% of bond value"
     );
 }
+
+// =============================================================================
+// Test 5: Hull-White Mean Reversion Backward Compatibility
+// =============================================================================
+// With mean_reversion = None, tree should produce same results as before.
+
+#[test]
+fn test_mean_reversion_none_matches_ho_lee() {
+    let as_of = date!(2020 - 01 - 01);
+    let rate = 0.05;
+    let curve = create_flat_curve(as_of, rate, "USD-OIS");
+
+    let ho_lee_config = ShortRateTreeConfig {
+        steps: 100,
+        volatility: 0.01,
+        mean_reversion: None,
+        ..Default::default()
+    };
+
+    let hw_zero_config = ShortRateTreeConfig {
+        steps: 100,
+        volatility: 0.01,
+        mean_reversion: Some(0.0),
+        ..Default::default()
+    };
+
+    let mut tree_hl = ShortRateTree::new(ho_lee_config);
+    let mut tree_hw = ShortRateTree::new(hw_zero_config);
+    let ttm = 5.0;
+
+    tree_hl.calibrate(&curve, ttm).unwrap();
+    tree_hw.calibrate(&curve, ttm).unwrap();
+
+    let valuator = ZeroCouponValuator { notional: 1.0 };
+    let market = MarketContext::new();
+
+    for &t in &[1.0, 3.0, 5.0] {
+        let pv_hl = tree_hl
+            .price(StateVariables::default(), t, &market, &valuator)
+            .unwrap();
+        let pv_hw = tree_hw
+            .price(StateVariables::default(), t, &market, &valuator)
+            .unwrap();
+
+        assert!(
+            (pv_hl - pv_hw).abs() < 1e-10,
+            "Ho-Lee and HW(a=0) should match at t={}: HL={}, HW={}",
+            t,
+            pv_hl,
+            pv_hw,
+        );
+    }
+}
+
+// =============================================================================
+// Test 6: Hull-White Mean Reversion Reduces Rate Dispersion
+// =============================================================================
+// With positive mean reversion, rates at terminal nodes should be less dispersed.
+
+#[test]
+fn test_mean_reversion_reduces_rate_dispersion() {
+    let as_of = date!(2020 - 01 - 01);
+    let rate = 0.05;
+    let curve = create_flat_curve(as_of, rate, "USD-OIS");
+    let steps = 50;
+    let ttm = 10.0;
+
+    let config_no_mr = ShortRateTreeConfig {
+        steps,
+        volatility: 0.01,
+        mean_reversion: None,
+        ..Default::default()
+    };
+
+    let config_mr = ShortRateTreeConfig {
+        steps,
+        volatility: 0.01,
+        mean_reversion: Some(0.05),
+        ..Default::default()
+    };
+
+    let mut tree_no_mr = ShortRateTree::new(config_no_mr);
+    let mut tree_mr = ShortRateTree::new(config_mr);
+
+    tree_no_mr.calibrate(&curve, ttm).unwrap();
+    tree_mr.calibrate(&curve, ttm).unwrap();
+
+    // Compare rate spread at terminal step
+    let last_step = steps;
+    let r_max_no_mr = tree_no_mr.rate_at_node(last_step, last_step).unwrap();
+    let r_min_no_mr = tree_no_mr.rate_at_node(last_step, 0).unwrap();
+    let spread_no_mr = r_max_no_mr - r_min_no_mr;
+
+    let r_max_mr = tree_mr.rate_at_node(last_step, last_step).unwrap();
+    let r_min_mr = tree_mr.rate_at_node(last_step, 0).unwrap();
+    let spread_mr = r_max_mr - r_min_mr;
+
+    assert!(
+        spread_mr < spread_no_mr,
+        "Mean reversion should tighten rate dispersion: MR spread={:.6}, no-MR spread={:.6}",
+        spread_mr,
+        spread_no_mr,
+    );
+}

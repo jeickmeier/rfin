@@ -3,6 +3,16 @@
 //! This module provides closed-form solutions for vanilla quanto options under the
 //! Black-Scholes framework with quanto drift adjustment.
 //!
+//! # Conventions
+//!
+//! | Parameter | Convention | Units |
+//! |-----------|-----------|-------|
+//! | Rates (r, q) | Continuously compounded | Decimal (0.05 = 5%) |
+//! | Volatility (σ_asset, σ_fx) | Annualized | Decimal (0.20 = 20%) |
+//! | Correlation (ρ) | Asset–FX correlation | Decimal (-1.0 to 1.0) |
+//! | Time (T) | ACT/365-style | Years (1.0 = 1 year) |
+//! | Prices | Per unit of underlying | Currency units |
+//!
 //! # References
 //!
 //! - Garman, M. B., & Kohlhagen, S. W. (1983), "Foreign Currency Option Values"

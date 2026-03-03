@@ -51,6 +51,8 @@ pub mod convexity;
 pub mod duration_macaulay;
 /// Modified duration calculator
 pub mod duration_modified;
+/// Effective duration and convexity for bonds with embedded options
+pub mod effective;
 /// Price, yield, and spread metrics
 pub mod price_yield_spread;
 

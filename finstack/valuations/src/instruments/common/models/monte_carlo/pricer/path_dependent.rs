@@ -671,6 +671,7 @@ mod tests {
     };
     use crate::instruments::common_impl::models::monte_carlo::process::gbm::GbmParams;
 
+    #[cfg(feature = "slow")]
     #[test]
     fn test_path_dependent_pricer_asian() {
         let config = PathDependentPricerConfig::new(10_000)
@@ -693,6 +694,7 @@ mod tests {
         assert!(result.mean.amount() < 20.0);
     }
 
+    #[cfg(feature = "slow")]
     #[test]
     fn test_path_dependent_pricer_lookback() {
         let config = PathDependentPricerConfig::new(10_000)

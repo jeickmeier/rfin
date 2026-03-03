@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! CDS Index pricing parity tests between single-curve and constituents modes.
 //!
 //! Market Standard: When all constituents have identical credit quality,

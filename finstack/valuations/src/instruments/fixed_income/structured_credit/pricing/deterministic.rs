@@ -626,6 +626,7 @@ fn simulate_period(
             market: context,
             tranche_balances: Some(&state.tranche_balances),
             reserve_balance: state.reserve_balance,
+            recovery_proceeds: released_recoveries,
         };
 
     let waterfall_result =

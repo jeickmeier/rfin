@@ -18,6 +18,16 @@
 //! Implements the "Little Heston Trap" formulation from Albrecher et al. (2007)
 //! to avoid branch-cut discontinuities in the complex logarithm.
 //!
+//! # Conventions
+//!
+//! | Parameter | Convention | Units |
+//! |-----------|-----------|-------|
+//! | Rates (r, q) | Continuously compounded | Decimal (0.05 = 5%) |
+//! | Variance (v0, theta) | Annualized variance | Decimal (0.04 = 20% vol) |
+//! | Vol-of-vol (sigma_v) | Annualized | Decimal |
+//! | Time (T) | ACT/365-style | Years |
+//! | Prices | Per unit of underlying | Currency units |
+//!
 //! # Reference
 //!
 //! - Heston (1993) - "A Closed-Form Solution for Options with Stochastic Volatility"
@@ -94,6 +104,47 @@ impl Default for HestonFourierSettings {
             panels: 100,
             gl_order: 16,
             phi_eps: 1e-8,
+        }
+    }
+}
+
+impl HestonFourierSettings {
+    /// Create settings adapted to the option's time to maturity.
+    ///
+    /// Short-dated options require finer integration grids because
+    /// the characteristic function oscillates more rapidly.
+    ///
+    /// | Maturity | u_max | panels | gl_order |
+    /// |----------|-------|--------|----------|
+    /// | T < 0.05 | 200   | 200    | 16       |
+    /// | T < 0.25 | 150   | 150    | 16       |
+    /// | T < 1.0  | 100   | 100    | 16       |
+    /// | T >= 1.0 | 80    | 80     | 16       |
+    #[must_use]
+    pub fn for_maturity(time: f64) -> Self {
+        if time < 0.05 {
+            Self {
+                u_max: 200.0,
+                panels: 200,
+                gl_order: 16,
+                phi_eps: 1e-8,
+            }
+        } else if time < 0.25 {
+            Self {
+                u_max: 150.0,
+                panels: 150,
+                gl_order: 16,
+                phi_eps: 1e-8,
+            }
+        } else if time < 1.0 {
+            Self::default()
+        } else {
+            Self {
+                u_max: 80.0,
+                panels: 80,
+                gl_order: 16,
+                phi_eps: 1e-8,
+            }
         }
     }
 }
@@ -238,6 +289,13 @@ fn heston_pj(
 ///
 /// where P1 and P2 are risk-neutral probabilities computed via Fourier inversion.
 ///
+/// # Integration Settings
+///
+/// Uses [`HestonFourierSettings::for_maturity`] to adapt the integration grid
+/// to the option's time to maturity. Short-dated options use finer grids to
+/// handle the more rapidly oscillating characteristic function. For custom
+/// control, use [`heston_call_price_fourier_with_settings`].
+///
 /// # Example
 ///
 /// ```text
@@ -265,7 +323,7 @@ pub fn heston_call_price_fourier(spot: f64, strike: f64, time: f64, params: &Hes
         strike,
         time,
         params,
-        &HestonFourierSettings::default(),
+        &HestonFourierSettings::for_maturity(time),
     )
 }
 
@@ -325,7 +383,7 @@ pub fn heston_put_price_fourier(spot: f64, strike: f64, time: f64, params: &Hest
         strike,
         time,
         params,
-        &HestonFourierSettings::default(),
+        &HestonFourierSettings::for_maturity(time),
     )
 }
 
@@ -674,5 +732,54 @@ mod tests {
             price_deep_itm.is_finite() && price_deep_itm > 40.0,
             "Should handle deep ITM"
         );
+    }
+
+    /// Test improved accuracy for very short-dated options.
+    #[test]
+    fn test_short_maturity_adaptive() {
+        let params = HestonParams::new(0.05, 0.0, 2.0, 0.04, 0.3, -0.7, 0.04);
+
+        // Very short maturity: T = 1 week
+        let time = 7.0 / 365.0;
+        let price = heston_call_price_fourier(100.0, 100.0, time, &params);
+
+        // Should be close to BS with vol = sqrt(v0) = 0.2
+        let bs = black_scholes_call(100.0, 100.0, time, 0.05, 0.0, 0.2);
+
+        // With short maturity and moderate vol-of-vol, Heston ≈ BS
+        assert!(
+            (price - bs).abs() < 0.5,
+            "Short-dated Heston={:.4} should be close to BS={:.4}",
+            price,
+            bs
+        );
+        assert!(price > 0.0, "Price must be positive");
+    }
+
+    /// Test that adaptive settings produce valid results across maturities.
+    #[test]
+    fn test_adaptive_settings_consistency() {
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+
+        for &time in &[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0] {
+            let price = heston_call_price_fourier(100.0, 100.0, time, &params);
+            assert!(
+                price.is_finite() && price >= 0.0,
+                "Price must be finite and non-negative for T={}: got {}",
+                time,
+                price
+            );
+
+            // Put-call parity must hold
+            let put = heston_put_price_fourier(100.0, 100.0, time, &params);
+            let parity =
+                price - put - (100.0 * (-0.02 * time).exp() - 100.0 * (-0.05 * time).exp());
+            assert!(
+                parity.abs() < 0.1,
+                "Put-call parity violated for T={}: residual={}",
+                time,
+                parity
+            );
+        }
     }
 }

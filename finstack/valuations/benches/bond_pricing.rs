@@ -311,6 +311,7 @@ fn bench_tree_step_scaling(c: &mut Criterion) {
             tolerance: 1e-6,
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
+            mean_reversion: None,
         };
         let pricer = TreePricer::with_config(config);
 

@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Metric framework integration tests for CDS Tranche.
 //!
 //! Tests the integration between CDS Tranche instrument and the metric calculation framework.

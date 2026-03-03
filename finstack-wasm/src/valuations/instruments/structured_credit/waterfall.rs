@@ -491,6 +491,7 @@ pub fn execute_waterfall_js(
         market: market.inner(),
         tranche_balances: None,
         reserve_balance: finstack_core::money::Money::new(0.0, pool.base_currency()),
+        recovery_proceeds: finstack_core::money::Money::new(0.0, pool.base_currency()),
     };
 
     let distribution = if explain.unwrap_or(false) {

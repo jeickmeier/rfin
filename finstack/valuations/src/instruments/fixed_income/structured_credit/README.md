@@ -302,6 +302,35 @@ The most comprehensive documentation is in `mod.rs`, which includes:
 
 See also `pricing/stochastic/README.md` for stochastic modeling.
 
+## Roadmap
+
+### Critical (fix immediately)
+
+- [x] Compute IC cure amount in `calculate_ic` (`pricing/coverage_tests.rs`)
+- [x] Use consistent day-count-based accrual for amortization schedule in `calculate_pool_flows` (`pricing/deterministic.rs`)
+
+### Major (next release)
+
+- [x] Make `CreditModelConfig` defaults deal-type-specific via `CreditModelConfig::for_deal_type()`
+- [x] Rename `PricingMode::MonteCarlo` to `PricingMode::TreeResampling` (old variant deprecated)
+- [x] Deprecate `PricingMode::Hybrid` with clear warning
+
+### Moderate (backlog)
+
+- [x] Store `tranche_id` directly in coverage test results instead of parsing from string IDs
+- [x] Avoid `loss_alloc_order.clone()` per period in `simulate_period`
+- [x] Replace YTM fallback `0.05` in `value_tranche_with_metrics` with `NaN`
+- [x] Widen `Z_SPREAD_MIN` to -1000bp for legacy premium pools
+- [x] Track recovery proceeds separately in `WaterfallDistribution` and `WaterfallContext`
+
+### Strategic Gaps (roadmap)
+
+- [ ] True OAS engine with stochastic interest rate paths (Hull-White/BK) for RMBS pricing
+- [ ] Stochastic LGD models (beta-distributed recovery)
+- [ ] Key-rate duration by tranche
+- [ ] Synthetic CDO / credit-linked note coverage
+- [ ] P&L attribution (carry, roll-down, spread, prepay, default components)
+
 ## Related Crates
 
 - `finstack_core::dates` - Schedule generation, day counts

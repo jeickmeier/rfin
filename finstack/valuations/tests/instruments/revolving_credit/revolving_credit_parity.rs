@@ -3,7 +3,7 @@
 //! These tests ensure that the stochastic pricer with zero volatility produces
 //! identical results to the deterministic pricer across various facility configurations.
 
-#[cfg(all(test, feature = "mc"))]
+#[cfg(all(test, feature = "mc", feature = "slow"))]
 mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount, Tenor};

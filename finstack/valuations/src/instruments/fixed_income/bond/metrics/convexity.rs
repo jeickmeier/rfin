@@ -46,6 +46,20 @@ impl MetricCalculator for ConvexityCalculator {
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        let bond: &Bond = context.instrument_as()?;
+
+        // For bonds with embedded options, use effective convexity (curve-bump approach)
+        let has_options = bond.call_put.as_ref().is_some_and(|cp| cp.has_options());
+
+        if has_options {
+            return super::effective::effective_convexity(
+                bond,
+                context.curves.as_ref(),
+                context.as_of,
+                None,
+            );
+        }
+
         let ytm = context
             .computed
             .get(&MetricId::Ytm)
@@ -63,7 +77,6 @@ impl MetricCalculator for ConvexityCalculator {
             })
         })?;
 
-        let bond: &Bond = context.instrument_as()?;
         let comp =
             crate::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding::Street;
         let freq = bond.cashflow_spec.frequency();

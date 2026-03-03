@@ -303,9 +303,20 @@ pub struct WaterfallDistribution {
     /// Diversion reason if applicable
     pub diversion_reason: Option<String>,
 
+    /// Recovery proceeds included in this period's available cash.
+    /// Tracked separately from principal collections for trustee report reconciliation.
+    #[serde(default = "WaterfallDistribution::zero_usd")]
+    pub recovery_proceeds: Money,
+
     /// Optional explanation trace (enabled via ExplainOpts)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub explanation: Option<ExplanationTrace>,
+}
+
+impl WaterfallDistribution {
+    fn zero_usd() -> Money {
+        Money::new(0.0, finstack_core::currency::Currency::USD)
+    }
 }
 
 /// Record of individual payment

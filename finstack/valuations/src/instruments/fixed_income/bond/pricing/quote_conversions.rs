@@ -807,6 +807,7 @@ pub fn price_from_oas(
     let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig {
         steps: config.tree_steps,
         volatility: config.volatility,
+        mean_reversion: config.mean_reversion,
         ..Default::default()
     });
     short_rate_tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;

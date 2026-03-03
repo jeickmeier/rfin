@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Tests for day count basis handling in autocallable pricing.
 //!
 //! These tests validate that autocallables correctly use the discount curve's

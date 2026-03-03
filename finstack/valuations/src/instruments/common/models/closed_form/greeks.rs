@@ -59,52 +59,44 @@
 //!
 //! ## Computing All Greeks
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::common::models::closed_form::greeks::{
 //!     bs_call_greeks, BsGreeks
 //! };
 //!
 //! let spot = 100.0;
 //! let strike = 100.0;
-//! let time = 1.0;        // 1 year to expiration
-//! let rate = 0.05;       // 5% risk-free rate
-//! let div_yield = 0.02;  // 2% dividend yield
-//! let vol = 0.20;        // 20% annual volatility
+//! let time = 1.0;
+//! let rate = 0.05;
+//! let div_yield = 0.02;
+//! let vol = 0.20;
 //!
 //! let greeks: BsGreeks = bs_call_greeks(spot, strike, time, rate, div_yield, vol);
-//!
-//! println!("Delta: {:.4}", greeks.delta);
-//! println!("Gamma: {:.4}", greeks.gamma);
-//! println!("Vega: {:.4}", greeks.vega);
-//! println!("Theta: {:.4}", greeks.theta);
-//! println!("Rho: {:.4}", greeks.rho_r);
+//! assert!(greeks.is_valid());
 //! ```
 //!
 //! ## Individual Greek Calculations
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::common::models::closed_form::greeks::{
 //!     bs_call_delta, bs_gamma, bs_vega
 //! };
 //!
 //! let spot = 100.0;
 //! let strike = 100.0;
-//! let time = 0.25;       // 3 months
+//! let time = 0.25;
 //! let rate = 0.05;
-//! let div_yield = 0.0;   // No dividends
+//! let div_yield = 0.0;
 //! let vol = 0.30;
 //!
-//! // Delta: probability of exercise (risk-neutral)
 //! let delta = bs_call_delta(spot, strike, time, rate, div_yield, vol);
-//! assert!((delta - 0.5).abs() < 0.1); // ATM call delta near 0.5
+//! assert!((delta - 0.5).abs() < 0.1);
 //!
-//! // Gamma: curvature of delta
 //! let gamma = bs_gamma(spot, strike, time, rate, div_yield, vol);
-//! assert!(gamma > 0.0); // Always positive
+//! assert!(gamma > 0.0);
 //!
-//! // Vega: volatility sensitivity (per 1% vol change)
 //! let vega = bs_vega(spot, strike, time, rate, div_yield, vol);
-//! assert!(vega > 0.0); // Always positive for both calls and puts
+//! assert!(vega > 0.0);
 //! ```
 
 use crate::instruments::common_impl::models::volatility::black::{d1, d2};

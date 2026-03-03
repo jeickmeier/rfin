@@ -78,6 +78,7 @@ pub const BBG_ZERO_TOL_BP_ULTRA_LONG: f64 = 100.0;
 pub const FWD_RATE_ABS_TOL: f64 = 1e-8;
 
 /// Base correlation upfront-fraction tolerance (dimensionless).
+#[allow(dead_code)]
 pub const BASE_CORR_UPFRONT_FRAC_TOL: f64 = 1e-10;
 
 /// Swaption normal-vol fit tolerance (decimal). 5bp → 0.0005.

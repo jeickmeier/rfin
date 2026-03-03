@@ -3,31 +3,18 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
 /// Calculates modified duration for bonds.
 ///
-/// Modified duration measures interest rate sensitivity and is computed as:
+/// For bonds **without** embedded options, computes yield-based modified duration:
 /// ```text
 /// D_mod = D_mac / (1 + y/m)
 /// ```
-/// where `D_mac` is Macaulay duration, `y` is yield to maturity, and `m` is
-/// the number of compounding periods per year.
+///
+/// For bonds **with** embedded options (callable/putable), computes effective
+/// duration via parallel curve bumps, which properly accounts for changes in
+/// exercise behavior as rates shift.
 ///
 /// # Dependencies
 ///
-/// Requires `DurationMac` and `Ytm` metrics to be computed first.
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use finstack_valuations::instruments::fixed_income::bond::Bond;
-/// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
-/// use finstack_core::market_data::context::MarketContext;
-/// use finstack_core::dates::Date;
-///
-/// # let bond = Bond::example();
-/// # let market = MarketContext::new();
-/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
-/// // Modified duration is computed automatically when requesting bond metrics
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// Requires `DurationMac` and `Ytm` metrics for straight bonds.
 pub struct ModifiedDurationCalculator;
 
 impl MetricCalculator for ModifiedDurationCalculator {
@@ -37,6 +24,18 @@ impl MetricCalculator for ModifiedDurationCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
+
+        // For bonds with embedded options, use effective duration (curve-bump approach)
+        let has_options = bond.call_put.as_ref().is_some_and(|cp| cp.has_options());
+
+        if has_options {
+            return super::effective::effective_duration(
+                bond,
+                context.curves.as_ref(),
+                context.as_of,
+                None,
+            );
+        }
 
         let ytm = context
             .computed
@@ -58,7 +57,6 @@ impl MetricCalculator for ModifiedDurationCalculator {
                 })
             })?;
 
-        // Modified duration depends on compounding; default to Street (periodic with bond freq)
         let m = crate::instruments::fixed_income::bond::pricing::quote_engine::periods_per_year(
             bond.cashflow_spec.frequency(),
         )?

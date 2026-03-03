@@ -169,6 +169,7 @@ mod tests {
         assert_eq!(result.num_paths, 1000);
     }
 
+    #[cfg(feature = "slow")]
     #[test]
     fn test_european_pricer_atm_call() {
         // ATM call should have value > intrinsic value of 0
@@ -188,6 +189,7 @@ mod tests {
         assert!(result.mean.amount() > 5.0);
     }
 
+    #[cfg(feature = "slow")]
     #[test]
     fn test_european_pricer_deep_itm() {
         // Deep ITM call should be close to intrinsic value

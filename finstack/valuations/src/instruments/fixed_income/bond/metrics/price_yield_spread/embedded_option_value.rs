@@ -184,6 +184,7 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
             } else {
                 self.volatility
             },
+            mean_reversion: bond_config.mean_reversion,
             ..Default::default()
         };
         let mut tree = ShortRateTree::new(tree_config);

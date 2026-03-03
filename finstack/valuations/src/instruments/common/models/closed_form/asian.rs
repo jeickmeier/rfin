@@ -39,6 +39,15 @@
 //! **Accuracy**: Typically within 1% of Monte Carlo for reasonable parameters.
 //! Less accurate for deep OTM options or very short maturities.
 //!
+//! # Conventions
+//!
+//! | Parameter | Convention | Units |
+//! |-----------|-----------|-------|
+//! | Rates (r, q) | Continuously compounded | Decimal (0.05 = 5%) |
+//! | Volatility (σ) | Annualized | Decimal (0.20 = 20%) |
+//! | Time (T) | ACT/365-style | Years (1.0 = 1 year) |
+//! | Prices | Per unit of underlying | Currency units |
+//!
 //! # Academic References
 //!
 //! ## Primary Sources

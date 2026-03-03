@@ -79,14 +79,12 @@ impl BinomialTree {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use finstack_valuations::instruments::common::models::trees::BinomialTree;
     ///
-    /// // Request 100 steps, get 101 for optimal LR accuracy
     /// let tree = BinomialTree::leisen_reimer_odd(100);
     /// assert_eq!(tree.steps, 101);
     ///
-    /// // Request 99 steps, kept as-is
     /// let tree = BinomialTree::leisen_reimer_odd(99);
     /// assert_eq!(tree.steps, 99);
     /// ```

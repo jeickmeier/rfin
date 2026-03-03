@@ -21,6 +21,16 @@
 //! - `r` is the domestic (risk-free) rate
 //! - `q` is the dividend yield (or foreign rate for FX options)
 //!
+//! # Conventions
+//!
+//! | Parameter | Convention | Units |
+//! |-----------|-----------|-------|
+//! | Rates (r, q) | Continuously compounded | Decimal (0.05 = 5%) |
+//! | Volatility (σ) | Annualized | Decimal (0.20 = 20%) |
+//! | Time (T) | ACT/365-style | Years (1.0 = 1 year) |
+//! | Prices | Per unit of underlying | Currency units |
+//! | Greeks (vega, rho) | Per 1% move | Scaled by 0.01 |
+//!
 //! # References
 //!
 //! - Black, F., & Scholes, M. (1973). "The Pricing of Options and Corporate Liabilities."
@@ -136,7 +146,7 @@ impl BsGreeks {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_valuations::instruments::common::models::closed_form::vanilla::bs_price;
 /// use finstack_valuations::instruments::OptionType;
 ///
@@ -236,18 +246,14 @@ pub fn bs_price(
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_valuations::instruments::common::models::closed_form::vanilla::{bs_greeks, BsGreeks};
 /// use finstack_valuations::instruments::OptionType;
 ///
-/// // Equity option with calendar day theta
 /// let greeks = bs_greeks(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, OptionType::Call, 365.0);
-/// assert!(greeks.delta > 0.0 && greeks.delta < 1.0); // Call delta in (0, 1)
-/// assert!(greeks.gamma > 0.0); // Gamma always positive
-/// assert!(greeks.vega > 0.0);  // Vega always positive
-///
-/// // FX option with ACT/360 theta
-/// let fx_greeks = bs_greeks(1.10, 1.12, 0.05, 0.03, 0.08, 0.5, OptionType::Put, 360.0);
+/// assert!(greeks.delta > 0.0 && greeks.delta < 1.0);
+/// assert!(greeks.gamma > 0.0);
+/// assert!(greeks.vega > 0.0);
 /// ```
 #[must_use]
 #[inline]

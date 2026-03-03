@@ -219,10 +219,10 @@ def slide_02_the_question(prs):
     add_callout_box(slide, Inches(5.3), Inches(2.2), Inches(4.2), Inches(0.45),
                     "What the Models Show", bg_color=ACCENT_BLUE)
     add_bullet_list(slide, Inches(5.3), Inches(2.8), Inches(4.2), Inches(2.5), [
-        "For strong credits (BB+): PIK premium is small (\u00b160bp) "
-        "and sign is model-dependent",
-        "For stressed credits (CCC): PIK premium > +260bp, "
-        "robust across models",
+        "For strong credits (BB+, 2.0\u00d7 coverage): PIK premium "
+        "is small (\u00b160bp) and sign is model-dependent",
+        "For stressed credits (CCC, 1.15\u00d7 coverage): PIK "
+        "premium > +260bp, robust across models",
         "The non-linearity means flat spread bumps are dangerous",
     ], font_size=14, color=TEXT_DARK)
 
@@ -246,16 +246,16 @@ def slide_03_hr_results(prs):
 
     # ── HR results table (from old slide 6) ──────────────────────────
     hr_rows = [
-        ["Issuer", "\u03bb (bp)", "Cash Price", "PIK Price", "\u0394Z (bp)"],
-        ["BB+ (Solid HY)", "143", "113.35", "111.46", "+40"],
-        ["BB\u2212 (Mid HY)", "334", "107.56", "104.88", "+60"],
-        ["B (Weak HY)", "591", "99.76", "96.05", "+91"],
-        ["B\u2212 (Stressed)", "911", "90.33", "85.40", "+137"],
-        ["CCC (Deeply Stressed)", "1468", "76.13", "69.59", "+224"],
+        ["Issuer", "LTV", "\u03bb (bp)", "Cash Price", "PIK Price", "\u0394Z (bp)"],
+        ["BB+ (Solid HY)", "50%", "143", "113.35", "111.46", "+40"],
+        ["BB\u2212 (Mid HY)", "61%", "334", "107.56", "104.88", "+60"],
+        ["B (Weak HY)", "71%", "591", "99.76", "96.05", "+91"],
+        ["B\u2212 (Stressed)", "80%", "911", "90.33", "85.40", "+137"],
+        ["CCC (Deeply Stressed)", "87%", "1468", "76.13", "69.59", "+224"],
     ]
     add_table(slide, Inches(0.5), Inches(1.1), Inches(5.5), hr_rows,
-              col_widths=[Inches(1.8), Inches(0.7), Inches(1.0),
-                          Inches(1.0), Inches(1.0)],
+              col_widths=[Inches(1.5), Inches(0.5), Inches(0.7),
+                          Inches(0.9), Inches(0.9), Inches(0.9)],
               font_size=11)
 
     # ── Calibration gap table (from old slide 7, compressed) ─────────
@@ -263,28 +263,33 @@ def slide_03_hr_results(prs):
                 "The Calibration Gap", font_size=14, bold=True,
                 color=HEADER_BLUE)
     gap_rows = [
-        ["Issuer", "HR 5Y PD", "Hist 5Y PD", "Ratio"],
-        ["BB+", "6.9%", "1.0%", "6.9\u00d7"],
-        ["B", "25.6%", "11.8%", "2.2\u00d7"],
-        ["CCC", "52.0%", "39.3%", "1.3\u00d7"],
+        ["Issuer", "LTV", "HR 5Y PD", "Hist 5Y PD", "Ratio"],
+        ["BB+", "50%", "6.9%", "1.0%", "6.9\u00d7"],
+        ["B", "71%", "25.6%", "11.8%", "2.2\u00d7"],
+        ["CCC", "87%", "52.0%", "39.3%", "1.3\u00d7"],
     ]
     add_table(slide, Inches(6.3), Inches(1.45), Inches(3.5), gap_rows,
-              col_widths=[Inches(0.7), Inches(0.9), Inches(0.9),
-                          Inches(0.7)],
+              col_widths=[Inches(0.5), Inches(0.5), Inches(0.8),
+                          Inches(0.8), Inches(0.6)],
               font_size=10)
 
+    # ── Footnote ─────────────────────────────────────────────────────
+    add_textbox(slide, Inches(0.5), Inches(3.55), Inches(5.5), Inches(0.25),
+                "LTV = Debt / Enterprise Value at origination",
+                font_size=9, color=TEXT_MID)
+
     # ── Bullets ──────────────────────────────────────────────────────
-    add_bullet_list(slide, Inches(0.5), Inches(3.8), Inches(9), Inches(1.5), [
+    add_bullet_list(slide, Inches(0.5), Inches(3.9), Inches(9), Inches(1.5), [
         "Under risk-neutral hazard rates, PIK always trades wider: "
-        "+40bp (BB+) to +224bp (CCC). The concentrated maturity "
-        "exposure penalises PIK at every credit level",
+        "+40bp at 50% LTV (BB+) to +224bp at 87% LTV (CCC). "
+        "Concentrated maturity exposure penalises PIK at every level",
         "But market spreads embed a risk premium above expected "
-        "losses. For BB+ the spread implies 7\u00d7 the historical "
+        "losses. At 50% LTV the spread implies 7\u00d7 the historical "
         "default rate \u2014 the PIK penalty may be overstated for "
-        "strong credits",
+        "low-LTV credits",
     ], font_size=13, color=TEXT_DARK)
 
-    add_callout_box(slide, Inches(1.0), Inches(5.5), Inches(8), Inches(0.65),
+    add_callout_box(slide, Inches(1.0), Inches(5.6), Inches(8), Inches(0.65),
                     "Is the PIK penalty real, or is it driven by overstated "
                     "default risk? The structural model \u2014 which uses "
                     "historical PDs \u2014 tests this.",
@@ -364,23 +369,24 @@ def slide_04_structural_results(prs):
                 font_size=12, bold=True, color=HEADER_BLUE)
 
     mc_rows = [
-        ["Issuer", "Cash", "PIK", "Toggle", "PIK\u2212Cash", "Tog\u2212Cash"],
-        ["BB+ (Solid HY)", "20bp", "\u221239bp", "22bp", "\u221259", "+1"],
-        ["BB\u2212 (Mid HY)", "110bp", "88bp", "130bp", "\u221222", "+20"],
-        ["B (Weak HY)", "292bp", "329bp", "346bp", "+37", "+54"],
-        ["B\u2212 (Stressed)", "710bp", "851bp", "862bp", "+141", "+151"],
-        ["CCC (Deeply Stressed)", "1,497bp", "1,759bp", "1,763bp", "+262", "+266"],
+        ["Issuer", "LTV", "Cash", "PIK", "Toggle", "PIK\u2212Cash", "Tog\u2212Cash"],
+        ["BB+ (Solid HY)", "50%", "20bp", "\u221239bp", "22bp", "\u221259", "+1"],
+        ["BB\u2212 (Mid HY)", "61%", "110bp", "88bp", "130bp", "\u221222", "+20"],
+        ["B (Weak HY)", "71%", "292bp", "329bp", "346bp", "+37", "+54"],
+        ["B\u2212 (Stressed)", "80%", "710bp", "851bp", "862bp", "+141", "+151"],
+        ["CCC (Deeply Stressed)", "87%", "1,497bp", "1,759bp", "1,763bp", "+262", "+266"],
     ]
     add_table(slide, Inches(0.5), Inches(3.05), Inches(9), mc_rows,
-              col_widths=[Inches(2.2), Inches(1.1), Inches(1.1),
-                          Inches(1.1), Inches(1.2), Inches(1.2)],
+              col_widths=[Inches(1.8), Inches(0.5), Inches(1.0),
+                          Inches(1.0), Inches(1.0), Inches(1.1), Inches(1.1)],
               font_size=11)
 
     # ── Bullets ──────────────────────────────────────────────────────
     add_bullet_list(slide, Inches(0.5), Inches(5.3), Inches(9), Inches(1.0), [
-        "BB+/BB\u2212: MC shows PIK tighter (\u221259/\u221222bp) \u2014 "
-        "under historical PDs, PIK compounding survives on ~98% of paths",
-        "B\u2212 to CCC: PIK premium +141 to +262bp \u2014 the "
+        "At 50\u201361% LTV: MC shows PIK tighter (\u221259/\u221222bp) "
+        "\u2014 under historical PDs, PIK compounding survives "
+        "on ~98% of paths",
+        "At 80\u201387% LTV: PIK premium +141 to +262bp \u2014 the "
         "feedback loop dominates and both models agree",
     ], font_size=13, color=TEXT_DARK)
 
@@ -475,26 +481,26 @@ def slide_05_premium_sweep(prs):
                     "LOW IMPACT ZONE", bg_color=ACCENT_GREEN, font_size=10)
     add_textbox(slide, Inches(0.3), zone_y + Inches(0.45),
                 Inches(2.8), Inches(0.4),
-                "Mkt spread < 300bp\nPremium small, sign model-dep.",
+                "LTV < 65%  |  Mkt spread < 300bp\nPremium small, sign model-dep.",
                 font_size=10, color=TEXT_DARK)
 
     add_callout_box(slide, Inches(3.4), zone_y, Inches(2.8), Inches(0.4),
                     "CROSSOVER ZONE", bg_color=ACCENT_ORANGE, font_size=10)
     add_textbox(slide, Inches(3.4), zone_y + Inches(0.45),
                 Inches(2.8), Inches(0.4),
-                "300\u2013500bp market spread\nPIK premium 0\u201375bp",
+                "LTV 65\u201375%  |  300\u2013500bp spread\nPIK premium 0\u201375bp",
                 font_size=10, color=TEXT_DARK)
 
     add_callout_box(slide, Inches(6.5), zone_y, Inches(2.8), Inches(0.4),
                     "STRUCTURAL RISK", bg_color=ACCENT_RED, font_size=10)
     add_textbox(slide, Inches(6.5), zone_y + Inches(0.45),
                 Inches(2.8), Inches(0.4),
-                "Mkt spread > 500bp\nPIK premium 75\u2013290+ bp",
+                "LTV > 75%  |  Mkt spread > 500bp\nPIK premium 75\u2013290+ bp",
                 font_size=10, color=TEXT_DARK)
 
     # ── Model comparison row (from old slide 16) ─────────────────────
     cmp_rows = [
-        ["", "BB+", "BB\u2212", "B", "B\u2212", "CCC"],
+        ["", "BB+ (50%)", "BB\u2212 (61%)", "B (71%)", "B\u2212 (80%)", "CCC (87%)"],
         ["HR \u0394Z", "+40", "+60", "+91", "+137", "+224"],
         ["MC \u0394Z", "\u221259", "\u221222", "+37", "+141", "+262"],
     ]
@@ -535,14 +541,14 @@ def slide_06_takeaways(prs):
     # ── 3 takeaways ──────────────────────────────────────────────────
     takeaways = [
         ("1", "PIK premium is non-linear and credit-quality-dependent",
-         "For strong credits (BB+/BB\u2212), the premium is small "
+         "For strong credits (BB+/BB\u2212, 2.0\u00d7 coverage), the premium is small "
          "(\u00b160bp) and model-dependent. For stressed credits "
-         "(CCC), it exceeds +260bp and is robust across models."),
+         "(CCC, 1.15\u00d7 coverage), it exceeds +260bp and is robust across models."),
         ("2", "The toggle option does not protect the investor",
          "Borrowers PIK when credit deteriorates \u2014 adverse "
          "selection. Toggle Z-spreads can exceed full PIK because "
          "the spiral concentrates on the worst paths."),
-        ("3", "Above ~400bp market spread, structural modelling is essential",
+        ("3", "Above ~75% LTV (~400bp spread), structural modelling is essential",
          "In the structural risk zone, the feedback loop dominates "
          "pricing regardless of calibration. A flat spread bump "
          "approach will materially misprice PIK risk."),
@@ -577,7 +583,7 @@ def slide_06_takeaways(prs):
                 "Decision Guide", font_size=14, bold=True, color=ACCENT_BLUE)
 
     guide_rows = [
-        ["Question", "Low Impact", "Crossover", "Structural Risk"],
+        ["Question", "Low Impact\n(LTV < 65%)", "Crossover\n(LTV 65\u201375%)", "Structural Risk\n(LTV > 75%)"],
         ["PIK Z-spread premium", "\u00b160bp (model-dep.)", "0 to +75bp",
          "+100 to +290bp"],
         ["Model needed?", "Either model adequate",

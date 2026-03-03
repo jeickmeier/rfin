@@ -69,7 +69,7 @@ pub(crate) fn finalize_flows(
 ///
 /// Tracks referenced calendar IDs so callers can understand adjustment context.
 /// Metadata for cashflow schedules (calendar IDs, facility limits).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct CashFlowMeta {
     /// Holiday calendar IDs used for schedule adjustments
     pub calendar_ids: Vec<String>,
@@ -81,7 +81,7 @@ pub struct CashFlowMeta {
 ///
 /// Contains ordered cashflows plus notional and a representative `DayCount`.
 /// Methods provide convenient accessors commonly used by pricing and analysis.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CashFlowSchedule {
     /// Ordered cashflows (coupons, principal payments, fees)
     pub flows: Vec<CashFlow>,

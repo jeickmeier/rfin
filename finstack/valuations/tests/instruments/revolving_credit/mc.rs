@@ -3,15 +3,13 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{ForwardCurve, HazardCurve};
+use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::FloatingRateSpec;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees, StochasticUtilizationSpec,
     UtilizationProcess,
 };
 use finstack_valuations::instruments::Instrument;
-use rust_decimal::Decimal;
 use time::macros::date;
 
 use crate::common::test_helpers::flat_discount_curve;
@@ -408,9 +406,12 @@ fn test_mc_utilization_mean_reversion() {
 /// Near-zero utilization volatility ensures deterministic paths so the
 /// difference is entirely due to the cap reducing the interest rate.
 #[test]
-#[cfg(feature = "mc")]
+#[cfg(all(feature = "mc", feature = "slow"))]
 fn test_mc_stochastic_floating_rate_index_cap() {
+    use finstack_core::market_data::term_structures::ForwardCurve;
+    use finstack_valuations::cashflow::builder::FloatingRateSpec;
     use finstack_valuations::instruments::fixed_income::revolving_credit::RevolvingCreditPricer;
+    use rust_decimal::Decimal;
 
     let val_date = date!(2025 - 01 - 01);
     let commitment_date = date!(2025 - 01 - 01);

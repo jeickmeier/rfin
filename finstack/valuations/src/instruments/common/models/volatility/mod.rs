@@ -36,17 +36,17 @@
 //!
 //! # Quick Example
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::common::models::volatility::{d1_d2, norm_cdf};
 //!
 //! let spot = 100.0;
 //! let strike = 105.0;
-//! let time = 0.5;
 //! let rate = 0.05;
-//! let div = 0.02;
 //! let vol = 0.20;
+//! let time = 0.5;
+//! let div = 0.02;
 //!
-//! let (d1, d2) = d1_d2(spot, strike, time, rate, div, vol);
+//! let (d1, d2) = d1_d2(spot, strike, rate, vol, time, div);
 //! let call_delta = (-div * time).exp() * norm_cdf(d1);
 //! ```
 //!

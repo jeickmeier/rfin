@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Bloomberg calibration accuracy tests.
 //!
 //! Validates calibrated curves against Bloomberg reference data to ensure

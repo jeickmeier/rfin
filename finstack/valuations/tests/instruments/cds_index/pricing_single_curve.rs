@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! CDS Index single-curve pricing mode tests.
 //!
 //! Tests cover:

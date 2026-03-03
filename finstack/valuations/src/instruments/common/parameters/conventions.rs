@@ -120,14 +120,12 @@ impl BondConvention {
     /// | German Bund | T+2 | Eurex |
     /// | UK Gilt | T+1 | DMO |
     /// | French OAT | T+2 | AFT |
-    /// | JGB | T+2 | MOF Japan |
+    /// | JGB | T+3 | MOF Japan (since Jan 2018) |
     pub fn settlement_days(&self) -> u32 {
         match self {
             BondConvention::USTreasury | BondConvention::USAgency | BondConvention::UKGilt => 1,
-            BondConvention::Corporate
-            | BondConvention::GermanBund
-            | BondConvention::FrenchOAT
-            | BondConvention::JGB => 2,
+            BondConvention::Corporate | BondConvention::GermanBund | BondConvention::FrenchOAT => 2,
+            BondConvention::JGB => 3,
         }
     }
 
@@ -853,7 +851,9 @@ mod tests {
         assert_eq!(BondConvention::Corporate.settlement_days(), 2);
         assert_eq!(BondConvention::GermanBund.settlement_days(), 2);
         assert_eq!(BondConvention::FrenchOAT.settlement_days(), 2);
-        assert_eq!(BondConvention::JGB.settlement_days(), 2);
+
+        // T+3 markets (JGB since Jan 2018)
+        assert_eq!(BondConvention::JGB.settlement_days(), 3);
     }
 
     #[test]
