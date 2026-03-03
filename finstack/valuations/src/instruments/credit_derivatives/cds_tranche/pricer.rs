@@ -41,10 +41,15 @@
 //! - Near ρ=1: The integrand approaches a step function, requiring more quadrature
 //!   points to capture the sharp transition.
 //!
+//! ## Portfolio Support
+//!
+//! * Supports both homogeneous and heterogeneous portfolios: per-issuer credit
+//!   curves, recovery rates, and weights via `CreditIndexData::issuer_credit_curves`
+//! * Automatically detects uniform portfolios and uses the faster binomial path
+//! * Falls back to heterogeneous convolution or SPA for diversified portfolios
+//!
 //! ## Limitations
 //!
-//! * Assumes homogeneous portfolio (single hazard curve for all constituents)
-//! * Uses constant recovery rate across all entities
 //! * Base correlation model can have small arbitrage inconsistencies at curve knots
 
 use crate::cashflow::builder::build_dates;

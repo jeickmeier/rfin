@@ -36,13 +36,13 @@ For a library of this scope, the architecture is remarkably clean: trait-based e
 
 ## Top 5 Priorities
 
-1. **[CRITICAL] Barrier option `value()` silently returns continuous-monitoring price even when `use_gobet_miri=true`** -- User must manually call `npv_mc()` for discrete pricing. This is a silent mispricing trap. Fix: make discrete the default when the flag is set, or error.
+1. **[PARTIALLY RESOLVED] Barrier option `value()` dispatch** -- `BarrierOption::value()` correctly dispatches to MC when `use_gobet_miri=true` (with `mc` feature). Stale doc comment fixed. Remaining gap: `LookbackOption` has no `use_gobet_miri` field and always uses analytical continuous pricing.
 
 2. **[CRITICAL] Cap/Floor has no automatic fallback from Black to Normal model for negative rates** -- EUR/JPY/CHF environments will produce errors or wrong prices. Fix: auto-select Normal when forward rate <= 0, or provide clear error.
 
 3. **[MAJOR] FX vol surface uses strike-based lookup, not delta-based** -- Every FX desk quotes in 25D RR/BF/ATM DNS conventions. The library acknowledges this gap in documentation but provides no conversion layer. Fix: add delta-to-strike converter and delta-parameterized surface builder.
 
-4. **[MAJOR] CDS tranche pricer assumes homogeneous portfolio** -- Cannot price tranches on diversified portfolios with heterogeneous credit quality. ~5-10% error for diversified books. Fix: add heterogeneous integration via MC fallback.
+4. **[RESOLVED] CDS tranche heterogeneous portfolio support** -- Already implemented: per-issuer credit curves, recovery rates, and weights via `CreditIndexData::issuer_credit_curves`, with automatic optimization to binomial path for uniform portfolios and SPA fallback for diversified ones. Doc comment was stale.
 
 5. **[MAJOR] No calibration routines for SABR, Heston, Student-t copula degrees of freedom** -- Parameters must be externally computed. Fix: add calibration targets in the plan-driven calibration framework.
 
@@ -150,12 +150,10 @@ For a library of this scope, the architecture is remarkably clean: trait-based e
 
 ### Rates
 
-#### [CRITICAL] Cap/Floor negative rate handling unclear
+#### [RESOLVED] Cap/Floor negative rate handling
 
-**What**: Black model returns error for F <= 0. No automatic fallback to Normal model.
-**Impact**: EUR/CHF pricing environments will fail silently or error. A desk running a EUR cap book hits this daily.
-**Recommendation**: Auto-select Normal model when forward rate <= 0, or provide `CapFloorVolType::Auto` that inspects the forward.
-**Reference**: QuantLib `BachelierCapFloorEngine` vs `BlackCapFloorEngine` selection logic.
+**What**: Added `CapFloorVolType::Auto` variant that inspects forward rate per-caplet and selects Black (lognormal) for positive rates or Normal (Bachelier) for negative/zero rates. Default remains `Lognormal` for backwards compatibility.
+**Status**: Implemented with tests. Black model still correctly errors for `F <= 0` when explicitly using `Lognormal` — users in negative-rate environments should use `Auto` or `Normal`.
 
 #### [MAJOR] IR Future convexity adjustment is stub only
 
@@ -250,12 +248,10 @@ For a library of this scope, the architecture is remarkably clean: trait-based e
 
 ### Credit Derivatives
 
-#### [CRITICAL] CDS tranche assumes homogeneous portfolio
+#### [RESOLVED] CDS tranche heterogeneous portfolio support
 
-**What**: Gaussian copula pricer uses a single hazard curve for all constituents.
-**Impact**: Cannot price tranches on diversified CDX/iTraxx portfolios with heterogeneous credit quality. ~5-10% error for diversified portfolios, more for concentrated ones.
-**Recommendation**: Add heterogeneous integration via semi-analytical (Andersen-Sidenius recursive) or MC fallback. The copula infrastructure already supports per-name curves.
-**Reference**: QuantLib `HomogeneousPoolLossModel` vs `InhomogeneousPoolLossModel`.
+**What**: Originally reported as assuming homogeneous portfolio. Upon code review, the pricer already supports heterogeneous portfolios with per-issuer credit curves, recovery rates, and weights via `CreditIndexData::issuer_credit_curves`. Automatically detects uniform portfolios for the faster binomial path and falls back to heterogeneous convolution or SPA (`hetero_spa_full`) for diversified portfolios.
+**Status**: Doc comment in `pricer.rs` was stale and has been updated.
 
 #### [MAJOR] Base correlation arbitrage validation disabled by default
 
@@ -372,11 +368,11 @@ For a library of this scope, the architecture is remarkably clean: trait-based e
 
 ### Equity & Exotics
 
-#### [CRITICAL] Barrier/Lookback `value()` silently returns continuous price
+#### [PARTIALLY RESOLVED] Barrier/Lookback `value()` dispatch
 
-**What**: Even with `use_gobet_miri=true`, calling `value()` dispatches to the analytical (continuous) pricer. User must explicitly call `npv_mc()` for discrete-corrected pricing.
-**Impact**: Silent underpricing of knock-out barriers and overpricing of knock-in barriers. A trader setting the discrete flag and calling `value()` gets the wrong number.
-**Recommendation**: Make `value()` dispatch to MC when `use_gobet_miri=true`, or error with a clear message directing user to `npv_mc()`.
+**What**: `BarrierOption::value()` already correctly dispatches to MC when `use_gobet_miri=true` (with `mc` feature enabled), and returns an error when `mc` feature is disabled. Stale doc comment in `BarrierOptionAnalyticalPricer` was misleading and has been fixed. However, `LookbackOption` has no `use_gobet_miri` field and always uses the analytical continuous-monitoring pricer.
+**Remaining gap**: Add `use_gobet_miri` to `LookbackOption` with the same dispatch pattern as `BarrierOption`.
+**Reference**: QuantLib `AnalyticContinuousFixedLookbackEngine` vs MC with Broadie-Glasserman correction.
 
 #### [MAJOR] Bermudan equity options unsupported
 
@@ -639,13 +635,14 @@ For a library of this scope, the architecture is remarkably clean: trait-based e
 
 ### Critical (fix immediately)
 
-- [ ] **Barrier/Lookback `value()` dispatch**: Make discrete monitoring the default when `use_gobet_miri=true`. Current behavior silently returns wrong prices.
-- [ ] **Cap/Floor negative rate handling**: Auto-select Normal model for negative forwards, or hard-error with guidance. EUR/JPY desks cannot use current implementation safely.
+- [x] **Barrier `value()` dispatch**: Already correct — dispatches to MC when `use_gobet_miri=true`. Stale doc comment fixed.
+- [x] **LookbackOption discrete monitoring**: Added `use_gobet_miri` field with MC dispatch (same pattern as `BarrierOption`).
+- [x] **Cap/Floor negative rate handling**: Added `CapFloorVolType::Auto` that auto-selects Normal for negative forwards. Tests confirm correct dispatch.
 
 ### Major (next release)
 
 - [ ] **FX delta-based vol surface**: Add delta-to-strike conversion layer and `DeltaVolSurface` builder. Every FX desk needs this.
-- [ ] **CDS tranche heterogeneous pricing**: Add semi-analytical or MC-based integration for per-name credit curves.
+- [x] **CDS tranche heterogeneous pricing**: Already implemented. Per-issuer curves, recovery, weights supported via `CreditIndexData`. Stale doc comment fixed.
 - [ ] **SABR/Heston/Student-t calibration**: Add calibration targets to the plan-driven framework. Parameters should not require external computation.
 - [ ] **Key-rate duration for all bonds**: Extend bucketed DV01 with triangular interpolation to vanilla bonds, not just MBS/CMO.
 - [ ] **Repo curve separation**: Add `RepoCurve` to `MarketContext` for bond future basis and dollar roll carry.

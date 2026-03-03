@@ -89,6 +89,7 @@ class LookbackOption:
         div_yield_id: str | None = None,
         observed_min: Money | None = None,
         observed_max: Money | None = None,
+        use_gobet_miri: bool | None = None,
     ) -> "LookbackOption":
         """Create a lookback option.
 
@@ -176,4 +177,6 @@ class LookbackOption:
     def observed_min(self) -> Money | None: ...
     @property
     def observed_max(self) -> Money | None: ...
+    @property
+    def use_gobet_miri(self) -> bool: ...
     def __repr__(self) -> str: ...

@@ -40,6 +40,17 @@ impl MetricCalculator for VegaCalculator {
                         strike, forward, sigma, t_fix,
                     )
                 }
+                CapFloorVolType::Auto => {
+                    if forward > 0.0 && strike > 0.0 {
+                        crate::instruments::rates::cap_floor::pricing::black::vega_per_pct(
+                            strike, forward, sigma, t_fix,
+                        )
+                    } else {
+                        crate::instruments::rates::cap_floor::pricing::normal::vega_per_pct(
+                            strike, forward, sigma, t_fix,
+                        )
+                    }
+                }
             }
         })
     }

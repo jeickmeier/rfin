@@ -1,0 +1,219 @@
+---
+trigger: manual
+description:
+globs:
+---
+
+# Valuations Bindings Guide — Structure and How to Add New Features
+
+This guide covers the `finstack-py` valuations bindings: how they fit into the workspace and how to add new instrument pricers, cashflow engines, and risk utilities without violating Finstack invariants.
+
+## Scope and Principles
+
+- Bindings expose valuations results and builders; computing logic lives in Rust core `finstack/valuations`.
+- Currency‑safety: all cashflow math is currency‑preserving; explicit FX handling via `FxProvider`/`FxMatrix`.
+- Determinism: serial ≡ parallel; Decimal numerics preserved by core.
+- Stable schemas: output/result envelopes must be stable and documented.
+
+## Directory Structure
+
+- `finstack-py/src/valuations/` (module tree mirroring `finstack/valuations`)
+  - Instrument families (e.g., `bonds`, `rates`, `equity`, `credit`, `real_estate`, `private_credit`)
+  - Shared primitives (legs, schedules, fee models) as needed
+  - Result types and envelopes (PV, Greeks, attribution components) as thin wrappers
+
+If the `valuations` bindings directory is absent, create it with the sub‑modules you need. Keep hierarchy shallow and aligned with the Rust crate.
+
+## Adding a New Instrument/Feature
+
+1. Identify the core entry points in `finstack/valuations/...` to bind (builders, pricers, result structs).
+2. Create bindings under `src/valuations/<area>.rs` or a folder with multiple files and a `mod.rs`.
+3. Expose Python classes/functions with PyO3:
+   - `#[pyclass(module = "finstack.valuations.<area>", name = "PublicName")]`
+   - Provide constructor(s) that map 1:1 to core builders or pricers.
+   - Methods that call core evaluation (e.g., `price`, `pv`, `cashflows`), returning typed results.
+4. Accept Python‑ergonomic inputs: enums or snake/kebab labels, `Money`/`Currency`, `datetime.date`, small lists/tuples, `MarketContext`.
+5. Map errors with `core_to_py`.
+6. Add a `register(py, parent)` function for the new submodule; return exported names and re‑export at the valuations root.
+7. Add examples under `finstack-py/examples/valuations/` and, if relevant, an end‑to‑end script.
+
+## Result Types and DataFrames
+
+- Prefer returning structured Python classes with clear getters (e.g., `pv`, `npv`, `dv01`).
+- For tabular outputs, either:
+  - Return simple lists/tuples readily consumable by pandas/polars, or
+  - Gate optional DataFrame returns behind an `analytics` extra (import optional; no hard dependency in core package).
+- Include metadata: numeric mode, rounding context, FX policy, parallel flag when available from core.
+
+## FX and Multi‑Currency Results
+
+- Do not convert currencies implicitly.
+- Accept an `FxMatrix` and explicit `FxConversionPolicy` for base‑currency rollups; return both per‑currency and converted totals, with policy stamped in result metadata.
+
+## Risk and Sensitivities
+
+- For first/second‑order risk, prefer returning small structs or dictionaries (`{measure: value}`) with stable keys.
+- Ensure parallel/serial parity; when core supports parallel evaluation, bindings simply forward flags.
+
+## Example Template (Pricer Wrapper)
+
+```rust
+use pyo3::prelude::*;
+use pyo3::types::PyModule;
+use pyo3::Bound;
+
+#[pyclass(module = "finstack.valuations.rates", name = "SwapPricer", frozen)]
+pub struct PySwapPricer {
+    inner: finstack_core::valuations::rates::SwapPricer,
+}
+
+#[pymethods]
+impl PySwapPricer {
+    #[new]
+    #[pyo3(text_signature = "(spec, market)")]
+    fn ctor(spec: &PySwapSpec, market: &crate::core::market_data::PyMarketContext) -> PyResult<Self> {
+        Ok(Self { inner: finstack_core::valuations::rates::SwapPricer::new(spec.inner.clone(), market.inner.clone()) })
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn pv(&self) -> PyResult<f64> { Ok(self.inner.pv()) }
+
+    #[pyo3(text_signature = "(self)")]
+    fn cashflows(&self, py: Python<'_>) -> PyResult<Vec<PyObject>> {
+        // Convert core cashflows to Python tuples or Money wrappers
+        // Keep currency‑preserving semantics; no FX here
+        unimplemented!()
+    }
+}
+
+pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<Vec<&'static str>> {
+    let module = PyModule::new(py, "rates")?;
+    module.setattr("__doc__", "Rates pricers and result envelopes (thin wrappers over core).")?;
+    module.add_class::<PySwapPricer>()?;
+    let exports = ["SwapPricer"];
+    module.setattr("__all__", pyo3::types::PyList::new(py, &exports)?)?;
+    parent.add_submodule(&module)?;
+    Ok(exports.to_vec())
+}
+```
+
+## Documentation and Examples
+
+- Provide docstrings with Parameters/Returns/Raises and short examples.
+- Show explicit FX behavior in examples when relevant.
+- Keep examples deterministic (fixed dates/curves/quotes).
+
+## Review Checklist
+
+- [ ] Mirrors a core valuation entry point (no Python‑side business logic).
+- [ ] Accepts ergonomic inputs; uses shared parsers/helpers.
+- [ ] Errors mapped via `core_to_py`; no `unwrap` on user inputs.
+- [ ] Result types are structured, with metadata where applicable.
+- [ ] Registered and re‑exported under `finstack.valuations`.
+- [ ] Examples added and runnable.# Valuations Bindings Guide — Structure and How to Add New Features
+
+This guide covers the `finstack-py` valuations bindings: how they fit into the workspace and how to add new instrument pricers, cashflow engines, and risk utilities without violating Finstack invariants.
+
+## Scope and Principles
+
+- Bindings expose valuations results and builders; computing logic lives in Rust core `finstack/valuations`.
+- Currency‑safety: all cashflow math is currency‑preserving; explicit FX handling via `FxProvider`/`FxMatrix`.
+- Determinism: serial ≡ parallel; Decimal numerics preserved by core.
+- Stable schemas: output/result envelopes must be stable and documented.
+
+## Directory Structure
+
+- `finstack-py/src/valuations/` (module tree mirroring `finstack/valuations`)
+  - Instrument families (e.g., `bonds`, `rates`, `equity`, `credit`, `real_estate`, `private_credit`)
+  - Shared primitives (legs, schedules, fee models) as needed
+  - Result types and envelopes (PV, Greeks, attribution components) as thin wrappers
+
+If the `valuations` bindings directory is absent, create it with the sub‑modules you need. Keep hierarchy shallow and aligned with the Rust crate.
+
+## Adding a New Instrument/Feature
+
+1. Identify the core entry points in `finstack/valuations/...` to bind (builders, pricers, result structs).
+2. Create bindings under `src/valuations/<area>.rs` or a folder with multiple files and a `mod.rs`.
+3. Expose Python classes/functions with PyO3:
+   - `#[pyclass(module = "finstack.valuations.<area>", name = "PublicName")]`
+   - Provide constructor(s) that map 1:1 to core builders or pricers.
+   - Methods that call core evaluation (e.g., `price`, `pv`, `cashflows`), returning typed results.
+4. Accept Python‑ergonomic inputs: enums or snake/kebab labels, `Money`/`Currency`, `datetime.date`, small lists/tuples, `MarketContext`.
+5. Map errors with `core_to_py`.
+6. Add a `register(py, parent)` function for the new submodule; return exported names and re‑export at the valuations root.
+7. Add examples under `finstack-py/examples/valuations/` and, if relevant, an end‑to‑end script.
+
+## Result Types and DataFrames
+
+- Prefer returning structured Python classes with clear getters (e.g., `pv`, `npv`, `dv01`).
+- For tabular outputs, either:
+  - Return simple lists/tuples readily consumable by pandas/polars, or
+  - Gate optional DataFrame returns behind an `analytics` extra (import optional; no hard dependency in core package).
+- Include metadata: numeric mode, rounding context, FX policy, parallel flag when available from core.
+
+## FX and Multi‑Currency Results
+
+- Do not convert currencies implicitly.
+- Accept an `FxMatrix` and explicit `FxConversionPolicy` for base‑currency rollups; return both per‑currency and converted totals, with policy stamped in result metadata.
+
+## Risk and Sensitivities
+
+- For first/second‑order risk, prefer returning small structs or dictionaries (`{measure: value}`) with stable keys.
+- Ensure parallel/serial parity; when core supports parallel evaluation, bindings simply forward flags.
+
+## Example Template (Pricer Wrapper)
+
+```rust
+use pyo3::prelude::*;
+use pyo3::types::PyModule;
+use pyo3::Bound;
+
+#[pyclass(module = "finstack.valuations.rates", name = "SwapPricer", frozen)]
+pub struct PySwapPricer {
+    inner: finstack_core::valuations::rates::SwapPricer,
+}
+
+#[pymethods]
+impl PySwapPricer {
+    #[new]
+    #[pyo3(text_signature = "(spec, market)")]
+    fn ctor(spec: &PySwapSpec, market: &crate::core::market_data::PyMarketContext) -> PyResult<Self> {
+        Ok(Self { inner: finstack_core::valuations::rates::SwapPricer::new(spec.inner.clone(), market.inner.clone()) })
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn pv(&self) -> PyResult<f64> { Ok(self.inner.pv()) }
+
+    #[pyo3(text_signature = "(self)")]
+    fn cashflows(&self, py: Python<'_>) -> PyResult<Vec<PyObject>> {
+        // Convert core cashflows to Python tuples or Money wrappers
+        // Keep currency‑preserving semantics; no FX here
+        unimplemented!()
+    }
+}
+
+pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<Vec<&'static str>> {
+    let module = PyModule::new(py, "rates")?;
+    module.setattr("__doc__", "Rates pricers and result envelopes (thin wrappers over core).")?;
+    module.add_class::<PySwapPricer>()?;
+    let exports = ["SwapPricer"];
+    module.setattr("__all__", pyo3::types::PyList::new(py, &exports)?)?;
+    parent.add_submodule(&module)?;
+    Ok(exports.to_vec())
+}
+```
+
+## Documentation and Examples
+
+- Provide docstrings with Parameters/Returns/Raises and short examples.
+- Show explicit FX behavior in examples when relevant.
+- Keep examples deterministic (fixed dates/curves/quotes).
+
+## Review Checklist
+
+- [ ] Mirrors a core valuation entry point (no Python‑side business logic).
+- [ ] Accepts ergonomic inputs; uses shared parsers/helpers.
+- [ ] Errors mapped via `core_to_py`; no `unwrap` on user inputs.
+- [ ] Result types are structured, with metadata where applicable.
+- [ ] Registered and re‑exported under `finstack.valuations`.
+- [ ] Examples added and runnable.

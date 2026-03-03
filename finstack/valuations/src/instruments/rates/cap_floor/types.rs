@@ -64,6 +64,16 @@ pub enum CapFloorVolType {
     /// Volatility is quoted in the same units as rates (e.g., 0.0050 for 50bp).
     /// Required for negative rate environments.
     Normal,
+
+    /// Automatic model selection based on forward rate and strike.
+    ///
+    /// Inspects the forward rate for each caplet/floorlet:
+    /// - If both forward > 0 and strike > 0: uses Black (lognormal)
+    /// - Otherwise: uses Normal (Bachelier)
+    ///
+    /// This is useful for portfolios spanning multiple currencies or rate
+    /// regimes where some periods may have negative forwards.
+    Auto,
 }
 
 impl std::fmt::Display for CapFloorVolType {
@@ -72,6 +82,7 @@ impl std::fmt::Display for CapFloorVolType {
             CapFloorVolType::Lognormal => write!(f, "lognormal"),
             CapFloorVolType::ShiftedLognormal => write!(f, "shifted_lognormal"),
             CapFloorVolType::Normal => write!(f, "normal"),
+            CapFloorVolType::Auto => write!(f, "auto"),
         }
     }
 }
@@ -85,8 +96,9 @@ impl std::str::FromStr for CapFloorVolType {
             "lognormal" | "black" => Ok(Self::Lognormal),
             "shifted_lognormal" | "shifted" | "displaced" => Ok(Self::ShiftedLognormal),
             "normal" | "bachelier" => Ok(Self::Normal),
+            "auto" => Ok(Self::Auto),
             other => Err(format!(
-                "Unknown cap/floor vol type: '{}'. Valid: lognormal, shifted_lognormal, normal",
+                "Unknown cap/floor vol type: '{}'. Valid: lognormal, shifted_lognormal, normal, auto",
                 other
             )),
         }
@@ -467,24 +479,37 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                     currency: self.notional.currency(),
                 })
             };
+            let normal_price = || {
+                normal_ir::price_caplet_floorlet(normal_ir::CapletFloorletInputs {
+                    is_cap,
+                    notional: self.notional.amount(),
+                    strike,
+                    forward,
+                    discount_factor: df,
+                    volatility: sigma,
+                    time_to_fixing: t_fix,
+                    accrual_year_fraction: tau,
+                    currency: self.notional.currency(),
+                })
+            };
             return match self.vol_type {
                 CapFloorVolType::Lognormal => black_price(strike, forward),
                 CapFloorVolType::ShiftedLognormal => {
                     let vol_shift = self.resolved_vol_shift();
                     black_price(strike + vol_shift, forward + vol_shift)
                 }
-                CapFloorVolType::Normal => {
-                    normal_ir::price_caplet_floorlet(normal_ir::CapletFloorletInputs {
-                        is_cap,
-                        notional: self.notional.amount(),
-                        strike,
-                        forward,
-                        discount_factor: df,
-                        volatility: sigma,
-                        time_to_fixing: t_fix,
-                        accrual_year_fraction: tau,
-                        currency: self.notional.currency(),
-                    })
+                CapFloorVolType::Normal => normal_price(),
+                CapFloorVolType::Auto => {
+                    if forward > 0.0 && strike > 0.0 {
+                        black_price(strike, forward)
+                    } else {
+                        tracing::info!(
+                            forward = forward,
+                            strike = strike,
+                            "Auto vol type: using Normal (Bachelier) model for non-positive forward/strike"
+                        );
+                        normal_price()
+                    }
                 }
             };
         }
@@ -542,46 +567,50 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             // Include ALL periods where payment_date > as_of, including
             // seasoned periods where fixing_date <= as_of < payment_date.
             // The Black formula handles t_fix <= 0 by computing intrinsic value.
+            let black_inputs = || black_ir::CapletFloorletInputs {
+                is_cap,
+                notional: self.notional.amount(),
+                strike,
+                forward,
+                discount_factor: df,
+                volatility: sigma,
+                time_to_fixing: t_fix,
+                accrual_year_fraction: tau,
+                currency: self.notional.currency(),
+            };
+            let normal_inputs = || normal_ir::CapletFloorletInputs {
+                is_cap,
+                notional: self.notional.amount(),
+                strike,
+                forward,
+                discount_factor: df,
+                volatility: sigma,
+                time_to_fixing: t_fix,
+                accrual_year_fraction: tau,
+                currency: self.notional.currency(),
+            };
             let leg_pv = match self.vol_type {
-                CapFloorVolType::Lognormal => {
-                    black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
-                        is_cap,
-                        notional: self.notional.amount(),
-                        strike,
-                        forward,
-                        discount_factor: df,
-                        volatility: sigma,
-                        time_to_fixing: t_fix,
-                        accrual_year_fraction: tau,
-                        currency: self.notional.currency(),
-                    })?
-                }
+                CapFloorVolType::Lognormal => black_ir::price_caplet_floorlet(black_inputs())?,
                 CapFloorVolType::ShiftedLognormal => {
                     let vol_shift = self.resolved_vol_shift();
                     black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
-                        is_cap,
-                        notional: self.notional.amount(),
                         strike: strike + vol_shift,
                         forward: forward + vol_shift,
-                        discount_factor: df,
-                        volatility: sigma,
-                        time_to_fixing: t_fix,
-                        accrual_year_fraction: tau,
-                        currency: self.notional.currency(),
+                        ..black_inputs()
                     })?
                 }
-                CapFloorVolType::Normal => {
-                    normal_ir::price_caplet_floorlet(normal_ir::CapletFloorletInputs {
-                        is_cap,
-                        notional: self.notional.amount(),
-                        strike,
-                        forward,
-                        discount_factor: df,
-                        volatility: sigma,
-                        time_to_fixing: t_fix,
-                        accrual_year_fraction: tau,
-                        currency: self.notional.currency(),
-                    })?
+                CapFloorVolType::Normal => normal_ir::price_caplet_floorlet(normal_inputs())?,
+                CapFloorVolType::Auto => {
+                    if forward > 0.0 && strike > 0.0 {
+                        black_ir::price_caplet_floorlet(black_inputs())?
+                    } else {
+                        tracing::info!(
+                            forward = forward,
+                            strike = strike,
+                            "Auto vol type: using Normal (Bachelier) model for non-positive forward/strike"
+                        );
+                        normal_ir::price_caplet_floorlet(normal_inputs())?
+                    }
                 }
             };
             total_pv = total_pv.checked_add(leg_pv)?;

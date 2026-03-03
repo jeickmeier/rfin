@@ -43,6 +43,17 @@ impl MetricCalculator for DeltaCalculator {
                         is_cap, strike, forward, sigma, t_fix,
                     )
                 }
+                CapFloorVolType::Auto => {
+                    if forward > 0.0 && strike > 0.0 {
+                        crate::instruments::rates::cap_floor::pricing::black::delta(
+                            is_cap, strike, forward, sigma, t_fix,
+                        )
+                    } else {
+                        crate::instruments::rates::cap_floor::pricing::normal::delta(
+                            is_cap, strike, forward, sigma, t_fix,
+                        )
+                    }
+                }
             }
         })
     }

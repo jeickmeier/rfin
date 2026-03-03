@@ -94,8 +94,8 @@ impl PyLookbackOption {
 impl PyLookbackOption {
     #[classmethod]
     #[pyo3(
-        signature = (instrument_id, ticker, strike, option_type, lookback_type, expiry, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None, observed_min=None, observed_max=None),
-        text_signature = "(cls, instrument_id, ticker, strike, option_type, lookback_type, expiry, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None, observed_min=None, observed_max=None)"
+        signature = (instrument_id, ticker, strike, option_type, lookback_type, expiry, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None, observed_min=None, observed_max=None, use_gobet_miri=None),
+        text_signature = "(cls, instrument_id, ticker, strike, option_type, lookback_type, expiry, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None, observed_min=None, observed_max=None, use_gobet_miri=False)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a lookback option.
@@ -114,6 +114,7 @@ impl PyLookbackOption {
     ///     div_yield_id: Optional dividend yield identifier.
     ///     observed_min: Optional observed minimum price for seasoned options.
     ///     observed_max: Optional observed maximum price for seasoned options.
+    ///     use_gobet_miri: Whether to use MC with discrete monitoring correction (default: False).
     ///
     /// Returns:
     ///     LookbackOption: Configured lookback option instrument.
@@ -132,6 +133,7 @@ impl PyLookbackOption {
         div_yield_id: Option<&str>,
         observed_min: Option<Bound<'_, PyAny>>,
         observed_max: Option<Bound<'_, PyAny>>,
+        use_gobet_miri: Option<bool>,
     ) -> PyResult<Self> {
         use crate::core::common::labels::normalize_label;
         use crate::errors::PyContext;
@@ -183,6 +185,7 @@ impl PyLookbackOption {
         builder = builder.expiry(expiry_date);
         builder = builder.notional(notional_money);
         builder = builder.day_count(DayCount::Act365F);
+        builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder = builder.discount_curve_id(discount_curve_id);
@@ -317,6 +320,15 @@ impl PyLookbackOption {
     #[getter]
     fn observed_max(&self) -> Option<PyMoney> {
         self.inner.observed_max.map(PyMoney::new)
+    }
+
+    /// Whether Gobet-Miri discrete monitoring correction is active.
+    ///
+    /// Returns:
+    ///     bool: True if discrete monitoring correction is active.
+    #[getter]
+    fn use_gobet_miri(&self) -> bool {
+        self.inner.use_gobet_miri
     }
 
     fn __repr__(&self) -> String {

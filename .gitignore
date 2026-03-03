@@ -92,8 +92,6 @@ finstack-py/examples/outputs/
 .windsurf/
 .zencoder/
 .zenflow/
-.cursor/
-.agent/
 .codex/
 
 # Database files

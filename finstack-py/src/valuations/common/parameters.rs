@@ -416,6 +416,8 @@ impl PyCapFloorVolType {
     const SHIFTED_LOGNORMAL: Self = Self::new(CapFloorVolType::ShiftedLognormal);
     #[classattr]
     const NORMAL: Self = Self::new(CapFloorVolType::Normal);
+    #[classattr]
+    const AUTO: Self = Self::new(CapFloorVolType::Auto);
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]

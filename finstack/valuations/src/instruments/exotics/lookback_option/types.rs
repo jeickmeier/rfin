@@ -105,6 +105,16 @@ pub struct LookbackOption {
     pub vol_surface_id: CurveId,
     /// Optional dividend yield curve ID
     pub div_yield_id: Option<CurveId>,
+    /// Whether to use Monte Carlo with Gobet-Miri correction for discrete monitoring.
+    ///
+    /// When `true`, `value()` dispatches to `npv_mc()` for discrete-monitoring-corrected
+    /// pricing using Monte Carlo simulation.
+    ///
+    /// **Defaults to `false`** for backwards compatibility (analytical continuous pricing).
+    /// Set to `true` for production pricing of discretely-monitored lookbacks.
+    #[builder(default)]
+    #[serde(default)]
+    pub use_gobet_miri: bool,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
     /// Observed minimum spot price since inception (required for Floating Call / Fixed Put)
@@ -178,11 +188,36 @@ impl crate::instruments::common_impl::traits::Instrument for LookbackOption {
         )
     }
 
+    /// Compute the present value with explicit monitoring semantics.
+    ///
+    /// Dispatch rules:
+    /// - `use_gobet_miri = false` -> analytical continuous-monitoring pricer
+    /// - `use_gobet_miri = true` -> MC discrete-monitoring pricer
+    ///
+    /// If `use_gobet_miri = true` but the crate is built without the `mc` feature,
+    /// this returns an error instead of silently falling back to continuous pricing.
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        if self.use_gobet_miri {
+            #[cfg(feature = "mc")]
+            {
+                return self.npv_mc(market, as_of);
+            }
+            #[cfg(not(feature = "mc"))]
+            {
+                return Err(finstack_core::Error::Validation(
+                    "LookbackOption is configured for discrete monitoring correction \
+                     (use_gobet_miri=true), but Monte Carlo support is disabled. \
+                     Rebuild with feature `mc` or set use_gobet_miri=false for \
+                     continuous-monitoring analytical pricing."
+                        .to_string(),
+                ));
+            }
+        }
+
         use crate::instruments::exotics::lookback_option::pricer::LookbackOptionAnalyticalPricer;
         use crate::pricer::Pricer;
 

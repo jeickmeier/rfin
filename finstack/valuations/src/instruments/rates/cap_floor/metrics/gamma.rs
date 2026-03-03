@@ -38,6 +38,17 @@ impl MetricCalculator for GammaCalculator {
                         strike, forward, sigma, t_fix,
                     )
                 }
+                CapFloorVolType::Auto => {
+                    if forward > 0.0 && strike > 0.0 {
+                        crate::instruments::rates::cap_floor::pricing::black::gamma(
+                            strike, forward, sigma, t_fix,
+                        )
+                    } else {
+                        crate::instruments::rates::cap_floor::pricing::normal::gamma(
+                            strike, forward, sigma, t_fix,
+                        )
+                    }
+                }
             }
         })
     }

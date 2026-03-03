@@ -1,257 +1,226 @@
-# Finstack (Rust)
+# Finstack
 
-A high-performance financial computation library written in Rust with bindings for Python and WebAssembly.
+A high-performance quantitative finance library written in Rust with bindings for Python (PyO3) and WebAssembly (wasm-bindgen).
 
 ## Project Structure
 
-- `core/` - Core Rust library with financial functionality (crate name `finstack-core`)
-- `finstack-py/` - Python bindings using PyO3 (crate name `finstack-py`)
-- `finstack-wasm/` - WebAssembly bindings using wasm-bindgen (crate name `finstack-wasm`)
-- `finstack/` - Meta-crate re-exporting subcrates via features
-- `finstack/examples/` - Rust examples organized by functionality
-- `examples/` - Example usage for different bindings (Python, WASM)
-- `docs/` - Technical documentation and design documents
+```
+rfin/
+├── finstack/                  # Rust library (workspace)
+│   ├── core/                  # Dates, calendars, currencies, curves, surfaces, math
+│   ├── statements/            # Financial statement modeling, cashflows, DSL
+│   ├── valuations/            # Instrument pricing, risk, calibration, Monte Carlo
+│   ├── portfolio/             # Portfolio valuation, attribution, optimization
+│   └── scenarios/             # Scenario modeling and stress testing
+├── finstack-py/               # Python bindings (PyO3 / Maturin)
+├── finstack-wasm/             # WebAssembly bindings (wasm-bindgen / wasm-pack)
+├── docs/                      # Design documents and specs
+└── scripts/                   # Developer tooling scripts
+```
+
+## Instrument Coverage
+
+50+ instruments across seven asset classes:
+
+| Asset Class | Instruments |
+|---|---|
+| **Fixed Income** | Bond, Inflation-Linked Bond, Convertible, Term Loan, Revolving Credit, Structured Credit, Agency MBS, Agency CMO, Bond Future, Dollar Roll, TBA |
+| **Rates** | IRS, Basis Swap, Swaption, Cap/Floor, Deposit, FRA, Repo, Inflation Swap, Inflation Cap/Floor, Range Accrual, Cross-Currency Swap, CMS Option, IR Future |
+| **Credit** | CDS, CDS Index, CDS Tranche, CDS Option |
+| **Equity** | Equity Option, Variance Swap, Equity TRS, Equity Index Future, Vol Index Future/Option, Autocallable, Cliquet, DCF, Real Estate, Private Markets Fund |
+| **FX** | Spot, Forward, FX Swap, Vanilla Option, Barrier, Digital, Touch, FX Variance Swap, NDF, Quanto |
+| **Commodity** | Forward, Swap, Option, Asian Option |
+| **Exotics** | Asian Option, Barrier Option, Lookback Option, Basket Option |
+
+### Pricing Models
+
+- **Closed-form** -- Black-Scholes, SABR, Heston, Asian (Turnbull-Wakeman), Barrier, Lookback, Quanto, implied vol solvers
+- **Trees** -- Binomial, Trinomial, Hull-White, short-rate, two-factor (rates/credit)
+- **Monte Carlo** -- GBM, Heston, CIR, Jump Diffusion, Bates, Schwartz-Smith; variance reduction (antithetic, control variate, moment matching); LSM for early exercise
+- **Volatility** -- Black vol, Normal vol, SABR, Local vol, Heston
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Core library | Rust 1.90, edition 2021 |
+| Python bindings | PyO3, Maturin, Python >= 3.12 |
+| WASM bindings | wasm-bindgen, wasm-pack, TypeScript definitions |
+| Build/CI | GitHub Actions, cargo-nextest, pre-commit, cargo-deny |
+| Package mgmt | uv (Python), npm (WASM/JS) |
+| Code quality | clippy (strict), ruff, prettier, ty, pyright, bandit |
 
 ## Development Setup
 
 ### Prerequisites
 
-- Rust 1.78+ (install via [rustup](https://rustup.rs/))
-- Python 3.8+ (for Python bindings)
-- Node.js (for WASM development)
-- [uv](https://github.com/astral-sh/uv) (for Python package management)
+- [Rust 1.90+](https://rustup.rs/) (pinned via `rust-toolchain.toml`)
+- [Python 3.12+](https://www.python.org/)
+- [uv](https://github.com/astral-sh/uv) (Python package manager)
+- [Node.js 20+](https://nodejs.org/) (for WASM examples)
+- [wasm-pack](https://rustwasm.github.io/wasm-pack/) (for WASM builds)
 
 ### Quick Start
-
-1. Clone the repository:
 
 ```bash
 git clone https://github.com/rustfin/rfin.git
 cd rfin
-```
 
-1. Build the core library:
-
-```bash
+# Build core Rust crates
 cargo build
+
+# Run all Rust tests
+make test-rust
+
+# Set up Python environment + build bindings
+make python-dev
+
+# Run Python tests
+make test-python
 ```
 
-1. Run tests:
+### Makefile Targets
 
-```bash
-cargo test
-```
+Run `make help` for the full list. Key targets:
+
+| Target | Description |
+|---|---|
+| `make build` | Build all core Rust crates |
+| `make test` | Run all tests (Rust + Python + WASM) |
+| `make test-rust` | Rust tests via cargo-nextest |
+| `make test-python` | Python tests via pytest |
+| `make test-wasm` | WASM tests via wasm-pack |
+| `make fmt` | Format all code (Rust, Python, JS) |
+| `make lint` | Lint core Rust crates (fast) |
+| `make lint-full` | Lint everything including bindings and all features |
+| `make ci-test` | Run the full CI pipeline locally |
+| `make coverage` | Code coverage (cargo-llvm-cov) |
+| `make python-dev` | Set up Python env and build bindings |
+| `make wasm-examples-dev` | Build WASM and launch Vite dev server |
 
 ## Build Profiles
 
-Finstack provides optimized build profiles for different use cases:
+| Profile | Use Case | Command |
+|---|---|---|
+| `dev` | Fast compilation, full debug info | `cargo build` |
+| `release` | Speed-optimized (thin LTO, 16 CGUs) | `cargo build --release` |
+| `release-size` | Size-optimized for WASM (`opt-level = "z"`, full LTO) | `cargo build --profile release-size` |
+| `release-perf` | Max speed (thin LTO, 8 CGUs) | `cargo build --profile release-perf` |
+| `bench` | Benchmarking with profiling symbols | `cargo bench` |
 
-- **`dev`** (default) - Fast compilation, full debug info
-
-  ```bash
-  cargo build
-  ```
-
-- **`release`** - Optimized for **size** (WASM deployments)
-
-  ```bash
-  cargo build --release
-  ```
-
-- **`release-perf`** - Optimized for **speed** (CPU-intensive workloads)
-
-  ```bash
-  cargo build --profile release-perf
-  ```
-
-- **`bench`** - Optimized for benchmarking with profiling support
-
-  ```bash
-  cargo bench
-  ```
-
-For detailed information about build profiles and performance optimization, see [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
-
-## Python Development with uv
-
-We use `uv` for fast Python package management and virtual environment handling.
-
-### Install uv
+## Python Development
 
 ```bash
+# Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
-```
 
-### Setup Python Environment
-
-```bash
-# Option 1: Run the setup script (recommended)
-./scripts/setup-python.sh
-
-# Option 2: Manual setup
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv pip install maturin pytest pytest-benchmark black mypy ruff ipython jupyter
-cd rfin-python && python -m maturin develop --release
-
-# Option 3: Using Make
+# One-command setup (creates venv, installs deps, builds bindings)
 make python-dev
-```
 
-### Run Python Example
-
-```bash
-# With activated venv
-python examples/python_example.py
-
-# Or directly with uv
-uv run python examples/python_example.py
-```
-
-### Python Development Workflow
-
-```bash
-# Install development dependencies
+# Or manual setup
+uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
+cd finstack-py && maturin develop --release
 
 # Run tests
 uv run pytest
 
-# Format code
-uv run black .
+# Format and lint
+uv run ruff format .
 uv run ruff check .
-
-# Type checking
-uv run mypy .
 ```
 
-## WASM Development
+### Python Package
 
-### Build WASM Package
+The `finstack` Python package includes:
+
+- Full `.pyi` type stubs and `py.typed` marker
+- Pydantic v2 integration
+- Polars DataFrame exports
+- Example scripts and Jupyter notebooks in `finstack-py/examples/`
+
+## WASM Development
 
 ```bash
 # Install wasm-pack
 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-# Build for web
-cd finstack-wasm
-wasm-pack build --target web
+# Build for web and Node.js
+make wasm-pkg
 
-# Build for Node.js
-wasm-pack build --target nodejs
+# Run the React example app with live reload
+make wasm-examples-dev
 ```
 
-### Run WASM Example
+The WASM package ships with auto-generated TypeScript definitions.
 
-1. Build the WASM package (see above)
-2. Serve the example with a local web server:
+## Feature Flags
 
-```bash
-python -m http.server 8000
-# Or use any other static file server
-```
-
-1. Open <http://localhost:8000/examples/wasm/primitives_wasm_example.html>
-
-## Features
-
-Finstack uses a minimal set of feature flags for maximum clarity:
-
-### Default Features (Included)
-
-- **`serde`** - Serialization/deserialization support
-  - Enables JSON, CBOR, MessagePack wire formats
-  - Required for Python/WASM bindings
-  - Applied to: all crates
-  - Size: +150 KB
-
-- **`parallel`** - Multi-threaded computation with Rayon
-  - 2-10x speedup on multi-core CPUs
-  - Deterministic results (identical to sequential execution)
-  - Applied to: `core`, `valuations`
-  - Size: +200 KB
-
-### Optional Features
-
-- **`dataframes`** (opt-in) - Polars DataFrame exports
-  - Time-series analysis integration
-  - CSV/Parquet/Arrow interoperability
-  - Jupyter notebook support
-  - Applied to: `statements`, `portfolio`
-  - Size: +2-3 MB
-
-- **`stochastic`** (opt-in) - Monte Carlo & stochastic models
-  - Random number generation (reproducible with seeds)
-  - Path-dependent pricing
-  - Advanced risk analytics
-  - Applied to: `valuations`
-  - Size: +100 KB
-  - Status: Feature reserved, implementation planned for 0.3.x
-
-## Usage Examples
+| Feature | Default | Description | Size |
+|---|---|---|---|
+| `serde` | Yes | Serialization (JSON, CBOR, MessagePack). Required for bindings. | +150 KB |
+| `parallel` | Yes | Multi-threaded computation via Rayon. 2-10x speedup on multi-core. | +200 KB |
+| `dataframes` | No | Polars DataFrame exports, CSV/Parquet/Arrow interop. | +2-3 MB |
+| `stochastic` | No | Monte Carlo and stochastic models (reserved, planned for 0.5.x). | +100 KB |
 
 ```toml
-# Basic usage (default: serde + parallel)
-finstack = "0.3"
+# Default (serde + parallel)
+finstack = "0.4"
 
-# Data science workflow (add DataFrames)
-finstack = { version = "0.3", features = ["dataframes"] }
+# With DataFrames
+finstack = { version = "0.4", features = ["dataframes"] }
 
-# Quantitative research (add stochastic models)
-finstack = { version = "0.3", features = ["stochastic"] }
-
-# Everything enabled
-finstack = { version = "0.3", features = ["dataframes", "stochastic"] }
-
-# Minimal build (opt-out of defaults)
-finstack = { version = "0.3", default-features = false, features = ["serde"] }
+# Minimal build
+finstack = { version = "0.4", default-features = false, features = ["serde"] }
 ```
-
-**Note:** `parallel` is now included by default. To opt-out, use `default-features = false`.
-
-## Language Bindings
-
-- **Python Bindings** (`finstack-py`):
-  - Inherits features from core
-  - Provides Pythonic API
-  - Pydantic v2 integration
-
-- **WASM Bindings** (`finstack-wasm`):
-  - Optimized for web browsers
-  - Small bundle size
-  - TypeScript definitions
 
 ## CI/CD
 
-## Determinism and Parallelism Policy
+### Build Workflow (on push/PR to `master`)
 
-- Default numeric mode is f64. Results are reproducible on a consistent architecture/toolchain and within documented numerical tolerances.
-- Parallel execution (via the `parallel` feature) is used in ways that preserve stable ordering and numerics relative to the sequential path. If a parallel path cannot be validated to match within tolerances, it remains disabled.
-- Code formatting (`cargo fmt`)
-- Linting (`cargo clippy`)
-- Testing (`cargo test`)
-- Testing across multiple platforms and Rust versions
-- Python bindings testing (Python 3.8, 3.11, 3.12)
-- WASM build verification
+- **Lint** -- pre-commit hooks (rustfmt, clippy, ruff, prettier, markdownlint)
+- **Test Rust** -- cargo-nextest with `mc` and `test-utils` features
+- **Test Python** -- uv + maturin develop + pytest
+- **Test WASM** -- wasm-pack test
+- **Supply chain** -- cargo-deny
+- **Semver checks** -- cargo-semver-checks on `finstack-core` (PRs only)
+
+### Release Workflow (on version tag `v*`)
+
+- Builds Python wheels for Linux (x64/arm64), macOS (arm64), Windows (x64) targeting Python 3.12, 3.13, 3.14
+- Builds WASM packages (web + Node.js targets)
+- Publishes artifacts to GitHub Releases
+
+## Code Quality
+
+The workspace enforces strict Clippy lints including:
+
+- **No panics** -- `unwrap`, `expect`, `panic!`, and `unreachable!` are denied in library code
+- **Numerical soundness** -- lossy float literals denied, float comparisons warned
+- **Modern Rust** -- manual pattern lints enforced (`let-else`, `ok_or`, etc.)
 
 ## Code Coverage
 
-The project includes comprehensive code coverage tools using `cargo-llvm-cov`:
-
 ```bash
-# Quick coverage summary
-make coverage
-
-# Generate detailed HTML report
-make coverage-html
-
-# Generate LCOV report for CI
-make coverage-lcov
+make coverage           # Quick summary
+make coverage-html      # Detailed HTML report in target/llvm-cov/
+make coverage-lcov      # LCOV report for CI integration
 ```
 
-Coverage reports are generated in `target/llvm-cov/` and provide detailed insights into test coverage across the core Rust crates. The Python and WASM bindings are intentionally excluded from coverage analysis as they don't contain Rust business logic.
+Coverage analysis runs on core Rust crates only (Python and WASM bindings are excluded).
 
-For more details, see [docs/COVERAGE.md](docs/COVERAGE.md).
+## Packaging & Distribution
+
+```bash
+make wheel-all          # Build wheels for all local Python versions
+make wheel-local        # Build wheel for current platform
+make wheel-docker       # Build manylinux wheel via Docker
+make wasm-pkg           # Build WASM packages (web + node)
+```
+
+## License
+
+MIT OR Apache-2.0
 
 ## Contributing
 

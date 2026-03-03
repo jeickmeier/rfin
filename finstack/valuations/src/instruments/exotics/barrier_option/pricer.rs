@@ -398,9 +398,9 @@ use crate::instruments::common_impl::models::closed_form::barrier::{
 /// ([`BarrierOptionMcPricer`]) which applies the Broadie-Glasserman-Kou / Gobet-Miri
 /// correction when `use_gobet_miri = true`.
 ///
-/// The `BarrierOption::value()` method dispatches to this analytical pricer for speed,
-/// so be aware that it returns continuous-monitoring prices even when
-/// `use_gobet_miri = true`. Use `npv_mc()` for discrete-monitoring-corrected prices.
+/// `BarrierOption::value()` dispatches to this analytical pricer only when
+/// `use_gobet_miri = false`. When `use_gobet_miri = true`, `value()` routes
+/// to the MC pricer (`npv_mc()`) for discrete-monitoring-corrected prices.
 pub struct BarrierOptionAnalyticalPricer;
 
 impl BarrierOptionAnalyticalPricer {

@@ -795,6 +795,8 @@ impl PyConvertibleBondBuilder {
             underlying_equity_id: slf.underlying_equity_id.clone(),
             call_put,
             soft_call_trigger: slf.soft_call_trigger.clone(),
+            settlement_days: None,
+            recovery_rate: None,
             fixed_coupon: slf.fixed_coupon.clone(),
             floating_coupon: slf.floating_coupon.clone(),
             pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),

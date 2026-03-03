@@ -126,6 +126,7 @@ class CapFloorVolType:
     LOGNORMAL: ClassVar[CapFloorVolType]
     SHIFTED_LOGNORMAL: ClassVar[CapFloorVolType]
     NORMAL: ClassVar[CapFloorVolType]
+    AUTO: ClassVar[CapFloorVolType]
 
     @classmethod
     def from_name(cls, name: str) -> CapFloorVolType: ...
