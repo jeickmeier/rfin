@@ -5,6 +5,8 @@
 //! - **Annuity**: Sum of discounted accrual factors (fixed leg)
 //! - **DV01**: Dollar value of 1bp parallel curve shift
 //! - **Bucketed DV01**: Key rate sensitivities at curve vertices
+//! - **IR Convexity**: Second-order parallel rate sensitivity (gamma)
+//! - **IR Cross-Gamma**: Mixed second derivative (discount vs forward curve)
 //! - **PV Fixed/Float**: Individual leg present values
 //!
 //! # Module Organization
@@ -82,6 +84,7 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (PvFixed, pv_fixed::FixedLegPvCalculator),
             (PvFloat, pv_float::FloatLegPvCalculator),
             (IrConvexity, ir_convexity::IrConvexityCalculator),
+            (IrCrossGamma, ir_convexity::CrossGammaCalculator),
         ]
     }
 }

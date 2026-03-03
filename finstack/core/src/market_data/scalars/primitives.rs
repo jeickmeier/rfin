@@ -287,6 +287,51 @@ impl ScalarTimeSeries {
         }
     }
 
+    /// Retrieve the value for the most recent observation on or before `date`.
+    ///
+    /// If an exact observation exists on `date`, it is returned. Otherwise the
+    /// most recent prior observation within `max_staleness_days` calendar days
+    /// is returned. If no observation falls within the staleness window, an
+    /// error is returned.
+    ///
+    /// This is intended for production fixing lookups where data feeds may
+    /// occasionally miss a single business day. For strict exact-date lookups
+    /// (e.g., unit tests), use [`Self::value_on_exact`].
+    pub fn value_on_or_before(&self, date: Date, max_staleness_days: u32) -> Result<f64> {
+        let q = to_days(date);
+        let date_vec = self.data.dates();
+        let value_vec = self.data.values();
+
+        match date_vec.binary_search(&q) {
+            Ok(idx) => Ok(value_vec[idx]),
+            Err(insert_pos) => {
+                if insert_pos == 0 {
+                    return Err(crate::Error::Input(InputError::NotFound {
+                        id: format!(
+                            "series '{}': no observation on or before {}",
+                            self.id.as_str(),
+                            date
+                        ),
+                    }));
+                }
+                let prev_idx = insert_pos - 1;
+                let stale_days = (q - date_vec[prev_idx]) as u32;
+                if stale_days > max_staleness_days {
+                    return Err(crate::Error::Input(InputError::NotFound {
+                        id: format!(
+                            "series '{}': nearest observation before {} is {} days stale (limit: {})",
+                            self.id.as_str(),
+                            date,
+                            stale_days,
+                            max_staleness_days,
+                        ),
+                    }));
+                }
+                Ok(value_vec[prev_idx])
+            }
+        }
+    }
+
     /// Retrieve values for multiple dates at once.
     ///
     /// The returned vector is aligned with the input order. Step interpolation
@@ -588,5 +633,55 @@ mod tests {
 
         let series = result.expect("ScalarTimeSeries creation should succeed in test");
         assert!(series.observations().len() >= 25); // At least 25 valid days
+    }
+
+    #[test]
+    fn value_on_or_before_exact_match() {
+        let d0 = time::Date::from_calendar_date(2025, time::Month::January, 6).expect("date");
+        let d1 = time::Date::from_calendar_date(2025, time::Month::January, 7).expect("date");
+        let d2 = time::Date::from_calendar_date(2025, time::Month::January, 8).expect("date");
+        let s = ScalarTimeSeries::new("FIX", vec![(d0, 0.05), (d1, 0.051), (d2, 0.052)], None)
+            .expect("series");
+
+        let v = s.value_on_or_before(d1, 3).expect("exact match");
+        assert!((v - 0.051).abs() < 1e-12);
+    }
+
+    #[test]
+    fn value_on_or_before_uses_prior_within_window() {
+        let d0 = time::Date::from_calendar_date(2025, time::Month::January, 3).expect("date"); // Friday
+        let d2 = time::Date::from_calendar_date(2025, time::Month::January, 6).expect("date"); // Monday (3 days gap)
+        let s = ScalarTimeSeries::new("FIX", vec![(d0, 0.05), (d2, 0.052)], None).expect("series");
+
+        // Saturday (1 day after Friday) with 3-day staleness window -> should return Friday
+        let sat = time::Date::from_calendar_date(2025, time::Month::January, 4).expect("date");
+        let v = s.value_on_or_before(sat, 3).expect("prior within window");
+        assert!((v - 0.05).abs() < 1e-12);
+    }
+
+    #[test]
+    fn value_on_or_before_rejects_stale() {
+        let d0 = time::Date::from_calendar_date(2025, time::Month::January, 1).expect("date");
+        let d1 = time::Date::from_calendar_date(2025, time::Month::January, 10).expect("date");
+        let s = ScalarTimeSeries::new("FIX", vec![(d0, 0.05), (d1, 0.06)], None).expect("series");
+
+        // 5 days after d0, with 3-day staleness limit -> should fail
+        let query = time::Date::from_calendar_date(2025, time::Month::January, 6).expect("date");
+        let result = s.value_on_or_before(query, 3);
+        assert!(result.is_err(), "Should reject observations > 3 days stale");
+    }
+
+    #[test]
+    fn value_on_or_before_no_prior_observation() {
+        let d0 = time::Date::from_calendar_date(2025, time::Month::January, 10).expect("date");
+        let d1 = time::Date::from_calendar_date(2025, time::Month::January, 20).expect("date");
+        let s = ScalarTimeSeries::new("FIX", vec![(d0, 0.05), (d1, 0.06)], None).expect("series");
+
+        let query = time::Date::from_calendar_date(2025, time::Month::January, 5).expect("date");
+        let result = s.value_on_or_before(query, 10);
+        assert!(
+            result.is_err(),
+            "Should fail when no prior observation exists"
+        );
     }
 }

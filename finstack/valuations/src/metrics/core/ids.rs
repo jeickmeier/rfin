@@ -419,6 +419,12 @@ impl MetricId {
     /// Interest rate convexity (IRS, similar concept to bond convexity)
     pub const IrConvexity: Self = Self(Cow::Borrowed("ir_convexity"));
 
+    /// Cross-gamma between discount and forward curves for IRS.
+    ///
+    /// Mixed second derivative: d²PV / (dr_disc × dr_fwd).
+    /// Measures how DV01 with respect to one curve changes when the other moves.
+    pub const IrCrossGamma: Self = Self(Cow::Borrowed("ir_cross_gamma"));
+
     /// Credit spread gamma (second derivative w.r.t spreads)
     pub const CsGamma: Self = Self(Cow::Borrowed("cs_gamma"));
 
@@ -858,6 +864,7 @@ impl MetricId {
         MetricId::Volga,
         MetricId::Veta,
         MetricId::IrConvexity,
+        MetricId::IrCrossGamma,
         MetricId::CsGamma,
         MetricId::InflationConvexity,
         MetricId::Charm,
