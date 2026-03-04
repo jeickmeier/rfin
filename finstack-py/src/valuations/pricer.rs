@@ -9,7 +9,7 @@ use finstack_valuations::instruments::fixed_income::bond::{
     asw_market_with_forward, asw_par_with_forward,
 };
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::pricer::{create_standard_registry, ModelKey, PricerRegistry};
+use finstack_valuations::pricer::{create_standard_registry, PricerRegistry};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -211,15 +211,7 @@ impl PyPricerRegistry {
             instrument: inst, ..
         } = extract_instrument(&instrument)?;
         let ModelKeyArg(model_key) = model.extract()?;
-        if model_key != ModelKey::Discounting {
-            return Err(PyValueError::new_err(
-                "price_with_metrics currently prices with instrument-default model; \
-                 non-discounting model override is not supported in this API. \
-                 Use price() for explicit model selection.",
-            ));
-        }
 
-        // Parse metrics
         let mut metric_ids: Vec<MetricId> = Vec::with_capacity(metrics.len());
         for m in metrics {
             let MetricIdArg(id) = m.extract()?;
@@ -231,14 +223,18 @@ impl PyPricerRegistry {
             None => default_pricing_date()?,
         };
 
-        // Release GIL for compute-heavy pricing and metric calculation
         py.detach(|| {
-            // Use the canonical Instrument::price_with_metrics method
-            let result = inst
-                .price_with_metrics(&market.inner, as_of_date, &metric_ids)
-                .map_err(core_to_py)?;
-
-            Ok(PyValuationResult::new(result))
+            self.inner
+                .price_with_metrics(
+                    inst.as_ref(),
+                    model_key,
+                    &market.inner,
+                    as_of_date,
+                    &metric_ids,
+                    None,
+                )
+                .map(PyValuationResult::new)
+                .map_err(pricing_error_to_py)
         })
     }
 

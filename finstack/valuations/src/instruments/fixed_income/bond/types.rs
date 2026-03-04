@@ -1244,6 +1244,30 @@ impl crate::instruments::common_impl::traits::Instrument for Bond {
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.issue_date)
     }
+
+    fn metrics_equivalent(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
+        use crate::cashflow::builder::specs::CouponType;
+
+        let mut clone = self.clone();
+
+        match &mut clone.cashflow_spec {
+            CashflowSpec::Fixed(ref mut spec) => {
+                spec.coupon_type = CouponType::Cash;
+            }
+            CashflowSpec::Amortizing { ref mut base, .. } => {
+                if let CashflowSpec::Fixed(ref mut spec) = base.as_mut() {
+                    spec.coupon_type = CouponType::Cash;
+                }
+            }
+            _ => {}
+        }
+
+        #[cfg(feature = "mc")]
+        {
+            clone.pricing_overrides.model_config.merton_mc_config = None;
+        }
+        Box::new(clone)
+    }
 }
 
 // Implement CurveDependencies for DV01/CS01 calculators

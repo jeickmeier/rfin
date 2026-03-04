@@ -230,6 +230,7 @@ pub fn par_rate_and_annuity_from_discount(
 /// Quote input for the bond quote engine.
 ///
 /// All spreads are expressed in **decimal** (`0.01 = 100bp`).
+#[derive(Debug, Clone, Copy)]
 pub enum BondQuoteInput {
     /// Clean price quoted as percentage of par (e.g., 99.5 = 99.5% of par).
     CleanPricePct(f64),

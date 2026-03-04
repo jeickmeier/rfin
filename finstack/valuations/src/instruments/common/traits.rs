@@ -835,6 +835,23 @@ pub trait Instrument: Send + Sync {
     /// ```
     fn clone_box(&self) -> Box<dyn Instrument>;
 
+    /// Returns a normalized instrument for computing spread/yield metrics.
+    ///
+    /// When a non-discounting model (hazard, MC, OAS) produces a price, the
+    /// standard metrics pipeline solves z-spread, YTM, duration, etc. against
+    /// the instrument's cashflows.  For instruments with non-standard cashflow
+    /// structures (e.g. PIK bonds with compounded terminal notional), the
+    /// "native" z-spread is not comparable to a standard cash-pay bond.
+    ///
+    /// This method returns a version of the instrument whose cashflows are
+    /// normalized to the standard (discount-model) basis.  The default
+    /// implementation returns `self.clone_box()` — instruments with standard
+    /// cashflows need no override.  Bonds override this to convert PIK coupon
+    /// type to Cash so that spread metrics are on a cash-equivalent basis.
+    fn metrics_equivalent(&self) -> Box<dyn Instrument> {
+        self.clone_box()
+    }
+
     // === Pricing Methods ===
 
     /// Compute the present value only (fast path, no metrics).

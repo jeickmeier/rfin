@@ -35,7 +35,33 @@ class MertonMcConfig:
         seed: int = 42,
         antithetic: bool = True,
         time_steps_per_year: int = 12,
-    ) -> None: ...
+        barrier_crossing: str | None = None,
+        calibrate_to_z_spread: float | None = None,
+        calibrate_to_price: float | None = None,
+        calibration_parameter: str = "barrier",
+        calibration_low_paths: int = 2_000,
+    ) -> None:
+        """Create a Monte Carlo configuration.
+
+        Parameters
+        ----------
+        barrier_crossing
+            ``"discrete"`` or ``"brownian_bridge"``.  Default is
+            ``"brownian_bridge"`` for first-passage barriers, ``"discrete"``
+            for terminal barriers.
+        calibrate_to_z_spread
+            When set, calibrate a structural parameter so the cash base-case
+            MC z-spread matches this target (decimal, e.g. 0.05 = 500 bp).
+        calibrate_to_price
+            When set, calibrate a structural parameter so the cash base-case
+            MC clean price (% of par) matches this target.
+        calibration_parameter
+            ``"barrier"`` (default) or ``"vol"``.  Which structural parameter
+            to solve for during calibration.
+        calibration_low_paths
+            Number of MC paths for the calibration pass.
+        """
+        ...
     @property
     def num_paths(self) -> int: ...
     @property
@@ -44,6 +70,8 @@ class MertonMcConfig:
     def antithetic(self) -> bool: ...
     @property
     def time_steps_per_year(self) -> int: ...
+    @property
+    def barrier_crossing(self) -> str: ...
     def __repr__(self) -> str: ...
 
 class MertonMcResult:

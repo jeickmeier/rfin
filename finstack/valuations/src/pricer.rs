@@ -1266,6 +1266,153 @@ impl PricerRegistry {
         Ok(result)
     }
 
+    /// Price an instrument and compute standard metrics using any registered model.
+    ///
+    /// Chains `price_dyn` (model PV + model-specific measures) into the standard
+    /// metrics pipeline (`build_with_metrics_dyn`) so that all bond metric
+    /// calculators (YTM, z-spread, durations, etc.) solve against the model price.
+    ///
+    /// This generalizes the `Instrument::price_with_metrics` path (which only
+    /// works with the discount engine) to work with any registered model --
+    /// hazard-rate, tree/OAS, Monte Carlo, etc.
+    ///
+    /// For non-discounting models, spread/yield metrics (z-spread, YTM, ASW, etc.)
+    /// are computed on the instrument's `metrics_equivalent()` — a version with
+    /// normalized cashflows (e.g., PIK coupon type converted to Cash) so that
+    /// spreads are on a cash-equivalent basis.  Risk metrics (duration, DV01,
+    /// convexity, CS01) use the original instrument's actual cashflows.
+    ///
+    /// # Arguments
+    ///
+    /// * `instrument` - Instrument to price (as trait object)
+    /// * `model` - Pricing model to use
+    /// * `market` - Market data context with curves and surfaces
+    /// * `as_of` - Valuation date
+    /// * `metrics` - Standard metrics to compute (e.g., `MetricId::Ytm`, `MetricId::ZSpread`)
+    /// * `cfg` - Optional FinstackConfig for rounding/tolerance policy
+    pub fn price_with_metrics(
+        &self,
+        instrument: &dyn Priceable,
+        model: ModelKey,
+        market: &Market,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+        cfg: Option<&FinstackConfig>,
+    ) -> PricingResult<crate::results::ValuationResult> {
+        use crate::metrics::MetricId;
+
+        let base_result = self.price_with_registry(instrument, model, market, as_of, cfg)?;
+
+        if metrics.is_empty() {
+            return Ok(base_result);
+        }
+
+        let needs_split = model != ModelKey::Discounting;
+
+        if !needs_split {
+            let mut enriched = crate::instruments::common_impl::helpers::build_with_metrics_dyn(
+                std::sync::Arc::from(instrument.clone_box()),
+                std::sync::Arc::new(market.clone()),
+                as_of,
+                base_result.value,
+                metrics,
+                cfg.map(|c| std::sync::Arc::new(c.clone())),
+                None,
+            )
+            .map_err(|e| {
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
+            })?;
+
+            for (k, v) in base_result.measures {
+                enriched.measures.insert(k, v);
+            }
+            return Ok(enriched);
+        }
+
+        // Non-discounting model: split metrics into spread (cash-equivalent
+        // cashflows) and risk (actual cashflows).
+        let spread_ids: &[MetricId] = &[
+            MetricId::Ytm,
+            MetricId::Ytw,
+            MetricId::ZSpread,
+            MetricId::ISpread,
+            MetricId::DiscountMargin,
+            MetricId::Oas,
+            MetricId::ASWPar,
+            MetricId::ASWMarket,
+            MetricId::CleanPrice,
+            MetricId::DirtyPrice,
+            MetricId::Accrued,
+            MetricId::EmbeddedOptionValue,
+        ];
+
+        let mut spread_metrics = Vec::new();
+        let mut risk_metrics = Vec::new();
+        for m in metrics {
+            if spread_ids.contains(m) {
+                spread_metrics.push(m.clone());
+            } else {
+                risk_metrics.push(m.clone());
+            }
+        }
+
+        let cfg_arc = cfg.map(|c| std::sync::Arc::new(c.clone()));
+        let market_arc = std::sync::Arc::new(market.clone());
+
+        // Spread metrics: cash-equivalent cashflows via metrics_equivalent()
+        let mut result = if !spread_metrics.is_empty() {
+            crate::instruments::common_impl::helpers::build_with_metrics_dyn(
+                std::sync::Arc::from(instrument.metrics_equivalent()),
+                market_arc.clone(),
+                as_of,
+                base_result.value,
+                &spread_metrics,
+                cfg_arc.clone(),
+                None,
+            )
+            .map_err(|e| {
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
+            })?
+        } else {
+            crate::results::ValuationResult::stamped(instrument.id(), as_of, base_result.value)
+        };
+
+        // Risk metrics: actual instrument cashflows
+        if !risk_metrics.is_empty() {
+            let risk_result = crate::instruments::common_impl::helpers::build_with_metrics_dyn(
+                std::sync::Arc::from(instrument.clone_box()),
+                market_arc,
+                as_of,
+                base_result.value,
+                &risk_metrics,
+                cfg_arc,
+                None,
+            )
+            .map_err(|e| {
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
+            })?;
+            for (k, v) in risk_result.measures {
+                result.measures.insert(k, v);
+            }
+        }
+
+        // Model-specific measures from price_dyn take priority
+        for (k, v) in base_result.measures {
+            result.measures.insert(k, v);
+        }
+
+        Ok(result)
+    }
+
     /// Price a batch of instruments using the registry dispatch system.
     ///
     /// The output order matches the input order. When the `parallel` feature is

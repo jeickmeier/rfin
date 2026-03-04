@@ -3,9 +3,11 @@ use crate::valuations::instruments::credit::endogenous_hazard::PyEndogenousHazar
 use crate::valuations::instruments::credit::merton::PyMertonModel;
 use crate::valuations::instruments::credit::toggle_exercise::PyToggleExerciseModel;
 use finstack_valuations::instruments::fixed_income::bond::pricing::merton_mc_engine::{
+    BarrierCrossing, CalibrationParameter, MertonMcCalibrationSpec,
     MertonMcConfig as RustMertonMcConfig, MertonMcResult as RustMertonMcResult, PikMode,
     PikSchedule,
 };
+use finstack_valuations::instruments::fixed_income::bond::pricing::quote_conversions::BondQuoteInput;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
@@ -130,6 +132,20 @@ impl PyMertonMcConfig {
     ///     Use antithetic variates for variance reduction (default: True).
     /// time_steps_per_year : int, optional
     ///     Simulation time steps per year (default: 12).
+    /// barrier_crossing : str | None, optional
+    ///     Barrier-crossing policy: ``"discrete"`` or ``"brownian_bridge"``.
+    ///     When ``None`` (default), uses ``"brownian_bridge"`` for first-passage
+    ///     barriers and ``"discrete"`` for terminal barriers.
+    /// calibrate_to_z_spread : float | None, optional
+    ///     When set, calibrate the debt barrier so the cash base-case MC
+    ///     z-spread matches this target (decimal, e.g. 0.05 for 500 bp).
+    /// calibrate_to_price : float | None, optional
+    ///     When set, calibrate the debt barrier so the cash base-case MC
+    ///     clean price (% of par) matches this target.
+    /// calibration_parameter : str, optional
+    ///     Which parameter to solve for: ``"barrier"`` (default) or ``"vol"``.
+    /// calibration_low_paths : int, optional
+    ///     Number of MC paths for the calibration pass (default: 2000).
     ///
     /// Returns
     /// -------
@@ -146,7 +162,13 @@ impl PyMertonMcConfig {
         seed = 42,
         antithetic = true,
         time_steps_per_year = 12,
+        barrier_crossing = None,
+        calibrate_to_z_spread = None,
+        calibrate_to_price = None,
+        calibration_parameter = "barrier",
+        calibration_low_paths = 2_000,
     ))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         merton: &PyMertonModel,
         pik_schedule: Option<&Bound<'_, pyo3::types::PyAny>>,
@@ -157,6 +179,11 @@ impl PyMertonMcConfig {
         seed: u64,
         antithetic: bool,
         time_steps_per_year: usize,
+        barrier_crossing: Option<&str>,
+        calibrate_to_z_spread: Option<f64>,
+        calibrate_to_price: Option<f64>,
+        calibration_parameter: &str,
+        calibration_low_paths: usize,
     ) -> PyResult<Self> {
         let rust_schedule = match pik_schedule {
             Some(obj) => parse_pik_schedule(obj)?,
@@ -168,6 +195,20 @@ impl PyMertonMcConfig {
             .seed(seed)
             .antithetic(antithetic)
             .time_steps_per_year(time_steps_per_year);
+
+        if let Some(bc) = barrier_crossing {
+            let policy = match bc.to_lowercase().as_str() {
+                "discrete" => BarrierCrossing::Discrete,
+                "brownian_bridge" | "bb" => BarrierCrossing::BrownianBridge,
+                other => {
+                    return Err(PyValueError::new_err(format!(
+                        "Unknown barrier_crossing '{other}': use 'discrete' or 'brownian_bridge'"
+                    )));
+                }
+            };
+            config = config.barrier_crossing(policy);
+        }
+
         if let Some(eh) = endogenous_hazard {
             config = config.endogenous_hazard(eh.inner.clone());
         }
@@ -177,6 +218,38 @@ impl PyMertonMcConfig {
         if let Some(tm) = toggle_model {
             config = config.toggle_model(tm.inner.clone());
         }
+
+        if calibrate_to_z_spread.is_some() && calibrate_to_price.is_some() {
+            return Err(PyValueError::new_err(
+                "Cannot set both calibrate_to_z_spread and calibrate_to_price",
+            ));
+        }
+        let cal_param = match calibration_parameter.to_lowercase().as_str() {
+            "barrier" | "debt_barrier" => CalibrationParameter::DebtBarrier,
+            "vol" | "asset_vol" => CalibrationParameter::AssetVol,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "Unknown calibration_parameter '{other}': use 'barrier' or 'vol'"
+                )));
+            }
+        };
+        if let Some(z) = calibrate_to_z_spread {
+            config = config.calibration(MertonMcCalibrationSpec {
+                target: BondQuoteInput::ZSpread(z),
+                parameter: cal_param,
+                low_paths: calibration_low_paths,
+                ..MertonMcCalibrationSpec::default()
+            });
+        }
+        if let Some(px) = calibrate_to_price {
+            config = config.calibration(MertonMcCalibrationSpec {
+                target: BondQuoteInput::CleanPricePct(px),
+                parameter: cal_param,
+                low_paths: calibration_low_paths,
+                ..MertonMcCalibrationSpec::default()
+            });
+        }
+
         Ok(Self { inner: config })
     }
 
@@ -202,6 +275,15 @@ impl PyMertonMcConfig {
     #[getter]
     fn time_steps_per_year(&self) -> usize {
         self.inner.time_steps_per_year
+    }
+
+    /// Barrier-crossing policy: ``"discrete"`` or ``"brownian_bridge"``.
+    #[getter]
+    fn barrier_crossing(&self) -> &str {
+        match self.inner.barrier_crossing {
+            BarrierCrossing::Discrete => "discrete",
+            BarrierCrossing::BrownianBridge => "brownian_bridge",
+        }
     }
 
     fn __repr__(&self) -> String {

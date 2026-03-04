@@ -3,10 +3,15 @@
 //! Prices a bond using the Merton structural credit MC engine. The
 //! [`MertonMcConfig`] must be set on the bond's `pricing_overrides.model_config`.
 //!
-//! After MC simulation, the pricer computes **cash-equivalent** Z-spread
-//! and YTM: the Z-spread / YTM of a standard cash-pay bond that would
-//! produce the same MC price. This makes spread/yield metrics comparable
-//! across cash, PIK, and toggle structures.
+//! Returns PV plus MC-specific structural measures (expected loss, default rate,
+//! etc.). Standard spread/yield metrics (z-spread, YTM, durations) are available
+//! via `PricerRegistry::price_with_metrics`, which runs the generic metrics
+//! pipeline against the MC model price.
+//!
+//! When the optional `calibration` field is set on the config, the pricer first
+//! calibrates a structural parameter (barrier or asset vol) to a market quote
+//! using low-path MC with common random numbers, then re-prices with the
+//! calibrated model at full path count.
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::bond::types::Bond;
@@ -28,64 +33,6 @@ impl SimpleBondMertonMcPricer {
 impl Default for SimpleBondMertonMcPricer {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl SimpleBondMertonMcPricer {
-    /// Build a cash-equivalent bond: same terms but `CouponType::Cash`,
-    /// with `quoted_clean_price` set to the MC price.
-    fn cash_equivalent_bond(bond: &Bond, mc_clean_pct: f64) -> Bond {
-        use crate::cashflow::builder::specs::CouponType;
-
-        let mut ceq = bond.clone();
-        match &mut ceq.cashflow_spec {
-            crate::instruments::fixed_income::bond::CashflowSpec::Fixed(ref mut spec) => {
-                spec.coupon_type = CouponType::Cash;
-            }
-            crate::instruments::fixed_income::bond::CashflowSpec::Amortizing {
-                ref mut base,
-                ..
-            } => {
-                if let crate::instruments::fixed_income::bond::CashflowSpec::Fixed(ref mut spec) =
-                    base.as_mut()
-                {
-                    spec.coupon_type = CouponType::Cash;
-                }
-            }
-            _ => {}
-        }
-        ceq.pricing_overrides.market_quotes.quoted_clean_price = Some(mc_clean_pct);
-        ceq.pricing_overrides.model_config.merton_mc_config = None;
-        ceq
-    }
-
-    /// Run the existing metric calculators on the cash-equivalent bond.
-    fn compute_ceq_metrics(
-        ceq_bond: Bond,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
-        base_value: finstack_core::money::Money,
-    ) -> IndexMap<crate::metrics::MetricId, f64> {
-        use crate::instruments::fixed_income::bond::metrics::price_yield_spread::{
-            YtmCalculator, ZSpreadCalculator,
-        };
-        use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-
-        let instrument: std::sync::Arc<dyn Instrument> = std::sync::Arc::new(ceq_bond);
-        let curves = std::sync::Arc::new(market.clone());
-        let config = MetricContext::default_config();
-
-        let mut ctx = MetricContext::new(instrument, curves, as_of, base_value, config);
-        let mut results = IndexMap::new();
-
-        if let Ok(z) = ZSpreadCalculator::default().calculate(&mut ctx) {
-            results.insert(MetricId::ZSpread, z);
-        }
-        if let Ok(y) = YtmCalculator.calculate(&mut ctx) {
-            results.insert(MetricId::Ytm, y);
-        }
-
-        results
     }
 }
 
@@ -141,8 +88,56 @@ impl Pricer for SimpleBondMertonMcPricer {
             0.0
         };
 
+        // ---- Calibration pass (opt-in) ---------------------------------
+        let mut calibration_measures: IndexMap<crate::metrics::MetricId, f64> = IndexMap::new();
+        let effective_config = if let Some(ref cal_spec) = mc_override.0.calibration {
+            use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::calibration::calibrate_parameter_to_market;
+            let cal_output = calibrate_parameter_to_market(
+                bond,
+                market,
+                as_of,
+                discount_rate,
+                &mc_override.0,
+                cal_spec,
+            )
+            .map_err(|e| PricingError::model_failure_with_context(e.to_string(), ctx.clone()))?;
+
+            calibration_measures.insert(
+                crate::metrics::MetricId::custom("calibrated_debt_barrier"),
+                cal_output.calibrated_merton.debt_barrier(),
+            );
+            calibration_measures.insert(
+                crate::metrics::MetricId::custom("calibrated_asset_vol"),
+                cal_output.calibrated_merton.asset_vol(),
+            );
+            calibration_measures.insert(
+                crate::metrics::MetricId::custom("calibration_residual_pv"),
+                cal_output.residual_pv,
+            );
+            calibration_measures.insert(
+                crate::metrics::MetricId::custom("calibration_iterations"),
+                cal_output.iterations as f64,
+            );
+            calibration_measures.insert(
+                crate::metrics::MetricId::custom("calibration_target_pv"),
+                cal_output.target_pv,
+            );
+            calibration_measures.insert(
+                crate::metrics::MetricId::custom("calibration_solved_parameter"),
+                cal_output.solved_parameter,
+            );
+
+            let mut cfg = mc_override.0.clone();
+            cfg.merton = cal_output.calibrated_merton;
+            cfg.calibration = None;
+            cfg
+        } else {
+            mc_override.0.clone()
+        };
+
+        // ---- Full pricing pass -----------------------------------------
         let mc_result = bond
-            .price_merton_mc(&mc_override.0, discount_rate, as_of)
+            .price_merton_mc(&effective_config, discount_rate, as_of)
             .map_err(|e| PricingError::model_failure_with_context(e.to_string(), ctx))?;
 
         let mc_clean_pct = mc_result.clean_price_pct;
@@ -179,11 +174,9 @@ impl Pricer for SimpleBondMertonMcPricer {
             mc_result.expected_shortfall_95,
         );
 
-        // Cash-equivalent spread/yield metrics using the actual ZSpreadCalculator
-        // and YtmCalculator on a cash-equivalent bond.
-        let ceq = Self::cash_equivalent_bond(bond, mc_clean_pct);
-        let ceq_metrics = Self::compute_ceq_metrics(ceq, market, as_of, pv);
-        measures.extend(ceq_metrics);
+        for (k, v) in calibration_measures {
+            measures.insert(k, v);
+        }
 
         let result = ValuationResult::stamped(bond.id(), as_of, pv);
         Ok(result.with_measures(measures))
