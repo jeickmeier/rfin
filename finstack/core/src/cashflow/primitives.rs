@@ -142,6 +142,13 @@ pub enum CFKind {
     /// (recovery rate × defaulted amount).
     Recovery,
 
+    /// Accrued-on-default interest (ISDA standard for CDS).
+    ///
+    /// Interest accrued but unpaid at the time of a credit event.
+    /// Under ISDA standard conventions, the protection buyer pays
+    /// the accrued premium from the last payment date to the default date.
+    AccruedOnDefault,
+
     /// Irregular stub period interest.
     ///
     /// Interest payment for a non-standard accrual period at the beginning (front stub)

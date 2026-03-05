@@ -386,6 +386,133 @@ fn sda_multiplier_scales_correctly() {
 // Property-Based Tests
 // =============================================================================
 
+// =============================================================================
+// AccruedOnDefault Emission Tests
+// =============================================================================
+
+#[test]
+fn accrued_on_default_emission() {
+    // When accrued_on_default is Some(positive), emit_default_on should produce
+    // 3 cashflows: DefaultedNotional + Recovery + AccruedOnDefault
+    use finstack_core::cashflow::CFKind;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
+    use finstack_valuations::cashflow::builder::emit_default_on;
+    use finstack_valuations::cashflow::builder::DefaultEvent;
+    use time::Month;
+
+    let d = Date::from_calendar_date(2025, Month::June, 15).expect("valid date");
+    let event = DefaultEvent {
+        default_date: d,
+        defaulted_amount: 500_000.0,
+        recovery_rate: 0.40,
+        recovery_lag: 6,
+        recovery_bdc: None,
+        recovery_calendar_id: None,
+        accrued_on_default: Some(12_500.0),
+    };
+
+    let mut outstanding = 1_000_000.0;
+    let flows =
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should succeed");
+
+    // Should produce 3 cashflows
+    assert_eq!(
+        flows.len(),
+        3,
+        "Expected 3 flows: default + recovery + accrued"
+    );
+
+    // First flow: DefaultedNotional
+    assert_eq!(flows[0].kind, CFKind::DefaultedNotional);
+    assert_eq!(flows[0].amount.amount(), 500_000.0);
+    assert_eq!(flows[0].date, d);
+
+    // Second flow: Recovery
+    assert_eq!(flows[1].kind, CFKind::Recovery);
+    assert_eq!(flows[1].amount.amount(), 200_000.0); // 500k * 0.40
+
+    // Third flow: AccruedOnDefault
+    assert_eq!(flows[2].kind, CFKind::AccruedOnDefault);
+    assert_eq!(flows[2].amount.amount(), 12_500.0);
+    assert_eq!(flows[2].date, d); // Same date as default
+
+    // Outstanding reduced by defaulted amount only (not by accrued)
+    assert_eq!(outstanding, 500_000.0);
+}
+
+#[test]
+fn accrued_on_default_none_no_extra_flow() {
+    // When accrued_on_default is None, only 2 cashflows should be emitted
+    use finstack_core::cashflow::CFKind;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
+    use finstack_valuations::cashflow::builder::emit_default_on;
+    use finstack_valuations::cashflow::builder::DefaultEvent;
+    use time::Month;
+
+    let d = Date::from_calendar_date(2025, Month::June, 15).expect("valid date");
+    let event = DefaultEvent {
+        default_date: d,
+        defaulted_amount: 100_000.0,
+        recovery_rate: 0.40,
+        recovery_lag: 12,
+        recovery_bdc: None,
+        recovery_calendar_id: None,
+        accrued_on_default: None,
+    };
+
+    let mut outstanding = 1_000_000.0;
+    let flows =
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should succeed");
+
+    assert_eq!(
+        flows.len(),
+        2,
+        "Expected 2 flows: default + recovery (no accrued)"
+    );
+    assert_eq!(flows[0].kind, CFKind::DefaultedNotional);
+    assert_eq!(flows[1].kind, CFKind::Recovery);
+}
+
+#[test]
+fn accrued_on_default_zero_no_extra_flow() {
+    // When accrued_on_default is Some(0.0), no AccruedOnDefault flow should be emitted
+    use finstack_core::cashflow::CFKind;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
+    use finstack_valuations::cashflow::builder::emit_default_on;
+    use finstack_valuations::cashflow::builder::DefaultEvent;
+    use time::Month;
+
+    let d = Date::from_calendar_date(2025, Month::June, 15).expect("valid date");
+    let event = DefaultEvent {
+        default_date: d,
+        defaulted_amount: 100_000.0,
+        recovery_rate: 0.40,
+        recovery_lag: 12,
+        recovery_bdc: None,
+        recovery_calendar_id: None,
+        accrued_on_default: Some(0.0),
+    };
+
+    let mut outstanding = 1_000_000.0;
+    let flows =
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should succeed");
+
+    assert_eq!(
+        flows.len(),
+        2,
+        "Expected 2 flows: zero accrued should not emit"
+    );
+    assert_eq!(flows[0].kind, CFKind::DefaultedNotional);
+    assert_eq!(flows[1].kind, CFKind::Recovery);
+}
+
+// =============================================================================
+// Property-Based Tests
+// =============================================================================
+
 mod property_tests {
     use super::*;
     use proptest::prelude::*;

@@ -49,6 +49,7 @@ use super::super::specs::DefaultEvent;
 ///     recovery_lag: 12,
 ///     recovery_bdc: None,
 ///     recovery_calendar_id: None,
+///     accrued_on_default: None,
 /// };
 /// let mut outstanding = 1_000_000.0;
 /// let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should succeed");
@@ -127,6 +128,21 @@ pub fn emit_default_on(
             // principal base for interest calculations. The outstanding
             // balance should only be updated when processing flows as-of
             // their actual dates (e.g., via outstanding_by_date()).
+        }
+
+        // Accrued-on-default: ISDA standard CDS convention — protection buyer
+        // pays accrued premium from last payment date to default date.
+        if let Some(accrued_amt) = event.accrued_on_default {
+            if accrued_amt > 0.0 {
+                flows.push(CashFlow {
+                    date: d,
+                    reset_date: None,
+                    amount: Money::new(accrued_amt, ccy),
+                    kind: CFKind::AccruedOnDefault,
+                    accrual_factor: 0.0,
+                    rate: None,
+                });
+            }
         }
     }
 

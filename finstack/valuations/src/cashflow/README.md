@@ -638,6 +638,7 @@ let default_event = DefaultEvent {
     recovery_lag: 12,  // months
     recovery_bdc: Some(BusinessDayConvention::Following),
     recovery_calendar_id: Some("US".to_string()),
+    accrued_on_default: None,
 };
 let mut outstanding = 1_000_000.0;
 let flows = emit_default_on(d, &[default_event], &mut outstanding, Currency::USD)?;

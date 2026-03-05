@@ -589,6 +589,7 @@ impl PyDefaultEvent {
                 recovery_lag,
                 recovery_bdc: recovery_bdc.map(|b| b.inner),
                 recovery_calendar_id,
+                accrued_on_default: None,
             },
         })
     }

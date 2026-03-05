@@ -237,6 +237,7 @@ mod credit_emission_tests {
             recovery_lag: 12,
             recovery_bdc: None,
             recovery_calendar_id: None,
+            accrued_on_default: None,
         };
 
         let mut outstanding: f64 = 1_000_000.0;
@@ -310,6 +311,7 @@ mod credit_emission_tests {
             recovery_lag: 12,
             recovery_bdc: None,
             recovery_calendar_id: None,
+            accrued_on_default: None,
         };
 
         let mut outstanding: f64 = 1_000_000.0;
@@ -398,6 +400,7 @@ mod credit_emission_tests {
             recovery_lag: 12,
             recovery_bdc: None,
             recovery_calendar_id: None,
+            accrued_on_default: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -419,6 +422,7 @@ mod credit_emission_tests {
             recovery_lag: 12,
             recovery_bdc: None,
             recovery_calendar_id: None,
+            accrued_on_default: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -442,6 +446,7 @@ mod credit_emission_tests {
                 recovery_lag: 12,
                 recovery_bdc: None,
                 recovery_calendar_id: None,
+                accrued_on_default: None,
             },
             DefaultEvent {
                 default_date: d,
@@ -450,6 +455,7 @@ mod credit_emission_tests {
                 recovery_lag: 6,
                 recovery_bdc: None,
                 recovery_calendar_id: None,
+                accrued_on_default: None,
             },
         ];
 
@@ -475,6 +481,7 @@ mod credit_emission_tests {
             recovery_lag: 12,
             recovery_bdc: None,
             recovery_calendar_id: None,
+            accrued_on_default: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -495,6 +502,7 @@ mod credit_emission_tests {
             recovery_lag: 6,
             recovery_bdc: None,
             recovery_calendar_id: None,
+            accrued_on_default: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -555,6 +563,7 @@ mod credit_emission_tests {
             recovery_lag: 12,
             recovery_bdc: None,
             recovery_calendar_id: None,
+            accrued_on_default: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -572,6 +581,7 @@ mod credit_emission_tests {
             recovery_lag: 12,
             recovery_bdc: None,
             recovery_calendar_id: None,
+            accrued_on_default: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -589,6 +599,7 @@ mod credit_emission_tests {
             recovery_lag: 12,
             recovery_bdc: None,
             recovery_calendar_id: None,
+            accrued_on_default: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -608,6 +619,7 @@ mod credit_emission_tests {
             recovery_lag: 12,
             recovery_bdc: None,
             recovery_calendar_id: None,
+            accrued_on_default: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -650,6 +662,7 @@ mod credit_emission_tests {
             recovery_lag: 12,
             recovery_bdc: None,
             recovery_calendar_id: None,
+            accrued_on_default: None,
         };
 
         let mut outstanding: f64 = 0.0;
@@ -662,5 +675,112 @@ mod credit_emission_tests {
             "Should emit no flows when outstanding is 0"
         );
         assert!(outstanding.abs() < 1e-9, "Outstanding should remain 0");
+    }
+
+    #[test]
+    fn test_accrued_on_default_emission() {
+        // When accrued_on_default is Some(12_500.0), emit_default_on should
+        // produce 3 flows: DefaultedNotional + Recovery + AccruedOnDefault.
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let event = DefaultEvent {
+            default_date: d,
+            defaulted_amount: 100_000.0,
+            recovery_rate: 0.40,
+            recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
+            accrued_on_default: Some(12_500.0),
+        };
+
+        let mut outstanding = 1_000_000.0;
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+            .expect("should emit default with accrued");
+
+        // Outstanding reduced by defaulted amount
+        assert_eq!(outstanding, 900_000.0);
+
+        // Should produce 3 flows: DefaultedNotional + Recovery + AccruedOnDefault
+        assert_eq!(flows.len(), 3, "Expected 3 flows, got {}", flows.len());
+
+        // First flow: DefaultedNotional
+        assert_eq!(flows[0].kind, CFKind::DefaultedNotional);
+        assert_eq!(flows[0].amount.amount(), 100_000.0);
+        assert_eq!(flows[0].date, d);
+
+        // Second flow: Recovery
+        assert_eq!(flows[1].kind, CFKind::Recovery);
+        assert_eq!(flows[1].amount.amount(), 40_000.0);
+        let expected_recovery_date = d.add_months(12);
+        assert_eq!(flows[1].date, expected_recovery_date);
+
+        // Third flow: AccruedOnDefault
+        assert_eq!(flows[2].kind, CFKind::AccruedOnDefault);
+        assert!(
+            (flows[2].amount.amount() - 12_500.0).abs() < 1e-9,
+            "AccruedOnDefault amount should be 12,500, got {}",
+            flows[2].amount.amount()
+        );
+        assert_eq!(flows[2].date, d, "AccruedOnDefault should be on default date");
+        assert_eq!(flows[2].accrual_factor, 0.0);
+        assert!(flows[2].rate.is_none());
+    }
+
+    #[test]
+    fn test_accrued_on_default_none_no_extra_flow() {
+        // When accrued_on_default is None, only DefaultedNotional + Recovery are emitted.
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let event = DefaultEvent {
+            default_date: d,
+            defaulted_amount: 100_000.0,
+            recovery_rate: 0.40,
+            recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
+            accrued_on_default: None,
+        };
+
+        let mut outstanding = 1_000_000.0;
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+            .expect("should emit default without accrued");
+
+        // Should produce only 2 flows: DefaultedNotional + Recovery (no AccruedOnDefault)
+        assert_eq!(
+            flows.len(),
+            2,
+            "Expected 2 flows (no AccruedOnDefault), got {}",
+            flows.len()
+        );
+        assert_eq!(flows[0].kind, CFKind::DefaultedNotional);
+        assert_eq!(flows[1].kind, CFKind::Recovery);
+    }
+
+    #[test]
+    fn test_accrued_on_default_zero_no_extra_flow() {
+        // When accrued_on_default is Some(0.0), no AccruedOnDefault flow should be emitted
+        // because the guard checks accrued_amt > 0.0.
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let event = DefaultEvent {
+            default_date: d,
+            defaulted_amount: 100_000.0,
+            recovery_rate: 0.40,
+            recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
+            accrued_on_default: Some(0.0),
+        };
+
+        let mut outstanding = 1_000_000.0;
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+            .expect("should emit default without accrued for zero amount");
+
+        // Should produce only 2 flows: no AccruedOnDefault for zero amount
+        assert_eq!(
+            flows.len(),
+            2,
+            "Expected 2 flows (zero accrued should not emit), got {}",
+            flows.len()
+        );
+        assert_eq!(flows[0].kind, CFKind::DefaultedNotional);
+        assert_eq!(flows[1].kind, CFKind::Recovery);
     }
 }
