@@ -863,3 +863,336 @@ fn test_floating_rate_all_in_floor() {
         );
     }
 }
+
+// =============================================================================
+// Overnight Compounding Tests
+// =============================================================================
+
+use finstack_valuations::cashflow::builder::specs::OvernightCompoundingMethod;
+
+/// Helper: create a floating coupon spec with overnight compounding enabled.
+fn make_overnight_float_spec(
+    method: OvernightCompoundingMethod,
+    fallback: FloatingRateFallback,
+    spread_bp: Decimal,
+) -> FloatingCouponSpec {
+    FloatingCouponSpec {
+        rate_spec: FloatingRateSpec {
+            index_id: "USD-SOFR-3M".into(),
+            spread_bp,
+            gearing: Decimal::ONE,
+            gearing_includes_spread: true,
+            floor_bp: None,
+            cap_bp: None,
+            all_in_floor_bp: None,
+            index_cap_bp: None,
+            reset_freq: Tenor::quarterly(),
+            reset_lag_days: 0,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: "weekends_only".to_string(),
+            fixing_calendar_id: None,
+            end_of_month: false,
+            payment_lag_days: 0,
+            overnight_compounding: Some(method),
+            fallback,
+        },
+        coupon_type: CouponType::Cash,
+        freq: Tenor::quarterly(),
+        stub: StubKind::None,
+    }
+}
+
+/// Overnight compounding (CompoundedInArrears) with a flat curve should produce
+/// approximately the same rate as the flat forward rate.
+///
+/// With a flat curve at 4.5%, daily compounding produces a rate very close to 4.5%
+/// (the compounding effect on such small daily increments is negligible).
+/// All-in rate = ~4.5% + 2% spread = ~6.5%.
+#[test]
+fn test_overnight_compounding_flat_curve() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    let spec = make_overnight_float_spec(
+        OvernightCompoundingMethod::CompoundedInArrears,
+        FloatingRateFallback::Error,
+        dec!(200.0), // 200 bps spread
+    );
+    let market = make_flat_forward_market(issue, 0.045);
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("Overnight compounding with flat curve should succeed");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert_eq!(
+        float_flows.len(),
+        4,
+        "Expected 4 quarterly FloatReset flows, got {}",
+        float_flows.len()
+    );
+
+    // Flat curve: compounded rate is very close to the flat rate (4.5%).
+    // All-in = ~4.5% + 2% = ~6.5%.
+    // Allow a small tolerance for compounding effects on flat curve.
+    let expected_rate = 0.065;
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < 0.001,
+            "Flow {}: overnight compounded rate should be ~{} (flat 4.5% + 200bp), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+
+        // Verify the amount is consistent with rate * notional * accrual_factor
+        let amount = cf.amount.amount().abs();
+        let expected_amount = notional * rate * cf.accrual_factor;
+        assert!(
+            (amount - expected_amount).abs() < 1.0,
+            "Flow {}: amount {:.2} should match rate * notional * accrual ({:.2})",
+            i,
+            amount,
+            expected_amount
+        );
+    }
+}
+
+/// Simple average should produce an identical rate to the flat forward rate.
+///
+/// With a flat curve at 4.5%, the simple average of daily rates is exactly 4.5%.
+/// All-in rate = 4.5% + 2% spread = 6.5%.
+#[test]
+fn test_overnight_simple_average_flat() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    let spec = make_overnight_float_spec(
+        OvernightCompoundingMethod::SimpleAverage,
+        FloatingRateFallback::Error,
+        dec!(200.0), // 200 bps spread
+    );
+    let market = make_flat_forward_market(issue, 0.045);
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("Overnight simple average with flat curve should succeed");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert_eq!(
+        float_flows.len(),
+        4,
+        "Expected 4 quarterly FloatReset flows, got {}",
+        float_flows.len()
+    );
+
+    // Simple average of a flat rate == that flat rate.
+    // All-in = 4.5% + 2% = 6.5%.
+    let expected_rate = 0.065;
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < 0.001,
+            "Flow {}: simple average rate should be ~{} (flat 4.5% + 200bp), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+    }
+}
+
+/// Overnight compounding with lockout on a flat curve should produce
+/// approximately the same rate as the flat forward rate.
+#[test]
+fn test_overnight_lockout_flat_curve() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    let spec = make_overnight_float_spec(
+        OvernightCompoundingMethod::CompoundedWithLockout { lockout_days: 2 },
+        FloatingRateFallback::Error,
+        dec!(200.0),
+    );
+    let market = make_flat_forward_market(issue, 0.045);
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("Overnight lockout with flat curve should succeed");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert_eq!(
+        float_flows.len(),
+        4,
+        "Expected 4 quarterly FloatReset flows, got {}",
+        float_flows.len()
+    );
+
+    // Lockout on a flat curve has no effect — rate is still ~4.5% + 2% = 6.5%.
+    let expected_rate = 0.065;
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < 0.001,
+            "Flow {}: lockout rate should be ~{} (flat 4.5% + 200bp), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+    }
+}
+
+/// Overnight compounding with no curve and Error fallback should fail.
+#[test]
+fn test_overnight_compounding_no_curve_error_fallback() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let init = Money::new(1_000_000.0, Currency::USD);
+
+    let spec = make_overnight_float_spec(
+        OvernightCompoundingMethod::CompoundedInArrears,
+        FloatingRateFallback::Error,
+        dec!(200.0),
+    );
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let result = b.build_with_curves(None);
+    assert!(
+        result.is_err(),
+        "Overnight compounding with no curve and Error fallback should fail"
+    );
+}
+
+/// Overnight compounding with no curve and SpreadOnly fallback should succeed.
+#[test]
+fn test_overnight_compounding_no_curve_spread_only_fallback() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let init = Money::new(1_000_000.0, Currency::USD);
+
+    let spec = make_overnight_float_spec(
+        OvernightCompoundingMethod::CompoundedInArrears,
+        FloatingRateFallback::SpreadOnly,
+        dec!(200.0),
+    );
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(None)
+        .expect("Overnight compounding with SpreadOnly fallback should succeed");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert!(!float_flows.is_empty(), "Should have FloatReset flows");
+
+    // SpreadOnly: index=0, all-in = spread = 200bp = 0.02
+    for cf in &float_flows {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - 0.02).abs() < 1e-10,
+            "Rate should be 0.02 (spread-only), got {}",
+            rate
+        );
+    }
+}
+
+/// Overnight compounding should produce the same result as the term rate path
+/// when the curve is flat (verifying both paths converge for simple cases).
+#[test]
+fn test_overnight_vs_term_rate_flat_curve_equivalence() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+    let market = make_flat_forward_market(issue, 0.045);
+
+    // Build with overnight compounding
+    let overnight_spec = make_overnight_float_spec(
+        OvernightCompoundingMethod::SimpleAverage,
+        FloatingRateFallback::Error,
+        dec!(200.0),
+    );
+    let mut b1 = CashFlowSchedule::builder();
+    let _ = b1
+        .principal(init, issue, maturity)
+        .floating_cf(overnight_spec);
+    let overnight_schedule = b1
+        .build_with_curves(Some(&market))
+        .expect("Overnight build should succeed");
+
+    // Build with standard term rate
+    let term_spec = make_float_spec(FloatingRateFallback::Error, dec!(200.0));
+    let mut b2 = CashFlowSchedule::builder();
+    let _ = b2.principal(init, issue, maturity).floating_cf(term_spec);
+    let term_schedule = b2
+        .build_with_curves(Some(&market))
+        .expect("Term rate build should succeed");
+
+    let overnight_flows: Vec<_> = overnight_schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+    let term_flows: Vec<_> = term_schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert_eq!(
+        overnight_flows.len(),
+        term_flows.len(),
+        "Both paths should produce the same number of flows"
+    );
+
+    for (i, (on, term)) in overnight_flows.iter().zip(term_flows.iter()).enumerate() {
+        let on_rate = on.rate.expect("Overnight flow should have a rate");
+        let term_rate = term.rate.expect("Term flow should have a rate");
+        assert!(
+            (on_rate - term_rate).abs() < 0.001,
+            "Flow {}: overnight rate ({}) and term rate ({}) should be approximately equal for flat curve",
+            i,
+            on_rate,
+            term_rate
+        );
+    }
+}

@@ -275,7 +275,103 @@ pub(crate) fn emit_float_coupons_on(
             //   FixedRate(r) -> use r as the index component
             use crate::cashflow::builder::specs::FloatingRateFallback;
 
-            let total_rate = if let Some(fwd) = resolved_curve.as_deref() {
+            let total_rate = if let Some(ref method) = spec.rate_spec.overnight_compounding {
+                // ── Overnight compounding path ──
+                // Sample daily rates from the forward curve and compound them
+                // according to the ISDA 2021 method, then apply floor/cap/gearing/spread.
+                if let Some(fwd) = resolved_curve.as_deref() {
+                    let fwd_dc = fwd.day_count();
+                    let fwd_base = fwd.base_date();
+
+                    // Sample daily overnight rates for each business day in the accrual period.
+                    let mut daily_rates: Vec<(f64, u32)> = Vec::new();
+                    let mut current = accrual_start;
+                    while current < accrual_end {
+                        // Determine how many calendar days until the next date we process.
+                        let next = current + time::Duration::days(1);
+                        let next_capped = if next > accrual_end {
+                            accrual_end
+                        } else {
+                            next
+                        };
+                        let days = (next_capped - current).whole_days().max(1) as u32;
+
+                        if current.is_business_day(calendar) {
+                            // Compute time from curve base date to current date.
+                            let t = if current <= fwd_base {
+                                0.0
+                            } else {
+                                fwd_dc
+                                    .year_fraction(
+                                        fwd_base,
+                                        current,
+                                        finstack_core::dates::DayCountCtx::default(),
+                                    )
+                                    .unwrap_or(0.0)
+                            };
+                            let rate = fwd.rate(t);
+                            daily_rates.push((rate, days));
+                        } else {
+                            // Non-business day: extend previous rate's weight, or skip if none yet.
+                            if let Some(last) = daily_rates.last_mut() {
+                                last.1 += days;
+                            }
+                            // If no previous rate exists yet (accrual starts on a weekend),
+                            // the days will be picked up by the first business day's weight.
+                        }
+                        current = next_capped;
+                    }
+
+                    let total_days = (accrual_end - accrual_start).whole_days().max(1) as u32;
+
+                    // Determine the annualization basis from the floating rate day count.
+                    let day_count_basis = match spec.rate_spec.dc {
+                        finstack_core::dates::DayCount::Act365F
+                        | finstack_core::dates::DayCount::Act365L => 365.0,
+                        _ => 360.0, // Act360, Thirty360, etc.
+                    };
+
+                    let compounded_index = super::super::rate_helpers::compute_overnight_rate(
+                        *method,
+                        &daily_rates,
+                        total_days,
+                        day_count_basis,
+                    );
+
+                    // Apply floor/cap/gearing/spread to the compounded index rate.
+                    super::super::rate_helpers::calculate_floating_rate(compounded_index, &params)
+                } else {
+                    // No curve available — use fallback policy.
+                    match &spec.rate_spec.fallback {
+                        FloatingRateFallback::Error => {
+                            return Err(finstack_core::Error::Input(InputError::NotFound {
+                                id: format!(
+                                    "forward curve '{}' not found for reset date {} (overnight compounding)",
+                                    spec.rate_spec.index_id, reset_date
+                                ),
+                            }));
+                        }
+                        FloatingRateFallback::SpreadOnly => {
+                            warn!(
+                                reset_date = %reset_date,
+                                spread_bp = %spread_bp,
+                                "No forward curve resolved (overnight), using fallback (spread-only) rate"
+                            );
+                            super::super::rate_helpers::project_fallback_rate(&params)
+                        }
+                        FloatingRateFallback::FixedRate(r) => {
+                            let index_rate = r.to_f64().unwrap_or(0.0);
+                            info!(
+                                reset_date = %reset_date,
+                                fixed_rate = %r,
+                                "No forward curve resolved (overnight), using fixed index rate"
+                            );
+                            super::super::rate_helpers::calculate_floating_rate(index_rate, &params)
+                        }
+                    }
+                }
+            } else if let Some(fwd) = resolved_curve.as_deref() {
+                // ── Standard term rate projection path ──
                 // Use floating rate projection with correct index maturity
                 match super::super::rate_helpers::project_floating_rate(
                     reset_date,
