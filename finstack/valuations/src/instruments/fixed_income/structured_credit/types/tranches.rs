@@ -103,6 +103,7 @@ impl Default for CreditEnhancement {
 /// Supports fixed and floating rate coupons used in standard structured credit instruments.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
+#[allow(clippy::large_enum_variant)]
 pub enum TrancheCoupon {
     /// Fixed rate coupon (rate as decimal, e.g., 0.05 for 5%)
     Fixed {
@@ -810,6 +811,7 @@ mod tests {
                     end_of_month: false,
                     payment_lag_days: 0,
                     overnight_compounding: None,
+                    fallback: Default::default(),
                 },
             ))
             .maturity(test_date())

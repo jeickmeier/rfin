@@ -9,6 +9,7 @@
 //! - Fixed-rate bonds with configurable coupon rates and frequencies
 //! - Floating-rate notes (FRNs) with index spreads and margins
 //! - Amortizing bonds with custom principal repayment schedules
+//! - Step-up/step-down coupon bonds with scheduled rate changes
 //! - Full parity with builder coupon specs (floors/caps, BDC, calendars, PIK, etc.)
 //!
 //! # Examples
@@ -36,7 +37,7 @@
 //! - [`crate::cashflow::builder::specs`] for full builder coupon specifications
 
 use crate::cashflow::builder::specs::{
-    CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
+    CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec, StepUpCouponSpec,
 };
 use crate::cashflow::builder::AmortizationSpec;
 use crate::market::conventions::ids::IndexId;
@@ -65,6 +66,9 @@ pub enum CashflowSpec {
 
     /// Floating-rate note using the canonical `FloatingCouponSpec`.
     Floating(FloatingCouponSpec),
+
+    /// Step-up/step-down coupon bond with scheduled rate changes.
+    StepUp(StepUpCouponSpec),
 
     /// Amortizing bond (principal payments during life).
     Amortizing {
@@ -241,6 +245,7 @@ impl CashflowSpec {
                 end_of_month: false,
                 payment_lag_days: 0,
                 overnight_compounding: None,
+                fallback: Default::default(),
             },
             coupon_type: CouponType::Cash,
             freq,
@@ -328,6 +333,7 @@ impl CashflowSpec {
                 end_of_month: false,
                 payment_lag_days: 0,
                 overnight_compounding: None,
+                fallback: Default::default(),
             },
             coupon_type: CouponType::Cash,
             freq,
@@ -366,10 +372,69 @@ impl CashflowSpec {
                 end_of_month: false,
                 payment_lag_days: 0,
                 overnight_compounding: None,
+                fallback: Default::default(),
             },
             coupon_type: CouponType::Cash,
             freq,
             stub: StubKind::None,
+        })
+    }
+
+    /// Create a step-up coupon specification with sensible defaults.
+    ///
+    /// # Arguments
+    ///
+    /// * `initial_rate` - Initial annual coupon rate as decimal (e.g., 0.03 for 3%)
+    /// * `steps` - Schedule of (date, new_rate) pairs, sorted by date
+    /// * `freq` - Payment frequency
+    /// * `dc` - Day count convention
+    ///
+    /// # Defaults
+    ///
+    /// - `coupon_type`: Cash (100% cash payment)
+    /// - `bdc`: Following
+    /// - `stub`: None
+    /// - `calendar_id`: "weekends_only"
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
+    /// use finstack_core::dates::{Date, Tenor, DayCount};
+    /// use time::Month;
+    ///
+    /// // Bond: 3% for years 1-3, then 4.5% for years 4-5
+    /// let step_date = Date::from_calendar_date(2028, Month::January, 15).unwrap();
+    /// let spec = CashflowSpec::step_up(
+    ///     0.03,
+    ///     vec![(step_date, 0.045)],
+    ///     Tenor::semi_annual(),
+    ///     DayCount::Thirty360,
+    /// );
+    /// ```
+    pub fn step_up(
+        initial_rate: f64,
+        steps: Vec<(finstack_core::dates::Date, f64)>,
+        freq: Tenor,
+        dc: DayCount,
+    ) -> Self {
+        let initial = Decimal::try_from(initial_rate).unwrap_or(Decimal::ZERO);
+        let step_schedule: Vec<(finstack_core::dates::Date, Decimal)> = steps
+            .into_iter()
+            .map(|(d, r)| (d, Decimal::try_from(r).unwrap_or(Decimal::ZERO)))
+            .collect();
+
+        Self::StepUp(StepUpCouponSpec {
+            coupon_type: CouponType::Cash,
+            initial_rate: initial,
+            step_schedule,
+            freq,
+            dc,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: "weekends_only".to_string(),
+            stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         })
     }
 
@@ -432,6 +497,7 @@ impl CashflowSpec {
         match self {
             Self::Fixed(spec) => spec.freq,
             Self::Floating(spec) => spec.freq,
+            Self::StepUp(spec) => spec.freq,
             Self::Amortizing { base, .. } => base.frequency(),
         }
     }
@@ -447,6 +513,7 @@ impl CashflowSpec {
         match self {
             Self::Fixed(spec) => spec.dc,
             Self::Floating(spec) => spec.rate_spec.dc,
+            Self::StepUp(spec) => spec.dc,
             Self::Amortizing { base, .. } => base.day_count(),
         }
     }
@@ -456,5 +523,221 @@ impl Default for CashflowSpec {
     /// Default to semi-annual fixed bond with 30/360 day count (US convention).
     fn default() -> Self {
         Self::fixed(0.0, Tenor::semi_annual(), DayCount::Thirty360)
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::Date;
+    use rust_decimal_macros::dec;
+    use time::Month;
+
+    fn step_up_spec() -> StepUpCouponSpec {
+        StepUpCouponSpec {
+            coupon_type: CouponType::Cash,
+            initial_rate: dec!(0.03),
+            step_schedule: vec![
+                (
+                    Date::from_calendar_date(2027, Month::January, 15).unwrap(),
+                    dec!(0.04),
+                ),
+                (
+                    Date::from_calendar_date(2029, Month::January, 15).unwrap(),
+                    dec!(0.05),
+                ),
+            ],
+            freq: Tenor::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: "weekends_only".to_string(),
+            stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
+        }
+    }
+
+    #[test]
+    fn test_step_up_rate_at() {
+        let spec = step_up_spec();
+
+        // Before any step -> initial_rate
+        let before = Date::from_calendar_date(2026, Month::June, 15).unwrap();
+        assert_eq!(spec.rate_at(before), dec!(0.03));
+
+        // On the first step date -> first step rate
+        let on_first = Date::from_calendar_date(2027, Month::January, 15).unwrap();
+        assert_eq!(spec.rate_at(on_first), dec!(0.04));
+
+        // Between first and second step -> first step rate
+        let between = Date::from_calendar_date(2028, Month::June, 15).unwrap();
+        assert_eq!(spec.rate_at(between), dec!(0.04));
+
+        // On the second step date -> second step rate
+        let on_second = Date::from_calendar_date(2029, Month::January, 15).unwrap();
+        assert_eq!(spec.rate_at(on_second), dec!(0.05));
+
+        // After second step -> second step rate
+        let after = Date::from_calendar_date(2030, Month::June, 15).unwrap();
+        assert_eq!(spec.rate_at(after), dec!(0.05));
+    }
+
+    #[test]
+    fn test_step_up_no_steps_equals_fixed() {
+        // StepUp with empty step_schedule should always return initial_rate
+        let spec = StepUpCouponSpec {
+            coupon_type: CouponType::Cash,
+            initial_rate: dec!(0.05),
+            step_schedule: vec![],
+            freq: Tenor::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: "weekends_only".to_string(),
+            stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
+        };
+
+        let d1 = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let d2 = Date::from_calendar_date(2030, Month::December, 31).unwrap();
+
+        assert_eq!(spec.rate_at(d1), dec!(0.05));
+        assert_eq!(spec.rate_at(d2), dec!(0.05));
+    }
+
+    #[test]
+    fn test_step_up_to_fixed_windows() {
+        let spec = step_up_spec();
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
+
+        let windows = spec.to_fixed_windows(issue, maturity);
+
+        // Should have 3 windows:
+        // [2025-01-15, 2027-01-15) at 3%
+        // [2027-01-15, 2029-01-15) at 4%
+        // [2029-01-15, 2030-01-15) at 5%
+        assert_eq!(windows.len(), 3);
+
+        assert_eq!(windows[0].0, issue);
+        assert_eq!(
+            windows[0].1,
+            Date::from_calendar_date(2027, Month::January, 15).unwrap()
+        );
+        assert_eq!(windows[0].2.rate, dec!(0.03));
+
+        assert_eq!(
+            windows[1].0,
+            Date::from_calendar_date(2027, Month::January, 15).unwrap()
+        );
+        assert_eq!(
+            windows[1].1,
+            Date::from_calendar_date(2029, Month::January, 15).unwrap()
+        );
+        assert_eq!(windows[1].2.rate, dec!(0.04));
+
+        assert_eq!(
+            windows[2].0,
+            Date::from_calendar_date(2029, Month::January, 15).unwrap()
+        );
+        assert_eq!(windows[2].1, maturity);
+        assert_eq!(windows[2].2.rate, dec!(0.05));
+    }
+
+    #[test]
+    fn test_step_up_to_fixed_windows_no_steps() {
+        // When step_schedule is empty, should produce a single window
+        let spec = StepUpCouponSpec {
+            coupon_type: CouponType::Cash,
+            initial_rate: dec!(0.05),
+            step_schedule: vec![],
+            freq: Tenor::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: "weekends_only".to_string(),
+            stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
+        };
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
+
+        let windows = spec.to_fixed_windows(issue, maturity);
+        assert_eq!(windows.len(), 1);
+        assert_eq!(windows[0].0, issue);
+        assert_eq!(windows[0].1, maturity);
+        assert_eq!(windows[0].2.rate, dec!(0.05));
+    }
+
+    #[test]
+    fn test_step_up_serde_roundtrip() {
+        let original = CashflowSpec::step_up(
+            0.03,
+            vec![
+                (
+                    Date::from_calendar_date(2027, Month::January, 15).unwrap(),
+                    0.045,
+                ),
+                (
+                    Date::from_calendar_date(2029, Month::January, 15).unwrap(),
+                    0.05,
+                ),
+            ],
+            Tenor::semi_annual(),
+            DayCount::Thirty360,
+        );
+
+        let json = serde_json::to_string(&original).expect("serialize");
+        let deserialized: CashflowSpec = serde_json::from_str(&json).expect("deserialize");
+
+        // Verify the roundtrip preserves the variant and key properties
+        match &deserialized {
+            CashflowSpec::StepUp(spec) => {
+                assert_eq!(spec.initial_rate, Decimal::try_from(0.03).unwrap());
+                assert_eq!(spec.step_schedule.len(), 2);
+                assert_eq!(spec.freq, Tenor::semi_annual());
+                assert_eq!(spec.dc, DayCount::Thirty360);
+            }
+            other => panic!("Expected StepUp variant, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_step_up_convenience_constructor() {
+        let spec = CashflowSpec::step_up(
+            0.03,
+            vec![(
+                Date::from_calendar_date(2028, Month::January, 15).unwrap(),
+                0.045,
+            )],
+            Tenor::semi_annual(),
+            DayCount::Thirty360,
+        );
+
+        assert_eq!(spec.frequency(), Tenor::semi_annual());
+        assert_eq!(spec.day_count(), DayCount::Thirty360);
+
+        match &spec {
+            CashflowSpec::StepUp(s) => {
+                assert_eq!(s.initial_rate, Decimal::try_from(0.03).unwrap());
+                assert_eq!(s.step_schedule.len(), 1);
+                assert_eq!(s.coupon_type, CouponType::Cash);
+            }
+            other => panic!("Expected StepUp variant, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_step_up_steps_outside_bond_life_ignored() {
+        let spec = step_up_spec(); // steps at 2027-01-15 and 2029-01-15
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        // Maturity before the first step date
+        let maturity = Date::from_calendar_date(2026, Month::July, 15).unwrap();
+
+        let windows = spec.to_fixed_windows(issue, maturity);
+        // Only one window since all steps are after maturity
+        assert_eq!(windows.len(), 1);
+        assert_eq!(windows[0].2.rate, dec!(0.03)); // initial rate
     }
 }

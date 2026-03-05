@@ -297,6 +297,7 @@ impl PyFloatingRateSpec {
                 fixing_calendar_id: fixing_calendar_id.or(Some(calendar_id)),
                 end_of_month: schedule.inner.end_of_month,
                 overnight_compounding: overnight_compounding.map(|o| o.inner),
+                fallback: Default::default(),
                 payment_lag_days: schedule.inner.payment_lag_days,
             },
         }

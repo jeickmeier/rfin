@@ -524,6 +524,7 @@ pub(super) fn compute_coupon_schedules(
                         end_of_month: chosen_coupon.schedule.end_of_month,
                         payment_lag_days: chosen_coupon.schedule.payment_lag_days,
                         overnight_compounding: *overnight_compounding,
+                        fallback: Default::default(),
                     },
                     coupon_type: split,
                     freq: chosen_coupon.schedule.freq,

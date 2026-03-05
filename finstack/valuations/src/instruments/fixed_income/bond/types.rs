@@ -989,6 +989,9 @@ impl Bond {
             CashflowSpec::Floating(spec) => {
                 let _ = b.floating_cf(spec.clone());
             }
+            CashflowSpec::StepUp(spec) => {
+                let _ = b.step_up_cf(spec.clone());
+            }
             CashflowSpec::Amortizing { base, schedule } => {
                 let _ = b.amortization(schedule.clone());
                 match &**base {
@@ -997,6 +1000,9 @@ impl Bond {
                     }
                     CashflowSpec::Floating(spec) => {
                         let _ = b.floating_cf(spec.clone());
+                    }
+                    CashflowSpec::StepUp(spec) => {
+                        let _ = b.step_up_cf(spec.clone());
                     }
                     CashflowSpec::Amortizing { .. } => {
                         return Err(finstack_core::InputError::Invalid.into());
@@ -1247,6 +1253,15 @@ impl Bond {
             }
             CashflowSpec::Floating(_) => {
                 // No fixed coupon rate to validate
+            }
+            CashflowSpec::StepUp(s) => {
+                let rate = s.initial_rate.to_f64().unwrap_or(0.0);
+                if rate < 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Bond step-up initial coupon rate must be non-negative, got {}",
+                        rate
+                    )));
+                }
             }
         }
         Ok(())

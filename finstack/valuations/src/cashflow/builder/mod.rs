@@ -89,8 +89,9 @@ pub use schedule::{CashFlowMeta, CashFlowSchedule};
 pub use specs::{
     evaluate_fee_tiers, AmortizationSpec, CouponType, DefaultCurve, DefaultEvent, DefaultModelSpec,
     FeeBase, FeeSpec, FeeTier, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
-    FloatingCouponSpec, FloatingRateSpec, Notional, OvernightCompoundingMethod, PrepaymentCurve,
-    PrepaymentModelSpec, RecoveryModelSpec, ScheduleParams,
+    FloatingCouponSpec, FloatingRateFallback, FloatingRateSpec, Notional,
+    OvernightCompoundingMethod, PrepaymentCurve, PrepaymentModelSpec, RecoveryModelSpec,
+    ScheduleParams, StepUpCouponSpec,
 };
 
 // Re-export credit rate conversions (hazard-style CPR↔SMM helpers)

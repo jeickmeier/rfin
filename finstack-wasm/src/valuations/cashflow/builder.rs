@@ -217,6 +217,7 @@ impl JsFloatCouponParams {
                 index_cap_bp: None,
                 fixing_calendar_id: None,
                 overnight_compounding: None,
+                fallback: Default::default(),
             },
         }
     }
@@ -264,6 +265,7 @@ impl JsFloatingCouponSpec {
                     fixing_calendar_id: Some(calendar_id),
                     end_of_month: sched.end_of_month,
                     overnight_compounding: None,
+                    fallback: Default::default(),
                     payment_lag_days: sched.payment_lag_days,
                 },
                 coupon_type: coupon_type.inner(),

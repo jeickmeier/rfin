@@ -178,6 +178,7 @@ pub fn float_leg_schedule_with_curves(
                 end_of_month: float.end_of_month,
                 payment_lag_days: float.payment_lag_days,
                 overnight_compounding: None,
+                fallback: Default::default(),
             },
             coupon_type: crate::cashflow::builder::CouponType::Cash,
             freq: float.frequency,

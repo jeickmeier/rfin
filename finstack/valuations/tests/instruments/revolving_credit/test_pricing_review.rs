@@ -148,6 +148,7 @@ fn test_floating_rcf_declares_forward_dependency() {
                 fixing_calendar_id: None,
                 end_of_month: false,
                 overnight_compounding: None,
+                fallback: Default::default(),
                 payment_lag_days: 0,
             },
         ))
@@ -205,6 +206,7 @@ fn test_floating_rcf_dv01_bumps_forward_curve() {
                 fixing_calendar_id: None,
                 end_of_month: false,
                 overnight_compounding: None,
+                fallback: Default::default(),
                 payment_lag_days: 0,
             },
         ))

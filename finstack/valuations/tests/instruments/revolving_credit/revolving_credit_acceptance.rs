@@ -199,6 +199,7 @@ fn test_floating_vs_margin_only() {
                 fixing_calendar_id: None,
                 end_of_month: false,
                 overnight_compounding: None,
+                fallback: Default::default(),
                 payment_lag_days: 0,
             },
         ))
@@ -279,6 +280,7 @@ fn test_reset_frequency_mismatch() {
                 fixing_calendar_id: None,
                 end_of_month: false,
                 overnight_compounding: None,
+                fallback: Default::default(),
                 payment_lag_days: 0,
             },
         ))

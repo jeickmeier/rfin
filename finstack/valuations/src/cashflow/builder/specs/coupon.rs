@@ -1,6 +1,6 @@
 //! Coupon specification types for fixed and floating rate coupons.
 
-use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::types::CurveId;
 use finstack_core::InputError;
 use rust_decimal::Decimal;
@@ -155,6 +155,32 @@ fn default_reset_lag() -> i32 {
     2
 }
 
+/// Policy for handling floating rate projection failures.
+///
+/// Controls what happens when a forward curve lookup fails during
+/// cashflow emission. The default (`Error`) surfaces failures explicitly,
+/// replacing the previous silent spread-only fallback behavior.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FloatingRateFallback {
+    /// Return an error with curve ID and reset date (strictest, safest).
+    #[default]
+    Error,
+    /// Use spread as the total rate (legacy behavior). Emits `warn!`.
+    SpreadOnly,
+    /// Use a fixed rate as the index component. Emits `info!`.
+    FixedRate(rust_decimal::Decimal),
+}
+
+impl FloatingRateFallback {
+    /// Returns `true` when the variant is the default (`Error`).
+    ///
+    /// Used by serde `skip_serializing_if` to omit the field from JSON
+    /// when it carries the default value, preserving backward compatibility.
+    pub fn is_default(&self) -> bool {
+        matches!(self, Self::Error)
+    }
+}
+
 /// Canonical floating rate specification for all instruments.
 ///
 /// Used by bonds, swaps, credit facilities, and structured products.
@@ -210,6 +236,7 @@ fn default_reset_lag() -> i32 {
 ///     end_of_month: false,
 ///     payment_lag_days: 0,
 ///     overnight_compounding: None,
+///     fallback: Default::default(),
 /// };
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -291,6 +318,14 @@ pub struct FloatingRateSpec {
     /// Leave as `None` for term rates (e.g., 3M EURIBOR, 6M LIBOR).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overnight_compounding: Option<OvernightCompoundingMethod>,
+
+    /// Policy when forward curve lookup fails during emission.
+    ///
+    /// Defaults to `Error`, which surfaces curve lookup failures.
+    /// Set to `SpreadOnly` to preserve the legacy silent-fallback behavior,
+    /// or `FixedRate(r)` to use a fixed index rate.
+    #[serde(default, skip_serializing_if = "FloatingRateFallback::is_default")]
+    pub fallback: FloatingRateFallback,
 }
 
 fn default_gearing_includes_spread() -> bool {
@@ -316,4 +351,128 @@ pub struct FloatingCouponSpec {
     /// Stub rule for payment schedule generation.
     #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
+}
+
+/// Step-up/step-down coupon specification.
+///
+/// Defines a coupon that changes rate at specified dates, commonly used
+/// in bank capital instruments (AT1/Tier 2) and some agency bonds.
+///
+/// The rate for each coupon period is determined by the last step date
+/// that falls on or before the period start date. If no step has occurred,
+/// the initial rate is used.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// // Bond with 3% for years 1-3, stepping up to 4.5% for years 4-5
+/// use finstack_valuations::cashflow::builder::specs::StepUpCouponSpec;
+/// use time::macros::date;
+/// use rust_decimal_macros::dec;
+/// ```
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct StepUpCouponSpec {
+    /// Coupon type (Cash or PIK).
+    pub coupon_type: CouponType,
+    /// Initial coupon rate (annual, decimal). Used until the first step date.
+    pub initial_rate: Decimal,
+    /// Step schedule: (effective_date, new_rate). Must be sorted by date.
+    /// Each entry sets the rate from that date forward until the next step.
+    pub step_schedule: Vec<(Date, Decimal)>,
+    /// Payment frequency.
+    pub freq: Tenor,
+    /// Day count convention.
+    pub dc: DayCount,
+    /// Business day convention.
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
+    pub bdc: BusinessDayConvention,
+    /// Calendar ID for business day adjustment.
+    pub calendar_id: String,
+    /// Stub convention.
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
+    pub stub: StubKind,
+    /// Whether to apply end-of-month rule.
+    pub end_of_month: bool,
+    /// Payment lag in calendar days.
+    pub payment_lag_days: i32,
+}
+
+impl StepUpCouponSpec {
+    /// Returns the applicable coupon rate for a given date.
+    ///
+    /// Finds the last step in the schedule on or before `date`.
+    /// If no step has occurred yet, returns `initial_rate`.
+    pub fn rate_at(&self, date: Date) -> Decimal {
+        self.step_schedule
+            .iter()
+            .rev()
+            .find(|(d, _)| *d <= date)
+            .map(|(_, r)| *r)
+            .unwrap_or(self.initial_rate)
+    }
+
+    /// Converts this step-up spec into a sequence of `FixedCouponSpec` periods,
+    /// one per rate window between issue and maturity.
+    ///
+    /// This is used by the cashflow builder to generate the schedule: each window
+    /// maps to a separate fixed coupon program piece with its own rate.
+    pub fn to_fixed_windows(
+        &self,
+        issue: Date,
+        maturity: Date,
+    ) -> Vec<(Date, Date, FixedCouponSpec)> {
+        // Collect boundary dates from the step schedule that fall within [issue, maturity)
+        let mut boundaries: Vec<Date> = self
+            .step_schedule
+            .iter()
+            .map(|(d, _)| *d)
+            .filter(|d| *d > issue && *d < maturity)
+            .collect();
+        boundaries.sort();
+        boundaries.dedup();
+
+        // Build windows: [issue, first_step), [first_step, second_step), ..., [last_step, maturity)
+        let mut windows = Vec::new();
+        let mut window_start = issue;
+
+        for boundary in &boundaries {
+            let rate = self.rate_at(window_start);
+            windows.push((
+                window_start,
+                *boundary,
+                FixedCouponSpec {
+                    coupon_type: self.coupon_type,
+                    rate,
+                    freq: self.freq,
+                    dc: self.dc,
+                    bdc: self.bdc,
+                    calendar_id: self.calendar_id.clone(),
+                    stub: self.stub,
+                    end_of_month: self.end_of_month,
+                    payment_lag_days: self.payment_lag_days,
+                },
+            ));
+            window_start = *boundary;
+        }
+
+        // Final window from last boundary to maturity
+        let rate = self.rate_at(window_start);
+        windows.push((
+            window_start,
+            maturity,
+            FixedCouponSpec {
+                coupon_type: self.coupon_type,
+                rate,
+                freq: self.freq,
+                dc: self.dc,
+                bdc: self.bdc,
+                calendar_id: self.calendar_id.clone(),
+                stub: self.stub,
+                end_of_month: self.end_of_month,
+                payment_lag_days: self.payment_lag_days,
+            },
+        ));
+
+        windows
+    }
 }

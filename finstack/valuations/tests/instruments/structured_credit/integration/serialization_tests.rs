@@ -336,6 +336,7 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
         fixing_calendar_id: Some("NYC".to_string()),
         end_of_month: false,
         overnight_compounding: None,
+        fallback: Default::default(),
         payment_lag_days: 0,
     };
 

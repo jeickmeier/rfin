@@ -69,7 +69,7 @@ use super::emission::{
 };
 use super::specs::{
     CouponType, FeeSpec, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
-    FloatingCouponSpec, ScheduleParams,
+    FloatingCouponSpec, ScheduleParams, StepUpCouponSpec,
 };
 use smallvec::SmallVec;
 
@@ -711,6 +711,7 @@ impl CashFlowBuilder {
             end_of_month,
             payment_lag_days,
             overnight_compounding,
+            fallback: _,
         } = rate_spec;
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow {
@@ -747,6 +748,39 @@ impl CashFlowBuilder {
             },
             split: coupon_type,
         });
+        self
+    }
+
+    /// Adds a step-up coupon specification.
+    ///
+    /// Decomposes the step-up schedule into fixed coupon windows, one per rate period.
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
+    pub fn step_up_cf(&mut self, spec: StepUpCouponSpec) -> &mut Self {
+        let Some((issue, maturity)) = self.issue_maturity_or_record_error("step_up_cf") else {
+            return self;
+        };
+        let coupon_type = spec.coupon_type;
+        for (start, end, fixed_spec) in spec.to_fixed_windows(issue, maturity) {
+            self.coupon_program.push(CouponProgramPiece {
+                window: DateWindow { start, end },
+                schedule: ScheduleParams {
+                    freq: fixed_spec.freq,
+                    dc: fixed_spec.dc,
+                    bdc: fixed_spec.bdc,
+                    calendar_id: fixed_spec.calendar_id.clone(),
+                    stub: fixed_spec.stub,
+                    end_of_month: fixed_spec.end_of_month,
+                    payment_lag_days: fixed_spec.payment_lag_days,
+                },
+                coupon: CouponSpec::Fixed {
+                    rate: fixed_spec.rate,
+                },
+            });
+            self.payment_program.push(PaymentProgramPiece {
+                window: DateWindow { start, end },
+                split: coupon_type,
+            });
+        }
         self
     }
 

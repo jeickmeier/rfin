@@ -270,6 +270,7 @@ pub fn create_floating_convertible() -> ConvertibleBond {
             fixing_calendar_id: None,
             end_of_month: false,
             overnight_compounding: None,
+            fallback: Default::default(),
             payment_lag_days: 0,
         },
         coupon_type: CouponType::Cash,

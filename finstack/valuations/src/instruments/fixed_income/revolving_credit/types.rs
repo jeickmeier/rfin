@@ -155,6 +155,7 @@ impl RevolvingCredit {
             end_of_month: false,
             payment_lag_days: 0,
             overnight_compounding: None,
+            fallback: Default::default(),
         });
         let fees = RevolvingCreditFees::flat(25.0, 10.0, 5.0);
         let draw_repay = DrawRepaySpec::Deterministic(vec![
@@ -197,6 +198,7 @@ impl RevolvingCredit {
 /// Defines whether the facility pays a fixed rate or a floating rate
 /// tied to a market index plus margin.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum BaseRateSpec {
     /// Fixed rate (annualized).
     Fixed {

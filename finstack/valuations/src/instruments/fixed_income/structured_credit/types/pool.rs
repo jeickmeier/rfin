@@ -91,6 +91,7 @@ impl PoolAsset {
                 crate::instruments::fixed_income::bond::CashflowSpec::Floating(spec) => {
                     spec.rate_spec.dc
                 }
+                crate::instruments::fixed_income::bond::CashflowSpec::StepUp(spec) => spec.dc,
                 // For amortizing, we look at the base spec
                 crate::instruments::fixed_income::bond::CashflowSpec::Amortizing {
                     base, ..

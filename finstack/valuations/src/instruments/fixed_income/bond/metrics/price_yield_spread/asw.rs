@@ -406,6 +406,12 @@ impl MetricCalculator for AssetSwapParCalculator {
                 Some(spec.rate_spec.calendar_id.as_str()),
                 spec.stub,
             ),
+            CashflowSpec::StepUp(spec) => (
+                spec.freq,
+                spec.bdc,
+                Some(spec.calendar_id.as_str()),
+                spec.stub,
+            ),
             CashflowSpec::Amortizing { base, .. } => match &**base {
                 CashflowSpec::Fixed(spec) => (
                     spec.freq,
@@ -571,6 +577,12 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 spec.stub,
                 spec.rate_spec.bdc,
                 Some(spec.rate_spec.calendar_id.as_str()),
+            ),
+            CashflowSpec::StepUp(spec) => (
+                spec.freq,
+                spec.stub,
+                spec.bdc,
+                Some(spec.calendar_id.as_str()),
             ),
             CashflowSpec::Amortizing { base, .. } => match &**base {
                 CashflowSpec::Fixed(spec) => (
