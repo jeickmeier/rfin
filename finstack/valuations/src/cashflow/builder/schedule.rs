@@ -244,6 +244,42 @@ impl CashFlowSchedule {
             .filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
     }
 
+    /// Weighted Average Life (WAL) in years from `as_of`.
+    ///
+    /// WAL = Σ(principal_i × t_i) / Σ(principal_i)
+    ///
+    /// where t_i is the year fraction from `as_of` to the payment date,
+    /// and the sum runs over all principal flows (Amortization, Notional,
+    /// PrePayment) with positive amounts after `as_of`.
+    ///
+    /// Returns 0.0 if there are no future principal flows.
+    pub fn weighted_average_life(&self, as_of: Date) -> f64 {
+        let mut principal_time_sum = 0.0;
+        let mut principal_total = 0.0;
+
+        for cf in &self.flows {
+            if matches!(
+                cf.kind,
+                CFKind::Amortization | CFKind::Notional | CFKind::PrePayment
+            ) && cf.date > as_of
+                && cf.amount.amount() > 0.0
+            {
+                let t = self
+                    .day_count
+                    .year_fraction(as_of, cf.date, Default::default())
+                    .unwrap_or(0.0);
+                principal_time_sum += cf.amount.amount() * t;
+                principal_total += cf.amount.amount();
+            }
+        }
+
+        if principal_total > 0.0 {
+            principal_time_sum / principal_total
+        } else {
+            0.0
+        }
+    }
+
     /// Full outstanding path including Amortization, PIK, and Notional draws/repays.
     ///
     /// Returns one entry per unique date after applying all balance-affecting flows

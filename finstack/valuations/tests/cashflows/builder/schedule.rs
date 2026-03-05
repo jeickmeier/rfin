@@ -911,3 +911,166 @@ fn npv_decreases_with_higher_discount_rate() {
         npv_7pct.amount()
     );
 }
+
+// =============================================================================
+// Weighted Average Life (WAL) Tests
+// =============================================================================
+
+#[test]
+fn test_weighted_average_life_two_amort() {
+    // Two equal amortization payments at ~1y and ~2y from as_of
+    // WAL should be ~1.5 years
+    use finstack_valuations::cashflow::builder::schedule::CashFlowMeta;
+    use finstack_valuations::cashflow::builder::Notional;
+
+    let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let d1 = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+    let d2 = Date::from_calendar_date(2027, Month::January, 15).unwrap();
+
+    let flows = vec![
+        CashFlow {
+            date: d1,
+            reset_date: None,
+            amount: Money::new(500.0, Currency::USD),
+            kind: CFKind::Amortization,
+            accrual_factor: 0.0,
+            rate: None,
+        },
+        CashFlow {
+            date: d2,
+            reset_date: None,
+            amount: Money::new(500.0, Currency::USD),
+            kind: CFKind::Amortization,
+            accrual_factor: 0.0,
+            rate: None,
+        },
+    ];
+
+    let schedule = CashFlowSchedule {
+        flows,
+        notional: Notional::par(1_000.0, Currency::USD),
+        day_count: DayCount::Act365F,
+        meta: CashFlowMeta::default(),
+    };
+
+    let wal = schedule.weighted_average_life(as_of);
+    // With Act/365F, ~365 days = ~1.0y, ~730 days = ~2.0y
+    // Equal weights => WAL ~ 1.5
+    assert!(
+        (wal - 1.5).abs() < 0.02,
+        "WAL for two equal amortizations at 1y and 2y should be ~1.5, got {}",
+        wal
+    );
+}
+
+#[test]
+fn test_weighted_average_life_bullet() {
+    // Single notional payment at 5y (bullet bond)
+    // WAL should be ~5.0 years
+    use finstack_valuations::cashflow::builder::schedule::CashFlowMeta;
+    use finstack_valuations::cashflow::builder::Notional;
+
+    let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
+
+    let flows = vec![CashFlow {
+        date: maturity,
+        reset_date: None,
+        amount: Money::new(1_000_000.0, Currency::USD),
+        kind: CFKind::Notional,
+        accrual_factor: 0.0,
+        rate: None,
+    }];
+
+    let schedule = CashFlowSchedule {
+        flows,
+        notional: Notional::par(1_000_000.0, Currency::USD),
+        day_count: DayCount::Act365F,
+        meta: CashFlowMeta::default(),
+    };
+
+    let wal = schedule.weighted_average_life(as_of);
+    // 5 years with Act/365F (1826 or 1827 days depending on leap years)
+    assert!(
+        (wal - 5.0).abs() < 0.02,
+        "WAL for bullet at 5y should be ~5.0, got {}",
+        wal
+    );
+}
+
+#[test]
+fn test_weighted_average_life_empty() {
+    // No flows => WAL = 0.0
+    use finstack_valuations::cashflow::builder::schedule::CashFlowMeta;
+    use finstack_valuations::cashflow::builder::Notional;
+
+    let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+
+    let schedule = CashFlowSchedule {
+        flows: vec![],
+        notional: Notional::par(1_000_000.0, Currency::USD),
+        day_count: DayCount::Act365F,
+        meta: CashFlowMeta::default(),
+    };
+
+    let wal = schedule.weighted_average_life(as_of);
+    assert!(wal == 0.0, "WAL with no flows should be 0.0, got {}", wal);
+}
+
+#[test]
+fn test_weighted_average_life_ignores_coupons() {
+    // Mix of coupon and principal flows
+    // WAL should only count principal flows
+    use finstack_valuations::cashflow::builder::schedule::CashFlowMeta;
+    use finstack_valuations::cashflow::builder::Notional;
+
+    let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let d1 = Date::from_calendar_date(2025, Month::July, 15).unwrap();
+    let d2 = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+
+    let flows = vec![
+        // Coupon at 6m - should be ignored
+        CashFlow {
+            date: d1,
+            reset_date: None,
+            amount: Money::new(25_000.0, Currency::USD),
+            kind: CFKind::Fixed,
+            accrual_factor: 0.5,
+            rate: Some(0.05),
+        },
+        // Coupon at 1y - should be ignored
+        CashFlow {
+            date: d2,
+            reset_date: None,
+            amount: Money::new(25_000.0, Currency::USD),
+            kind: CFKind::Fixed,
+            accrual_factor: 0.5,
+            rate: Some(0.05),
+        },
+        // Single principal redemption at maturity - only this counts
+        CashFlow {
+            date: maturity,
+            reset_date: None,
+            amount: Money::new(1_000_000.0, Currency::USD),
+            kind: CFKind::Notional,
+            accrual_factor: 0.0,
+            rate: None,
+        },
+    ];
+
+    let schedule = CashFlowSchedule {
+        flows,
+        notional: Notional::par(1_000_000.0, Currency::USD),
+        day_count: DayCount::Act365F,
+        meta: CashFlowMeta::default(),
+    };
+
+    let wal = schedule.weighted_average_life(as_of);
+    // Should be ~1.0 year (only the notional at maturity counts)
+    assert!(
+        (wal - 1.0).abs() < 0.02,
+        "WAL should be ~1.0 (only principal, ignoring coupons), got {}",
+        wal
+    );
+}
