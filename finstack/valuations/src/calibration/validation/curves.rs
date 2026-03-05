@@ -320,16 +320,9 @@ impl CurveValidator for HazardCurve {
 
         // Check hazard rates are non-negative using survival probability
         for &t in HAZARD_ARBI_POINTS {
-            // Get hazard rate from survival probability derivative
-            // λ(t) = -d/dt ln(S(t))
-            let dt = 0.0001;
-            let sp1 = self.sp(t);
-            let sp2 = self.sp(t + dt);
-            let lambda = if sp1 > 0.0 && sp2 > 0.0 {
-                -(sp2.ln() - sp1.ln()) / dt
-            } else {
-                0.0
-            };
+            // Use the curve's native hazard_rate(t) method directly
+            // instead of finite-difference approximation.
+            let lambda = self.hazard_rate(t);
 
             if lambda < 0.0 {
                 return Err(Error::Validation(format!(
