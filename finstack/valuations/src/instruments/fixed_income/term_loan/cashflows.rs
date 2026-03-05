@@ -389,6 +389,7 @@ pub fn generate_cashflows(
                 index_cap_bp: spec.index_cap_bp,
                 fixing_calendar_id: spec.fixing_calendar_id.clone(),
                 overnight_compounding: spec.overnight_compounding,
+                fallback: spec.fallback.clone(),
             };
             let sched_params = ScheduleParams {
                 freq: loan.frequency,

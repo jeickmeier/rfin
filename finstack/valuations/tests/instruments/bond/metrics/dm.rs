@@ -80,21 +80,26 @@ fn test_dm_missing_forward_curve_returns_error() {
     let calc = DiscountMarginCalculator::default();
     let result = calc.calculate(&mut mctx);
 
-    // Expect a propagated input error (missing discount curve), never an apparent "perfect fit" DM of 0.0.
+    // Expect a propagated input error (missing curve), never an apparent "perfect fit" DM of 0.0.
+    // With FloatingRateFallback::Error (the default), the forward curve lookup fails first.
     match result {
         Err(Error::Input(InputError::MissingCurve { requested, .. })) => {
             assert!(
-                requested.contains("USD-OIS"),
-                "expected missing discount curve id to mention USD-OIS, got {}",
+                requested.contains("USD-OIS") || requested.contains("USD-SOFR"),
+                "expected missing curve id to mention USD-OIS or USD-SOFR, got {}",
                 requested
             );
         }
-        Err(e) => panic!(
-            "expected InputError::MissingCurve for missing discount curve, got {}",
-            e
-        ),
+        Err(Error::Input(InputError::NotFound { id })) => {
+            assert!(
+                id.contains("forward curve") || id.contains("USD-SOFR"),
+                "expected missing forward curve error, got: {}",
+                id
+            );
+        }
+        Err(e) => panic!("expected InputError for missing curve, got {}", e),
         Ok(dm) => panic!(
-            "expected DM calculation to fail for missing discount curve, but got DM={}",
+            "expected DM calculation to fail for missing curve, but got DM={}",
             dm
         ),
     }

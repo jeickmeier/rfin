@@ -144,6 +144,8 @@ pub struct FloatCouponParams {
     pub fixing_calendar_id: Option<String>,
     /// Overnight compounding method for overnight indices (SOFR, ESTR, SONIA).
     pub overnight_compounding: Option<super::OvernightCompoundingMethod>,
+    /// Policy when forward curve lookup fails during emission.
+    pub fallback: super::FloatingRateFallback,
 }
 
 /// Fixed Window structure.
