@@ -12,23 +12,29 @@ from . import fx as fx
 from . import rates as rates
 
 # Fixed Income
-from .fixed_income.agency_mbs import (
-    AgencyCmo as AgencyCmo,
-    AgencyCmoBuilder as AgencyCmoBuilder,
+from .fixed_income.mbs_passthrough import (
+    AgencyProgram as AgencyProgram,
+    PoolType as PoolType,
     AgencyMbsPassthrough as AgencyMbsPassthrough,
     AgencyMbsPassthroughBuilder as AgencyMbsPassthroughBuilder,
-    AgencyProgram as AgencyProgram,
+)
+from .fixed_income.tba import (
+    TbaTerm as TbaTerm,
+    TbaSettlement as TbaSettlement,
     AgencyTba as AgencyTba,
     AgencyTbaBuilder as AgencyTbaBuilder,
+)
+from .fixed_income.dollar_roll import (
+    DollarRoll as DollarRoll,
+    DollarRollBuilder as DollarRollBuilder,
+)
+from .fixed_income.cmo import (
     CmoTranche as CmoTranche,
     CmoTrancheType as CmoTrancheType,
     CmoWaterfall as CmoWaterfall,
-    DollarRoll as DollarRoll,
-    DollarRollBuilder as DollarRollBuilder,
     PacCollar as PacCollar,
-    PoolType as PoolType,
-    TbaSettlement as TbaSettlement,
-    TbaTerm as TbaTerm,
+    AgencyCmo as AgencyCmo,
+    AgencyCmoBuilder as AgencyCmoBuilder,
 )
 from .fixed_income.bond import (
     AccrualMethod as AccrualMethod,
@@ -39,6 +45,14 @@ from .fixed_income.bond import (
     CallPutSchedule as CallPutSchedule,
     CashflowSpec as CashflowSpec,
     MakeWholeSpec as MakeWholeSpec,
+    MertonMcConfig as MertonMcConfig,
+    MertonMcResult as MertonMcResult,
+    MertonModel as MertonModel,
+    MertonAssetDynamics as MertonAssetDynamics,
+    MertonBarrierType as MertonBarrierType,
+    EndogenousHazardSpec as EndogenousHazardSpec,
+    DynamicRecoverySpec as DynamicRecoverySpec,
+    ToggleExerciseModel as ToggleExerciseModel,
 )
 from .fixed_income.bond_future import (
     BondFuture as BondFuture,
@@ -337,6 +351,15 @@ __all__ = [
     "CashflowSpec",
     "DeliverableBond",
     "MakeWholeSpec",
+    # Bond structural credit pricing models
+    "MertonMcConfig",
+    "MertonMcResult",
+    "MertonModel",
+    "MertonAssetDynamics",
+    "MertonBarrierType",
+    "EndogenousHazardSpec",
+    "DynamicRecoverySpec",
+    "ToggleExerciseModel",
     # Fixed Income - Convertible
     "AntiDilutionPolicy",
     "ConversionEvent",

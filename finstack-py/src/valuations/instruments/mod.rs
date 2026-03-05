@@ -8,7 +8,6 @@
 //! `crate::core::common::args` to ensure consistent behavior across all instruments.
 
 mod commodity;
-mod credit;
 mod credit_derivatives;
 pub(crate) mod equity;
 mod exotics;
@@ -40,14 +39,17 @@ use exotics::asian_option::PyAsianOption;
 use exotics::barrier_option::PyBarrierOption;
 use exotics::basket::PyBasket;
 use exotics::lookback_option::PyLookbackOption;
-use fixed_income::agency_mbs::{PyAgencyCmo, PyAgencyMbsPassthrough, PyAgencyTba, PyDollarRoll};
 use fixed_income::bond::PyBond;
 use fixed_income::bond_future::PyBondFuture;
+use fixed_income::cmo::PyAgencyCmo;
 use fixed_income::convertible::PyConvertibleBond;
+use fixed_income::dollar_roll::PyDollarRoll;
 use fixed_income::fi_trs::PyFiIndexTotalReturnSwap;
 use fixed_income::inflation_linked_bond::PyInflationLinkedBond;
+use fixed_income::mbs_passthrough::PyAgencyMbsPassthrough;
 use fixed_income::revolving_credit::PyRevolvingCredit;
 use fixed_income::structured_credit::PyStructuredCredit;
+use fixed_income::tba::PyAgencyTba;
 use fixed_income::term_loan::PyTermLoan;
 use fx::fx::{PyFxOption, PyFxSpot, PyFxSwap};
 use fx::fx_barrier_option::PyFxBarrierOption;
@@ -349,9 +351,6 @@ pub(crate) fn register<'py>(
 
     let credit_exports = credit_derivatives::register(py, &module)?;
     exports.extend(credit_exports.iter().copied());
-
-    let credit_model_exports = credit::register(py, &module)?;
-    exports.extend(credit_model_exports.iter().copied());
 
     exports.sort_unstable();
     exports.dedup();

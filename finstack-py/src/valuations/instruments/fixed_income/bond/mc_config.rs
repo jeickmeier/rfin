@@ -1,7 +1,7 @@
-use crate::valuations::instruments::credit::dynamic_recovery::PyDynamicRecoverySpec;
-use crate::valuations::instruments::credit::endogenous_hazard::PyEndogenousHazardSpec;
-use crate::valuations::instruments::credit::merton::PyMertonModel;
-use crate::valuations::instruments::credit::toggle_exercise::PyToggleExerciseModel;
+use super::dynamic_recovery::PyDynamicRecoverySpec;
+use super::endogenous_hazard::PyEndogenousHazardSpec;
+use super::merton::PyMertonModel;
+use super::toggle_exercise::PyToggleExerciseModel;
 use finstack_valuations::instruments::fixed_income::bond::pricing::merton_mc_engine::{
     BarrierCrossing, CalibrationParameter, MertonMcCalibrationSpec,
     MertonMcConfig as RustMertonMcConfig, MertonMcResult as RustMertonMcResult, PikMode,
@@ -89,7 +89,7 @@ fn parse_pik_mode_str(s: &str) -> PyResult<PikMode> {
 ///
 /// Examples
 /// --------
-///     >>> from finstack.valuations.instruments.credit import MertonModel, MertonMcConfig
+///     >>> from finstack.valuations.instruments import MertonModel, MertonMcConfig
 ///     >>> m = MertonModel(asset_value=100, asset_vol=0.25, debt_barrier=80, risk_free_rate=0.04)
 ///     >>> config = MertonMcConfig(m, num_paths=5000, seed=123)
 ///     >>> config.num_paths

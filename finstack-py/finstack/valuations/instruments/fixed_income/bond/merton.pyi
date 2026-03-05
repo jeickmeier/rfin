@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from datetime import date
-from ....core.market_data.term_structures import HazardCurve
+from .....core.market_data.term_structures import HazardCurve
 
 class MertonAssetDynamics:
     """Asset dynamics specification for the Merton structural credit model.

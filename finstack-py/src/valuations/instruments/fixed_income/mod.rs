@@ -1,11 +1,14 @@
-pub(crate) mod agency_mbs;
 pub(crate) mod bond;
 pub(crate) mod bond_future;
+pub(crate) mod cmo;
 pub(crate) mod convertible;
+pub(crate) mod dollar_roll;
 pub(crate) mod fi_trs;
 pub(crate) mod inflation_linked_bond;
+pub(crate) mod mbs_passthrough;
 pub(crate) mod revolving_credit;
 pub(crate) mod structured_credit;
+pub(crate) mod tba;
 pub(crate) mod term_loan;
 
 use pyo3::prelude::*;
@@ -17,8 +20,17 @@ pub(crate) fn register<'py>(
 ) -> PyResult<Vec<&'static str>> {
     let mut exports = Vec::new();
 
-    let agency_mbs_exports = agency_mbs::register(py, module)?;
-    exports.extend(agency_mbs_exports.iter().copied());
+    let mbs_passthrough_exports = mbs_passthrough::register(py, module)?;
+    exports.extend(mbs_passthrough_exports.iter().copied());
+
+    let tba_exports = tba::register(py, module)?;
+    exports.extend(tba_exports.iter().copied());
+
+    let dollar_roll_exports = dollar_roll::register(py, module)?;
+    exports.extend(dollar_roll_exports.iter().copied());
+
+    let cmo_exports = cmo::register(py, module)?;
+    exports.extend(cmo_exports.iter().copied());
 
     let bond_exports = bond::register(py, module)?;
     exports.extend(bond_exports.iter().copied());

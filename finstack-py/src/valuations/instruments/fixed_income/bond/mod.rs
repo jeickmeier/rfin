@@ -6,6 +6,12 @@
 //! This module only handles type conversion and builder ergonomics - no business logic
 //! or financial calculations belong here.
 
+pub(crate) mod dynamic_recovery;
+pub(crate) mod endogenous_hazard;
+pub(crate) mod mc_config;
+pub(crate) mod merton;
+pub(crate) mod toggle_exercise;
+
 use crate::core::common::args::{
     BusinessDayConventionArg, CurrencyArg, DayCountArg, StubKindArg, TenorArg,
 };
@@ -588,7 +594,7 @@ impl PyBondBuilder {
     #[pyo3(text_signature = "($self, config)")]
     fn merton_mc<'py>(
         mut slf: PyRefMut<'py, Self>,
-        config: &Bound<'py, crate::valuations::instruments::credit::mc_config::PyMertonMcConfig>,
+        config: &Bound<'py, mc_config::PyMertonMcConfig>,
     ) -> PyRefMut<'py, Self> {
         slf.merton_mc_config = Some(config.borrow().inner.clone());
         slf
@@ -1074,16 +1080,16 @@ impl PyBond {
     #[pyo3(signature = (config, discount_rate, as_of))]
     fn price_merton_mc(
         &self,
-        config: &crate::valuations::instruments::credit::mc_config::PyMertonMcConfig,
+        config: &mc_config::PyMertonMcConfig,
         discount_rate: f64,
         as_of: &Bound<'_, pyo3::types::PyAny>,
-    ) -> PyResult<crate::valuations::instruments::credit::mc_config::PyMertonMcResult> {
+    ) -> PyResult<mc_config::PyMertonMcResult> {
         let date = py_to_date(as_of)?;
         let result = self
             .inner
             .price_merton_mc(&config.inner, discount_rate, date)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(crate::valuations::instruments::credit::mc_config::PyMertonMcResult { inner: result })
+        Ok(mc_config::PyMertonMcResult { inner: result })
     }
 
     fn __repr__(&self) -> PyResult<String> {
@@ -1111,7 +1117,7 @@ impl fmt::Display for PyBond {
 }
 
 pub(crate) fn register<'py>(
-    _py: Python<'py>,
+    py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyBondSettlementConvention>()?;
@@ -1122,7 +1128,8 @@ pub(crate) fn register<'py>(
     module.add_class::<PyCashflowSpec>()?;
     module.add_class::<PyBond>()?;
     module.add_class::<PyBondBuilder>()?;
-    Ok(vec![
+
+    let mut exports = vec![
         "BondSettlementConvention",
         "AccrualMethod",
         "MakeWholeSpec",
@@ -1131,5 +1138,22 @@ pub(crate) fn register<'py>(
         "CashflowSpec",
         "Bond",
         "BondBuilder",
-    ])
+    ];
+
+    let merton_exports = merton::register(py, module)?;
+    exports.extend(merton_exports.iter().copied());
+
+    let endogenous_exports = endogenous_hazard::register(py, module)?;
+    exports.extend(endogenous_exports.iter().copied());
+
+    let recovery_exports = dynamic_recovery::register(py, module)?;
+    exports.extend(recovery_exports.iter().copied());
+
+    let toggle_exports = toggle_exercise::register(py, module)?;
+    exports.extend(toggle_exports.iter().copied());
+
+    let mc_config_exports = mc_config::register(py, module)?;
+    exports.extend(mc_config_exports.iter().copied());
+
+    Ok(exports)
 }
