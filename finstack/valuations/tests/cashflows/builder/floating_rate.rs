@@ -623,3 +623,243 @@ fn test_floating_rate_golden_gearing_excludes_spread() {
         standard_rate - affine_rate
     );
 }
+
+// =============================================================================
+// Cap/Floor and Negative Rate Tests
+// =============================================================================
+
+/// Index floor at 0%: negative index rates are clamped to 0.
+/// Flat curve at -0.4% with floor at 0 -> all-in rate = 0% + spread.
+#[test]
+fn test_floating_rate_index_floor_zero() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    // Build FloatingRateSpec with index floor at 0% and flat curve at -0.4%
+    let mut spec = make_float_spec(FloatingRateFallback::Error, dec!(300.0)); // 3% spread
+    spec.rate_spec.floor_bp = Some(dec!(0)); // index floored at 0%
+
+    let market = make_flat_forward_market(issue, -0.004); // -0.4% flat curve
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("Index floor test should succeed with flat curve");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert!(
+        !float_flows.is_empty(),
+        "Should have at least one FloatReset flow"
+    );
+
+    // Index = -0.4%, floored at 0% -> eff_index = 0%
+    // all-in = (0% + 3%) * 1.0 = 3% = 0.03
+    let expected_rate = 0.03;
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < RATE_TOLERANCE,
+            "Flow {}: rate should be {} (index floored at 0% + 300bp spread), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+    }
+}
+
+/// Index cap at 5%: index rate clamped to cap.
+/// Flat curve at 6% with index_cap at 5% -> all-in = 5% + spread.
+#[test]
+fn test_floating_rate_index_cap() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    // Build FloatingRateSpec with index cap at 5% and flat curve at 6%
+    let mut spec = make_float_spec(FloatingRateFallback::Error, dec!(200.0)); // 2% spread
+    spec.rate_spec.index_cap_bp = Some(dec!(500)); // 5% cap on index
+
+    let market = make_flat_forward_market(issue, 0.06); // 6% flat curve
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("Index cap test should succeed with flat curve");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert!(
+        !float_flows.is_empty(),
+        "Should have at least one FloatReset flow"
+    );
+
+    // Index = 6%, capped at 5% -> eff_index = 5%
+    // all-in = (5% + 2%) * 1.0 = 7% = 0.07
+    let expected_rate = 0.07;
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < RATE_TOLERANCE,
+            "Flow {}: rate should be {} (index capped at 5% + 200bp spread), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+    }
+}
+
+/// All-in cap at 7%: total rate clamped after adding spread.
+/// Flat curve at 6%, spread 200bp, cap at 7% -> uncapped = 8%, capped = 7%.
+#[test]
+fn test_floating_rate_all_in_cap() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    // Build FloatingRateSpec with all-in cap at 7%
+    let mut spec = make_float_spec(FloatingRateFallback::Error, dec!(200.0)); // 2% spread
+    spec.rate_spec.cap_bp = Some(dec!(700)); // 7% all-in cap
+
+    let market = make_flat_forward_market(issue, 0.06); // 6% flat curve
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("All-in cap test should succeed with flat curve");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert!(
+        !float_flows.is_empty(),
+        "Should have at least one FloatReset flow"
+    );
+
+    // Uncapped = 6% + 2% = 8%, but all-in cap at 7% -> rate = 0.07
+    let expected_rate = 0.07;
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < RATE_TOLERANCE,
+            "Flow {}: rate should be {} (all-in capped at 7%), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+    }
+}
+
+/// Negative rate: EUR EURIBOR at -0.40% + 300bp spread, no floor.
+/// All-in rate = -0.004 + 0.03 = 0.026.
+#[test]
+fn test_floating_rate_negative_index_no_floor() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    // No floor, negative index rate
+    let spec = make_float_spec(FloatingRateFallback::Error, dec!(300.0)); // 3% spread, no floor
+    let market = make_flat_forward_market(issue, -0.004); // -0.4% flat curve
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("Negative index no-floor test should succeed with flat curve");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert!(
+        !float_flows.is_empty(),
+        "Should have at least one FloatReset flow"
+    );
+
+    // No floor: index = -0.4%, spread = 3%
+    // all-in = (-0.004 + 0.03) * 1.0 = 0.026
+    let expected_rate = 0.026;
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < RATE_TOLERANCE,
+            "Flow {}: rate should be {} (negative index -0.4% + 300bp spread, no floor), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+    }
+}
+
+/// All-in floor at 1%: total rate floored after adding spread.
+/// Flat curve at -2%, spread 200bp -> uncapped = -2% + 2% = 0%, but all-in floor at 1% -> rate = 1%.
+#[test]
+fn test_floating_rate_all_in_floor() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    // Build FloatingRateSpec with all-in floor at 1%
+    let mut spec = make_float_spec(FloatingRateFallback::Error, dec!(200.0)); // 2% spread
+    spec.rate_spec.all_in_floor_bp = Some(dec!(100)); // 1% all-in floor
+
+    let market = make_flat_forward_market(issue, -0.02); // -2% flat curve
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("All-in floor test should succeed with flat curve");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert!(
+        !float_flows.is_empty(),
+        "Should have at least one FloatReset flow"
+    );
+
+    // Unfloored = -2% + 2% = 0%, but all-in floor at 1% -> rate = 0.01
+    let expected_rate = 0.01;
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < RATE_TOLERANCE,
+            "Flow {}: rate should be {} (all-in floored at 1%), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+    }
+}
