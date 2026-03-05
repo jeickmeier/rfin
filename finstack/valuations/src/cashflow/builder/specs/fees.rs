@@ -32,7 +32,7 @@ pub enum FeeSpec {
         /// Stub.
         stub: StubKind,
         /// How the outstanding balance is sampled for fee calculation.
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "FeeAccrualBasis::is_default")]
         accrual_basis: FeeAccrualBasis,
     },
 }
@@ -45,6 +45,13 @@ pub enum FeeAccrualBasis {
     PointInTime,
     /// Time-weighted average outstanding over the accrual period.
     TimeWeightedAverage,
+}
+
+impl FeeAccrualBasis {
+    /// Returns true if this is the default variant (for serde skip_serializing_if).
+    pub fn is_default(&self) -> bool {
+        matches!(self, Self::PointInTime)
+    }
 }
 
 /// Fee base for periodic bps fees.
