@@ -90,7 +90,7 @@ impl Pricer for SimpleBondMertonMcPricer {
 
         // ---- Calibration pass (opt-in) ---------------------------------
         let mut calibration_measures: IndexMap<crate::metrics::MetricId, f64> = IndexMap::new();
-        let effective_config = if let Some(ref cal_spec) = mc_override.0.calibration {
+        let mut effective_config = if let Some(ref cal_spec) = mc_override.0.calibration {
             use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::calibration::calibrate_parameter_to_market;
             let cal_output = calibrate_parameter_to_market(
                 bond,
@@ -134,6 +134,21 @@ impl Pricer for SimpleBondMertonMcPricer {
         } else {
             mc_override.0.clone()
         };
+
+        // Build term-structure discount factors from the curve for cashflow
+        // discounting. The flat `discount_rate` is still used for the Merton
+        // risk-neutral drift.
+        if effective_config.cashflow_dfs.is_none() && mat_years > 0.0 {
+            let steps = effective_config.time_steps_per_year;
+            let n = (mat_years * steps as f64).round() as usize;
+            let dfs: Vec<(f64, f64)> = (1..=n)
+                .map(|i| {
+                    let t = i as f64 / steps as f64;
+                    (t, disc.df(t))
+                })
+                .collect();
+            effective_config.cashflow_dfs = Some(dfs);
+        }
 
         // ---- Full pricing pass -----------------------------------------
         let mc_result = bond

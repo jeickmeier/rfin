@@ -55,6 +55,8 @@ pub mod duration_modified;
 pub mod effective;
 /// Price, yield, and spread metrics
 pub mod price_yield_spread;
+/// Weighted Average Life calculator
+pub mod wal;
 
 pub use accrued::AccruedInterestCalculator;
 pub use convexity::ConvexityCalculator;
@@ -65,6 +67,7 @@ pub use price_yield_spread::{
     DiscountMarginCalculator, EmbeddedOptionValueCalculator, ISpreadCalculator, OasCalculator,
     YtmCalculator, YtwCalculator, ZSpreadCalculator,
 };
+pub use wal::BondWalCalculator;
 
 /// Registers all bond metrics to a registry.
 ///
@@ -108,6 +111,8 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (DiscountMargin, DiscountMarginCalculator::default()),
             (ASWPar, AssetSwapParCalculator::default()),
             (ASWMarket, AssetSwapMarketCalculator::default()),
+
+            (WAL, BondWalCalculator),
 
             // Theta is now registered universally in metrics::standard_registry()
 

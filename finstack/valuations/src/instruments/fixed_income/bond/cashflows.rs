@@ -71,7 +71,10 @@ impl CashflowProvider for Bond {
                     CFKind::Amortization => Some(*cf),
                     // Include positive notional (redemption)
                     CFKind::Notional if cf.amount.amount() > 0.0 => Some(*cf),
-                    // Exclude others (initial notional, fees, PIK, etc.)
+                    // Exclude PIK: PIK coupons accrete to notional (captured in the
+                    // terminal redemption amount), not paid as cash to the holder.
+                    // Also exclude initial (negative) notional, fees, and other
+                    // non-cash-receipt flows.
                     _ => None,
                 }
             })

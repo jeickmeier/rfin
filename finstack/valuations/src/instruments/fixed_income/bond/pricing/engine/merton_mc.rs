@@ -21,11 +21,11 @@
 //! This module requires the `mc` feature.
 
 use crate::instruments::common::models::credit::{
-    BarrierType, CreditState, DynamicRecoverySpec, EndogenousHazardSpec, MertonModel,
-    ToggleExerciseModel,
+    AssetDynamics, BarrierType, CreditState, DynamicRecoverySpec, EndogenousHazardSpec,
+    MertonModel, ToggleExerciseModel,
 };
 use finstack_core::math::random::{Pcg64Rng, RandomNumberGenerator};
-use finstack_core::Result;
+use finstack_core::{InputError, Result};
 
 // ---------------------------------------------------------------------------
 // PIK schedule types
@@ -71,7 +71,8 @@ pub struct MertonMcCalibrationSpec {
     /// Absolute tolerance on the **PV residual** (currency units at `as_of`).
     pub tolerance_pv: f64,
     /// Search bracket for the calibrated parameter (low, high).
-    pub bracket: (f64, f64),
+    /// When `None`, auto-brackets based on the calibration parameter type.
+    pub bracket: Option<(f64, f64)>,
     /// Optional seed override used for the calibration run.
     pub seed: Option<u64>,
 }
@@ -84,7 +85,7 @@ impl Default for MertonMcCalibrationSpec {
             low_paths: 2_000,
             max_iter: 40,
             tolerance_pv: 1e-4,
-            bracket: (0.0, 0.0),
+            bracket: None,
             seed: None,
         }
     }
@@ -207,6 +208,13 @@ pub struct MertonMcConfig {
     /// (barrier or asset vol) to match a market quote using low-path MC
     /// with common random numbers, then re-prices with full paths.
     pub calibration: Option<MertonMcCalibrationSpec>,
+    /// Pre-computed discount factors for term-structure cashflow discounting.
+    ///
+    /// Each entry is `(year_fraction, discount_factor)`, sorted by time.
+    /// When set, cashflows are discounted using log-linear interpolation of
+    /// these factors instead of the flat `discount_rate`. The flat rate is
+    /// still used for the Merton risk-neutral drift.
+    pub cashflow_dfs: Option<Vec<(f64, f64)>>,
 }
 
 impl MertonMcConfig {
@@ -233,6 +241,7 @@ impl MertonMcConfig {
             barrier_crossing,
             default_recovery_rate: 0.40,
             calibration: None,
+            cashflow_dfs: None,
         }
     }
 
@@ -285,6 +294,13 @@ impl MertonMcConfig {
         self
     }
 
+    /// Set pre-computed discount factors for term-structure cashflow discounting.
+    #[must_use]
+    pub fn cashflow_dfs(mut self, dfs: Vec<(f64, f64)>) -> Self {
+        self.cashflow_dfs = Some(dfs);
+        self
+    }
+
     /// Set the endogenous hazard model.
     #[must_use]
     pub fn endogenous_hazard(mut self, h: EndogenousHazardSpec) -> Self {
@@ -316,9 +332,18 @@ impl MertonMcConfig {
 pub struct MertonMcResult {
     /// Clean price as percentage of par.
     pub clean_price_pct: f64,
-    /// Dirty price as percentage of par (same as clean in this context).
+    /// Dirty price as percentage of par.
+    ///
+    /// Equal to `clean_price_pct` because the MC engine works in continuous
+    /// time and does not model accrued interest separately. Use the pricer's
+    /// metrics pipeline for clean/dirty decomposition.
     pub dirty_price_pct: f64,
-    /// Expected loss as fraction of risk-free PV.
+    /// Expected loss as fraction of PIK-aware risk-free PV.
+    ///
+    /// Defined as `1 - mean_mc_pv / risk_free_pv` where the risk-free PV
+    /// accounts for the PIK schedule (accreted notional in the no-default
+    /// scenario). For Toggle periods, the risk-free scenario assumes cash
+    /// (zero hazard implies no PIK trigger).
     pub expected_loss: f64,
     /// Unexpected loss (standard deviation of path PVs / notional).
     pub unexpected_loss: f64,
@@ -332,7 +357,7 @@ pub struct MertonMcResult {
     pub path_statistics: PathStatistics,
     /// Number of paths used.
     pub num_paths: usize,
-    /// Standard error of the clean price estimate.
+    /// Standard error of the clean price estimate (percentage of par).
     pub standard_error: f64,
 }
 
@@ -362,9 +387,10 @@ impl MertonMcEngine {
     /// Price a bond with structural credit model via Monte Carlo.
     ///
     /// Asset paths evolve under the risk-neutral measure using the Merton
-    /// model's `risk_free_rate` as drift. Cashflows are discounted at
-    /// `discount_rate`, which may differ (e.g., a funding-adjusted rate).
-    /// For standard risk-neutral pricing, set both rates equal.
+    /// model's `risk_free_rate` as drift (GBM only). Cashflows are discounted
+    /// using `config.cashflow_dfs` when available, falling back to
+    /// `exp(-discount_rate * t)`. The flat `discount_rate` is always used for
+    /// the Merton risk-neutral drift.
     ///
     /// Per-coupon PIK behavior is controlled by `config.pik_schedule`:
     /// - `PikMode::Cash` → coupon paid in cash
@@ -379,11 +405,13 @@ impl MertonMcEngine {
     /// * `maturity_years` - Time to maturity in years
     /// * `coupon_frequency` - Coupons per year (e.g., 2 for semi-annual)
     /// * `config` - Monte Carlo configuration (includes PIK schedule)
-    /// * `discount_rate` - Discount rate for cashflow PV calculation
+    /// * `discount_rate` - Discount rate for the Merton drift and flat-rate
+    ///   fallback when `cashflow_dfs` is not set
     ///
     /// # Errors
     ///
-    /// Returns an error if the configuration is invalid.
+    /// Returns an error if the configuration is invalid (e.g., non-GBM
+    /// dynamics, invalid PIK split fractions).
     pub fn price(
         notional: f64,
         coupon_rate: f64,
@@ -392,6 +420,12 @@ impl MertonMcEngine {
         config: &MertonMcConfig,
         discount_rate: f64,
     ) -> Result<MertonMcResult> {
+        // --- Validation ---
+        if !matches!(config.merton.dynamics(), AssetDynamics::GeometricBrownian) {
+            return Err(InputError::Invalid.into());
+        }
+        Self::validate_pik_schedule(&config.pik_schedule)?;
+
         let num_paths = config.num_paths;
         let dt = 1.0 / config.time_steps_per_year as f64;
         let sqrt_dt = dt.sqrt();
@@ -401,6 +435,14 @@ impl MertonMcEngine {
         let sigma = config.merton.asset_vol();
         let r = config.merton.risk_free_rate();
         let mu = r - config.merton.payout_rate() - 0.5 * sigma * sigma;
+
+        // Pre-compute exact coupon times to avoid floating-point alignment issues
+        let num_coupons = (maturity_years * coupon_frequency as f64).round() as usize;
+        let coupon_times: Vec<f64> = (1..=num_coupons)
+            .map(|i| i as f64 * coupon_period)
+            .collect();
+
+        let dfs_ref = config.cashflow_dfs.as_deref();
 
         // Barrier parameters
         let debt_barrier = config.merton.debt_barrier();
@@ -448,9 +490,6 @@ impl MertonMcEngine {
             // Simulate base path (and optionally antithetic)
             let signs: &[f64] = if config.antithetic && path_pvs.len() + 1 < num_paths {
                 &[1.0, -1.0]
-            } else if config.antithetic && path_pvs.len() < num_paths {
-                // Last path if num_paths is odd
-                &[1.0]
             } else {
                 &[1.0]
             };
@@ -462,7 +501,7 @@ impl MertonMcEngine {
                 let mut path_pv = 0.0;
                 let mut path_pik_elections: usize = 0;
                 let mut path_coupon_periods: usize = 0;
-                let mut next_coupon_time = coupon_period;
+                let mut coupon_idx: usize = 0;
 
                 for (step, &normal_draw) in normals.iter().enumerate().take(total_steps) {
                     let t_prev = step as f64 * dt;
@@ -484,9 +523,6 @@ impl MertonMcEngine {
                     // 2. Check default
                     match barrier_type {
                         BarrierType::Terminal => {
-                            // Terminal-only default: check once at maturity.
-                            // This prevents accidentally treating a terminal barrier
-                            // as a continuously monitored absorbing barrier.
                             let is_final_step = step + 1 == total_steps;
                             if is_final_step && v < debt_barrier {
                                 let recovery_rate = config
@@ -496,7 +532,7 @@ impl MertonMcEngine {
                                         dr.recovery_at_notional(n_current)
                                     });
                                 let recovery_cashflow = recovery_rate * n_current;
-                                let df = (-discount_rate * t).exp();
+                                let df = Self::df_at_time(dfs_ref, t, discount_rate);
                                 path_pv += recovery_cashflow * df;
                                 defaulted = true;
                                 total_defaults += 1;
@@ -515,11 +551,6 @@ impl MertonMcEngine {
                             ) && sigma > 0.0
                                 && dt > 0.0
                             {
-                                // Brownian-bridge crossing probability for X = ln(V/B(t))
-                                // with boundary at 0 between endpoints.
-                                //
-                                // Conditional on endpoints (x0, x1) > 0, P(min X < 0)
-                                // is exp(-2 x0 x1 / (sigma^2 dt)).
                                 let barrier_now = barrier;
                                 let x0 = (v_prev / barrier_prev).ln();
                                 let x1 = (v / barrier_now).ln();
@@ -528,8 +559,6 @@ impl MertonMcEngine {
                                     let p = (-2.0 * x0 * x1 / denom).exp();
                                     u < p
                                 } else {
-                                    // One endpoint is at/below barrier; discrete check would
-                                    // have already triggered if v < barrier, so treat as crossed.
                                     true
                                 }
                             } else {
@@ -544,7 +573,7 @@ impl MertonMcEngine {
                                         dr.recovery_at_notional(n_current)
                                     });
                                 let recovery_cashflow = recovery_rate * n_current;
-                                let df = (-discount_rate * t).exp();
+                                let df = Self::df_at_time(dfs_ref, t, discount_rate);
                                 path_pv += recovery_cashflow * df;
                                 defaulted = true;
                                 total_defaults += 1;
@@ -555,13 +584,16 @@ impl MertonMcEngine {
                         }
                     }
 
-                    // 3. At coupon dates
-                    if t >= next_coupon_time - dt * 0.5 {
+                    // 3. At coupon dates (using pre-computed schedule)
+                    while coupon_idx < coupon_times.len()
+                        && t >= coupon_times[coupon_idx] - dt * 0.5
+                    {
+                        let coupon_t = coupon_times[coupon_idx];
                         let coupon_amount = n_current * accrual_factor;
                         path_coupon_periods += 1;
-                        let df = (-discount_rate * t).exp();
+                        let df = Self::df_at_time(dfs_ref, coupon_t, discount_rate);
 
-                        match config.pik_schedule.mode_at(t) {
+                        match config.pik_schedule.mode_at(coupon_t) {
                             PikMode::Cash => {
                                 path_pv += coupon_amount * df;
                             }
@@ -585,16 +617,17 @@ impl MertonMcEngine {
                                     let hazard_rate =
                                         config.endogenous_hazard.as_ref().map_or_else(
                                             || {
-                                                let pd = config.merton.default_probability(t);
-                                                if t > 0.0 {
-                                                    -(1.0 - pd).ln() / t
+                                                let pd =
+                                                    config.merton.default_probability(coupon_t);
+                                                if coupon_t > 0.0 {
+                                                    -(1.0 - pd).ln() / coupon_t
                                                 } else {
                                                     0.0
                                                 }
                                             },
                                             |eh| eh.hazard_at_leverage(leverage),
                                         );
-                                    let remaining = maturity_years - t;
+                                    let remaining = maturity_years - coupon_t;
                                     let dd = if sigma > 0.0 && remaining > 0.0 {
                                         let sqrt_remaining = remaining.sqrt();
                                         ((v / n_current).ln()
@@ -626,13 +659,13 @@ impl MertonMcEngine {
                             }
                         }
 
-                        next_coupon_time += coupon_period;
+                        coupon_idx += 1;
                     }
                 }
 
                 // 4. Terminal payment (if survived)
                 if !defaulted {
-                    let df = (-discount_rate * maturity_years).exp();
+                    let df = Self::df_at_time(dfs_ref, maturity_years, discount_rate);
                     path_pv += n_current * df;
                     surviving_paths += 1;
                     total_terminal_notional += n_current;
@@ -653,13 +686,15 @@ impl MertonMcEngine {
         let mean_pv = path_pvs.iter().sum::<f64>() / actual_paths;
         let clean_price_pct = mean_pv / notional * 100.0;
 
-        // Risk-free PV for expected loss calculation
-        let risk_free_pv = Self::risk_free_pv(
+        // PIK-aware risk-free PV for expected loss calculation
+        let risk_free_pv = Self::risk_free_pv_pik_aware(
             notional,
             coupon_rate,
             maturity_years,
             coupon_frequency,
             discount_rate,
+            &config.pik_schedule,
+            dfs_ref,
         );
         let expected_loss = if risk_free_pv > 0.0 {
             1.0 - mean_pv / risk_free_pv
@@ -667,12 +702,17 @@ impl MertonMcEngine {
             0.0
         };
 
-        // Effective spread: constant spread over risk-free that equates PVs
-        let effective_spread_bp = if mean_pv > 0.0 && risk_free_pv > mean_pv {
-            10_000.0 * (risk_free_pv / mean_pv).ln() / maturity_years
-        } else {
-            0.0
-        };
+        // Effective spread: solve for constant spread s such that
+        // risk_free_pv_pik_aware(discount_rate + s) = mean_pv
+        let effective_spread_bp = Self::solve_effective_spread(
+            notional,
+            coupon_rate,
+            maturity_years,
+            coupon_frequency,
+            discount_rate,
+            mean_pv,
+            &config.pik_schedule,
+        );
 
         // Unexpected loss (std dev of path PVs / notional)
         let variance = path_pvs
@@ -682,7 +722,7 @@ impl MertonMcEngine {
             / (actual_paths - 1.0);
         let std_dev = variance.sqrt();
         let unexpected_loss = std_dev / notional;
-        let standard_error = unexpected_loss / (actual_paths.sqrt());
+        let standard_error = std_dev / actual_paths.sqrt() / notional * 100.0;
 
         // Expected shortfall at 95% (average of worst 5% of paths)
         let mut sorted_pvs = path_pvs.clone();
@@ -738,26 +778,180 @@ impl MertonMcEngine {
         })
     }
 
-    /// Compute the risk-free present value of a cash-pay bond.
-    fn risk_free_pv(
+    // -----------------------------------------------------------------------
+    // Helper methods
+    // -----------------------------------------------------------------------
+
+    /// Validate PIK split fractions: non-negative, summing to 1.
+    fn validate_pik_schedule(schedule: &PikSchedule) -> Result<()> {
+        let check = |mode: &PikMode| -> Result<()> {
+            if let PikMode::Split {
+                cash_fraction,
+                pik_fraction,
+            } = mode
+            {
+                if *cash_fraction < 0.0
+                    || *pik_fraction < 0.0
+                    || (*cash_fraction + *pik_fraction - 1.0).abs() > 1e-10
+                {
+                    return Err(InputError::Invalid.into());
+                }
+            }
+            Ok(())
+        };
+        match schedule {
+            PikSchedule::Uniform(mode) => check(mode)?,
+            PikSchedule::Stepped(steps) => {
+                for (_, mode) in steps {
+                    check(mode)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Log-linear interpolation of discount factors with flat-rate fallback.
+    fn df_at_time(cashflow_dfs: Option<&[(f64, f64)]>, t: f64, flat_rate: f64) -> f64 {
+        let Some(dfs) = cashflow_dfs.filter(|d| !d.is_empty()) else {
+            return (-flat_rate * t).exp();
+        };
+        if t <= 0.0 {
+            return 1.0;
+        }
+        if t <= dfs[0].0 {
+            let (t0, df0) = dfs[0];
+            if t0 > 0.0 {
+                let r0 = -df0.ln() / t0;
+                return (-r0 * t).exp();
+            }
+            return (-flat_rate * t).exp();
+        }
+        let last = dfs.len() - 1;
+        if t >= dfs[last].0 {
+            let (tn, dfn) = dfs[last];
+            if tn > 0.0 {
+                let rn = -dfn.ln() / tn;
+                return (-rn * t).exp();
+            }
+            return (-flat_rate * t).exp();
+        }
+        let idx = dfs.partition_point(|&(ti, _)| ti < t);
+        let (t0, df0) = dfs[idx - 1];
+        let (t1, df1) = dfs[idx];
+        if (t1 - t0).abs() < 1e-15 {
+            return df0;
+        }
+        let w = (t - t0) / (t1 - t0);
+        (df0.ln() * (1.0 - w) + df1.ln() * w).exp()
+    }
+
+    /// PIK-aware risk-free PV (no-default scenario).
+    ///
+    /// For Toggle periods the risk-free scenario assumes cash payment
+    /// (zero hazard implies no PIK trigger).
+    fn risk_free_pv_pik_aware(
         notional: f64,
         coupon_rate: f64,
         maturity_years: f64,
         coupon_frequency: usize,
         discount_rate: f64,
+        pik_schedule: &PikSchedule,
+        cashflow_dfs: Option<&[(f64, f64)]>,
     ) -> f64 {
         let accrual_factor = coupon_rate / coupon_frequency as f64;
         let coupon_period = 1.0 / coupon_frequency as f64;
-        let mut pv = 0.0;
         let num_coupons = (maturity_years * coupon_frequency as f64).round() as usize;
+        let mut pv = 0.0;
+        let mut n = notional;
 
         for i in 1..=num_coupons {
             let t = i as f64 * coupon_period;
-            let df = (-discount_rate * t).exp();
-            pv += notional * accrual_factor * df;
+            let df = Self::df_at_time(cashflow_dfs, t, discount_rate);
+            let coupon = n * accrual_factor;
+
+            match pik_schedule.mode_at(t) {
+                PikMode::Cash | PikMode::Toggle => {
+                    pv += coupon * df;
+                }
+                PikMode::Pik => {
+                    n += coupon;
+                }
+                PikMode::Split {
+                    cash_fraction,
+                    pik_fraction,
+                } => {
+                    pv += coupon * cash_fraction * df;
+                    n += coupon * pik_fraction;
+                }
+            }
         }
-        pv += notional * (-discount_rate * maturity_years).exp();
+        pv += n * Self::df_at_time(cashflow_dfs, maturity_years, discount_rate);
         pv
+    }
+
+    /// Solve for the constant spread `s` (in bp) such that
+    /// `risk_free_pv_pik_aware(discount_rate + s) ≈ target_pv`.
+    fn solve_effective_spread(
+        notional: f64,
+        coupon_rate: f64,
+        maturity_years: f64,
+        coupon_frequency: usize,
+        discount_rate: f64,
+        target_pv: f64,
+        pik_schedule: &PikSchedule,
+    ) -> f64 {
+        if target_pv <= 0.0 || maturity_years <= 0.0 {
+            return 0.0;
+        }
+        let rf_pv = Self::risk_free_pv_pik_aware(
+            notional,
+            coupon_rate,
+            maturity_years,
+            coupon_frequency,
+            discount_rate,
+            pik_schedule,
+            None,
+        );
+        if target_pv >= rf_pv {
+            return 0.0;
+        }
+
+        // Newton-Raphson with ZCB-approximation initial guess
+        let mut s = (rf_pv / target_pv).ln() / maturity_years;
+        let bump = 1e-4;
+        for _ in 0..50 {
+            let pv = Self::risk_free_pv_pik_aware(
+                notional,
+                coupon_rate,
+                maturity_years,
+                coupon_frequency,
+                discount_rate + s,
+                pik_schedule,
+                None,
+            );
+            let f = pv - target_pv;
+            if f.abs() < 1e-10 * notional {
+                break;
+            }
+            let pv_up = Self::risk_free_pv_pik_aware(
+                notional,
+                coupon_rate,
+                maturity_years,
+                coupon_frequency,
+                discount_rate + s + bump,
+                pik_schedule,
+                None,
+            );
+            let dpv = (pv_up - pv) / bump;
+            if dpv.abs() < 1e-15 {
+                break;
+            }
+            s -= f / dpv;
+            if s < 0.0 {
+                s = 0.0;
+            }
+        }
+        s * 10_000.0
     }
 }
 
@@ -928,13 +1122,10 @@ pub mod calibration {
             return Err(InputError::NonPositiveValue.into());
         }
 
-        let (mut lo, mut hi) = spec.bracket;
-        if lo == 0.0 && hi == 0.0 {
-            (lo, hi) = match spec.parameter {
-                CalibrationParameter::DebtBarrier => (0.001 * asset_value, 0.999 * asset_value),
-                CalibrationParameter::AssetVol => (0.01, 2.0),
-            };
-        }
+        let (mut lo, mut hi) = spec.bracket.unwrap_or(match spec.parameter {
+            CalibrationParameter::DebtBarrier => (0.001 * asset_value, 0.999 * asset_value),
+            CalibrationParameter::AssetVol => (0.01, 2.0),
+        });
         if !(lo.is_finite() && hi.is_finite() && lo > 0.0 && hi > lo) {
             return Err(InputError::Invalid.into());
         }
@@ -1097,7 +1288,7 @@ mod tests {
         let result_no = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_no, 0.04).expect("ok");
         let result_yes = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_yes, 0.04).expect("ok");
         assert!(
-            result_yes.clean_price_pct <= result_no.clean_price_pct + 2.0,
+            result_yes.clean_price_pct <= result_no.clean_price_pct,
             "Endogenous hazard should lower or maintain PIK price: no={}, yes={}",
             result_no.clean_price_pct,
             result_yes.clean_price_pct
@@ -1119,7 +1310,7 @@ mod tests {
         let result_no = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_no, 0.04).expect("ok");
         let result_yes = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config_yes, 0.04).expect("ok");
         assert!(
-            result_yes.clean_price_pct <= result_no.clean_price_pct + 2.0,
+            result_yes.clean_price_pct <= result_no.clean_price_pct,
             "Dynamic recovery should lower or maintain PIK price: no={}, yes={}",
             result_no.clean_price_pct,
             result_yes.clean_price_pct
@@ -1413,6 +1604,130 @@ mod tests {
             config.barrier_crossing,
             BarrierCrossing::BrownianBridge,
             "FirstPassage should default to BrownianBridge"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Validation tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn non_gbm_dynamics_rejected() {
+        let merton_jd = MertonModel::new_with_dynamics(
+            200.0,
+            0.25,
+            100.0,
+            0.04,
+            0.0,
+            BarrierType::Terminal,
+            AssetDynamics::JumpDiffusion {
+                jump_intensity: 0.5,
+                jump_mean: -0.05,
+                jump_vol: 0.10,
+            },
+        )
+        .expect("valid");
+        let config = MertonMcConfig::new(merton_jd).num_paths(100).seed(42);
+        let result = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04);
+        assert!(result.is_err(), "JumpDiffusion should be rejected");
+    }
+
+    #[test]
+    fn invalid_split_fractions_rejected() {
+        let config = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Split {
+                cash_fraction: 0.6,
+                pik_fraction: 0.6,
+            }))
+            .num_paths(100)
+            .seed(42);
+        let result = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04);
+        assert!(result.is_err(), "Split fractions > 1.0 should be rejected");
+    }
+
+    #[test]
+    fn negative_split_fractions_rejected() {
+        let config = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Split {
+                cash_fraction: -0.1,
+                pik_fraction: 1.1,
+            }))
+            .num_paths(100)
+            .seed(42);
+        let result = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04);
+        assert!(
+            result.is_err(),
+            "Negative split fractions should be rejected"
+        );
+    }
+
+    #[test]
+    fn valid_split_fractions_accepted() {
+        let config = MertonMcConfig::new(test_merton())
+            .pik_schedule(PikSchedule::Uniform(PikMode::Split {
+                cash_fraction: 0.3,
+                pik_fraction: 0.7,
+            }))
+            .num_paths(1000)
+            .seed(42);
+        let result = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04);
+        assert!(result.is_ok(), "Valid 30/70 split should be accepted");
+    }
+
+    // -----------------------------------------------------------------------
+    // Term-structure discounting tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn cashflow_dfs_overrides_flat_rate() {
+        let flat_config = MertonMcConfig::new(test_merton()).num_paths(2000).seed(42);
+        let flat = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &flat_config, 0.04).expect("ok");
+
+        // Build steeper curve DFs (higher short rates, lower long rates)
+        let steep_dfs: Vec<(f64, f64)> = (1..=60)
+            .map(|i| {
+                let t = i as f64 / 12.0;
+                let r = 0.05 - 0.002 * t; // inverted for visible difference
+                (t, (-r * t).exp())
+            })
+            .collect();
+        let ts_config = MertonMcConfig::new(test_merton())
+            .num_paths(2000)
+            .seed(42)
+            .cashflow_dfs(steep_dfs);
+        let ts = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &ts_config, 0.04).expect("ok");
+
+        assert!(
+            (flat.clean_price_pct - ts.clean_price_pct).abs() > 0.01,
+            "Term-structure DFs should produce a different price: flat={}, ts={}",
+            flat.clean_price_pct,
+            ts.clean_price_pct
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Spread solver test
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn effective_spread_positive_for_risky_bond() {
+        let config = MertonMcConfig::new(test_merton()).num_paths(5000).seed(42);
+        let result = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04).expect("ok");
+        assert!(
+            result.effective_spread_bp > 0.0,
+            "Risky bond should have positive effective spread, got {}",
+            result.effective_spread_bp
+        );
+    }
+
+    #[test]
+    fn standard_error_in_pct_of_par() {
+        let config = MertonMcConfig::new(test_merton()).num_paths(5000).seed(42);
+        let result = MertonMcEngine::price(100.0, 0.08, 5.0, 2, &config, 0.04).expect("ok");
+        assert!(
+            result.standard_error > 0.001 && result.standard_error < 10.0,
+            "SE in pct-of-par should be small but positive: got {}",
+            result.standard_error
         );
     }
 }

@@ -322,13 +322,13 @@ impl PyMertonMcResult {
         self.inner.clean_price_pct
     }
 
-    /// Dirty price as percentage of par.
+    /// Dirty price as percentage of par (equal to clean; MC does not model accrued).
     #[getter]
     fn dirty_price_pct(&self) -> f64 {
         self.inner.dirty_price_pct
     }
 
-    /// Expected loss as fraction of risk-free present value.
+    /// Expected loss as fraction of PIK-aware risk-free present value.
     #[getter]
     fn expected_loss(&self) -> f64 {
         self.inner.expected_loss
@@ -394,7 +394,7 @@ impl PyMertonMcResult {
         self.inner.num_paths
     }
 
-    /// Standard error of the clean price estimate.
+    /// Standard error of the clean price estimate (percentage of par).
     #[getter]
     fn standard_error(&self) -> f64 {
         self.inner.standard_error

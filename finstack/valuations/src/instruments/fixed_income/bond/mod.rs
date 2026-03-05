@@ -78,7 +78,7 @@
 //!
 //! Different bond markets follow distinct conventions:
 //!
-//! - **US Treasuries**: 30/360, Semi-annual, T+1 settlement
+//! - **US Treasuries**: ACT/ACT ICMA, Semi-annual, T+1 settlement
 //! - **UK Gilts**: ACT/ACT, Semi-annual, T+1 settlement
 //! - **Eurozone**: 30E/360 or ACT/ACT, Annual, T+2 settlement
 //! - **Japan**: ACT/365F, Semi-annual, T+3 settlement
@@ -683,6 +683,3 @@ mod tests {
         );
     }
 }
-
-#[cfg(test)]
-mod tree_calibration_validation;

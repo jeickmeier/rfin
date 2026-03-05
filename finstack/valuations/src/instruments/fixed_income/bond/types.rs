@@ -78,7 +78,9 @@ pub struct Bond {
     /// Determines how accrued interest is calculated:
     /// - `Linear` (default): Simple interest interpolation (most bonds)
     /// - `Compounded`: Actuarial accrual per ICMA Rule 251 (some European bonds)
-    /// - `Indexed`: Index ratio interpolation (inflation-linked bonds like TIPS)
+    ///
+    /// For inflation-linked bonds (TIPS, UK Linkers), use the dedicated
+    /// `InflationLinkedBond` instrument which handles index-ratio accrual.
     #[serde(default)]
     #[builder(default)]
     pub accrual_method: crate::cashflow::accrual::AccrualMethod,
@@ -302,9 +304,11 @@ impl Bond {
 
     /// Create a standard fixed-rate bond (most common use case).
     ///
-    /// Creates a bond with semi-annual frequency and 30/360 day count following
-    /// **US Corporate bond conventions**. For US Treasuries or other regional
-    /// conventions, use `::with_convention()` or `::builder()` for full customization.
+    /// Creates a bond with semi-annual frequency, 30/360 day count, and T+2
+    /// settlement. Uses simplified schedule conventions (Following BDC,
+    /// weekends-only calendar). For production-grade market conventions
+    /// including proper holiday calendars and Modified Following BDC, use
+    /// `::with_convention(BondConvention::Corporate, ...)` instead.
     ///
     /// # Arguments
     ///
@@ -317,7 +321,7 @@ impl Bond {
     ///
     /// # Returns
     ///
-    /// A `Bond` instance with US Corporate conventions (semi-annual, 30/360).
+    /// A `Bond` instance with semi-annual 30/360 conventions.
     ///
     /// # Panics
     ///
@@ -325,10 +329,11 @@ impl Bond {
     ///
     /// # Regional Bond Conventions
     ///
-    /// ## US Corporate (Default for this method)
+    /// ## US Corporate (use `BondConvention::Corporate` for full conventions)
     /// - **Day Count:** 30/360 (US Bond Basis)
     /// - **Tenor:** Semi-annual
     /// - **Settlement:** T+2
+    /// - **BDC:** Modified Following
     /// - **Calendar:** US (NYSE holidays)
     ///
     /// ## US Treasury (use `BondConvention::USTreasury`)
@@ -603,6 +608,68 @@ impl Bond {
             .build()?;
 
         // Validate all parameters before returning
+        bond.validate()?;
+        Ok(bond)
+    }
+
+    /// Create a zero-coupon bond.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique identifier for the bond
+    /// * `notional` - Face value of the bond (paid at maturity)
+    /// * `issue` - Issue date of the bond
+    /// * `maturity` - Maturity date of the bond
+    /// * `discount_curve_id` - Discount curve identifier for pricing
+    ///
+    /// # Returns
+    ///
+    /// A zero-coupon `Bond` with no settlement convention. Use the builder
+    /// directly or `::with_convention()` for market-specific settlement rules.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::fixed_income::bond::Bond;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// use time::macros::date;
+    ///
+    /// let zcb = Bond::zero_coupon(
+    ///     "ZCB-001",
+    ///     Money::new(1_000_000.0, Currency::USD),
+    ///     date!(2025-01-15),
+    ///     date!(2027-01-15),
+    ///     "USD-OIS",
+    /// ).unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation (e.g., maturity <= issue).
+    pub fn zero_coupon(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        issue: Date,
+        maturity: Date,
+        discount_curve_id: impl Into<CurveId>,
+    ) -> finstack_core::Result<Self> {
+        let bond = Self::builder()
+            .id(id.into())
+            .notional(notional)
+            .issue_date(issue)
+            .maturity(maturity)
+            .cashflow_spec(CashflowSpec::fixed(
+                0.0,
+                finstack_core::dates::Tenor::annual(),
+                DayCount::Act365F,
+            ))
+            .discount_curve_id(discount_curve_id.into())
+            .credit_curve_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .settlement_convention_opt(None)
+            .build()?;
+
         bond.validate()?;
         Ok(bond)
     }

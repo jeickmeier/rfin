@@ -167,6 +167,7 @@ use finstack_core::money::Money;
 ///     tolerance: 1e-8,
 ///     max_iterations: 100,
 ///     initial_bracket_size_bp: Some(2000.0),
+///     mean_reversion: None,
 /// };
 /// ```
 #[derive(Debug, Clone)]
@@ -487,6 +488,11 @@ impl TreePricerConfig {
 /// Uses `Vec` instead of `HashMap` for step-indexed lookups to eliminate hashing
 /// overhead in the backward induction hot path. For a 200-step tree, this provides
 /// significant speedup over hash-based lookups.
+///
+/// # Thread Safety
+///
+/// `BondValuator` is `Send + Sync` (all fields are owned data or primitives),
+/// making it safe to share across threads for parallel portfolio pricing.
 ///
 /// # Examples
 ///
@@ -921,6 +927,17 @@ impl TreeValuator for BondValuator {
     }
 }
 
+const _: () = {
+    fn _assert_send<T: Send>() {}
+    fn _assert_sync<T: Sync>() {}
+    fn _assertions() {
+        _assert_send::<BondValuator>();
+        _assert_sync::<BondValuator>();
+        _assert_send::<TreePricer>();
+        _assert_sync::<TreePricer>();
+    }
+};
+
 /// Tree-based pricer for bonds with embedded options and OAS calculations.
 ///
 /// Provides methods for calculating option-adjusted spread (OAS) for bonds with
@@ -989,6 +1006,7 @@ impl TreePricer {
     ///     tolerance: 1e-8,
     ///     max_iterations: 100,
     ///     initial_bracket_size_bp: Some(2000.0),
+    ///     mean_reversion: None,
     /// };
     /// let pricer = TreePricer::with_config(config);
     /// ```
