@@ -15,6 +15,8 @@ pub(in crate::cashflow::builder) fn add_pik_flow_if_nonzero(
     date: Date,
     pik_amt: f64,
     ccy: Currency,
+    rate: Option<f64>,
+    accrual_factor: f64,
 ) -> f64 {
     if pik_amt > 0.0 {
         flows.push(CashFlow {
@@ -22,8 +24,8 @@ pub(in crate::cashflow::builder) fn add_pik_flow_if_nonzero(
             reset_date: None,
             amount: Money::new(pik_amt, ccy),
             kind: CFKind::PIK,
-            accrual_factor: 0.0,
-            rate: None,
+            accrual_factor,
+            rate,
         });
         pik_amt
     } else {

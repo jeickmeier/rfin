@@ -254,3 +254,372 @@ fn test_floating_rate_default_fallback_with_curve() {
         );
     }
 }
+
+// =============================================================================
+// Test 6: PIK flows carry rate and accrual_factor from parent coupon
+// =============================================================================
+
+/// PIK flows should carry rate and accrual_factor from the parent coupon.
+#[test]
+fn test_pik_flow_metadata() {
+    // Build a 100% PIK floating rate bond with SpreadOnly fallback (no curve needed).
+    // With CouponType::PIK, the full coupon goes to PIK flows.
+    let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+    let init = Money::new(1_000_000.0, Currency::USD);
+
+    // 200 bps spread => 0.02 rate when index is 0 (SpreadOnly)
+    let mut spec = make_float_spec(FloatingRateFallback::SpreadOnly, dec!(200.0));
+    spec.coupon_type = CouponType::PIK;
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(None)
+        .expect("PIK with SpreadOnly fallback should succeed without a curve");
+
+    // Find all PIK flows
+    let pik_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::PIK)
+        .collect();
+
+    assert!(
+        !pik_flows.is_empty(),
+        "Should have at least one PIK flow for a 100% PIK coupon"
+    );
+
+    // Verify that all PIK flows carry rate and accrual_factor from parent coupon
+    for cf in &pik_flows {
+        let rate = cf
+            .rate
+            .expect("PIK flow should carry rate from parent coupon");
+        assert!(
+            (rate - 0.02).abs() < 1e-10,
+            "PIK flow rate should be 0.02 (spread-only), got {}",
+            rate
+        );
+        assert!(
+            cf.accrual_factor > 0.0,
+            "PIK flow accrual_factor should be > 0.0, got {}",
+            cf.accrual_factor
+        );
+    }
+
+    // Also verify there are no FloatReset flows (100% PIK means no cash coupons)
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+    assert!(
+        float_flows.is_empty(),
+        "100% PIK coupon should have no FloatReset (cash) flows"
+    );
+}
+
+// =============================================================================
+// Golden Value Tests
+// =============================================================================
+
+const RATE_TOLERANCE: f64 = 1e-10;
+
+/// Helper: create a flat forward curve at `flat_rate` for "USD-SOFR-3M" with
+/// base date `base` and Act/360.
+fn make_flat_forward_market(
+    base: Date,
+    flat_rate: f64,
+) -> finstack_core::market_data::context::MarketContext {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::ForwardCurve;
+
+    let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(base)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, flat_rate), (5.0, flat_rate)])
+        .build()
+        .expect("Flat ForwardCurve builder should succeed");
+    MarketContext::new().insert_forward(fwd)
+}
+
+// =============================================================================
+// Golden Value Test 1: SOFR + 200bp flat curve
+// =============================================================================
+
+/// Golden value: SOFR + 200bp, quarterly, Act/360, $1M notional.
+/// Flat forward curve at 4.5%.
+/// All-in rate = 4.5% + 2.0% = 6.5%
+/// Each quarterly coupon ~ $1M x 0.065 x (days/360)
+#[test]
+fn test_floating_rate_golden_sofr_200bp() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    let spec = make_float_spec(FloatingRateFallback::Error, dec!(200.0));
+    let market = make_flat_forward_market(issue, 0.045);
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("Golden SOFR+200bp build should succeed with flat curve");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    // Expect 4 quarterly FloatReset flows for a 1-year bond
+    assert_eq!(
+        float_flows.len(),
+        4,
+        "Expected 4 quarterly FloatReset flows, got {}",
+        float_flows.len()
+    );
+
+    let expected_rate = 0.065; // 4.5% index + 2.0% spread
+
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < RATE_TOLERANCE,
+            "Flow {}: rate should be {} (SOFR 4.5% + 200bp), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+
+        // Coupon amount = notional * rate * accrual_factor
+        // For quarterly Act/360, accrual_factor ~ days_in_period / 360
+        // Each quarter has ~90-92 days, so accrual ~ 0.25
+        // Expected coupon ~ 1_000_000 * 0.065 * 0.25 ~ $16,250
+        let amount = cf.amount.amount().abs();
+        assert!(
+            amount > 15_000.0 && amount < 18_500.0,
+            "Flow {}: coupon amount should be ~$16,250 (within bounds), got {:.2}",
+            i,
+            amount
+        );
+
+        // Verify the amount is consistent with rate * notional * accrual_factor
+        let expected_amount = notional * expected_rate * cf.accrual_factor;
+        assert!(
+            (amount - expected_amount).abs() < 1.0,
+            "Flow {}: amount {:.2} should match rate * notional * accrual ({:.2})",
+            i,
+            amount,
+            expected_amount
+        );
+    }
+}
+
+// =============================================================================
+// Golden Value Test 2: Zero spread (index only)
+// =============================================================================
+
+/// Golden value: SOFR + 0bp. Rate should equal index rate (4.5%).
+#[test]
+fn test_floating_rate_golden_zero_spread() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    // Zero spread
+    let spec = make_float_spec(FloatingRateFallback::Error, dec!(0.0));
+    let market = make_flat_forward_market(issue, 0.045);
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("Golden zero-spread build should succeed with flat curve");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert_eq!(
+        float_flows.len(),
+        4,
+        "Expected 4 quarterly FloatReset flows, got {}",
+        float_flows.len()
+    );
+
+    let expected_rate = 0.045; // Index rate only, no spread
+
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < RATE_TOLERANCE,
+            "Flow {}: rate should be exactly {} (index only, zero spread), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+
+        // Coupon amount = notional * 0.045 * accrual ~ $11,250 per quarter
+        let amount = cf.amount.amount().abs();
+        let expected_amount = notional * expected_rate * cf.accrual_factor;
+        assert!(
+            (amount - expected_amount).abs() < 1.0,
+            "Flow {}: amount {:.2} should match rate * notional * accrual ({:.2})",
+            i,
+            amount,
+            expected_amount
+        );
+    }
+}
+
+// =============================================================================
+// Golden Value Test 3: Gearing (gearing_includes_spread = true)
+// =============================================================================
+
+/// Golden value: gearing=1.5 on 4.5% SOFR + 200bp.
+/// With gearing_includes_spread=true: rate = 1.5 * (4.5% + 2.0%) = 9.75%
+#[test]
+fn test_floating_rate_golden_gearing_includes_spread() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    let mut spec = make_float_spec(FloatingRateFallback::Error, dec!(200.0));
+    spec.rate_spec.gearing = dec!(1.5);
+    spec.rate_spec.gearing_includes_spread = true;
+
+    let market = make_flat_forward_market(issue, 0.045);
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("Golden gearing (includes spread) build should succeed");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert_eq!(
+        float_flows.len(),
+        4,
+        "Expected 4 quarterly FloatReset flows, got {}",
+        float_flows.len()
+    );
+
+    // gearing_includes_spread=true: (index + spread) * gearing
+    // = (0.045 + 0.02) * 1.5 = 0.065 * 1.5 = 0.0975
+    let expected_rate = 0.0975;
+
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < RATE_TOLERANCE,
+            "Flow {}: rate should be {} (1.5 * (4.5% + 2%)), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+
+        let amount = cf.amount.amount().abs();
+        let expected_amount = notional * expected_rate * cf.accrual_factor;
+        assert!(
+            (amount - expected_amount).abs() < 1.0,
+            "Flow {}: amount {:.2} should match rate * notional * accrual ({:.2})",
+            i,
+            amount,
+            expected_amount
+        );
+    }
+}
+
+// =============================================================================
+// Golden Value Test 3b: Gearing (gearing_includes_spread = false, affine)
+// =============================================================================
+
+/// Golden value: gearing=1.5 on 4.5% SOFR + 200bp.
+/// With gearing_includes_spread=false: rate = (1.5 * 4.5%) + 2.0% = 6.75% + 2.0% = 8.75%
+#[test]
+fn test_floating_rate_golden_gearing_excludes_spread() {
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    let mut spec = make_float_spec(FloatingRateFallback::Error, dec!(200.0));
+    spec.rate_spec.gearing = dec!(1.5);
+    spec.rate_spec.gearing_includes_spread = false;
+
+    let market = make_flat_forward_market(issue, 0.045);
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("Golden gearing (excludes spread) build should succeed");
+
+    let float_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert_eq!(
+        float_flows.len(),
+        4,
+        "Expected 4 quarterly FloatReset flows, got {}",
+        float_flows.len()
+    );
+
+    // gearing_includes_spread=false (affine): (index * gearing) + spread
+    // = (0.045 * 1.5) + 0.02 = 0.0675 + 0.02 = 0.0875
+    let expected_rate = 0.0875;
+
+    for (i, cf) in float_flows.iter().enumerate() {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - expected_rate).abs() < RATE_TOLERANCE,
+            "Flow {}: rate should be {} (1.5 * 4.5% + 2%), got {}",
+            i,
+            expected_rate,
+            rate
+        );
+
+        let amount = cf.amount.amount().abs();
+        let expected_amount = notional * expected_rate * cf.accrual_factor;
+        assert!(
+            (amount - expected_amount).abs() < 1.0,
+            "Flow {}: amount {:.2} should match rate * notional * accrual ({:.2})",
+            i,
+            amount,
+            expected_amount
+        );
+    }
+
+    // Additionally verify the difference between the two gearing modes:
+    // Standard (includes spread): 0.0975
+    // Affine (excludes spread): 0.0875
+    // Difference = spread * (gearing - 1) = 0.02 * 0.5 = 0.01
+    let standard_rate = 0.0975;
+    let affine_rate = expected_rate;
+    let expected_diff = 0.02 * (1.5 - 1.0); // spread * (gearing - 1) = 0.01
+    assert!(
+        ((standard_rate - affine_rate) - expected_diff).abs() < RATE_TOLERANCE,
+        "Difference between standard and affine should be spread*(gearing-1) = {}, got {}",
+        expected_diff,
+        standard_rate - affine_rate
+    );
+}

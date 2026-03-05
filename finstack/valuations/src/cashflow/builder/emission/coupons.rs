@@ -152,7 +152,7 @@ pub(crate) fn emit_fixed_coupons_on(
                 });
             }
 
-            pik_to_add += add_pik_flow_if_nonzero(out_flows, d, pik_amt, ccy);
+            pik_to_add += add_pik_flow_if_nonzero(out_flows, d, pik_amt, ccy, Some(rate_f64), yf);
         }
     }
     Ok(pik_to_add)
@@ -369,7 +369,7 @@ pub(crate) fn emit_float_coupons_on(
                 });
             }
 
-            pik_to_add += add_pik_flow_if_nonzero(out_flows, d, pik_amt, ccy);
+            pik_to_add += add_pik_flow_if_nonzero(out_flows, d, pik_amt, ccy, Some(total_rate), yf);
         }
     }
     Ok(pik_to_add)
