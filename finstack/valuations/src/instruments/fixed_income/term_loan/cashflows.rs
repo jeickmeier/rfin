@@ -450,6 +450,7 @@ pub fn generate_cashflows(
                     crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string()
                 }),
                 stub: loan.stub,
+                accrual_basis: Default::default(),
             });
         }
     }

@@ -9,7 +9,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use super::super::compiler::PeriodicFee;
-use super::super::specs::FeeBase;
+use super::super::specs::{FeeAccrualBasis, FeeBase};
 
 /// Conversion factor from basis points to rate (1 bp = 0.0001).
 const BP_TO_RATE: Decimal = Decimal::from_parts(1, 0, 0, false, 4); // 0.0001
@@ -151,6 +151,86 @@ pub fn emit_facility_fee_on(
     )
 }
 
+/// Compute the time-weighted average of a value over a date range using a history map.
+///
+/// Given a history of `(date, outstanding)` snapshots, computes:
+///
+/// ```text
+/// TWA = sum(outstanding_i * delta_t_i) / sum(delta_t_i)
+/// ```
+///
+/// where `outstanding_i` is the outstanding at each snapshot date that falls within
+/// `[accrual_start, accrual_end)`, and `delta_t_i` is the number of days until the
+/// next snapshot or `accrual_end`.
+///
+/// If no history entries exist for the period, returns the `fallback` value.
+fn compute_time_weighted_average(
+    outstanding_history: &finstack_core::HashMap<Date, f64>,
+    accrual_start: Date,
+    accrual_end: Date,
+    fallback: f64,
+) -> f64 {
+    // Collect entries that are relevant to the accrual period:
+    // any date < accrual_end (we need entries before start to carry forward).
+    let mut entries: Vec<(Date, f64)> = outstanding_history
+        .iter()
+        .filter(|(date, _)| **date < accrual_end)
+        .map(|(date, val)| (*date, *val))
+        .collect();
+
+    if entries.is_empty() {
+        return fallback;
+    }
+
+    entries.sort_by_key(|(d, _)| *d);
+
+    // Find the outstanding at accrual_start: the most recent entry at or before accrual_start
+    let start_idx = match entries.binary_search_by_key(&accrual_start, |(d, _)| *d) {
+        Ok(i) => i,
+        Err(i) => {
+            if i == 0 {
+                // No entry at or before accrual_start; use fallback for the initial value
+                entries.insert(0, (accrual_start, fallback));
+                0
+            } else {
+                // The entry just before the insertion point is the most recent before accrual_start.
+                // Create a synthetic entry at accrual_start with that value.
+                let val = entries[i - 1].1;
+                entries.insert(i, (accrual_start, val));
+                i
+            }
+        }
+    };
+
+    // Compute TWA from start_idx onward, clamped to [accrual_start, accrual_end)
+    let mut weighted_sum = 0.0_f64;
+    let mut total_days = 0i64;
+
+    for i in start_idx..entries.len() {
+        let (date_i, val_i) = entries[i];
+        if date_i >= accrual_end {
+            break;
+        }
+        // Next boundary: either the next entry's date or accrual_end
+        let next_date = if i + 1 < entries.len() {
+            entries[i + 1].0.min(accrual_end)
+        } else {
+            accrual_end
+        };
+        let days = (next_date - date_i).whole_days();
+        if days > 0 {
+            weighted_sum += val_i * (days as f64);
+            total_days += days;
+        }
+    }
+
+    if total_days > 0 {
+        weighted_sum / (total_days as f64)
+    } else {
+        fallback
+    }
+}
+
 /// Emit fee cashflows on a specific date.
 ///
 /// Processes both periodic fees (based on drawn/undrawn balances) and fixed
@@ -158,11 +238,17 @@ pub fn emit_facility_fee_on(
 ///
 /// For periodic fees, computes the fee amount as `base * bps * year_fraction`
 /// where base is either the drawn balance or the undrawn balance (facility_limit - outstanding).
+///
+/// When a fee's `accrual_basis` is `TimeWeightedAverage`, the outstanding balance used
+/// for the base amount is computed as a time-weighted average over the accrual period,
+/// using the `outstanding_history` map. This is useful for commitment fees on revolving
+/// facilities where the outstanding changes within the fee accrual period.
 pub(in crate::cashflow::builder) fn emit_fees_on(
     d: Date,
     periodic_fees: &[PeriodicFee],
     fixed_fees: &[(Date, Money)],
     outstanding: f64,
+    outstanding_history: &finstack_core::HashMap<Date, f64>,
     ccy: Currency,
     new_flows: &mut Vec<CashFlow>,
 ) -> finstack_core::Result<()> {
@@ -184,13 +270,25 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
                     bus_basis: None,
                 },
             )?;
+
+            // Determine the outstanding to use based on accrual basis
+            let effective_outstanding = match pf.accrual_basis {
+                FeeAccrualBasis::PointInTime => outstanding,
+                FeeAccrualBasis::TimeWeightedAverage => compute_time_weighted_average(
+                    outstanding_history,
+                    period.accrual_start,
+                    period.accrual_end,
+                    outstanding,
+                ),
+            };
+
             let base_amt = match &pf.base {
-                FeeBase::Drawn => outstanding,
+                FeeBase::Drawn => effective_outstanding,
                 FeeBase::Undrawn { facility_limit } => {
                     if facility_limit.currency() != ccy {
                         return Err(InputError::Invalid.into());
                     }
-                    (facility_limit.amount() - outstanding).max(0.0)
+                    (facility_limit.amount() - effective_outstanding).max(0.0)
                 }
             };
 
@@ -231,4 +329,272 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::cashflow::builder::compiler::PeriodicFee;
+    use crate::cashflow::builder::date_generation::SchedulePeriod;
+    use crate::cashflow::builder::specs::{FeeAccrualBasis, FeeBase};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{DayCount, Tenor};
+    use rust_decimal_macros::dec;
+    use time::Month;
+
+    /// Helper to build a simple PeriodicFee with one period.
+    fn make_periodic_fee(
+        accrual_start: Date,
+        accrual_end: Date,
+        payment_date: Date,
+        bps: Decimal,
+        accrual_basis: FeeAccrualBasis,
+        base: FeeBase,
+    ) -> PeriodicFee {
+        let mut prev = finstack_core::HashMap::default();
+        prev.insert(
+            payment_date,
+            SchedulePeriod {
+                accrual_start,
+                accrual_end,
+                payment_date,
+            },
+        );
+        PeriodicFee {
+            base,
+            bps,
+            dc: DayCount::Act360,
+            freq: Tenor::quarterly(),
+            calendar_id: "weekends_only".to_string(),
+            dates: vec![accrual_start, accrual_end],
+            prev,
+            accrual_basis,
+        }
+    }
+
+    #[test]
+    fn point_in_time_matches_original_behavior() {
+        let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
+        let payment = end;
+
+        let pf = make_periodic_fee(
+            start,
+            end,
+            payment,
+            dec!(50),
+            FeeAccrualBasis::PointInTime,
+            FeeBase::Drawn,
+        );
+
+        let outstanding = 1_000_000.0;
+        let history = finstack_core::HashMap::default();
+        let mut flows = Vec::new();
+
+        emit_fees_on(
+            payment,
+            &[pf],
+            &[],
+            outstanding,
+            &history,
+            Currency::USD,
+            &mut flows,
+        )
+        .expect("valid date");
+
+        assert_eq!(flows.len(), 1);
+        let fee = flows[0].amount.amount();
+        assert!((fee - 1250.0).abs() < 0.01, "Expected ~1250.0, got {}", fee);
+    }
+
+    #[test]
+    fn twa_with_constant_outstanding_matches_point_in_time() {
+        let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
+        let payment = end;
+        let outstanding = 1_000_000.0;
+
+        let mut history = finstack_core::HashMap::default();
+        history.insert(start, outstanding);
+
+        let pf_pit = make_periodic_fee(
+            start,
+            end,
+            payment,
+            dec!(50),
+            FeeAccrualBasis::PointInTime,
+            FeeBase::Drawn,
+        );
+        let mut flows_pit = Vec::new();
+        emit_fees_on(
+            payment,
+            &[pf_pit],
+            &[],
+            outstanding,
+            &history,
+            Currency::USD,
+            &mut flows_pit,
+        )
+        .expect("valid date");
+
+        let pf_twa = make_periodic_fee(
+            start,
+            end,
+            payment,
+            dec!(50),
+            FeeAccrualBasis::TimeWeightedAverage,
+            FeeBase::Drawn,
+        );
+        let mut flows_twa = Vec::new();
+        emit_fees_on(
+            payment,
+            &[pf_twa],
+            &[],
+            outstanding,
+            &history,
+            Currency::USD,
+            &mut flows_twa,
+        )
+        .expect("valid date");
+
+        assert_eq!(flows_pit.len(), 1);
+        assert_eq!(flows_twa.len(), 1);
+        assert!(
+            (flows_pit[0].amount.amount() - flows_twa[0].amount.amount()).abs() < 1e-10,
+            "PIT={} vs TWA={}",
+            flows_pit[0].amount.amount(),
+            flows_twa[0].amount.amount()
+        );
+    }
+
+    #[test]
+    fn twa_with_varying_outstanding_computes_weighted_average() {
+        let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let mid = Date::from_calendar_date(2025, Month::February, 14).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
+        let payment = end;
+
+        let mut history = finstack_core::HashMap::default();
+        history.insert(start, 1_000_000.0);
+        history.insert(mid, 500_000.0);
+
+        let pf = make_periodic_fee(
+            start,
+            end,
+            payment,
+            dec!(50),
+            FeeAccrualBasis::TimeWeightedAverage,
+            FeeBase::Drawn,
+        );
+
+        let mut flows = Vec::new();
+        emit_fees_on(
+            payment,
+            &[pf],
+            &[],
+            500_000.0,
+            &history,
+            Currency::USD,
+            &mut flows,
+        )
+        .expect("valid date");
+
+        assert_eq!(flows.len(), 1);
+        let fee = flows[0].amount.amount();
+        let expected_twa = (1_000_000.0 * 30.0 + 500_000.0 * 60.0) / 90.0;
+        let expected_fee = expected_twa * 0.005 * (90.0 / 360.0);
+        assert!(
+            (fee - expected_fee).abs() < 0.02,
+            "Expected ~{:.2}, got {:.2}",
+            expected_fee,
+            fee
+        );
+    }
+
+    #[test]
+    fn twa_undrawn_base_uses_weighted_average() {
+        let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let mid = Date::from_calendar_date(2025, Month::February, 14).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
+        let payment = end;
+        let facility_limit = 2_000_000.0;
+
+        let mut history = finstack_core::HashMap::default();
+        history.insert(start, 1_000_000.0);
+        history.insert(mid, 500_000.0);
+
+        let pf = make_periodic_fee(
+            start,
+            end,
+            payment,
+            dec!(50),
+            FeeAccrualBasis::TimeWeightedAverage,
+            FeeBase::Undrawn {
+                facility_limit: Money::new(facility_limit, Currency::USD),
+            },
+        );
+
+        let mut flows = Vec::new();
+        emit_fees_on(
+            payment,
+            &[pf],
+            &[],
+            500_000.0,
+            &history,
+            Currency::USD,
+            &mut flows,
+        )
+        .expect("valid date");
+
+        assert_eq!(flows.len(), 1);
+        let twa_outstanding = (1_000_000.0 * 30.0 + 500_000.0 * 60.0) / 90.0;
+        let undrawn = facility_limit - twa_outstanding;
+        let expected_fee = undrawn * 0.005 * (90.0 / 360.0);
+        let fee = flows[0].amount.amount();
+        assert!(
+            (fee - expected_fee).abs() < 0.02,
+            "Expected ~{:.2}, got {:.2}",
+            expected_fee,
+            fee
+        );
+    }
+
+    #[test]
+    fn compute_twa_no_history_returns_fallback() {
+        let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
+        let history = finstack_core::HashMap::default();
+        let result = compute_time_weighted_average(&history, start, end, 42.0);
+        assert!((result - 42.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn compute_twa_single_entry_at_start() {
+        let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
+        let mut history = finstack_core::HashMap::default();
+        history.insert(start, 1_000_000.0);
+        let result = compute_time_weighted_average(&history, start, end, 0.0);
+        assert!(
+            (result - 1_000_000.0).abs() < 1e-10,
+            "Expected 1M, got {}",
+            result
+        );
+    }
+
+    #[test]
+    fn compute_twa_entry_before_start() {
+        let before = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
+        let mut history = finstack_core::HashMap::default();
+        history.insert(before, 1_000_000.0);
+        let result = compute_time_weighted_average(&history, start, end, 0.0);
+        assert!(
+            (result - 1_000_000.0).abs() < 1e-10,
+            "Expected 1M, got {}",
+            result
+        );
+    }
 }

@@ -31,7 +31,20 @@ pub enum FeeSpec {
         calendar_id: String,
         /// Stub.
         stub: StubKind,
+        /// How the outstanding balance is sampled for fee calculation.
+        #[serde(default)]
+        accrual_basis: FeeAccrualBasis,
     },
+}
+
+/// Controls how the outstanding balance is sampled during fee accrual.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FeeAccrualBasis {
+    /// Use outstanding at a single point in time (period start). Current behavior.
+    #[default]
+    PointInTime,
+    /// Time-weighted average outstanding over the accrual period.
+    TimeWeightedAverage,
 }
 
 /// Fee base for periodic bps fees.
@@ -39,7 +52,7 @@ pub enum FeeSpec {
 pub enum FeeBase {
     /// Base on drawn outstanding (post-amortization, post-PIK).
     Drawn,
-    /// Base on undrawn = max(limit − outstanding, 0).
+    /// Base on undrawn = max(limit - outstanding, 0).
     Undrawn {
         /// Facility limit.
         facility_limit: Money,

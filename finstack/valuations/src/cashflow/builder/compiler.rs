@@ -28,8 +28,8 @@ use rust_decimal::Decimal;
 
 use super::date_generation::{build_dates, SchedulePeriod};
 use super::specs::{
-    CouponType, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
-    ScheduleParams,
+    CouponType, FeeAccrualBasis, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec,
+    FloatingRateSpec, ScheduleParams,
 };
 
 /// Result type for schedule building with metadata.
@@ -111,6 +111,7 @@ pub(super) struct PeriodicFee {
     pub(super) calendar_id: String,
     pub(super) dates: Vec<Date>,
     pub(super) prev: finstack_core::HashMap<Date, SchedulePeriod>,
+    pub(super) accrual_basis: FeeAccrualBasis,
 }
 
 pub(super) type PeriodicFees = Vec<PeriodicFee>;
@@ -176,6 +177,7 @@ pub(super) fn build_fee_schedules(
                 bdc,
                 calendar_id,
                 stub,
+                accrual_basis,
             } => {
                 let (dates, prev, _) = build_dates_with_meta(
                     issue,
@@ -198,6 +200,7 @@ pub(super) fn build_fee_schedules(
                     calendar_id: calendar_id.clone(),
                     dates,
                     prev,
+                    accrual_basis: accrual_basis.clone(),
                 });
             }
         }

@@ -128,6 +128,7 @@ pub fn to_cashflow_fee_spec(mbs_fee: &MbsFeeSpec) -> crate::cashflow::builder::F
         bdc: BusinessDayConvention::Following,
         calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        accrual_basis: Default::default(),
     }
 }
 

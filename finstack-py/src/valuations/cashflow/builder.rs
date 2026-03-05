@@ -1190,6 +1190,7 @@ impl PyFeeSpec {
                     .unwrap_or(finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID)
                     .to_string(),
                 stub: stub_kind,
+                accrual_basis: Default::default(),
             },
         ))
     }

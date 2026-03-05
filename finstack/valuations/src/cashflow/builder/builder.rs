@@ -429,6 +429,7 @@ impl<'a> DateProcessor<'a> {
             self.ctx.periodic_fees,
             self.ctx.fixed_fees,
             state.outstanding,
+            &state.outstanding_after,
             self.ctx.ccy,
             &mut state.flows,
         )

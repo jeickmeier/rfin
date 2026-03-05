@@ -88,8 +88,8 @@ pub use rate_helpers::{
 pub use schedule::{CashFlowMeta, CashFlowSchedule};
 pub use specs::{
     evaluate_fee_tiers, AmortizationSpec, CouponType, DefaultCurve, DefaultEvent, DefaultModelSpec,
-    FeeBase, FeeSpec, FeeTier, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
-    FloatingCouponSpec, FloatingRateFallback, FloatingRateSpec, Notional,
+    FeeAccrualBasis, FeeBase, FeeSpec, FeeTier, FixedCouponSpec, FixedWindow, FloatCouponParams,
+    FloatWindow, FloatingCouponSpec, FloatingRateFallback, FloatingRateSpec, Notional,
     OvernightCompoundingMethod, PrepaymentCurve, PrepaymentModelSpec, RecoveryModelSpec,
     ScheduleParams, StepUpCouponSpec,
 };
