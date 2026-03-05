@@ -8,6 +8,7 @@
 //! - **principal_events**: Principal event date validation
 
 mod amortization;
+mod conventions;
 mod credit_models;
 mod floating_rate;
 mod principal_events;

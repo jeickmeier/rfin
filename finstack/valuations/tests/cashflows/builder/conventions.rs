@@ -1,0 +1,148 @@
+//! Convention tests: cross-currency error handling and day count validation.
+//!
+//! Covers:
+//! - Cross-currency aggregation rejection
+//! - Same-currency aggregation success
+//! - Currency preservation through schedule building
+//! - Bus/252 day count year fraction with calendar context
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::money::Money;
+use time::Month;
+
+/// Helper to construct dates concisely.
+fn d(year: i32, month: u8, day: u8) -> Date {
+    let m = Month::try_from(month).expect("valid month");
+    Date::from_calendar_date(year, m, day).expect("valid date")
+}
+
+// =============================================================================
+// Cross-Currency Aggregation Tests
+// =============================================================================
+
+/// Aggregating flows in different currencies should error.
+#[test]
+fn test_cross_currency_aggregation_error() {
+    use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise_checked;
+
+    let flows = vec![
+        (d(2024, 6, 15), Money::new(100.0, Currency::USD)),
+        (d(2024, 9, 15), Money::new(100.0, Currency::EUR)),
+    ];
+
+    let result = aggregate_cashflows_precise_checked(&flows, Currency::USD);
+    assert!(result.is_err(), "Cross-currency aggregation should fail");
+}
+
+/// Aggregating flows in the same currency should succeed.
+#[test]
+fn test_single_currency_aggregation() {
+    use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise_checked;
+
+    let flows = vec![
+        (d(2024, 6, 15), Money::new(100.0, Currency::USD)),
+        (d(2024, 9, 15), Money::new(200.0, Currency::USD)),
+    ];
+
+    let result = aggregate_cashflows_precise_checked(&flows, Currency::USD)
+        .expect("same-currency aggregation should succeed");
+    assert!(
+        (result.amount() - 300.0).abs() < 1e-10,
+        "Aggregated amount should be 300.0, got {}",
+        result.amount()
+    );
+}
+
+// =============================================================================
+// Currency Preservation Tests
+// =============================================================================
+
+/// Build a USD bond and verify every flow is USD-denominated.
+#[test]
+fn test_all_flows_preserve_currency() {
+    use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+    use finstack_valuations::cashflow::builder::specs::CouponType;
+    use finstack_valuations::cashflow::builder::specs::FixedCouponSpec;
+    use finstack_valuations::cashflow::builder::CashFlowSchedule;
+    use rust_decimal::Decimal;
+
+    let issue = d(2024, 1, 15);
+    let maturity = d(2029, 1, 15);
+    let notional = Money::new(1_000_000.0, Currency::USD);
+
+    let fixed = FixedCouponSpec {
+        rate: Decimal::try_from(0.05).expect("valid"), // 5%
+        coupon_type: CouponType::Cash,
+        freq: Tenor::semi_annual(),
+        dc: DayCount::Thirty360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: "weekends_only".to_string(),
+        stub: StubKind::ShortFront,
+        end_of_month: false,
+        payment_lag_days: 0,
+    };
+
+    let mut builder = CashFlowSchedule::builder();
+    let _ = builder.principal(notional, issue, maturity).fixed_cf(fixed);
+    let schedule = builder
+        .build_with_curves(None)
+        .expect("build should succeed");
+
+    for flow in &schedule.flows {
+        assert_eq!(
+            flow.amount.currency(),
+            Currency::USD,
+            "All flows should be USD, but found {:?} on {:?} flow",
+            flow.amount.currency(),
+            flow.kind
+        );
+    }
+}
+
+// =============================================================================
+// Bus/252 Day Count Validation
+// =============================================================================
+
+/// Bus/252 year fraction for a known date range using TARGET2 calendar.
+#[test]
+fn test_bus_252_year_fraction() {
+    use finstack_core::dates::calendar::TARGET2;
+    use finstack_core::dates::{DayCount, DayCountCtx};
+
+    let start = d(2024, 1, 2); // First business day of 2024
+    let end = d(2024, 7, 1);
+
+    let calendar = TARGET2;
+    let ctx = DayCountCtx {
+        calendar: Some(&calendar),
+        frequency: None,
+        bus_basis: None,
+    };
+
+    let yf = DayCount::Bus252
+        .year_fraction(start, end, ctx)
+        .expect("Bus/252 should work with TARGET2 calendar");
+
+    // Business days / 252 should be in reasonable range for ~6 months
+    assert!(
+        yf > 0.4 && yf < 0.6,
+        "6-month Bus/252 YF should be ~0.5, got {}",
+        yf
+    );
+}
+
+/// Bus/252 without a calendar should error.
+#[test]
+fn test_bus_252_requires_calendar() {
+    use finstack_core::dates::{DayCount, DayCountCtx};
+
+    let start = d(2024, 1, 2);
+    let end = d(2024, 7, 1);
+
+    let result = DayCount::Bus252.year_fraction(start, end, DayCountCtx::default());
+    assert!(
+        result.is_err(),
+        "Bus/252 should error without a calendar in DayCountCtx"
+    );
+}
