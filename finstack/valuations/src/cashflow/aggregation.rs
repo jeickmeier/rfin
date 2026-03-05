@@ -20,6 +20,39 @@ use finstack_core::money::Money;
 use indexmap::IndexMap;
 
 // =============================================================================
+// Kahan Compensated Summation
+// =============================================================================
+
+/// Kahan compensated summation accumulator.
+///
+/// Reduces floating-point accumulation error from O(N*eps) to O(eps)
+/// when summing many f64 values. Critical for PV aggregation over
+/// large portfolios where naive summation produces observable drift.
+///
+/// # Reference
+///
+/// Kahan, W. (1965). "Pracniques: Further Remarks on Reducing Truncation Errors."
+/// Communications of the ACM, 8(1), 40.
+#[derive(Default, Clone, Copy)]
+struct KahanAccumulator {
+    sum: f64,
+    compensation: f64,
+}
+
+impl KahanAccumulator {
+    fn add(&mut self, value: f64) {
+        let y = value - self.compensation;
+        let t = self.sum + y;
+        self.compensation = (t - self.sum) - y;
+        self.sum = t;
+    }
+
+    fn total(&self) -> f64 {
+        self.sum + self.compensation
+    }
+}
+
+// =============================================================================
 // Generic Flow Iterator
 // =============================================================================
 
@@ -105,27 +138,16 @@ fn aggregate_by_period_sorted(
             continue;
         }
 
-        let mut per_ccy: IndexMap<Currency, Money> = IndexMap::new();
+        let mut per_ccy: IndexMap<Currency, KahanAccumulator> = IndexMap::new();
         for &(_d, m) in flows_in_period {
             let ccy = m.currency();
-            let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-            // Currency match guaranteed by grouping on ccy key.
-            // Propagate arithmetic failures (NaN/Inf) instead of silently
-            // swallowing them. This ensures callers can detect and handle
-            // data integrity issues rather than accumulating stale values.
-            match entry.checked_add(m) {
-                Ok(sum) => *entry = sum,
-                Err(e) => {
-                    tracing::warn!(
-                        period = ?p.id,
-                        currency = ?ccy,
-                        error = %e,
-                        "aggregation checked_add failed; skipping flow"
-                    );
-                }
-            }
+            per_ccy.entry(ccy).or_default().add(m.amount());
         }
-        out.insert(p.id, per_ccy);
+        let result: IndexMap<Currency, Money> = per_ccy
+            .into_iter()
+            .map(|(ccy, acc)| (ccy, Money::new(acc.total(), ccy)))
+            .collect();
+        out.insert(p.id, result);
     }
     out
 }
@@ -168,7 +190,7 @@ pub fn aggregate_cashflows_precise_checked(
     flows: &[crate::cashflow::DatedFlow],
     target: Currency,
 ) -> finstack_core::Result<Money> {
-    let mut acc = Money::new(0.0, target);
+    let mut acc = KahanAccumulator::default();
     for &(_d, m) in flows {
         if m.currency() != target {
             return Err(finstack_core::Error::CurrencyMismatch {
@@ -176,9 +198,9 @@ pub fn aggregate_cashflows_precise_checked(
                 actual: m.currency(),
             });
         }
-        acc = acc.checked_add(m)?;
+        acc.add(m.amount());
     }
-    Ok(acc)
+    Ok(Money::new(acc.total(), target))
 }
 
 // =============================================================================
@@ -205,17 +227,18 @@ where
             continue;
         }
 
-        let mut per_ccy: IndexMap<Currency, Money> = IndexMap::new();
+        let mut per_ccy: IndexMap<Currency, KahanAccumulator> = IndexMap::new();
         for flow in flows_in_period {
             let (_t, df, sp) = time_discount_survival(flow.flow_date(), disc, hazard, date_ctx)?;
             let pv = value_fn(flow, df, sp);
             let ccy = pv.currency();
-            let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-            // Currency match guaranteed by grouping on ccy key.
-            // Propagate arithmetic failures instead of swallowing them.
-            *entry = entry.checked_add(pv)?;
+            per_ccy.entry(ccy).or_default().add(pv.amount());
         }
-        out.insert(p.id, per_ccy);
+        let result: IndexMap<Currency, Money> = per_ccy
+            .into_iter()
+            .map(|(ccy, acc)| (ccy, Money::new(acc.total(), ccy)))
+            .collect();
+        out.insert(p.id, result);
     }
 
     Ok(out)
@@ -417,4 +440,63 @@ fn pv_by_period_with_optional_hazard(
     }
     sorted.sort_unstable_by_key(|(d, _)| *d);
     pv_by_period_sorted_checked(&sorted, periods, disc, base, dc, dc_ctx, hazard)
+}
+
+#[cfg(test)]
+mod kahan_tests {
+    use super::*;
+
+    #[test]
+    fn test_kahan_accumulator_preserves_small_addend() {
+        let mut acc = KahanAccumulator::default();
+        acc.add(1.0);
+        acc.add(1e-16);
+        acc.add(-1.0);
+        // Naive: 1.0 + 1e-16 - 1.0 = 0.0 (lost the 1e-16)
+        // Kahan: should preserve the small addend (within f64 representation limits)
+        let result = acc.total();
+        assert!(
+            result > 0.0,
+            "Kahan should preserve small addend (non-zero): got {}",
+            result
+        );
+        assert!(
+            (result - 1e-16).abs() < 1e-16,
+            "Kahan should preserve small addend close to 1e-16: got {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_kahan_accumulator_large_sum() {
+        let mut acc = KahanAccumulator::default();
+        for _ in 0..10_000 {
+            acc.add(0.1);
+        }
+        let result = acc.total();
+        assert!(
+            (result - 1000.0).abs() < 1e-10,
+            "Kahan sum of 10k x 0.1 should be ~1000.0, got {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_kahan_vs_naive_drift() {
+        // Demonstrate that naive sum drifts more than Kahan
+        let mut naive = 0.0_f64;
+        let mut kahan = KahanAccumulator::default();
+        for _ in 0..100_000 {
+            naive += 0.1;
+            kahan.add(0.1);
+        }
+        let naive_error = (naive - 10_000.0).abs();
+        let kahan_error = (kahan.total() - 10_000.0).abs();
+        assert!(
+            kahan_error < naive_error,
+            "Kahan error ({}) should be less than naive error ({})",
+            kahan_error,
+            naive_error
+        );
+    }
 }
