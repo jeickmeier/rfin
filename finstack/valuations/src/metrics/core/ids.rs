@@ -799,6 +799,16 @@ impl MetricId {
     pub const EXPECTED_SHORTFALL: Self = Self(Cow::Borrowed("expected_shortfall"));
 
     // ========================================================================
+    // Dollar Roll / TBA Carry Metrics
+    // ========================================================================
+
+    /// Implied financing rate from dollar roll drop (annualized, ACT/360).
+    pub const ImpliedFinancingRate: Self = Self(Cow::Borrowed("implied_financing_rate"));
+
+    /// Roll specialness vs. repo rate (basis points).
+    pub const RollSpecialness: Self = Self(Cow::Borrowed("roll_specialness"));
+
+    // ========================================================================
     // ALL_STANDARD Array
     // ========================================================================
 
@@ -966,6 +976,8 @@ impl MetricId {
         MetricId::ThetaGamma,
         MetricId::HVAR,
         MetricId::EXPECTED_SHORTFALL,
+        MetricId::ImpliedFinancingRate,
+        MetricId::RollSpecialness,
     ];
 }
 

@@ -568,8 +568,8 @@ impl PyBondFuture {
     ///
     /// Returns standard specifications for U.S. Treasury 10-Year Note Futures (CBOT):
     /// - Contract size: $100,000
-    /// - Tick size: 1/32 of a point (0.03125)
-    /// - Tick value: $31.25
+    /// - Tick size: 1/2 of 1/32 (half-32nd, 0.015625)
+    /// - Tick value: $15.625
     /// - Standard coupon: 6%
     /// - Standard maturity: 10 years
     /// - Settlement: T+2 business days
@@ -727,24 +727,24 @@ impl PyBondFuture {
         Ok((ctd_id.as_str().to_string(), basis))
     }
 
-    /// Determine the cheapest-to-deliver bond from prices with accrued interest.
+    /// Determine the cheapest-to-deliver bond using gross basis with delivery accrued.
     ///
     /// Parameters
     /// ----------
-    /// bond_prices_with_accrued : list[tuple[str, float, float]]
-    ///     List of (bond_id, clean_price_per_100, accrued_per_100) tuples
+    /// bond_prices_with_accrued : list[tuple[str, float, float, float]]
+    ///     List of (bond_id, clean_price, accrued_today, accrued_at_delivery) tuples
     ///
     /// Returns
     /// -------
     /// tuple[str, float]
-    ///     (bond_id, basis) of the CTD bond
+    ///     (bond_id, gross_basis) of the CTD bond
     fn determine_ctd_with_accrued(
         &self,
-        bond_prices_with_accrued: Vec<(String, f64, f64)>,
+        bond_prices_with_accrued: Vec<(String, f64, f64, f64)>,
     ) -> PyResult<(String, f64)> {
-        let prices: Vec<(InstrumentId, f64, f64)> = bond_prices_with_accrued
+        let prices: Vec<(InstrumentId, f64, f64, f64)> = bond_prices_with_accrued
             .into_iter()
-            .map(|(id, px, acc)| (InstrumentId::new(&id), px, acc))
+            .map(|(id, px, acc, del_acc)| (InstrumentId::new(&id), px, acc, del_acc))
             .collect();
         let (ctd_id, basis) = self
             .inner
@@ -765,6 +765,8 @@ impl PyBondFuture {
     ///     Accrued interest as of today
     /// accrued_at_delivery : float
     ///     Projected accrued interest at delivery date
+    /// coupon_income : float
+    ///     Total coupon payments received between today and delivery (per 100 face)
     /// days_to_delivery : int
     ///     Number of days until delivery
     ///
@@ -778,6 +780,7 @@ impl PyBondFuture {
         clean_price: f64,
         accrued_today: f64,
         accrued_at_delivery: f64,
+        coupon_income: f64,
         days_to_delivery: i32,
     ) -> PyResult<f64> {
         self.inner
@@ -786,6 +789,7 @@ impl PyBondFuture {
                 clean_price,
                 accrued_today,
                 accrued_at_delivery,
+                coupon_income,
                 days_to_delivery,
             )
             .map_err(core_to_py)

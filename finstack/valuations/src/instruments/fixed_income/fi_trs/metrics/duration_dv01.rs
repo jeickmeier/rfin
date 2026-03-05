@@ -17,6 +17,15 @@ use finstack_core::Result;
 /// This is a yield sensitivity metric (not an index-level delta). For equity TRS,
 /// use `IndexDelta` which measures `dV/dS` per unit of index level change.
 ///
+/// # Sign Convention
+///
+/// Returns **positive** for `ReceiveTotalReturn` (long bond index → value rises
+/// when yields rise in the carry model) and **negative** for `PayTotalReturn`.
+///
+/// Note: SIMM IR delta uses the *opposite* sign (long bond = short rates → negative
+/// delta when rates rise), because SIMM measures rate sensitivity while this metric
+/// measures yield sensitivity. Both are correct for their respective domains.
+///
 /// # Errors
 ///
 /// Returns an error if `duration_id` is configured but missing from market data.

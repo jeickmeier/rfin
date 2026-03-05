@@ -161,11 +161,11 @@ pub struct ConvertibleBond {
 ///
 /// # Units and Conventions
 ///
-/// - **Delta**: Per unit of spot
-/// - **Gamma**: Per unit of spot squared
-/// - **Vega**: Per 1% absolute volatility move
-/// - **Theta**: Per day
-/// - **Rho**: Per 1 basis point move
+/// - **Delta**: Per unit of spot (dPV/dS)
+/// - **Gamma**: Per unit of spot squared (d²PV/dS²)
+/// - **Vega**: Per 1% absolute volatility move (dPV for +1 vol point)
+/// - **Theta**: Per calendar day (P(t+1d) - P(t), typically negative for long positions)
+/// - **Rho**: Per 1 basis point parallel rate shift (dPV for +1bp)
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ConvertibleGreeks {
     /// Instrument price

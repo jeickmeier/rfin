@@ -632,19 +632,26 @@ fn test_par_spread_annuity_relationship() {
         )
         .unwrap();
 
-    // Assert - Par spread calculation uses annuity in denominator
+    // Assert - Par spread solves NPV_receiver = 0:
+    //   s_par = (PV(TR) - PV(float_only)) / Annuity * 10000
     let par_spread = *result.measures.get("par_spread").unwrap();
     let annuity = *result.measures.get("financing_annuity").unwrap();
 
-    // Get TR leg PV
     let tr_pv = trs.pv_total_return_leg(&market, as_of).unwrap();
+    let float_pv = finstack_valuations::instruments::TrsEngine::pv_financing_float_only(
+        &trs.financing,
+        &trs.schedule,
+        trs.notional,
+        &market,
+        as_of,
+    )
+    .unwrap();
 
-    // Par spread = (TR_PV / annuity) * 10000
-    let expected_par = (tr_pv.amount() / annuity) * 10000.0;
+    let expected_par = (tr_pv.amount() - float_pv) / annuity * 10000.0;
     assert_approx_eq(
         par_spread,
         expected_par,
-        0.01, // 0.01bp tolerance
-        "Par spread should match formula: TR_PV / annuity * 10000",
+        0.01,
+        "Par spread should match formula: (TR_PV - float_PV) / annuity * 10000",
     );
 }

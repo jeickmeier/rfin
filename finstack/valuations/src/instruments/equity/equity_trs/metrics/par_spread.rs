@@ -1,14 +1,21 @@
 //! Par spread calculator for equity TRS.
 
+use crate::instruments::common_impl::pricing::TrsEngine;
 use crate::instruments::equity::equity_trs::EquityTotalReturnSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::{Error, Result};
 
 /// Calculates the par spread for an equity TRS (spread that makes NPV = 0).
 ///
-/// The par spread is the spread over the floating rate that makes the net present value
-/// of the TRS equal to zero. This is calculated as the ratio of the total return leg PV
-/// to the financing annuity, scaled to basis points.
+/// The par spread solves `NPV_receiver = 0`:
+///
+/// ```text
+/// NPV = PV(total_return) - PV(financing_float) - s * Annuity = 0
+/// s_par = (PV(total_return) - PV(financing_float)) / Annuity
+/// ```
+///
+/// where `PV(financing_float)` is the financing leg PV excluding the spread
+/// component.
 pub struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {
@@ -21,7 +28,6 @@ impl MetricCalculator for ParSpreadCalculator {
         let curves = context.curves.as_ref();
         let as_of = context.as_of;
 
-        // Get financing annuity
         let annuity = trs.financing_annuity(curves, as_of)?;
         if annuity.abs() < 1e-10 {
             return Err(Error::Validation(
@@ -29,10 +35,27 @@ impl MetricCalculator for ParSpreadCalculator {
             ));
         }
 
-        // PV of total return leg
         let tr_pv = trs.pv_total_return_leg(curves, as_of)?;
 
-        // Par spread in basis points
-        Ok(tr_pv.amount() / annuity * 10000.0)
+        let float_pv = TrsEngine::pv_financing_float_only(
+            &trs.financing,
+            &trs.schedule,
+            trs.notional,
+            curves,
+            as_of,
+        )?;
+
+        // s_par = (PV(TR) - PV(float)) / Annuity, converted to basis points
+        let par_spread = (tr_pv.amount() - float_pv) / annuity * 10000.0;
+
+        if par_spread.is_nan() || par_spread.is_infinite() {
+            return Err(Error::Validation(format!(
+                "Par spread calculation produced invalid value: {}. \
+                 Check that financing annuity is non-zero.",
+                par_spread
+            )));
+        }
+
+        Ok(par_spread)
     }
 }

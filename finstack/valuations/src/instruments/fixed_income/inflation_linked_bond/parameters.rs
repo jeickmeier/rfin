@@ -64,7 +64,7 @@ impl InflationLinkedBondParams {
             maturity,
             base_index,
             Tenor::semi_annual(),
-            DayCount::ActAct,
+            DayCount::ActActIsma,
         )
     }
 
@@ -83,7 +83,7 @@ impl InflationLinkedBondParams {
             maturity,
             base_index,
             Tenor::semi_annual(),
-            DayCount::ActAct,
+            DayCount::ActActIsma,
         )
     }
 }

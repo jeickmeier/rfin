@@ -26,30 +26,14 @@ use finstack_core::Result;
 /// from the front sale than you pay for the back purchase).
 pub fn price_dollar_roll(roll: &DollarRoll, market: &MarketContext, as_of: Date) -> Result<Money> {
     let front_leg = roll.front_leg()?;
-    let mut back_leg = roll.back_leg()?;
+    let back_leg = roll.back_leg()?;
 
-    // Use repo curve for the financing (back) leg when specified,
-    // capturing repo specials that differ from the general discount curve.
-    if let Some(repo_curve) = &roll.repo_curve_id {
-        back_leg.discount_curve_id = repo_curve.clone();
-    }
-
-    // Price each leg
     let front_value = price_tba(&front_leg, market, as_of)?;
     let back_value = price_tba(&back_leg, market, as_of)?;
 
-    // For the roll:
-    // - We're short the front leg (receive proceeds)
-    // - We're long the back leg (pay proceeds)
-    // So net value = -front_value - back_value (negate both since TBA prices are
-    // from buyer perspective)
-
-    // Actually, TBA value is (pool_value - trade_payment) from buyer's perspective
-    // For the roll:
-    // - Short front: We receive trade payment (positive), lose pool (negative) = -front_value
-    // - Long back: We pay trade payment (negative), gain pool (positive) = +back_value
-    // Net = back_value - front_value
-
+    // TBA value from buyer's perspective = pool_value - trade_payment.
+    // Dollar roll is short front (sell) + long back (buy), so:
+    //   roll_value = back_value - front_value
     let value = back_value.amount() - front_value.amount();
 
     Ok(Money::new(value, roll.notional.currency()))

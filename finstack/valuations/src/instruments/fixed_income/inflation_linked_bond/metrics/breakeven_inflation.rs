@@ -4,7 +4,13 @@ use crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
 
-/// Breakeven inflation calculator for ILB
+/// Breakeven inflation calculator for ILB.
+///
+/// **Important**: This metric derives a "nominal yield" from the bond's
+/// `discount_curve_id`. If that curve is a **real** rate curve (e.g. "USD-REAL"),
+/// the breakeven number will be meaningless. For a correct breakeven, the discount
+/// curve should be a nominal curve, or the caller should use
+/// [`InflationLinkedBond::breakeven_inflation`] directly with an explicit nominal yield.
 pub struct BreakevenInflationCalculator;
 
 impl MetricCalculator for BreakevenInflationCalculator {

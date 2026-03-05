@@ -29,30 +29,32 @@ pub struct TbaSettlementDates {
 /// * `year` - Settlement year
 /// * `month` - Settlement month (1-12)
 pub fn calculate_settlement_dates(year: i32, month: u8) -> Result<TbaSettlementDates> {
+    calculate_settlement_dates_for_class(
+        year,
+        month,
+        finstack_core::dates::SifmaSettlementClass::default(),
+    )
+}
+
+/// Calculate TBA settlement dates for a specific SIFMA class.
+pub fn calculate_settlement_dates_for_class(
+    year: i32,
+    month: u8,
+    class: finstack_core::dates::SifmaSettlementClass,
+) -> Result<TbaSettlementDates> {
     let month_enum =
         Month::try_from(month).map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
 
-    // Find the third Wednesday of the month (typical TBA settlement)
     let first_of_month = Date::from_calendar_date(year, month_enum, 1)
         .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
 
-    // Find first Wednesday
-    let days_until_wednesday =
-        (Weekday::Wednesday as i32 - first_of_month.weekday() as i32 + 7) % 7;
-    let first_wednesday = first_of_month + Duration::days(days_until_wednesday as i64);
+    let settlement_date =
+        finstack_core::dates::sifma_settlement_date_for_class(month_enum, year, class);
 
-    // Third Wednesday is 14 days later
-    let settlement_date = first_wednesday + Duration::days(14);
-
-    // Notification is 2 business days before settlement (48-hour rule)
-    // For simplicity, we'll use calendar days minus weekends
     let notification_date = subtract_business_days(settlement_date, 2)?;
 
-    // Month reference (first of month)
-    let settlement_month = first_of_month;
-
     Ok(TbaSettlementDates {
-        settlement_month,
+        settlement_month: first_of_month,
         notification_date,
         settlement_date,
     })

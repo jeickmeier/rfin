@@ -142,17 +142,13 @@ impl TrsEngine {
             ));
         }
 
-        // Get discount curve
         let disc = context.get_discount(params.discount_curve_id)?;
-
-        // Build schedule
         let period_schedule = params.schedule.period_schedule()?;
 
         let mut total_pv = 0.0;
         let currency = params.notional.currency();
         let ctx = DayCountCtx::default();
 
-        // Iterate through periods
         for i in 1..period_schedule.dates.len() {
             let period_start = period_schedule.dates[i - 1];
             let period_end = period_schedule.dates[i];
@@ -161,7 +157,6 @@ impl TrsEngine {
                 continue;
             }
 
-            // Time fractions
             let t_start = params
                 .schedule
                 .params
@@ -173,7 +168,6 @@ impl TrsEngine {
                 .dc
                 .year_fraction(as_of, period_end, ctx)?;
 
-            // Calculate underlying return for this period (delegated to underlying-specific logic)
             let total_return = model.period_return(
                 period_start,
                 period_end,
@@ -183,7 +177,6 @@ impl TrsEngine {
                 context,
             )?;
 
-            // Validate return is finite (defensive check on model output)
             if !total_return.is_finite() {
                 return Err(finstack_core::Error::Validation(format!(
                     "TRS return model produced non-finite return ({}) for period {} to {}",
@@ -191,36 +184,15 @@ impl TrsEngine {
                 )));
             }
 
-            // Payment amount
             let payment = params.notional.amount() * total_return * params.contract_size;
 
-            // Discount to present
-            let df = relative_df_discount_curve(disc.as_ref(), as_of, period_end)?;
+            // Discount to payment date (accrual end + payment lag).
+            // The full-period payment already captures accrued value; discounting
+            // the entire cashflow to as_of gives the correct dirty PV without
+            // any separate accrual addition.
+            let payment_date = params.schedule.payment_date_for(period_end)?;
+            let df = relative_df_discount_curve(disc.as_ref(), as_of, payment_date)?;
             total_pv += payment * df;
-
-            // Handle mid-period accrual for total return leg.
-            // If as_of is between period_start and period_end, accrue the partial period
-            // at face value (not discounted — it is already earned).
-            if period_start < as_of && as_of < period_end {
-                let accrued_yf =
-                    params
-                        .schedule
-                        .params
-                        .dc
-                        .year_fraction(period_start, as_of, ctx)?;
-                let full_yf =
-                    params
-                        .schedule
-                        .params
-                        .dc
-                        .year_fraction(period_start, period_end, ctx)?;
-                if full_yf > 0.0 {
-                    let accrual_fraction = accrued_yf / full_yf;
-                    // Accrued return proportional to time elapsed
-                    let accrued_return = total_return * accrual_fraction;
-                    total_pv += params.notional.amount() * accrued_return * params.contract_size;
-                }
-            }
         }
 
         Ok(Money::new(total_pv, currency))
@@ -252,21 +224,15 @@ impl TrsEngine {
             ));
         }
 
-        // Get curves
-        let disc_curve_id = financing.discount_curve_id.as_str();
-        let fwd_curve_id = financing.forward_curve_id.as_str();
-
-        let disc = context.get_discount(disc_curve_id)?;
-        let fwd = context.get_forward(fwd_curve_id)?;
-
-        // Build schedule
+        let disc = context.get_discount(financing.discount_curve_id.as_str())?;
+        let fwd = context.get_forward(financing.forward_curve_id.as_str())?;
         let period_schedule = schedule.period_schedule()?;
 
         let mut total_pv = 0.0;
         let currency = notional.currency();
         let ctx = DayCountCtx::default();
+        let spread_decimal = financing.spread_bp.to_f64().unwrap_or_default() / 10_000.0;
 
-        // Iterate through periods
         for i in 1..period_schedule.dates.len() {
             let period_start = period_schedule.dates[i - 1];
             let period_end = period_schedule.dates[i];
@@ -275,34 +241,22 @@ impl TrsEngine {
                 continue;
             }
 
-            // Year fraction for accrual
-            let yf = schedule
-                .params
-                .dc
+            // Use the financing leg's day count for accrual (not the schedule DC
+            // which governs date generation).
+            let yf = financing
+                .day_count
                 .year_fraction(period_start, period_end, ctx)?;
 
-            // Forward rate for the period
             let fwd_rate = rate_period_on_dates(fwd.as_ref(), period_start, period_end)?;
-
-            let spread_decimal = financing.spread_bp.to_f64().unwrap_or_default() / 10_000.0;
             let total_rate = fwd_rate + spread_decimal;
-
-            // Payment amount
             let payment = notional.amount() * total_rate * yf;
 
-            // Discount to present
-            let df = relative_df_discount_curve(disc.as_ref(), as_of, period_end)?;
+            // Discount to payment date (accrual end + payment lag).
+            // The full-period payment already captures accrued value; discounting
+            // the entire cashflow to as_of gives the correct dirty PV.
+            let payment_date = schedule.payment_date_for(period_end)?;
+            let df = relative_df_discount_curve(disc.as_ref(), as_of, payment_date)?;
             total_pv += payment * df;
-
-            // Handle mid-period accrual for financing leg.
-            // If as_of is between period_start and period_end, accrue the partial period
-            // at face value (not discounted — it is already owed).
-            if period_start < as_of && as_of < period_end {
-                let accrued_yf = schedule.params.dc.year_fraction(period_start, as_of, ctx)?;
-                let fwd_rate = rate_period_on_dates(fwd.as_ref(), period_start, as_of)?;
-                let accrued_payment = notional.amount() * (fwd_rate + spread_decimal) * accrued_yf;
-                total_pv += accrued_payment; // Accrued, not discounted
-            }
         }
 
         Ok(Money::new(total_pv, currency))
@@ -341,17 +295,12 @@ impl TrsEngine {
             ));
         }
 
-        // Get discount curve
-        let disc_curve_id = financing.discount_curve_id.as_str();
-        let disc = context.get_discount(disc_curve_id)?;
-
-        // Build schedule
+        let disc = context.get_discount(financing.discount_curve_id.as_str())?;
         let period_schedule = schedule.period_schedule()?;
 
         let mut annuity = 0.0;
         let ctx = DayCountCtx::default();
 
-        // Iterate through periods
         for i in 1..period_schedule.dates.len() {
             let period_start = period_schedule.dates[i - 1];
             let period_end = period_schedule.dates[i];
@@ -360,21 +309,20 @@ impl TrsEngine {
                 continue;
             }
 
-            // Year fraction for accrual
-            let yf = schedule
-                .params
-                .dc
+            // Use the financing leg's day count for accrual year fraction.
+            let yf = financing
+                .day_count
                 .year_fraction(period_start, period_end, ctx)?;
 
-            // Discount factor to payment date
-            let df = relative_df_discount_curve(disc.as_ref(), as_of, period_end)?;
+            // Discount to payment date (accrual end + payment lag).
+            let payment_date = schedule.payment_date_for(period_end)?;
+            let df = relative_df_discount_curve(disc.as_ref(), as_of, payment_date)?;
 
             annuity += df * yf;
         }
 
         let result = annuity * notional.amount();
 
-        // Guard against zero/near-zero annuity to prevent divide-by-zero in par spread calculations
         if result.abs() < super::swap_legs::ANNUITY_EPSILON {
             return Err(finstack_core::Error::Validation(format!(
                 "Financing annuity ({:.2e}) is below minimum threshold ({:.2e}). \
@@ -386,6 +334,56 @@ impl TrsEngine {
         }
 
         Ok(result)
+    }
+
+    /// PV of the financing leg excluding the spread component.
+    ///
+    /// This is the "floating-only" PV: the present value of projected forward rate
+    /// payments without the spread. Used by par spread calculators to solve for the
+    /// spread that zeroes the NPV.
+    ///
+    /// Relationship: `pv_financing_leg = pv_financing_float_only + spread × annuity`
+    pub fn pv_financing_float_only(
+        financing: &FinancingLegSpec,
+        schedule: &TrsScheduleSpec,
+        notional: Money,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<f64> {
+        if schedule.end <= as_of {
+            return Err(finstack_core::Error::Validation(
+                "TRS maturity must be after valuation date".to_string(),
+            ));
+        }
+
+        let disc = context.get_discount(financing.discount_curve_id.as_str())?;
+        let fwd = context.get_forward(financing.forward_curve_id.as_str())?;
+        let period_schedule = schedule.period_schedule()?;
+
+        let mut total_pv = 0.0;
+        let ctx = DayCountCtx::default();
+
+        for i in 1..period_schedule.dates.len() {
+            let period_start = period_schedule.dates[i - 1];
+            let period_end = period_schedule.dates[i];
+
+            if period_end <= as_of {
+                continue;
+            }
+
+            let yf = financing
+                .day_count
+                .year_fraction(period_start, period_end, ctx)?;
+
+            let fwd_rate = rate_period_on_dates(fwd.as_ref(), period_start, period_end)?;
+            let payment = notional.amount() * fwd_rate * yf;
+
+            let payment_date = schedule.payment_date_for(period_end)?;
+            let df = relative_df_discount_curve(disc.as_ref(), as_of, payment_date)?;
+            total_pv += payment * df;
+        }
+
+        Ok(total_pv)
     }
 }
 
@@ -576,9 +574,9 @@ mod tests {
         for i in 1..period_schedule.dates.len() {
             let period_start = period_schedule.dates[i - 1];
             let period_end = period_schedule.dates[i];
-            let yf = schedule
-                .params
-                .dc
+            // Use financing.day_count for accrual (matches engine after fix)
+            let yf = financing
+                .day_count
                 .year_fraction(period_start, period_end, ctx_dc)
                 .expect("yf");
             let fwd_rate = rate_period_on_dates(&fwd, period_start, period_end).expect("fwd");

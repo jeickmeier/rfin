@@ -1,9 +1,14 @@
 //! Option-Adjusted Spread (OAS) for convertible bonds.
 //!
-//! OAS is the constant spread added to the risk-free discount curve such that
-//! the tree-based model price equals the market-quoted clean price. It isolates
-//! the credit component after removing the value of embedded equity conversion,
-//! call, and put options.
+//! OAS is the constant spread added to the credit/risky discount curve such that
+//! the Tsiveriotis-Zhang tree-based model price equals the market-quoted clean
+//! price. It isolates the residual credit component after removing the value of
+//! embedded equity conversion, call, and put options.
+//!
+//! When a separate `credit_curve_id` is configured, OAS bumps that curve only
+//! (affecting the cash/debt component while leaving equity drift unchanged).
+//! When no credit curve is set, the risk-free discount curve is bumped as a
+//! fallback, which also shifts the equity component's drift.
 //!
 //! # Dependencies
 //!
@@ -48,10 +53,19 @@ impl MetricCalculator for OasCalculator {
 
         let tree_type = ConvertibleTreeType::Binomial(100);
         let base_market = context.curves.as_ref();
-        let curve_id = &bond.discount_curve_id;
 
+        // Bump the credit curve when available (affects cash/debt component only
+        // in TZ). Fall back to discount curve when no separate credit curve is set.
+        let curve_to_bump = bond
+            .credit_curve_id
+            .as_ref()
+            .unwrap_or(&bond.discount_curve_id);
+
+        // Solver operates in decimal spread space (0.01 = 100bp).
+        // Convert to bp-count for the curve bump helper.
         let objective = |spread: f64| -> f64 {
-            let bumped = match bump_discount_curve_parallel(base_market, curve_id, spread) {
+            let spread_bp = spread * 10_000.0;
+            let bumped = match bump_discount_curve_parallel(base_market, curve_to_bump, spread_bp) {
                 Ok(m) => m,
                 Err(_) => return f64::NAN,
             };
@@ -64,7 +78,7 @@ impl MetricCalculator for OasCalculator {
         let solver = BrentSolver::new()
             .tolerance(1e-8)
             .max_iterations(100)
-            .bracket_bounds(-0.10, 0.50); // -1000bp to +5000bp
+            .bracket_bounds(-0.10, 0.50); // -1000bp to +5000bp in decimal
 
         let oas = solver.solve(objective, 0.0)?;
 

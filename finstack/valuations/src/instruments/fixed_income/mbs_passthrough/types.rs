@@ -13,6 +13,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, PoolId};
 use finstack_core::Result;
+use time::Month;
 
 /// Agency program enumeration.
 ///
@@ -23,7 +24,7 @@ use finstack_core::Result;
 ///
 /// Ginnie Mae has two distinct programs with different payment delay conventions:
 /// - **GNMA I**: Single-issuer pools with a 14-day stated delay. Payments on the 15th.
-/// - **GNMA II**: Multi-issuer pools with a 45-day stated delay. Payments on the 20th.
+/// - **GNMA II**: Multi-issuer pools with a 50-day stated delay. Payments on the 20th.
 ///
 /// Use `GnmaI` or `GnmaII` to select the appropriate convention. The legacy `Gnma`
 /// variant maps to GNMA II (the larger and more actively traded program).
@@ -44,32 +45,72 @@ pub enum AgencyProgram {
     /// GNMA I securities pay on the 15th of the month following the accrual
     /// period, resulting in a 14-day stated delay from month-end.
     GnmaI,
-    /// Ginnie Mae II - multi-issuer pools with 45-day stated delay.
+    /// Ginnie Mae II - multi-issuer pools with 50-day stated delay.
     ///
     /// GNMA II securities pay on the 20th of the month following the accrual
-    /// period, resulting in a 45-day stated delay from month-end. This is the
-    /// larger and more actively traded GNMA program.
+    /// period, resulting in a ~50-day stated delay from accrual start. This is
+    /// the larger and more actively traded GNMA program.
     GnmaII,
 }
 
 impl AgencyProgram {
-    /// Returns the standard payment delay in days for this agency program.
+    /// Returns the approximate stated delay in days for this agency program.
     ///
-    /// # Payment Delay Conventions
+    /// The stated delay is measured from the **first day of the accrual period**
+    /// to the payment date. It is approximate because actual payment dates
+    /// follow fixed calendar-day rules (e.g. 25th of M+1 for FNMA/UMBS),
+    /// so the true day count varies by month length. Use
+    /// [`payment_date_for_period`](Self::payment_date_for_period) for exact
+    /// payment dates.
     ///
-    /// | Program | Delay | Payment Day | Source |
-    /// |---------|-------|-------------|--------|
-    /// | FNMA | 55 days | 25th of month | Fannie Mae |
-    /// | FHLMC | 75 days | ~15th of following month | Freddie Mac |
-    /// | GNMA I | 14 days | 15th of month | Ginnie Mae |
-    /// | GNMA II | 45 days | 20th of month | Ginnie Mae |
+    /// Post-Single Security Initiative (June 2019), both FNMA and FHLMC issue
+    /// UMBS with a 55-day delay. Legacy FHLMC Gold PCs (45-day) and ARM PCs
+    /// (75-day) should use the `payment_lag_days` override on
+    /// [`AgencyMbsPassthrough`].
+    ///
+    /// | Program | Stated Delay | Payment Day | Payment Month |
+    /// |---------|-------------|-------------|---------------|
+    /// | FNMA/FHLMC (UMBS) | ~55 days | 25th | M+1 |
+    /// | GNMA I | ~14 days | 15th | M |
+    /// | GNMA II | ~50 days | 20th | M+1 |
     pub fn payment_lag_days(&self) -> u32 {
         match self {
-            AgencyProgram::Fnma => 55,
-            AgencyProgram::Fhlmc => 75,
+            AgencyProgram::Fnma | AgencyProgram::Fhlmc => 55,
             AgencyProgram::GnmaI => 14,
-            AgencyProgram::Gnma | AgencyProgram::GnmaII => 45,
+            AgencyProgram::Gnma | AgencyProgram::GnmaII => 50,
         }
+    }
+
+    /// Compute the exact payment date for a given accrual period.
+    ///
+    /// Uses the agency's calendar-based rule rather than adding a fixed
+    /// number of days, avoiding month-length distortions:
+    ///
+    /// | Program | Rule |
+    /// |---------|------|
+    /// | FNMA / FHLMC (UMBS) | 25th of the month following accrual |
+    /// | GNMA I | 15th of the accrual month |
+    /// | GNMA II | 20th of the month following accrual |
+    ///
+    /// If the resulting day falls on a weekend, the caller should adjust
+    /// to the next business day separately.
+    pub fn payment_date_for_period(&self, accrual_year: i32, accrual_month: Month) -> Date {
+        let (pay_year, pay_month, pay_day) = match self {
+            AgencyProgram::Fnma | AgencyProgram::Fhlmc => {
+                let (y, m) = advance_month(accrual_year, accrual_month);
+                (y, m, 25_u8)
+            }
+            AgencyProgram::GnmaI => {
+                let (y, m) = advance_month(accrual_year, accrual_month);
+                (y, m, 15_u8)
+            }
+            AgencyProgram::Gnma | AgencyProgram::GnmaII => {
+                let (y, m) = advance_month(accrual_year, accrual_month);
+                (y, m, 20_u8)
+            }
+        };
+        Date::from_calendar_date(pay_year, pay_month, pay_day)
+            .unwrap_or_else(|_| unreachable!("payment day always valid for these conventions"))
     }
 
     /// Returns the canonical string representation.
@@ -87,6 +128,19 @@ impl AgencyProgram {
         matches!(
             self,
             AgencyProgram::Gnma | AgencyProgram::GnmaI | AgencyProgram::GnmaII
+        )
+    }
+}
+
+/// Advance a month by one, wrapping December -> January of the next year.
+fn advance_month(year: i32, month: Month) -> (i32, Month) {
+    let m = month as u8;
+    if m == 12 {
+        (year + 1, Month::January)
+    } else {
+        (
+            year,
+            Month::try_from(m + 1).unwrap_or_else(|_| unreachable!("month 1..=11 + 1 is valid")),
         )
     }
 }
@@ -127,11 +181,11 @@ pub enum PoolType {
 ///
 /// # Payment Delay
 ///
-/// Agency MBS have standardized payment delays between the accrual period end
-/// and the actual payment date:
-/// - FNMA: 55 days
-/// - FHLMC: 75 days
-/// - GNMA: 45 days (GNMA II; GNMA I uses 14 days)
+/// Agency MBS have standardized payment delays measured from the **start**
+/// of the accrual period (first day of the month) to the payment date:
+/// - FNMA / FHLMC (UMBS): ~55 days → payment on the 25th of M+1
+/// - GNMA I: ~14 days → payment on the 15th of M
+/// - GNMA II: ~50 days → payment on the 20th of M+1
 ///
 /// # Examples
 ///
@@ -267,12 +321,30 @@ impl AgencyMbsPassthrough {
             .unwrap_or_else(|_| unreachable!("Example MBS with valid constants should never fail"))
     }
 
-    /// Get the effective payment delay in days.
+    /// Get the approximate stated delay in days (from accrual start).
     ///
     /// Uses custom delay if set, otherwise uses agency-standard delay.
+    /// For exact payment dates, prefer
+    /// [`payment_date_for_accrual_period`](Self::payment_date_for_accrual_period).
     pub fn effective_payment_delay(&self) -> u32 {
         self.payment_lag_days
             .unwrap_or_else(|| self.agency.payment_lag_days())
+    }
+
+    /// Compute the exact payment date for an accrual period.
+    ///
+    /// When a custom `payment_lag_days` override is set, falls back to
+    /// adding that many calendar days from `period_start`. Otherwise uses
+    /// the agency's calendar-based rule via
+    /// [`AgencyProgram::payment_date_for_period`].
+    pub fn payment_date_for_accrual_period(&self, period_start: Date) -> Result<Date> {
+        if let Some(custom_delay) = self.payment_lag_days {
+            super::delay::actual_payment_date(period_start, custom_delay, false)
+        } else {
+            Ok(self
+                .agency
+                .payment_date_for_period(period_start.year(), period_start.month()))
+        }
     }
 
     /// Calculate seasoning in months from issue date to given date.
@@ -358,7 +430,6 @@ impl crate::instruments::common_impl::traits::Instrument for AgencyMbsPassthroug
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use time::Month;
 
     #[test]
     fn test_agency_program_payment_delays() {
@@ -367,6 +438,32 @@ mod tests {
         assert_eq!(AgencyProgram::Gnma.payment_lag_days(), 45);
         assert_eq!(AgencyProgram::GnmaI.payment_lag_days(), 14);
         assert_eq!(AgencyProgram::GnmaII.payment_lag_days(), 45);
+    }
+
+    #[test]
+    fn test_payment_date_for_period_fnma() {
+        let pay = AgencyProgram::Fnma.payment_date_for_period(2024, Month::January);
+        assert_eq!(pay.month(), Month::February);
+        assert_eq!(pay.day(), 25);
+
+        let pay_dec = AgencyProgram::Fnma.payment_date_for_period(2024, Month::December);
+        assert_eq!(pay_dec.year(), 2025);
+        assert_eq!(pay_dec.month(), Month::January);
+        assert_eq!(pay_dec.day(), 25);
+    }
+
+    #[test]
+    fn test_payment_date_for_period_gnma_i() {
+        let pay = AgencyProgram::GnmaI.payment_date_for_period(2024, Month::March);
+        assert_eq!(pay.month(), Month::April);
+        assert_eq!(pay.day(), 15);
+    }
+
+    #[test]
+    fn test_payment_date_for_period_gnma_ii() {
+        let pay = AgencyProgram::GnmaII.payment_date_for_period(2024, Month::January);
+        assert_eq!(pay.month(), Month::February);
+        assert_eq!(pay.day(), 20);
     }
 
     #[test]
@@ -400,13 +497,34 @@ mod tests {
     #[test]
     fn test_effective_payment_delay() {
         let mbs = AgencyMbsPassthrough::example();
-        // Default should use agency standard
         assert_eq!(mbs.effective_payment_delay(), 55);
 
-        // Custom delay should override
         let mut mbs_custom = mbs.clone();
-        mbs_custom.payment_lag_days = Some(55);
-        assert_eq!(mbs_custom.effective_payment_delay(), 55);
+        mbs_custom.payment_lag_days = Some(45);
+        assert_eq!(mbs_custom.effective_payment_delay(), 45);
+    }
+
+    #[test]
+    fn test_payment_date_for_accrual_period_calendar() {
+        let mbs = AgencyMbsPassthrough::example(); // FNMA
+        let period_start = Date::from_calendar_date(2024, Month::February, 1).expect("valid date");
+        let pay = mbs
+            .payment_date_for_accrual_period(period_start)
+            .expect("valid");
+        assert_eq!(pay.month(), Month::March);
+        assert_eq!(pay.day(), 25);
+    }
+
+    #[test]
+    fn test_payment_date_for_accrual_period_custom_delay() {
+        let mut mbs = AgencyMbsPassthrough::example();
+        mbs.payment_lag_days = Some(45);
+        let period_start = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
+        let pay = mbs
+            .payment_date_for_accrual_period(period_start)
+            .expect("valid");
+        assert_eq!(pay.month(), Month::February);
+        assert_eq!(pay.day(), 15);
     }
 
     #[test]
@@ -414,7 +532,6 @@ mod tests {
         let mbs = AgencyMbsPassthrough::example();
         let as_of = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
         let seasoning = mbs.seasoning_months(as_of);
-        // 2 years = ~24 months (allow for slight calculation differences)
         assert!((23..=24).contains(&seasoning));
     }
 
@@ -422,7 +539,6 @@ mod tests {
     fn test_calculated_net_coupon() {
         let mbs = AgencyMbsPassthrough::example();
         let calculated = mbs.calculated_net_coupon();
-        // 4.5% - 0.25% - 0.25% = 4.0%
         assert!((calculated - 0.04).abs() < 1e-10);
     }
 
@@ -431,9 +547,8 @@ mod tests {
         let mbs = AgencyMbsPassthrough::example();
         assert!(mbs.validate_coupon_consistency().is_ok());
 
-        // Create inconsistent MBS
         let mut bad_mbs = mbs.clone();
-        bad_mbs.pass_through_rate = 0.05; // Wrong rate
+        bad_mbs.pass_through_rate = 0.05;
         assert!(bad_mbs.validate_coupon_consistency().is_err());
     }
 
@@ -442,7 +557,6 @@ mod tests {
         let mbs = AgencyMbsPassthrough::example();
         let as_of = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
         let smm = mbs.smm(as_of);
-        // PSA 100% at 24 months seasoning should give ~0.5% SMM
         assert!(smm > 0.0 && smm < 0.02);
     }
 

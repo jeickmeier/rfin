@@ -138,16 +138,21 @@ fn test_index_ratio_maturity_only_deflation_protection() {
     .unwrap()
     .with_interpolation(InflationInterpolation::Linear);
 
-    // Act - calculate ratio at maturity vs intermediate date
+    // index_ratio now returns the RAW ratio (no deflation floor).
+    // Deflation protection is applied at the cashflow level in build_schedule.
     let ratio_at_maturity = ilb.index_ratio(ilb.maturity, &index).unwrap();
     let ratio_before_maturity = ilb.index_ratio(d(2025, 1, 1), &index).unwrap();
 
-    // Assert
-    // At maturity: floor applies
-    assert!(ratio_at_maturity >= 1.0);
-    assert_approx_eq(ratio_at_maturity, 1.0, REL_TOL, "maturity floor");
-
-    // Before maturity: no floor
+    assert!(
+        ratio_at_maturity < 1.0,
+        "raw ratio should reflect deflation"
+    );
+    assert_approx_eq(
+        ratio_at_maturity,
+        295.0 / 300.0,
+        REL_TOL,
+        "raw maturity ratio",
+    );
     assert!(ratio_before_maturity < 1.0);
 }
 
@@ -171,12 +176,12 @@ fn test_index_ratio_all_payments_deflation_protection() {
     .unwrap()
     .with_interpolation(InflationInterpolation::Linear);
 
-    // Act - calculate ratio at any date
+    // index_ratio now returns the RAW ratio (no deflation floor).
+    // Deflation protection is applied at the cashflow level in build_schedule.
     let ratio = ilb.index_ratio(d(2025, 1, 1), &index).unwrap();
 
-    // Assert - floor applies to all payments
-    assert!(ratio >= 1.0);
-    assert_approx_eq(ratio, 1.0, REL_TOL, "all payments floor");
+    assert!(ratio < 1.0, "raw ratio should reflect deflation");
+    assert_approx_eq(ratio, 295.0 / 300.0, REL_TOL, "raw deflation ratio");
 }
 
 #[test]
@@ -198,18 +203,16 @@ fn test_index_ratio_from_curve() {
 
 #[test]
 fn test_index_ratio_from_curve_at_base_date() {
-    // Arrange
+    // Arrange: query the curve at its own base date (via lag).
+    // Curve base = 2025-01-02 → query date 2025-04-02 with 3M lag = 2025-01-02 → t=0 → base_cpi
     let mut ilb = sample_tips();
     ilb.base_index = 300.0;
-    ilb.base_date = d(2024, 12, 1);
 
     let (_, curve) = market_context_with_curve();
 
-    // Act - calculate ratio at or before base date
-    let ratio = ilb.index_ratio_from_curve(d(2024, 10, 1), &curve).unwrap();
+    let ratio = ilb.index_ratio_from_curve(d(2025, 4, 2), &curve).unwrap();
 
-    // Assert - should use base CPI, so ratio = base_cpi / base_index
-    assert_approx_eq(ratio, 300.0 / 300.0, REL_TOL, "ratio at base");
+    assert_approx_eq(ratio, 300.0 / 300.0, REL_TOL, "ratio at curve base");
 }
 
 #[test]
@@ -233,15 +236,13 @@ fn test_index_ratio_from_market_routes_to_index() {
 
 #[test]
 fn test_index_ratio_from_market_routes_to_curve() {
-    // Arrange
+    // Arrange: use a date whose 3-month lagged reference is within the curve range
     let ilb = sample_tips();
     let (ctx, curve) = market_context_with_curve();
 
-    // Act
-    let ratio_from_market = ilb.index_ratio_from_market(d(2025, 4, 1), &ctx).unwrap();
-    let ratio_from_curve = ilb.index_ratio_from_curve(d(2025, 4, 1), &curve).unwrap();
+    let ratio_from_market = ilb.index_ratio_from_market(d(2025, 7, 1), &ctx).unwrap();
+    let ratio_from_curve = ilb.index_ratio_from_curve(d(2025, 7, 1), &curve).unwrap();
 
-    // Assert - should be identical
     assert_approx_eq(
         ratio_from_market,
         ratio_from_curve,
@@ -252,14 +253,13 @@ fn test_index_ratio_from_market_routes_to_curve() {
 
 #[test]
 fn test_index_ratio_consistency_between_sources() {
-    // Arrange
+    // Arrange: use a date whose 3-month lagged reference falls within both sources
     let ilb = sample_tips();
     let (_ctx_index, index) = market_context_with_index();
     let (_ctx_curve, curve) = market_context_with_curve();
 
-    // Act - same date, different sources
-    let ratio_index = ilb.index_ratio(d(2025, 4, 1), &index).unwrap();
-    let ratio_curve = ilb.index_ratio_from_curve(d(2025, 4, 1), &curve).unwrap();
+    let ratio_index = ilb.index_ratio(d(2025, 7, 1), &index).unwrap();
+    let ratio_curve = ilb.index_ratio_from_curve(d(2025, 7, 1), &curve).unwrap();
 
     // Assert - should be consistent (within tolerance due to different representations)
     // Index uses observations, curve uses forward projection - can differ significantly

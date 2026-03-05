@@ -31,6 +31,19 @@ use finstack_core::Result;
 
 /// Extracts index yield from market data.
 ///
+/// # Yield Convention
+///
+/// The scalar must represent a **continuously compounded** annualized yield.
+/// If your source provides a bond-equivalent yield (semiannual compounding),
+/// convert before populating the market context:
+///
+/// ```text
+/// y_continuous = 2 * ln(1 + y_bey / 2)
+/// ```
+///
+/// Using a semiannual BEY directly will introduce a systematic carry
+/// overestimate of ~1-3 bp/quarter for typical IG yields.
+///
 /// # Errors
 ///
 /// Returns an error if `yield_id` is configured but the corresponding market data

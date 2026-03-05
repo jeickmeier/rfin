@@ -222,9 +222,9 @@ class BondFuture:
         ...
     def determine_ctd_with_accrued(
         self,
-        bond_prices_with_accrued: list[tuple[str, float, float]],
+        bond_prices_with_accrued: list[tuple[str, float, float, float]],
     ) -> tuple[str, float]:
-        """Determine the cheapest-to-deliver bond using prices with accrued interest."""
+        """Determine the cheapest-to-deliver bond using gross basis with delivery accrued."""
         ...
     def implied_repo_rate(
         self,
@@ -232,6 +232,7 @@ class BondFuture:
         clean_price: float,
         accrued_today: float,
         accrued_at_delivery: float,
+        coupon_income: float,
         days_to_delivery: int,
     ) -> float:
         """Calculate the annualized implied repo rate for a deliverable bond."""

@@ -26,9 +26,8 @@ fn test_valuation_after_maturity() {
     // Act
     let pv = ilb.value(&ctx, as_of).unwrap();
 
-    // Assert - after maturity, schedule may include all historical flows
-    // The implementation doesn't filter by as_of, so we just check it's non-negative
-    assert!(pv.amount() >= 0.0);
+    // Assert - matured bond has zero value
+    assert_eq!(pv.amount(), 0.0);
 }
 
 #[test]

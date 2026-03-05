@@ -18,6 +18,7 @@ use crate::pricer::{
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -31,10 +32,6 @@ pub struct MbsCashflow {
     /// Actual payment date (after delay)
     pub payment_date: Date,
     /// SIFMA Good Delivery settlement date for this period.
-    ///
-    /// This is the third Wednesday of the month containing `period_end`,
-    /// used for TBA settlement alignment. For specified pools not trading
-    /// on a TBA basis, this may not be relevant.
     pub sifma_date: Date,
     /// Scheduled principal payment
     pub scheduled_principal: f64,
@@ -53,35 +50,11 @@ pub struct MbsCashflow {
 }
 
 /// Derive the SIFMA Good Delivery settlement date for a given accrual period.
-///
-/// The SIFMA settlement date is the third Wednesday of the month, used for
-/// TBA (To Be Announced) settlement in agency MBS markets.
-///
-/// # Arguments
-///
-/// * `period_end` - End date of the accrual period (typically month-end)
-///
-/// # Returns
-///
-/// The SIFMA settlement date (third Wednesday) for the month of `period_end`.
 pub fn sifma_settlement_for_period(period_end: Date) -> Date {
     finstack_core::dates::sifma_settlement_date(period_end.month(), period_end.year())
 }
 
 /// Generate projected cashflows for an agency MBS.
-///
-/// This function projects the cashflow schedule based on the prepayment model,
-/// applying servicing fees and payment delays.
-///
-/// # Arguments
-///
-/// * `mbs` - Agency MBS passthrough instrument
-/// * `as_of` - Valuation date
-/// * `max_periods` - Maximum number of periods to project (typically WAM)
-///
-/// # Returns
-///
-/// Vector of projected cashflows
 pub fn generate_cashflows(
     mbs: &AgencyMbsPassthrough,
     as_of: Date,
@@ -92,17 +65,20 @@ pub fn generate_cashflows(
     let mut cashflows = Vec::new();
     let mut balance = mbs.current_face.amount();
 
-    // Validate WAM
     if mbs.wam == 0 {
         return Err(finstack_core::Error::Validation(
             "WAM must be positive".to_string(),
         ));
     }
 
-    // Start from the first of next month after as_of
-    let mut period_start = Date::from_calendar_date(as_of.year(), as_of.month(), 1)
-        .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-    if period_start <= as_of {
+    // Start from the first of next month after as_of, but never before issue_date.
+    // For forward-settling instruments (e.g. TBAs), issue_date is in the future
+    // and no cashflows should accrue before it.
+    let effective_start = as_of.max(mbs.issue_date);
+    let mut period_start =
+        Date::from_calendar_date(effective_start.year(), effective_start.month(), 1)
+            .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
+    if period_start <= effective_start {
         period_start = period_start
             .checked_add(Duration::days(32))
             .and_then(|d| Date::from_calendar_date(d.year(), d.month(), 1).ok())
@@ -111,30 +87,18 @@ pub fn generate_cashflows(
 
     let payment_delay = mbs.effective_payment_delay();
     let max_periods = max_periods.unwrap_or(mbs.wam);
-    let pass_through_rate = mbs.pass_through_rate;
+    let monthly_rate = mbs.pass_through_rate / 12.0;
+    let monthly_mortgage_rate = mbs.wac / 12.0;
 
-    // Calculate monthly rate
-    let monthly_rate = pass_through_rate / 12.0;
-
-    // Original loan rate for amortization (approximate from WAC)
-    let mortgage_rate = mbs.wac;
-    let monthly_mortgage_rate = mortgage_rate / 12.0;
-
-    // Track projected (non-skipped) periods separately so that max_periods
-    // limits only the future cashflows, not total iterations including history.
     let mut projected_count: u32 = 0;
     loop {
         if balance < 0.01 || projected_count >= max_periods {
             break;
         }
 
-        // Calculate period end (last day of month)
         let period_end = end_of_month(period_start)?;
-
-        // Calculate payment date with delay
         let payment_date = actual_payment_date(period_end, payment_delay, false)?;
 
-        // Skip if payment date is before valuation date (don't count toward max_periods)
         if payment_date <= as_of {
             period_start = next_month_start(period_start)?;
             continue;
@@ -142,13 +106,10 @@ pub fn generate_cashflows(
 
         projected_count += 1;
 
-        // Get SMM for this period
         let seasoning = mbs.seasoning_months(period_end);
-        let smm = mbs.prepayment_model.smm(seasoning).min(0.9999); // Cap to prevent full balance prepayment in single period
+        let smm = mbs.prepayment_model.smm(seasoning).min(0.9999);
 
-        // Calculate scheduled principal payment (amortization)
         let remaining_months = mbs.wam.saturating_sub(seasoning);
-        // Validate seasoning doesn't exceed WAM — treat as final period
         let remaining_months = if remaining_months == 0 {
             1
         } else {
@@ -157,29 +118,19 @@ pub fn generate_cashflows(
         let scheduled_principal = if remaining_months == 1 {
             balance
         } else if monthly_mortgage_rate > 1e-12 {
-            // Standard mortgage amortization formula
             let factor = (1.0 + monthly_mortgage_rate).powi(remaining_months as i32);
             let payment = balance * monthly_mortgage_rate * factor / (factor - 1.0);
             let interest_component = balance * monthly_mortgage_rate;
             (payment - interest_component).max(0.0).min(balance)
         } else {
-            // Simple straight-line for zero or near-zero rate
             balance / remaining_months as f64
         };
 
-        // Prepayment: SMM applied to beginning-of-period balance (Fabozzi convention)
         let prepayment = balance * smm;
-
-        // Calculate interest (pass-through rate on beginning balance)
         let interest = balance * monthly_rate;
-
-        // Total principal
         let total_principal = scheduled_principal + prepayment;
-
-        // Update ending balance
         let ending_balance = (balance - total_principal).max(0.0);
 
-        // SIFMA settlement date for this period (third Wednesday of the month)
         let sifma_date = sifma_settlement_for_period(period_end);
 
         cashflows.push(MbsCashflow {
@@ -199,7 +150,6 @@ pub fn generate_cashflows(
         balance = ending_balance;
         period_start = next_month_start(period_start)?;
 
-        // Early termination if past maturity
         if period_end >= mbs.maturity {
             break;
         }
@@ -208,18 +158,14 @@ pub fn generate_cashflows(
     Ok(cashflows)
 }
 
-/// Calculate end of month for a given date.
 fn end_of_month(date: Date) -> Result<Date> {
     let year = date.year();
     let month = date.month();
-
-    // Get the last day of the month
     let days_in_month = month.length(year);
     Date::from_calendar_date(year, month, days_in_month)
         .map_err(|e| finstack_core::Error::Validation(e.to_string()))
 }
 
-/// Get first day of next month.
 fn next_month_start(date: Date) -> Result<Date> {
     use time::Duration;
     let end = end_of_month(date)?;
@@ -227,42 +173,44 @@ fn next_month_start(date: Date) -> Result<Date> {
     Ok(next)
 }
 
+/// Discount a set of MBS cashflows to present value.
+///
+/// Uses the curve's own day count for time calculation, applying an optional
+/// spread adjustment: `DF_spread = DF_base × exp(-spread × t)`.
+fn discount_cashflows(
+    cashflows: &[MbsCashflow],
+    curve: &DiscountCurve,
+    as_of: Date,
+    spread: f64,
+) -> Result<f64> {
+    let dc = curve.day_count();
+    let mut pv = 0.0;
+    for cf in cashflows {
+        let years = dc.year_fraction(as_of, cf.payment_date, DayCountCtx::default())?;
+        let base_df = curve.df(years);
+        let df = if spread.abs() > f64::EPSILON {
+            base_df * (-spread * years).exp()
+        } else {
+            base_df
+        };
+        pv += cf.total * df;
+    }
+    Ok(pv)
+}
+
 /// Price an agency MBS using discounting.
 ///
-/// This is the main pricing function that:
-/// 1. Generates projected cashflows with prepayment
-/// 2. Discounts each cashflow to present value
-/// 3. Returns the sum as the MBS price
-///
-/// # Arguments
-///
-/// * `mbs` - Agency MBS passthrough instrument
-/// * `market` - Market context with discount curves
-/// * `as_of` - Valuation date
-///
-/// # Returns
-///
-/// Present value of the MBS
+/// Uses the discount curve's own day count convention for computing
+/// year fractions, ensuring consistency with the curve's interpolation.
 pub fn price_mbs(mbs: &AgencyMbsPassthrough, market: &MarketContext, as_of: Date) -> Result<Money> {
-    // Generate projected cashflows
     let cashflows = generate_cashflows(mbs, as_of, Some(mbs.wam + 12))?;
 
     if cashflows.is_empty() {
         return Ok(Money::new(0.0, mbs.current_face.currency()));
     }
 
-    // Get discount curve
     let discount_curve = market.get_discount(&mbs.discount_curve_id)?;
-
-    // Discount each cashflow
-    let mut pv = 0.0;
-    for cf in &cashflows {
-        let years = mbs
-            .day_count
-            .year_fraction(as_of, cf.payment_date, DayCountCtx::default())?;
-        let df = discount_curve.df(years);
-        pv += cf.total * df;
-    }
+    let pv = discount_cashflows(&cashflows, &discount_curve, as_of, 0.0)?;
 
     Ok(Money::new(pv, mbs.current_face.currency()))
 }
@@ -270,17 +218,6 @@ pub fn price_mbs(mbs: &AgencyMbsPassthrough, market: &MarketContext, as_of: Date
 /// Price an agency MBS with a spread adjustment.
 ///
 /// Adds a spread (in decimal) to the discount rate when computing present value.
-///
-/// # Arguments
-///
-/// * `mbs` - Agency MBS passthrough instrument
-/// * `market` - Market context with discount curves
-/// * `as_of` - Valuation date
-/// * `spread` - Spread to add (decimal, e.g., 0.01 for 100 bps)
-///
-/// # Returns
-///
-/// Present value with spread-adjusted discounting
 pub fn price_with_spread(
     mbs: &AgencyMbsPassthrough,
     market: &MarketContext,
@@ -294,25 +231,10 @@ pub fn price_with_spread(
     }
 
     let discount_curve = market.get_discount(&mbs.discount_curve_id)?;
-
-    let mut pv = 0.0;
-    for cf in &cashflows {
-        let years = mbs
-            .day_count
-            .year_fraction(as_of, cf.payment_date, DayCountCtx::default())?;
-        let base_df = discount_curve.df(years);
-        // Apply spread adjustment: DF_spread = DF_base * exp(-spread * t)
-        let spread_adj = (-spread * years).exp();
-        let df = base_df * spread_adj;
-        pv += cf.total * df;
-    }
-
-    Ok(pv)
+    discount_cashflows(&cashflows, &discount_curve, as_of, spread)
 }
 
 /// Agency MBS discounting pricer.
-///
-/// Implements the `Pricer` trait for registry-based dispatch.
 #[derive(Debug, Clone, Default)]
 pub struct AgencyMbsDiscountingPricer;
 
@@ -401,19 +323,52 @@ mod tests {
 
         assert!(!cashflows.is_empty());
         assert!(cashflows.len() <= 12);
-
-        // First cashflow should have beginning balance equal to current face
         assert!((cashflows[0].beginning_balance - 1_000_000.0).abs() < 1.0);
 
-        // Each cashflow should have positive interest
         for cf in &cashflows {
             assert!(cf.interest > 0.0);
             assert!(cf.total > 0.0);
         }
 
-        // Balance should decrease over time
         for i in 1..cashflows.len() {
             assert!(cashflows[i].beginning_balance <= cashflows[i - 1].beginning_balance);
+        }
+    }
+
+    #[test]
+    fn test_forward_start_no_cashflows_before_issue() {
+        let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
+        let future_issue = Date::from_calendar_date(2024, Month::March, 20).expect("valid");
+
+        let mbs = AgencyMbsPassthrough::builder()
+            .id(InstrumentId::new("FORWARD-POOL"))
+            .pool_id("FWD-POOL".into())
+            .agency(super::super::AgencyProgram::Fnma)
+            .pool_type(super::super::PoolType::Generic)
+            .original_face(Money::new(1_000_000.0, Currency::USD))
+            .current_face(Money::new(1_000_000.0, Currency::USD))
+            .current_factor(1.0)
+            .wac(0.045)
+            .pass_through_rate(0.04)
+            .servicing_fee_rate(0.0025)
+            .guarantee_fee_rate(0.0025)
+            .wam(360)
+            .issue_date(future_issue)
+            .maturity(Date::from_calendar_date(2054, Month::March, 20).expect("valid"))
+            .prepayment_model(PrepaymentModelSpec::psa(1.0))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .day_count(DayCount::Thirty360)
+            .build()
+            .expect("valid mbs");
+
+        let cashflows = generate_cashflows(&mbs, as_of, Some(12)).expect("should generate");
+
+        for cf in &cashflows {
+            assert!(
+                cf.period_start >= Date::from_calendar_date(2024, Month::April, 1).expect("valid"),
+                "Forward-start pool should not generate cashflows before issue_date; got {}",
+                cf.period_start
+            );
         }
     }
 
@@ -424,7 +379,6 @@ mod tests {
 
         let cashflows = generate_cashflows(&mbs, as_of, Some(3)).expect("should generate");
 
-        // Check that payment dates are delayed from period ends
         for cf in &cashflows {
             let days_diff = (cf.payment_date - cf.period_end).whole_days();
             assert_eq!(days_diff as u32, mbs.effective_payment_delay());
@@ -439,10 +393,7 @@ mod tests {
 
         let pv = price_mbs(&mbs, &market, as_of).expect("should price");
 
-        // PV should be positive and less than face value for typical discount rates
         assert!(pv.amount() > 0.0);
-        // With positive yields, MBS should trade near par for on-the-run pools
-        // Allow wide range due to discounting
         assert!(pv.amount() > 500_000.0);
         assert!(pv.amount() < 1_500_000.0);
     }
@@ -456,7 +407,6 @@ mod tests {
         let pv_base = price_with_spread(&mbs, &market, as_of, 0.0).expect("should price");
         let pv_spread = price_with_spread(&mbs, &market, as_of, 0.01).expect("should price");
 
-        // Higher spread should reduce PV
         assert!(pv_spread < pv_base);
     }
 
@@ -465,19 +415,15 @@ mod tests {
         let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
         let market = create_test_market(as_of);
 
-        // Create two MBS with different prepayment speeds
         let mut mbs_slow = create_test_mbs();
-        mbs_slow.prepayment_model = PrepaymentModelSpec::psa(0.5); // 50% PSA
+        mbs_slow.prepayment_model = PrepaymentModelSpec::psa(0.5);
 
         let mut mbs_fast = create_test_mbs();
-        mbs_fast.prepayment_model = PrepaymentModelSpec::psa(2.0); // 200% PSA
+        mbs_fast.prepayment_model = PrepaymentModelSpec::psa(2.0);
 
         let pv_slow = price_mbs(&mbs_slow, &market, as_of).expect("should price");
         let pv_fast = price_mbs(&mbs_fast, &market, as_of).expect("should price");
 
-        // With positive discount rates (rates > coupon), faster prepayment
-        // reduces duration and can change PV
-        // The direction depends on whether we're at premium or discount
         assert!((pv_slow.amount() - pv_fast.amount()).abs() > 1.0);
     }
 }

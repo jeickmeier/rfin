@@ -4,7 +4,7 @@
 //! and `FIIndexTotalReturnSwap` instruments.
 
 use crate::cashflow::builder::ScheduleParams;
-use finstack_core::dates::{Date, Schedule, ScheduleBuilder};
+use finstack_core::dates::{Date, DateExt, Schedule, ScheduleBuilder};
 
 /// Side of the TRS trade from the party's perspective.
 ///
@@ -121,5 +121,19 @@ impl TrsScheduleSpec {
             .end_of_month(self.params.end_of_month)
             .adjust_with(self.params.bdc, cal)
             .build()
+    }
+
+    /// Computes the payment date for a given accrual end date.
+    ///
+    /// When `payment_lag_days == 0` this returns the accrual end date unchanged.
+    /// Otherwise the date is shifted forward by the specified number of business
+    /// days using the schedule's calendar.
+    pub fn payment_date_for(&self, accrual_end: Date) -> finstack_core::Result<Date> {
+        if self.params.payment_lag_days == 0 {
+            return Ok(accrual_end);
+        }
+        let cal =
+            crate::cashflow::builder::calendar::resolve_calendar_strict(&self.params.calendar_id)?;
+        accrual_end.add_business_days(self.params.payment_lag_days, cal)
     }
 }

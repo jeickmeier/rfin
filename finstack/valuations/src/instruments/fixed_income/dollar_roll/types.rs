@@ -9,7 +9,7 @@ use crate::instruments::fixed_income::mbs_passthrough::AgencyProgram;
 use crate::instruments::fixed_income::tba::{AgencyTba, TbaTerm};
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, SifmaSettlementClass};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -78,6 +78,24 @@ pub struct DollarRoll {
     pub back_settlement_year: i32,
     /// Back-month settlement month (1-12).
     pub back_settlement_month: u8,
+    /// SIFMA settlement class override.
+    ///
+    /// When `None`, inferred from agency + term.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settlement_class: Option<SifmaSettlementClass>,
+    /// Explicit front-month settlement date override.
+    ///
+    /// When set, bypasses the SIFMA calendar lookup for the front leg.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub front_settlement_date: Option<Date>,
+    /// Explicit back-month settlement date override.
+    ///
+    /// When set, bypasses the SIFMA calendar lookup for the back leg.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub back_settlement_date: Option<Date>,
     /// Front-month price (sell price).
     pub front_price: f64,
     /// Back-month price (buy price).
@@ -88,13 +106,15 @@ pub struct DollarRoll {
     pub trade_date: Option<Date>,
     /// Discount curve identifier.
     pub discount_curve_id: CurveId,
-    /// Optional repo/financing curve identifier.
+    /// Optional repo/financing curve identifier (carry-only).
     ///
-    /// When set, this curve is used for financing/carry calculations instead of
-    /// the general discount curve. This allows capturing repo specials, where
-    /// specific collateral trades at rates different from the general funding curve.
+    /// Used exclusively for implied financing rate and roll specialness
+    /// calculations (see [`carry`] module). Does **not** affect
+    /// the mark-to-market PV, which always discounts both legs at
+    /// `discount_curve_id`.
     ///
-    /// If `None`, the `discount_curve_id` is used for financing calculations.
+    /// When `None`, the discount curve rate is used as the reference
+    /// financing rate for carry analytics.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repo_curve_id: Option<CurveId>,
@@ -149,12 +169,31 @@ impl DollarRoll {
         self.drop() * 32.0
     }
 
+    /// Effective settlement class (explicit or inferred from agency + term).
+    pub fn effective_settlement_class(&self) -> SifmaSettlementClass {
+        self.settlement_class.unwrap_or_else(|| {
+            let agency_str = format!("{:?}", self.agency);
+            SifmaSettlementClass::from_agency_term(&agency_str, self.term.years())
+        })
+    }
+
+    /// Resolve the front-month settlement date.
+    pub fn front_settle_date(&self) -> finstack_core::Result<Date> {
+        if let Some(d) = self.front_settlement_date {
+            return Ok(d);
+        }
+        self.front_leg()?.get_settlement_date()
+    }
+
+    /// Resolve the back-month settlement date.
+    pub fn back_settle_date(&self) -> finstack_core::Result<Date> {
+        if let Some(d) = self.back_settlement_date {
+            return Ok(d);
+        }
+        self.back_leg()?.get_settlement_date()
+    }
+
     /// Create the front-month TBA leg.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the builder fails validation, which should not happen
-    /// for a valid `DollarRoll` instance.
     pub fn front_leg(&self) -> finstack_core::Result<AgencyTba> {
         AgencyTba::builder()
             .id(InstrumentId::new(format!("{}-FRONT", self.id.as_str())))
@@ -163,6 +202,7 @@ impl DollarRoll {
             .term(self.term)
             .settlement_year(self.front_settlement_year)
             .settlement_month(self.front_settlement_month)
+            .settlement_class_opt(Some(self.effective_settlement_class()))
             .notional(self.notional)
             .trade_price(self.front_price)
             .discount_curve_id(self.discount_curve_id.clone())
@@ -170,11 +210,6 @@ impl DollarRoll {
     }
 
     /// Create the back-month TBA leg.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the builder fails validation, which should not happen
-    /// for a valid `DollarRoll` instance.
     pub fn back_leg(&self) -> finstack_core::Result<AgencyTba> {
         AgencyTba::builder()
             .id(InstrumentId::new(format!("{}-BACK", self.id.as_str())))
@@ -183,6 +218,7 @@ impl DollarRoll {
             .term(self.term)
             .settlement_year(self.back_settlement_year)
             .settlement_month(self.back_settlement_month)
+            .settlement_class_opt(Some(self.effective_settlement_class()))
             .notional(self.notional)
             .trade_price(self.back_price)
             .discount_curve_id(self.discount_curve_id.clone())
@@ -191,8 +227,8 @@ impl DollarRoll {
 
     /// Calculate days between settlement dates.
     pub fn settlement_days(&self) -> finstack_core::Result<i64> {
-        let front = self.front_leg()?.get_settlement_date()?;
-        let back = self.back_leg()?.get_settlement_date()?;
+        let front = self.front_settle_date()?;
+        let back = self.back_settle_date()?;
         let days = (back - front).whole_days();
         if days <= 0 {
             return Err(finstack_core::Error::Validation(
@@ -207,14 +243,9 @@ impl crate::instruments::common_impl::traits::CurveDependencies for DollarRoll {
     fn curve_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
-        let builder = crate::instruments::common_impl::traits::InstrumentCurves::builder()
-            .discount(self.discount_curve_id.clone());
-        let builder = if let Some(repo_curve) = &self.repo_curve_id {
-            builder.forward(repo_curve.clone())
-        } else {
-            builder
-        };
-        builder.build()
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
     }
 }
 

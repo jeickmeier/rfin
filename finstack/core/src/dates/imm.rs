@@ -233,19 +233,93 @@ pub fn next_equity_option_expiry(date: Date) -> Date {
     next_date_from_months(date, &ALL_MONTHS, third_friday)
 }
 
-/// Return the **SIFMA TBA settlement date** (third Wednesday of any month)
-/// for the given `month` and `year`.
+/// SIFMA MBS settlement class.
 ///
-/// SIFMA TBA settlement follows standardized conventions where
-/// agency MBS To-Be-Announced (TBA) trades settle on the third
-/// Wednesday of the settlement month.
+/// SIFMA publishes distinct settlement dates for four classes of agency MBS.
+/// The class determines which specific settlement date applies within a given
+/// month. See <https://www.sifma.org/resources/general/mbs-notification-and-settlement-dates/>.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SifmaSettlementClass {
+    /// Class A: GNMA single-family 30-year.
+    A,
+    /// Class B: Conventional 30-year (FNMA/FHLMC UMBS). Most common for dollar rolls.
+    B,
+    /// Class C: GNMA multi-family, ARMs, and other GNMA products.
+    C,
+    /// Class D: Conventional 15-year and 20-year (FNMA/FHLMC).
+    D,
+}
+
+impl Default for SifmaSettlementClass {
+    fn default() -> Self {
+        Self::B
+    }
+}
+
+impl SifmaSettlementClass {
+    /// Infer the standard settlement class from agency program and original term.
+    pub fn from_agency_term(agency: &str, term_years: u32) -> Self {
+        let agency_upper = agency.to_uppercase();
+        let is_gnma = agency_upper.contains("GNMA") || agency_upper.contains("GN");
+        match (is_gnma, term_years) {
+            (true, 30) => Self::A,
+            (true, _) => Self::C,
+            (false, 30) => Self::B,
+            (false, _) => Self::D,
+        }
+    }
+}
+
+/// Published SIFMA settlement calendar.
+/// Each row: `(year, month, class_a_day, class_b_day, class_c_day, class_d_day)`.
+#[rustfmt::skip]
+static SIFMA_CALENDAR: &[(i32, u8, u8, u8, u8, u8)] = &[
+    (2026,  1, 14, 20, 22, 27), (2026,  2, 12, 17, 19, 24),
+    (2026,  3, 12, 17, 19, 23), (2026,  4, 13, 16, 21, 23),
+    (2026,  5, 13, 18, 20, 26), (2026,  6, 11, 16, 22, 24),
+    (2026,  7, 13, 16, 20, 23), (2026,  8, 13, 18, 20, 25),
+    (2026,  9, 14, 17, 21, 24), (2026, 10, 13, 15, 20, 22),
+    (2026, 11, 12, 17, 19, 24), (2026, 12, 10, 15, 17, 22),
+    (2027,  1, 14, 19, 21, 25), (2027,  2, 11, 16, 18, 23),
+    (2027,  3, 11, 15, 18, 23), (2027,  4, 13, 15, 20, 22),
+    (2027,  5, 13, 17, 19, 24), (2027,  6, 14, 16, 21, 23),
+    (2027,  7, 14, 19, 21, 22), (2027,  8, 12, 17, 19, 23),
+    (2027,  9, 14, 16, 21, 23), (2027, 10, 14, 18, 21, 25),
+    (2027, 11, 15, 17, 22, 23), (2027, 12, 13, 16, 20, 22),
+];
+
+/// Look up the published SIFMA settlement date for a specific class.
 ///
-/// # Background
+/// Returns the exact date from the embedded calendar when available
+/// (currently 2026-2027). Falls back to `third_wednesday()` for years
+/// not in the calendar.
+#[must_use]
+pub fn sifma_settlement_date_for_class(
+    month: Month,
+    year: i32,
+    class: SifmaSettlementClass,
+) -> Date {
+    let month_num = month as u8;
+    for &(y, m, a, b, c, d) in SIFMA_CALENDAR {
+        if y == year && m == month_num {
+            let day = match class {
+                SifmaSettlementClass::A => a,
+                SifmaSettlementClass::B => b,
+                SifmaSettlementClass::C => c,
+                SifmaSettlementClass::D => d,
+            };
+            return Date::from_calendar_date(year, month, day)
+                .unwrap_or_else(|_| third_wednesday(month, year));
+        }
+    }
+    third_wednesday(month, year)
+}
+
+/// Return the **SIFMA TBA settlement date** for the given `month` and `year`.
 ///
-/// The Securities Industry and Financial Markets Association (SIFMA)
-/// publishes standard settlement dates for agency MBS TBA trades.
-/// Settlement occurs on the third Wednesday of each month (not just
-/// quarterly months like IMM dates).
+/// Defaults to **Class B** (conventional 30-year UMBS). For other settlement
+/// classes, use [`sifma_settlement_date_for_class`].
 ///
 /// # Panics
 /// Never panics for valid Gregorian years supported by the `time` crate.
@@ -259,14 +333,9 @@ pub fn next_equity_option_expiry(date: Date) -> Date {
 /// assert_eq!(settle.weekday(), time::Weekday::Wednesday);
 /// assert_eq!(settle, Date::from_calendar_date(2024, Month::March, 20).expect("Valid date"));
 /// ```
-///
-/// # References
-///
-/// - SIFMA Good Delivery Guidelines
-/// - SIFMA TBA Settlement Calendar
 #[must_use]
 pub fn sifma_settlement_date(month: Month, year: i32) -> Date {
-    third_wednesday(month, year)
+    sifma_settlement_date_for_class(month, year, SifmaSettlementClass::B)
 }
 
 /// Return the **next SIFMA TBA settlement date** (third Wednesday of any month)
@@ -489,5 +558,74 @@ mod tests {
         // March 26, 2025 is the fourth Wednesday (not the third)
         let non_imm2 = Date::from_calendar_date(2025, Month::March, 26).expect("Valid test date");
         assert!(!is_imm_date(non_imm2));
+    }
+
+    // -----------------------------------------------------------------------
+    // SIFMA calendar tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn sifma_class_b_jan_2026_from_calendar() {
+        let d = sifma_settlement_date_for_class(Month::January, 2026, SifmaSettlementClass::B);
+        assert_eq!(
+            d,
+            Date::from_calendar_date(2026, Month::January, 20).expect("valid")
+        );
+    }
+
+    #[test]
+    fn sifma_class_a_jan_2026_from_calendar() {
+        let d = sifma_settlement_date_for_class(Month::January, 2026, SifmaSettlementClass::A);
+        assert_eq!(
+            d,
+            Date::from_calendar_date(2026, Month::January, 14).expect("valid")
+        );
+    }
+
+    #[test]
+    fn sifma_class_d_mar_2027_from_calendar() {
+        let d = sifma_settlement_date_for_class(Month::March, 2027, SifmaSettlementClass::D);
+        assert_eq!(
+            d,
+            Date::from_calendar_date(2027, Month::March, 23).expect("valid")
+        );
+    }
+
+    #[test]
+    fn sifma_fallback_for_uncovered_year() {
+        let d = sifma_settlement_date_for_class(Month::March, 2024, SifmaSettlementClass::B);
+        assert_eq!(d, third_wednesday(Month::March, 2024));
+    }
+
+    #[test]
+    fn sifma_default_class_is_b() {
+        assert_eq!(SifmaSettlementClass::default(), SifmaSettlementClass::B);
+    }
+
+    #[test]
+    fn sifma_backward_compat_default_is_class_b() {
+        let old = sifma_settlement_date(Month::January, 2026);
+        let new = sifma_settlement_date_for_class(Month::January, 2026, SifmaSettlementClass::B);
+        assert_eq!(old, new);
+    }
+
+    #[test]
+    fn sifma_from_agency_term() {
+        assert_eq!(
+            SifmaSettlementClass::from_agency_term("Fnma", 30),
+            SifmaSettlementClass::B
+        );
+        assert_eq!(
+            SifmaSettlementClass::from_agency_term("Gnma", 30),
+            SifmaSettlementClass::A
+        );
+        assert_eq!(
+            SifmaSettlementClass::from_agency_term("Fnma", 15),
+            SifmaSettlementClass::D
+        );
+        assert_eq!(
+            SifmaSettlementClass::from_agency_term("GnmaII", 15),
+            SifmaSettlementClass::C
+        );
     }
 }

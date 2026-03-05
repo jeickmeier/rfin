@@ -130,8 +130,8 @@ impl Default for BondFutureSpecs {
     ///
     /// Standard parameters:
     /// - Contract size: $100,000
-    /// - Tick size: 1/32 of a point (0.03125)
-    /// - Tick value: $31.25 (= $100,000 × 1/32 × 1%)
+    /// - Tick size: 1/2 of 1/32 (half-32nd, 0.015625)
+    /// - Tick value: $15.625
     /// - Standard coupon: 6% (0.06)
     /// - Standard maturity: 10 years
     /// - Settlement: 2 business days
@@ -139,8 +139,8 @@ impl Default for BondFutureSpecs {
     fn default() -> Self {
         Self {
             contract_size: 100_000.0,
-            tick_size: 1.0 / 32.0, // 1/32 of a point
-            tick_value: 31.25,     // $100,000 × 1/32 × 1% = $31.25
+            tick_size: 1.0 / 64.0, // 1/2 of 1/32 (half-32nd)
+            tick_value: 15.625,    // $100,000 × 1/64 × 1% = $15.625
             standard_coupon: 0.06, // 6%
             standard_maturity_years: 10.0,
             settlement_days: 2,
@@ -160,8 +160,8 @@ impl BondFutureSpecs {
     /// # Specifications
     ///
     /// - Contract size: $100,000
-    /// - Tick size: 1/32 of a point (0.03125)
-    /// - Tick value: $31.25 per tick
+    /// - Tick size: 1/2 of 1/32 (half-32nd, 0.015625)
+    /// - Tick value: $15.625 per tick
     /// - Standard coupon: 6% annual
     /// - Standard maturity: 10 years
     /// - Settlement: T+2 business days
@@ -191,7 +191,7 @@ impl BondFutureSpecs {
     ///
     /// - Contract size: $100,000
     /// - Tick size: 1/4 of 1/32 of a point (0.0078125)
-    /// - Tick value: $15.625 per tick
+    /// - Tick value: $7.8125 per tick
     /// - Standard coupon: 6% annual
     /// - Standard maturity: 5 years
     /// - Settlement: T+2 business days
@@ -212,7 +212,7 @@ impl BondFutureSpecs {
         Self {
             contract_size: 100_000.0,
             tick_size: 1.0 / 128.0, // 1/4 of 1/32 = 1/128
-            tick_value: 15.625,     // $100,000 × 1/128 × 1% = $15.625
+            tick_value: 7.8125,     // $100,000 × 1/128 × 1% = $7.8125
             standard_coupon: 0.06,  // 6%
             standard_maturity_years: 5.0,
             settlement_days: 2,
@@ -230,8 +230,8 @@ impl BondFutureSpecs {
     /// # Specifications
     ///
     /// - Contract size: $200,000 (note: double the 5Y/10Y contracts)
-    /// - Tick size: 1/4 of 1/32 of a point (0.0078125)
-    /// - Tick value: $15.625 per tick (= $200,000 × 1/128 × 1% / 2)
+    /// - Tick size: 1/8 of 1/32 of a point (0.00390625)
+    /// - Tick value: $7.8125 per tick
     /// - Standard coupon: 6% annual
     /// - Standard maturity: 2 years
     /// - Settlement: T+2 business days
@@ -245,14 +245,14 @@ impl BondFutureSpecs {
     ///
     /// let specs = BondFutureSpecs::ust_2y();
     /// assert_eq!(specs.contract_size, 200_000.0);
-    /// assert_eq!(specs.tick_size, 1.0 / 128.0);
+    /// assert_eq!(specs.tick_size, 1.0 / 256.0);
     /// assert_eq!(specs.standard_maturity_years, 2.0);
     /// ```
     pub fn ust_2y() -> Self {
         Self {
             contract_size: 200_000.0, // 2Y contracts are $200k (double 5Y/10Y)
-            tick_size: 1.0 / 128.0,   // 1/4 of 1/32 = 1/128
-            tick_value: 15.625,       // $200,000 × 1/128 × 1% / 2 = $15.625
+            tick_size: 1.0 / 256.0,   // 1/8 of 1/32 = 1/256
+            tick_value: 7.8125,       // $200,000 × 1/256 × 1% = $7.8125
             standard_coupon: 0.06,    // 6%
             standard_maturity_years: 2.0,
             settlement_days: 2,
@@ -1272,23 +1272,23 @@ impl BondFuture {
         })
     }
 
-    /// Determine CTD including accrued interest for precise basis calculation.
+    /// Determine CTD using gross basis including delivery accrued interest.
     ///
-    /// This method calculates the **gross basis** which includes accrued interest:
+    /// Computes the gross basis for each deliverable bond:
     ///
     /// ```text
-    /// Gross Basis = (Clean Price + Accrued) - (Futures Price × CF + Accrued_at_delivery)
+    /// Gross Basis = (Clean Price + Accrued Today) - (Futures Price × CF + Accrued at Delivery)
     /// ```
     ///
-    /// For a simplified calculation ignoring carry, this reduces to the net basis
-    /// when accrued at settlement equals current accrued (same-day settlement).
+    /// The bond with the lowest gross basis is the CTD.
     ///
     /// # Arguments
     ///
-    /// * `bond_prices_with_accrued` - A slice of `(InstrumentId, f64, f64)` tuples:
+    /// * `bond_prices_with_accrued` - A slice of `(InstrumentId, f64, f64, f64)` tuples:
     ///   - `InstrumentId`: Bond identifier
     ///   - `f64` (position 1): Clean price per 100 face
-    ///   - `f64` (position 2): Accrued interest per 100 face
+    ///   - `f64` (position 2): Accrued interest per 100 face as of today
+    ///   - `f64` (position 3): Projected accrued interest per 100 face at delivery
     ///
     /// # Returns
     ///
@@ -1323,10 +1323,9 @@ impl BondFuture {
     ///     CurveId::new("USD-TREASURY"),
     /// )?;
     ///
-    /// // Bond prices with accrued interest
     /// let bond_data = vec![
-    ///     (bond1_id.clone(), 103.25, 1.25),  // (id, clean price, accrued)
-    ///     (bond2_id.clone(), 107.50, 1.50),
+    ///     (bond1_id.clone(), 103.25, 1.25, 1.75),  // (id, clean, accrued_today, accrued_at_delivery)
+    ///     (bond2_id.clone(), 107.50, 1.50, 2.00),
     /// ];
     ///
     /// let (ctd_id, gross_basis) = future.determine_ctd_with_accrued(&bond_data)?;
@@ -1335,45 +1334,32 @@ impl BondFuture {
     /// ```
     pub fn determine_ctd_with_accrued(
         &self,
-        bond_prices_with_accrued: &[(InstrumentId, f64, f64)],
+        bond_prices_with_accrued: &[(InstrumentId, f64, f64, f64)],
     ) -> finstack_core::Result<(InstrumentId, f64)> {
         let mut best_ctd: Option<(InstrumentId, f64)> = None;
-        let mut best_cf: Option<f64> = None;
 
         for deliverable in &self.deliverable_basket {
-            // Find the price data for this bond
-            if let Some((_, clean_price, accrued)) = bond_prices_with_accrued
-                .iter()
-                .find(|(id, _, _)| *id == deliverable.bond_id)
+            if let Some((_, clean_price, accrued_today, accrued_at_delivery)) =
+                bond_prices_with_accrued
+                    .iter()
+                    .find(|(id, _, _, _)| *id == deliverable.bond_id)
             {
                 if *clean_price <= 0.0 {
                     continue;
                 }
 
-                // Dirty price = Clean + Accrued
-                let dirty_price = clean_price + accrued;
-
-                // Invoice price component (without delivery accrued which would require bond schedule)
-                // Simplified: Net Basis ≈ Clean - (Futures × CF)
-                // For gross basis with carry, we'd need repo rates and delivery date accrued
-                let invoice_component = self.quoted_price * deliverable.conversion_factor;
-
-                // Gross Basis = Clean Price - (Futures Price × CF)
-                // where clean_price = dirty_price - accrued
-                let gross_basis = (dirty_price - accrued) - invoice_component;
+                let purchase_dirty = clean_price + accrued_today;
+                let invoice_dirty =
+                    self.quoted_price * deliverable.conversion_factor + accrued_at_delivery;
+                let gross_basis = purchase_dirty - invoice_dirty;
 
                 match &best_ctd {
                     None => {
                         best_ctd = Some((deliverable.bond_id.clone(), gross_basis));
-                        best_cf = Some(deliverable.conversion_factor);
                     }
                     Some((_, current_best)) => {
-                        if gross_basis < *current_best
-                            || ((gross_basis - *current_best).abs() < f64::EPSILON
-                                && deliverable.conversion_factor < best_cf.unwrap_or(f64::MAX))
-                        {
+                        if gross_basis < *current_best {
                             best_ctd = Some((deliverable.bond_id.clone(), gross_basis));
-                            best_cf = Some(deliverable.conversion_factor);
                         }
                     }
                 }
@@ -1396,12 +1382,13 @@ impl BondFuture {
     /// # Formula
     ///
     /// ```text
-    /// Implied Repo = [(Invoice Price / Purchase Price) - 1] × (360 / days_to_delivery)
+    /// Implied Repo = [(Invoice Price + Coupon Income) / Purchase Price - 1] × (Annualization / days_to_delivery)
     /// ```
     ///
     /// Where:
     /// - Invoice Price = Futures Price × CF + Accrued at Delivery
     /// - Purchase Price = Clean Price + Accrued Today
+    /// - Coupon Income = sum of coupon cashflows received between today and delivery
     ///
     /// # Arguments
     ///
@@ -1409,6 +1396,7 @@ impl BondFuture {
     /// * `clean_price` - Current clean price per 100 face
     /// * `accrued_today` - Accrued interest per 100 face as of today
     /// * `accrued_at_delivery` - Accrued interest per 100 face at delivery date
+    /// * `coupon_income` - Total coupon payments received between today and delivery (per 100 face)
     /// * `days_to_delivery` - Number of days until delivery
     ///
     /// # Returns
@@ -1452,6 +1440,7 @@ impl BondFuture {
     ///     103.25,  // clean price
     ///     1.25,    // accrued today
     ///     1.75,    // accrued at delivery
+    ///     0.0,     // no coupons between now and delivery
     ///     30,      // days to delivery
     /// )?;
     ///
@@ -1465,6 +1454,7 @@ impl BondFuture {
         clean_price: f64,
         accrued_today: f64,
         accrued_at_delivery: f64,
+        coupon_income: f64,
         days_to_delivery: i32,
     ) -> finstack_core::Result<f64> {
         // Find the conversion factor for this bond
@@ -1497,12 +1487,15 @@ impl BondFuture {
         // Invoice price at delivery
         let invoice_price = (self.quoted_price * cf) + accrued_at_delivery;
 
+        // Total proceeds include any coupon payments received during the holding period
+        let total_proceeds = invoice_price + coupon_income;
+
         // Implied repo rate annualization uses contract-specific day-count basis.
         let annualization_basis = self
             .contract_specs
             .repo_day_count_basis
             .annualization_denominator();
-        let holding_period_return = (invoice_price / purchase_price) - 1.0;
+        let holding_period_return = (total_proceeds / purchase_price) - 1.0;
         let annualized = holding_period_return * (annualization_basis / days_to_delivery as f64);
 
         Ok(annualized)
@@ -1585,8 +1578,8 @@ mod tests {
     fn test_bond_future_specs_default() {
         let specs = BondFutureSpecs::default();
         assert_eq!(specs.contract_size, 100_000.0);
-        assert_eq!(specs.tick_size, 1.0 / 32.0);
-        assert_eq!(specs.tick_value, 31.25);
+        assert_eq!(specs.tick_size, 1.0 / 64.0);
+        assert_eq!(specs.tick_value, 15.625);
         assert_eq!(specs.standard_coupon, 0.06);
         assert_eq!(specs.standard_maturity_years, 10.0);
         assert_eq!(specs.settlement_days, 2);
@@ -1596,8 +1589,8 @@ mod tests {
     fn test_ust_10y_specs() {
         let specs = BondFutureSpecs::ust_10y();
         assert_eq!(specs.contract_size, 100_000.0);
-        assert_eq!(specs.tick_size, 1.0 / 32.0);
-        assert_eq!(specs.tick_value, 31.25);
+        assert_eq!(specs.tick_size, 1.0 / 64.0);
+        assert_eq!(specs.tick_value, 15.625);
         assert_eq!(specs.standard_coupon, 0.06);
         assert_eq!(specs.standard_maturity_years, 10.0);
         assert_eq!(specs.settlement_days, 2);
@@ -1609,7 +1602,7 @@ mod tests {
         let specs = BondFutureSpecs::ust_5y();
         assert_eq!(specs.contract_size, 100_000.0);
         assert_eq!(specs.tick_size, 1.0 / 128.0);
-        assert_eq!(specs.tick_value, 15.625);
+        assert_eq!(specs.tick_value, 7.8125);
         assert_eq!(specs.standard_coupon, 0.06);
         assert_eq!(specs.standard_maturity_years, 5.0);
         assert_eq!(specs.settlement_days, 2);
@@ -1619,8 +1612,8 @@ mod tests {
     fn test_ust_2y_specs() {
         let specs = BondFutureSpecs::ust_2y();
         assert_eq!(specs.contract_size, 200_000.0); // Note: 2Y is $200k
-        assert_eq!(specs.tick_size, 1.0 / 128.0);
-        assert_eq!(specs.tick_value, 15.625);
+        assert_eq!(specs.tick_size, 1.0 / 256.0);
+        assert_eq!(specs.tick_value, 7.8125);
         assert_eq!(specs.standard_coupon, 0.06);
         assert_eq!(specs.standard_maturity_years, 2.0);
         assert_eq!(specs.settlement_days, 2);
@@ -1940,7 +1933,7 @@ mod tests {
         assert_eq!(future.contract_specs.standard_coupon, 0.06);
         assert_eq!(future.contract_specs.standard_maturity_years, 10.0);
         assert_eq!(future.contract_specs.contract_size, 100_000.0);
-        assert_eq!(future.contract_specs.tick_size, 1.0 / 32.0);
+        assert_eq!(future.contract_specs.tick_size, 1.0 / 64.0);
         assert_eq!(future.deliverable_basket.len(), 1);
     }
 
@@ -2002,7 +1995,7 @@ mod tests {
         assert_eq!(future.contract_specs.standard_coupon, 0.06);
         assert_eq!(future.contract_specs.standard_maturity_years, 2.0);
         assert_eq!(future.contract_specs.contract_size, 200_000.0); // 2Y is $200k
-        assert_eq!(future.contract_specs.tick_size, 1.0 / 128.0);
+        assert_eq!(future.contract_specs.tick_size, 1.0 / 256.0);
         assert_eq!(future.deliverable_basket.len(), 1);
     }
 

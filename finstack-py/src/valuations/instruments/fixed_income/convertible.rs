@@ -601,6 +601,7 @@ pub struct PyConvertibleBondBuilder {
     issue: Option<time::Date>,
     maturity: Option<time::Date>,
     discount_curve_id: Option<CurveId>,
+    credit_curve_id: Option<CurveId>,
     conversion: Option<ConversionSpec>,
     underlying_equity_id: Option<String>,
     calls: Vec<CallPut>,
@@ -608,6 +609,8 @@ pub struct PyConvertibleBondBuilder {
     fixed_coupon: Option<FixedCouponSpec>,
     floating_coupon: Option<FloatingCouponSpec>,
     soft_call_trigger: Option<SoftCallTrigger>,
+    settlement_days: Option<u32>,
+    recovery_rate: Option<f64>,
 }
 
 impl PyConvertibleBondBuilder {
@@ -618,6 +621,7 @@ impl PyConvertibleBondBuilder {
             issue: None,
             maturity: None,
             discount_curve_id: None,
+            credit_curve_id: None,
             conversion: None,
             underlying_equity_id: None,
             calls: Vec::new(),
@@ -625,6 +629,8 @@ impl PyConvertibleBondBuilder {
             fixed_coupon: None,
             floating_coupon: None,
             soft_call_trigger: None,
+            settlement_days: None,
+            recovery_rate: None,
         }
     }
 
@@ -694,6 +700,47 @@ impl PyConvertibleBondBuilder {
     #[pyo3(text_signature = "($self, discount_curve)")]
     fn discount_curve(mut slf: PyRefMut<'_, Self>, discount_curve: String) -> PyRefMut<'_, Self> {
         slf.discount_curve_id = Some(CurveId::new(discount_curve.as_str()));
+        slf
+    }
+
+    /// Set the credit curve ID for risky discounting of the cash/debt component.
+    ///
+    /// When set, the Tsiveriotis-Zhang model uses this curve for the bond floor
+    /// and CS01/OAS calculations target this curve.
+    #[pyo3(
+        text_signature = "($self, credit_curve=None)",
+        signature = (credit_curve=None)
+    )]
+    fn credit_curve(
+        mut slf: PyRefMut<'_, Self>,
+        credit_curve: Option<String>,
+    ) -> PyRefMut<'_, Self> {
+        slf.credit_curve_id = credit_curve.map(|s| CurveId::new(s.as_str()));
+        slf
+    }
+
+    /// Set settlement days (T+N business days from trade date).
+    ///
+    /// Standard: US corporate convertibles = 2 (T+2).
+    #[pyo3(
+        text_signature = "($self, days=None)",
+        signature = (days=None)
+    )]
+    fn settlement_days(mut slf: PyRefMut<'_, Self>, days: Option<u32>) -> PyRefMut<'_, Self> {
+        slf.settlement_days = days;
+        slf
+    }
+
+    /// Set recovery rate for credit model (fraction, e.g. 0.40 = 40%).
+    ///
+    /// Only relevant when `credit_curve` is set. ISDA standard: 0.40 for
+    /// senior unsecured.
+    #[pyo3(
+        text_signature = "($self, rate=None)",
+        signature = (rate=None)
+    )]
+    fn recovery_rate(mut slf: PyRefMut<'_, Self>, rate: Option<f64>) -> PyRefMut<'_, Self> {
+        slf.recovery_rate = rate;
         slf
     }
 
@@ -790,13 +837,13 @@ impl PyConvertibleBondBuilder {
             issue_date: slf.issue.unwrap(),
             maturity: slf.maturity.unwrap(),
             discount_curve_id: slf.discount_curve_id.clone().unwrap(),
-            credit_curve_id: None,
+            credit_curve_id: slf.credit_curve_id.clone(),
             conversion: slf.conversion.clone().unwrap(),
             underlying_equity_id: slf.underlying_equity_id.clone(),
             call_put,
             soft_call_trigger: slf.soft_call_trigger.clone(),
-            settlement_days: None,
-            recovery_rate: None,
+            settlement_days: slf.settlement_days,
+            recovery_rate: slf.recovery_rate,
             fixed_coupon: slf.fixed_coupon.clone(),
             floating_coupon: slf.floating_coupon.clone(),
             pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),

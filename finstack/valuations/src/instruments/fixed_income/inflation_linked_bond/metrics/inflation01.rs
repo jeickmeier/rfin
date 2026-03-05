@@ -3,6 +3,14 @@
 //! Computes inflation sensitivity using finite differences.
 //! Inflation01 measures the change in PV for a 1bp (0.0001) shift in the inflation curve.
 //!
+//! # Methodology Note
+//!
+//! The bump is applied as a **uniform multiplicative CPI level scale** across all
+//! maturities via `BumpSpec::inflation_shift_pct`. This is **not** equivalent to a
+//! parallel 1bp shift in zero-coupon inflation rates (which would produce
+//! `I(t) → I(t) × exp(Δπ × t)`). For most practical purposes the difference is
+//! small for near-term cashflows but can diverge for long-dated linkers.
+//!
 //! # Formula
 //! ```text
 //! Inflation01 = (PV(inflation_curve + 1bp) - PV(inflation_curve - 1bp)) / (2 * bump_size)

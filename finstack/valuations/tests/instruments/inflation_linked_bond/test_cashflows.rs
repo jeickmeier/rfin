@@ -147,27 +147,26 @@ fn test_coupon_amounts_reflect_inflation_adjustment() {
 
 #[test]
 fn test_principal_repayment_inflation_adjusted() {
-    // Arrange
+    // Arrange: bond with base_date and maturity within the inflation curve range
     let mut ilb = sample_tips();
     ilb.base_index = 300.0;
     ilb.notional =
         finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD);
-    ilb.issue_date = d(2024, 1, 1);
-    ilb.maturity = d(2025, 1, 1);
+    ilb.issue_date = d(2025, 1, 2);
+    ilb.maturity = d(2026, 1, 2);
 
     let (ctx, _) = market_context_with_curve();
-    let as_of = d(2024, 1, 1);
+    let as_of = d(2025, 1, 2);
 
     // Act
     let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert
-    // Last flow is principal repayment at maturity
     let principal_payment = flows[flows.len() - 1].1.amount();
 
-    // With inflation, principal should be adjusted
+    // With ~2% p.a. inflation over 1 year, principal should be modestly above par
     assert!(principal_payment > 1_000_000.0);
-    assert!(principal_payment < 1_200_000.0); // Allow for higher inflation adjustment
+    assert!(principal_payment < 1_200_000.0);
 }
 
 #[test]

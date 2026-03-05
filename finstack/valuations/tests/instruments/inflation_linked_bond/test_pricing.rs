@@ -213,9 +213,8 @@ fn test_npv_after_maturity() {
     // Act
     let pv = ilb.value(&ctx, as_of).unwrap();
 
-    // Assert - implementation includes all flows in schedule regardless of as_of
-    // So value may be non-zero (historical flows)
-    assert!(pv.amount() >= 0.0);
+    // Assert - matured bond has zero value
+    assert_eq!(pv.amount(), 0.0);
 }
 
 #[test]

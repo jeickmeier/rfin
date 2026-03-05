@@ -31,6 +31,14 @@ impl BondFuturePricer {
     ///
     /// CF = PV(bond cashflows at standard coupon rate) / 100
     ///
+    /// # Important
+    ///
+    /// This is an **approximate** calculation for educational/testing purposes.
+    /// For production use, always source conversion factors from the exchange
+    /// (CME, Eurex, ICE). Exchange CFs use specific rounding rules and
+    /// first-day-of-delivery-month conventions that this implementation
+    /// may not exactly replicate.
+    ///
     /// For semi-annual bonds (UST):
     /// - Discount factor: DF(t) = 1 / (1 + r/2)^(2*t)
     /// - PV = Σ(cashflow_i × DF(t_i))
@@ -249,15 +257,17 @@ impl BondFuturePricer {
     ///
     /// # Formula
     ///
-    /// NPV = (Quoted_Price - Model_Price) × (Notional / 100) × DF × Sign
+    /// NPV = (Quoted_Price - Model_Price) × (Notional / 100) × Sign
     ///
     /// Where:
     /// - Quoted_Price: Current market price of the futures contract
     /// - Model_Price: Theoretical fair value based on CTD bond
     /// - Notional: Total notional exposure (contract_size × num_contracts)
-    /// - DF: Discount factor to settlement date
     /// - Sign: +1 for Long positions, -1 for Short positions
     /// - Division by 100: Prices are quoted per $100 face value
+    ///
+    /// Note: No discount factor is applied because exchange-traded futures
+    /// settle daily via variation margin (mark-to-market).
     ///
     /// # Parameters
     ///
@@ -333,55 +343,16 @@ impl BondFuturePricer {
         // Calculate price differential
         let price_diff = future.quoted_price - model_price;
 
-        // Get discount curve for settlement.
-        // Use repo curve when specified (captures repo specials for financing),
-        // otherwise fall back to the general discount curve.
-        use finstack_core::market_data::traits::Discounting;
-        let financing_curve_id = future
-            .repo_curve_id
-            .as_ref()
-            .unwrap_or(&future.discount_curve_id);
-        let discount_arc = market.get_discount(financing_curve_id.as_str())?;
-        let discount_curve: &dyn Discounting = discount_arc.as_ref();
-
-        // Calculate settlement date (expiry + settlement_days business days)
-        // Uses the contract's calendar for proper business day handling
-        use finstack_core::dates::{CalendarRegistry, DateExt};
-        let settlement_days = future.contract_specs.settlement_days as i32;
-        let calendar = CalendarRegistry::global()
-            .resolve_str(&future.contract_specs.calendar_id)
-            .ok_or_else(|| {
-                finstack_core::Error::Validation(format!(
-                    "Unknown calendar '{}' for bond future settlement. \
-                     Available calendars: {:?}",
-                    future.contract_specs.calendar_id,
-                    CalendarRegistry::global().available_ids()
-                ))
-            })?;
-        let settlement_date = future.expiry.add_business_days(settlement_days, calendar)?;
-
-        // Get discount factor to settlement
-        // First, calculate year fraction from base date to settlement using curve's day count
-        let base_date = discount_curve.base_date();
-        let day_count = discount_curve.day_count();
-        let year_fraction = day_count.year_fraction(
-            base_date,
-            settlement_date,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let discount_factor = discount_curve.df(year_fraction);
-
-        // Calculate position sign (+1 for Long, -1 for Short)
+        // Position sign: +1 for Long, -1 for Short
         let position_sign = match future.position {
             Position::Long => 1.0,
             Position::Short => -1.0,
         };
 
-        // Calculate NPV
-        // Formula: NPV = (Quoted - Model) × (Notional / 100) × DF × Sign
-        // Division by 100 because prices are per $100 face value
+        // Futures MTM: no discounting — exchange-traded futures settle daily
+        // via variation margin, so the mark-to-market is undiscounted.
         let notional_value = future.notional.amount();
-        let npv_amount = price_diff * (notional_value / 100.0) * discount_factor * position_sign;
+        let npv_amount = price_diff * (notional_value / 100.0) * position_sign;
 
         // Return as Money with same currency as notional
         Ok(Money::new(npv_amount, future.notional.currency()))
@@ -943,30 +914,9 @@ mod tests {
         println!("Conversion Factor: {:.4}", cf);
         println!("Notional: ${:.0}", notional);
 
-        // Get discount factor manually for verification
-        let discount_arc = market
-            .get_discount(future.discount_curve_id.as_str())
-            .expect("Should have discount curve in test market");
-        use finstack_core::market_data::traits::Discounting;
-        let discount_curve: &dyn Discounting = discount_arc.as_ref();
-        let settlement_date = expiry + time::Duration::days(2);
-
-        let base_date = discount_curve.base_date();
-        let day_count = discount_curve.day_count();
-        let t = day_count
-            .year_fraction(
-                base_date,
-                settlement_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .expect("Should compute year fraction for test dates");
-        let df = discount_curve.df(t);
-
-        println!("Discount Factor: {:.6}", df);
-
-        // Manual NPV calculation
+        // Manual NPV calculation (undiscounted — futures MTM convention)
         let price_diff = quoted_price - model_price;
-        let manual_npv = price_diff * (notional / 100.0) * df * 1.0; // 1.0 for Long
+        let manual_npv = price_diff * (notional / 100.0) * 1.0; // 1.0 for Long
 
         println!("Manual NPV: ${:.2}", manual_npv);
         println!("Calculated NPV: ${:.2}", npv.amount());

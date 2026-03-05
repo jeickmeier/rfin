@@ -122,8 +122,9 @@ pub fn market_context_with_curve() -> (MarketContext, InflationCurve) {
         .build()
         .unwrap();
 
-    // Inflation curve with 2% p.a. growth
+    let inflation_base = d(2025, 1, 2);
     let curve = InflationCurve::builder("US-CPI-U")
+        .base_date(inflation_base)
         .base_cpi(300.0)
         .knots([
             (0.0, 300.0),
@@ -143,6 +144,7 @@ pub fn market_context_with_curve() -> (MarketContext, InflationCurve) {
     (
         ctx,
         InflationCurve::builder("US-CPI-U")
+            .base_date(inflation_base)
             .base_cpi(300.0)
             .knots([
                 (0.0, 300.0),

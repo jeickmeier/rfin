@@ -35,7 +35,7 @@ impl MetricCalculator for Cs01Calculator {
         // CS01 measures credit spread sensitivity. This requires a separate credit
         // curve; if none is provided, credit risk is not modeled independently and
         // CS01 is zero (bumping the discount curve would give Rho, not CS01).
-        let bump_bp = 0.0001; // 1bp for credit spread
+        let bump_bp = 1.0; // 1bp in bp-count units (BumpSpec::parallel_bp convention)
 
         let curve_to_bump = match &bond.credit_curve_id {
             Some(id) => id,

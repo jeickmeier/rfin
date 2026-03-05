@@ -445,8 +445,8 @@ fn test_bond_future_deny_unknown_fields() {
         "position": "Long",
         "contract_specs": {
             "contract_size": 100000.0,
-            "tick_size": 0.03125,
-            "tick_value": 31.25,
+            "tick_size": 0.015625,
+            "tick_value": 15.625,
             "standard_coupon": 0.06,
             "standard_maturity_years": 10.0,
             "settlement_days": 2
@@ -488,8 +488,8 @@ fn test_bond_future_specs_unknown_field_allowed() {
     // so unknown fields should be silently ignored
     let json = r#"{
         "contract_size": 100000.0,
-        "tick_size": 0.03125,
-        "tick_value": 31.25,
+        "tick_size": 0.015625,
+        "tick_value": 15.625,
         "standard_coupon": 0.06,
         "standard_maturity_years": 10.0,
         "settlement_days": 2,
@@ -525,8 +525,8 @@ fn test_bond_future_minimal_json() {
         "position": "Long",
         "contract_specs": {
             "contract_size": 100000.0,
-            "tick_size": 0.03125,
-            "tick_value": 31.25,
+            "tick_size": 0.015625,
+            "tick_value": 15.625,
             "standard_coupon": 0.06,
             "standard_maturity_years": 10.0,
             "settlement_days": 2

@@ -1,11 +1,41 @@
-//! Dollar roll risk metrics.
+//! Dollar roll risk and carry metrics.
 //!
-//! Dollar roll specific metrics include implied financing rate,
-//! roll specialness, and break-even analysis.
+//! Standard rate-sensitivity metrics (DV01, bucketed DV01, theta) plus
+//! carry-specific analytics: implied financing rate and roll specialness.
 
-// Metrics are implemented in the carry module
+use crate::metrics::{MetricCalculator, MetricContext, MetricRegistry};
 
-use crate::metrics::MetricRegistry;
+/// Implied financing rate metric calculator.
+///
+/// Computes the annualized implied repo rate from the dollar roll drop,
+/// expected coupon income, and principal paydown between settlement dates.
+/// Uses the MBS cashflow engine for carry inputs.
+///
+/// Uses 0.5% SMM (5 CPR) as default prepayment assumption.
+pub struct ImpliedFinancingRateCalculator;
+
+impl MetricCalculator for ImpliedFinancingRateCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        let roll: &crate::instruments::DollarRoll = context.instrument_as()?;
+        let result = super::carry::implied_financing_rate(roll, 0.005)?;
+        Ok(result.implied_rate)
+    }
+}
+
+/// Roll specialness metric calculator.
+///
+/// Returns specialness in basis points (repo rate - implied financing rate).
+/// Positive means rolling is cheaper than repo financing.
+///
+/// Uses 0.5% SMM and 5% repo rate as defaults.
+pub struct RollSpecialnessCalculator;
+
+impl MetricCalculator for RollSpecialnessCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        let roll: &crate::instruments::DollarRoll = context.instrument_as()?;
+        super::carry::roll_specialness(roll, 0.005, 0.05)
+    }
+}
 
 /// Register dollar roll metrics with the registry.
 pub fn register_dollar_roll_metrics(registry: &mut MetricRegistry) {
@@ -23,6 +53,8 @@ pub fn register_dollar_roll_metrics(registry: &mut MetricRegistry) {
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::DollarRoll,
             >::default()),
+            (ImpliedFinancingRate, ImpliedFinancingRateCalculator),
+            (RollSpecialness, RollSpecialnessCalculator)
         ]
     }
 }

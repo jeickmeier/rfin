@@ -228,8 +228,8 @@ let short_future = BondFuture::ust_10y(
 | **Exchange** | CBOT | CBOT | CBOT | Eurex | ICE Futures |
 | **Currency** | USD | USD | USD | EUR | GBP |
 | **Contract Size** | $100,000 | $100,000 | $200,000 | €100,000 | £100,000 |
-| **Tick Size** | 1/32 (0.03125) | 1/128 (0.0078125) | 1/128 (0.0078125) | 0.01 | 0.01 |
-| **Tick Value** | $31.25 | $15.625 | $15.625 | €10 | £10 |
+| **Tick Size** | 1/64 (0.015625) | 1/128 (0.0078125) | 1/256 (0.00390625) | 0.01 | 0.01 |
+| **Tick Value** | $15.625 | $7.8125 | $7.8125 | €10 | £10 |
 | **Standard Coupon** | 6% | 6% | 6% | 6% | **4%** |
 | **Standard Maturity** | 10 years | 5 years | 2 years | 10 years | 10 years |
 | **Settlement Days** | T+2 | T+2 | T+2 | T+2 | T+2 |
@@ -340,16 +340,14 @@ The mark-to-market value of the futures position.
 **Formula**:
 
 ```
-NPV = (Quoted_Price - Model_Price) × Contract_Size × Num_Contracts × DF × Sign
+NPV = (Quoted_Price - Model_Price) × (Notional / 100) × Sign
 ```
 
 Where:
 
 - `Quoted_Price`: Market-quoted futures price
 - `Model_Price`: Theoretical price from CTD bond
-- `Contract_Size`: Face value per contract ($100,000 for UST 10Y)
-- `Num_Contracts`: Notional / Contract_Size
-- `DF`: Discount factor to settlement date
+- `Notional`: Total notional amount (e.g., $1,000,000 for 10 × $100k contracts)
 - `Sign`: +1 for Long, -1 for Short
 
 **Example**:
@@ -357,14 +355,12 @@ Where:
 ```
 Quoted price: 125.50
 Model price: 124.75
-Contract size: $100,000
-Notional: $1,000,000 (10 contracts)
-DF: 1.0 (for simplicity)
+Notional: $1,000,000
 Position: Long
 
-NPV = (125.50 - 124.75) × 100,000 × 10 × 1.0 × 1
-    = 0.75 × 100,000 × 10
-    = $75,000
+NPV = (125.50 - 124.75) × (1,000,000 / 100) × 1
+    = 0.75 × 10,000
+    = $7,500
 ```
 
 ### 4. Invoice Price

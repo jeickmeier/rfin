@@ -740,11 +740,15 @@ struct EquityState {
 }
 
 /// Extract equity market state from market context.
+///
+/// Uses **Act/365F** for all process/option time calculations (time_to_maturity,
+/// vol surface lookup, drift estimation). This is deliberately decoupled from
+/// the bond's coupon accrual day count, which can be 30/360 or other conventions.
 fn extract_equity_state(
     bond: &ConvertibleBond,
     ctx: &MarketContext,
     as_of: Date,
-    day_count: DayCount,
+    _accrual_day_count: DayCount,
 ) -> Result<EquityState> {
     let underlying_id = bond
         .underlying_equity_id
@@ -764,7 +768,11 @@ fn extract_equity_state(
     };
 
     let discount_curve = ctx.get_discount(bond.discount_curve_id.as_str())?;
-    let time_to_maturity = day_count
+    // Use Act/365F for process time (tree steps, vol lookups, curve DF queries).
+    // This is standard for equity option models and ensures consistency with
+    // discount curve time axis (which defaults to Act/365F).
+    let process_dc = DayCount::Act365F;
+    let time_to_maturity = process_dc
         .year_fraction(
             as_of,
             bond.maturity,
@@ -1027,8 +1035,8 @@ pub fn price_convertible_bond(
 /// - **Delta**: `(P(S+h) - P(S-h)) / (2h)` where `h = bump_pct * S`
 /// - **Gamma**: `(P(S+h) - 2*P(S) + P(S-h)) / h^2`
 /// - **Vega**: `(P(σ+0.01) - P(σ-0.01)) / (vol_up - vol_down) * 0.01` — per 1% absolute vol move
-/// - **Rho**: `(P(r+1bp) - P(r-1bp)) / 2` — per 1bp parallel curve shift
-/// - **Theta**: `(P(t+1d) - P(t)) / (1/365.25)` — per calendar day
+/// - **Rho**: `(P(r+1bp) - P(r-1bp)) / 2` — per 1bp parallel curve shift (bp-count)
+/// - **Theta**: `P(t+1d) - P(t)` — change per calendar day
 pub fn calculate_convertible_greeks(
     bond: &ConvertibleBond,
     market_context: &MarketContext,
@@ -1116,7 +1124,7 @@ pub fn calculate_convertible_greeks(
 
     // ---- Rho: bump discount curve (B2: central differences) ----
     {
-        let h_rate = 0.0001; // 1bp
+        let h_rate = 1.0; // 1bp in bp-count units (BumpSpec::parallel_bp convention)
         let market_rate_up =
             bump_discount_curve_parallel(market_context, &bond.discount_curve_id, h_rate)?;
         let market_rate_down =
@@ -1131,13 +1139,13 @@ pub fn calculate_convertible_greeks(
         greeks.rho = (price_rate_up - price_rate_down) / 2.0;
     }
 
-    // ---- Theta: 1-day roll (forward difference) ----
+    // ---- Theta: 1-day roll (forward difference), reported per calendar day ----
     {
-        let dt_bump = 1.0 / 365.25;
-        if inputs.time_to_maturity > dt_bump {
+        if inputs.time_to_maturity > 1.0 / 365.25 {
             if let Some(next_day) = as_of.next_day() {
                 let fwd_price = price_convertible_bond(bond, market_context, tree_type, next_day)?;
-                greeks.theta = (fwd_price.amount() - greeks.price) / dt_bump;
+                // Theta = P(t+1d) - P(t), reported as change per calendar day
+                greeks.theta = fwd_price.amount() - greeks.price;
             }
         }
     }
@@ -1273,7 +1281,7 @@ impl crate::pricer::Pricer for ConvertibleTreePricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(
             crate::pricer::InstrumentType::Convertible,
-            crate::pricer::ModelKey::Discounting,
+            crate::pricer::ModelKey::Tree,
         )
     }
 

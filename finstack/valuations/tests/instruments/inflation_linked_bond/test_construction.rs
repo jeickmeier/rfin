@@ -43,7 +43,7 @@ fn test_tips_creation_via_helper() {
     assert_eq!(tips.notional.amount(), 1_000_000.0);
     assert_eq!(tips.notional.currency(), Currency::USD);
     assert_eq!(tips.frequency, Tenor::semi_annual());
-    assert_eq!(tips.day_count, DayCount::ActAct);
+    assert_eq!(tips.day_count, DayCount::ActActIsma);
     assert_eq!(tips.deflation_protection, DeflationProtection::MaturityOnly);
 }
 
@@ -247,7 +247,7 @@ fn test_parameter_struct_tips() {
     assert_eq!(params.maturity, maturity);
     assert_eq!(params.base_index, 200.0);
     assert_eq!(params.frequency, Tenor::semi_annual());
-    assert_eq!(params.day_count, DayCount::ActAct);
+    assert_eq!(params.day_count, DayCount::ActActIsma);
 }
 
 #[test]
@@ -270,7 +270,7 @@ fn test_parameter_struct_uk_linker() {
     assert_eq!(params.maturity, maturity);
     assert_eq!(params.base_index, 300.0);
     assert_eq!(params.frequency, Tenor::semi_annual());
-    assert_eq!(params.day_count, DayCount::ActAct);
+    assert_eq!(params.day_count, DayCount::ActActIsma);
 }
 
 #[test]

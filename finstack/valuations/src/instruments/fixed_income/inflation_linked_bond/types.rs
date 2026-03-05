@@ -571,10 +571,11 @@ impl InflationLinkedBond {
         InflationSource::from_market(curves, &self.inflation_index_id)
     }
 
-    /// Calculate index ratio for a given date
+    /// Calculate the raw index ratio for a given date (CPI(date) / CPI(base)).
     ///
-    /// Validates that the inflation index interpolation method matches the
-    /// market convention for the bond's indexation method and lag:
+    /// Returns the **unfloored** ratio. Deflation protection is applied at the
+    /// cashflow level in [`build_schedule`](Self::build_schedule) so that the
+    /// TIPS-style principal-only floor does not leak into coupon indexation.
     ///
     /// | Method | Lag | Interpolation |
     /// |--------|-----|---------------|
@@ -584,20 +585,23 @@ impl InflationLinkedBond {
     /// | French OAT€i | 3 months | Linear (daily) |
     /// | Japanese JGBi | 3 months | Step (monthly) |
     ///
-    /// # Validation
+    /// # Lag Ownership
     ///
-    /// The method validates that the provided `InflationIndex` uses the correct
-    /// interpolation method. For UK gilts, the lag value is used to determine
-    /// whether legacy (8-month) or modern (3-month) conventions apply.
+    /// The bond owns the lag: it shifts the lookup date before calling
+    /// `InflationIndex::value_on`. The provided index **must** have
+    /// `lag == InflationLag::None` to avoid double-lagging.
     pub fn index_ratio(&self, date: Date, inflation_index: &InflationIndex) -> Result<f64> {
-        // Validate interpolation policy vs indexation method for market standards
-        // For UK gilts, determine legacy vs modern based on the lag
+        if !matches!(inflation_index.lag(), InflationLag::None) {
+            return Err(finstack_core::Error::Validation(
+                "InflationIndex must have lag=None when used with InflationLinkedBond \
+                 (the bond applies its own lag to avoid double-lagging)"
+                    .to_string(),
+            ));
+        }
+
         let is_modern_uk = matches!(self.indexation_method, IndexationMethod::UK)
             && matches!(self.lag, InflationLag::Months(m) if m <= 3);
 
-        // Validate UK gilt lag: only 3 months (modern) and 8 months (legacy) are standard.
-        // Non-standard lags may indicate misconfiguration (e.g., using a TIPS lag with UK
-        // indexation). We allow non-standard values but log a diagnostic hint via debug_assert.
         if matches!(self.indexation_method, IndexationMethod::UK) {
             let valid_uk_lag =
                 matches!(self.lag, InflationLag::Months(3) | InflationLag::Months(8));
@@ -608,33 +612,28 @@ impl InflationLinkedBond {
             );
         }
 
-        match self.indexation_method {
+        let expected_interp = match self.indexation_method {
             IndexationMethod::TIPS | IndexationMethod::Canadian | IndexationMethod::French => {
-                // TIPS, Canadian RRBs, and French OAT€i/OATi use daily linear interpolation
-                if inflation_index.interpolation() != InflationInterpolation::Linear {
-                    return Err(finstack_core::InputError::Invalid.into());
-                }
+                InflationInterpolation::Linear
             }
             IndexationMethod::UK => {
-                // UK gilts: legacy (8-month) uses Step, modern (3-month) uses Linear
-                let expected_interp = if is_modern_uk {
+                if is_modern_uk {
                     InflationInterpolation::Linear
                 } else {
                     InflationInterpolation::Step
-                };
-                if inflation_index.interpolation() != expected_interp {
-                    return Err(finstack_core::InputError::Invalid.into());
                 }
             }
-            IndexationMethod::Japanese => {
-                // Japanese JGBi uses step (monthly) interpolation
-                if inflation_index.interpolation() != InflationInterpolation::Step {
-                    return Err(finstack_core::InputError::Invalid.into());
-                }
-            }
+            IndexationMethod::Japanese => InflationInterpolation::Step,
+        };
+        if inflation_index.interpolation() != expected_interp {
+            return Err(finstack_core::Error::Validation(format!(
+                "Inflation index interpolation mismatch for {:?}: expected {:?}, got {:?}",
+                self.indexation_method,
+                expected_interp,
+                inflation_index.interpolation()
+            )));
         }
 
-        // Apply lag to obtain the reference date in index space
         let reference_date = match self.lag {
             InflationLag::Months(m) => date.add_months(-(m as i32)),
             InflationLag::Days(d) => date - Duration::days(d as i64),
@@ -642,30 +641,22 @@ impl InflationLinkedBond {
             _ => date,
         };
 
-        // Value on reference date (interpolation policy controlled by index)
         let current_index = inflation_index.value_on(reference_date)?;
 
-        // Ratio vs base
         if self.base_index <= 0.0 {
             return Err(finstack_core::InputError::NonPositiveValue.into());
         }
-        let ratio = current_index / self.base_index;
-
-        // Apply deflation protection per instrument policy
-        Ok(match self.deflation_protection {
-            DeflationProtection::None => ratio,
-            DeflationProtection::MaturityOnly => {
-                if date == self.maturity {
-                    ratio.max(1.0)
-                } else {
-                    ratio
-                }
-            }
-            DeflationProtection::AllPayments => ratio.max(1.0),
-        })
+        Ok(current_index / self.base_index)
     }
 
-    /// Calculate index ratio using an inflation term structure when no index is available
+    /// Calculate the raw index ratio using an inflation term structure.
+    ///
+    /// Uses the curve's own base date and day count for time conversion
+    /// (via [`InflationCurve::cpi_on_date`]), avoiding day-count basis
+    /// mismatches between the bond and the curve.
+    ///
+    /// Returns the **unfloored** ratio. Deflation protection is applied
+    /// at the cashflow level in [`build_schedule`](Self::build_schedule).
     pub fn index_ratio_from_curve(
         &self,
         date: Date,
@@ -678,33 +669,12 @@ impl InflationLinkedBond {
             _ => date,
         };
 
-        let current_index = if reference_date <= self.base_date {
-            inflation_curve.base_cpi()
-        } else {
-            let t = DayCount::ActAct.year_fraction(
-                self.base_date,
-                reference_date,
-                DayCountCtx::default(),
-            )?;
-            inflation_curve.cpi(t)
-        };
+        let current_index = inflation_curve.cpi_on_date(reference_date)?;
 
         if self.base_index <= 0.0 {
             return Err(finstack_core::InputError::NonPositiveValue.into());
         }
-        let ratio = current_index / self.base_index;
-
-        Ok(match self.deflation_protection {
-            DeflationProtection::None => ratio,
-            DeflationProtection::MaturityOnly => {
-                if date == self.maturity {
-                    ratio.max(1.0)
-                } else {
-                    ratio
-                }
-            }
-            DeflationProtection::AllPayments => ratio.max(1.0),
-        })
+        Ok(current_index / self.base_index)
     }
 
     /// Calculate index ratio sourcing inflation data from the market context
@@ -818,9 +788,16 @@ impl InflationLinkedBond {
         Ok(0.0)
     }
 
-    /// Build unadjusted real cashflow schedule (no inflation indexation)
-    pub fn build_real_schedule(&self, _as_of: Date) -> Result<DatedFlows> {
-        // Base coupon dates via shared builder
+    /// Build unadjusted real cashflow schedule (no inflation indexation).
+    ///
+    /// Cashflows with `payment_date < as_of` are excluded (already settled).
+    /// The principal payment date is business-day adjusted via the bond's BDC.
+    pub fn build_real_schedule(&self, as_of: Date) -> Result<DatedFlows> {
+        let cal_id = self
+            .calendar_id
+            .as_deref()
+            .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID);
+
         let sched = crate::cashflow::builder::build_dates(
             self.issue_date,
             self.maturity,
@@ -829,9 +806,7 @@ impl InflationLinkedBond {
             self.bdc,
             false,
             0,
-            self.calendar_id
-                .as_deref()
-                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
+            cal_id,
         )?;
         let periods = &sched.periods;
         if periods.is_empty() {
@@ -840,6 +815,9 @@ impl InflationLinkedBond {
 
         let mut flows = Vec::with_capacity(periods.len() + 1);
         for period in periods {
+            if period.payment_date < as_of {
+                continue;
+            }
             let year_frac = self
                 .day_count
                 .year_fraction(
@@ -853,17 +831,17 @@ impl InflationLinkedBond {
                 .to_f64()
                 .ok_or(finstack_core::InputError::ConversionOverflow)?;
             let base_amount = self.notional.amount() * coupon_rate * year_frac;
-            // No inflation adjustment
             flows.push((
                 period.payment_date,
                 Money::new(base_amount, self.notional.currency()),
             ));
         }
 
-        // Principal repayment at maturity (unadjusted real principal)
-        // Note: Deflation protection applies to the final payment in nominal terms,
-        // but Real Yield is typically defined on the base real flows.
-        flows.push((self.maturity, self.notional));
+        let principal_date =
+            crate::cashflow::builder::calendar::adjust_date(self.maturity, self.bdc, cal_id)?;
+        if principal_date >= as_of {
+            flows.push((principal_date, self.notional));
+        }
 
         Ok(flows)
     }
@@ -1019,7 +997,12 @@ impl crate::instruments::common_impl::traits::Instrument for InflationLinkedBond
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Route through helper for schedule-based PV calculation using curve basis
+        if as_of > self.maturity {
+            return Ok(finstack_core::money::Money::new(
+                0.0,
+                self.notional.currency(),
+            ));
+        }
         crate::instruments::common_impl::helpers::schedule_pv_using_curve_dc(
             self,
             curves,

@@ -9,7 +9,7 @@ use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::fixed_income::mbs_passthrough::{AgencyMbsPassthrough, AgencyProgram};
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, SifmaSettlementClass};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -122,6 +122,13 @@ pub struct AgencyTba {
     pub settlement_year: i32,
     /// Settlement month (1-12).
     pub settlement_month: u8,
+    /// SIFMA settlement class override.
+    ///
+    /// When `None`, inferred from agency + term using
+    /// [`SifmaSettlementClass::from_agency_term`].
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settlement_class: Option<SifmaSettlementClass>,
     /// Trade notional (par amount).
     pub notional: Money,
     /// Trade price (percentage of par, e.g., 98.5).
@@ -183,14 +190,27 @@ impl AgencyTba {
         self
     }
 
-    /// Get the settlement date (SIFMA 3rd Wednesday of month).
+    /// Get the settlement date using the SIFMA calendar.
+    ///
+    /// Uses the explicit `settlement_class` if set, otherwise infers the
+    /// class from `agency` and `term`.
     pub fn get_settlement_date(&self) -> finstack_core::Result<Date> {
         let month = time::Month::try_from(self.settlement_month)
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-        Ok(finstack_core::dates::sifma_settlement_date(
+        let class = self.effective_settlement_class();
+        Ok(finstack_core::dates::sifma_settlement_date_for_class(
             month,
             self.settlement_year,
+            class,
         ))
+    }
+
+    /// Effective settlement class (explicit or inferred from agency + term).
+    pub fn effective_settlement_class(&self) -> SifmaSettlementClass {
+        self.settlement_class.unwrap_or_else(|| {
+            let agency_str = format!("{:?}", self.agency);
+            SifmaSettlementClass::from_agency_term(&agency_str, self.term.years())
+        })
     }
 
     /// Get TBA identifier string (e.g., "FN30 4.0 Mar24").

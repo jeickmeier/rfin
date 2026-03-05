@@ -150,8 +150,11 @@ pub struct JsConvertibleBondBuilder {
     issue: Option<finstack_core::dates::Date>,
     maturity: Option<finstack_core::dates::Date>,
     discount_curve: Option<String>,
+    credit_curve: Option<String>,
     conversion: Option<ConversionSpec>,
     underlying_equity_id: Option<String>,
+    settlement_days: Option<u32>,
+    recovery_rate: Option<f64>,
 }
 
 #[wasm_bindgen(js_class = ConvertibleBondBuilder)]
@@ -203,6 +206,27 @@ impl JsConvertibleBondBuilder {
         self
     }
 
+    /// Set the credit curve ID for risky discounting (TZ cash component).
+    #[wasm_bindgen(js_name = creditCurve)]
+    pub fn credit_curve(mut self, credit_curve: String) -> JsConvertibleBondBuilder {
+        self.credit_curve = Some(credit_curve);
+        self
+    }
+
+    /// Set settlement days (T+N business days). Standard: 2 for US corporate.
+    #[wasm_bindgen(js_name = settlementDays)]
+    pub fn settlement_days(mut self, days: u32) -> JsConvertibleBondBuilder {
+        self.settlement_days = Some(days);
+        self
+    }
+
+    /// Set recovery rate (fraction, e.g. 0.40 = 40%). ISDA: 0.40 senior unsecured.
+    #[wasm_bindgen(js_name = recoveryRate)]
+    pub fn recovery_rate(mut self, rate: f64) -> JsConvertibleBondBuilder {
+        self.recovery_rate = Some(rate);
+        self
+    }
+
     #[wasm_bindgen(js_name = build)]
     pub fn build(self) -> Result<JsConvertibleBond, JsValue> {
         let notional = self.notional.ok_or_else(|| {
@@ -227,13 +251,13 @@ impl JsConvertibleBondBuilder {
             issue_date: issue,
             maturity,
             discount_curve_id: curve_id_from_str(discount_curve),
-            credit_curve_id: None,
+            credit_curve_id: self.credit_curve.as_deref().map(curve_id_from_str),
             conversion,
             underlying_equity_id: self.underlying_equity_id,
             call_put: None,
             soft_call_trigger: None,
-            settlement_days: None,
-            recovery_rate: None,
+            settlement_days: self.settlement_days,
+            recovery_rate: self.recovery_rate,
             fixed_coupon: None,
             floating_coupon: None,
             pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),

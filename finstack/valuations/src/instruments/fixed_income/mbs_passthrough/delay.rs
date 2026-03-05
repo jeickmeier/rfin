@@ -34,9 +34,9 @@ use finstack_core::Result;
 /// };
 ///
 /// assert_eq!(payment_lag_days(AgencyProgram::Fnma), 55);
-/// assert_eq!(payment_lag_days(AgencyProgram::Fhlmc), 75);
+/// assert_eq!(payment_lag_days(AgencyProgram::Fhlmc), 55);
 /// assert_eq!(payment_lag_days(AgencyProgram::GnmaI), 14);
-/// assert_eq!(payment_lag_days(AgencyProgram::GnmaII), 45);
+/// assert_eq!(payment_lag_days(AgencyProgram::GnmaII), 50);
 /// ```
 pub fn payment_lag_days(agency: AgencyProgram) -> u32 {
     agency.payment_lag_days()
@@ -200,10 +200,10 @@ mod tests {
     #[test]
     fn test_payment_lag_days() {
         assert_eq!(payment_lag_days(AgencyProgram::Fnma), 55);
-        assert_eq!(payment_lag_days(AgencyProgram::Fhlmc), 75);
-        assert_eq!(payment_lag_days(AgencyProgram::Gnma), 45);
+        assert_eq!(payment_lag_days(AgencyProgram::Fhlmc), 55);
+        assert_eq!(payment_lag_days(AgencyProgram::Gnma), 50);
         assert_eq!(payment_lag_days(AgencyProgram::GnmaI), 14);
-        assert_eq!(payment_lag_days(AgencyProgram::GnmaII), 45);
+        assert_eq!(payment_lag_days(AgencyProgram::GnmaII), 50);
     }
 
     #[test]
