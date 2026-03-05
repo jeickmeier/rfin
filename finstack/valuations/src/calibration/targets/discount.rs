@@ -672,9 +672,23 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
                     let df = 1.0 / (1.0 + rate * t);
                     return Ok(df.clamp(df_lo, df_hi));
                 }
-                RateQuote::Futures { price, .. } => {
-                    let rate = (100.0 - price) / 100.0;
-                    let df = 1.0 / (1.0 + rate * t);
+                RateQuote::Futures {
+                    price,
+                    convexity_adjustment,
+                    vol_surface_id,
+                    ..
+                } => {
+                    // Warn if a vol surface is provided but no pre-computed adjustment
+                    if vol_surface_id.is_some() && convexity_adjustment.is_none() {
+                        tracing::warn!(
+                            "Futures quote has vol_surface_id but no convexity_adjustment; \
+                             consider pre-computing the adjustment before calibration"
+                        );
+                    }
+                    // Hull convention: forward = futures - convexity_adjustment
+                    let futures_rate = (100.0 - price) / 100.0;
+                    let forward_rate = futures_rate - convexity_adjustment.unwrap_or(0.0);
+                    let df = 1.0 / (1.0 + forward_rate * t);
                     return Ok(df.clamp(df_lo, df_hi));
                 }
             }
@@ -1299,5 +1313,99 @@ mod tests {
                 (df_1 - df_1m).abs()
             );
         }
+    }
+
+    #[test]
+    fn test_futures_initial_guess_applies_convexity_adjustment() {
+        // Verify that a non-zero convexity_adjustment changes the initial guess DF
+        // relative to using no adjustment.
+        let base_date = Date::from_calendar_date(2025, Month::December, 10).expect("base_date");
+        let config = CalibrationConfig::default();
+
+        let target = DiscountCurveTarget::new(DiscountCurveTargetParams {
+            base_date,
+            currency: Currency::USD,
+            curve_id: CurveId::new("USD-OIS"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            forward_curve_id: CurveId::new("USD-OIS"),
+            solve_interp: InterpStyle::Linear,
+            extrapolation: ExtrapolationPolicy::FlatZero,
+            config: config.clone(),
+            curve_day_count: DayCount::Act365F,
+            spot_knot: None,
+            settlement_date: base_date,
+            residual_notional: 1.0,
+            base_context: MarketContext::new(),
+        });
+
+        let maturity = base_date + time::Duration::days(90);
+        let p_time = DayCount::Act365F
+            .year_fraction(base_date, maturity, DayCountCtx::default())
+            .expect("year_fraction");
+
+        // Build two futures quotes: one without adjustment, one with 20bp adjustment
+        let make_futures_quote = |adj: Option<f64>| -> CalibrationQuote {
+            let quote = crate::market::quotes::rates::RateQuote::Futures {
+                id: crate::market::quotes::ids::QuoteId::new("FUT-3M"),
+                contract: crate::market::conventions::ids::IrFutureContractId::new("CME:SR3"),
+                expiry: maturity,
+                price: 95.0, // implies 5% futures rate
+                convexity_adjustment: adj,
+                vol_surface_id: None,
+            };
+            // Use a Deposit instrument as a placeholder -- initial_guess only
+            // inspects the quote, not the instrument.
+            let instrument = std::sync::Arc::new(crate::instruments::rates::deposit::Deposit {
+                id: InstrumentId::new("FUT-3M"),
+                quote_rate: Some(rust_decimal::Decimal::try_from(0.05).expect("valid decimal")),
+                discount_curve_id: CurveId::new("USD-OIS"),
+                pricing_overrides: crate::instruments::PricingOverrides::default(),
+                attributes: Default::default(),
+                spot_lag_days: Some(0),
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                start_date: base_date,
+                maturity,
+                notional: Money::new(1.0, Currency::USD),
+                day_count: DayCount::Act360,
+            });
+
+            let pq = PreparedQuote::new(std::sync::Arc::new(quote), instrument, maturity, p_time);
+            CalibrationQuote::Rates(pq)
+        };
+
+        let quote_no_adj = make_futures_quote(None);
+        let quote_with_adj = make_futures_quote(Some(0.002)); // 20bp adjustment
+
+        let guess_no_adj =
+            BootstrapTarget::initial_guess(&target, &quote_no_adj, &[]).expect("guess no adj");
+        let guess_with_adj =
+            BootstrapTarget::initial_guess(&target, &quote_with_adj, &[]).expect("guess with adj");
+
+        // With a positive convexity adjustment, forward_rate < futures_rate,
+        // so the discount factor should be higher (closer to 1).
+        println!(
+            "guess_no_adj={:.10}, guess_with_adj={:.10}, diff={:.2e}",
+            guess_no_adj,
+            guess_with_adj,
+            (guess_no_adj - guess_with_adj).abs()
+        );
+
+        assert!(
+            guess_with_adj > guess_no_adj,
+            "Convexity adjustment should increase the DF (lower forward rate); \
+             got no_adj={}, with_adj={}",
+            guess_no_adj,
+            guess_with_adj
+        );
+
+        // Verify None defaults to zero (same as explicit 0.0)
+        let quote_zero = make_futures_quote(Some(0.0));
+        let guess_zero =
+            BootstrapTarget::initial_guess(&target, &quote_zero, &[]).expect("guess zero");
+        assert!(
+            (guess_no_adj - guess_zero).abs() < 1e-15,
+            "None adjustment should behave identically to 0.0"
+        );
     }
 }
