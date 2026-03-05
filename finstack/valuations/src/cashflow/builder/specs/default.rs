@@ -27,7 +27,7 @@ pub struct DefaultModelSpec {
 
 impl DefaultModelSpec {
     /// Calculate MDR (monthly default rate) for given seasoning.
-    pub fn mdr(&self, seasoning_months: u32) -> f64 {
+    pub fn mdr(&self, seasoning_months: u32) -> finstack_core::Result<f64> {
         let cdr = match &self.curve {
             None | Some(DefaultCurve::Constant) => self.cdr,
             Some(DefaultCurve::Sda { speed_multiplier }) => {
@@ -94,6 +94,13 @@ pub struct DefaultEvent {
     /// date is left as the raw lagged date.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_calendar_id: Option<String>,
+    /// Pre-computed accrued interest amount at default (ISDA standard).
+    ///
+    /// When `Some(amt)` and `amt > 0.0`, an additional `AccruedOnDefault`
+    /// cashflow is emitted on the default date. The accrued amount should
+    /// be computed by the caller using `accrued_interest_amount()`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accrued_on_default: Option<f64>,
 }
 
 impl DefaultEvent {

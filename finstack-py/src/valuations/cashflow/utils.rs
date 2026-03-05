@@ -10,10 +10,12 @@ use pyo3::types::PyModule;
 use super::specs::PyOvernightCompoundingMethod;
 
 /// Convert an annual Conditional Prepayment Rate (CPR) to a Single Monthly Mortality (SMM).
+///
+/// Raises `ValueError` if CPR is negative.
 #[pyfunction]
 #[pyo3(name = "cpr_to_smm", text_signature = "(cpr)")]
-fn py_cpr_to_smm(cpr: f64) -> f64 {
-    cpr_to_smm(cpr)
+fn py_cpr_to_smm(cpr: f64) -> PyResult<f64> {
+    cpr_to_smm(cpr).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
 /// Convert a Single Monthly Mortality (SMM) to an annual Conditional Prepayment Rate (CPR).

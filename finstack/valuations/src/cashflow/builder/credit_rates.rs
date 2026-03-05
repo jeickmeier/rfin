@@ -1,8 +1,8 @@
 //! Credit rate conversions.
 //!
 //! Utilities for converting between monthly and annual rate conventions.
-//! These conversions apply to both prepayment rates (CPR↔SMM) and
-//! default rates (CDR↔MDR), as they use identical mathematical formulas.
+//! These conversions apply to both prepayment rates (CPR/SMM) and
+//! default rates (CDR/MDR), as they use identical mathematical formulas.
 
 /// Maximum allowed CPR/CDR value.
 ///
@@ -21,8 +21,11 @@ const MAX_CPR: f64 = 0.999999;
 /// - CPR = 0: Returns 0.0 (no prepayment)
 /// - CPR >= 100%: Clamped to 99.9999% to avoid NaN (would produce negative base
 ///   for fractional exponent). This represents near-total prepayment.
-/// - Negative CPR: While economically invalid, the formula still computes
-///   (would indicate negative prepayment). Callers should validate inputs.
+///
+/// # Errors
+///
+/// Returns `InputError::NegativeValue` if CPR is negative. Negative prepayment
+/// rates are economically invalid.
 ///
 /// # Examples
 ///
@@ -31,19 +34,27 @@ const MAX_CPR: f64 = 0.999999;
 ///
 /// // Convert 6% CPR to SMM
 /// let cpr = 0.06;
-/// let smm = cpr_to_smm(cpr);
+/// let smm = cpr_to_smm(cpr).unwrap();
 /// assert!((smm - 0.005143).abs() < 0.0001); // Approximately 0.5143% monthly
 ///
 /// // Edge case: 100% CPR is clamped
-/// let smm_100 = cpr_to_smm(1.0);
+/// let smm_100 = cpr_to_smm(1.0).unwrap();
 /// assert!(smm_100.is_finite());
 /// // With MAX_CPR=0.999999, the implied SMM is about 0.684 (68.4% monthly).
 /// let expected = 1.0 - (1.0 - 0.999999_f64).powf(1.0 / 12.0);
 /// assert!((smm_100 - expected).abs() < 1e-12);
+///
+/// // Negative CPR is rejected
+/// assert!(cpr_to_smm(-0.05).is_err());
 /// ```
-pub fn cpr_to_smm(cpr: f64) -> f64 {
+pub fn cpr_to_smm(cpr: f64) -> finstack_core::Result<f64> {
+    if cpr < 0.0 {
+        return Err(finstack_core::Error::Input(
+            finstack_core::InputError::NegativeValue,
+        ));
+    }
     if cpr == 0.0 {
-        return 0.0;
+        return Ok(0.0);
     }
     // Clamp CPR to avoid NaN from negative base with fractional exponent.
     // Log a warning when clamping occurs, as this typically indicates a
@@ -59,7 +70,7 @@ pub fn cpr_to_smm(cpr: f64) -> f64 {
     } else {
         cpr
     };
-    1.0 - (1.0 - cpr_clamped).powf(1.0 / 12.0)
+    Ok(1.0 - (1.0 - cpr_clamped).powf(1.0 / 12.0))
 }
 
 /// Convert monthly SMM to annual CPR.
@@ -75,7 +86,7 @@ pub fn cpr_to_smm(cpr: f64) -> f64 {
 ///
 /// // Roundtrip conversion
 /// let cpr = 0.06;
-/// let smm = cpr_to_smm(cpr);
+/// let smm = cpr_to_smm(cpr).unwrap();
 /// let cpr_back = smm_to_cpr(smm);
 /// assert!((cpr - cpr_back).abs() < 1e-10);
 /// ```
@@ -94,7 +105,7 @@ mod tests {
     #[test]
     fn test_annual_to_monthly_conversion() {
         let annual = 0.06; // 6% annual
-        let monthly = cpr_to_smm(annual);
+        let monthly = cpr_to_smm(annual).expect("valid CPR");
 
         // 6% annual should be approximately 0.5143% monthly
         assert!((monthly - 0.005143).abs() < 0.0001);
@@ -115,7 +126,7 @@ mod tests {
     #[test]
     fn test_roundtrip_conversion() {
         let original = 0.06;
-        let monthly = cpr_to_smm(original);
+        let monthly = cpr_to_smm(original).expect("valid CPR");
         let back = smm_to_cpr(monthly);
 
         // Should roundtrip with high precision
@@ -124,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_zero_rate() {
-        assert_eq!(cpr_to_smm(0.0), 0.0);
+        assert_eq!(cpr_to_smm(0.0).expect("zero CPR should succeed"), 0.0);
         assert_eq!(smm_to_cpr(0.0), 0.0);
     }
 
@@ -132,8 +143,8 @@ mod tests {
     fn test_consistency_across_rates() {
         // Test that prepayment (CPR) and default (CDR) use the same formula
         let rate = 0.05;
-        let monthly_prepay = cpr_to_smm(rate);
-        let monthly_default = cpr_to_smm(rate);
+        let monthly_prepay = cpr_to_smm(rate).expect("valid CPR");
+        let monthly_default = cpr_to_smm(rate).expect("valid CPR");
 
         // Should be identical
         assert!((monthly_prepay - monthly_default).abs() < 1e-15);
@@ -142,7 +153,7 @@ mod tests {
     #[test]
     fn test_cpr_smm_roundtrip_via_new_names() {
         let cpr = 0.06;
-        let smm = cpr_to_smm(cpr);
+        let smm = cpr_to_smm(cpr).expect("valid CPR");
         let cpr_back = smm_to_cpr(smm);
         assert!((cpr - cpr_back).abs() < 1e-10);
     }
@@ -151,8 +162,8 @@ mod tests {
     fn test_cpr_100_percent_clamped() {
         // 100% CPR should be clamped to MAX_CPR (0.999999) to avoid NaN
         // The clamped CPR still produces a high SMM but not 100%
-        // SMM = 1 - (1 - 0.999999)^(1/12) ≈ 0.683772...
-        let smm = cpr_to_smm(1.0);
+        // SMM = 1 - (1 - 0.999999)^(1/12) ~ 0.683772...
+        let smm = cpr_to_smm(1.0).expect("100% CPR should succeed (clamped)");
         assert!(smm.is_finite(), "100% CPR should produce finite SMM");
         let expected = 1.0 - (1.0 - MAX_CPR).powf(1.0 / 12.0);
         assert!(
@@ -168,8 +179,8 @@ mod tests {
     fn test_cpr_above_100_percent_clamped() {
         // CPR > 100% should be clamped to MAX_CPR to avoid NaN
         // Result should be same as 100% CPR
-        let smm_100 = cpr_to_smm(1.0);
-        let smm_150 = cpr_to_smm(1.5);
+        let smm_100 = cpr_to_smm(1.0).expect("100% CPR should succeed");
+        let smm_150 = cpr_to_smm(1.5).expect("150% CPR should succeed (clamped)");
         assert!(smm_150.is_finite(), "CPR > 100% should produce finite SMM");
         // Both should be clamped to the same value
         assert!(
@@ -181,10 +192,15 @@ mod tests {
     }
 
     #[test]
-    fn test_cpr_negative_still_computes() {
-        // Negative CPR is economically invalid but should still compute
-        // (callers should validate inputs)
-        let smm = cpr_to_smm(-0.06);
-        assert!(smm.is_finite(), "Negative CPR should produce finite SMM");
+    fn test_cpr_to_smm_rejects_negative() {
+        let result = cpr_to_smm(-0.05);
+        assert!(result.is_err(), "Negative CPR should return error");
+    }
+
+    #[test]
+    fn test_cpr_to_smm_positive() {
+        let result = cpr_to_smm(0.06).expect("positive CPR should succeed");
+        // 6% CPR -> SMM ~ 0.005143
+        assert!((result - 0.005143).abs() < 0.0001);
     }
 }

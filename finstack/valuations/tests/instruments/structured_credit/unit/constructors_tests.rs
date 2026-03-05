@@ -106,12 +106,12 @@ fn test_prepayment_overrides_use_expected_priority() {
     );
 
     sc.behavior_overrides.abs_speed = Some(0.02);
-    let abs_rate = sc.calculate_prepayment_rate(test_date(), 1);
+    let abs_rate = sc.calculate_prepayment_rate(test_date(), 1).unwrap();
     assert!((abs_rate - 0.02).abs() < 1e-12);
 
     sc.behavior_overrides.abs_speed = None;
     sc.behavior_overrides.cpr_annual = Some(0.12);
-    let cpr_rate = sc.calculate_prepayment_rate(test_date(), 1);
+    let cpr_rate = sc.calculate_prepayment_rate(test_date(), 1).unwrap();
     assert!((cpr_rate - cpr_to_smm(0.12)).abs() < 1e-12);
 
     sc.behavior_overrides.cpr_annual = None;
@@ -119,7 +119,9 @@ fn test_prepayment_overrides_use_expected_priority() {
     let seasoning = 3;
     let base_cpr = (seasoning as f64 / PSA_RAMP_MONTHS as f64) * PSA_TERMINAL_CPR;
     let expected = cpr_to_smm(base_cpr * 2.0);
-    let psa_rate = sc.calculate_prepayment_rate(test_date(), seasoning);
+    let psa_rate = sc
+        .calculate_prepayment_rate(test_date(), seasoning)
+        .unwrap();
     assert!((psa_rate - expected).abs() < 1e-12);
 }
 
@@ -137,7 +139,7 @@ fn test_default_overrides_use_expected_priority() {
     );
 
     sc.behavior_overrides.cdr_annual = Some(0.12);
-    let cdr_rate = sc.calculate_default_rate(test_date(), 1);
+    let cdr_rate = sc.calculate_default_rate(test_date(), 1).unwrap();
     assert!((cdr_rate - cdr_to_mdr(0.12)).abs() < 1e-12);
 
     sc.behavior_overrides.cdr_annual = None;
@@ -149,7 +151,7 @@ fn test_default_overrides_use_expected_priority() {
         - (months_past_peak / decline_period) * (SDA_PEAK_CDR - SDA_TERMINAL_CDR))
         * 1.5;
     let expected = 1.0 - (1.0 - cdr).powf(1.0 / 12.0);
-    let sda_rate = sc.calculate_default_rate(test_date(), seasoning);
+    let sda_rate = sc.calculate_default_rate(test_date(), seasoning).unwrap();
     assert!((sda_rate - expected).abs() < 1e-12);
 }
 

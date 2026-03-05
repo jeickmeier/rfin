@@ -215,7 +215,10 @@ fn price_on_path(
 
         // Seasoning for base PSA SMM
         let seasoning = mbs.seasoning_months(mbs.issue_date) + month as u32 + 1;
-        let base_smm = mbs.prepayment_model.smm(seasoning);
+        // CPR is always non-negative for valid MBS prepayment models,
+        // so the Result is always Ok. Use unwrap_or(0.0) as a conservative
+        // fallback to avoid panic in Monte Carlo hot path.
+        let base_smm = mbs.prepayment_model.smm(seasoning).unwrap_or(0.0);
 
         // Rate-adjusted SMM
         let smm = rate_adjusted_smm(base_smm, current_rate, base_rate, prepay_sensitivity);

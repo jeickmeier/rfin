@@ -358,7 +358,7 @@ impl AgencyMbsPassthrough {
     }
 
     /// Get SMM (single monthly mortality) for given date.
-    pub fn smm(&self, as_of: Date) -> f64 {
+    pub fn smm(&self, as_of: Date) -> finstack_core::Result<f64> {
         let seasoning = self.seasoning_months(as_of);
         self.prepayment_model.smm(seasoning)
     }
@@ -556,7 +556,7 @@ mod tests {
     fn test_smm_calculation() {
         let mbs = AgencyMbsPassthrough::example();
         let as_of = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
-        let smm = mbs.smm(as_of);
+        let smm = mbs.smm(as_of).expect("smm should succeed");
         assert!(smm > 0.0 && smm < 0.02);
     }
 

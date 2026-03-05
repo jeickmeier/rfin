@@ -138,7 +138,7 @@ impl AgencyPrepaymentModel {
     ///
     /// Uses the deterministic base spec. For stochastic rates, use
     /// `conditional_smm` with factor realizations.
-    pub fn smm(&self, seasoning_months: u32) -> f64 {
+    pub fn smm(&self, seasoning_months: u32) -> finstack_core::Result<f64> {
         self.base_spec.smm(seasoning_months)
     }
 
@@ -161,9 +161,9 @@ impl AgencyPrepaymentModel {
         factors: &[f64],
         market_rate: f64,
         burnout: f64,
-    ) -> f64 {
+    ) -> finstack_core::Result<f64> {
         if let Some(ref stoch) = self.stochastic {
-            stoch.conditional_smm(seasoning_months, factors, market_rate, burnout)
+            Ok(stoch.conditional_smm(seasoning_months, factors, market_rate, burnout))
         } else {
             self.smm(seasoning_months)
         }
@@ -173,9 +173,9 @@ impl AgencyPrepaymentModel {
     ///
     /// For stochastic models, this is E[SMM(t)] integrated over the
     /// factor distribution.
-    pub fn expected_smm(&self, seasoning_months: u32) -> f64 {
+    pub fn expected_smm(&self, seasoning_months: u32) -> finstack_core::Result<f64> {
         if let Some(ref stoch) = self.stochastic {
-            stoch.expected_smm(seasoning_months)
+            Ok(stoch.expected_smm(seasoning_months))
         } else {
             self.smm(seasoning_months)
         }
@@ -206,16 +206,16 @@ mod tests {
         let model = AgencyPrepaymentModel::psa_100();
 
         // At 0 months: 0% CPR = 0 SMM
-        let smm_0 = model.smm(0);
+        let smm_0 = model.smm(0).expect("smm(0)");
         assert!(smm_0.abs() < 1e-10);
 
         // At 30 months: 6% CPR (terminal PSA)
-        let smm_30 = model.smm(30);
+        let smm_30 = model.smm(30).expect("smm(30)");
         let expected_smm_30 = cpr_to_smm(0.06);
         assert!((smm_30 - expected_smm_30).abs() < 1e-6);
 
         // At 60 months: still 6% CPR (post-ramp)
-        let smm_60 = model.smm(60);
+        let smm_60 = model.smm(60).expect("smm(60)");
         assert!((smm_60 - expected_smm_30).abs() < 1e-6);
     }
 
@@ -224,7 +224,7 @@ mod tests {
         let model = AgencyPrepaymentModel::psa(2.0);
 
         // At 30 months: 12% CPR (200% PSA)
-        let smm_30 = model.smm(30);
+        let smm_30 = model.smm(30).expect("smm(30)");
         let expected = cpr_to_smm(0.12);
         assert!((smm_30 - expected).abs() < 1e-6);
     }
@@ -234,8 +234,8 @@ mod tests {
         let model = AgencyPrepaymentModel::constant_cpr(0.08);
 
         // Should be constant regardless of seasoning
-        let smm_0 = model.smm(0);
-        let smm_30 = model.smm(30);
+        let smm_0 = model.smm(0).expect("smm(0)");
+        let smm_30 = model.smm(30).expect("smm(30)");
         let expected = cpr_to_smm(0.08);
 
         assert!((smm_0 - expected).abs() < 1e-6);
@@ -248,9 +248,15 @@ mod tests {
         assert!(model.has_stochastic());
 
         // When market rate is below pool coupon (refi incentive)
-        let smm_low_rate = model.conditional_smm(36, &[0.0], 0.03, 1.0);
-        let smm_at_coupon = model.conditional_smm(36, &[0.0], 0.045, 1.0);
-        let smm_high_rate = model.conditional_smm(36, &[0.0], 0.06, 1.0);
+        let smm_low_rate = model
+            .conditional_smm(36, &[0.0], 0.03, 1.0)
+            .expect("valid conditional_smm");
+        let smm_at_coupon = model
+            .conditional_smm(36, &[0.0], 0.045, 1.0)
+            .expect("valid conditional_smm");
+        let smm_high_rate = model
+            .conditional_smm(36, &[0.0], 0.06, 1.0)
+            .expect("valid conditional_smm");
 
         // Lower rates should increase prepayment
         assert!(smm_low_rate > smm_at_coupon);
@@ -277,8 +283,12 @@ mod tests {
         let cloned = model.clone();
 
         // Both should produce same SMM
-        let smm1 = model.conditional_smm(24, &[0.0], 0.04, 1.0);
-        let smm2 = cloned.conditional_smm(24, &[0.0], 0.04, 1.0);
+        let smm1 = model
+            .conditional_smm(24, &[0.0], 0.04, 1.0)
+            .expect("valid conditional_smm");
+        let smm2 = cloned
+            .conditional_smm(24, &[0.0], 0.04, 1.0)
+            .expect("valid conditional_smm");
 
         assert!((smm1 - smm2).abs() < 1e-10);
     }

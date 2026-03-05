@@ -36,7 +36,7 @@ pub struct PrepaymentModelSpec {
 
 impl PrepaymentModelSpec {
     /// Calculate SMM (monthly prepayment rate) for given seasoning.
-    pub fn smm(&self, seasoning_months: u32) -> f64 {
+    pub fn smm(&self, seasoning_months: u32) -> finstack_core::Result<f64> {
         let cpr = match &self.curve {
             None | Some(PrepaymentCurve::Constant) => self.cpr,
             Some(PrepaymentCurve::Psa { speed_multiplier }) => {

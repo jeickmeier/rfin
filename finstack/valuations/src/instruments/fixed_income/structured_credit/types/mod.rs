@@ -464,25 +464,35 @@ impl StructuredCredit {
     }
 
     /// Calculate prepayment rate (SMM) for a given period.
-    pub fn calculate_prepayment_rate(&self, pay_date: Date, seasoning_months: u32) -> f64 {
+    pub fn calculate_prepayment_rate(
+        &self,
+        pay_date: Date,
+        seasoning_months: u32,
+    ) -> finstack_core::Result<f64> {
         if let Some(override_rate) = self.prepayment_rate_override(pay_date, seasoning_months) {
-            return override_rate;
+            return Ok(override_rate);
         }
-        self.credit_model
+        Ok(self
+            .credit_model
             .prepayment_spec
-            .smm(seasoning_months)
-            .max(0.0)
+            .smm(seasoning_months)?
+            .max(0.0))
     }
 
     /// Calculate default rate (MDR) for a given period.
-    pub fn calculate_default_rate(&self, pay_date: Date, seasoning_months: u32) -> f64 {
+    pub fn calculate_default_rate(
+        &self,
+        pay_date: Date,
+        seasoning_months: u32,
+    ) -> finstack_core::Result<f64> {
         if let Some(override_rate) = self.default_rate_override(pay_date, seasoning_months) {
-            return override_rate;
+            return Ok(override_rate);
         }
-        self.credit_model
+        Ok(self
+            .credit_model
             .default_spec
-            .mdr(seasoning_months)
-            .max(0.0)
+            .mdr(seasoning_months)?
+            .max(0.0))
     }
 
     /// Stochastic pricing convenience that defaults to the tree-based engine.

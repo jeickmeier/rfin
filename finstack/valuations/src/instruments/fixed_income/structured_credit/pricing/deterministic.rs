@@ -794,8 +794,8 @@ fn calculate_pool_flows(
     let mut total_recovery = Money::new(0.0, base_ccy);
 
     // Pre-calculate global rates
-    let smm = instrument.calculate_prepayment_rate(pay_date, seasoning_months);
-    let mdr = instrument.calculate_default_rate(pay_date, seasoning_months);
+    let smm = instrument.calculate_prepayment_rate(pay_date, seasoning_months)?;
+    let mdr = instrument.calculate_default_rate(pay_date, seasoning_months)?;
     let recovery_rate = instrument.credit_model.recovery_spec.rate;
 
     let global_period_smm = 1.0 - (1.0 - smm).powf(months_per_period);

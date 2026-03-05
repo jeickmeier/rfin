@@ -107,7 +107,7 @@ pub fn generate_cashflows(
         projected_count += 1;
 
         let seasoning = mbs.seasoning_months(period_end);
-        let smm = mbs.prepayment_model.smm(seasoning).min(0.9999);
+        let smm = mbs.prepayment_model.smm(seasoning)?.min(0.9999);
 
         let remaining_months = mbs.wam.saturating_sub(seasoning);
         let remaining_months = if remaining_months == 0 {
