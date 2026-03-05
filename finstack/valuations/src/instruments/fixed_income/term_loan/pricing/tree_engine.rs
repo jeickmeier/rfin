@@ -233,11 +233,25 @@ impl TermLoanValuator {
         }
 
         // Call redemption vector (pre-exercise outstanding × call price).
+        //
+        // Call type semantics:
+        // - Hard/Soft: borrower exercises at `price_pct_of_par` × outstanding.
+        //   Soft calls behave identically to Hard in pricing; the premium is
+        //   already captured in `price_pct_of_par`.
+        // - MakeWhole: borrower pays PV of remaining flows at Treasury + spread,
+        //   which by design equals or exceeds the continuation value. The option
+        //   is therefore non-economic and skipped in the tree to avoid mispricing.
         let mut call_vec: Vec<Option<f64>> = vec![None; num_steps];
         let mut call_outstanding_vec: Vec<Option<f64>> = vec![None; num_steps];
         if let Some(ref cs) = loan.call_schedule {
             for c in &cs.calls {
                 if c.date < origin || c.date > loan.maturity {
+                    continue;
+                }
+                if matches!(
+                    c.call_type,
+                    crate::instruments::fixed_income::term_loan::LoanCallType::MakeWhole { .. }
+                ) {
                     continue;
                 }
                 let t = dc_curve.year_fraction(
@@ -256,8 +270,6 @@ impl TermLoanValuator {
                 // which is conservative for the lender (lower PV).
                 match call_vec[step] {
                     Some(existing) => {
-                        // Keep the minimum redemption (most borrower-friendly), and keep the
-                        // associated outstanding used to compute friction.
                         if redemption < existing {
                             call_vec[step] = Some(redemption);
                             call_outstanding_vec[step] = Some(out);

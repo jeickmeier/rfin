@@ -516,10 +516,15 @@ impl crate::instruments::common_impl::traits::Instrument for TermLoan {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        // If the loan has a borrower call schedule, use tree-based pricing to capture
-        // optionality with frictional exercise.
+        // If the loan has exercisable call options (Hard/Soft), use tree-based
+        // pricing to capture optionality with frictional exercise.
+        // MakeWhole calls are non-economic by design and do not require a tree.
         if let Some(ref cs) = self.call_schedule {
-            if !cs.calls.is_empty() {
+            let has_exercisable = cs
+                .calls
+                .iter()
+                .any(|c| !matches!(c.call_type, super::spec::LoanCallType::MakeWhole { .. }));
+            if has_exercisable {
                 return crate::instruments::fixed_income::term_loan::pricing::TermLoanTreePricer::new(
                 )
                 .price_callable(self, curves, as_of);

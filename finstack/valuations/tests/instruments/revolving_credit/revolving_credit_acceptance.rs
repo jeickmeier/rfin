@@ -34,17 +34,20 @@ fn _generate_deterministic_cashflows_with_curves_replaced(
 
 #[test]
 fn test_upfront_fee_sign() {
-    // Test that upfront fee increases PV (borrower pays lender, lender inflow)
+    // Test that upfront fee increases PV when valued before commitment
+    // (borrower pays lender, lender inflow). When as_of >= commitment_date
+    // the fee is excluded because it's already been paid.
+    let as_of = Date::from_calendar_date(2024, Month::December, 31).unwrap();
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 
     let facility = RevolvingCredit::builder()
         .id("RC-UPFRONT-TEST".into())
         .commitment_amount(Money::new(10_000_000.0, Currency::USD))
-        .drawn_amount(Money::new(0.0, Currency::USD)) // No draws
+        .drawn_amount(Money::new(0.0, Currency::USD))
         .commitment_date(start)
         .maturity(end)
-        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.0 }) // Zero interest
+        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.0 })
         .day_count(DayCount::Act360)
         .frequency(Tenor::quarterly())
         .fees({
@@ -57,24 +60,40 @@ fn test_upfront_fee_sign() {
         .build()
         .unwrap();
 
-    // Create flat discount curve (zero rates, but with proper discounting)
     let disc_curve = DiscountCurve::builder("USD-OIS")
-        .base_date(start)
+        .base_date(as_of)
         .day_count(DayCount::Act365F)
         .knots([(0.0, 1.0), (1.0, 0.9999)])
         .build()
         .unwrap();
     let market = MarketContext::new().insert_discount(disc_curve);
 
-    let pv = facility.value(&market, start).unwrap();
-
-    // PV should equal upfront fee (positive, lender receives fee)
+    // Pre-commitment valuation: fee is still in the future, should be included
+    let pv_pre = facility.value(&market, as_of).unwrap();
     assert!(
-        (pv.amount() - 50_000.0).abs() < 1.0,
-        "PV should equal upfront fee amount, got {}",
-        pv.amount()
+        (pv_pre.amount() - 50_000.0).abs() < 5.0,
+        "PV (pre-commitment) should include upfront fee, got {}",
+        pv_pre.amount()
     );
-    assert!(pv.amount() > 0.0, "PV should be positive (lender inflow)");
+    assert!(
+        pv_pre.amount() > 0.0,
+        "PV should be positive (lender inflow)"
+    );
+
+    // Post-commitment valuation: fee already paid, should be excluded
+    let disc_curve2 = DiscountCurve::builder("USD-OIS")
+        .base_date(start)
+        .day_count(DayCount::Act365F)
+        .knots([(0.0, 1.0), (1.0, 0.9999)])
+        .build()
+        .unwrap();
+    let market2 = MarketContext::new().insert_discount(disc_curve2);
+    let pv_post = facility.value(&market2, start).unwrap();
+    assert!(
+        pv_post.amount().abs() < 1.0,
+        "PV (post-commitment, zero-rate, no draws) should be ~0, got {}",
+        pv_post.amount()
+    );
 }
 
 #[test]

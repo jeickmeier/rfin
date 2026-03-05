@@ -210,6 +210,13 @@ impl JsFloatCouponParams {
                 gearing: rust_decimal::Decimal::from_f64_retain(gearing.unwrap_or(1.0))
                     .unwrap_or(rust_decimal::Decimal::ONE),
                 reset_lag_days: reset_lag_days.unwrap_or(2),
+                gearing_includes_spread: true,
+                floor_bp: None,
+                cap_bp: None,
+                all_in_floor_bp: None,
+                index_cap_bp: None,
+                fixing_calendar_id: None,
+                overnight_compounding: None,
             },
         }
     }

@@ -382,6 +382,13 @@ pub fn generate_cashflows(
                 margin_bp: Decimal::ZERO,
                 gearing: Decimal::try_from(gearing_f64).unwrap_or(Decimal::ONE),
                 reset_lag_days: spec.reset_lag_days,
+                gearing_includes_spread: spec.gearing_includes_spread,
+                floor_bp: spec.floor_bp,
+                cap_bp: spec.cap_bp,
+                all_in_floor_bp: spec.all_in_floor_bp,
+                index_cap_bp: spec.index_cap_bp,
+                fixing_calendar_id: spec.fixing_calendar_id.clone(),
+                overnight_compounding: spec.overnight_compounding,
             };
             let sched_params = ScheduleParams {
                 freq: loan.frequency,
@@ -532,6 +539,18 @@ fn build_commitment_fee_flows(
             dates.push(sd.date);
         }
     }
+    // Add draw dates as breakpoints so the fee base is prorated correctly
+    // when draws occur mid-period (the undrawn amount changes at each draw).
+    for ev in &ddtl.draws {
+        if ev.date > fee_start && ev.date < fee_end {
+            if let Some(ds) = draw_stop {
+                if ev.date >= ds {
+                    continue;
+                }
+            }
+            dates.push(ev.date);
+        }
+    }
     dates.sort();
     dates.dedup();
 
@@ -561,11 +580,13 @@ fn build_commitment_fee_flows(
 
         let base = match ddtl.fee_base {
             super::spec::CommitmentFeeBase::Undrawn => {
-                let drawn = cumulative_drawn_at(ddtl, draw_stop, d);
+                // Use drawn amount at period start (prev) so that the fee
+                // for a sub-period before a draw uses the pre-draw undrawn base.
+                let drawn = cumulative_drawn_at(ddtl, draw_stop, prev);
                 (limit.amount() - drawn).max(0.0)
             }
             super::spec::CommitmentFeeBase::CommitmentMinusOutstanding => {
-                (limit.amount() - outstanding_at(d).amount()).max(0.0)
+                (limit.amount() - outstanding_at(prev).amount()).max(0.0)
             }
         };
         if base > 0.0 {

@@ -249,6 +249,16 @@ pub struct Tranche {
     /// Accumulated deferred interest (if payment has been deferred)
     pub deferred_interest: Money,
 
+    /// Whether interest shortfalls capitalize into tranche balance (PIK accretion).
+    ///
+    /// When `true`, unpaid interest is added to the outstanding tranche balance
+    /// and accrues interest in subsequent periods (payment-in-kind).
+    /// When `false` (default for debt tranches), shortfalls are tracked but do
+    /// NOT increase the balance, matching standard CLO/ABS indenture treatment
+    /// where shortfalls are paid from future interest collections.
+    #[serde(default)]
+    pub pik_enabled: bool,
+
     /// Structural features
     pub is_revolving: bool,
     /// Whether reinvestment of principal is permitted
@@ -302,6 +312,7 @@ impl Tranche {
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             deferred_interest: Money::new(0.0, original_balance.currency()),
+            pik_enabled: false,
             is_revolving: false,
             can_reinvest: false,
             maturity,
@@ -435,6 +446,7 @@ pub struct TrancheBuilder {
     rating: Option<CreditRating>,
     frequency: Tenor,
     day_count: DayCount,
+    pik_enabled: bool,
 }
 
 impl TrancheBuilder {
@@ -451,6 +463,7 @@ impl TrancheBuilder {
             rating: None,
             frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
+            pik_enabled: false,
         }
     }
 
@@ -518,6 +531,13 @@ impl TrancheBuilder {
         self
     }
 
+    /// Enable PIK (payment-in-kind) accretion for interest shortfalls.
+    #[must_use]
+    pub fn pik_enabled(mut self, enabled: bool) -> Self {
+        self.pik_enabled = enabled;
+        self
+    }
+
     /// Build the tranche with validation
     pub fn build(self) -> finstack_core::Result<Tranche> {
         let id = self.id.ok_or(finstack_core::InputError::Invalid)?;
@@ -556,6 +576,7 @@ impl TrancheBuilder {
 
         tranche.frequency = self.frequency;
         tranche.day_count = self.day_count;
+        tranche.pik_enabled = self.pik_enabled;
 
         Ok(tranche)
     }

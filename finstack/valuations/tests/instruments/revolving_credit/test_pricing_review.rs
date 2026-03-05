@@ -1,13 +1,13 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::DiscountCurve;
-use finstack_core::market_data::term_structures::HazardCurve;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::{CurveDependencies, Instrument};
+use finstack_valuations::metrics::MetricId;
 use time::Month;
 
 #[test]
@@ -101,5 +101,191 @@ fn test_pricing_recovery_consistency() {
         price_pct > 0.99 && price_pct < 1.01,
         "A properly priced loan paying r+s should be near par. Got {:.6}",
         price_pct
+    );
+}
+
+#[test]
+fn test_floating_rcf_declares_forward_dependency() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+    let fixed_facility = RevolvingCredit::builder()
+        .id("RCF-FIXED".into())
+        .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+        .commitment_date(as_of)
+        .maturity(maturity)
+        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
+        .day_count(DayCount::Act360)
+        .frequency(Tenor::quarterly())
+        .fees(RevolvingCreditFees::default())
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
+
+    let floating_facility = RevolvingCredit::builder()
+        .id("RCF-FLOAT".into())
+        .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+        .commitment_date(as_of)
+        .maturity(maturity)
+        .base_rate_spec(BaseRateSpec::Floating(
+            finstack_valuations::cashflow::builder::FloatingRateSpec {
+                index_id: "USD-SOFR-3M".into(),
+                spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"),
+                gearing: rust_decimal::Decimal::ONE,
+                gearing_includes_spread: true,
+                floor_bp: None,
+                cap_bp: None,
+                all_in_floor_bp: None,
+                index_cap_bp: None,
+                reset_freq: Tenor::quarterly(),
+                reset_lag_days: 2,
+                dc: DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: "weekends_only".to_string(),
+                fixing_calendar_id: None,
+                end_of_month: false,
+                overnight_compounding: None,
+                payment_lag_days: 0,
+            },
+        ))
+        .day_count(DayCount::Act360)
+        .frequency(Tenor::quarterly())
+        .fees(RevolvingCreditFees::default())
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
+
+    let fixed_deps = fixed_facility.curve_dependencies().unwrap();
+    assert!(
+        fixed_deps.forward_curves.is_empty(),
+        "Fixed-rate facility should declare no forward curves"
+    );
+    assert_eq!(fixed_deps.discount_curves.len(), 1);
+
+    let float_deps = floating_facility.curve_dependencies().unwrap();
+    assert_eq!(
+        float_deps.forward_curves.len(),
+        1,
+        "Floating-rate facility must declare forward curve for DV01"
+    );
+    assert_eq!(float_deps.forward_curves[0].as_str(), "USD-SOFR-3M");
+    assert_eq!(float_deps.discount_curves.len(), 1);
+}
+
+#[test]
+fn test_floating_rcf_dv01_bumps_forward_curve() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2027, Month::January, 1).unwrap();
+
+    let facility = RevolvingCredit::builder()
+        .id("RCF-DV01-FWD".into())
+        .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+        .commitment_date(as_of)
+        .maturity(maturity)
+        .base_rate_spec(BaseRateSpec::Floating(
+            finstack_valuations::cashflow::builder::FloatingRateSpec {
+                index_id: "USD-SOFR-3M".into(),
+                spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"),
+                gearing: rust_decimal::Decimal::ONE,
+                gearing_includes_spread: true,
+                floor_bp: None,
+                cap_bp: None,
+                all_in_floor_bp: None,
+                index_cap_bp: None,
+                reset_freq: Tenor::quarterly(),
+                reset_lag_days: 2,
+                dc: DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: "weekends_only".to_string(),
+                fixing_calendar_id: None,
+                end_of_month: false,
+                overnight_compounding: None,
+                payment_lag_days: 0,
+            },
+        ))
+        .day_count(DayCount::Act360)
+        .frequency(Tenor::quarterly())
+        .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
+
+    let disc_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .day_count(DayCount::Act360)
+        .knots([
+            (0.0, 1.0),
+            (1.0, (-0.04_f64).exp()),
+            (5.0, (-0.04_f64 * 5.0).exp()),
+        ])
+        .build()
+        .unwrap();
+    let fwd_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(as_of)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.04), (1.0, 0.042), (2.0, 0.044), (5.0, 0.045)])
+        .build()
+        .unwrap();
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let result = facility
+        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .unwrap();
+
+    let dv01 = *result.measures.get("dv01").unwrap();
+    assert!(
+        dv01.is_finite() && dv01.abs() > 1.0,
+        "DV01 for floating RCF should be non-trivial (got {}); forward curve must be bumped",
+        dv01
+    );
+}
+
+#[test]
+fn test_upfront_fee_excluded_after_commitment() {
+    let commitment = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+    let after_commitment = Date::from_calendar_date(2025, Month::June, 1).unwrap();
+
+    let facility = RevolvingCredit::builder()
+        .id("RCF-UPFRONT-ASOF".into())
+        .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(0.0, Currency::USD))
+        .commitment_date(commitment)
+        .maturity(maturity)
+        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.0 })
+        .day_count(DayCount::Act360)
+        .frequency(Tenor::quarterly())
+        .fees({
+            let mut fees = RevolvingCreditFees::flat(0.0, 0.0, 0.0);
+            fees.upfront_fee = Some(Money::new(100_000.0, Currency::USD));
+            fees
+        })
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
+
+    let disc_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(after_commitment)
+        .day_count(DayCount::Act365F)
+        .knots([(0.0, 1.0), (1.0, 0.97)])
+        .build()
+        .unwrap();
+    let market = MarketContext::new().insert_discount(disc_curve);
+
+    let pv = facility.value(&market, after_commitment).unwrap();
+    assert!(
+        pv.amount().abs() < 1.0,
+        "PV should be ~0 when upfront fee is in the past and no draws; got {}",
+        pv.amount()
     );
 }

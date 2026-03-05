@@ -44,6 +44,15 @@
 //! - **DV01**: Interest rate sensitivity
 //! - **CS01**: Credit spread sensitivity
 //!
+//! # Convention Limitations
+//!
+//! The current implementation uses **term-style** forward rate projection for
+//! floating-rate facilities. It does **not** apply overnight compounding
+//! (SOFR in-arrears), fixing lags, or payment lags from `FloatingRateSpec`.
+//! If your facility requires these (e.g., daily-compounded SOFR with a 2-day
+//! lookback), extend `utils::build_reset_dates` and
+//! `utils::project_floating_rate_with_curve`.
+//!
 //! # Numerical Constants
 //!
 //! This module uses centralized numerical tolerances for consistency:

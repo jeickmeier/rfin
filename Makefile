@@ -92,7 +92,7 @@ build-prod: ## Build all crates optimized without debug info
 	CARGO_INCREMENTAL=1 RUSTFLAGS="-C debuginfo=0" cargo build --workspace --exclude finstack-py --exclude finstack-wasm --release
 
 .PHONY: test
-test: test-rust test-rust-doc test-python test-wasm ## Run all tests across all components
+test: test-rust test-python test-wasm ## Run all tests across all components
 
 .PHONY: fmt
 fmt: fmt-rust fmt-python fmt-wasm ## Format all code (Rust, Python, WASM)

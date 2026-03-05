@@ -1,3 +1,4 @@
+use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
@@ -6,12 +7,16 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 /// Dirty price is the full price paid by the buyer, including accrued interest
 /// since the last coupon payment. It is computed as:
 /// ```text
-/// Dirty Price = Clean Price + Accrued Interest
+/// Dirty Price = Clean Price + Accrued Interest(quote_date)
 /// ```
+///
+/// When a quoted clean price is set, accrued interest is computed at the
+/// **quote date** (settlement date) to match market convention. When no
+/// quoted price is available, `base_value` (PV at `as_of`) is returned.
 ///
 /// # Dependencies
 ///
-/// Requires `Accrued` metric to be computed first.
+/// Requires `Accrued` metric to be computed first (used for the model-PV path).
 ///
 /// # Examples
 ///
@@ -37,24 +42,14 @@ impl MetricCalculator for DirtyPriceCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
-        // If we have a quoted clean price, dirty = clean + accrued
         if let Some(clean_px) = bond.pricing_overrides.market_quotes.quoted_clean_price {
-            // Get accrued from computed metrics
-            let accrued = context
-                .computed
-                .get(&MetricId::Accrued)
-                .copied()
-                .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::InputError::NotFound {
-                        id: "metric:Accrued".to_string(),
-                    })
-                })?;
-
-            // Dirty price in currency = (clean % of par) * notional + accrued (currency)
-            return Ok(clean_px * bond.notional.amount() / 100.0 + accrued);
+            // Market-quote path: accrued at the quote/settlement date, consistent
+            // with how YTM, Z-spread, and the quote engine interpret market prices.
+            let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+            return Ok(quote_ctx.dirty_from_clean_pct(clean_px, bond.notional.amount()));
         }
 
-        // Otherwise, base_value is already the dirty price (PV of all future cashflows)
+        // Model-PV path: base_value is already the dirty price (PV at as_of)
         Ok(context.base_value.amount())
     }
 }
@@ -63,11 +58,11 @@ impl MetricCalculator for DirtyPriceCalculator {
 ///
 /// Clean price is the quoted price excluding accrued interest. It can be:
 /// - Retrieved directly from `bond.pricing_overrides.market_quotes.quoted_clean_price` if set
-/// - Computed from the base value (dirty price) minus accrued interest
+/// - Computed from the base value (model PV) minus accrued interest at `as_of`
 ///
 /// # Dependencies
 ///
-/// Requires `Accrued` metric to be computed first.
+/// Requires `Accrued` metric to be computed first (used for the model-PV path).
 ///
 /// # Examples
 ///
@@ -93,12 +88,11 @@ impl MetricCalculator for CleanPriceCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
-        // If we have quoted clean price, return currency value
         if let Some(clean_px) = bond.pricing_overrides.market_quotes.quoted_clean_price {
             return Ok(clean_px * bond.notional.amount() / 100.0);
         }
 
-        // Otherwise calculate from base value (which should be dirty price in currency)
+        // Model-PV path: base_value is dirty (PV at as_of), subtract as_of accrued
         let dirty_px = context.base_value.amount();
         let accrued = context
             .computed
@@ -110,7 +104,6 @@ impl MetricCalculator for CleanPriceCalculator {
                 })
             })?;
 
-        // Clean price in currency
         Ok(dirty_px - accrued)
     }
 }

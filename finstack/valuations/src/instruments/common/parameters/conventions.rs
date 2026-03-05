@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 /// | German Bund | ACT/ACT ICMA | Annual | T+2 | Eurex |
 /// | UK Gilt | ACT/ACT ICMA | Semi-annual | T+1 | DMO |
 /// | French OAT | ACT/ACT ICMA | Annual | T+2 | AFT |
-/// | JGB | ACT/365F | Semi-annual | T+2 | MOF Japan |
+/// | JGB | ACT/365F | Semi-annual | T+2 | JSCC (cross-border) |
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
@@ -38,7 +38,11 @@ pub enum BondConvention {
     UKGilt,
     /// French OAT: Annual, ACT/ACT ICMA, T+2 settlement
     FrenchOAT,
-    /// Japanese Government Bond: Semi-annual, ACT/365F, T+2 settlement
+    /// Japanese Government Bond (cross-border): Semi-annual, ACT/365F, T+2.
+    ///
+    /// Domestic JGB settlement moved to T+1 in May 2018 (JSCC). Cross-border
+    /// transactions settle T+2 (BOJ). This variant uses T+2 as the safer
+    /// default for international participants.
     JGB,
     /// Standard US corporate: Semi-annual, 30/360, T+2 settlement
     Corporate,
@@ -120,12 +124,14 @@ impl BondConvention {
     /// | German Bund | T+2 | Eurex |
     /// | UK Gilt | T+1 | DMO |
     /// | French OAT | T+2 | AFT |
-    /// | JGB | T+3 | MOF Japan (since Jan 2018) |
+    /// | JGB | T+2 | JSCC (cross-border; domestic is T+1 since May 2018) |
     pub fn settlement_days(&self) -> u32 {
         match self {
             BondConvention::USTreasury | BondConvention::USAgency | BondConvention::UKGilt => 1,
-            BondConvention::Corporate | BondConvention::GermanBund | BondConvention::FrenchOAT => 2,
-            BondConvention::JGB => 3,
+            BondConvention::Corporate
+            | BondConvention::GermanBund
+            | BondConvention::FrenchOAT
+            | BondConvention::JGB => 2,
         }
     }
 
@@ -160,10 +166,11 @@ impl BondConvention {
     /// Returns the standard holiday calendar for business day adjustments.
     pub fn calendar_id(&self) -> Option<&'static str> {
         match self {
-            BondConvention::USTreasury | BondConvention::USAgency | BondConvention::Corporate => {
-                // Use the canonical US holiday calendar ID used by the core registry.
-                Some("usny")
-            }
+            // UST and Agency use the SIFMA bond-market calendar, which includes
+            // early closes and holidays specific to the US fixed-income market.
+            BondConvention::USTreasury | BondConvention::USAgency => Some("sifma"),
+            // Corporate bonds use the standard NYC business-day calendar.
+            BondConvention::Corporate => Some("usny"),
             BondConvention::GermanBund | BondConvention::FrenchOAT => Some("target2"),
             BondConvention::UKGilt => Some("gblo"),
             BondConvention::JGB => Some("jpto"),
@@ -852,8 +859,8 @@ mod tests {
         assert_eq!(BondConvention::GermanBund.settlement_days(), 2);
         assert_eq!(BondConvention::FrenchOAT.settlement_days(), 2);
 
-        // T+3 markets (JGB since Jan 2018)
-        assert_eq!(BondConvention::JGB.settlement_days(), 3);
+        // T+2 markets (JGB cross-border since May 2018)
+        assert_eq!(BondConvention::JGB.settlement_days(), 2);
     }
 
     #[test]
@@ -872,8 +879,8 @@ mod tests {
 
     #[test]
     fn bond_convention_calendar_ids() {
-        assert_eq!(BondConvention::USTreasury.calendar_id(), Some("usny"));
-        assert_eq!(BondConvention::USAgency.calendar_id(), Some("usny"));
+        assert_eq!(BondConvention::USTreasury.calendar_id(), Some("sifma"));
+        assert_eq!(BondConvention::USAgency.calendar_id(), Some("sifma"));
         assert_eq!(BondConvention::Corporate.calendar_id(), Some("usny"));
         assert_eq!(BondConvention::GermanBund.calendar_id(), Some("target2"));
         assert_eq!(BondConvention::FrenchOAT.calendar_id(), Some("target2"));

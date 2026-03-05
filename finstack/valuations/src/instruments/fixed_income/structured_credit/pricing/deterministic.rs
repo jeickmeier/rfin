@@ -724,11 +724,21 @@ fn simulate_period(
             existing_deferred.checked_add(interest_shortfall)?,
         );
 
-        // Update tranche balance (PIK shortfall adds to balance)
+        // Update tranche balance:
+        // - Always reduce by principal payment
+        // - Only accrete shortfall if PIK is explicitly enabled for this tranche
+        //
+        // Standard CLO/ABS indenture: shortfalls are tracked as deferred interest
+        // and paid from future interest collections, NOT capitalized into balance.
+        // PIK accretion (capitalizing shortfall) is an explicit structural feature
+        // that must be opted into per tranche.
         if let Some(current) = state.tranche_balances.get_mut(tranche_id_str) {
             let after_principal = current.checked_sub(principal_payment).unwrap_or(*current);
-            // PIK accretes the tranche balance
-            *current = after_principal.checked_add(interest_shortfall)?;
+            if tranche.pik_enabled && interest_shortfall.amount() > 0.0 {
+                *current = after_principal.checked_add(interest_shortfall)?;
+            } else {
+                *current = after_principal;
+            }
         }
     }
 

@@ -257,7 +257,7 @@ All bond cashflows follow a **holder-view** convention:
 | US Treasuries | 30/360 | Semi-annual | T+1 |
 | UK Gilts | ACT/ACT | Semi-annual | T+1 |
 | Eurozone | 30E/360 or ACT/ACT | Annual | T+2 |
-| Japan | ACT/365F | Semi-annual | T+3 |
+| Japan | ACT/365F | Semi-annual | T+2 |
 
 Use `Bond::with_convention()` for standard regional conventions.
 

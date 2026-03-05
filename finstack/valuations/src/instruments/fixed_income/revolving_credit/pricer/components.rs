@@ -365,7 +365,10 @@ impl FeeCalculator {
 
 /// Helper to compute upfront fee present value.
 ///
-/// Centralizes upfront fee PV computation for consistency across pricers.
+/// Only includes the upfront fee when the commitment date is strictly after the
+/// valuation date, consistent with "PV of remaining cashflows" semantics.
+/// When `commitment_date <= as_of` the fee has already been paid and is excluded
+/// from the mark-to-market valuation.
 pub fn compute_upfront_fee_pv(
     upfront_fee_opt: Option<Money>,
     commitment_date: Date,
@@ -378,15 +381,12 @@ pub fn compute_upfront_fee_pv(
     };
 
     if commitment_date > as_of {
-        // Discount from commitment date to as_of
         let df = disc_curve
             .df_between_dates(as_of, commitment_date)
             .unwrap_or(1.0);
-
         Ok(upfront_fee.amount() * df)
     } else {
-        // Commitment date in past or today - no discounting needed
-        Ok(upfront_fee.amount())
+        Ok(0.0)
     }
 }
 

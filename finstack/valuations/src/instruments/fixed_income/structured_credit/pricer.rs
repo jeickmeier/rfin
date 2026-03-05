@@ -145,6 +145,7 @@ impl StructuredCredit {
         );
         metric_context.cashflows = Some(flows);
         metric_context.discount_curve_id = Some(self.discount_curve_id.to_owned());
+        metric_context.notional = self.pool.total_balance().ok();
 
         let registry = crate::metrics::standard_registry();
         let computed_metrics = registry.compute(metrics, &mut metric_context)?;

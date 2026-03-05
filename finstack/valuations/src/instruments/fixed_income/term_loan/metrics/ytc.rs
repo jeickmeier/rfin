@@ -21,12 +21,18 @@ impl MetricCalculator for YtcCalculator {
         let loan: &TermLoan = context.instrument_as()?;
         let as_of = context.as_of;
 
-        // No calls → fallback to YTM
+        // No exercisable calls → fallback to YTM.
+        // MakeWhole calls are excluded: by design the borrower pays at least
+        // the continuation value, making the option non-economic.
         let first_call = match &loan.call_schedule {
             Some(cs) => cs
                 .calls
                 .iter()
-                .filter(|c| c.date >= as_of && c.date <= loan.maturity)
+                .filter(|c| {
+                    c.date >= as_of
+                        && c.date <= loan.maturity
+                        && !matches!(c.call_type, crate::instruments::fixed_income::term_loan::LoanCallType::MakeWhole { .. })
+                })
                 .min_by_key(|c| c.date)
                 .cloned(),
             None => None,

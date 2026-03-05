@@ -119,6 +119,14 @@ pub(super) fn build_reset_dates(facility: &RevolvingCredit) -> Result<Option<Vec
 /// Project floating rate for revolving credit facility using resolved curve.
 ///
 /// Optimized version that takes a resolved curve to avoid repeated lookups.
+///
+/// **Convention note**: The `FloatingRateSpec` carries `reset_lag_days`,
+/// `payment_lag_days`, and `fixing_calendar_id` fields, but the current RCF
+/// implementation does **not** apply these to schedule or projection dates.
+/// Reset dates are derived from the facility's payment/reset schedule without
+/// lag adjustment. If your facility requires fixing-lag or payment-lag
+/// semantics (e.g., T-2 lookback for SOFR in arrears), these must be added
+/// to `build_reset_dates` and this projection function.
 pub(super) fn project_floating_rate_with_curve(
     reset_date: finstack_core::dates::Date,
     reset_freq: &finstack_core::dates::Tenor,

@@ -9,7 +9,7 @@
 //! Stochastic pricing is implemented as averaging many deterministic path pricings,
 //! ensuring consistency between modes and enabling full path capture for distribution analysis.
 
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -157,21 +157,12 @@ impl RevolvingCreditPricer {
             total_pv += cf.amount.amount() * df * survival;
         }
 
-        // Add Recovery Leg PV (Recovery Value upon default)
+        // Recovery Leg PV — trapezoidal integration on a monthly-or-finer grid.
         // PV_rec = Sum [ Exposure(t) * RecoveryRate * DF(t) * ProbDefault(t-1, t) ]
         if facility.recovery_rate > 0.0 {
-            // Determine grid points (payment dates) for integration
-            let grid_dates = if let Some(ref path_data) = path_schedule.path_data {
-                path_data.payment_dates.clone()
-            } else {
-                super::super::utils::build_payment_dates(facility, false)?
-            };
-
-            // Filter grid dates to future only
-            let future_grid: Vec<Date> = grid_dates.into_iter().filter(|&d| d > as_of).collect();
+            let future_grid = Self::build_recovery_grid(facility, as_of, path_schedule)?;
 
             if !future_grid.is_empty() {
-                // Compute survival at grid dates
                 let survival_at_grid = if let Some(ref path_data) = path_schedule.path_data {
                     Self::compute_dynamic_survival_at_dates(
                         &path_data.credit_spread_path,
@@ -188,37 +179,9 @@ impl RevolvingCreditPricer {
                     vec![1.0; future_grid.len()]
                 };
 
-                // Compute Exposure at grid dates
-                let exposure_at_grid = if let Some(ref path_data) = path_schedule.path_data {
-                    // Optimized lookup: grid_dates came from path_data.payment_dates
-                    // so we just need to align them.
-                    // Since future_grid is just path_data.payment_dates filtered by > as_of,
-                    // we can zip and filter.
-                    path_data
-                        .payment_dates
-                        .iter()
-                        .zip(path_data.utilization_path.iter())
-                        .filter_map(|(date, util)| {
-                            if *date > as_of {
-                                Some(util * facility.commitment_amount.amount())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect()
-                } else {
-                    // For deterministic, simulate balance evolution
-                    let mut exposures = Vec::with_capacity(future_grid.len());
-                    for &date in &future_grid {
-                        let bal = super::super::cashflow_engine::calculate_drawn_balance_at_date(
-                            facility, date,
-                        )?;
-                        exposures.push(bal.amount());
-                    }
-                    exposures
-                };
+                let exposure_at_grid =
+                    Self::exposure_at_grid(facility, as_of, &future_grid, path_schedule)?;
 
-                // Get initial state at as_of
                 let mut prev_sp = if let Some(ref path_data) = path_schedule.path_data {
                     Self::compute_dynamic_survival_at_dates(
                         &path_data.credit_spread_path,
@@ -240,24 +203,13 @@ impl RevolvingCreditPricer {
                     1.0
                 };
 
-                let mut prev_exposure = if let Some(ref _path_data) = path_schedule.path_data {
-                    // For stochastic start, assume as_of matches path start or use initial drawn
-                    if as_of <= facility.commitment_date {
-                        facility.drawn_amount.amount()
-                    } else {
-                        // If pricing mid-path, technically need path state at as_of.
-                        // For simplicity/performance in this fix, use initial drawn if before path start,
-                        // or interpolate if possible.
-                        // Given path_data covers the whole life, we can look up.
-                        // Simplification: Use first grid point's exposure or current drawn
-                        facility.drawn_amount.amount()
-                    }
+                let mut prev_exposure = if path_schedule.path_data.is_some() {
+                    facility.drawn_amount.amount()
                 } else {
                     super::super::cashflow_engine::calculate_drawn_balance_at_date(facility, as_of)?
                         .amount()
                 };
 
-                // Integrate over intervals using ISDA-style trapezoidal integration
                 let mut prev_date = as_of;
                 for i in 0..future_grid.len() {
                     let curr_date = future_grid[i];
@@ -266,7 +218,6 @@ impl RevolvingCreditPricer {
 
                     let prob_default = (prev_sp - curr_sp).max(0.0);
 
-                    // Compute discount factors at interval endpoints
                     let t_prev = disc_dc
                         .year_fraction(
                             disc_curve.base_date(),
@@ -274,7 +225,6 @@ impl RevolvingCreditPricer {
                             finstack_core::dates::DayCountCtx::default(),
                         )
                         .unwrap_or(0.0);
-
                     let t_curr = disc_dc
                         .year_fraction(
                             disc_curve.base_date(),
@@ -283,19 +233,10 @@ impl RevolvingCreditPricer {
                         )
                         .unwrap_or(0.0);
 
-                    // Use average of endpoint discount factors (ISDA CDS standard)
-                    // This is more accurate than using the midpoint time's DF,
-                    // especially for steep discount curves and longer intervals.
-                    let df_prev = disc_curve.df(t_prev);
-                    let df_curr = disc_curve.df(t_curr);
-                    let df_avg = (df_prev + df_curr) / 2.0;
-
-                    // Exposure Average (trapezoidal)
+                    let df_avg = (disc_curve.df(t_prev) + disc_curve.df(t_curr)) / 2.0;
                     let exposure_avg = (prev_exposure + curr_exposure) / 2.0;
 
-                    let recovery_flow =
-                        exposure_avg * facility.recovery_rate * df_avg * prob_default;
-                    total_pv += recovery_flow;
+                    total_pv += exposure_avg * facility.recovery_rate * df_avg * prob_default;
 
                     prev_sp = curr_sp;
                     prev_exposure = curr_exposure;
@@ -598,6 +539,113 @@ impl RevolvingCreditPricer {
         }
 
         Ok(survival_probs)
+    }
+
+    /// Build a monthly-or-finer grid for recovery leg integration.
+    ///
+    /// Merges monthly dates with payment dates and deterministic draw/repay event
+    /// dates, then filters to `(as_of, maturity]`. This gives much better accuracy
+    /// than relying solely on the (potentially quarterly/annual) payment schedule.
+    fn build_recovery_grid(
+        facility: &RevolvingCredit,
+        as_of: Date,
+        path_schedule: &PathAwareCashflowSchedule,
+    ) -> Result<Vec<Date>> {
+        use std::collections::BTreeSet;
+        let mut dates = BTreeSet::new();
+
+        // Seed with payment dates
+        if let Some(ref path_data) = path_schedule.path_data {
+            dates.extend(path_data.payment_dates.iter().copied());
+        } else {
+            dates.extend(super::super::utils::build_payment_dates(facility, false)?);
+        }
+
+        // Seed with deterministic draw/repay event dates (exposure jumps)
+        if let DrawRepaySpec::Deterministic(ref events) = facility.draw_repay_spec {
+            dates.extend(events.iter().map(|e| e.date));
+        }
+
+        // Fill in monthly dates from as_of to maturity
+        let mut d = as_of.add_months(1);
+        while d < facility.maturity {
+            dates.insert(d);
+            d = d.add_months(1);
+        }
+        dates.insert(facility.maturity);
+
+        Ok(dates.into_iter().filter(|&d| d > as_of).collect())
+    }
+
+    /// Compute exposure (drawn balance) at each grid date.
+    ///
+    /// For stochastic paths, linearly interpolates utilization between the path's
+    /// payment-date observations. For deterministic, uses balance evolution.
+    fn exposure_at_grid(
+        facility: &RevolvingCredit,
+        _as_of: Date,
+        grid: &[Date],
+        path_schedule: &PathAwareCashflowSchedule,
+    ) -> Result<Vec<f64>> {
+        if let Some(ref path_data) = path_schedule.path_data {
+            let commitment = facility.commitment_amount.amount();
+            grid.iter()
+                .map(|&date| {
+                    let util = Self::interpolate_utilization_at_date(
+                        date,
+                        facility.commitment_date,
+                        facility.day_count,
+                        &path_data.time_points,
+                        &path_data.utilization_path,
+                    );
+                    Ok(util * commitment)
+                })
+                .collect()
+        } else {
+            grid.iter()
+                .map(|&date| {
+                    Ok(
+                        super::super::cashflow_engine::calculate_drawn_balance_at_date(
+                            facility, date,
+                        )?
+                        .amount(),
+                    )
+                })
+                .collect()
+        }
+    }
+
+    /// Linearly interpolate utilization from the MC path at a given calendar date.
+    fn interpolate_utilization_at_date(
+        date: Date,
+        commitment_date: Date,
+        day_count: DayCount,
+        time_points: &[f64],
+        utilization_path: &[f64],
+    ) -> f64 {
+        let t = day_count
+            .year_fraction(
+                commitment_date,
+                date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+
+        if time_points.is_empty() || utilization_path.is_empty() {
+            return 0.0;
+        }
+        if t <= time_points[0] {
+            return utilization_path[0].clamp(0.0, 1.0);
+        }
+        let n = time_points.len();
+        if t >= time_points[n - 1] {
+            return utilization_path[n - 1].clamp(0.0, 1.0);
+        }
+        let idx = time_points.partition_point(|&tp| tp <= t);
+        let i = idx.saturating_sub(1);
+        let alpha = (t - time_points[i]) / (time_points[i + 1] - time_points[i]).max(1e-12);
+        let util = utilization_path[i] + alpha * (utilization_path[i + 1] - utilization_path[i]);
+        util.clamp(0.0, 1.0)
     }
 }
 

@@ -21,22 +21,24 @@ pub struct AccruedCalculator;
 
 impl MetricCalculator for AccruedCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        // For structured credit, we calculate accrued based on the payment schedule
-        // This is a simplified implementation - in practice, you'd need to:
-        // 1. Find the last payment date before as_of
-        // 2. Find the next payment date after as_of
-        // 3. Get the effective coupon rate for the period
-        // 4. Calculate pro-rata accrual
+        // Prefer interest-only flows from detailed tranche cashflows when available.
+        // This avoids the systematic overstatement that occurs when principal payments
+        // are mixed into the accrual calculation (common for amortizing tranches).
+        if let Some(details) = context.detailed_tranche_cashflows.as_ref() {
+            if !details.interest_flows.is_empty() {
+                return self.accrued_from_interest_flows(&details.interest_flows, context);
+            }
+        }
 
-        // Get cached cashflows to determine payment schedule
+        // Fallback: derive from aggregated cashflows (interest + principal combined).
+        // This overstates accrued for amortizing structures but maintains backward
+        // compatibility when detailed tranche flows are not available.
         let flows = context.cashflows.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;
 
-        // If there are no payments, or we are before the first payment or after the final one,
-        // there is no accrued interest to compute.
         if let (Some((first_date, _)), Some((last_date, _))) = (flows.first(), flows.last()) {
             if context.as_of < *first_date || context.as_of >= *last_date {
                 return Ok(0.0);
@@ -45,10 +47,8 @@ impl MetricCalculator for AccruedCalculator {
             return Ok(0.0);
         }
 
-        // Find surrounding payment dates
         let (last_payment, next_payment) = find_surrounding_dates(flows, context.as_of)?;
 
-        // Calculate day count fraction using context day count if available
         let day_count = context.day_count.unwrap_or(DayCount::Act360);
         let accrual_fraction =
             day_count.year_fraction(last_payment, context.as_of, DayCountCtx::default())?;
@@ -59,14 +59,12 @@ impl MetricCalculator for AccruedCalculator {
             return Ok(0.0);
         }
 
-        // Find the interest payment for this period
         let period_interest = flows
             .iter()
             .find(|(d, _)| *d == next_payment)
             .map(|(_, m)| m.amount())
             .unwrap_or(0.0);
 
-        // Pro-rate the interest payment
         let accrued = period_interest * (accrual_fraction / period_fraction);
 
         Ok(accrued)
@@ -74,6 +72,46 @@ impl MetricCalculator for AccruedCalculator {
 
     fn dependencies(&self) -> &[MetricId] {
         &[] // No dependencies - uses cashflows from context
+    }
+}
+
+impl AccruedCalculator {
+    fn accrued_from_interest_flows(
+        &self,
+        interest_flows: &[(Date, Money)],
+        context: &MetricContext,
+    ) -> Result<f64> {
+        if interest_flows.is_empty() {
+            return Ok(0.0);
+        }
+
+        if let (Some((first_date, _)), Some((last_date, _))) =
+            (interest_flows.first(), interest_flows.last())
+        {
+            if context.as_of < *first_date || context.as_of >= *last_date {
+                return Ok(0.0);
+            }
+        }
+
+        let (last_payment, next_payment) = find_surrounding_dates(interest_flows, context.as_of)?;
+
+        let day_count = context.day_count.unwrap_or(DayCount::Act360);
+        let accrual_fraction =
+            day_count.year_fraction(last_payment, context.as_of, DayCountCtx::default())?;
+        let period_fraction =
+            day_count.year_fraction(last_payment, next_payment, DayCountCtx::default())?;
+
+        if period_fraction == 0.0 {
+            return Ok(0.0);
+        }
+
+        let period_interest = interest_flows
+            .iter()
+            .find(|(d, _)| *d == next_payment)
+            .map(|(_, m)| m.amount())
+            .unwrap_or(0.0);
+
+        Ok(period_interest * (accrual_fraction / period_fraction))
     }
 }
 

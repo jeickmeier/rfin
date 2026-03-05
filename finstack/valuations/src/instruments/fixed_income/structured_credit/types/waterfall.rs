@@ -600,8 +600,7 @@ impl Waterfall {
 
         if !principal_recipients.is_empty() {
             let principal_tier = WaterfallTier::new("principal", priority, PaymentType::Principal)
-                .allocation_mode(AllocationMode::Sequential)
-                .divertible(true);
+                .allocation_mode(AllocationMode::Sequential);
             let principal_tier = principal_recipients
                 .into_iter()
                 .fold(principal_tier, |tier, recipient| {
@@ -611,9 +610,12 @@ impl Waterfall {
             priority += 1;
         }
 
-        // Add equity tier
+        // Equity tier is divertible: when OC/IC tests fail, residual cash that
+        // would go to equity is redirected to the most senior principal tier
+        // (cash trap / turbo paydown). This matches INTEX/Bloomberg CLO convention.
         let equity_tier = WaterfallTier::new("equity", priority, PaymentType::Residual)
             .allocation_mode(AllocationMode::Sequential)
+            .divertible(true)
             .add_recipient(Recipient::new(
                 "equity_distribution",
                 RecipientType::Equity,

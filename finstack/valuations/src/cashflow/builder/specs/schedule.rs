@@ -130,6 +130,20 @@ pub struct FloatCouponParams {
     pub gearing: Decimal,
     /// reset lag days.
     pub reset_lag_days: i32,
+    /// Whether gearing includes the spread (default: true).
+    pub gearing_includes_spread: bool,
+    /// Floor on index rate in basis points.
+    pub floor_bp: Option<Decimal>,
+    /// Cap on all-in rate in basis points.
+    pub cap_bp: Option<Decimal>,
+    /// Floor on all-in rate in basis points.
+    pub all_in_floor_bp: Option<Decimal>,
+    /// Cap on index rate in basis points.
+    pub index_cap_bp: Option<Decimal>,
+    /// Optional fixing calendar (distinct from payment calendar).
+    pub fixing_calendar_id: Option<String>,
+    /// Overnight compounding method for overnight indices (SOFR, ESTR, SONIA).
+    pub overnight_compounding: Option<super::OvernightCompoundingMethod>,
 }
 
 /// Fixed Window structure.

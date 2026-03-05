@@ -480,12 +480,14 @@ impl MertonMcEngine {
             // Per-path RNG for determinism
             let mut rng = Pcg64Rng::new_with_stream(config.seed, path_idx as u64);
 
-            // Generate all normal draws for this path
+            // Pre-generate all random draws so that antithetic pairs share
+            // identical randomness (normals are sign-flipped; uniforms are reused).
             let normals: Vec<f64> = (0..total_steps).map(|_| rng.normal(0.0, 1.0)).collect();
-            // Generate all uniform draws for Brownian-bridge crossing checks.
-            // This preserves common random numbers across calibration runs that
-            // change barrier/vol parameters while keeping the random stream fixed.
+            // Brownian-bridge crossing checks
             let uniforms: Vec<f64> = (0..total_steps).map(|_| rng.uniform()).collect();
+            // Toggle decision draws — one per coupon date, shared across the
+            // antithetic pair to preserve variance-reduction symmetry.
+            let toggle_uniforms: Vec<f64> = (0..num_coupons).map(|_| rng.uniform()).collect();
 
             // Simulate base path (and optionally antithetic)
             let signs: &[f64] = if config.antithetic && path_pvs.len() + 1 < num_paths {
@@ -647,7 +649,9 @@ impl MertonMcEngine {
                                         asset_value: Some(v),
                                     };
 
-                                    if toggle.should_pik(&state, &mut rng) {
+                                    let tu =
+                                        toggle_uniforms.get(coupon_idx).copied().unwrap_or(0.5);
+                                    if toggle.should_pik_with_uniform(&state, tu) {
                                         n_current += coupon_amount;
                                         path_pik_elections += 1;
                                     } else {

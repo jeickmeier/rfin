@@ -860,13 +860,13 @@ impl CashFlowBuilder {
                 margin_bp: params.margin_bp,
                 gearing: params.gearing,
                 reset_lag_days: params.reset_lag_days,
-                gearing_includes_spread: true,
-                floor_bp: None,
-                cap_bp: None,
-                all_in_floor_bp: None,
-                index_cap_bp: None,
-                fixing_calendar_id: None,
-                overnight_compounding: None,
+                gearing_includes_spread: params.gearing_includes_spread,
+                floor_bp: params.floor_bp,
+                cap_bp: params.cap_bp,
+                all_in_floor_bp: params.all_in_floor_bp,
+                index_cap_bp: params.index_cap_bp,
+                fixing_calendar_id: params.fixing_calendar_id,
+                overnight_compounding: params.overnight_compounding,
             },
         });
         self.payment_program.push(PaymentProgramPiece {
@@ -1003,6 +1003,13 @@ impl CashFlowBuilder {
     ///     margin_bp: dec!(0),  // Will be overridden by steps
     ///     gearing: dec!(1),
     ///     reset_lag_days: 2,
+    ///     gearing_includes_spread: true,
+    ///     floor_bp: None,
+    ///     cap_bp: None,
+    ///     all_in_floor_bp: None,
+    ///     index_cap_bp: None,
+    ///     fixing_calendar_id: None,
+    ///     overnight_compounding: None,
     /// };
     ///
     /// let schedule = CashFlowSchedule::builder()
@@ -1100,6 +1107,13 @@ impl CashFlowBuilder {
     ///         margin_bp: dec!(250),
     ///         gearing: dec!(1),
     ///         reset_lag_days: 2,
+    ///         gearing_includes_spread: true,
+    ///         floor_bp: None,
+    ///         cap_bp: None,
+    ///         all_in_floor_bp: None,
+    ///         index_cap_bp: None,
+    ///         fixing_calendar_id: None,
+    ///         overnight_compounding: None,
     ///     },
     ///     schedule: ScheduleParams::quarterly_act360(),
     /// };

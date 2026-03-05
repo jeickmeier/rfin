@@ -123,18 +123,18 @@ impl<'de> serde::Deserialize<'de> for Bond {
         let helper = BondHelper::deserialize(deserializer)?;
         let issue_date = if let Some(issue) = helper.issue_date {
             issue
-        } else if helper
-            .pricing_overrides
-            .market_quotes
-            .quoted_clean_price
-            .is_some()
-        {
-            // For seasoned bond inputs sourced from clean-price datasets, allow
-            // missing issue date and use a conservative synthetic anchor.
-            helper.maturity - time::Duration::days(1)
+        } else if let Some(ref sched) = helper.custom_cashflows {
+            // Infer issue date from the first date in the custom cashflow schedule.
+            let dates = sched.dates();
+            if dates.is_empty() {
+                return Err(serde::de::Error::custom(
+                    "Bond requires `issue_date` (custom_cashflows schedule has no dates to infer from)",
+                ));
+            }
+            dates[0]
         } else {
             return Err(serde::de::Error::custom(
-                "Bond requires `issue_date` unless `pricing_overrides.market_quotes.quoted_clean_price` is provided",
+                "Bond requires `issue_date` unless `custom_cashflows` is provided",
             ));
         };
 
@@ -364,7 +364,7 @@ impl Bond {
     /// ## Japan (use `BondConvention::JGB`)
     /// - **Day Count:** ACT/365 Fixed
     /// - **Tenor:** Semi-annual
-    /// - **Settlement:** T+2
+    /// - **Settlement:** T+2 (cross-border; domestic is T+1 since May 2018)
     /// - **Calendar:** Japan holidays
     ///
     /// # Example
@@ -2285,7 +2285,60 @@ mod tests {
     }
 
     #[test]
-    fn test_bond_serde_allows_missing_issue_date_with_clean_price_override() {
+    fn test_bond_serde_allows_missing_issue_date_with_custom_cashflows() {
+        use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+
+        let issue = Date::from_calendar_date(2025, Month::January, 15).expect("valid");
+        let maturity = Date::from_calendar_date(2027, Month::January, 15).expect("valid");
+
+        let schedule = CashFlowSchedule::builder()
+            .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+            .fixed_cf(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: Decimal::try_from(0.05).expect("valid"),
+                freq: Tenor::semi_annual(),
+                dc: DayCount::Act365F,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: "weekends_only".to_string(),
+                stub: StubKind::None,
+                end_of_month: false,
+                payment_lag_days: 0,
+            })
+            .build_with_curves(None)
+            .expect("schedule build");
+
+        let bond = Bond::from_cashflows("SERDE-NO-ISSUE", schedule, "USD-OIS", Some(99.0))
+            .expect("bond from cashflows");
+
+        let mut value = serde_json::to_value(&bond).expect("serialize");
+        let obj = value
+            .as_object_mut()
+            .expect("Bond should serialize to an object");
+        obj.remove("issue_date");
+
+        let restored: Bond = serde_json::from_value(value).expect("deserialize");
+        assert_eq!(restored.issue_date, issue);
+        assert!(restored.issue_date < restored.maturity);
+    }
+
+    #[test]
+    fn test_bond_serde_rejects_missing_issue_date_without_custom_cashflows() {
+        let mut value = serde_json::to_value(Bond::example()).expect("serialize");
+        let obj = value
+            .as_object_mut()
+            .expect("Bond should serialize to an object");
+        obj.remove("issue_date");
+        let err = serde_json::from_value::<Bond>(value).expect_err("expected error");
+        assert!(
+            err.to_string().contains("Bond requires `issue_date`"),
+            "unexpected error: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_bond_serde_rejects_missing_issue_date_even_with_clean_price() {
         let mut value = serde_json::to_value(Bond::example()).expect("serialize");
         let obj = value
             .as_object_mut()
@@ -2296,17 +2349,6 @@ mod tests {
             serde_json::to_value(PricingOverrides::default().with_clean_price(99.0))
                 .expect("serialize pricing overrides"),
         );
-        let bond: Bond = serde_json::from_value(value).expect("deserialize");
-        assert!(bond.issue_date < bond.maturity);
-    }
-
-    #[test]
-    fn test_bond_serde_rejects_missing_issue_date_without_clean_price_override() {
-        let mut value = serde_json::to_value(Bond::example()).expect("serialize");
-        let obj = value
-            .as_object_mut()
-            .expect("Bond should serialize to an object");
-        obj.remove("issue_date");
         let err = serde_json::from_value::<Bond>(value).expect_err("expected error");
         assert!(
             err.to_string().contains("Bond requires `issue_date`"),

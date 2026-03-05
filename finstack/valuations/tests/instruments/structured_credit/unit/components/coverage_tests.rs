@@ -278,10 +278,12 @@ fn test_oc_test_cure_amount_calculation() {
     // Act
     let result = test.calculate(&context).expect("coverage calculation");
 
-    // Assert: Need 125M, have 115M → cure amount = 10M
+    // Cure amount = note paydown needed to restore OC ratio.
+    // denominator = 100M, numerator = 115M, required = 1.25
+    // paydown = 100M - 115M / 1.25 = 100M - 92M = 8M
     assert!(!result.is_passing);
     assert!(result.cure_amount.is_some());
-    assert_eq!(result.cure_amount.unwrap().amount(), 10_000_000.0);
+    assert!((result.cure_amount.unwrap().amount() - 8_000_000.0).abs() < 1.0);
 }
 
 // ============================================================================

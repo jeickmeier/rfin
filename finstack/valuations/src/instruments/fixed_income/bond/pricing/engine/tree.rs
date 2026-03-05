@@ -1070,10 +1070,13 @@ impl TreePricer {
         as_of: Date,
         clean_price_pct_of_par: f64,
     ) -> Result<f64> {
-        // clean_price_pct_of_par is expected to be the CLEAN price quoted in percent of par.
-        // Convert to currency and add accrued interest (currency) to form the dirty target.
-        let accrued_ccy = self.calculate_accrued_interest(bond, market_context, as_of)?;
-        let dirty_target = (clean_price_pct_of_par * bond.notional.amount() / 100.0) + accrued_ccy;
+        use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
+
+        // Dirty target must use accrued at the quote/settlement date to match
+        // the market convention used by YTM, Z-spread, and the quote engine.
+        let quote_ctx = QuoteDateContext::new(bond, market_context, as_of)?;
+        let dirty_target =
+            quote_ctx.dirty_from_clean_pct(clean_price_pct_of_par, bond.notional.amount());
         // Choose model: if a hazard curve is present in MarketContext whose ID matches the bond's
         // discount ID (preferred) or the fallback pattern "{discount_curve_id}-CREDIT", use the rates+credit
         // two-factor tree; otherwise, fall back to short-rate.
@@ -1190,17 +1193,6 @@ impl TreePricer {
         let initial_guess = 0.0;
         let oas_bp = solver.solve(objective_fn, initial_guess)?;
         Ok(oas_bp)
-    }
-
-    fn calculate_accrued_interest(
-        &self,
-        bond: &Bond,
-        _market_context: &MarketContext,
-        as_of: Date,
-    ) -> Result<f64> {
-        // Build full schedule with market context and use generic accrual engine
-        let schedule = bond.get_full_schedule(_market_context)?;
-        crate::cashflow::accrual::accrued_interest_amount(&schedule, as_of, &bond.accrual_config())
     }
 }
 
@@ -1481,19 +1473,29 @@ mod tests {
         assert!(pv_high < pv_low, "pv_high={} pv_low={}", pv_high, pv_low);
     }
     #[test]
-    fn test_accrued_interest_calculation() {
+    fn test_accrued_interest_via_quote_context() {
+        use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
+
         let bond = create_test_bond();
         let market_context = create_test_market_context();
-        let calculator = TreePricer::new();
-        let coupon_date = Date::from_calendar_date(2025, Month::July, 1).expect("Valid test date");
-        let accrued = calculator
-            .calculate_accrued_interest(&bond, &market_context, coupon_date)
-            .expect("Accrued interest calculation should succeed in test");
-        assert!(accrued.abs() < 1e-6);
+
+        // At issue date, accrued at quote_date (= issue + settlement_days)
+        // may be small but non-negative.
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let ctx_issue = QuoteDateContext::new(&bond, &market_context, issue)
+            .expect("QuoteDateContext should succeed in test");
+        assert!(
+            ctx_issue.accrued_at_quote_date >= 0.0,
+            "Accrued at issue quote_date should be non-negative"
+        );
+
+        // Mid-period: accrued should be positive
         let mid_period = Date::from_calendar_date(2025, Month::April, 1).expect("Valid test date");
-        let accrued_mid = calculator
-            .calculate_accrued_interest(&bond, &market_context, mid_period)
-            .expect("Accrued interest calculation should succeed in test");
-        assert!(accrued_mid > 0.0);
+        let ctx_mid = QuoteDateContext::new(&bond, &market_context, mid_period)
+            .expect("QuoteDateContext should succeed in test");
+        assert!(
+            ctx_mid.accrued_at_quote_date > 0.0,
+            "Accrued mid-period should be positive"
+        );
     }
 }

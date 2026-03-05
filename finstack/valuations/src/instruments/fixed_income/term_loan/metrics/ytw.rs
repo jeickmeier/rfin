@@ -31,16 +31,21 @@ impl MetricCalculator for YtwCalculator {
         // Use outstanding_by_date for correct principal path
         let out_path = schedule.outstanding_by_date()?;
 
-        // Candidate exercises: each call and final maturity
+        // Candidate exercises: each exercisable call and final maturity.
+        // MakeWhole calls are excluded: by design the borrower pays at least
+        // the continuation value, making the option non-economic for YTW.
         let mut candidates: Vec<(Date, Money)> = Vec::new();
         if let Some(cs) = &loan.call_schedule {
             for c in &cs.calls {
                 if c.date < as_of || c.date > loan.maturity {
                     continue;
                 }
-                // Pre-exercise outstanding (< call date): outstanding_by_date
-                // returns balances AFTER each date, so < gives the balance
-                // before any events on the call date.
+                if matches!(
+                    c.call_type,
+                    crate::instruments::fixed_income::term_loan::LoanCallType::MakeWhole { .. }
+                ) {
+                    continue;
+                }
                 let out = outstanding_before(&out_path, c.date, loan.currency);
                 let redemption =
                     Money::new(out.amount() * (c.price_pct_of_par / 100.0), loan.currency);

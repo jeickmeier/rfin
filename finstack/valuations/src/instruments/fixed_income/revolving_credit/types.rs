@@ -802,7 +802,6 @@ impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
     }
 }
 
-// Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common_impl::traits::CurveDependencies for RevolvingCredit {
     fn curve_dependencies(
         &self,
@@ -810,7 +809,10 @@ impl crate::instruments::common_impl::traits::CurveDependencies for RevolvingCre
         let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone());
 
-        // Add credit curve if present
+        if let BaseRateSpec::Floating(ref spec) = self.base_rate_spec {
+            builder = builder.forward(spec.index_id.clone());
+        }
+
         if let Some(ref credit_curve_id) = self.credit_curve_id {
             builder = builder.credit(credit_curve_id.clone());
         }

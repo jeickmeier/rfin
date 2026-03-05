@@ -96,15 +96,22 @@ impl MetricCalculator for CleanPriceCalculator {
 
 /// Helper to get the original notional from the context.
 ///
-/// For structured credit, the notional is typically set when creating the context
-/// (pool original balance or tranche original balance).
+/// For structured credit, the notional **must** be set when creating the
+/// `MetricContext` (pool original balance for deal-level, tranche original
+/// balance for tranche-level). Using `base_value` as a fallback produces
+/// self-referential prices (dirty price ≈ 100% always) and silently wrong
+/// Z-spread / CS01 / duration values.
 fn get_original_notional(context: &MetricContext) -> Result<f64> {
-    // Use notional from context if available
-    if let Some(notional) = context.notional {
-        return Ok(notional.amount());
-    }
-
-    // Fallback: use base_value as notional approximation
-    // This works when price ≈ 100% and NPV ≈ notional
-    Ok(context.base_value.amount().abs())
+    context
+        .notional
+        .map(|n| n.amount())
+        .filter(|&n| n > 0.0)
+        .ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "MetricContext.notional must be set for structured credit price metrics. \
+                 Set it to pool total balance (deal-level) or tranche original balance \
+                 (tranche-level) when constructing the metric context."
+                    .to_string(),
+            )
+        })
 }

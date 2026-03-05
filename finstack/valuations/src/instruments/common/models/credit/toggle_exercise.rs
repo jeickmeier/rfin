@@ -166,8 +166,11 @@ fn optimal_toggle_decision(
     state: &CreditState,
     rng: &mut dyn RandomNumberGenerator,
 ) -> bool {
-    // Recover current asset value.  Fall back to notional / leverage when
-    // the engine hasn't set `asset_value` explicitly.
+    let seed_bits = (rng.uniform() * u64::MAX as f64) as u64;
+    optimal_toggle_decision_seeded(o, state, seed_bits)
+}
+
+fn optimal_toggle_decision_seeded(o: &OptimalToggle, state: &CreditState, seed_bits: u64) -> bool {
     let v = state.asset_value.unwrap_or_else(|| {
         if state.leverage > 0.0 {
             state.accreted_notional / state.leverage
@@ -177,49 +180,31 @@ fn optimal_toggle_decision(
     });
     let n = state.accreted_notional;
 
-    // Guard: if notional is zero or negative there is nothing to decide.
     if n <= 0.0 {
         return false;
     }
 
-    // Estimate the coupon amount as notional * equity_discount_rate (a
-    // reasonable proxy when the exact coupon rate is not part of
-    // CreditState).  Clamp to avoid nonsensical values.
     let coupon = (n * o.equity_discount_rate).max(0.0);
 
-    // Define starting conditions for both scenarios.
-    let v_cash_start = (v - coupon).max(0.0); // firm pays out cash
-    let barrier_cash = n; // notional unchanged
+    let v_cash_start = (v - coupon).max(0.0);
+    let barrier_cash = n;
 
-    let v_pik_start = v; // no cash outflow
-    let barrier_pik = n + coupon; // notional accretes
+    let v_pik_start = v;
+    let barrier_pik = n + coupon;
 
-    // --- Early-exit liquidity check ---
-    // If paying cash would immediately breach the barrier (the coupon
-    // exceeds the equity cushion), PIK is the only viable option —
-    // provided the firm can survive under PIK.
     let cash_viable = v_cash_start > barrier_cash;
     let pik_viable = v_pik_start > barrier_pik;
 
     if !cash_viable && pik_viable {
-        return true; // PIK is the only way to avoid immediate default
+        return true;
     }
     if !cash_viable && !pik_viable {
-        // Both scenarios start in default; PIK at least delays the
-        // cash outflow, giving marginal optionality value.
         return true;
     }
     if cash_viable && !pik_viable {
-        return false; // cash is the only viable option
+        return false;
     }
 
-    // Both scenarios are viable -- run the nested MC.
-    // Derive a seed from the current RNG state so that nested paths are
-    // reproducible yet uncorrelated with the outer simulation.
-    let seed_bits = (rng.uniform() * u64::MAX as f64) as u64;
-
-    // Under cash: the firm has paid out the coupon, so ongoing debt
-    // service is lower.  Asset drift equals the risk-free rate.
     let model_cash = NestedEquityMcModel {
         sigma: o.asset_vol,
         risk_free_rate: o.risk_free_rate,
@@ -227,13 +212,6 @@ fn optimal_toggle_decision(
         horizon: o.horizon,
     };
 
-    // Under PIK: the firm retains cash but the higher notional implies
-    // increased future debt service.  We model this as a reduced drift:
-    // the asset grows at `r - coupon_rate`, reflecting the ongoing cost
-    // of the larger debt burden.  This makes PIK unattractive for
-    // healthy firms (where terminal equity dominates) while the
-    // early-exit liquidity check above still captures the case where
-    // PIK is the only way to avoid immediate default.
     let model_pik = NestedEquityMcModel {
         sigma: o.asset_vol,
         risk_free_rate: o.risk_free_rate - o.equity_discount_rate,
@@ -254,7 +232,7 @@ fn optimal_toggle_decision(
         v_pik_start,
         barrier_pik,
         model_pik,
-        seed_bits.wrapping_add(1_000_000), // different seed for PIK paths
+        seed_bits.wrapping_add(1_000_000),
     );
 
     avg_equity_pik > avg_equity_cash
@@ -356,6 +334,17 @@ impl ToggleExerciseModel {
 
     /// Returns `true` if the borrower elects PIK at this coupon date.
     pub fn should_pik(&self, state: &CreditState, rng: &mut dyn RandomNumberGenerator) -> bool {
+        self.should_pik_with_uniform(state, rng.uniform())
+    }
+
+    /// Deterministic variant of [`should_pik`](Self::should_pik) that uses a
+    /// pre-generated uniform draw `u` in `[0, 1)` instead of pulling from a
+    /// mutable RNG.
+    ///
+    /// This enables antithetic MC paths to share identical toggle randomness
+    /// across the base and antithetic pair, preserving variance reduction
+    /// effectiveness when toggle decisions are active.
+    pub fn should_pik_with_uniform(&self, state: &CreditState, u: f64) -> bool {
         match self {
             Self::Threshold(t) => {
                 let value = extract_state_value(state, &t.state_variable);
@@ -367,9 +356,12 @@ impl ToggleExerciseModel {
             Self::Stochastic(s) => {
                 let value = extract_state_value(state, &s.state_variable);
                 let p = 1.0 / (1.0 + (-s.intercept - s.sensitivity * value).exp());
-                rng.uniform() < p
+                u < p
             }
-            Self::OptimalExercise(o) => optimal_toggle_decision(o, state, rng),
+            Self::OptimalExercise(o) => {
+                let seed_bits = (u * u64::MAX as f64) as u64;
+                optimal_toggle_decision_seeded(o, state, seed_bits)
+            }
         }
     }
 

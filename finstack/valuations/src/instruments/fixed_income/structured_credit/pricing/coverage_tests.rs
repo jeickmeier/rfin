@@ -184,10 +184,17 @@ impl CoverageTest {
             }
         }
 
-        let cure_amount = if !is_passing {
-            let required_collateral = denominator.amount() * required_ratio;
-            let shortfall = required_collateral - numerator.amount();
-            Some(Money::new(shortfall.max(0.0), denominator.currency()))
+        // Cure amount = note paydown needed to restore OC ratio.
+        //
+        // After paying down $X from the denominator:
+        //   new_ratio = numerator / (denominator - X) >= required_ratio
+        //   => X >= denominator - numerator / required_ratio
+        //
+        // This is the correct "diversion currency" because OC breaches are
+        // cured by paying down notes, not by adding collateral.
+        let cure_amount = if !is_passing && required_ratio > 0.0 {
+            let paydown_needed = denominator.amount() - numerator.amount() / required_ratio;
+            Some(Money::new(paydown_needed.max(0.0), denominator.currency()))
         } else {
             None
         };

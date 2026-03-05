@@ -308,12 +308,17 @@ See also `pricing/stochastic/README.md` for stochastic modeling.
 
 - [x] Compute IC cure amount in `calculate_ic` (`pricing/coverage_tests.rs`)
 - [x] Use consistent day-count-based accrual for amortization schedule in `calculate_pool_flows` (`pricing/deterministic.rs`)
+- [x] Fix OC cure formula to compute note paydown needed (not collateral shortfall) (`pricing/coverage_tests.rs`)
+- [x] Fix waterfall diversion: equity tier is now divertible (cash trap to senior principal) (`types/waterfall.rs`)
+- [x] Require explicit `MetricContext.notional` for price metrics (no self-referential fallback) (`metrics/pricing/prices.rs`)
 
 ### Major (next release)
 
 - [x] Make `CreditModelConfig` defaults deal-type-specific via `CreditModelConfig::for_deal_type()`
 - [x] Rename `PricingMode::MonteCarlo` to `PricingMode::TreeResampling` (old variant deprecated)
 - [x] Deprecate `PricingMode::Hybrid` with clear warning
+- [x] Add `pik_enabled` field to `Tranche` — only PIK-enabled tranches accrete shortfall into balance (`types/tranches.rs`, `pricing/deterministic.rs`)
+- [x] Accrued interest calculator prefers interest-only flows from `TrancheCashflows` (`metrics/pricing/accrued.rs`)
 
 ### Moderate (backlog)
 
@@ -322,6 +327,8 @@ See also `pricing/stochastic/README.md` for stochastic modeling.
 - [x] Replace YTM fallback `0.05` in `value_tranche_with_metrics` with `NaN`
 - [x] Widen `Z_SPREAD_MIN` to -1000bp for legacy premium pools
 - [x] Track recovery proceeds separately in `WaterfallDistribution` and `WaterfallContext`
+- [x] Set `notional` on all `MetricContext` creation paths (deal-level and tranche-level) (`types/mod.rs`, `pricer.rs`)
+- [x] Pass `detailed_tranche_cashflows` into tranche-level metric context for accurate accrued/WAL
 
 ### Strategic Gaps (roadmap)
 
@@ -330,6 +337,7 @@ See also `pricing/stochastic/README.md` for stochastic modeling.
 - [ ] Key-rate duration by tranche
 - [ ] Synthetic CDO / credit-linked note coverage
 - [ ] P&L attribution (carry, roll-down, spread, prepay, default components)
+- [ ] Separate interest / principal cash accounts for trustee-report-level fidelity
 
 ## Related Crates
 
