@@ -40,6 +40,7 @@
 //! - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models — Theory and Practice*.
 //!   Springer Finance (2nd ed.), Chapter 3.
 
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
 use finstack_core::math::special_functions::norm_cdf;
 use std::collections::BTreeMap;
@@ -432,6 +433,7 @@ fn hw1f_swaption_price(
 
     // Newton iterations to find r*
     let mut r_star = f0t0;
+    let mut newton_converged = false;
     for _ in 0..50 {
         let gv = g(r_star);
         let gp = g_prime(r_star);
@@ -441,7 +443,28 @@ fn hw1f_swaption_price(
         let step = gv / gp;
         r_star -= step;
         if step.abs() < 1e-12 {
+            newton_converged = true;
             break;
+        }
+    }
+
+    // Brent fallback if Newton didn't converge
+    if !newton_converged {
+        tracing::warn!(
+            "HW1F r* Newton solver did not converge (kappa={kappa:.4}, sigma={sigma:.4}), \
+             falling back to Brent"
+        );
+        let bracket_lo = f0t0 - 0.05;
+        let bracket_hi = f0t0 + 0.05;
+        let brent = BrentSolver::new()
+            .tolerance(1e-12)
+            .bracket_bounds(bracket_lo, bracket_hi);
+        match brent.solve(g, f0t0) {
+            Ok(r) => r_star = r,
+            Err(_) => {
+                // Last resort: keep Newton's best guess
+                tracing::warn!("HW1F r* Brent fallback also failed; using Newton's best estimate");
+            }
         }
     }
 
@@ -604,6 +627,23 @@ mod tests {
             "sigma should be reasonable: {:.4}",
             params.sigma
         );
+    }
+
+    #[test]
+    fn test_hw1f_brent_fallback_extreme_params() {
+        // Extreme κ and σ that make Newton diverge
+        let kappa = 5.0;
+        let sigma = 0.03;
+        let df = flat_df(0.03);
+
+        // These extreme params should still produce a finite swaption price
+        // because the Brent fallback catches Newton divergence.
+        let price = hw1f_swaption_price(kappa, sigma, &df, 1.0, 5.0, 0.03);
+        assert!(
+            price.is_finite(),
+            "Swaption price should be finite with Brent fallback"
+        );
+        assert!(price >= 0.0, "Swaption price must be non-negative");
     }
 
     #[test]
