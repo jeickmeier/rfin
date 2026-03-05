@@ -211,6 +211,7 @@ impl ScenarioAdapter for CurveAdapter {
                             ctx.market,
                             &bump_req,
                             as_of,
+                            None,
                         )
                         .map_err(|e| {
                             Error::Internal(format!("Failed to bump discount curve: {}", e))
@@ -386,6 +387,7 @@ impl ScenarioAdapter for CurveAdapter {
                             ctx.market,
                             &bump_req,
                             as_of,
+                            None,
                         )
                         .map_err(|e| {
                             Error::Internal(format!(

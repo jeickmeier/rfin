@@ -265,6 +265,7 @@ mod tests {
             &market,
             &BumpRequest::Parallel(100.0),
             as_of,
+            None,
         )
         .expect("bump");
         let bumped_market = market.clone().insert_discount(bumped_curve);
