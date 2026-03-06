@@ -299,29 +299,53 @@ fn barrier_helper(
 
     let is_call = eta > 0.0;
 
-    // Combine based on barrier type.
+    // Combine based on barrier type AND strike-vs-barrier regime.
     //
-    // Formula decomposition follows Reiner & Rubinstein (1991) / Haug (2007) Table 4.17.
+    // Formula decomposition follows Haug (2007) Table 4.17.
     // The helper computes the knock-IN value; knock-OUT = Vanilla - knock-IN.
     //
     // Notation: A = vanilla, B = vanilla capped at barrier, C = reflected vanilla,
     //           D = reflected vanilla capped at barrier
     //
-    // Case mapping (spot > barrier means UP barrier triggered from above):
-    //   Up-Call knock-in   = A - B + C - D    [Haug eq. 4.19a]
-    //   Up-Put knock-in    = B - C + D        [Haug eq. 4.19b]
-    //   Down-Call knock-in = B - C + D        [Haug eq. 4.20a]
-    //   Down-Put knock-in  = A - B + C - D    [Haug eq. 4.20b]
+    // The correct decomposition depends on whether K ≷ H:
+    //
+    // DOWN barrier (spot > barrier, H < S):
+    //   Call, K >= H: A - C     [Haug type 1]
+    //   Call, K <  H: B - D     [Haug type 2]
+    //   Put,  K >= H: B - D     [Haug type 5]
+    //   Put,  K <  H: A - C     [Haug type 6]
+    //
+    // UP barrier (spot <= barrier, H > S):
+    //   Call, K <= H: A - C     [Haug type 3]
+    //   Call, K >  H: B - D     [Haug type 4]
+    //   Put,  K <= H: B - D     [Haug type 7]
+    //   Put,  K >  H: A - C     [Haug type 8]
     if spot > barrier {
+        // DOWN barrier
         if is_call {
-            a - b + c - d
+            if strike >= barrier {
+                a - c
+            } else {
+                b - d
+            }
+        } else if strike >= barrier {
+            b - d
         } else {
-            b - c + d
+            a - c
         }
-    } else if is_call {
-        b - c + d
     } else {
-        a - b + c - d
+        // UP barrier
+        if is_call {
+            if strike <= barrier {
+                a - c
+            } else {
+                b - d
+            }
+        } else if strike <= barrier {
+            b - d
+        } else {
+            a - c
+        }
     }
 }
 
@@ -1222,14 +1246,8 @@ mod tests {
     ///
     /// The Reiner-Rubinstein formula branches differently depending on the
     /// relationship between strike and barrier, so both must be exercised.
-    ///
-    /// NOTE: The current `barrier_helper` uses a single formula per direction.
-    /// Haug (2007) Table 4.17 shows that the correct decomposition differs
-    /// for K >= H vs K < H in down-barrier calls (and K <= H vs K > H in
-    /// up-barrier puts). Parity (In + Out = Vanilla) holds structurally
-    /// because Out = Vanilla - In, but individual knock-in/knock-out values
-    /// may be incorrect (even negative) in the K < H down-call regime and
-    /// K > H up-put regime. This test documents the current behavior.
+    /// Per Haug (2007) Table 4.17, `barrier_helper` now branches on K vs H,
+    /// producing correct individual knock-in/knock-out values in all regimes.
     #[test]
     fn test_strike_vs_barrier_regimes() {
         let spot = 100.0;
@@ -1267,15 +1285,19 @@ mod tests {
             );
         }
 
-        // --- Down-barrier calls, K < H (problematic regime: barrier_helper
-        //     produces incorrect individual values; parity still holds structurally) ---
+        // --- Down-barrier calls, K < H ---
         {
             let barrier = 95.0;
             let strike = 90.0;
             let di = down_in_call(spot, strike, barrier, time, rate, div_yield, vol);
             let do_ = down_out_call(spot, strike, barrier, time, rate, div_yield, vol);
             let v = vanilla_call(spot, strike, time, rate, div_yield, vol);
-            // Parity holds structurally (Out = Vanilla - In)
+            assert!(di >= 0.0, "Down-in call (K<H) must be non-negative: {}", di);
+            assert!(
+                do_ >= 0.0,
+                "Down-out call (K<H) must be non-negative: {}",
+                do_
+            );
             assert!(
                 (di + do_ - v).abs() < tol,
                 "Down call parity (K<H): in({}) + out({}) vs vanilla({})",
@@ -1309,13 +1331,15 @@ mod tests {
             );
         }
 
-        // --- Up-barrier puts, K > H (problematic regime) ---
+        // --- Up-barrier puts, K > H ---
         {
             let barrier = 105.0;
             let strike = 110.0;
             let ui = up_in_put(spot, strike, barrier, time, rate, div_yield, vol);
             let uo = up_out_put(spot, strike, barrier, time, rate, div_yield, vol);
             let v = vanilla_put(spot, strike, time, rate, div_yield, vol);
+            assert!(ui >= 0.0, "Up-in put (K>H) must be non-negative: {}", ui);
+            assert!(uo >= 0.0, "Up-out put (K>H) must be non-negative: {}", uo);
             assert!(
                 (ui + uo - v).abs() < tol,
                 "Up put parity (K>H): in({}) + out({}) vs vanilla({})",
@@ -1641,5 +1665,62 @@ mod tests {
             (uo - v).abs() < 0.5,
             "Short maturity up-out should be close to vanilla when barrier is far",
         );
+    }
+
+    #[test]
+    fn test_barrier_k_vs_h_non_negativity_and_parity() {
+        let tol = 1e-6;
+
+        // Down-barrier call with K < H (previously-broken regime)
+        {
+            let spot = 110.0;
+            let strike = 90.0;
+            let barrier = 100.0;
+            let r = 0.05;
+            let q = 0.02;
+            let vol = 0.25;
+            let t = 1.0;
+
+            let ki = down_in_call(spot, strike, barrier, t, r, q, vol);
+            let ko = down_out_call(spot, strike, barrier, t, r, q, vol);
+            let v = vanilla_call(spot, strike, t, r, q, vol);
+
+            assert!(ki >= 0.0, "Down-in call (K<H) negative: {}", ki);
+            assert!(ko >= 0.0, "Down-out call (K<H) negative: {}", ko);
+            assert!(
+                (ki + ko - v).abs() < tol,
+                "Down call parity (K<H): in({}) + out({}) = {} vs vanilla({})",
+                ki,
+                ko,
+                ki + ko,
+                v,
+            );
+        }
+
+        // Up-barrier put with K > H (previously-broken regime)
+        {
+            let spot = 90.0;
+            let strike = 110.0;
+            let barrier = 100.0;
+            let r = 0.05;
+            let q = 0.02;
+            let vol = 0.25;
+            let t = 1.0;
+
+            let ki = up_in_put(spot, strike, barrier, t, r, q, vol);
+            let ko = up_out_put(spot, strike, barrier, t, r, q, vol);
+            let v = vanilla_put(spot, strike, t, r, q, vol);
+
+            assert!(ki >= 0.0, "Up-in put (K>H) negative: {}", ki);
+            assert!(ko >= 0.0, "Up-out put (K>H) negative: {}", ko);
+            assert!(
+                (ki + ko - v).abs() < tol,
+                "Up put parity (K>H): in({}) + out({}) = {} vs vanilla({})",
+                ki,
+                ko,
+                ki + ko,
+                v,
+            );
+        }
     }
 }

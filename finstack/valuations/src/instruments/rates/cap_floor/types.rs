@@ -73,6 +73,9 @@ pub enum CapFloorVolType {
     ///
     /// This is useful for portfolios spanning multiple currencies or rate
     /// regimes where some periods may have negative forwards.
+    ///
+    /// **Recommended default for production use** — safely handles mixed
+    /// positive/negative rate environments without manual intervention.
     Auto,
 }
 
@@ -411,6 +414,43 @@ impl InterestRateOption {
     }
 }
 
+/// Resolve the effective vol type, falling back to Normal for negative forwards/strikes.
+fn resolve_vol_type(
+    vol_type: CapFloorVolType,
+    forward: f64,
+    strike: f64,
+    vol_shift: f64,
+) -> CapFloorVolType {
+    match vol_type {
+        CapFloorVolType::Lognormal => {
+            if forward > 0.0 && strike > 0.0 {
+                CapFloorVolType::Lognormal
+            } else {
+                tracing::warn!(
+                    forward,
+                    strike,
+                    "Lognormal requested but forward/strike non-positive; falling back to Normal"
+                );
+                CapFloorVolType::Normal
+            }
+        }
+        CapFloorVolType::ShiftedLognormal => {
+            if forward + vol_shift > 0.0 && strike + vol_shift > 0.0 {
+                CapFloorVolType::ShiftedLognormal
+            } else {
+                tracing::warn!(
+                    forward,
+                    strike,
+                    vol_shift,
+                    "ShiftedLognormal requested but shifted values non-positive; falling back to Normal"
+                );
+                CapFloorVolType::Normal
+            }
+        }
+        other => other,
+    }
+}
+
 impl crate::instruments::common_impl::traits::Instrument for InterestRateOption {
     impl_instrument_base!(crate::pricer::InstrumentType::CapFloor);
 
@@ -492,25 +532,20 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                     currency: self.notional.currency(),
                 })
             };
-            return match self.vol_type {
-                CapFloorVolType::Lognormal => black_price(strike, forward),
-                CapFloorVolType::ShiftedLognormal => {
-                    let vol_shift = self.resolved_vol_shift();
-                    black_price(strike + vol_shift, forward + vol_shift)
-                }
-                CapFloorVolType::Normal => normal_price(),
-                CapFloorVolType::Auto => {
+            let vol_shift = self.resolved_vol_shift();
+            let resolved = resolve_vol_type(self.vol_type, forward, strike, vol_shift);
+            return match resolved {
+                CapFloorVolType::Lognormal | CapFloorVolType::Auto => {
                     if forward > 0.0 && strike > 0.0 {
                         black_price(strike, forward)
                     } else {
-                        tracing::info!(
-                            forward = forward,
-                            strike = strike,
-                            "Auto vol type: using Normal (Bachelier) model for non-positive forward/strike"
-                        );
                         normal_price()
                     }
                 }
+                CapFloorVolType::ShiftedLognormal => {
+                    black_price(strike + vol_shift, forward + vol_shift)
+                }
+                CapFloorVolType::Normal => normal_price(),
             };
         }
 
@@ -589,10 +624,17 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                 accrual_year_fraction: tau,
                 currency: self.notional.currency(),
             };
-            let leg_pv = match self.vol_type {
-                CapFloorVolType::Lognormal => black_ir::price_caplet_floorlet(black_inputs())?,
+            let vol_shift = self.resolved_vol_shift();
+            let resolved = resolve_vol_type(self.vol_type, forward, strike, vol_shift);
+            let leg_pv = match resolved {
+                CapFloorVolType::Lognormal | CapFloorVolType::Auto => {
+                    if forward > 0.0 && strike > 0.0 {
+                        black_ir::price_caplet_floorlet(black_inputs())?
+                    } else {
+                        normal_ir::price_caplet_floorlet(normal_inputs())?
+                    }
+                }
                 CapFloorVolType::ShiftedLognormal => {
-                    let vol_shift = self.resolved_vol_shift();
                     black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
                         strike: strike + vol_shift,
                         forward: forward + vol_shift,
@@ -600,18 +642,6 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                     })?
                 }
                 CapFloorVolType::Normal => normal_ir::price_caplet_floorlet(normal_inputs())?,
-                CapFloorVolType::Auto => {
-                    if forward > 0.0 && strike > 0.0 {
-                        black_ir::price_caplet_floorlet(black_inputs())?
-                    } else {
-                        tracing::info!(
-                            forward = forward,
-                            strike = strike,
-                            "Auto vol type: using Normal (Bachelier) model for non-positive forward/strike"
-                        );
-                        normal_ir::price_caplet_floorlet(normal_inputs())?
-                    }
-                }
             };
             total_pv = total_pv.checked_add(leg_pv)?;
         }
@@ -948,11 +978,20 @@ mod tests {
             "Normal cap/floor PV should be finite and non-negative"
         );
 
-        // For black model the same negative forward should fail with a clear error.
-        let black_result = black_floorlet.value(&ctx, base_date);
+        // Lognormal with negative forward now falls back to Normal (Bachelier) with a warning.
+        let black_pv = black_floorlet
+            .value(&ctx, base_date)
+            .expect("Lognormal should fall back to Normal for negative forwards");
         assert!(
-            black_result.is_err(),
-            "Black model should reject non-positive forwards"
+            black_pv.amount().is_finite() && black_pv.amount() >= 0.0,
+            "Lognormal fallback PV should be finite and non-negative, got {}",
+            black_pv.amount()
+        );
+        assert!(
+            (black_pv.amount() - normal_pv.amount()).abs() < 1e-8,
+            "Lognormal fallback should produce the same result as explicit Normal: lognormal={}, normal={}",
+            black_pv.amount(),
+            normal_pv.amount()
         );
     }
 

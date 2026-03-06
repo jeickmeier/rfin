@@ -21,6 +21,7 @@ pub enum BondQuote {
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         id: QuoteId,
         /// Settlement / pricing currency of the bond.
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         currency: Currency,
         /// Bond issue date.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
@@ -42,6 +43,7 @@ pub enum BondQuote {
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         id: QuoteId,
         /// Settlement / pricing currency of the bond.
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         currency: Currency,
         /// Bond issue date.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
@@ -63,6 +65,7 @@ pub enum BondQuote {
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         id: QuoteId,
         /// Settlement / pricing currency of the bond.
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         currency: Currency,
         /// Bond issue date.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
@@ -84,6 +87,7 @@ pub enum BondQuote {
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         id: QuoteId,
         /// Settlement / pricing currency of the bond.
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         currency: Currency,
         /// Bond issue date.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]

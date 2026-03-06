@@ -317,60 +317,46 @@ impl CDSIndexPricer {
     ) -> Result<f64> {
         let credit_id = &cds.protection.credit_curve_id;
         let discount_id = &cds.premium.discount_curve_id;
+        let bump_bp = 1.0_f64;
 
-        // Base PV
         let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         let hazard = curves.get_hazard(credit_id)?;
         let hazard_ref = hazard.as_ref();
         let has_par_points = hazard_ref.par_spread_points().next().is_some();
 
-        let base_pv = if has_par_points {
-            match bump_hazard_spreads(
-                hazard_ref,
-                curves,
-                &BumpRequest::Parallel(0.0),
-                Some(discount_id),
-            ) {
-                Ok(base_recal) => {
-                    let base_ctx = curves.clone().insert_hazard(base_recal);
-                    let disc = base_ctx.get_discount(discount_id)?;
-                    let surv = base_ctx.get_hazard(credit_id)?;
-                    pricer.npv(cds, disc.as_ref(), surv.as_ref(), as_of)?
+        let bump_hazard_for = |bp: f64| -> Result<_> {
+            if has_par_points {
+                match bump_hazard_spreads(
+                    hazard_ref,
+                    curves,
+                    &BumpRequest::Parallel(bp),
+                    Some(discount_id),
+                ) {
+                    Ok(curve) => Ok(curve),
+                    Err(_) => bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(bp)),
                 }
-                Err(_) => {
-                    let disc = curves.get_discount(discount_id)?;
-                    let surv = curves.get_hazard(credit_id)?;
-                    pricer.npv(cds, disc.as_ref(), surv.as_ref(), as_of)?
-                }
+            } else {
+                bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(bp))
             }
-        } else {
-            let disc = curves.get_discount(discount_id)?;
-            let surv = curves.get_hazard(credit_id)?;
-            pricer.npv(cds, disc.as_ref(), surv.as_ref(), as_of)?
         };
 
-        let bumped_hazard = if has_par_points {
-            match bump_hazard_spreads(
-                hazard_ref,
-                curves,
-                &BumpRequest::Parallel(1.0),
-                Some(discount_id),
-            ) {
-                Ok(curve) => curve,
-                Err(_) => bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(1.0))?,
-            }
-        } else {
-            bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(1.0))?
-        };
-
-        let bumped_ctx = curves.clone().insert_hazard(bumped_hazard);
-        let bumped_disc = bumped_ctx.get_discount(discount_id)?;
-        let bumped_surv = bumped_ctx.get_hazard(credit_id)?;
-        let bumped_pv = pricer
-            .npv(cds, bumped_disc.as_ref(), bumped_surv.as_ref(), as_of)?
+        let bumped_up = bump_hazard_for(bump_bp)?;
+        let ctx_up = curves.clone().insert_hazard(bumped_up);
+        let disc_up = ctx_up.get_discount(discount_id)?;
+        let surv_up = ctx_up.get_hazard(credit_id)?;
+        let pv_up = pricer
+            .npv(cds, disc_up.as_ref(), surv_up.as_ref(), as_of)?
             .amount();
 
-        Ok(bumped_pv - base_pv.amount())
+        let bumped_down = bump_hazard_for(-bump_bp)?;
+        let ctx_down = curves.clone().insert_hazard(bumped_down);
+        let disc_down = ctx_down.get_discount(discount_id)?;
+        let surv_down = ctx_down.get_hazard(credit_id)?;
+        let pv_down = pricer
+            .npv(cds, disc_down.as_ref(), surv_down.as_ref(), as_of)?
+            .amount();
+
+        Ok((pv_up - pv_down) / (2.0 * bump_bp))
     }
 
     // ----- internals -----

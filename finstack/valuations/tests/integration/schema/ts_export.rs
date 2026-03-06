@@ -1,48 +1,48 @@
 use finstack_valuations::calibration::{
     CalibrationConfig, RateBounds, SolverConfig, ValidationMode,
 };
+use finstack_valuations::market::quotes::bond::BondQuote;
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
+use finstack_valuations::market::quotes::fx::FxQuote;
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote as RatesQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
-use std::sync::Once;
+use finstack_valuations::market::quotes::xccy::XccyQuote;
+use std::sync::OnceLock;
 use ts_rs::TS;
 
 const OUT_DIR: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../finstack-wasm/examples/src/types/generated"
+    "/../../finstack-wasm/types/generated"
 );
 
-/// Initialize the TS export directory exactly once across all test runs.
-/// Using `Once` ensures thread-safety when tests run in parallel.
-static INIT_EXPORT_DIR: Once = Once::new();
+static CONFIG: OnceLock<ts_rs::Config> = OnceLock::new();
 
-fn init_export_dir() {
-    INIT_EXPORT_DIR.call_once(|| {
+fn config() -> &'static ts_rs::Config {
+    CONFIG.get_or_init(|| {
         std::fs::create_dir_all(OUT_DIR).expect("create generated types dir");
-        // SAFETY: This is called exactly once via `Once::call_once`, so there's no
-        // race condition with other threads reading/writing this env var.
-        unsafe {
-            std::env::set_var("TS_RS_EXPORT_DIR", OUT_DIR);
-        }
-    });
+        ts_rs::Config::new().with_out_dir(OUT_DIR)
+    })
 }
 
 #[test]
 fn export_calibration_types() {
-    init_export_dir();
+    let cfg = config();
 
-    CalibrationConfig::export().expect("export CalibrationConfig");
-    SolverConfig::export().expect("export SolverConfig");
-    RateBounds::export().expect("export RateBounds");
-    ValidationMode::export().expect("export ValidationMode");
+    CalibrationConfig::export(cfg).expect("export CalibrationConfig");
+    SolverConfig::export(cfg).expect("export SolverConfig");
+    RateBounds::export(cfg).expect("export RateBounds");
+    ValidationMode::export(cfg).expect("export ValidationMode");
 
-    RatesQuote::export().expect("export RatesQuote");
-    CdsQuote::export().expect("export CdsQuote");
-    CDSTrancheQuote::export().expect("export CDSTrancheQuote");
-    VolQuote::export().expect("export VolQuote");
-    InflationQuote::export().expect("export InflationQuote");
-    MarketQuote::export().expect("export MarketQuote");
+    BondQuote::export(cfg).expect("export BondQuote");
+    RatesQuote::export(cfg).expect("export RatesQuote");
+    CdsQuote::export(cfg).expect("export CdsQuote");
+    CDSTrancheQuote::export(cfg).expect("export CDSTrancheQuote");
+    FxQuote::export(cfg).expect("export FxQuote");
+    VolQuote::export(cfg).expect("export VolQuote");
+    InflationQuote::export(cfg).expect("export InflationQuote");
+    XccyQuote::export(cfg).expect("export XccyQuote");
+    MarketQuote::export(cfg).expect("export MarketQuote");
 }

@@ -58,6 +58,9 @@ pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (ParSpread, par_spread::ParSpreadCalculator),
             (Cs01, cs01::Cs01Calculator),
+            (Cs01Hazard, crate::metrics::GenericParallelCs01Hazard::<
+                crate::instruments::CDSIndex,
+            >::default()),
             (ProtectionLegPv, pv_protection::ProtectionLegPvCalculator),
             (PremiumLegPv, pv_premium::PremiumLegPvCalculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),

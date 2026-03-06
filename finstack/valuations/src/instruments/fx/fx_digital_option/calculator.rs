@@ -131,17 +131,26 @@ impl FxDigitalOptionCalculator {
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
+        let t_disc_dom =
+            domestic_disc
+                .day_count()
+                .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+
         // Get discount factors using curve-native time
-        let df_d = domestic_disc.df(domestic_disc.day_count().year_fraction(
-            as_of,
-            inst.expiry,
-            DayCountCtx::default(),
-        )?);
+        let df_d = domestic_disc.df(t_disc_dom);
         let df_f = foreign_disc.df(t_disc_for);
 
-        // Convert to effective zero rates consistent with t_vol
-        let r_d = if t_vol > 0.0 { -df_d.ln() / t_vol } else { 0.0 };
-        let r_f = if t_vol > 0.0 { -df_f.ln() / t_vol } else { 0.0 };
+        // Convert to effective zero rates using each curve's own day count convention
+        let r_d = if t_disc_dom > 0.0 {
+            -df_d.ln() / t_disc_dom
+        } else {
+            0.0
+        };
+        let r_f = if t_disc_for > 0.0 {
+            -df_f.ln() / t_disc_for
+        } else {
+            0.0
+        };
 
         let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
             finstack_core::InputError::NotFound {

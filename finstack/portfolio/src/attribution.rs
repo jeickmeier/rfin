@@ -330,6 +330,31 @@ pub fn attribute_portfolio_pnl(
 
                 (attr, val_t0.value)
             }
+
+            AttributionMethod::Taylor(ref taylor_config) => {
+                let attr = finstack_valuations::attribution::attribute_pnl_taylor_compat(
+                    &position.instrument,
+                    market_t0,
+                    market_t1,
+                    as_of_t0,
+                    as_of_t1,
+                    taylor_config,
+                )
+                .map_err(|e| Error::ValuationError {
+                    position_id: position.position_id.clone(),
+                    message: format!("Taylor attribution failed: {}", e),
+                })?;
+
+                let val_t0 = position
+                    .instrument
+                    .value(market_t0, as_of_t0)
+                    .map_err(|e| Error::ValuationError {
+                        position_id: position.position_id.clone(),
+                        message: format!("Attribution T0 valuation failed: {}", e),
+                    })?;
+
+                (attr, val_t0)
+            }
         };
 
         // Scale attribution and T0 value using unit-aware scaling

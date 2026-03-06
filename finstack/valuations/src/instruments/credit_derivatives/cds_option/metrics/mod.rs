@@ -40,7 +40,8 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
-            (Cs01, cs01::Cs01Calculator),
+            (Cs01, cs01::Cs01Calculator::default()),
+            (Cs01Hazard, cs01::Cs01HazardCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CDSOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

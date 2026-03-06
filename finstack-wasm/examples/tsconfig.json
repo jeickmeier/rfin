@@ -24,6 +24,7 @@
     "baseUrl": ".",
     "paths": {
       "finstack-wasm": ["../pkg"],
+      "finstack-wasm/types": ["../types/generated/index.ts"],
       "@/*": ["./src/*"]
     }
   },

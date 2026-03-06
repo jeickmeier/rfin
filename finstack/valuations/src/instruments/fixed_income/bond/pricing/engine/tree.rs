@@ -44,6 +44,9 @@ use super::super::super::types::Bond;
 #[cfg(test)]
 use super::super::super::types::CallPut;
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::common_impl::models::trees::hull_white_tree::{
+    HullWhiteTree, HullWhiteTreeConfig,
+};
 use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
     RatesCreditConfig, RatesCreditTree,
 };
@@ -61,6 +64,41 @@ use finstack_core::Result;
 
 #[cfg(test)]
 use finstack_core::money::Money;
+
+/// Choice of short-rate model for the bond pricing tree.
+///
+/// Controls which interest rate tree is used for backward induction. The default
+/// `HoLee` model is a simple parallel-shift tree appropriate for quick estimates.
+/// For production callable bond OAS, prefer `HullWhite` with calibrated parameters
+/// or `HullWhiteCalibratedToSwaptions` for automatic calibration.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type")]
+pub enum TreeModelChoice {
+    /// Ho-Lee / BDT model (current default) with exogenous volatility.
+    HoLee,
+    /// Hull-White 1-factor with user-specified parameters.
+    HullWhite {
+        /// Mean reversion speed (e.g., 0.03 for 3%)
+        kappa: f64,
+        /// Short rate volatility (e.g., 0.01 for 100bp)
+        sigma: f64,
+    },
+    /// Hull-White 1-factor calibrated to co-terminal swaptions.
+    ///
+    /// Extracts relevant swaption quotes from the market context and calibrates
+    /// (kappa, sigma) automatically. This is the recommended choice for
+    /// production callable bond OAS.
+    HullWhiteCalibratedToSwaptions {
+        /// ID of the swaption volatility surface in the market context
+        swaption_vol_surface_id: String,
+    },
+}
+
+impl Default for TreeModelChoice {
+    fn default() -> Self {
+        Self::HoLee
+    }
+}
 
 /// Configuration for tree-based bond pricing (callable/putable bonds, OAS).
 ///
@@ -160,15 +198,8 @@ use finstack_core::money::Money;
 /// // High-precision configuration for regulatory reporting
 /// let audit = TreePricerConfig::high_precision(0.01);
 ///
-/// // Custom configuration
-/// let custom = TreePricerConfig {
-///     tree_steps: 200,
-///     volatility: 0.015,  // 150 bps normal vol for Ho-Lee
-///     tolerance: 1e-8,
-///     max_iterations: 100,
-///     initial_bracket_size_bp: Some(2000.0),
-///     mean_reversion: None,
-/// };
+/// // Hull-White model (production recommended for callable bonds)
+/// let hw = TreePricerConfig::hull_white(0.03, 0.01);
 /// ```
 #[derive(Debug, Clone)]
 pub struct TreePricerConfig {
@@ -218,6 +249,14 @@ pub struct TreePricerConfig {
     /// - `Some(0.03)`: 3% annual mean reversion (moderate)
     /// - `Some(0.10)`: 10% annual mean reversion (strong)
     pub mean_reversion: Option<f64>,
+
+    /// Short-rate model for the pricing tree.
+    ///
+    /// - `HoLee` (default): Uses the existing `ShortRateTree` path.
+    /// - `HullWhite { kappa, sigma }`: Uses a calibrated HW trinomial tree.
+    /// - `HullWhiteCalibratedToSwaptions { .. }`: Auto-calibrates HW params
+    ///   from swaption vol data (preferred for production callable bond OAS).
+    pub tree_model: TreeModelChoice,
 }
 
 impl Default for TreePricerConfig {
@@ -234,6 +273,7 @@ impl Default for TreePricerConfig {
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
+            tree_model: TreeModelChoice::default(),
         }
     }
 }
@@ -264,6 +304,26 @@ impl Default for TreePricerConfig {
 /// let config = bond_tree_config(&bond);
 /// ```
 pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
+    // For callable/putable bonds, default to Hull-White with reasonable parameters.
+    // HullWhiteCalibratedToSwaptions should be preferred when swaption vol data
+    // is available in the market context.
+    let tree_model = if bond.call_put.is_some() {
+        TreeModelChoice::HullWhite {
+            kappa: bond
+                .pricing_overrides
+                .model_config
+                .mean_reversion
+                .unwrap_or(0.03),
+            sigma: bond
+                .pricing_overrides
+                .model_config
+                .tree_volatility
+                .unwrap_or(0.01),
+        }
+    } else {
+        TreeModelChoice::HoLee
+    };
+
     TreePricerConfig {
         tree_steps: bond
             .pricing_overrides
@@ -279,6 +339,7 @@ pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
         max_iterations: 50,
         initial_bracket_size_bp: Some(1000.0),
         mean_reversion: bond.pricing_overrides.model_config.mean_reversion,
+        tree_model,
     }
 }
 
@@ -319,6 +380,7 @@ impl TreePricerConfig {
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
+            tree_model: TreeModelChoice::HoLee,
         }
     }
 
@@ -331,6 +393,7 @@ impl TreePricerConfig {
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
+            tree_model: TreeModelChoice::HoLee,
         }
     }
 
@@ -367,6 +430,7 @@ impl TreePricerConfig {
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
+            tree_model: TreeModelChoice::HoLee,
         }
     }
 
@@ -379,6 +443,7 @@ impl TreePricerConfig {
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
+            tree_model: TreeModelChoice::HoLee,
         }
     }
 
@@ -414,6 +479,7 @@ impl TreePricerConfig {
             max_iterations: 100,
             initial_bracket_size_bp: Some(1500.0),
             mean_reversion: None,
+            tree_model: TreeModelChoice::HoLee,
         }
     }
 
@@ -426,6 +492,7 @@ impl TreePricerConfig {
             max_iterations: 100,
             initial_bracket_size_bp: Some(1500.0),
             mean_reversion: None,
+            tree_model: TreeModelChoice::HoLee,
         }
     }
 
@@ -455,6 +522,7 @@ impl TreePricerConfig {
             max_iterations: 30,
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
+            tree_model: TreeModelChoice::HoLee,
         }
     }
 
@@ -467,6 +535,50 @@ impl TreePricerConfig {
             max_iterations: 30,
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
+            tree_model: TreeModelChoice::HoLee,
+        }
+    }
+
+    /// Create a configuration using a Hull-White 1-factor tree.
+    ///
+    /// Recommended for production callable bond OAS when swaption calibration
+    /// is not available. Uses the specified (kappa, sigma) directly.
+    ///
+    /// # Arguments
+    ///
+    /// * `kappa` - Mean reversion speed (e.g., 0.03 for 3%)
+    /// * `sigma` - Short rate volatility (e.g., 0.01 for 100bp)
+    pub fn hull_white(kappa: f64, sigma: f64) -> Self {
+        Self {
+            tree_steps: 100,
+            volatility: sigma,
+            tolerance: 1e-6,
+            max_iterations: 50,
+            initial_bracket_size_bp: Some(1000.0),
+            mean_reversion: Some(kappa),
+            tree_model: TreeModelChoice::HullWhite { kappa, sigma },
+        }
+    }
+
+    /// Create a configuration using a Hull-White 1-factor tree calibrated
+    /// to swaption volatilities from the market context.
+    ///
+    /// This is the recommended choice for production callable bond OAS.
+    ///
+    /// # Arguments
+    ///
+    /// * `swaption_vol_surface_id` - ID of the swaption vol surface in market context
+    pub fn hull_white_calibrated(swaption_vol_surface_id: String) -> Self {
+        Self {
+            tree_steps: 100,
+            volatility: 0.01, // placeholder; overridden by calibrated sigma
+            tolerance: 1e-6,
+            max_iterations: 50,
+            initial_bracket_size_bp: Some(1000.0),
+            mean_reversion: None,
+            tree_model: TreeModelChoice::HullWhiteCalibratedToSwaptions {
+                swaption_vol_surface_id,
+            },
         }
     }
 }
@@ -734,7 +846,12 @@ impl BondValuator {
                     if step >= num_steps {
                         step = num_steps - 1;
                     }
-                    // Use outstanding principal at exercise step, not original notional
+                    // Use outstanding principal at exercise step, not original notional.
+                    // TODO(make-whole): When `call.make_whole` is Some(spec), the effective
+                    // call price should be max(price_pct_of_par, PV of remaining cashflows
+                    // at reference_rate + spread). This requires access to the reference
+                    // curve inside the tree backward induction (rate-dependent at each node).
+                    // For now, use the fixed price_pct_of_par which is the floor.
                     let outstanding = outstanding_principal_vec[step];
                     let call_price = outstanding * (call.price_pct_of_par / 100.0);
                     call_vec[step] = Some(call_price);
@@ -819,6 +936,54 @@ impl BondValuator {
             .get(step)
             .copied()
             .unwrap_or(self.bond.notional.amount())
+    }
+
+    /// Price the bond using a calibrated Hull-White trinomial tree with OAS.
+    ///
+    /// Uses `HullWhiteTree::backward_induction` with the bond's cashflow and
+    /// call/put schedules applied at each node. The OAS is applied as an
+    /// additional parallel shift to the short rate when discounting.
+    ///
+    /// # Arguments
+    ///
+    /// * `hw_tree` - Calibrated Hull-White tree
+    /// * `oas_bp` - Option-adjusted spread in basis points
+    ///
+    /// # Returns
+    ///
+    /// Model dirty price of the bond.
+    pub(crate) fn price_with_hw_tree(&self, hw_tree: &HullWhiteTree, oas_bp: f64) -> f64 {
+        let oas_decimal = oas_bp / 10_000.0;
+        let dt = hw_tree.dt();
+        let final_step = hw_tree.num_steps();
+
+        let terminal_cf = self.cashflow_at(final_step);
+        let terminal_values = vec![terminal_cf; hw_tree.num_nodes(final_step)];
+
+        hw_tree.backward_induction(&terminal_values, |step, _node_idx, continuation| {
+            // The HW tree's backward_induction already discounts by the short
+            // rate r(step, node). Apply the OAS as additional discounting.
+            let oas_discount = (-oas_decimal * dt).exp();
+            let oas_adjusted = continuation * oas_discount;
+
+            let coupon = self.cashflow_at(step);
+            let mut principal_value = oas_adjusted;
+
+            if let Some(put_price) = self.put_at(step) {
+                principal_value = principal_value.max(put_price);
+            }
+
+            if let Some(call_price) = self.call_at(step) {
+                let outstanding = self.outstanding_principal_at(step);
+                let friction_amount = outstanding * (self.call_friction_cents / 10_000.0);
+                let threshold = call_price + friction_amount;
+                if principal_value > threshold {
+                    principal_value = principal_value.min(call_price);
+                }
+            }
+
+            coupon + principal_value
+        })
     }
 
     /// Resolve recovery rate from hazard curve using the same precedence as
@@ -1000,14 +1165,7 @@ impl TreePricer {
     /// ```rust
     /// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::{TreePricer, TreePricerConfig};
     ///
-    /// let config = TreePricerConfig {
-    ///     tree_steps: 200,
-    ///     volatility: 0.015,
-    ///     tolerance: 1e-8,
-    ///     max_iterations: 100,
-    ///     initial_bracket_size_bp: Some(2000.0),
-    ///     mean_reversion: None,
-    /// };
+    /// let config = TreePricerConfig::high_precision(0.015);
     /// let pricer = TreePricer::with_config(config);
     /// ```
     pub fn with_config(config: TreePricerConfig) -> Self {
@@ -1120,17 +1278,51 @@ impl TreePricer {
             use_rates_credit = true;
         }
 
+        // Resolve the effective HW parameters when using HullWhite model variants.
+        // For HullWhiteCalibratedToSwaptions, attempt swaption calibration;
+        // on failure, log a warning and fall back to HoLee.
+        let effective_model = match &self.config.tree_model {
+            TreeModelChoice::HullWhiteCalibratedToSwaptions {
+                swaption_vol_surface_id,
+            } if !use_rates_credit => Self::resolve_hw_calibrated(
+                market_context,
+                &discount_curve,
+                swaption_vol_surface_id,
+                time_to_maturity,
+            ),
+            other => other.clone(),
+        };
+
         let mut sr_tree: Option<ShortRateTree> = None;
+        let mut hw_tree: Option<HullWhiteTree> = None;
+
         if !use_rates_credit {
-            let tree_config = ShortRateTreeConfig {
-                steps: self.config.tree_steps,
-                volatility: self.config.volatility,
-                mean_reversion: self.config.mean_reversion,
-                ..Default::default()
-            };
-            let mut tree = ShortRateTree::new(tree_config);
-            tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
-            sr_tree = Some(tree);
+            match &effective_model {
+                TreeModelChoice::HullWhite { kappa, sigma } => {
+                    let hw_config = HullWhiteTreeConfig {
+                        kappa: *kappa,
+                        sigma: *sigma,
+                        steps: self.config.tree_steps,
+                        max_nodes: None,
+                    };
+                    hw_tree = Some(HullWhiteTree::calibrate(
+                        hw_config,
+                        discount_curve.as_ref(),
+                        time_to_maturity,
+                    )?);
+                }
+                TreeModelChoice::HoLee | TreeModelChoice::HullWhiteCalibratedToSwaptions { .. } => {
+                    let tree_config = ShortRateTreeConfig {
+                        steps: self.config.tree_steps,
+                        volatility: self.config.volatility,
+                        mean_reversion: self.config.mean_reversion,
+                        ..Default::default()
+                    };
+                    let mut tree = ShortRateTree::new(tree_config);
+                    tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
+                    sr_tree = Some(tree);
+                }
+            }
         }
 
         let valuator = BondValuator::new(
@@ -1145,16 +1337,12 @@ impl TreePricer {
         let initial_rate = if let Some(tree) = sr_tree.as_ref() {
             tree.rate_at_node(0, 0).unwrap_or(0.03)
         } else {
-            0.0 // Not used for rates+credit tree
+            0.0 // Not used for rates+credit or HW tree
         };
 
         let objective_fn = |oas: f64| -> f64 {
-            // OAS is in basis points (bp). Both tree models read it from
-            // `initial_vars["oas"]` and apply it as a parallel shift to
-            // calibrated short rates.
-            let mut vars = StateVariables::default();
             if use_rates_credit {
-                // Calibrated rates+credit tree: OAS via the standard "oas" key
+                let mut vars = StateVariables::default();
                 vars.insert("oas", oas);
                 if let Some(tree) = rc_tree.as_ref() {
                     match tree.price(vars, time_to_maturity, market_context, &valuator) {
@@ -1164,8 +1352,12 @@ impl TreePricer {
                 } else {
                     1.0e6
                 }
+            } else if let Some(ref tree) = hw_tree {
+                // Hull-White trinomial tree: OAS applied inside backward induction
+                let model_price = valuator.price_with_hw_tree(tree, oas);
+                model_price - dirty_target
             } else {
-                // Calibrated short-rate tree: OAS via the standard "oas" key
+                let mut vars = StateVariables::default();
                 vars.insert(short_rate_keys::SHORT_RATE, initial_rate);
                 vars.insert(short_rate_keys::OAS, oas);
                 if let Some(tree) = sr_tree.as_ref() {
@@ -1193,6 +1385,109 @@ impl TreePricer {
         let initial_guess = 0.0;
         let oas_bp = solver.solve(objective_fn, initial_guess)?;
         Ok(oas_bp)
+    }
+
+    /// Attempt swaption-calibrated Hull-White. On failure, fall back to HoLee.
+    ///
+    /// Reads the swaption vol surface from the market context, converts grid
+    /// points into `SwaptionQuote`s, and runs Levenberg-Marquardt calibration.
+    fn resolve_hw_calibrated(
+        market_context: &MarketContext,
+        discount_curve: &std::sync::Arc<finstack_core::market_data::term_structures::DiscountCurve>,
+        swaption_vol_surface_id: &str,
+        time_to_maturity: f64,
+    ) -> TreeModelChoice {
+        use crate::calibration::hull_white::{
+            calibrate_hull_white_to_swaptions_with_frequency, SwapFrequency, SwaptionQuote,
+        };
+
+        let surface = match market_context.surface(swaption_vol_surface_id) {
+            Ok(s) => s,
+            Err(_) => {
+                tracing::warn!(
+                    surface_id = swaption_vol_surface_id,
+                    "Swaption vol surface not found in market context; \
+                     falling back to HoLee tree model"
+                );
+                return TreeModelChoice::HoLee;
+            }
+        };
+
+        // Build SwaptionQuote list from the surface grid.
+        // Convention: expiries axis = swaption expiry (years),
+        //             strikes axis = underlying swap tenor (years).
+        // Each grid point is an ATM normal vol.
+        let expiries = surface.expiries();
+        let tenors = surface.strikes();
+        let mut quotes = Vec::with_capacity(expiries.len() * tenors.len());
+        for &expiry in expiries {
+            // Only use swaptions expiring before the bond maturity
+            if expiry > time_to_maturity || expiry <= 0.0 {
+                continue;
+            }
+            for &tenor in tenors {
+                if tenor <= 0.0 {
+                    continue;
+                }
+                let vol = surface.value_clamped(expiry, tenor);
+                if vol > 0.0 && vol.is_finite() {
+                    quotes.push(SwaptionQuote {
+                        expiry,
+                        tenor,
+                        volatility: vol,
+                        is_normal_vol: true,
+                    });
+                }
+            }
+        }
+
+        if quotes.len() < 2 {
+            tracing::warn!(
+                surface_id = swaption_vol_surface_id,
+                n_valid = quotes.len(),
+                "Insufficient swaption quotes from vol surface; \
+                 falling back to HoLee tree model"
+            );
+            return TreeModelChoice::HoLee;
+        }
+
+        let dc = discount_curve.clone();
+        let df_fn = move |t: f64| dc.df(t);
+
+        match calibrate_hull_white_to_swaptions_with_frequency(
+            &df_fn,
+            &quotes,
+            SwapFrequency::SemiAnnual,
+        ) {
+            Ok((params, report)) => {
+                if report.success {
+                    tracing::info!(
+                        kappa = params.kappa,
+                        sigma = params.sigma,
+                        n_quotes = quotes.len(),
+                        "Hull-White calibrated to swaptions"
+                    );
+                    TreeModelChoice::HullWhite {
+                        kappa: params.kappa,
+                        sigma: params.sigma,
+                    }
+                } else {
+                    tracing::warn!(
+                        reason = report.convergence_reason.as_str(),
+                        "Swaption calibration did not converge; \
+                         falling back to HoLee tree model"
+                    );
+                    TreeModelChoice::HoLee
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "Swaption calibration failed; falling back to HoLee tree model"
+                );
+                TreeModelChoice::HoLee
+            }
+        }
     }
 }
 

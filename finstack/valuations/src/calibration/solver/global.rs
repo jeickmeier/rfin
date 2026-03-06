@@ -1,7 +1,7 @@
-//! Simultaneous (single-start) weighted least-squares calibration using Levenberg–Marquardt.
+//! Simultaneous weighted least-squares calibration using Levenberg–Marquardt.
 //!
 //! Notes:
-//! - This is **not** a global-search optimizer (no multi-start / basin-hopping).
+//! - Optional multi-start support to escape local minima (see [`MultiStartConfig`]).
 //! - Residual weighting is supported via per-quote weights (weighted least squares).
 
 use super::traits::GlobalSolveTarget;
@@ -11,6 +11,28 @@ use crate::calibration::{CalibrationConfig, CalibrationReport};
 use finstack_core::Result;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
+
+/// Configuration for multi-start optimization to escape local minima.
+///
+/// When enabled, the optimizer runs `num_restarts` additional LM solves from
+/// perturbed starting points and keeps the result with the lowest weighted
+/// residual norm.
+#[derive(Debug, Clone)]
+pub struct MultiStartConfig {
+    /// Number of random restarts (in addition to the initial point).
+    pub num_restarts: usize,
+    /// Scale factor for perturbation of the initial guess (as fraction of initial values).
+    pub perturbation_scale: f64,
+}
+
+impl Default for MultiStartConfig {
+    fn default() -> Self {
+        Self {
+            num_restarts: 5,
+            perturbation_scale: 0.5,
+        }
+    }
+}
 
 fn penalty_residual_value(params: &[f64]) -> f64 {
     // Avoid a perfectly flat penalty surface: add a small, scale-aware component
@@ -31,7 +53,7 @@ fn fill_penalty(resid: &mut [f64], n_residuals: usize, params: &[f64]) {
     }
 }
 
-/// Simultaneous weighted least-squares optimizer (single-start LM).
+/// Simultaneous weighted least-squares optimizer with optional multi-start.
 ///
 /// Implements a global optimization approach that fits all knots simultaneously
 /// by minimizing the sum of weighted squared residuals. This is particularly
@@ -42,6 +64,9 @@ fn fill_penalty(resid: &mut [f64], n_residuals: usize, params: &[f64]) {
 /// Under the hood, it uses the Levenberg–Marquardt algorithm from `finstack-core`,
 /// which provides robust convergence by damping the Gauss-Newton step toward
 /// gradient descent when in non-linear or ill-conditioned regions.
+///
+/// When [`MultiStartConfig`] is provided, the optimizer runs additional LM solves
+/// from deterministically-perturbed starting points and returns the best result.
 pub struct GlobalFitOptimizer;
 
 impl GlobalFitOptimizer {
@@ -72,6 +97,24 @@ impl GlobalFitOptimizer {
     where
         T: GlobalSolveTarget,
     {
+        Self::optimize_with_multi_start(target, quotes, config, success_tolerance, None)
+    }
+
+    /// Execute a simultaneous weighted least-squares fit with optional multi-start.
+    ///
+    /// When `multi_start` is `Some`, the optimizer runs `num_restarts` additional solves
+    /// from deterministically-perturbed starting points. The best result (lowest weighted
+    /// residual norm) is returned.
+    pub fn optimize_with_multi_start<T>(
+        target: &T,
+        quotes: &[T::Quote],
+        config: &CalibrationConfig,
+        success_tolerance: Option<f64>,
+        multi_start: Option<&MultiStartConfig>,
+    ) -> Result<(T::Curve, CalibrationReport)>
+    where
+        T: GlobalSolveTarget,
+    {
         // 1. Build grid and guesses
         let (times, initials, active_quotes) = target.build_time_grid_and_guesses(quotes)?;
         let n_residuals = active_quotes.len();
@@ -83,25 +126,6 @@ impl GlobalFitOptimizer {
         }
 
         validate_global_inputs(&times, &initials, n_residuals)?;
-
-        // Determine if we should use efficient (target-provided) Jacobian
-        let use_efficient = match config.calibration_method {
-            crate::calibration::config::CalibrationMethod::GlobalSolve {
-                use_analytical_jacobian,
-            } => use_analytical_jacobian && target.supports_efficient_jacobian(),
-            _ => false,
-        };
-
-        if config.verbose && use_efficient {
-            tracing::info!("GlobalFitOptimizer: using efficient (target-provided) Jacobian");
-        }
-
-        let solver = config.create_lm_solver();
-
-        // Trackers (hot path): solver closures only require `Fn`, not `Send + Sync`,
-        // so we can avoid `Arc/Atomic/Mutex` and use cheap interior mutability.
-        let eval_diagnostics: RefCell<EvalDiagnostics> = RefCell::new(EvalDiagnostics::default());
-        let eval_counter: Cell<usize> = Cell::new(0);
 
         let mut weights = vec![1.0_f64; n_residuals];
         target.residual_weights(&active_quotes, &mut weights)?;
@@ -127,191 +151,69 @@ impl GlobalFitOptimizer {
         let lb = target.lower_bounds();
         let ub = target.upper_bounds();
 
-        let residuals_func = |params: &[f64], resid: &mut [f64]| {
-            let eval_idx = eval_counter.get() + 1;
-            eval_counter.set(eval_idx);
+        // Run the primary solve from the original initial guess.
+        let (mut best_result, mut best_weighted_l2) = run_single_solve(
+            target,
+            &active_quotes,
+            &times,
+            &initials,
+            &weight_scales,
+            &lb,
+            &ub,
+            config,
+        )?;
 
-            if resid.len() < n_residuals {
-                record_eval_error(
-                    &eval_diagnostics,
-                    eval_idx,
-                    "residual buffer",
-                    params,
-                    &format!(
-                        "residual buffer too small: got {}, need {}",
-                        resid.len(),
-                        n_residuals
-                    ),
+        // Multi-start: run additional solves from perturbed starting points.
+        if let Some(ms) = multi_start {
+            if config.verbose {
+                tracing::info!(
+                    "GlobalFitOptimizer: running {} multi-start restarts (perturbation_scale={:.3})",
+                    ms.num_restarts,
+                    ms.perturbation_scale,
                 );
-                fill_penalty(resid, resid.len(), params);
-                return;
             }
 
-            // Zero out only the used prefix (n_residuals); the solver may pass a larger scratch.
-            for r in resid.iter_mut().take(n_residuals) {
-                *r = 0.0;
-            }
+            for restart_idx in 0..ms.num_restarts {
+                let perturbed =
+                    perturb_initial_guess(&initials, ms.perturbation_scale, restart_idx, &lb, &ub);
 
-            // Clamp parameters to bounds (projected LM)
-            let params_to_use: Vec<f64>;
-            let params_ref = if lb.is_some() || ub.is_some() {
-                params_to_use = params
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &p)| {
-                        let mut v = p;
-                        if let Some(ref lower) = lb {
-                            if i < lower.len() {
-                                v = v.max(lower[i]);
+                match run_single_solve(
+                    target,
+                    &active_quotes,
+                    &times,
+                    &perturbed,
+                    &weight_scales,
+                    &lb,
+                    &ub,
+                    config,
+                ) {
+                    Ok((result, wl2)) => {
+                        if wl2 < best_weighted_l2 {
+                            if config.verbose {
+                                tracing::info!(
+                                    "GlobalFitOptimizer: restart {} improved weighted L2: {:.4e} -> {:.4e}",
+                                    restart_idx,
+                                    best_weighted_l2,
+                                    wl2,
+                                );
                             }
+                            best_weighted_l2 = wl2;
+                            best_result = result;
                         }
-                        if let Some(ref upper) = ub {
-                            if i < upper.len() {
-                                v = v.min(upper[i]);
-                            }
+                    }
+                    Err(_) => {
+                        if config.verbose {
+                            tracing::warn!(
+                                "GlobalFitOptimizer: restart {} failed, skipping",
+                                restart_idx,
+                            );
                         }
-                        v
-                    })
-                    .collect();
-                &params_to_use
-            } else {
-                params
-            };
-
-            // 1. Build curve
-            let curve = match target.build_curve_for_solver_from_params(&times, params_ref) {
-                Ok(c) => c,
-                Err(e) => {
-                    record_eval_error(
-                        &eval_diagnostics,
-                        eval_idx,
-                        "curve construction",
-                        params_ref,
-                        &format!("{}", e),
-                    );
-                    fill_penalty(resid, n_residuals, params_ref);
-                    return;
-                }
-            };
-
-            // 2. Calculate residuals
-            if let Err(e) =
-                target.calculate_residuals(&curve, &active_quotes, &mut resid[..n_residuals])
-            {
-                record_eval_error(
-                    &eval_diagnostics,
-                    eval_idx,
-                    "residual evaluation",
-                    params_ref,
-                    &format!("while evaluating {} quotes: {}", active_quotes.len(), e),
-                );
-                fill_penalty(resid, n_residuals, params_ref);
-                return;
-            }
-
-            for (r, w) in resid[..n_residuals].iter_mut().zip(weight_scales.iter()) {
-                *r *= *w;
-            }
-        };
-
-        // 3. Wrapper for AnalyticalDerivatives
-        #[allow(clippy::type_complexity)]
-        struct TargetDerivatives<'a, T: GlobalSolveTarget> {
-            target: &'a T,
-            active_quotes: &'a [T::Quote],
-            weight_scales: &'a [f64],
-            times: &'a [f64],
-            lb: &'a Option<Vec<f64>>,
-            ub: &'a Option<Vec<f64>>,
-        }
-
-        impl<'a, T: GlobalSolveTarget> finstack_core::math::solver_multi::AnalyticalDerivatives
-            for TargetDerivatives<'a, T>
-        {
-            fn gradient(&self, _params: &[f64], _gradient: &mut [f64]) {
-                // Not used for system solving
-            }
-
-            fn has_gradient(&self) -> bool {
-                false
-            }
-
-            fn jacobian(&self, params: &[f64], jacobian: &mut [Vec<f64>]) -> Option<()> {
-                // Clamp parameters to bounds (projected LM)
-                let params_to_use: Vec<f64>;
-                let params_ref = if self.lb.is_some() || self.ub.is_some() {
-                    params_to_use = params
-                        .iter()
-                        .enumerate()
-                        .map(|(i, &p)| {
-                            let mut v = p;
-                            if let Some(ref lower) = self.lb {
-                                if i < lower.len() {
-                                    v = v.max(lower[i]);
-                                }
-                            }
-                            if let Some(ref upper) = self.ub {
-                                if i < upper.len() {
-                                    v = v.min(upper[i]);
-                                }
-                            }
-                            v
-                        })
-                        .collect();
-                    &params_to_use
-                } else {
-                    params
-                };
-
-                // Optional feasibility check: avoid producing a Jacobian for infeasible params.
-                if self
-                    .target
-                    .build_curve_for_solver_from_params(self.times, params_ref)
-                    .is_err()
-                {
-                    return None;
-                }
-
-                // 2. Compute Jacobian
-                if self
-                    .target
-                    .jacobian(params_ref, self.times, self.active_quotes, jacobian)
-                    .is_err()
-                {
-                    return None;
-                }
-
-                // 3. Apply weights: J_ij *= weight_scales[i]
-                for (i, row) in jacobian.iter_mut().enumerate() {
-                    let scale = self.weight_scales.get(i).copied().unwrap_or(1.0);
-                    for val in row.iter_mut() {
-                        *val *= scale;
                     }
                 }
-                Some(())
-            }
-
-            fn has_jacobian(&self) -> bool {
-                true
             }
         }
 
-        // Solve
-        let solution = if use_efficient {
-            let derivatives = TargetDerivatives {
-                target,
-                active_quotes: &active_quotes,
-                weight_scales: &weight_scales,
-                times: &times,
-                lb: &lb,
-                ub: &ub,
-            };
-            solver.solve_system_with_jacobian_stats(residuals_func, &derivatives, &initials)?
-        } else {
-            solver.solve_system_with_dim_stats(residuals_func, &initials, n_residuals)?
-        };
-        let solved_params = solution.params;
-        let stats = solution.stats;
+        let (solved_params, stats, eval_counter_val, eval_diagnostics_val) = best_result;
 
         // Build final curve
         let final_curve = target.build_curve_final_from_params(&times, &solved_params)?;
@@ -368,7 +270,7 @@ impl GlobalFitOptimizer {
                 format!("{:.2e}", config.solver.tolerance()),
             )
             .with_metadata("residual_evals", stats.residual_evals.to_string())
-            .with_metadata("residual_closure_evals", eval_counter.get().to_string())
+            .with_metadata("residual_closure_evals", eval_counter_val.to_string())
             .with_metadata(
                 "lm_termination_reason",
                 format!("{:?}", stats.termination_reason),
@@ -397,14 +299,17 @@ impl GlobalFitOptimizer {
                 format!("{:.2e}", weighted_max_abs_residual),
             );
 
+        if let Some(ms) = multi_start {
+            report = report.with_metadata("multi_start_restarts", ms.num_restarts.to_string());
+        }
+
         // Attach diagnostics from any infeasible evaluations encountered during solving.
         {
-            let diag = eval_diagnostics.borrow();
             report.metadata.insert(
                 "invalid_eval_count".to_string(),
-                diag.invalid_eval_count.to_string(),
+                eval_diagnostics_val.invalid_eval_count.to_string(),
             );
-            if let Some(first) = &diag.first_invalid_eval {
+            if let Some(first) = &eval_diagnostics_val.first_invalid_eval {
                 report
                     .metadata
                     .insert("first_invalid_eval".to_string(), first.clone());
@@ -429,6 +334,292 @@ impl GlobalFitOptimizer {
 
         Ok((final_curve, report))
     }
+}
+
+/// Deterministic perturbation of initial guess for multi-start restarts.
+///
+/// Uses a Halton sequence (one prime base per parameter dimension) to produce
+/// low-discrepancy, space-filling perturbations:
+/// `x[i] = x_init[i] * (1 + scale * (2*h_i - 1))`
+/// where `h_i = halton(restart_idx + 1, base_i)`.
+///
+/// Halton sequences provide better coverage of the parameter space than
+/// hash-based pseudo-random perturbations, reducing the number of restarts
+/// needed to escape local minima.
+fn perturb_initial_guess(
+    initials: &[f64],
+    perturbation_scale: f64,
+    restart_idx: usize,
+    lb: &Option<Vec<f64>>,
+    ub: &Option<Vec<f64>>,
+) -> Vec<f64> {
+    const BASES: [usize; 10] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
+
+    initials
+        .iter()
+        .enumerate()
+        .map(|(i, &x)| {
+            let base = BASES[i % BASES.len()];
+            let h = halton(restart_idx + 1, base);
+            let perturbation = perturbation_scale * (2.0 * h - 1.0);
+            let mut v = x * (1.0 + perturbation);
+            // Clamp to bounds
+            if let Some(ref lower) = lb {
+                if i < lower.len() {
+                    v = v.max(lower[i]);
+                }
+            }
+            if let Some(ref upper) = ub {
+                if i < upper.len() {
+                    v = v.min(upper[i]);
+                }
+            }
+            v
+        })
+        .collect()
+}
+
+/// Halton sequence value for index `n` with given `base`.
+///
+/// Returns a value in [0, 1) that forms part of a low-discrepancy sequence.
+/// Used for quasi-random sampling in multi-start optimization.
+fn halton(mut n: usize, base: usize) -> f64 {
+    let mut result = 0.0;
+    let mut f = 1.0 / base as f64;
+    while n > 0 {
+        result += f * (n % base) as f64;
+        n /= base;
+        f /= base as f64;
+    }
+    result
+}
+
+type SingleSolveResult = (
+    Vec<f64>,
+    finstack_core::math::solver_multi::LmStats,
+    usize,
+    EvalDiagnostics,
+);
+
+/// Run a single LM solve from the given initial guess. Returns (solved_params, stats,
+/// eval_count, diagnostics) and the weighted L2 norm of the final residuals.
+#[allow(clippy::too_many_arguments)]
+fn run_single_solve<T>(
+    target: &T,
+    active_quotes: &[T::Quote],
+    times: &[f64],
+    initials: &[f64],
+    weight_scales: &[f64],
+    lb: &Option<Vec<f64>>,
+    ub: &Option<Vec<f64>>,
+    config: &CalibrationConfig,
+) -> Result<(SingleSolveResult, f64)>
+where
+    T: GlobalSolveTarget,
+{
+    let n_residuals = active_quotes.len();
+
+    let use_efficient = match config.calibration_method {
+        crate::calibration::config::CalibrationMethod::GlobalSolve {
+            use_analytical_jacobian,
+        } => use_analytical_jacobian && target.supports_efficient_jacobian(),
+        _ => false,
+    };
+
+    let solver = config.create_lm_solver();
+
+    let eval_diagnostics: RefCell<EvalDiagnostics> = RefCell::new(EvalDiagnostics::default());
+    let eval_counter: Cell<usize> = Cell::new(0);
+
+    let residuals_func = |params: &[f64], resid: &mut [f64]| {
+        let eval_idx = eval_counter.get() + 1;
+        eval_counter.set(eval_idx);
+
+        if resid.len() < n_residuals {
+            record_eval_error(
+                &eval_diagnostics,
+                eval_idx,
+                "residual buffer",
+                params,
+                &format!(
+                    "residual buffer too small: got {}, need {}",
+                    resid.len(),
+                    n_residuals
+                ),
+            );
+            fill_penalty(resid, resid.len(), params);
+            return;
+        }
+
+        for r in resid.iter_mut().take(n_residuals) {
+            *r = 0.0;
+        }
+
+        let params_to_use: Vec<f64>;
+        let params_ref = if lb.is_some() || ub.is_some() {
+            params_to_use = params
+                .iter()
+                .enumerate()
+                .map(|(i, &p)| {
+                    let mut v = p;
+                    if let Some(ref lower) = lb {
+                        if i < lower.len() {
+                            v = v.max(lower[i]);
+                        }
+                    }
+                    if let Some(ref upper) = ub {
+                        if i < upper.len() {
+                            v = v.min(upper[i]);
+                        }
+                    }
+                    v
+                })
+                .collect();
+            &params_to_use
+        } else {
+            params
+        };
+
+        let curve = match target.build_curve_for_solver_from_params(times, params_ref) {
+            Ok(c) => c,
+            Err(e) => {
+                record_eval_error(
+                    &eval_diagnostics,
+                    eval_idx,
+                    "curve construction",
+                    params_ref,
+                    &format!("{}", e),
+                );
+                fill_penalty(resid, n_residuals, params_ref);
+                return;
+            }
+        };
+
+        if let Err(e) = target.calculate_residuals(&curve, active_quotes, &mut resid[..n_residuals])
+        {
+            record_eval_error(
+                &eval_diagnostics,
+                eval_idx,
+                "residual evaluation",
+                params_ref,
+                &format!("while evaluating {} quotes: {}", active_quotes.len(), e),
+            );
+            fill_penalty(resid, n_residuals, params_ref);
+            return;
+        }
+
+        for (r, w) in resid[..n_residuals].iter_mut().zip(weight_scales.iter()) {
+            *r *= *w;
+        }
+    };
+
+    #[allow(clippy::type_complexity)]
+    struct TargetDerivatives<'a, T: GlobalSolveTarget> {
+        target: &'a T,
+        active_quotes: &'a [T::Quote],
+        weight_scales: &'a [f64],
+        times: &'a [f64],
+        lb: &'a Option<Vec<f64>>,
+        ub: &'a Option<Vec<f64>>,
+    }
+
+    impl<'a, T: GlobalSolveTarget> finstack_core::math::solver_multi::AnalyticalDerivatives
+        for TargetDerivatives<'a, T>
+    {
+        fn gradient(&self, _params: &[f64], _gradient: &mut [f64]) {}
+
+        fn has_gradient(&self) -> bool {
+            false
+        }
+
+        fn jacobian(&self, params: &[f64], jacobian: &mut [Vec<f64>]) -> Option<()> {
+            let params_to_use: Vec<f64>;
+            let params_ref = if self.lb.is_some() || self.ub.is_some() {
+                params_to_use = params
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &p)| {
+                        let mut v = p;
+                        if let Some(ref lower) = self.lb {
+                            if i < lower.len() {
+                                v = v.max(lower[i]);
+                            }
+                        }
+                        if let Some(ref upper) = self.ub {
+                            if i < upper.len() {
+                                v = v.min(upper[i]);
+                            }
+                        }
+                        v
+                    })
+                    .collect();
+                &params_to_use
+            } else {
+                params
+            };
+
+            if self
+                .target
+                .build_curve_for_solver_from_params(self.times, params_ref)
+                .is_err()
+            {
+                return None;
+            }
+
+            if self
+                .target
+                .jacobian(params_ref, self.times, self.active_quotes, jacobian)
+                .is_err()
+            {
+                return None;
+            }
+
+            for (i, row) in jacobian.iter_mut().enumerate() {
+                let scale = self.weight_scales.get(i).copied().unwrap_or(1.0);
+                for val in row.iter_mut() {
+                    *val *= scale;
+                }
+            }
+            Some(())
+        }
+
+        fn has_jacobian(&self) -> bool {
+            true
+        }
+    }
+
+    let solution = if use_efficient {
+        let derivatives = TargetDerivatives {
+            target,
+            active_quotes,
+            weight_scales,
+            times,
+            lb,
+            ub,
+        };
+        solver.solve_system_with_jacobian_stats(residuals_func, &derivatives, initials)?
+    } else {
+        solver.solve_system_with_dim_stats(residuals_func, initials, n_residuals)?
+    };
+    let solved_params = solution.params;
+    let stats = solution.stats;
+
+    // Compute weighted L2 norm of the final residuals for comparison.
+    let final_curve = target.build_curve_for_solver_from_params(times, &solved_params)?;
+    let mut resid_values = vec![0.0; n_residuals];
+    target.calculate_residuals(&final_curve, active_quotes, &mut resid_values)?;
+
+    let weighted_l2: f64 = resid_values
+        .iter()
+        .zip(weight_scales.iter())
+        .map(|(r, w)| (r * w).powi(2))
+        .sum::<f64>()
+        .sqrt();
+
+    let eval_count = eval_counter.get();
+    let diagnostics = eval_diagnostics.into_inner();
+
+    Ok(((solved_params, stats, eval_count, diagnostics), weighted_l2))
 }
 
 fn validate_global_inputs(times: &[f64], initials: &[f64], n_residuals: usize) -> Result<()> {

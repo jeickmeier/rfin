@@ -138,6 +138,9 @@ pub struct XccySwapLeg {
     /// Calendar identifier for schedule generation and lags.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calendar_id: Option<String>,
+    /// Reset lag in business days before the accrual start (e.g. 2 for T-2 fixing).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset_lag_days: Option<i32>,
     /// Allow calendar-day fallback when the calendar cannot be resolved.
     ///
     /// When `false` (default), missing calendars are treated as input errors.
@@ -359,7 +362,7 @@ impl XccySwap {
                 end_of_month: false,
                 day_count: leg.day_count,
                 payment_lag_days: leg.payment_lag_days,
-                reset_lag_days: None,
+                reset_lag_days: leg.reset_lag_days,
             },
         )?;
 

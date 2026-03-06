@@ -99,6 +99,8 @@ pub mod basis_swap;
 pub mod cap_floor;
 /// CMS option module - Constant maturity swap options.
 pub mod cms_option;
+/// CMS swap module - Constant maturity swaps.
+pub mod cms_swap;
 /// Deposit module - Money market deposits.
 pub mod deposit;
 /// FRA module - Forward rate agreements.
@@ -109,6 +111,8 @@ pub mod inflation_cap_floor;
 pub mod inflation_swap;
 /// IR future module - Interest rate futures.
 pub mod ir_future;
+/// IR future option module - Options on interest rate futures.
+pub mod ir_future_option;
 /// IRS module - Interest rate swaps.
 pub mod irs;
 /// Range accrual module.
@@ -124,11 +128,13 @@ pub mod xccy_swap;
 pub use basis_swap::BasisSwap;
 pub use cap_floor::{InterestRateOption, RateOptionType};
 pub use cms_option::CmsOption;
+pub use cms_swap::CmsSwap;
 pub use deposit::Deposit;
 pub use fra::ForwardRateAgreement;
 pub use inflation_cap_floor::{InflationCapFloor, InflationCapFloorType};
 pub use inflation_swap::{InflationSwap, YoYInflationSwap};
 pub use ir_future::InterestRateFuture;
+pub use ir_future_option::IrFutureOption;
 pub use irs::InterestRateSwap;
 pub use range_accrual::RangeAccrual;
 pub use repo::{CollateralSpec, CollateralType, Repo, RepoType};

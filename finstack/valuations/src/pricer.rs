@@ -68,6 +68,8 @@ pub enum InstrumentType {
     InflationCapFloor = 66,
     /// Interest rate futures contract.
     InterestRateFuture = 21,
+    /// Option on interest rate future (e.g., SOFR futures option).
+    IrFutureOption = 76,
     /// Variance swap (volatility exposure).
     VarianceSwap = 22,
     /// FX variance swap (volatility exposure on FX).
@@ -96,6 +98,8 @@ pub enum InstrumentType {
     Autocallable = 36,
     /// CMS option (constant maturity swap option).
     CmsOption = 37,
+    /// CMS swap (constant maturity swap).
+    CmsSwap = 77,
     /// Cliquet option (ratchet option with periodic resets).
     CliquetOption = 38,
     /// Range accrual note (coupon accrues when rate in range).
@@ -179,6 +183,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::YoYInflationSwap => "yoy_inflation_swap",
             InstrumentType::InflationCapFloor => "inflation_cap_floor",
             InstrumentType::InterestRateFuture => "interest_rate_future",
+            InstrumentType::IrFutureOption => "ir_future_option",
             InstrumentType::VarianceSwap => "variance_swap",
             InstrumentType::FxVarianceSwap => "fx_variance_swap",
             InstrumentType::Equity => "equity",
@@ -193,6 +198,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::QuantoOption => "quanto_option",
             InstrumentType::Autocallable => "autocallable",
             InstrumentType::CmsOption => "cms_option",
+            InstrumentType::CmsSwap => "cms_swap",
             InstrumentType::CliquetOption => "cliquet_option",
             InstrumentType::RangeAccrual => "range_accrual",
             InstrumentType::FxBarrierOption => "fx_barrier_option",
@@ -263,6 +269,7 @@ impl std::str::FromStr for InstrumentType {
             "interest_rate_future" | "ir_future" | "irfuture" => {
                 Ok(InstrumentType::InterestRateFuture)
             }
+            "ir_future_option" | "irfutureoption" => Ok(InstrumentType::IrFutureOption),
             "variance_swap" | "varianceswap" => Ok(InstrumentType::VarianceSwap),
             "fx_variance_swap" | "fxvarianceswap" => Ok(InstrumentType::FxVarianceSwap),
             "equity" => Ok(InstrumentType::Equity),
@@ -279,6 +286,7 @@ impl std::str::FromStr for InstrumentType {
             "quanto_option" | "quanto" => Ok(InstrumentType::QuantoOption),
             "autocallable" | "auto_callable" => Ok(InstrumentType::Autocallable),
             "cms_option" | "cms" => Ok(InstrumentType::CmsOption),
+            "cms_swap" => Ok(InstrumentType::CmsSwap),
             "cliquet_option" | "cliquet" => Ok(InstrumentType::CliquetOption),
             "range_accrual" | "range_accrual_note" => Ok(InstrumentType::RangeAccrual),
             "fx_barrier_option" | "fx_barrier" => Ok(InstrumentType::FxBarrierOption),
@@ -1580,6 +1588,14 @@ pub fn register_rates_pricers(registry: &mut PricerRegistry) {
         crate::instruments::rates::ir_future::pricer::SimpleIrFutureDiscountingPricer::default()
     );
 
+    // IR Future Option
+    register_pricer!(
+        registry,
+        IrFutureOption,
+        Discounting,
+        crate::instruments::rates::ir_future_option::pricer::IrFutureOptionPricer::default()
+    );
+
     // Bond Future
     register_pricer!(
         registry,
@@ -2138,6 +2154,14 @@ pub fn register_exotic_pricers(registry: &mut PricerRegistry) {
         CmsOption,
         MonteCarloHullWhite1F,
         crate::instruments::rates::cms_option::pricer::CmsOptionPricer::new()
+    );
+
+    // CMS Swap
+    register_pricer!(
+        registry,
+        CmsSwap,
+        Black76,
+        crate::instruments::rates::cms_swap::pricer::CmsSwapPricer::new()
     );
 
     // Cliquet Option

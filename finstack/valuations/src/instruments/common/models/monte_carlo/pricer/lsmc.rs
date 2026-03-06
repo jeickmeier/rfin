@@ -294,6 +294,23 @@ impl LsmcPricer {
                         exercise_times[i] = t;
                     }
                 }
+            } else {
+                // Fallback: too few ITM paths for stable regression.
+                // Exercise immediately for all ITM paths (conservative).
+                tracing::debug!(
+                    exercise_step,
+                    itm_paths = regression_x.len(),
+                    min_required = basis.num_basis() + 10,
+                    "LSMC: insufficient ITM paths for regression, using immediate exercise fallback"
+                );
+                for &i in &regression_indices {
+                    let spot = paths[i][exercise_step];
+                    let immediate = exercise.exercise_value(spot);
+                    if immediate > 1e-6 {
+                        cashflows[i] = immediate;
+                        exercise_times[i] = t;
+                    }
+                }
             }
         }
 

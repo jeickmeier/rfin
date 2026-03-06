@@ -85,20 +85,7 @@ impl BarrierOptionMcPricer {
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
         if t_vol <= 0.0 {
-            // Expired barrier option: without barrier-crossing history, we cannot
-            // determine whether the barrier was hit during the option's life.
-            //
-            // - Knock-out: if barrier was hit → 0 (+ rebate); if not → intrinsic
-            // - Knock-in: if barrier was hit → intrinsic; if not → 0 (+ rebate)
-            //
-            // Since barrier-crossing state is unknown, we conservatively return 0.
-            // For accurate expired barrier pricing, provide barrier-crossing history
-            // or price before expiry. The rebate is also not paid since we cannot
-            // determine the triggering condition.
-            return Ok(finstack_core::money::Money::new(
-                0.0,
-                inst.notional.currency(),
-            ));
+            return price_expired_barrier(inst, curves);
         }
 
         let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
@@ -222,10 +209,8 @@ impl BarrierOptionMcPricer {
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
         if t_vol <= 0.0 {
-            return Ok((
-                finstack_core::money::Money::new(0.0, inst.notional.currency()),
-                None,
-            ));
+            let pv = price_expired_barrier(inst, curves)?;
+            return Ok((pv, None));
         }
 
         let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
@@ -377,6 +362,72 @@ pub fn npv_with_lrm_greeks(
     pricer.price_with_lrm_greeks_internal(inst, curves, as_of)
 }
 
+// ========================= EXPIRED BARRIER HELPER =========================
+
+/// Price an expired barrier option using spot vs barrier to infer terminal payoff.
+///
+/// At expiry, we use the current spot to determine the barrier state:
+/// - **Knock-out**: if barrier breached (spot crossed barrier), pays rebate; otherwise pays intrinsic.
+/// - **Knock-in**: if barrier breached, pays intrinsic; otherwise pays rebate.
+///
+/// This is a best-effort heuristic when no barrier-crossing history is available.
+/// The intrinsic value is `max(S - K, 0)` for calls and `max(K - S, 0)` for puts,
+/// scaled by notional.
+fn price_expired_barrier(
+    inst: &BarrierOption,
+    curves: &MarketContext,
+) -> finstack_core::Result<Money> {
+    use crate::instruments::exotics::barrier_option::types::BarrierType;
+
+    let spot_scalar = curves.price(&inst.spot_id)?;
+    let spot = match spot_scalar {
+        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+        finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+    };
+
+    let barrier = inst.barrier.amount();
+    let ccy = inst.notional.currency();
+    let notional = inst.notional.amount();
+
+    let is_up = matches!(
+        inst.barrier_type,
+        BarrierType::UpAndOut | BarrierType::UpAndIn
+    );
+    let is_knock_out = matches!(
+        inst.barrier_type,
+        BarrierType::UpAndOut | BarrierType::DownAndOut
+    );
+
+    let barrier_breached = if is_up {
+        spot >= barrier
+    } else {
+        spot <= barrier
+    };
+
+    let intrinsic = match inst.option_type {
+        crate::instruments::OptionType::Call => (spot - inst.strike).max(0.0) * notional,
+        crate::instruments::OptionType::Put => (inst.strike - spot).max(0.0) * notional,
+    };
+    let rebate = inst.rebate.map(|m| m.amount()).unwrap_or(0.0);
+
+    let pv = if is_knock_out {
+        if barrier_breached {
+            rebate
+        } else {
+            intrinsic
+        }
+    } else {
+        // Knock-in
+        if barrier_breached {
+            intrinsic
+        } else {
+            rebate
+        }
+    };
+
+    Ok(Money::new(pv, ccy))
+}
+
 // ========================= ANALYTICAL PRICER =========================
 
 use crate::instruments::common_impl::helpers::collect_black_scholes_inputs;
@@ -461,11 +512,13 @@ impl Pricer for BarrierOptionAnalyticalPricer {
         })?;
 
         if t <= 0.0 {
-            return Ok(ValuationResult::stamped(
-                barrier_opt.id(),
-                as_of,
-                Money::new(0.0, barrier_opt.notional.currency()),
-            ));
+            let pv = price_expired_barrier(barrier_opt, market).map_err(|e| {
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
+            })?;
+            return Ok(ValuationResult::stamped(barrier_opt.id(), as_of, pv));
         }
 
         // Map barrier type

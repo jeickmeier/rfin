@@ -19,12 +19,15 @@ use crate::results::ValuationResult;
 
 use serde::{Deserialize, Serialize};
 
+use crate::attribution::taylor::TaylorAttributionConfig;
+
 /// Attribution methodology for decomposing P&L.
 ///
-/// Three methodologies are supported:
+/// Four methodologies are supported:
 /// - **Parallel**: Independent factor isolation (may not sum due to cross-effects)
 /// - **Waterfall**: Sequential application (guarantees sum = total, order matters)
 /// - **MetricsBased**: Linear approximation using existing metrics (fast but approximate)
+/// - **Taylor**: Sensitivity-based Taylor expansion (first/second order via bump-and-reprice)
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum AttributionMethod {
     /// Independent factor isolation (may not sum due to cross-effects).
@@ -47,6 +50,13 @@ pub enum AttributionMethod {
     /// Linear approximation using pre-computed sensitivities. Fast but less
     /// accurate for large market moves due to convexity effects.
     MetricsBased,
+
+    /// Sensitivity-based Taylor expansion (first/second order).
+    ///
+    /// Computes sensitivities at T₀ via bump-and-reprice, then multiplies by
+    /// observed market moves to decompose P&L. Optionally includes second-order
+    /// gamma/convexity terms.
+    Taylor(TaylorAttributionConfig),
 }
 
 /// Factor types for P&L attribution.
@@ -1054,6 +1064,7 @@ impl std::fmt::Display for AttributionMethod {
             AttributionMethod::Parallel => write!(f, "Parallel"),
             AttributionMethod::Waterfall(_) => write!(f, "Waterfall"),
             AttributionMethod::MetricsBased => write!(f, "MetricsBased"),
+            AttributionMethod::Taylor(_) => write!(f, "Taylor"),
         }
     }
 }

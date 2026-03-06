@@ -11,7 +11,7 @@
 //!
 //! # Methodologies
 //!
-//! Three attribution methodologies are supported:
+//! Four attribution methodologies are supported:
 //!
 //! - **Parallel Attribution**: Independent factor isolation. Each factor is analyzed
 //!   in isolation by restoring T₀ values while keeping all other factors at T₁.
@@ -23,6 +23,11 @@
 //!
 //! - **Metrics-Based Attribution**: Linear approximation using existing metrics
 //!   (Theta, DV01, CS01, etc.). Fast but less accurate for large market moves.
+//!
+//! - **Taylor Attribution**: Sensitivity-based Taylor expansion. Computes first-order
+//!   (and optionally second-order) sensitivities at T₀ via bump-and-reprice, then
+//!   multiplies by observed market moves. Complements the waterfall approach with
+//!   an independent, factor-additive decomposition.
 //!
 //! # Attribution Factors
 //!
@@ -255,6 +260,7 @@ pub(crate) mod metrics_based;
 pub(crate) mod model_params;
 pub(crate) mod parallel;
 pub(crate) mod spec;
+pub mod taylor;
 pub(crate) mod types;
 pub(crate) mod waterfall;
 
@@ -276,6 +282,10 @@ pub use parallel::attribute_pnl_parallel;
 pub use spec::{
     default_attribution_metrics, AttributionConfig, AttributionEnvelope, AttributionResult,
     AttributionResultEnvelope, AttributionSpec, ATTRIBUTION_SCHEMA_V1,
+};
+pub use taylor::{
+    attribute_pnl_taylor, attribute_pnl_taylor_compat, TaylorAttributionConfig,
+    TaylorAttributionResult, TaylorFactorResult,
 };
 pub use waterfall::{attribute_pnl_waterfall, default_waterfall_order};
 // Market snapshot helpers - exported for test usage

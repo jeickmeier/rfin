@@ -8,12 +8,16 @@
   "files": [
     "pkg/**",
     "pkg-node/**",
-    "snippets/**"
+    "snippets/**",
+    "types/**"
   ],
   "exports": {
     ".": {
       "types": "./pkg/finstack_wasm.d.ts",
       "default": "./pkg/finstack_wasm.js"
+    },
+    "./types": {
+      "types": "./types/generated/index.ts"
     },
     "./package.json": "./package.json",
     "./pkg/finstack_wasm_bg.wasm": "./pkg/finstack_wasm_bg.wasm"

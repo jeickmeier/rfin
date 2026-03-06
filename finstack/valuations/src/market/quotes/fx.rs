@@ -60,8 +60,10 @@ pub enum FxQuote {
         /// Strike exchange rate quoted as quote-currency per base-currency.
         strike: f64,
         /// Call or put on the base currency.
+        #[cfg_attr(feature = "ts_export", ts(type = "\"call\" | \"put\""))]
         option_type: OptionType,
         /// Volatility surface identifier used for pricing.
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         vol_surface_id: CurveId,
     },
 }

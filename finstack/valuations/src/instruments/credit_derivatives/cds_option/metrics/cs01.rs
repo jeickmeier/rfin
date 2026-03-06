@@ -1,25 +1,15 @@
-//! CDS Option CS01 (Hazard Rate Sensitivity) metric calculator.
+//! CDS Option CS01 metric calculators.
 //!
-//! **Important**: This metric computes the PV sensitivity to a 1bp parallel
-//! shift in the **hazard rate curve**, not the par spread. For constant recovery
-//! R, the relationship is approximately `dh/dS ≈ 1/(1-R)`, so at R=40% the
-//! hazard-rate CS01 is approximately 60% of the true spread-based CS01.
+//! Provides two CS01 variants:
 //!
-//! For spread-based CS01 (matching Bloomberg CDSW), one would need to
-//! recalibrate hazard rates from bumped par spreads. This implementation
-//! uses direct hazard curve bumping for computational efficiency.
+//! - **`Cs01Calculator`** (registered as `MetricId::Cs01`): Par-spread CS01
+//!   using the generic par-spread bump + re-bootstrap machinery via central
+//!   differencing. This is the default and matches Bloomberg CDSW conventions.
 //!
-//! # Formula
-//!
-//! CS01 = (PV_bumped - PV_base) / 1bp
-//!
-//! where the bump is applied to the hazard curve (parallel shift).
-//!
-//! # Naming Convention
-//!
-//! Despite the "CS01" name, this is technically a "Hazard01" metric.
-//! Users requiring spread-based CS01 should apply the `1/(1-R)` scaling
-//! factor to approximate the spread sensitivity.
+//! - **`Cs01HazardCalculator`** (registered as `MetricId::Cs01Hazard`): Direct
+//!   hazard-rate bump CS01. Directly shifts hazard rates without re-bootstrapping.
+//!   For constant recovery R, the result is approximately `(1-R)` times the
+//!   par-spread CS01.
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_option::CDSOption;
@@ -30,15 +20,19 @@ use finstack_core::Result;
 /// Standard credit spread bump: 1 basis point (0.0001 in decimal).
 const CS01_BUMP_BP: f64 = 1.0;
 
-/// CS01 (hazard rate sensitivity) calculator for CDS Option instruments.
+/// Par-spread CS01 calculator for CDS Option instruments.
 ///
-/// Computes sensitivity by bumping the hazard curve by 1bp and repricing.
-/// Note: this bumps hazard rates directly, not par spreads. The result is
-/// approximately `(1-R)` times the true spread-based CS01. See module docs
-/// for details on the distinction.
-pub struct Cs01Calculator;
+/// Delegates to the generic par-spread CS01 machinery which bumps par spreads,
+/// re-bootstraps the hazard curve, and uses central differencing.
+pub type Cs01Calculator = crate::metrics::GenericParallelCs01<CDSOption>;
 
-impl MetricCalculator for Cs01Calculator {
+/// CS01 Hazard (direct hazard-rate sensitivity) calculator for CDS Option instruments.
+///
+/// Computes sensitivity by bumping the hazard curve by 1bp (central difference)
+/// and repricing. This bumps hazard rates directly, not par spreads.
+pub struct Cs01HazardCalculator;
+
+impl MetricCalculator for Cs01HazardCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let cds_option: &CDSOption = context.instrument_as()?;
         let as_of = context.as_of;
@@ -48,40 +42,42 @@ impl MetricCalculator for Cs01Calculator {
                 instrument_id = %cds_option.id,
                 as_of = %as_of,
                 expiry = %cds_option.expiry,
-                "CDS Option CS01: Instrument already expired, returning 0.0"
+                "CDS Option CS01Hazard: Instrument already expired, returning 0.0"
             );
             return Ok(0.0);
         }
 
-        // Base PV
-        let base_pv = context.base_value.amount();
-
-        // Get the hazard curve and bump it
         let hazard = context.curves.get_hazard(&cds_option.credit_curve_id)?;
 
-        // Bump hazard curve by 1bp (convert bp to decimal: 1bp = 0.0001)
-        // with_parallel_bump expects a decimal shift, so 1bp = 0.0001
         let bump_decimal = CS01_BUMP_BP * 1e-4;
-        let temp_bumped = hazard.with_parallel_bump(bump_decimal)?;
+        let temp_bumped_up = hazard.with_parallel_bump(bump_decimal)?;
+        let bumped_hazard_up =
+            rebuild_hazard_with_id(&temp_bumped_up, &cds_option.credit_curve_id)?;
 
-        // Rebuild with the original ID so it replaces in the context
-        let bumped_hazard = rebuild_hazard_with_id(&temp_bumped, &cds_option.credit_curve_id)?;
+        let temp_bumped_down = hazard.with_parallel_bump(-bump_decimal)?;
+        let bumped_hazard_down =
+            rebuild_hazard_with_id(&temp_bumped_down, &cds_option.credit_curve_id)?;
 
-        // Create bumped market context
-        let bumped_curves = context.curves.as_ref().clone().insert_hazard(bumped_hazard);
+        let ctx_up = context
+            .curves
+            .as_ref()
+            .clone()
+            .insert_hazard(bumped_hazard_up);
+        let pv_up = cds_option.value(&ctx_up, as_of)?.amount();
 
-        // Reprice with bumped curve
-        let pv_bumped = cds_option.value(&bumped_curves, as_of)?.amount();
+        let ctx_down = context
+            .curves
+            .as_ref()
+            .clone()
+            .insert_hazard(bumped_hazard_down);
+        let pv_down = cds_option.value(&ctx_down, as_of)?.amount();
 
-        // CS01 = (PV_bumped - PV_base) / bump_size
-        // Note: We report CS01 per 1bp, so divide by the bump size in bp
-        let cs01 = (pv_bumped - base_pv) / CS01_BUMP_BP;
+        let cs01 = (pv_up - pv_down) / (2.0 * CS01_BUMP_BP);
 
         Ok(cs01)
     }
 
     fn dependencies(&self) -> &[MetricId] {
-        // No dependencies - we compute CS01 independently via finite differences
         &[]
     }
 }
@@ -141,7 +137,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cs01_finite_diff_for_call() {
+    fn test_cs01_hazard_finite_diff_for_call() {
         let as_of = date!(2024 - 01 - 01);
         let market = test_market(as_of);
 
@@ -161,10 +157,8 @@ mod tests {
             "CDS_VOL",
         )
         .expect("Valid CDS option");
-        // Set implied vol override since we don't have a vol surface
         option.pricing_overrides.market_quotes.implied_volatility = Some(0.30);
 
-        // Get base value
         let base_value = option
             .value(&market, as_of)
             .expect("Pricing should succeed");
@@ -177,14 +171,12 @@ mod tests {
             MetricContext::default_config(),
         );
 
-        let calculator = Cs01Calculator;
+        let calculator = Cs01HazardCalculator;
         let result = calculator.calculate(&mut context);
 
-        assert!(result.is_ok(), "CS01 calculation should succeed");
+        assert!(result.is_ok(), "CS01Hazard calculation should succeed");
         let cs01 = result.expect("should succeed");
 
-        // CS01 can be positive or negative depending on option position
-        // For a call option on spreads, CS01 should be finite
         assert!(cs01.is_finite(), "CS01 should be finite");
         assert!(
             cs01.abs() < 1_000_000.0,

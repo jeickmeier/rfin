@@ -71,6 +71,7 @@ pub fn build_xccy_instrument(quote: &XccyQuote, ctx: &BuildCtx) -> Result<Box<dy
                 spread_bp: Decimal::ZERO,
                 payment_lag_days: 0,
                 calendar_id: Some(conv.base_calendar_id.clone()),
+                reset_lag_days: None,
                 allow_calendar_fallback: false,
             };
 
@@ -89,6 +90,7 @@ pub fn build_xccy_instrument(quote: &XccyQuote, ctx: &BuildCtx) -> Result<Box<dy
                 spread_bp: Decimal::from_f64_retain(*basis_spread_bp).unwrap_or_default(),
                 payment_lag_days: 0,
                 calendar_id: Some(conv.quote_calendar_id.clone()),
+                reset_lag_days: None,
                 allow_calendar_fallback: false,
             };
 
