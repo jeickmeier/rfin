@@ -285,6 +285,31 @@ pub struct InflationCurveParams {
     /// Interpolation style for the curve.
     #[serde(default = "default_interp_linear")]
     pub interpolation: InterpStyle,
+
+    /// Optional seasonal adjustment factors for deseasonalizing CPI observations.
+    ///
+    /// When provided, the calibrator will:
+    /// 1. Deseasonalize input CPI levels using the monthly factors
+    /// 2. Fit the smooth zero-coupon curve to deseasonalized levels
+    /// 3. Reseasonalize the output CPI path
+    ///
+    /// Monthly adjustments are additive to log CPI level. They should approximately
+    /// sum to zero over 12 months.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seasonal_factors: Option<SeasonalFactors>,
+}
+
+/// Monthly seasonal adjustment factors for inflation curves.
+///
+/// Used to deseasonalize CPI observations before fitting a smooth
+/// zero-coupon inflation curve, then reseasonalize the output.
+/// Monthly adjustments should approximately sum to zero.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SeasonalFactors {
+    /// Monthly adjustment factors (Jan=index 0 through Dec=index 11).
+    /// These are additive adjustments to the log CPI level.
+    pub monthly_adjustments: [f64; 12],
 }
 
 /// Parameters for volatility surface calibration step.

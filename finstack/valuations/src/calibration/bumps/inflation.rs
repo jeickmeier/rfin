@@ -117,6 +117,7 @@ pub fn bump_inflation_rates(
         notional: 1.0,
         method: CalibrationMethod::Bootstrap,
         interpolation: Default::default(),
+        seasonal_factors: None,
     };
 
     let cfg = CalibrationConfig::default();

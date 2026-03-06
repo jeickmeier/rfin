@@ -7,14 +7,17 @@
 //! - `rates`: Bumping logic for Interest Rate curves.
 //! - `hazard`: Bumping logic for Credit (Hazard) curves.
 //! - `inflation`: Bumping logic for Inflation curves.
+//! - `vol`: Bumping logic for Volatility surfaces (vega risk).
 
 pub(crate) mod hazard;
 pub(crate) mod inflation;
 pub(crate) mod rates;
+pub(crate) mod vol;
 
 pub use hazard::{bump_hazard_shift, bump_hazard_spreads};
 pub use inflation::bump_inflation_rates;
 pub use rates::{bump_discount_curve, bump_discount_curve_synthetic};
+pub use vol::{bump_vol_surface, VolBumpRequest};
 
 /// Request for a curve bump operation.
 ///

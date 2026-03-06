@@ -131,6 +131,7 @@ fn inflation_preflight_rejects_invalid_observation_lag() {
             notional: 1.0,
             method: Default::default(),
             interpolation: Default::default(),
+            seasonal_factors: None,
         }),
     };
 
@@ -454,6 +455,7 @@ fn inflation_preflight_rejects_lag_mismatch_with_index() {
             notional: 1.0,
             method: Default::default(),
             interpolation: Default::default(),
+            seasonal_factors: None,
         }),
     };
 
