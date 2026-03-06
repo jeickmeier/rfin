@@ -284,10 +284,12 @@ pub(crate) fn emit_float_coupons_on(
                     let fwd_base = fwd.base_date();
 
                     // Sample daily overnight rates for each business day in the accrual period.
+                    // Per ISDA 2021 Section 7.1(g), the rate for each Reset Date accrues for
+                    // the number of calendar days from that Reset Date to the next.
                     let mut daily_rates: Vec<(f64, u32)> = Vec::new();
+                    let mut pre_first_fixing_days: u32 = 0;
                     let mut current = accrual_start;
                     while current < accrual_end {
-                        // Determine how many calendar days until the next date we process.
                         let next = current + time::Duration::days(1);
                         let next_capped = if next > accrual_end {
                             accrual_end
@@ -297,7 +299,6 @@ pub(crate) fn emit_float_coupons_on(
                         let days = (next_capped - current).whole_days().max(1) as u32;
 
                         if current.is_business_day(calendar) {
-                            // Compute time from curve base date to current date.
                             let t = if current <= fwd_base {
                                 0.0
                             } else {
@@ -310,14 +311,16 @@ pub(crate) fn emit_float_coupons_on(
                                     .unwrap_or(0.0)
                             };
                             let rate = fwd.rate(t);
-                            daily_rates.push((rate, days));
-                        } else {
-                            // Non-business day: extend previous rate's weight, or skip if none yet.
-                            if let Some(last) = daily_rates.last_mut() {
-                                last.1 += days;
-                            }
-                            // If no previous rate exists yet (accrual starts on a weekend),
-                            // the days will be picked up by the first business day's weight.
+                            // Include any non-business days before the first fixing.
+                            let total = days + pre_first_fixing_days;
+                            pre_first_fixing_days = 0;
+                            daily_rates.push((rate, total));
+                        } else if daily_rates.is_empty() {
+                            // Non-business day before the first fixing: accumulate days
+                            // so they are assigned to the first business day's weight.
+                            pre_first_fixing_days += days;
+                        } else if let Some(last) = daily_rates.last_mut() {
+                            last.1 += days;
                         }
                         current = next_capped;
                     }

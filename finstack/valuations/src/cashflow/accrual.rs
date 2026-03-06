@@ -318,50 +318,43 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<P
 
     // Derive the start of the first coupon period (issue date).
     //
-    // Strategy:
-    // 1. If schedule.dates().min() differs from the first coupon date, use that
-    //    (this handles cases where issue date flow exists in the schedule)
-    // 2. Otherwise, derive issue date from first coupon's accrual factor using
-    //    an inverse day count approximation:
-    //    issue_date ≈ first_coupon_date - (accrual_factor × days_per_year)
-    //
-    // Note on inverse day count approximation:
-    // This is the *inverse* of the standard year fraction calculation. While
-    // day counts compute (days → year_fraction), we need (year_fraction → days).
-    // The approximation uses the day count's denominator as days_per_year:
-    // - 30/360, ACT/360: 360 days per year
-    // - ACT/365F, ACT/ACT: 365 days per year (approximation for ACT/ACT)
-    //
-    // This may produce dates that differ by 1-2 days from the true issue date
-    // for instruments with non-standard accrual periods, but is sufficient for
-    // establishing coupon period boundaries for accrual calculations.
+    // Strategy (in priority order):
+    // 1. If `meta.issue_date` is set, use it directly (most accurate).
+    // 2. If schedule.dates().min() differs from the first coupon date, use that
+    //    (this handles cases where issue date flow exists in the schedule).
+    // 3. Otherwise, derive issue date from first coupon's accrual factor using
+    //    an inverse day count approximation (least accurate, up to 1-2 day error).
     let first_bucket = &buckets[0];
-    let schedule_min = schedule.dates().into_iter().min();
-    let horizon_start = match schedule_min {
-        Some(min_date) if min_date < first_bucket.date => min_date,
-        _ => {
-            // Derive issue date from first coupon's accrual factor using inverse
-            // day count approximation. See comment above for rationale.
-            let days_per_year = match dc {
-                DayCount::Thirty360 => 360.0,
-                DayCount::Act360 => 360.0,
-                _ => 365.0, // ACT/365F, ACT/ACT, etc.
-            };
-
-            // Only derive if accrual_factor is positive and within bounds
-            if first_bucket.accrual_factor > 0.0
-                && first_bucket.accrual_factor <= MAX_REASONABLE_ACCRUAL_FACTOR
-            {
-                let days_to_subtract = (first_bucket.accrual_factor * days_per_year).round() as i64;
-                first_bucket.date - time::Duration::days(days_to_subtract)
-            } else {
-                // Fallback: use first coupon date as start (degenerate case).
-                // This creates a zero-length first period which will be skipped.
+    let horizon_start = if let Some(issue) = schedule.meta.issue_date {
+        // Prefer explicit issue date from metadata (set by builder or instrument).
+        issue
+    } else {
+        let schedule_min = schedule.dates().into_iter().min();
+        match schedule_min {
+            Some(min_date) if min_date < first_bucket.date => min_date,
+            _ => {
+                // Derive issue date from first coupon's accrual factor using inverse
+                // day count approximation:
+                //   issue_date ≈ first_coupon_date - (accrual_factor × days_per_year)
                 //
-                // Note: This fallback indicates a potentially problematic schedule
-                // where accrual_factor is 0 or > 1.5. Callers should ensure schedules
-                // have valid accrual factors for proper accrual calculation.
-                first_bucket.date
+                // The approximation uses the day count's denominator as days_per_year:
+                // - 30/360, ACT/360: 360 days per year
+                // - ACT/365F, ACT/ACT: 365 days per year (approximation for ACT/ACT)
+                let days_per_year = match dc {
+                    DayCount::Thirty360 => 360.0,
+                    DayCount::Act360 => 360.0,
+                    _ => 365.0,
+                };
+
+                if first_bucket.accrual_factor > 0.0
+                    && first_bucket.accrual_factor <= MAX_REASONABLE_ACCRUAL_FACTOR
+                {
+                    let days_to_subtract =
+                        (first_bucket.accrual_factor * days_per_year).round() as i64;
+                    first_bucket.date - time::Duration::days(days_to_subtract)
+                } else {
+                    first_bucket.date
+                }
             }
         }
     };

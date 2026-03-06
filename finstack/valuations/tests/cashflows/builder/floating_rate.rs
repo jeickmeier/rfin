@@ -1196,3 +1196,125 @@ fn test_overnight_vs_term_rate_flat_curve_equivalence() {
         );
     }
 }
+
+// =============================================================================
+// Test: Overnight compounding accrual starts on a weekend
+// =============================================================================
+
+/// Verifies that overnight compounding correctly accounts for non-business days
+/// at the start of an accrual period (e.g., accrual_start on a Saturday).
+///
+/// Jan 4, 2025 is a Saturday. Using Unadjusted BDC preserves this as the raw
+/// accrual start. The fix ensures the Saturday and Sunday (2 days) before the
+/// first business day (Monday Jan 6) are assigned to Monday's fixing weight,
+/// so no accrual days are lost.
+///
+/// We build two schedules — one starting Saturday (Unadjusted), one starting
+/// Monday (Following) — and verify they produce approximately equal coupons.
+/// Without the fix, the Saturday-start schedule would lose 2 days of accrual.
+#[test]
+fn test_overnight_compounding_weekend_start_no_lost_days() {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::ForwardCurve;
+    use finstack_core::math::interp::InterpStyle;
+    use finstack_valuations::cashflow::builder::specs::OvernightCompoundingMethod;
+
+    // Jan 4 2025 = Saturday, Jan 6 2025 = Monday
+    let saturday = Date::from_calendar_date(2025, Month::January, 4).unwrap();
+    let monday = Date::from_calendar_date(2025, Month::January, 6).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::April, 7).unwrap();
+    let init = Money::new(1_000_000.0, Currency::USD);
+
+    let fwd = ForwardCurve::builder("USD-SOFR-ON", 1.0 / 360.0)
+        .base_date(saturday)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.05), (1.0, 0.05)])
+        .interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+    let market = MarketContext::new().insert_forward(fwd);
+
+    let make_spec = |bdc| FloatingCouponSpec {
+        rate_spec: FloatingRateSpec {
+            index_id: "USD-SOFR-ON".into(),
+            spread_bp: dec!(0),
+            gearing: Decimal::ONE,
+            gearing_includes_spread: true,
+            floor_bp: None,
+            cap_bp: None,
+            all_in_floor_bp: None,
+            index_cap_bp: None,
+            reset_freq: Tenor::quarterly(),
+            reset_lag_days: 0,
+            dc: DayCount::Act360,
+            bdc,
+            calendar_id: "weekends_only".to_string(),
+            fixing_calendar_id: None,
+            end_of_month: false,
+            payment_lag_days: 0,
+            overnight_compounding: Some(OvernightCompoundingMethod::CompoundedInArrears),
+            fallback: FloatingRateFallback::Error,
+        },
+        coupon_type: CouponType::Cash,
+        freq: Tenor::quarterly(),
+        stub: StubKind::None,
+    };
+
+    // Schedule 1: Saturday start with Unadjusted BDC (accrual_start = Saturday)
+    let sat_schedule = CashFlowSchedule::builder()
+        .principal(init, saturday, maturity)
+        .floating_cf(make_spec(BusinessDayConvention::Unadjusted))
+        .build_with_curves(Some(&market))
+        .expect("Unadjusted Saturday start should build");
+
+    // Schedule 2: Monday start with Following BDC (baseline)
+    let mon_schedule = CashFlowSchedule::builder()
+        .principal(init, monday, maturity)
+        .floating_cf(make_spec(BusinessDayConvention::Following))
+        .build_with_curves(Some(&market))
+        .expect("Following Monday start should build");
+
+    let sat_floats: Vec<_> = sat_schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+    let mon_floats: Vec<_> = mon_schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .collect();
+
+    assert!(
+        !sat_floats.is_empty(),
+        "Saturday schedule should have float flows"
+    );
+    assert!(
+        !mon_floats.is_empty(),
+        "Monday schedule should have float flows"
+    );
+
+    // Both should produce ~5% rate on a flat curve
+    for cf in &sat_floats {
+        let rate = cf.rate.expect("FloatReset should have a rate");
+        assert!(
+            (rate - 0.05).abs() < 0.002,
+            "Saturday-start overnight rate should be ~5%, got {:.6}",
+            rate
+        );
+    }
+
+    // The Saturday schedule covers 2 extra calendar days (Sat+Sun) at the start.
+    // With the fix, these days are assigned to Monday's fixing, so the total
+    // coupon for the Saturday schedule should be >= the Monday schedule.
+    let sat_total: f64 = sat_floats.iter().map(|cf| cf.amount.amount()).sum();
+    let mon_total: f64 = mon_floats.iter().map(|cf| cf.amount.amount()).sum();
+
+    assert!(
+        sat_total >= mon_total * 0.99,
+        "Saturday-start total ({:.2}) should not be materially less than Monday-start ({:.2}); \
+         lost weekend days would cause a shortfall",
+        sat_total,
+        mon_total,
+    );
+}

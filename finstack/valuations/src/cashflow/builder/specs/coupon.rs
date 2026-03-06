@@ -328,6 +328,44 @@ pub struct FloatingRateSpec {
     pub fallback: FloatingRateFallback,
 }
 
+impl FloatingRateSpec {
+    /// Validates the floating rate specification.
+    ///
+    /// # Validation Rules
+    ///
+    /// - `reset_lag_days` must be non-negative (fixing before accrual start)
+    /// - Index floor must not exceed index cap (if both specified)
+    /// - All-in floor must not exceed all-in cap (if both specified)
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.reset_lag_days < 0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "reset_lag_days must be non-negative; got {}",
+                self.reset_lag_days
+            )));
+        }
+
+        if let (Some(floor), Some(cap)) = (self.floor_bp, self.index_cap_bp) {
+            if floor > cap {
+                return Err(finstack_core::Error::Validation(format!(
+                    "index floor_bp ({}) must not exceed index_cap_bp ({})",
+                    floor, cap
+                )));
+            }
+        }
+
+        if let (Some(floor), Some(cap)) = (self.all_in_floor_bp, self.cap_bp) {
+            if floor > cap {
+                return Err(finstack_core::Error::Validation(format!(
+                    "all_in_floor_bp ({}) must not exceed cap_bp ({})",
+                    floor, cap
+                )));
+            }
+        }
+
+        Ok(())
+    }
+}
+
 fn default_gearing_includes_spread() -> bool {
     true
 }

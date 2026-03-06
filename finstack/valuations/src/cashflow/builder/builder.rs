@@ -1299,11 +1299,6 @@ impl CashFlowBuilder {
         self
     }
 
-    /// Build the cashflow schedule with optional market curves for floating rate computation.
-    ///
-    /// When curves are provided, floating rate coupons include the forward rate:
-    /// `coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * year_fraction`
-    ///
     /// Build the cashflow schedule without market curves.
     ///
     /// Equivalent to `build_with_curves(None)`. For floating-rate instruments
@@ -1312,8 +1307,13 @@ impl CashFlowBuilder {
         self.build_with_curves(None)
     }
 
-    /// Without curves, only the margin is used:
-    /// `coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction`
+    /// Build the cashflow schedule with optional market curves for floating rate projection.
+    ///
+    /// When curves are provided, floating rate coupons use forward rates:
+    /// `coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * year_fraction`
+    ///
+    /// Without curves, the fallback policy on each floating spec controls behavior
+    /// (default: error; `SpreadOnly` uses just margin; `FixedRate(r)` uses a fixed index).
     pub fn build_with_curves(
         &self,
         curves: Option<&finstack_core::market_data::context::MarketContext>,
@@ -1408,8 +1408,9 @@ impl CashFlowBuilder {
         }
 
         // 7) Finalize flows and produce meta/day count (use actual specs used)
-        let (flows, meta, out_dc) =
+        let (flows, mut meta, out_dc) =
             finalize_flows(state.flows, &used_fixed_specs, &used_float_specs);
+        meta.issue_date = Some(issue);
         Ok(CashFlowSchedule {
             flows,
             notional,

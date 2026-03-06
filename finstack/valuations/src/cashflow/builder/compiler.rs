@@ -618,6 +618,7 @@ pub(super) fn compute_coupon_schedules(
                     freq: chosen_coupon.schedule.freq,
                     stub: chosen_coupon.schedule.stub,
                 };
+                spec.rate_spec.validate()?;
                 used_float_specs.push(spec.clone());
                 float_schedules.push((spec, dates, prev));
             }

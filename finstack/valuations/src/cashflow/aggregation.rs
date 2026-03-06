@@ -364,10 +364,8 @@ fn time_discount_survival(
 /// # Recovery Rationale
 ///
 /// This follows standard credit modeling convention where:
-/// - Principal claims have recovery value in default (par recovery assumption)
+/// - Principal claims (Amortization, Notional, PrePayment) have recovery value in default
 /// - Interest/fee claims are typically subordinate and assumed to have zero recovery
-/// - The `CFKind::Principal` is not included because scheduled principal repayments
-///   are captured via `Amortization` and `Notional` kinds in this module's taxonomy
 ///
 /// # Errors
 ///
@@ -410,7 +408,7 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed(
         |cf, df, sp| {
             let recovery_term = if let Some(r) = recovery_rate {
                 match cf.kind {
-                    CFKind::Amortization | CFKind::Notional => r * (1.0 - sp),
+                    CFKind::Amortization | CFKind::Notional | CFKind::PrePayment => r * (1.0 - sp),
                     _ => 0.0,
                 }
             } else {

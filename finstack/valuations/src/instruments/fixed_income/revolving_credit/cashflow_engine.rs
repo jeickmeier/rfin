@@ -526,6 +526,7 @@ impl<'a> CashflowEngine<'a> {
             meta: crate::cashflow::builder::CashFlowMeta {
                 calendar_ids: Vec::new(),
                 facility_limit: Some(self.facility.commitment_amount),
+                issue_date: None,
             },
         })
     }
@@ -710,6 +711,7 @@ impl<'a> CashflowEngine<'a> {
             meta: crate::cashflow::builder::CashFlowMeta {
                 calendar_ids: Vec::new(),
                 facility_limit: Some(self.facility.commitment_amount),
+                issue_date: None,
             },
         })
     }

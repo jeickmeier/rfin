@@ -53,6 +53,7 @@ pub(crate) fn finalize_flows(
     let meta = CashFlowMeta {
         calendar_ids: cals,
         facility_limit: None,
+        issue_date: None,
     };
 
     let out_dc = if let Some(s) = fixed.first() {
@@ -65,16 +66,23 @@ pub(crate) fn finalize_flows(
     (flows, meta, out_dc)
 }
 
-/// Minimal schedule metadata for a built schedule.
+/// Metadata for cashflow schedules (calendar IDs, facility limits, issue date).
 ///
-/// Tracks referenced calendar IDs so callers can understand adjustment context.
-/// Metadata for cashflow schedules (calendar IDs, facility limits).
+/// Tracks referenced calendar IDs, optional facility limits, and the instrument's
+/// issue date for use by downstream engines (e.g., accrual calculation).
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct CashFlowMeta {
-    /// Holiday calendar IDs used for schedule adjustments
+    /// Holiday calendar IDs used for schedule adjustments.
     pub calendar_ids: Vec<String>,
-    /// Optional facility limit/commitment for instruments like RCFs
+    /// Optional facility limit/commitment for instruments like RCFs.
     pub facility_limit: Option<Money>,
+    /// Issue date of the instrument, when known.
+    ///
+    /// Used by the accrual engine to establish the first coupon period start
+    /// date precisely, avoiding the inverse day count approximation that can
+    /// be off by 1-2 days.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issue_date: Option<Date>,
 }
 
 /// Cashflow schedule output from the composable builder.

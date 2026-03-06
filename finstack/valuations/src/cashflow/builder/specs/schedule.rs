@@ -25,97 +25,201 @@ pub struct ScheduleParams {
     pub payment_lag_days: i32,
 }
 
+const WK: &str = crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID;
+
 impl ScheduleParams {
-    /// Quarterly payments with Act/360 day count and Following BDC
+    fn preset(freq: Tenor, dc: DayCount, bdc: BusinessDayConvention, calendar_id: &str) -> Self {
+        Self {
+            freq,
+            dc,
+            bdc,
+            calendar_id: calendar_id.to_string(),
+            stub: StubKind::ShortFront,
+            end_of_month: false,
+            payment_lag_days: 0,
+        }
+    }
+
+    fn preset_with_lag(
+        freq: Tenor,
+        dc: DayCount,
+        bdc: BusinessDayConvention,
+        calendar_id: &str,
+        payment_lag_days: i32,
+    ) -> Self {
+        Self {
+            payment_lag_days,
+            ..Self::preset(freq, dc, bdc, calendar_id)
+        }
+    }
+
+    // ── Generic presets (calendar-agnostic) ──────────────────────────────────
+
+    /// Quarterly payments with Act/360 day count and Modified Following BDC.
     pub fn quarterly_act360() -> Self {
-        Self {
-            freq: Tenor::quarterly(),
-            dc: DayCount::Act360,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string(),
-            stub: StubKind::None,
-            end_of_month: false,
-            payment_lag_days: 0,
-        }
+        Self::preset(
+            Tenor::quarterly(),
+            DayCount::Act360,
+            BusinessDayConvention::ModifiedFollowing,
+            WK,
+        )
     }
 
-    /// Semi-annual payments with 30/360 day count and Modified Following BDC
+    /// Semi-annual payments with 30/360 day count and Modified Following BDC.
     pub fn semiannual_30360() -> Self {
-        Self {
-            freq: Tenor::semi_annual(),
-            dc: DayCount::Thirty360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string(),
-            stub: StubKind::None,
-            end_of_month: false,
-            payment_lag_days: 0,
-        }
+        Self::preset(
+            Tenor::semi_annual(),
+            DayCount::Thirty360,
+            BusinessDayConvention::ModifiedFollowing,
+            WK,
+        )
     }
 
-    /// Annual payments with Act/Act day count and Following BDC
+    /// Annual payments with Act/Act day count and Following BDC.
     pub fn annual_actact() -> Self {
-        Self {
-            freq: Tenor::annual(),
-            dc: DayCount::ActAct,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string(),
-            stub: StubKind::None,
-            end_of_month: false,
-            payment_lag_days: 0,
-        }
+        Self::preset(
+            Tenor::annual(),
+            DayCount::ActAct,
+            BusinessDayConvention::Following,
+            WK,
+        )
     }
 
-    /// USD market standard (quarterly, Act/360, Modified Following, USD calendar)
+    // ── USD ──────────────────────────────────────────────────────────────────
+
+    /// USD SOFR swap (quarterly, Act/360, Modified Following, USNY, T+2 payment lag).
+    ///
+    /// Follows ARRC SOFR conventions and ISDA 2021 definitions.
+    pub fn usd_sofr_swap() -> Self {
+        Self::preset_with_lag(
+            Tenor::quarterly(),
+            DayCount::Act360,
+            BusinessDayConvention::ModifiedFollowing,
+            "usny",
+            2,
+        )
+    }
+
+    /// USD corporate bond (semi-annual, 30/360, Following, USNY).
+    pub fn usd_corporate_bond() -> Self {
+        Self::preset(
+            Tenor::semi_annual(),
+            DayCount::Thirty360,
+            BusinessDayConvention::Following,
+            "usny",
+        )
+    }
+
+    /// USD Treasury bond (semi-annual, Act/Act, Following, USNY).
+    pub fn usd_treasury() -> Self {
+        Self::preset(
+            Tenor::semi_annual(),
+            DayCount::ActAct,
+            BusinessDayConvention::Following,
+            "usny",
+        )
+    }
+
+    /// USD market standard (quarterly, Act/360, Modified Following, USNY).
+    ///
+    /// Generic USD preset; for specific products use [`usd_sofr_swap`](Self::usd_sofr_swap),
+    /// [`usd_corporate_bond`](Self::usd_corporate_bond), or [`usd_treasury`](Self::usd_treasury).
     pub fn usd_standard() -> Self {
-        Self {
-            freq: Tenor::quarterly(),
-            dc: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            // Use a real calendar identifier (currency codes are not calendar IDs).
-            calendar_id: "usny".to_string(),
-            stub: StubKind::None,
-            end_of_month: false,
-            payment_lag_days: 0,
-        }
+        Self::preset(
+            Tenor::quarterly(),
+            DayCount::Act360,
+            BusinessDayConvention::ModifiedFollowing,
+            "usny",
+        )
     }
 
-    /// EUR market standard (semi-annual, 30/360, Modified Following, EUR calendar)
+    // ── EUR ──────────────────────────────────────────────────────────────────
+
+    /// EUR ESTR swap (annual, Act/360, Modified Following, TARGET2, T+2 payment lag).
+    ///
+    /// Follows ECB €STR conventions.
+    pub fn eur_estr_swap() -> Self {
+        Self::preset_with_lag(
+            Tenor::annual(),
+            DayCount::Act360,
+            BusinessDayConvention::ModifiedFollowing,
+            "target2",
+            2,
+        )
+    }
+
+    /// EUR government bond (annual, Act/Act, Following, TARGET2).
+    pub fn eur_gov_bond() -> Self {
+        Self::preset(
+            Tenor::annual(),
+            DayCount::ActAct,
+            BusinessDayConvention::Following,
+            "target2",
+        )
+    }
+
+    /// EUR market standard (semi-annual, 30/360, Modified Following, TARGET2).
+    ///
+    /// Generic EUR preset suitable for EUR corporate bonds. For swaps use
+    /// [`eur_estr_swap`](Self::eur_estr_swap).
     pub fn eur_standard() -> Self {
-        Self {
-            freq: Tenor::semi_annual(),
-            dc: DayCount::Thirty360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: "target2".to_string(),
-            stub: StubKind::None,
-            end_of_month: false,
-            payment_lag_days: 0,
-        }
+        Self::preset(
+            Tenor::semi_annual(),
+            DayCount::Thirty360,
+            BusinessDayConvention::ModifiedFollowing,
+            "target2",
+        )
     }
 
-    /// GBP market standard (semi-annual, Act/365, Modified Following, GBP calendar)
+    // ── GBP ──────────────────────────────────────────────────────────────────
+
+    /// GBP SONIA swap (annual, Act/365F, Modified Following, GBLO, no payment lag).
+    ///
+    /// Follows BoE SONIA conventions.
+    pub fn gbp_sonia_swap() -> Self {
+        Self::preset(
+            Tenor::annual(),
+            DayCount::Act365F,
+            BusinessDayConvention::ModifiedFollowing,
+            "gblo",
+        )
+    }
+
+    /// GBP market standard (semi-annual, Act/365F, Modified Following, GBLO).
+    ///
+    /// Suitable for UK Gilts and GBP corporate bonds.
     pub fn gbp_standard() -> Self {
-        Self {
-            freq: Tenor::semi_annual(),
-            dc: DayCount::Act365F,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: "gblo".to_string(),
-            stub: StubKind::None,
-            end_of_month: false,
-            payment_lag_days: 0,
-        }
+        Self::preset(
+            Tenor::semi_annual(),
+            DayCount::Act365F,
+            BusinessDayConvention::ModifiedFollowing,
+            "gblo",
+        )
     }
 
-    /// JPY market standard (semi-annual, Act/365, Modified Following, JPY calendar)
+    // ── JPY ──────────────────────────────────────────────────────────────────
+
+    /// JPY TONA swap (annual, Act/365F, Modified Following, JPTO, T+2 payment lag).
+    ///
+    /// Follows BoJ TONA conventions.
+    pub fn jpy_tona_swap() -> Self {
+        Self::preset_with_lag(
+            Tenor::annual(),
+            DayCount::Act365F,
+            BusinessDayConvention::ModifiedFollowing,
+            "jpto",
+            2,
+        )
+    }
+
+    /// JPY market standard (semi-annual, Act/365F, Modified Following, JPTO).
     pub fn jpy_standard() -> Self {
-        Self {
-            freq: Tenor::semi_annual(),
-            dc: DayCount::Act365F,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: "jpto".to_string(),
-            stub: StubKind::None,
-            end_of_month: false,
-            payment_lag_days: 0,
-        }
+        Self::preset(
+            Tenor::semi_annual(),
+            DayCount::Act365F,
+            BusinessDayConvention::ModifiedFollowing,
+            "jpto",
+        )
     }
 }
 
