@@ -104,17 +104,10 @@ impl BarrierOptionMcPricer {
         };
 
         // Get dividend yield
-        let q = if let Some(div_id) = &inst.div_yield_id {
-            match curves.price(div_id.as_str()) {
-                Ok(ms) => match ms {
-                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                    finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
-                },
-                Err(_) => 0.0,
-            }
-        } else {
-            0.0
-        };
+        let q = crate::instruments::common_impl::helpers::resolve_optional_dividend_yield(
+            curves,
+            inst.div_yield_id.as_ref(),
+        )?;
 
         // Get volatility using vol surface time basis
         let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
@@ -227,17 +220,10 @@ impl BarrierOptionMcPricer {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
-        let q = if let Some(div_id) = &inst.div_yield_id {
-            match curves.price(div_id.as_str()) {
-                Ok(ms) => match ms {
-                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                    finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
-                },
-                Err(_) => 0.0,
-            }
-        } else {
-            0.0
-        };
+        let q = crate::instruments::common_impl::helpers::resolve_optional_dividend_yield(
+            curves,
+            inst.div_yield_id.as_ref(),
+        )?;
 
         // Volatility and process (using vol surface time basis)
         let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
@@ -430,9 +416,8 @@ fn price_expired_barrier(
 
 // ========================= ANALYTICAL PRICER =========================
 
-use crate::instruments::common_impl::helpers::collect_black_scholes_inputs;
 use crate::instruments::common_impl::models::closed_form::barrier::{
-    barrier_call_continuous, barrier_put_continuous, barrier_rebate_continuous,
+    barrier_call_continuous_df, barrier_put_continuous_df, barrier_rebate_continuous_df,
     BarrierType as AnalyticalBarrierType,
 };
 /// Broadie-Glasserman-Kou / Gobet-Miri discrete barrier adjustment constant.
@@ -495,8 +480,9 @@ impl Pricer for BarrierOptionAnalyticalPricer {
             );
         }
 
-        // Use standardized input collection
-        let (spot, r, q, sigma, t) = collect_black_scholes_inputs(
+        // Use DF-first input collection to keep vol lookup on the instrument clock
+        // while preserving discounting on the discount curve clock.
+        let bs_inputs = crate::instruments::common_impl::helpers::collect_black_scholes_inputs_df(
             &barrier_opt.spot_id,
             &barrier_opt.discount_curve_id,
             barrier_opt.div_yield_id.as_ref(),
@@ -510,6 +496,11 @@ impl Pricer for BarrierOptionAnalyticalPricer {
         .map_err(|e| {
             PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
+        let spot = bs_inputs.spot;
+        let q = bs_inputs.q;
+        let sigma = bs_inputs.sigma;
+        let t = bs_inputs.t;
+        let df = bs_inputs.df;
 
         if t <= 0.0 {
             let pv = price_expired_barrier(barrier_opt, market).map_err(|e| {
@@ -547,22 +538,22 @@ impl Pricer for BarrierOptionAnalyticalPricer {
         };
 
         let price = match barrier_opt.option_type {
-            crate::instruments::OptionType::Call => barrier_call_continuous(
+            crate::instruments::OptionType::Call => barrier_call_continuous_df(
                 spot,
                 barrier_opt.strike,
                 effective_barrier,
                 t,
-                r,
+                df,
                 q,
                 sigma,
                 analytical_barrier_type,
             ),
-            crate::instruments::OptionType::Put => barrier_put_continuous(
+            crate::instruments::OptionType::Put => barrier_put_continuous_df(
                 spot,
                 barrier_opt.strike,
                 effective_barrier,
                 t,
-                r,
+                df,
                 q,
                 sigma,
                 analytical_barrier_type,
@@ -570,12 +561,12 @@ impl Pricer for BarrierOptionAnalyticalPricer {
         };
 
         let rebate_val = if let Some(rebate) = barrier_opt.rebate {
-            barrier_rebate_continuous(
+            barrier_rebate_continuous_df(
                 spot,
                 effective_barrier,
                 rebate.amount(),
                 t,
-                r,
+                df,
                 q,
                 sigma,
                 analytical_barrier_type,

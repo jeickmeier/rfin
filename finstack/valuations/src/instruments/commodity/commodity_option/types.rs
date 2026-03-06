@@ -85,12 +85,11 @@ pub enum CommodityPricingModel {
 /// The convenience yield (cost-of-carry) is implied from the forward/spot ratio:
 /// `q = r - ln(F/S)/T`
 ///
-/// # Bermudan Exercise Warning
+/// # Bermudan Exercise Status
 ///
-/// **Bermudan exercise is currently approximated as American** (continuous early exercise).
-/// This overestimates the option value because American exercise allows exercise at
-/// every tree node, while Bermudan restricts exercise to specific dates only.
-/// The approximation error grows with fewer exercise windows.
+/// Bermudan exercise is currently **rejected**. The prior American-style
+/// approximation was removed because it materially overstates option value
+/// for sparse exercise schedules.
 ///
 /// # Forward Price Retrieval
 ///
@@ -574,13 +573,7 @@ impl Instrument for CommodityOption {
                 inputs.df,
                 self.option_type,
             ),
-            ExerciseStyle::American | ExerciseStyle::Bermudan => {
-                // NOTE: Bermudan exercise is approximated as American (continuous exercise).
-                // This overestimates the option value because American exercise allows
-                // exercise at every tree node, while Bermudan restricts exercise to
-                // specific dates only. The difference can be material for options with
-                // infrequent exercise windows. A proper Bermudan implementation would
-                // restrict early exercise in the binomial tree to the specified dates.
+            ExerciseStyle::American => {
                 let steps = self
                     .pricing_overrides
                     .model_config
@@ -597,6 +590,13 @@ impl Instrument for CommodityOption {
                     option_type: self.option_type,
                 };
                 tree.price_american(&params)?
+            }
+            ExerciseStyle::Bermudan => {
+                return Err(finstack_core::Error::Validation(
+                    "Commodity Bermudan option pricing is not implemented; the previous \
+                     American approximation was removed because it materially overstates value"
+                        .to_string(),
+                ));
             }
         };
 
@@ -918,6 +918,9 @@ impl crate::instruments::common_impl::traits::OptionVolgaProvider for CommodityO
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common_impl::traits::Instrument;
+    use finstack_core::market_data::surfaces::VolSurface;
+    use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
 
     #[test]
     fn test_default_settlement_type_is_cash() {
@@ -936,5 +939,42 @@ mod tests {
         obj.remove("settlement");
         let option: CommodityOption = serde_json::from_value(value).expect("deserialize");
         assert_eq!(option.settlement, SettlementType::Cash);
+    }
+
+    #[test]
+    fn bermudan_exercise_is_rejected_instead_of_approximated_as_american() {
+        let mut option = CommodityOption::example();
+        option.exercise_style = ExerciseStyle::Bermudan;
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 15).expect("valid");
+        let market = finstack_core::market_data::context::MarketContext::new()
+            .insert_discount(
+                DiscountCurve::builder("USD-OIS")
+                    .base_date(as_of)
+                    .knots([(0.0, 1.0), (1.0, 0.97)])
+                    .build()
+                    .expect("discount curve"),
+            )
+            .insert_price_curve(
+                PriceCurve::builder("WTI-FORWARD")
+                    .base_date(as_of)
+                    .spot_price(75.0)
+                    .knots([(0.0, 75.0), (1.0, 76.0)])
+                    .build()
+                    .expect("price curve"),
+            )
+            .insert_surface(
+                VolSurface::builder("WTI-VOL")
+                    .expiries(&[0.25, 0.5, 1.0])
+                    .strikes(&[60.0, 75.0, 90.0])
+                    .row(&[0.25, 0.25, 0.25])
+                    .row(&[0.25, 0.25, 0.25])
+                    .row(&[0.25, 0.25, 0.25])
+                    .build()
+                    .expect("vol surface"),
+            );
+        let err = option
+            .value(&market, as_of)
+            .expect_err("Bermudan commodity options should fail closed");
+        assert!(err.to_string().contains("not implemented"));
     }
 }

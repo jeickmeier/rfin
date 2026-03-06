@@ -720,12 +720,22 @@ impl InflationLinkedBond {
                 .to_f64()
                 .ok_or(finstack_core::InputError::ConversionOverflow)?;
             let base_amount = self.notional * coupon_rate * year_frac;
-            let ratio = inflation_source.ratio(self, period.payment_date)?;
+            let raw_ratio = inflation_source.ratio(self, period.payment_date)?;
+            let ratio = match self.deflation_protection {
+                DeflationProtection::AllPayments => raw_ratio.max(1.0),
+                DeflationProtection::None | DeflationProtection::MaturityOnly => raw_ratio,
+            };
             flows.push((period.payment_date, base_amount * ratio));
         }
 
         // Principal repayment at maturity (inflation adjusted)
-        let principal_ratio = inflation_source.ratio(self, self.maturity)?;
+        let raw_principal_ratio = inflation_source.ratio(self, self.maturity)?;
+        let principal_ratio = match self.deflation_protection {
+            DeflationProtection::None => raw_principal_ratio,
+            DeflationProtection::MaturityOnly | DeflationProtection::AllPayments => {
+                raw_principal_ratio.max(1.0)
+            }
+        };
         flows.push((self.maturity, self.notional * principal_ratio));
 
         Ok(flows)
@@ -1062,5 +1072,99 @@ impl crate::instruments::common_impl::traits::CurveDependencies for InflationLin
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::term_structures::{DiscountCurve, InflationCurve};
+    use time::Month;
+
+    fn d(year: i32, month: Month, day: u8) -> Date {
+        Date::from_calendar_date(year, month, day).expect("valid date")
+    }
+
+    fn market_with_deflation(as_of: Date) -> MarketContext {
+        let discount = DiscountCurve::builder("USD-TIPS")
+            .base_date(as_of)
+            .knots([(0.0, 1.0), (3.0, 1.0)])
+            .build()
+            .expect("discount curve should build");
+        let inflation = InflationCurve::builder("US-CPI")
+            .base_date(as_of)
+            .base_cpi(100.0)
+            .knots([(0.0, 100.0), (1.0, 95.0), (2.0, 90.0)])
+            .build()
+            .expect("inflation curve should build");
+        MarketContext::new()
+            .insert_discount(discount)
+            .insert_inflation(inflation)
+    }
+
+    fn sample_bond(deflation_protection: DeflationProtection) -> InflationLinkedBond {
+        InflationLinkedBond {
+            id: InstrumentId::new("ILB"),
+            notional: Money::new(1_000_000.0, Currency::USD),
+            real_coupon: Decimal::try_from(0.02).expect("valid coupon"),
+            frequency: Tenor::annual(),
+            day_count: DayCount::Thirty360,
+            issue_date: d(2024, Month::January, 15),
+            maturity: d(2026, Month::January, 15),
+            base_index: 100.0,
+            base_date: d(2024, Month::January, 15),
+            indexation_method: IndexationMethod::TIPS,
+            lag: InflationLag::None,
+            deflation_protection,
+            bdc: BusinessDayConvention::Following,
+            stub: StubKind::None,
+            calendar_id: None,
+            discount_curve_id: CurveId::new("USD-TIPS"),
+            inflation_index_id: CurveId::new("US-CPI"),
+            quoted_clean: None,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
+            attributes: Attributes::new(),
+        }
+    }
+
+    #[test]
+    fn maturity_only_deflation_floor_applies_only_to_principal() {
+        let as_of = d(2024, Month::January, 15);
+        let market = market_with_deflation(as_of);
+        let bond = sample_bond(DeflationProtection::MaturityOnly);
+
+        let flows = bond
+            .build_schedule(&market, as_of)
+            .expect("schedule should build");
+        assert!(flows.len() >= 3);
+
+        let first_coupon = flows[0].1.amount();
+        let principal = flows.last().expect("principal flow").1.amount();
+
+        assert!(
+            first_coupon < 20_000.0,
+            "coupon should still deflate under maturity-only floor"
+        );
+        assert_eq!(principal, 1_000_000.0);
+    }
+
+    #[test]
+    fn all_payments_deflation_floor_applies_to_coupons_and_principal() {
+        let as_of = d(2024, Month::January, 15);
+        let market = market_with_deflation(as_of);
+        let bond = sample_bond(DeflationProtection::AllPayments);
+
+        let flows = bond
+            .build_schedule(&market, as_of)
+            .expect("schedule should build");
+        assert!(flows.len() >= 3);
+
+        let first_coupon = flows[0].1.amount();
+        let principal = flows.last().expect("principal flow").1.amount();
+
+        assert_eq!(first_coupon, 20_000.0);
+        assert_eq!(principal, 1_000_000.0);
     }
 }

@@ -270,81 +270,74 @@ fn barrier_helper(
     let discount = (-rate * time).exp();
     let forward_discount = (-div_yield * time).exp();
 
+    let option_sign = eta;
+    let barrier_sign = -phi;
+
     // Standard vanilla components
-    let a = phi * spot * forward_discount * norm_cdf(phi * x)
-        - phi * strike * discount * norm_cdf(phi * (x - vol * time.sqrt()));
+    let a = option_sign * spot * forward_discount * norm_cdf(option_sign * x)
+        - option_sign * strike * discount * norm_cdf(option_sign * (x - vol * time.sqrt()));
 
     // Barrier-adjusted components
-    let b = phi * spot * forward_discount * norm_cdf(phi * x1)
-        - phi * strike * discount * norm_cdf(phi * (x1 - vol * time.sqrt()));
+    let b = option_sign * spot * forward_discount * norm_cdf(option_sign * x1)
+        - option_sign * strike * discount * norm_cdf(option_sign * (x1 - vol * time.sqrt()));
 
-    let c =
-        phi * spot * forward_discount * (barrier / spot).powf(2.0 * (mu + 1.0)) * norm_cdf(eta * y)
-            - phi
-                * strike
-                * discount
-                * (barrier / spot).powf(2.0 * mu)
-                * norm_cdf(eta * (y - vol * time.sqrt()));
-
-    let d = phi
+    let c = option_sign
         * spot
         * forward_discount
         * (barrier / spot).powf(2.0 * (mu + 1.0))
-        * norm_cdf(eta * y1)
-        - phi
+        * norm_cdf(barrier_sign * y)
+        - option_sign
             * strike
             * discount
             * (barrier / spot).powf(2.0 * mu)
-            * norm_cdf(eta * (y1 - vol * time.sqrt()));
+            * norm_cdf(barrier_sign * (y - vol * time.sqrt()));
+
+    let d = option_sign
+        * spot
+        * forward_discount
+        * (barrier / spot).powf(2.0 * (mu + 1.0))
+        * norm_cdf(barrier_sign * y1)
+        - option_sign
+            * strike
+            * discount
+            * (barrier / spot).powf(2.0 * mu)
+            * norm_cdf(barrier_sign * (y1 - vol * time.sqrt()));
 
     let is_call = eta > 0.0;
 
     // Combine based on barrier type AND strike-vs-barrier regime.
     //
     // Formula decomposition follows Haug (2007) Table 4.17.
-    // The helper computes the knock-IN value; knock-OUT = Vanilla - knock-IN.
+    // This helper computes the knock-IN value; the public knock-OUT wrappers
+    // use `vanilla - knock_in`.
     //
-    // Notation: A = vanilla, B = vanilla capped at barrier, C = reflected vanilla,
-    //           D = reflected vanilla capped at barrier
-    //
-    // The correct decomposition depends on whether K ≷ H:
-    //
-    // DOWN barrier (spot > barrier, H < S):
-    //   Call, K >= H: A - C     [Haug type 1]
-    //   Call, K <  H: B - D     [Haug type 2]
-    //   Put,  K >= H: B - D     [Haug type 5]
-    //   Put,  K <  H: A - C     [Haug type 6]
-    //
-    // UP barrier (spot <= barrier, H > S):
-    //   Call, K <= H: A - C     [Haug type 3]
-    //   Call, K >  H: B - D     [Haug type 4]
-    //   Put,  K <= H: B - D     [Haug type 7]
-    //   Put,  K >  H: A - C     [Haug type 8]
+    // Notation: A = vanilla, B = vanilla capped at barrier, C = reflected term,
+    //           D = reflected capped term.
     if spot > barrier {
         // DOWN barrier
         if is_call {
             if strike >= barrier {
-                a - c
+                c
             } else {
-                b - d
+                a - b + d
             }
         } else if strike >= barrier {
-            b - d
+            b - c + d
         } else {
-            a - c
+            a
         }
     } else {
         // UP barrier
         if is_call {
             if strike <= barrier {
-                a - c
+                b - c + d
             } else {
-                b - d
+                a
             }
         } else if strike <= barrier {
-            b - d
+            c
         } else {
-            a - c
+            a - b + d
         }
     }
 }

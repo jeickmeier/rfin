@@ -58,7 +58,9 @@ pub struct CovenantForecastConfig {
     pub mc: Option<McConfig>,
     /// Reference date for time-scaling MC shocks. When set, shocks scale with
     /// `sqrt(T)` where T is the year-fraction from this date to the test date.
-    /// When `None`, the first test date is used as the reference.
+    /// When `None`, the engine uses the end date of the period immediately
+    /// preceding the first forecast period, so the first simulated point still
+    /// has a non-zero forecast horizon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reference_date: Option<Date>,
 }
@@ -260,7 +262,13 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         let seed = config.random_seed.unwrap_or(42);
         let antithetic = config.mc.as_ref().map(|m| m.antithetic).unwrap_or(false);
 
-        let ref_date = config.reference_date.unwrap_or(test_dates[0]);
+        let ref_date = config.reference_date.unwrap_or_else(|| {
+            periods[0]
+                .prev()
+                .ok()
+                .map(|prev| model.period_end_date(&prev))
+                .unwrap_or(test_dates[0])
+        });
 
         // With antithetic variates, generate N/2 draws to produce N total paths.
         let draws_per_date = if antithetic {

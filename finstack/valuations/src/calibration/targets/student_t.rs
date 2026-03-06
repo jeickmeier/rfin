@@ -44,6 +44,7 @@ use std::collections::BTreeMap;
 /// quotes using Brent root-finding. The calibrated `df` is stored in the
 /// market context as a `MarketScalar::Unitless` under a key derived from
 /// the step configuration.
+#[allow(dead_code)]
 pub struct StudentTCalibrator {
     /// Parameters defining the calibration structure.
     pub params: StudentTParams,
@@ -53,6 +54,7 @@ pub struct StudentTCalibrator {
     pub config: CalibrationConfig,
 }
 
+#[allow(dead_code)]
 impl StudentTCalibrator {
     /// Create a new Student-t degrees of freedom calibrator.
     pub fn new(
@@ -79,13 +81,15 @@ impl StudentTCalibrator {
     /// contains the calibrated `df` stored under the scalar key
     /// `"{tranche_instrument_id}_STUDENT_T_DF"`.
     pub fn solve(
-        params: &StudentTParams,
+        _params: &StudentTParams,
         _quotes: &[MarketQuote],
-        context: &MarketContext,
-        global_config: &CalibrationConfig,
+        _context: &MarketContext,
+        _global_config: &CalibrationConfig,
     ) -> Result<(MarketContext, f64, CalibrationReport)> {
-        let calibrator = Self::new(params.clone(), context.clone(), global_config.clone());
-        calibrator.calibrate_df()
+        Err(finstack_core::Error::Validation(
+            "Student-t calibration step is not implemented: tranche repricing is not yet wired"
+                .to_string(),
+        ))
     }
 
     /// Run the Brent root-finding calibration over the df domain.

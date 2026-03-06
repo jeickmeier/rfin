@@ -513,39 +513,27 @@ impl InterestRateOption {
     }
 }
 
-/// Resolve the effective vol type, falling back to Normal for negative forwards/strikes.
+/// Resolve the effective vol type.
+///
+/// `Auto` selects a compatible model based on forward/strike sign. Explicit
+/// model selections remain explicit and should fail if their domain
+/// assumptions are violated.
 fn resolve_vol_type(
     vol_type: CapFloorVolType,
     forward: f64,
     strike: f64,
-    vol_shift: f64,
+    _vol_shift: f64,
 ) -> CapFloorVolType {
     match vol_type {
-        CapFloorVolType::Lognormal => {
+        CapFloorVolType::Auto => {
             if forward > 0.0 && strike > 0.0 {
                 CapFloorVolType::Lognormal
             } else {
-                tracing::warn!(
-                    forward,
-                    strike,
-                    "Lognormal requested but forward/strike non-positive; falling back to Normal"
-                );
                 CapFloorVolType::Normal
             }
         }
-        CapFloorVolType::ShiftedLognormal => {
-            if forward + vol_shift > 0.0 && strike + vol_shift > 0.0 {
-                CapFloorVolType::ShiftedLognormal
-            } else {
-                tracing::warn!(
-                    forward,
-                    strike,
-                    vol_shift,
-                    "ShiftedLognormal requested but shifted values non-positive; falling back to Normal"
-                );
-                CapFloorVolType::Normal
-            }
-        }
+        CapFloorVolType::Lognormal => CapFloorVolType::Lognormal,
+        CapFloorVolType::ShiftedLognormal => CapFloorVolType::ShiftedLognormal,
         other => other,
     }
 }
@@ -683,19 +671,20 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             let vol_shift = self.resolved_vol_shift();
             let resolved = resolve_vol_type(self.vol_type, forward, strike, vol_shift);
             let leg_pv = match resolved {
-                CapFloorVolType::Lognormal | CapFloorVolType::Auto => {
-                    if forward > 0.0 && strike > 0.0 {
-                        black_ir::price_caplet_floorlet(black_inputs())?
-                    } else {
-                        normal_ir::price_caplet_floorlet(normal_inputs())?
-                    }
-                }
+                CapFloorVolType::Lognormal => black_ir::price_caplet_floorlet(black_inputs())?,
                 CapFloorVolType::ShiftedLognormal => {
                     black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
                         strike: strike + vol_shift,
                         forward: forward + vol_shift,
                         ..black_inputs()
                     })?
+                }
+                CapFloorVolType::Auto => {
+                    if forward > 0.0 && strike > 0.0 {
+                        black_ir::price_caplet_floorlet(black_inputs())?
+                    } else {
+                        normal_ir::price_caplet_floorlet(normal_inputs())?
+                    }
                 }
                 CapFloorVolType::Normal => normal_ir::price_caplet_floorlet(normal_inputs())?,
             };
@@ -1034,20 +1023,14 @@ mod tests {
             "Normal cap/floor PV should be finite and non-negative"
         );
 
-        // Lognormal with negative forward now falls back to Normal (Bachelier) with a warning.
-        let black_pv = black_floorlet
+        let black_err = black_floorlet
             .value(&ctx, base_date)
-            .expect("Lognormal should fall back to Normal for negative forwards");
+            .expect_err("Explicit lognormal should reject negative forwards");
         assert!(
-            black_pv.amount().is_finite() && black_pv.amount() >= 0.0,
-            "Lognormal fallback PV should be finite and non-negative, got {}",
-            black_pv.amount()
-        );
-        assert!(
-            (black_pv.amount() - normal_pv.amount()).abs() < 1e-8,
-            "Lognormal fallback should produce the same result as explicit Normal: lognormal={}, normal={}",
-            black_pv.amount(),
-            normal_pv.amount()
+            black_err
+                .to_string()
+                .contains("Black model requires positive forward rate"),
+            "unexpected lognormal error: {black_err}"
         );
     }
 

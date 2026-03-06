@@ -215,7 +215,6 @@ pub use sensitivities::theta::parse_period_days;
 pub(crate) use core::finite_difference::{
     bump_discount_curve_parallel, bump_scalar_price, bump_sizes, bump_surface_vol_absolute,
 };
-pub(crate) use core::registry::StrictMode;
 pub(crate) use sensitivities::config::from_finstack_config_or_default as resolve_sensitivities_config;
 pub(crate) use sensitivities::cs01::{
     GenericBucketedCs01, GenericBucketedCs01Hazard, GenericParallelCs01, GenericParallelCs01Hazard,

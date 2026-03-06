@@ -156,6 +156,7 @@ pub(super) fn build_fee_schedules(
     //!         bdc: BusinessDayConvention::Following,
     //!         calendar_id: "weekends_only".to_string(),
     //!         stub: StubKind::None,
+    //!         accrual_basis: Default::default(),
     //!     }
     //! ];
     //! // Note: build_fee_schedules would be called here

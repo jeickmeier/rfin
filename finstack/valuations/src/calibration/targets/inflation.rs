@@ -425,6 +425,7 @@ impl BootstrapTarget for InflationBootstrapper {
 
         InflationCurve::builder(self.params.curve_id.to_string())
             .base_cpi(base_cpi)
+            .base_date(self.params.base_date)
             .knots(full_knots)
             .interp(self.params.interpolation)
             .build()
@@ -566,6 +567,7 @@ Global solve requires strictly increasing times.",
 
         InflationCurve::builder(self.params.curve_id.to_string())
             .base_cpi(base_cpi)
+            .base_date(self.params.base_date)
             .knots(knots)
             .interp(self.params.interpolation)
             .build()

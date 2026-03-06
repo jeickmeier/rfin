@@ -31,14 +31,12 @@ use crate::margin::config::margin_registry_from_config;
 use crate::margin::registry::{embedded_registry, MarginRegistry, SimmParams};
 use crate::margin::traits::{SimmRiskClass, SimmSensitivities};
 use crate::margin::types::ImMethodology;
-use crate::metrics::{standard_registry, MetricContext, MetricId, StrictMode};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
 use finstack_core::Result;
-use std::sync::Arc;
 
 /// SIMM version identifier.
 #[derive(
@@ -137,8 +135,13 @@ fn ordered_tenor_pair(a: &str, b: &str) -> (String, String) {
 ///
 /// # Usage
 ///
-/// The calculator uses instrument sensitivities (DV01, CS01, etc.) to compute
+/// The calculator uses SIMM sensitivities (DV01, CS01, delta, vega, etc.) to compute
 /// risk-weighted margin amounts across all SIMM risk classes.
+///
+/// The public [`ImCalculator`] entry point requires the provided instrument to expose
+/// [`crate::margin::traits::Marginable`] via [`Instrument::as_marginable`]. Instruments
+/// that do not provide SIMM sensitivities are rejected rather than being silently
+/// approximated with partial risk.
 ///
 /// # Example
 ///
@@ -614,51 +617,14 @@ impl ImCalculator for SimmCalculator {
     ) -> Result<ImResult> {
         let pv = instrument.value(context, as_of)?;
         let currency = pv.currency();
-
-        // Compute actual sensitivities via the metrics framework
-        let instrument_arc: Arc<dyn Instrument> = Arc::from(instrument.clone_box());
-        let mut metric_ctx = MetricContext::new(
-            instrument_arc,
-            Arc::new(context.clone()),
-            as_of,
-            pv,
-            MetricContext::default_config(),
-        );
-
-        let metrics_registry = standard_registry();
-        let metrics = [
-            MetricId::BucketedDv01,
-            MetricId::Dv01,
-            MetricId::BucketedCs01,
-        ];
-        let computed = metrics_registry.compute_with_mode(
-            &metrics,
-            &mut metric_ctx,
-            StrictMode::BestEffort,
-        )?;
-
-        let parallel_dv01 = computed.get(&MetricId::Dv01).copied().unwrap_or(0.0);
-
-        // Build tenor-bucketed DV01 from the metrics framework
-        let dv01_by_tenor: HashMap<String, f64> = metric_ctx
-            .computed_series
-            .get(&MetricId::BucketedDv01)
-            .map(|series| series.iter().map(|(k, v)| (k.clone(), *v)).collect())
-            .unwrap_or_else(|| {
-                // Fall back to parallel DV01 in the 5Y bucket if bucketed is unavailable
-                [("5y".to_string(), parallel_dv01.abs())]
-                    .into_iter()
-                    .collect()
-            });
-
-        let mut breakdown = HashMap::default();
-        let mut risk_class_margins = HashMap::default();
-
-        let ir_margin = self.calculate_ir_delta(&dv01_by_tenor);
-        risk_class_margins.insert(SimmRiskClass::InterestRate, ir_margin);
-        breakdown.insert("interest_rate".to_string(), Money::new(ir_margin, currency));
-
-        let total_im = self.aggregate_risk_classes(&risk_class_margins);
+        let marginable = instrument.as_marginable().ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "Instrument '{}' does not expose SIMM sensitivities; public SIMM calculation requires a Marginable instrument",
+                instrument.id()
+            ))
+        })?;
+        let sensitivities = marginable.simm_sensitivities(context, as_of)?;
+        let (total_im, breakdown) = self.calculate_from_sensitivities(&sensitivities, currency);
 
         Ok(ImResult::with_breakdown(
             Money::new(total_im, currency),
@@ -678,6 +644,10 @@ impl ImCalculator for SimmCalculator {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common_impl::traits::Attributes;
+    use crate::margin::traits::Marginable;
+    use crate::pricer::InstrumentType;
+    use std::any::Any;
 
     #[test]
     fn simm_version_display() {
@@ -797,5 +767,188 @@ mod tests {
         let ir_vega_margin = calc.calculate_ir_vega(&vega_by_tenor);
         // Single tenor: sqrt((500K * 0.21)^2) = 500K * 0.21 = 105K
         assert!((ir_vega_margin - 105_000.0).abs() < 1.0);
+    }
+
+    #[derive(Clone)]
+    struct MarginableTestInstrument {
+        id: String,
+        value: Money,
+        attrs: Attributes,
+        sensitivities: SimmSensitivities,
+    }
+
+    impl MarginableTestInstrument {
+        fn new(value: Money, sensitivities: SimmSensitivities) -> Self {
+            Self {
+                id: "SIMM-TEST".to_string(),
+                value,
+                attrs: Attributes::default(),
+                sensitivities,
+            }
+        }
+    }
+
+    impl Instrument for MarginableTestInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> InstrumentType {
+            InstrumentType::Bond
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn as_marginable(&self) -> Option<&dyn Marginable> {
+            Some(self)
+        }
+
+        fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+            Ok(self.value)
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attrs
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attrs
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+    }
+
+    impl Marginable for MarginableTestInstrument {
+        fn margin_spec(&self) -> Option<&crate::margin::types::OtcMarginSpec> {
+            None
+        }
+
+        fn netting_set_id(&self) -> Option<crate::margin::traits::NettingSetId> {
+            None
+        }
+
+        fn simm_sensitivities(
+            &self,
+            _market: &MarketContext,
+            _as_of: Date,
+        ) -> Result<SimmSensitivities> {
+            Ok(self.sensitivities.clone())
+        }
+
+        fn mtm_for_vm(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+            Ok(self.value)
+        }
+    }
+
+    #[derive(Clone)]
+    struct NonMarginableTestInstrument {
+        id: String,
+        value: Money,
+        attrs: Attributes,
+    }
+
+    impl NonMarginableTestInstrument {
+        fn new(value: Money) -> Self {
+            Self {
+                id: "NON-MARGINABLE".to_string(),
+                value,
+                attrs: Attributes::default(),
+            }
+        }
+    }
+
+    impl Instrument for NonMarginableTestInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> InstrumentType {
+            InstrumentType::Bond
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+            Ok(self.value)
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attrs
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attrs
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+    }
+
+    #[test]
+    fn public_calculate_matches_full_simm_sensitivities() {
+        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+
+        let mut sensitivities = SimmSensitivities::new(Currency::USD);
+        sensitivities.add_ir_delta(Currency::USD, "5y", 50_000.0);
+        sensitivities.add_equity_delta("AAPL", 100_000.0);
+        sensitivities.add_fx_delta(Currency::EUR, 80_000.0);
+
+        let instrument = MarginableTestInstrument::new(
+            Money::new(1_000_000.0, Currency::USD),
+            sensitivities.clone(),
+        );
+        let market = MarketContext::new();
+
+        let expected = calc.calculate_from_sensitivities(&sensitivities, Currency::USD);
+        let actual = calc
+            .calculate(&instrument, &market, as_of)
+            .expect("SIMM calculation should succeed");
+
+        assert!(
+            (actual.amount.amount() - expected.0).abs() < 1e-2,
+            "expected total {}, got {} with breakdown {:?}",
+            expected.0,
+            actual.amount.amount(),
+            actual.breakdown
+        );
+        for (key, expected_amount) in &expected.1 {
+            let actual_amount = actual
+                .breakdown
+                .get(key)
+                .expect("expected breakdown entry should be present");
+            assert!(
+                (actual_amount.amount() - expected_amount.amount()).abs() < 1e-2,
+                "breakdown mismatch for {key}: expected {}, got {}",
+                expected_amount.amount(),
+                actual_amount.amount()
+            );
+        }
+        assert!(actual.breakdown.contains_key("Equity_Delta"));
+        assert!(actual.breakdown.contains_key("FX_Delta"));
+    }
+
+    #[test]
+    fn public_calculate_rejects_instruments_without_simm_sensitivities() {
+        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+        let instrument = NonMarginableTestInstrument::new(Money::new(500_000.0, Currency::USD));
+        let market = MarketContext::new();
+
+        let err = calc
+            .calculate(&instrument, &market, as_of)
+            .expect_err("non-marginable instruments should be rejected");
+
+        assert!(
+            err.to_string().contains("SIMM sensitivities"),
+            "unexpected error: {err}"
+        );
     }
 }

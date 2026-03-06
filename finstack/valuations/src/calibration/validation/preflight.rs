@@ -54,7 +54,10 @@ pub fn preflight_step(
         StepParams::VolSurface(p) => validate_vol_surface_step(p, context),
         StepParams::SwaptionVol(p) => validate_swaption_vol_step(p, context),
         StepParams::BaseCorrelation(p) => validate_base_correlation_step(p, quotes, context),
-        StepParams::StudentT(_) => Ok(()), // Student-t df calibration has no preflight requirements
+        StepParams::StudentT(_) => Err(finstack_core::Error::Validation(
+            "Student-t calibration step is not implemented: tranche repricing is not yet wired"
+                .to_string(),
+        )),
         StepParams::HullWhite(_) => Ok(()), // HW1F calibration validates quotes at execution time
         StepParams::SviSurface(_) => Ok(()), // SVI calibration not yet wired
     }
@@ -423,7 +426,7 @@ fn validate_base_correlation_step(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::calibration::api::schema::{DiscountCurveParams, StepParams};
+    use crate::calibration::api::schema::{DiscountCurveParams, StepParams, StudentTParams};
     use crate::calibration::config::CalibrationMethod;
     use crate::market::conventions::ids::IndexId;
     use crate::market::quotes::ids::{Pillar, QuoteId};
@@ -485,5 +488,29 @@ mod tests {
 
         let result = preflight_step(&step, &quotes, &ctx, &config);
         assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
+    }
+
+    #[test]
+    fn preflight_rejects_student_t_step_until_wired() {
+        let step = CalibrationStep {
+            id: "student-t".to_string(),
+            quote_set: "credit".to_string(),
+            params: StepParams::StudentT(StudentTParams {
+                tranche_instrument_id: "TRANCHE-1".to_string(),
+                base_correlation_curve_id: "INDEX_CORR".to_string(),
+                initial_df: 5.0,
+                df_bounds: (2.1, 50.0),
+                correlation: 0.3,
+            }),
+        };
+        let config = CalibrationConfig::default();
+        let ctx = MarketContext::new();
+
+        let err = preflight_step(&step, &[], &ctx, &config)
+            .expect_err("Student-t preflight should fail closed");
+        assert!(
+            err.to_string().contains("not implemented"),
+            "unexpected error: {err}"
+        );
     }
 }

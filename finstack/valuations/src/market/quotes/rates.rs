@@ -102,15 +102,16 @@ pub enum RateQuote {
         price: f64,
         /// Optional convexity adjustment (rate, decimal).
         ///
-        /// If provided, this fixed value is used. Otherwise, the calibration
-        /// engine will compute the adjustment dynamically using `vol_surface_id`.
+        /// This fixed value is currently required for calibration. If omitted,
+        /// futures-quote calibration will fail closed rather than silently assume
+        /// zero or attempt an unwired dynamic lookup.
         #[serde(default)]
         convexity_adjustment: Option<f64>,
         /// Optional volatility surface identifier for dynamic convexity adjustment.
         ///
-        /// If provided (and `convexity_adjustment` is `None`), the calibration engine
-        /// will look up this volatility surface to calculate the convexity adjustment
-        /// dynamically based on the model forward rate and time to expiry.
+        /// Reserved for future dynamic convexity support. Until that wiring exists,
+        /// providing `vol_surface_id` without `convexity_adjustment` is treated as
+        /// an invalid quote shape during calibration.
         #[serde(default)]
         #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
         #[serde(alias = "volatility_id")]

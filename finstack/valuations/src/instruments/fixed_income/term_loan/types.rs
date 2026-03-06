@@ -104,6 +104,7 @@ fn default_settlement_days() -> u32 {
 ///     end_of_month: false,
 ///     payment_lag_days: 0,
 ///     overnight_compounding: None,
+///     fallback: Default::default(),
 /// });
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

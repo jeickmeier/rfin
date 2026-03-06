@@ -13,7 +13,7 @@ use crate::instruments::common_impl::models::{d1, d2, norm_cdf, norm_pdf};
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
-use crate::instruments::credit_derivatives::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
+use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
 use crate::instruments::credit_derivatives::cds_option::CDSOption;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
@@ -137,7 +137,7 @@ fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
         option.id.to_owned(),
         Money::new(option.notional.amount(), option.notional.currency()),
         PayReceive::PayFixed,
-        CDSConvention::IsdaNa,
+        option.underlying_convention,
         spread_bp,
         option.expiry,
         option.cds_maturity,
@@ -632,5 +632,26 @@ impl crate::pricer::Pricer for SimpleCDSOptionBlackPricer {
             as_of,
             pv,
         ))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::credit_derivatives::cds::CDSConvention;
+
+    #[test]
+    fn synthetic_underlying_cds_uses_option_convention() {
+        let mut option = CDSOption::example();
+        option.underlying_convention = CDSConvention::IsdaEu;
+
+        let cds = synthetic_underlying_cds(&option).expect("synthetic CDS should build");
+        assert_eq!(cds.convention, CDSConvention::IsdaEu);
+        assert_eq!(cds.premium.day_count, CDSConvention::IsdaEu.day_count());
+        assert_eq!(
+            cds.protection.settlement_delay,
+            CDSConvention::IsdaEu.settlement_delay()
+        );
     }
 }

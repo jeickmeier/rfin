@@ -5,7 +5,7 @@ use crate::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::{Error, Result};
 
-/// Calculates the par spread for a fixed income index TRS (spread that makes NPV = 0).
+/// Calculates the par spread for a fixed income index TRS under the carry-only return model.
 ///
 /// The par spread solves `NPV_receiver = 0`:
 ///
@@ -25,6 +25,10 @@ impl MetricCalculator for ParSpreadCalculator {
     }
 
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
+        tracing::warn!(
+            "FIIndexTotalReturnSwap par spread is computed from a carry-only analytic model, \
+             not a full fixed-income index mark-to-market model"
+        );
         let trs: &FIIndexTotalReturnSwap = context.instrument_as()?;
         let curves = context.curves.as_ref();
         let as_of = context.as_of;

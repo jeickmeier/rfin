@@ -41,17 +41,10 @@ fn collect_quanto_inputs(
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
     };
 
-    let q = if let Some(div_id) = &inst.div_yield_id {
-        match curves.price(div_id.as_str()) {
-            Ok(ms) => match ms {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
-            },
-            Err(_) => 0.0,
-        }
-    } else {
-        0.0
-    };
+    let q = crate::instruments::common_impl::helpers::resolve_optional_dividend_yield(
+        curves,
+        inst.div_yield_id.as_ref(),
+    )?;
 
     let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
     let sigma_equity = vol_surface.value_clamped(t, inst.equity_strike.amount());

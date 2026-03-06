@@ -183,7 +183,9 @@ impl CmsSwapPricer {
             } => {
                 let fwd_curve = market.get_forward(forward_curve_id.as_ref())?;
                 let mut total_pv = 0.0;
-                let mut prev_date = payment_dates.first().copied().unwrap_or(as_of);
+                let mut prev_date = inst
+                    .effective_start_date()
+                    .unwrap_or_else(|| payment_dates.first().copied().unwrap_or(as_of));
 
                 for (i, &payment_date) in payment_dates.iter().enumerate() {
                     if payment_date <= as_of {
@@ -278,4 +280,71 @@ fn build_cms_option_proxy(
         .attributes(crate::instruments::common_impl::traits::Attributes::new())
         .build()
         .map_err(|e| finstack_core::Error::Validation(format!("CmsOption proxy construction: {e}")))
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/test_utils.rs"
+        ));
+    }
+
+    use super::*;
+    use crate::instruments::common_impl::parameters::IRSConvention;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::DayCount;
+    use finstack_core::types::{CurveId, InstrumentId};
+    use test_utils::{date, flat_discount_with_tenor, flat_forward_with_tenor};
+
+    fn floating_leg_swap() -> CmsSwap {
+        let start = date(2025, 1, 1);
+        let first_pay = date(2025, 4, 1);
+        let second_pay = date(2025, 7, 1);
+        CmsSwap::builder()
+            .id(InstrumentId::new("CMS-FLOAT"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .side(crate::instruments::common_impl::parameters::legs::PayReceive::Receive)
+            .cms_tenor(10.0)
+            .cms_fixing_dates(vec![start])
+            .cms_payment_dates(vec![first_pay])
+            .cms_accrual_fractions(vec![0.25])
+            .cms_day_count(DayCount::Act365F)
+            .cms_spread(0.0)
+            .swap_convention_opt(Some(IRSConvention::USDStandard))
+            .funding_leg(FundingLeg::Floating {
+                spread: 0.0,
+                payment_dates: vec![first_pay, second_pay],
+                accrual_fractions: vec![0.25, 0.25],
+                day_count: DayCount::Act360,
+                forward_curve_id: CurveId::new("USD-LIBOR-3M"),
+            })
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .forward_curve_id(CurveId::new("USD-LIBOR-3M"))
+            .vol_surface_id(CurveId::new("USD-CMS10Y-VOL"))
+            .build()
+            .expect("CMS swap should build")
+    }
+
+    #[test]
+    fn floating_funding_leg_includes_first_coupon_period() {
+        let as_of = date(2025, 1, 1);
+        let swap = floating_leg_swap();
+        let market = MarketContext::new()
+            .insert_discount(flat_discount_with_tenor("USD-OIS", as_of, 0.0, 1.0))
+            .insert_forward(flat_forward_with_tenor("USD-LIBOR-3M", as_of, 0.05, 1.0));
+
+        let pv = CmsSwapPricer::new()
+            .pv_funding_leg(&swap, &market, as_of)
+            .expect("funding leg PV should compute");
+
+        let expected = swap.notional.amount() * 0.05 * 0.25 * 2.0;
+        assert!(
+            (pv - expected).abs() < 1e-8,
+            "expected funding PV {expected}, got {pv}"
+        );
+    }
 }

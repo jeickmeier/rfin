@@ -140,17 +140,10 @@ impl FxDigitalOptionCalculator {
         let df_d = domestic_disc.df(t_disc_dom);
         let df_f = foreign_disc.df(t_disc_for);
 
-        // Convert to effective zero rates using each curve's own day count convention
-        let r_d = if t_disc_dom > 0.0 {
-            -df_d.ln() / t_disc_dom
-        } else {
-            0.0
-        };
-        let r_f = if t_disc_for > 0.0 {
-            -df_f.ln() / t_disc_for
-        } else {
-            0.0
-        };
+        // Convert discount factors onto the option pricing clock so exp(-r*T)
+        // reconstructs the actual curve discount factors over the same horizon.
+        let r_d = if t_vol > 0.0 { -df_d.ln() / t_vol } else { 0.0 };
+        let r_f = if t_vol > 0.0 { -df_f.ln() / t_vol } else { 0.0 };
 
         let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
             finstack_core::InputError::NotFound {
@@ -713,5 +706,59 @@ mod tests {
         );
         let deps = option.curve_dependencies().expect("curve_dependencies");
         assert_eq!(deps.discount_curves.len(), 2);
+    }
+
+    #[test]
+    fn collect_inputs_reconstructs_curve_discount_factors_on_option_clock() {
+        use finstack_core::market_data::term_structures::DiscountCurve;
+
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2025, 7, 3);
+        let option =
+            base_digital_option(expiry, OptionType::Call, DigitalPayoutType::CashOrNothing);
+
+        let fx = FxMatrix::new(Arc::new(StaticFxProvider { rate: 1.18 }));
+        fx.set_quote(BASE, QUOTE, 1.18);
+
+        let domestic = DiscountCurve::builder(DOMESTIC_ID)
+            .base_date(as_of)
+            .day_count(DayCount::Act360)
+            .knots([(0.0, 1.0), (1.0, (-0.03f64).exp())])
+            .build()
+            .expect("domestic curve");
+        let foreign = DiscountCurve::builder(FOREIGN_ID)
+            .base_date(as_of)
+            .day_count(DayCount::Act360)
+            .knots([(0.0, 1.0), (1.0, (-0.01f64).exp())])
+            .build()
+            .expect("foreign curve");
+        let ctx = MarketContext::new()
+            .insert_discount(domestic.clone())
+            .insert_discount(foreign.clone())
+            .insert_surface(flat_vol_surface(
+                VOL_ID,
+                &[0.25, 0.5, 1.0],
+                &[0.9, 1.0, 1.1],
+                0.2,
+            ))
+            .insert_fx(fx);
+
+        let (_, r_d, r_f, _, t) = FxDigitalOptionCalculator::default()
+            .collect_inputs(&option, &ctx, as_of)
+            .expect("inputs should collect");
+
+        let t_dom = domestic
+            .day_count()
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("domestic yf");
+        let t_for = foreign
+            .day_count()
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("foreign yf");
+        let df_dom = domestic.df(t_dom);
+        let df_for = foreign.df(t_for);
+
+        approx_eq((-r_d * t).exp(), df_dom, 1e-12);
+        approx_eq((-r_f * t).exp(), df_for, 1e-12);
     }
 }

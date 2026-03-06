@@ -113,17 +113,20 @@ fn test_cs01_hazard_vs_risky_pv01_consistency() {
 
     // Use value_raw for high-precision comparison (matches how CS01 metric is now computed)
     use finstack_valuations::instruments::Instrument;
-    let base_pv = cds.value_raw(&market, as_of).unwrap();
-
-    // Manually bump hazard curve by +1bp in hazard-rate units (i.e. +0.0001) and revalue.
+    // Manually compute the same central finite-difference CS01 definition used by the metric.
     use finstack_valuations::calibration::bumps::{bump_hazard_shift, BumpRequest};
     let hazard = market
         .get_hazard(cds.protection.credit_curve_id.as_str())
         .unwrap();
-    let bumped = bump_hazard_shift(hazard.as_ref(), &BumpRequest::Parallel(1.0)).unwrap();
-    let bumped_market = market.clone().insert_hazard(bumped);
-    let bumped_pv = cds.value_raw(&bumped_market, as_of).unwrap();
-    let expected_cs01 = bumped_pv - base_pv; // per 1bp
+    let bumped_up = bump_hazard_shift(hazard.as_ref(), &BumpRequest::Parallel(1.0)).unwrap();
+    let bumped_down = bump_hazard_shift(hazard.as_ref(), &BumpRequest::Parallel(-1.0)).unwrap();
+    let pv_up = cds
+        .value_raw(&market.clone().insert_hazard(bumped_up), as_of)
+        .unwrap();
+    let pv_down = cds
+        .value_raw(&market.clone().insert_hazard(bumped_down), as_of)
+        .unwrap();
+    let expected_cs01 = (pv_up - pv_down) / 2.0; // per 1bp central difference
 
     let result = cds
         .price_with_metrics(&market, as_of, &[MetricId::Cs01])
