@@ -30,6 +30,33 @@ pub enum SimmRiskClass {
     Fx,
 }
 
+/// SIMM credit sector for bucket assignment.
+///
+/// Maps reference entities to ISDA SIMM credit qualifying buckets.
+/// See ISDA SIMM v2.6 Table 2.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
+pub enum SimmCreditSector {
+    /// Bucket 1: Sovereigns including central banks
+    Sovereign,
+    /// Bucket 2: Financials (banks, insurance, broker-dealers)
+    Financial,
+    /// Bucket 3: Basic materials / energy / industrials
+    BasicMaterials,
+    /// Bucket 4: Consumer goods / services
+    ConsumerGoods,
+    /// Bucket 5: Technology / media / telecoms
+    TechnologyMedia,
+    /// Bucket 6: Health care / utilities
+    HealthCare,
+    /// Bucket 7: Indices (CDX.NA.IG, iTraxx, etc.)
+    Index,
+    /// Bucket 8: Covered bonds / securitized
+    Securitized,
+    /// Residual bucket
+    Residual,
+}
+
 impl std::fmt::Display for SimmRiskClass {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

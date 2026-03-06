@@ -267,9 +267,18 @@ pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
     let mut acc = NeumaierAccumulator::new();
     let mut out = Vec::with_capacity(returns.len());
     for &r in returns {
+        if !r.is_finite() {
+            out.push(f64::NAN);
+            continue;
+        }
         let g = (1.0 + r).max(MIN_GROWTH_FACTOR);
         acc.add(g.ln());
-        out.push(acc.total().exp() - 1.0);
+        let compounded = acc.total().exp() - 1.0;
+        if out.last().is_some_and(|v| v.is_nan()) {
+            out.push(f64::NAN);
+        } else {
+            out.push(compounded);
+        }
     }
     out
 }
@@ -310,6 +319,9 @@ pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
 pub fn comp_total(returns: &[f64]) -> f64 {
     if returns.is_empty() {
         return 0.0;
+    }
+    if returns.iter().any(|r| !r.is_finite()) {
+        return f64::NAN;
     }
     let log_sum = kahan_sum(
         returns
@@ -401,6 +413,25 @@ mod tests {
         assert!(
             cs.iter().all(|v| v.is_finite()),
             "all values must be finite"
+        );
+    }
+
+    #[test]
+    fn comp_total_propagates_nan_returns() {
+        let ct = comp_total(&[0.05, f64::NAN, 0.10]);
+        assert!(ct.is_nan(), "NaN inputs should remain invalid, got {ct}");
+    }
+
+    #[test]
+    fn comp_sum_propagates_nan_tail() {
+        let cs = comp_sum(&[0.05, f64::NAN, 0.10]);
+        assert!(
+            cs[1].is_nan(),
+            "NaN period should produce NaN compounded return"
+        );
+        assert!(
+            cs[2].is_nan(),
+            "Subsequent periods should remain NaN after invalid input"
         );
     }
 

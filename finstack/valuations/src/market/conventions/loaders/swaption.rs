@@ -1,6 +1,6 @@
 //! Loader for swaption conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, RegistryFile};
+use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::market::conventions::defs::SwaptionConventions;
 use crate::market::conventions::ids::SwaptionConventionId;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
@@ -37,10 +37,6 @@ impl SwaptionConventionRecord {
     }
 }
 
-fn normalize_registry_id(id: &str) -> String {
-    id.trim().to_string()
-}
-
 /// Load the Swaption conventions from the embedded JSON registry.
 pub fn load_registry() -> Result<HashMap<SwaptionConventionId, SwaptionConventions>, Error> {
     let json = include_str!("../../../../data/conventions/swaption_conventions.json");
@@ -58,4 +54,26 @@ pub fn load_registry() -> Result<HashMap<SwaptionConventionId, SwaptionConventio
         final_map.insert(SwaptionConventionId::new(k), v?);
     }
     Ok(final_map)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::{DayCount, Tenor};
+
+    #[test]
+    fn usd_swaption_convention_uses_sofr_ois_fixed_leg_defaults() {
+        let registry = load_registry().expect("swaption registry");
+        let usd = registry
+            .get(&SwaptionConventionId::new("USD"))
+            .expect("USD swaption conventions");
+
+        assert_eq!(
+            usd.fixed_leg_frequency,
+            Tenor::parse("1Y").expect("valid tenor")
+        );
+        assert_eq!(usd.fixed_leg_day_count, DayCount::Act360);
+        assert_eq!(usd.float_leg_index, "USD-SOFR-OIS");
+    }
 }

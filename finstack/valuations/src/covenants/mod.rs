@@ -66,11 +66,13 @@ pub(crate) mod forward;
 pub(crate) mod mod_types;
 /// Covenant threshold schedules and interpolation
 pub(crate) mod schedule;
+/// Covenant package templates for common deal structures
+pub mod templates;
 
 pub use engine::{
     ConsequenceApplication, Covenant, CovenantBreach, CovenantConsequence, CovenantEngine,
-    CovenantScope, CovenantSpec, CovenantTestSpec, CovenantType, CovenantWindow, InstrumentMutator,
-    SpringingCondition, ThresholdTest,
+    CovenantScope, CovenantSpec, CovenantTestSpec, CovenantType, CovenantWaiver, CovenantWindow,
+    EvaluationTrigger, InstrumentMutator, SpringingCondition, ThresholdTest,
 };
 pub use forward::{
     forecast_breaches_generic, forecast_covenant_generic, Comparator,

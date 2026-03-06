@@ -57,7 +57,7 @@ pub(crate) fn sample_forward_curve(id: &str) -> ForwardCurve {
 pub(crate) fn sample_hazard_curve(id: &str) -> HazardCurve {
     HazardCurve::builder(id)
         .base_date(sample_base_date())
-        .knots([(0.0, 0.01), (3.0, 0.015), (5.0, 0.02)])
+        .knots([(1.0, 0.01), (3.0, 0.015), (5.0, 0.02)])
         .build()
         .unwrap()
 }

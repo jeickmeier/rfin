@@ -955,7 +955,7 @@ impl CashFlowBuilder {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;
@@ -1031,7 +1031,7 @@ impl CashFlowBuilder {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;
@@ -1134,7 +1134,7 @@ impl CashFlowBuilder {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;

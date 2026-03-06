@@ -149,6 +149,10 @@ impl BondFuturePricer {
     /// The model futures price is the theoretical fair value of the futures contract
     /// based on the CTD bond's market price and conversion factor.
     ///
+    /// This is a **simplified clean-price proxy**, not a full exchange-style
+    /// fair-value model. It does not incorporate repo financing, interim coupon
+    /// carry, delivery-window optionality, or delivery-date invoice mechanics.
+    ///
     /// # Formula
     ///
     /// Model_Price = (Clean_Price_Percent / CF)
@@ -206,6 +210,10 @@ impl BondFuturePricer {
         market: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
+        tracing::warn!(
+            "BondFuturePricer::calculate_model_price uses a simplified clean-price proxy and \
+             omits delivery carry/invoice economics"
+        );
         use crate::instruments::fixed_income::bond::metrics::accrued::AccruedInterestCalculator;
         use crate::instruments::fixed_income::bond::metrics::price_yield_spread::CleanPriceCalculator;
         use crate::metrics::{MetricCalculator, MetricContext, MetricId};

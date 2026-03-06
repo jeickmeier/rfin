@@ -490,14 +490,6 @@ where
             ));
         }
 
-        // Clone instruments and set CRN seed for variance reduction
-        let mut instrument_base = instrument.clone();
-        instrument_base
-            .pricing_overrides_mut()
-            .scenario
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        let base_pv = instrument_base.value_raw(&context.curves, as_of)?;
-
         // Fixed bump size from `FinstackConfig` (user-facing, reproducible).
         // Interpreted as an **absolute** implied vol bump in decimal units (e.g., 0.01 = +1 vol point).
         let bump_abs = defaults.vol_bump_pct;
@@ -505,14 +497,22 @@ where
         let mut inst_up = instrument.clone();
         inst_up.pricing_overrides_mut().scenario.mc_seed_scenario =
             Some(CRN_SEED_SCENARIO.to_string());
+        let mut inst_down = instrument.clone();
+        inst_down.pricing_overrides_mut().scenario.mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
 
         let curves_up =
             bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), bump_abs)?;
+        let curves_down =
+            bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), -bump_abs)?;
+
         let pv_up = inst_up.value_raw(&curves_up, as_of)?;
+        let pv_down = inst_down.value_raw(&curves_down, as_of)?;
 
         // Vega is ∂V/∂σ (per absolute vol unit). With the default bump of 0.01, this is the
         // market-standard “per 1 vol point” sensitivity.
-        Ok((pv_up - base_pv) / bump_abs)
+        // Central difference: vega = (PV_up - PV_down) / (2 * bump)
+        Ok((pv_up - pv_down) / (2.0 * bump_abs))
     }
 }
 

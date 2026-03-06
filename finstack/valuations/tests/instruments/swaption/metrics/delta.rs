@@ -1,6 +1,7 @@
 //! Delta tests with analytical and numerical validation
 
 use crate::swaption::common::*;
+use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
@@ -170,5 +171,23 @@ fn test_delta_volatility_independence() {
     assert!(
         rel_diff < 0.5,
         "ATM delta should be relatively stable across volatility"
+    );
+}
+
+#[test]
+fn test_delta_errors_for_invalid_black_domain() {
+    let (as_of, expiry, swap_start, swap_end) = standard_dates();
+    let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
+    let market = MarketContext::new()
+        .insert_discount(build_flat_discount_curve(0.03, as_of, "USD_OIS"))
+        .insert_forward(build_flat_forward_curve(-0.005, as_of, "USD_LIBOR_3M"))
+        .insert_surface(build_flat_vol_surface(0.30, as_of, "USD_SWAPTION_VOL"));
+
+    let err = swaption
+        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .expect_err("delta should error for invalid unshifted Black domain");
+    assert!(
+        err.to_string().contains("Black"),
+        "expected Black-domain error, got: {err}"
     );
 }

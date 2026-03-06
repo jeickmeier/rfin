@@ -27,6 +27,20 @@ use rust_decimal::prelude::ToPrimitive;
 // Helper Functions
 // ============================================================================
 
+/// Assign a years-to-maturity value to the appropriate SIMM credit tenor bucket.
+#[must_use]
+fn assign_credit_tenor_bucket(years_to_maturity: f64) -> &'static str {
+    use constants::tenor_buckets::*;
+    match years_to_maturity {
+        y if y <= BUCKET_1Y => "1Y",
+        y if y <= BUCKET_2Y => "2Y",
+        y if y <= BUCKET_3Y => "3Y",
+        y if y <= BUCKET_5Y => "5Y",
+        y if y <= BUCKET_10Y => "10Y",
+        _ => "15Y",
+    }
+}
+
 /// Assign a years-to-maturity value to the appropriate SIMM IR tenor bucket.
 #[must_use]
 fn assign_ir_tenor_bucket(years_to_maturity: f64) -> &'static str {
@@ -58,6 +72,25 @@ fn extract_reference_entity(credit_curve_id: &str) -> Result<&str> {
                 credit_curve_id
             ))
         })
+}
+
+/// Determine if a credit entity is qualifying (investment grade) for SIMM bucketing.
+///
+/// Uses a combination of heuristics based on:
+/// 1. Well-known index names (CDX.NA.IG, iTraxx Main = qualifying)
+/// 2. Spread level as fallback (< 200bp threshold)
+///
+/// In production, this should be replaced with a lookup against a ratings database
+/// or ISDA SIMM bucket mapping table.
+fn is_credit_qualifying(name: &str, spread_bp: f64) -> bool {
+    let upper = name.to_ascii_uppercase();
+    if upper.contains("CDX.NA.IG") || (upper.contains("ITRAXX") && !upper.contains("XOVER")) {
+        return true;
+    }
+    if upper.contains("CDX.NA.HY") || upper.contains("XOVER") || upper.contains("CDX.EM") {
+        return false;
+    }
+    spread_bp < INVESTMENT_GRADE_SPREAD_THRESHOLD_BP
 }
 
 /// Derive a netting set ID from an OTC margin specification.
@@ -92,29 +125,59 @@ impl Marginable for InterestRateSwap {
         let currency = self.notional.currency();
         let mut sens = SimmSensitivities::new(currency);
 
-        // For IRS, the main sensitivity is IR Delta (DV01)
-        // We approximate by calculating DV01 and distributing across tenor buckets
-
-        // Get time to maturity for tenor bucketing using float leg end date
         let days_to_maturity = (self.float.end - as_of).whole_days().max(0) as f64;
         let years_to_maturity = days_to_maturity / DAYS_PER_YEAR;
 
-        // Estimate DV01 based on notional and maturity
-        // DV01 ≈ Notional × Duration × ONE_BP
-        // Duration ≈ years_to_maturity × DURATION_FACTOR for reasonable rates
-        let estimated_duration = years_to_maturity * DURATION_APPROXIMATION_FACTOR;
-        let dv01 = self.notional.amount().abs() * estimated_duration * ONE_BP;
+        if years_to_maturity <= 0.0 {
+            return Ok(sens);
+        }
 
-        // Assign to appropriate SIMM tenor bucket
-        let tenor = assign_ir_tenor_bucket(years_to_maturity);
+        let total_dv01 = self.notional.amount().abs()
+            * years_to_maturity
+            * DURATION_APPROXIMATION_FACTOR
+            * ONE_BP;
 
-        // Sign based on direction (pay fixed = short rates, receive fixed = long rates)
-        let signed_dv01 = match self.side {
-            crate::instruments::rates::irs::PayReceive::PayFixed => -dv01,
-            crate::instruments::rates::irs::PayReceive::ReceiveFixed => dv01,
+        let sign = match self.side {
+            crate::instruments::rates::irs::PayReceive::PayFixed => -1.0,
+            crate::instruments::rates::irs::PayReceive::ReceiveFixed => 1.0,
         };
 
-        sens.add_ir_delta(currency, tenor, signed_dv01);
+        // Distribute DV01 across tenor buckets weighted by proportion of maturity
+        // that falls within each bucket range. This is a simplified key-rate
+        // duration decomposition.
+        let buckets: &[(&str, f64, f64)] = &[
+            ("6M", 0.0, 0.5),
+            ("1Y", 0.5, 1.0),
+            ("2Y", 1.0, 2.0),
+            ("3Y", 2.0, 3.0),
+            ("5Y", 3.0, 5.0),
+            ("10Y", 5.0, 10.0),
+            ("15Y", 10.0, 15.0),
+            ("20Y", 15.0, 20.0),
+            ("30Y", 20.0, 50.0),
+        ];
+
+        let mut total_weight = 0.0f64;
+        let mut bucket_weights: Vec<(&str, f64)> = Vec::new();
+        for &(name, lo, hi) in buckets {
+            if years_to_maturity <= lo {
+                break;
+            }
+            let effective_hi = hi.min(years_to_maturity);
+            let weight = effective_hi - lo;
+            if weight > 0.0 {
+                bucket_weights.push((name, weight));
+                total_weight += weight;
+            }
+        }
+
+        if total_weight > 0.0 {
+            for (name, weight) in bucket_weights {
+                let fraction = weight / total_weight;
+                let bucket_dv01 = sign * total_dv01 * fraction;
+                sens.add_ir_delta(currency, name, bucket_dv01);
+            }
+        }
 
         Ok(sens)
     }
@@ -142,39 +205,36 @@ impl Marginable for CreditDefaultSwap {
     fn simm_sensitivities(
         &self,
         _market: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> Result<SimmSensitivities> {
         let currency = self.notional.currency();
         let mut sens = SimmSensitivities::new(currency);
 
-        // For CDS, main sensitivity is CS01 (credit spread sensitivity)
-        // CS01 ≈ Notional × Risky Duration × ONE_BP
+        let days_to_maturity = (self.premium.end - as_of).whole_days().max(0) as f64;
+        let years_to_maturity = days_to_maturity / DAYS_PER_YEAR;
+        let years_to_maturity = if years_to_maturity <= 0.0 {
+            STANDARD_CDS_MATURITY_YEARS
+        } else {
+            years_to_maturity
+        };
 
-        // Use standard 5Y maturity for CDS (most liquid tenor)
-        let years_to_maturity = STANDARD_CDS_MATURITY_YEARS;
-
-        // Risky duration approximation
         let risky_duration = years_to_maturity
             * (1.0 - self.protection.recovery_rate)
             * DURATION_APPROXIMATION_FACTOR;
         let cs01 = self.notional.amount().abs() * risky_duration * ONE_BP;
 
-        // Extract reference entity name from credit curve id
         let ref_entity = extract_reference_entity(self.protection.credit_curve_id.as_str())?;
-
-        // Determine if qualifying (investment grade) or non-qualifying
-        // In practice, this would be looked up from ratings data
-        // For now, assume qualifying if spread < threshold
         let spread_bp_f64 = self.premium.spread_bp.to_f64().unwrap_or(f64::MAX);
-        let qualifying = spread_bp_f64 < INVESTMENT_GRADE_SPREAD_THRESHOLD_BP;
+        let qualifying = is_credit_qualifying(ref_entity, spread_bp_f64);
 
-        // Assign to 5Y bucket (most liquid CDS tenor)
+        let tenor = assign_credit_tenor_bucket(years_to_maturity);
+
         let signed_cs01 = match self.side {
-            crate::instruments::common_impl::parameters::legs::PayReceive::PayFixed => cs01, // Protection buyer
-            crate::instruments::common_impl::parameters::legs::PayReceive::ReceiveFixed => -cs01, // Protection seller
+            crate::instruments::common_impl::parameters::legs::PayReceive::PayFixed => cs01,
+            crate::instruments::common_impl::parameters::legs::PayReceive::ReceiveFixed => -cs01,
         };
 
-        sens.add_credit_delta(ref_entity, qualifying, "5Y", signed_cs01);
+        sens.add_credit_delta(ref_entity, qualifying, tenor, signed_cs01);
 
         Ok(sens)
     }
@@ -220,28 +280,34 @@ impl Marginable for CDSIndex {
     fn simm_sensitivities(
         &self,
         _market: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> Result<SimmSensitivities> {
         let currency = self.notional.currency();
         let mut sens = SimmSensitivities::new(currency);
 
-        // For CDS Index, similar to single-name but using index name
-        // Use standard 5Y maturity for indices (most liquid tenor)
-        let years_to_maturity = STANDARD_CDS_MATURITY_YEARS;
+        let days_to_maturity = (self.premium.end - as_of).whole_days().max(0) as f64;
+        let years_to_maturity = days_to_maturity / DAYS_PER_YEAR;
+        let years_to_maturity = if years_to_maturity <= 0.0 {
+            STANDARD_CDS_MATURITY_YEARS
+        } else {
+            years_to_maturity
+        };
+
         let recovery_rate = self.protection.recovery_rate;
         let risky_duration =
             years_to_maturity * (1.0 - recovery_rate) * DURATION_APPROXIMATION_FACTOR;
         let cs01 = self.notional.amount().abs() * risky_duration * ONE_BP;
 
-        // CDS indices are typically qualifying (investment grade indices)
-        let qualifying = self.index_name.contains("IG") || !self.index_name.contains("HY");
+        let qualifying = is_credit_qualifying(&self.index_name, 0.0);
+
+        let tenor = assign_credit_tenor_bucket(years_to_maturity);
 
         let signed_cs01 = match self.side {
             crate::instruments::common_impl::parameters::legs::PayReceive::PayFixed => cs01,
             crate::instruments::common_impl::parameters::legs::PayReceive::ReceiveFixed => -cs01,
         };
 
-        sens.add_credit_delta(&self.index_name, qualifying, "5Y", signed_cs01);
+        sens.add_credit_delta(&self.index_name, qualifying, tenor, signed_cs01);
 
         Ok(sens)
     }
@@ -447,6 +513,36 @@ mod tests {
         // Should have IR delta
         assert!(!sens.ir_delta.is_empty());
         assert!(sens.total_ir_delta().abs() > 0.0);
+    }
+
+    #[test]
+    fn test_irs_multi_tenor_decomposition() {
+        let start = test_date();
+        let end = Date::from_calendar_date(2034, Month::June, 15).expect("valid date");
+
+        let swap = test_utils::usd_irs_swap(
+            "TEST_IRS_10Y",
+            Money::new(100_000_000.0, Currency::USD),
+            0.035,
+            start,
+            end,
+            crate::instruments::rates::irs::PayReceive::PayFixed,
+        )
+        .expect("swap creation");
+
+        let market = MarketContext::new();
+        let sens = swap
+            .simm_sensitivities(&market, start)
+            .expect("sensitivities");
+
+        assert!(
+            sens.ir_delta.len() > 1,
+            "Expected multi-tenor decomposition"
+        );
+        assert!(
+            sens.total_ir_delta() < 0.0,
+            "Pay fixed should be short rates"
+        );
     }
 
     #[test]

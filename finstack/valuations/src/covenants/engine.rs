@@ -6,6 +6,7 @@
 //! - Applies consequences when covenants are breached
 //! - Supports both financial and non-financial covenants
 
+use crate::covenants::schedule::{threshold_for_date, ThresholdSchedule};
 use crate::covenants::CovenantReport;
 use finstack_core::dates::Date;
 use serde::{Deserialize, Serialize};
@@ -149,6 +150,26 @@ pub enum CovenantType {
         /// Maximum allowed utilization of the basket
         limit: f64,
     },
+    /// Minimum debt service coverage ratio (EBITDA / Debt Service)
+    MinDSCR {
+        /// Minimum required coverage
+        threshold: f64,
+    },
+    /// Maximum net debt to EBITDA ratio (net of cash)
+    MaxNetDebtToEBITDA {
+        /// Maximum allowed ratio
+        threshold: f64,
+    },
+    /// Maximum capital expenditure
+    MaxCapex {
+        /// Maximum allowed capex amount
+        threshold: f64,
+    },
+    /// Minimum liquidity (cash + available revolver)
+    MinLiquidity {
+        /// Minimum required liquidity
+        threshold: f64,
+    },
 }
 
 impl std::fmt::Display for CovenantType {
@@ -183,6 +204,18 @@ impl std::fmt::Display for CovenantType {
             CovenantType::Basket { name, limit } => {
                 write!(f, "{} Utilization <= {:.2}", name, limit)
             }
+            CovenantType::MinDSCR { threshold } => {
+                write!(f, "DSCR >= {:.2}x", threshold)
+            }
+            CovenantType::MaxNetDebtToEBITDA { threshold } => {
+                write!(f, "Net Debt/EBITDA <= {:.2}x", threshold)
+            }
+            CovenantType::MaxCapex { threshold } => {
+                write!(f, "Capex <= {:.2}", threshold)
+            }
+            CovenantType::MinLiquidity { threshold } => {
+                write!(f, "Liquidity >= {:.2}", threshold)
+            }
         }
     }
 }
@@ -212,6 +245,8 @@ impl CovenantType {
             CovenantType::MaxDebtToEBITDA { .. }
             | CovenantType::MaxTotalLeverage { .. }
             | CovenantType::MaxSeniorLeverage { .. }
+            | CovenantType::MaxNetDebtToEBITDA { .. }
+            | CovenantType::MaxCapex { .. }
             | CovenantType::Basket { .. }
             | CovenantType::Custom {
                 test: ThresholdTest::Maximum(_),
@@ -220,6 +255,8 @@ impl CovenantType {
             CovenantType::MinInterestCoverage { .. }
             | CovenantType::MinFixedChargeCoverage { .. }
             | CovenantType::MinAssetCoverage { .. }
+            | CovenantType::MinDSCR { .. }
+            | CovenantType::MinLiquidity { .. }
             | CovenantType::Custom {
                 test: ThresholdTest::Minimum(_),
                 ..
@@ -236,7 +273,11 @@ impl CovenantType {
             | CovenantType::MinFixedChargeCoverage { threshold }
             | CovenantType::MaxTotalLeverage { threshold }
             | CovenantType::MaxSeniorLeverage { threshold }
-            | CovenantType::MinAssetCoverage { threshold } => Some(*threshold),
+            | CovenantType::MinAssetCoverage { threshold }
+            | CovenantType::MinDSCR { threshold }
+            | CovenantType::MaxNetDebtToEBITDA { threshold }
+            | CovenantType::MaxCapex { threshold }
+            | CovenantType::MinLiquidity { threshold } => Some(*threshold),
             CovenantType::Custom { test, .. } => match test {
                 ThresholdTest::Maximum(t) | ThresholdTest::Minimum(t) => Some(*t),
             },
@@ -254,10 +295,38 @@ impl CovenantType {
             CovenantType::MaxTotalLeverage { .. } => Some("total_leverage"),
             CovenantType::MaxSeniorLeverage { .. } => Some("senior_leverage"),
             CovenantType::MinAssetCoverage { .. } => Some("asset_coverage"),
+            CovenantType::MinDSCR { .. } => Some("dscr"),
+            CovenantType::MaxNetDebtToEBITDA { .. } => Some("net_debt_to_ebitda"),
+            CovenantType::MaxCapex { .. } => Some("capex"),
+            CovenantType::MinLiquidity { .. } => Some("liquidity"),
             CovenantType::Custom { .. }
             | CovenantType::Basket { .. }
             | CovenantType::Negative { .. }
             | CovenantType::Affirmative { .. } => None,
+        }
+    }
+
+    /// Stable machine-readable identifier based on the variant discriminant only.
+    ///
+    /// Thresholds are **not** included because they can be amended by waivers or
+    /// overridden by threshold schedules. If multiple covenants of the same type
+    /// exist, callers should assign a disambiguating label externally.
+    pub fn covenant_id(&self) -> &'static str {
+        match self {
+            CovenantType::MaxDebtToEBITDA { .. } => "max_debt_ebitda",
+            CovenantType::MinInterestCoverage { .. } => "min_interest_coverage",
+            CovenantType::MinFixedChargeCoverage { .. } => "min_fcc",
+            CovenantType::MaxTotalLeverage { .. } => "max_total_leverage",
+            CovenantType::MaxSeniorLeverage { .. } => "max_senior_leverage",
+            CovenantType::MinAssetCoverage { .. } => "min_asset_coverage",
+            CovenantType::MinDSCR { .. } => "min_dscr",
+            CovenantType::MaxNetDebtToEBITDA { .. } => "max_net_debt_ebitda",
+            CovenantType::MaxCapex { .. } => "max_capex",
+            CovenantType::MinLiquidity { .. } => "min_liquidity",
+            CovenantType::Negative { .. } => "negative",
+            CovenantType::Affirmative { .. } => "affirmative",
+            CovenantType::Custom { .. } => "custom",
+            CovenantType::Basket { .. } => "basket",
         }
     }
 }
@@ -290,6 +359,35 @@ pub enum CovenantConsequence {
         new_maturity: Date,
     },
 }
+
+/// Whether the covenant test is triggered by a scheduled maintenance check or
+/// a specific incurrence action. The engine uses this to filter specs by scope.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EvaluationTrigger {
+    /// Scheduled periodic test (e.g., quarterly compliance).
+    Maintenance,
+    /// Test triggered by a specific action (e.g., new debt issuance).
+    Incurrence {
+        /// Description of the triggering action.
+        action: String,
+    },
+}
+
+/// A covenant waiver or amendment granted by lenders.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CovenantWaiver {
+    /// Stable identifier of the waived covenant (from [`CovenantType::covenant_id`]).
+    pub covenant_id: String,
+    /// Start date of the waiver period.
+    pub effective_date: Date,
+    /// End date of the waiver period (None = permanent amendment).
+    pub expiry_date: Option<Date>,
+    /// Amended threshold (if this is an amendment rather than a full waiver).
+    pub amended_threshold: Option<f64>,
+    /// Free-text description of the waiver terms.
+    pub description: String,
+}
+
 use crate::metrics::{MetricContext, MetricId};
 
 use finstack_core::HashMap;
@@ -313,6 +411,10 @@ pub struct CovenantSpec {
     pub covenant: Covenant,
     /// Metric ID to use for evaluation (for financial covenants)
     pub metric_id: Option<MetricId>,
+    /// Time-varying threshold schedule that overrides the static threshold in
+    /// [`CovenantType`] when present. Enables leverage step-down schedules.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub threshold_schedule: Option<ThresholdSchedule>,
     /// Custom evaluation function (for complex covenants).
     /// Not serializable - will be `None` after deserialization.
     #[serde(skip)]
@@ -337,6 +439,7 @@ impl CovenantSpec {
         Self {
             covenant,
             metric_id: Some(metric_id),
+            threshold_schedule: None,
             custom_evaluator: None,
         }
     }
@@ -349,8 +452,15 @@ impl CovenantSpec {
         Self {
             covenant,
             metric_id: None,
+            threshold_schedule: None,
             custom_evaluator: Some(Arc::new(evaluator)),
         }
+    }
+
+    /// Attach a time-varying threshold schedule (e.g., leverage step-downs).
+    pub fn with_threshold_schedule(mut self, schedule: ThresholdSchedule) -> Self {
+        self.threshold_schedule = Some(schedule);
+        self
     }
 }
 
@@ -388,7 +498,10 @@ pub struct CovenantWindow {
 /// Covenant breach tracking.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CovenantBreach {
-    /// Covenant that was breached
+    /// Stable identifier matching [`CovenantType::covenant_id`].
+    #[serde(default)]
+    pub covenant_id: String,
+    /// Human-readable description (from `Display`). Kept for backward compat.
     pub covenant_type: String,
     /// Date of the breach
     pub breach_date: Date,
@@ -416,6 +529,9 @@ pub struct CovenantEngine {
     pub breach_history: Vec<CovenantBreach>,
     /// Covenant testing windows
     pub windows: Vec<CovenantWindow>,
+    /// Active waivers and amendments
+    #[serde(default)]
+    pub waivers: Vec<CovenantWaiver>,
     /// Custom metric calculators.
     /// Not serializable - will be empty after deserialization.
     #[serde(skip)]
@@ -435,6 +551,7 @@ impl CovenantEngine {
             specs: Vec::new(),
             breach_history: Vec::new(),
             windows: Vec::new(),
+            waivers: Vec::new(),
             custom_metrics: HashMap::default(),
         }
     }
@@ -446,8 +563,28 @@ impl CovenantEngine {
     }
 
     /// Add a covenant window.
+    ///
+    /// # Panics (debug builds)
+    ///
+    /// Panics via `debug_assert!` if the new window overlaps with an existing
+    /// window. Windows must have non-overlapping date ranges to avoid ambiguity
+    /// about which covenants apply on a given date.
     pub fn add_window(&mut self, window: CovenantWindow) -> &mut Self {
+        debug_assert!(
+            !self.windows.iter().any(|w| {
+                window.start <= w.end && window.end >= w.start
+            }),
+            "Covenant windows must not overlap. New window [{}, {}] overlaps with an existing window.",
+            window.start,
+            window.end,
+        );
         self.windows.push(window);
+        self
+    }
+
+    /// Record a covenant waiver or amendment.
+    pub fn add_waiver(&mut self, waiver: CovenantWaiver) -> &mut Self {
+        self.waivers.push(waiver);
         self
     }
 
@@ -465,36 +602,56 @@ impl CovenantEngine {
         self
     }
 
-    /// Evaluate covenants against current metrics.
+    /// Evaluate all covenants against current metrics (both maintenance and incurrence).
+    ///
+    /// Use [`evaluate_for_trigger`](Self::evaluate_for_trigger) to test only
+    /// covenants matching a specific scope.
     pub fn evaluate(
         &self,
         context: &mut MetricContext,
         test_date: Date,
     ) -> finstack_core::Result<IndexMap<String, CovenantReport>> {
+        let applicable_specs = self.get_applicable_specs_internal(test_date);
+        self.evaluate_specs(&applicable_specs, context, test_date)
+    }
+
+    fn evaluate_specs(
+        &self,
+        specs: &[&CovenantSpec],
+        context: &mut MetricContext,
+        test_date: Date,
+    ) -> finstack_core::Result<IndexMap<String, CovenantReport>> {
         let mut reports = IndexMap::new();
 
-        // Find applicable covenants for the test date
-        let applicable_specs = self.get_applicable_specs_internal(test_date);
+        for spec in specs {
+            let cid = spec.covenant.covenant_type.covenant_id();
+            let description = spec.covenant.description();
 
-        for spec in applicable_specs {
-            let covenant_type = self.get_covenant_description(&spec.covenant.covenant_type);
-
-            // Skip inactive covenants
             if !spec.covenant.is_active {
                 reports.insert(
-                    covenant_type.clone(),
-                    CovenantReport::passed(&covenant_type).with_details("Covenant inactive"),
+                    description.clone(),
+                    CovenantReport::passed(&description).with_details("Covenant inactive"),
                 );
                 continue;
             }
 
-            // Evaluate the covenant
-            let evaluation = self.evaluate_spec(spec, context)?;
+            if let Some(waiver) = self.active_waiver(cid, test_date) {
+                if waiver.amended_threshold.is_none() {
+                    reports.insert(
+                        description.clone(),
+                        CovenantReport::passed(&description)
+                            .with_details("Waived by lender agreement"),
+                    );
+                    continue;
+                }
+            }
+
+            let evaluation = self.evaluate_spec(spec, context, test_date)?;
 
             let mut report = if evaluation.passed {
-                CovenantReport::passed(&covenant_type)
+                CovenantReport::passed(&description)
             } else {
-                CovenantReport::failed(&covenant_type)
+                CovenantReport::failed(&description)
             };
 
             if let Some(value) = evaluation.actual_value {
@@ -507,9 +664,8 @@ impl CovenantEngine {
                 report = report.with_headroom(hr);
             }
 
-            // Check for cure period
             if !evaluation.passed {
-                if let Some(breach) = self.find_active_breach(&covenant_type, test_date) {
+                if let Some(breach) = self.find_active_breach(cid, test_date) {
                     if breach.cure_deadline.is_some_and(|d| test_date <= d) {
                         report = report.with_details("In cure period");
                     }
@@ -520,7 +676,86 @@ impl CovenantEngine {
                 report = report.with_details(&detail);
             }
 
-            reports.insert(covenant_type, report);
+            reports.insert(description, report);
+        }
+
+        Ok(reports)
+    }
+
+    /// Evaluate only covenants matching the given trigger scope.
+    ///
+    /// `Maintenance` triggers test covenants with [`CovenantScope::Maintenance`].
+    /// `Incurrence` triggers test covenants with [`CovenantScope::Incurrence`].
+    /// This avoids the common error of testing incurrence covenants on a
+    /// periodic schedule when they should only fire on specific actions.
+    pub fn evaluate_for_trigger(
+        &self,
+        context: &mut MetricContext,
+        test_date: Date,
+        trigger: &EvaluationTrigger,
+    ) -> finstack_core::Result<IndexMap<String, CovenantReport>> {
+        let required_scope = match trigger {
+            EvaluationTrigger::Maintenance => CovenantScope::Maintenance,
+            EvaluationTrigger::Incurrence { .. } => CovenantScope::Incurrence,
+        };
+
+        let applicable_specs = self.get_applicable_specs_internal(test_date);
+        let filtered: Vec<&CovenantSpec> = applicable_specs
+            .into_iter()
+            .filter(|s| s.covenant.scope == required_scope)
+            .collect();
+
+        self.evaluate_specs(&filtered, context, test_date)
+    }
+
+    /// Evaluate covenants and automatically record breaches in history.
+    ///
+    /// Combines [`evaluate`](Self::evaluate) with breach tracking: any failing
+    /// covenant that doesn't already have an active (uncured) breach record
+    /// gets a new [`CovenantBreach`] entry in `breach_history`.
+    pub fn evaluate_and_track(
+        &mut self,
+        context: &mut MetricContext,
+        test_date: Date,
+    ) -> finstack_core::Result<IndexMap<String, CovenantReport>> {
+        let reports = self.evaluate(context, test_date)?;
+
+        for (description, report) in &reports {
+            if report.passed {
+                continue;
+            }
+
+            let spec = self
+                .specs
+                .iter()
+                .find(|s| s.covenant.description() == *description);
+
+            let cid = spec.map(|s| s.covenant.covenant_type.covenant_id());
+            let already_tracked = cid.is_some_and(|id| {
+                self.breach_history
+                    .iter()
+                    .any(|b| b.covenant_id == id && !b.is_cured && b.breach_date == test_date)
+            });
+            if already_tracked {
+                continue;
+            }
+
+            let cure_deadline = spec.and_then(|s| {
+                s.covenant
+                    .cure_period_days
+                    .map(|d| test_date + time::Duration::days(d as i64))
+            });
+
+            self.breach_history.push(CovenantBreach {
+                covenant_id: cid.unwrap_or("unknown").to_string(),
+                covenant_type: description.clone(),
+                breach_date: test_date,
+                actual_value: report.actual_value,
+                threshold: report.threshold,
+                cure_deadline,
+                is_cured: false,
+                applied_consequences: Vec::new(),
+            });
         }
 
         Ok(reports)
@@ -549,15 +784,12 @@ impl CovenantEngine {
                 }
             }
 
-            // Find the covenant spec
             let spec = self
                 .specs
                 .iter()
-                .find(|s| {
-                    self.get_covenant_description(&s.covenant.covenant_type) == breach.covenant_type
-                })
+                .find(|s| s.covenant.covenant_type.covenant_id() == breach.covenant_id)
                 .ok_or(finstack_core::InputError::NotFound {
-                    id: format!("covenant_spec:{}", breach.covenant_type),
+                    id: format!("covenant_spec:{}", breach.covenant_id),
                 })?;
 
             // Apply each consequence
@@ -565,9 +797,8 @@ impl CovenantEngine {
                 let application = self.apply_single_consequence(instrument, consequence, as_of)?;
                 applications.push(application);
 
-                // Track in breach history
                 if let Some(historical_breach) = self.breach_history.iter_mut().find(|b| {
-                    b.covenant_type == breach.covenant_type && b.breach_date == breach.breach_date
+                    b.covenant_id == breach.covenant_id && b.breach_date == breach.breach_date
                 }) {
                     historical_breach
                         .applied_consequences
@@ -598,14 +829,11 @@ impl CovenantEngine {
         self.specs.iter().collect()
     }
 
-    fn get_covenant_description(&self, covenant_type: &CovenantType) -> String {
-        covenant_type.to_string()
-    }
-
     fn evaluate_spec(
         &self,
         spec: &CovenantSpec,
         context: &mut MetricContext,
+        test_date: Date,
     ) -> finstack_core::Result<SpecEvaluation> {
         // Springing conditions: skip evaluation until activation criteria met.
         if let Some(condition) = &spec.covenant.springing_condition {
@@ -641,7 +869,7 @@ impl CovenantEngine {
         let covenant_type = &spec.covenant.covenant_type;
 
         // Non-numeric covenants auto-pass until they have explicit evaluators.
-        let Some(threshold) = covenant_type.threshold_value() else {
+        let Some(base_threshold) = covenant_type.threshold_value() else {
             return Ok(SpecEvaluation {
                 passed: true,
                 actual_value: None,
@@ -650,6 +878,18 @@ impl CovenantEngine {
                 detail: None,
             });
         };
+
+        // Resolve the effective threshold: waiver amendment > schedule > static.
+        let covenant_cid = covenant_type.covenant_id();
+        let threshold = self
+            .active_waiver(covenant_cid, test_date)
+            .and_then(|w| w.amended_threshold)
+            .or_else(|| {
+                spec.threshold_schedule
+                    .as_ref()
+                    .and_then(|s| threshold_for_date(s, test_date))
+            })
+            .unwrap_or(base_threshold);
 
         // Otherwise use metric-based evaluation
         let metric_value = if let Some(metric_id) = &spec.metric_id {
@@ -674,7 +914,11 @@ impl CovenantEngine {
             None => true,
         };
 
-        let headroom = Some(headroom_for(covenant_type, metric_value, threshold));
+        let headroom = Some(headroom_for(
+            covenant_type.bound_kind(),
+            metric_value,
+            threshold,
+        ));
 
         Ok(SpecEvaluation {
             passed,
@@ -706,15 +950,23 @@ impl CovenantEngine {
         }
 
         Err(finstack_core::InputError::NotFound {
-            id: "covenant_description".to_string(),
+            id: format!("metric:{}", metric_id.as_str()),
         }
         .into())
     }
 
-    fn find_active_breach(&self, covenant_type: &str, as_of: Date) -> Option<&CovenantBreach> {
+    fn active_waiver(&self, covenant_id: &str, as_of: Date) -> Option<&CovenantWaiver> {
+        self.waivers.iter().find(|w| {
+            w.covenant_id == covenant_id
+                && w.effective_date <= as_of
+                && w.expiry_date.is_none_or(|exp| as_of <= exp)
+        })
+    }
+
+    fn find_active_breach(&self, cid: &str, as_of: Date) -> Option<&CovenantBreach> {
         self.breach_history
             .iter()
-            .filter(|b| b.covenant_type == covenant_type && !b.is_cured)
+            .filter(|b| b.covenant_id == cid && !b.is_cured)
             .filter(|b| b.breach_date <= as_of)
             .max_by_key(|b| b.breach_date)
     }
@@ -786,14 +1038,14 @@ struct SpecEvaluation {
     detail: Option<String>,
 }
 
-pub(crate) fn headroom_for(cov: &CovenantType, value: f64, threshold: f64) -> f64 {
+pub(crate) fn headroom_for(bound: Option<BoundKind>, value: f64, threshold: f64) -> f64 {
     let denom = if threshold.abs() < f64::EPSILON {
         1.0
     } else {
         threshold
     };
 
-    match cov.bound_kind() {
+    match bound {
         Some(BoundKind::AtMost) => (threshold - value) / denom,
         Some(BoundKind::AtLeast) => (value - threshold) / denom,
         None => 0.0,
@@ -853,13 +1105,13 @@ mod tests {
         assert_eq!(leverage.bound_kind(), Some(BoundKind::AtMost));
         assert_eq!(leverage.threshold_value(), Some(5.0));
         assert_eq!(leverage.default_metric_name(), Some("total_leverage"));
-        assert!((headroom_for(&leverage, 4.0, 5.0) - 0.2).abs() < 1e-12);
+        assert!((headroom_for(leverage.bound_kind(), 4.0, 5.0) - 0.2).abs() < 1e-12);
 
         let coverage = CovenantType::MinInterestCoverage { threshold: 1.50 };
         assert_eq!(coverage.bound_kind(), Some(BoundKind::AtLeast));
         assert_eq!(coverage.threshold_value(), Some(1.50));
         assert_eq!(coverage.default_metric_name(), Some("interest_coverage"));
-        assert!((headroom_for(&coverage, 2.0, 1.5) - (2.0 - 1.5) / 1.5).abs() < 1e-12);
+        assert!((headroom_for(coverage.bound_kind(), 2.0, 1.5) - (2.0 - 1.5) / 1.5).abs() < 1e-12);
 
         let custom_max = CovenantType::Custom {
             metric: "liquidity_ratio".to_string(),
@@ -890,7 +1142,7 @@ mod tests {
         assert_eq!(negative.bound_kind(), None);
         assert_eq!(negative.threshold_value(), None);
         assert_eq!(negative.default_metric_name(), None);
-        assert_eq!(headroom_for(&negative, 1.0, 1.0), 0.0);
+        assert_eq!(headroom_for(negative.bound_kind(), 1.0, 1.0), 0.0);
     }
 
     #[derive(Clone)]
@@ -1044,6 +1296,7 @@ mod tests {
 
         let test_date = date(2025, 3, 31);
         engine.breach_history.push(CovenantBreach {
+            covenant_id: "min_interest_coverage".to_string(),
             covenant_type: "Interest Coverage >= 1.50x".to_string(),
             breach_date: test_date - Duration::days(30),
             actual_value: Some(1.1),
@@ -1085,7 +1338,7 @@ mod tests {
             },
             Tenor::annual(),
         );
-        let neg_description = engine.get_covenant_description(&negative_cov.covenant_type);
+        let neg_description = negative_cov.covenant_type.to_string();
         assert_eq!(neg_description, "Negative: No additional debt");
     }
 
@@ -1125,10 +1378,8 @@ mod tests {
             |_ctx| Ok(false),
         );
 
-        let liquidity_desc =
-            engine.get_covenant_description(&custom_metric_spec.covenant.covenant_type);
-        let affirmative_desc =
-            engine.get_covenant_description(&evaluator_spec.covenant.covenant_type);
+        let liquidity_desc = custom_metric_spec.covenant.description();
+        let affirmative_desc = evaluator_spec.covenant.description();
 
         engine.add_window(CovenantWindow {
             start: date(2025, 1, 1),
@@ -1162,7 +1413,7 @@ mod tests {
         assert_eq!(applicable.len(), 2);
         let applicable_descriptions: Vec<_> = applicable
             .iter()
-            .map(|spec| engine.get_covenant_description(&spec.covenant.covenant_type))
+            .map(|spec| spec.covenant.description())
             .collect();
         assert!(applicable_descriptions.contains(&liquidity_desc));
         assert!(applicable_descriptions.contains(&affirmative_desc));
@@ -1197,6 +1448,7 @@ mod tests {
         ));
 
         engine.breach_history.push(CovenantBreach {
+            covenant_id: "max_senior_leverage".to_string(),
             covenant_type: "Senior Leverage <= 3.00x".to_string(),
             breach_date: as_of - Duration::days(10),
             actual_value: Some(3.8),
@@ -1207,6 +1459,7 @@ mod tests {
         });
 
         let actionable_breach = CovenantBreach {
+            covenant_id: "max_senior_leverage".to_string(),
             covenant_type: "Senior Leverage <= 3.00x".to_string(),
             breach_date: as_of - Duration::days(10),
             actual_value: Some(3.8),
@@ -1217,6 +1470,7 @@ mod tests {
         };
 
         let cured_breach = CovenantBreach {
+            covenant_id: "max_senior_leverage".to_string(),
             covenant_type: "Senior Leverage <= 3.00x".to_string(),
             breach_date: as_of - Duration::days(40),
             actual_value: Some(3.4),
@@ -1227,6 +1481,7 @@ mod tests {
         };
 
         let in_cure_breach = CovenantBreach {
+            covenant_id: "max_senior_leverage".to_string(),
             covenant_type: "Senior Leverage <= 3.00x".to_string(),
             breach_date: as_of - Duration::days(5),
             actual_value: Some(3.2),
@@ -1357,5 +1612,160 @@ mod tests {
         assert!(report
             .headroom
             .is_some_and(|h| h < 0.0 && (h + 0.20).abs() < 1e-6));
+    }
+
+    #[test]
+    fn evaluate_and_track_creates_breach_records() {
+        let mut engine = CovenantEngine::new();
+        engine.add_spec(CovenantSpec::with_metric(
+            Covenant::new(
+                CovenantType::MaxTotalLeverage { threshold: 5.0 },
+                Tenor::quarterly(),
+            )
+            .with_cure_period(Some(30)),
+            MetricId::custom("total_leverage"),
+        ));
+
+        let test_date = date(2025, 6, 30);
+        let instrument = TestInstrument::new("TRACK-TEST", date(2026, 6, 30));
+        let mut ctx = metric_context(&instrument, test_date);
+        ctx.computed.insert(MetricId::custom("total_leverage"), 5.5);
+
+        assert!(engine.breach_history.is_empty());
+        let reports = engine
+            .evaluate_and_track(&mut ctx, test_date)
+            .expect("evaluation succeeds");
+        assert!(!reports["Total Leverage <= 5.00x"].passed);
+        assert_eq!(engine.breach_history.len(), 1);
+        assert_eq!(engine.breach_history[0].covenant_id, "max_total_leverage");
+        assert_eq!(engine.breach_history[0].actual_value, Some(5.5));
+        assert!(engine.breach_history[0].cure_deadline.is_some());
+
+        // Second call on same date should not duplicate
+        let _ = engine
+            .evaluate_and_track(&mut ctx, test_date)
+            .expect("evaluation succeeds");
+        assert_eq!(engine.breach_history.len(), 1);
+    }
+
+    #[test]
+    fn evaluate_for_trigger_filters_by_scope() {
+        let mut engine = CovenantEngine::new();
+        engine.add_spec(CovenantSpec::with_metric(
+            Covenant::new(
+                CovenantType::MaxTotalLeverage { threshold: 5.0 },
+                Tenor::quarterly(),
+            )
+            .with_scope(CovenantScope::Maintenance),
+            MetricId::custom("total_leverage"),
+        ));
+        engine.add_spec(CovenantSpec::with_metric(
+            Covenant::new(
+                CovenantType::MaxSeniorLeverage { threshold: 3.0 },
+                Tenor::quarterly(),
+            )
+            .with_scope(CovenantScope::Incurrence),
+            MetricId::custom("senior_leverage"),
+        ));
+
+        let test_date = date(2025, 6, 30);
+        let instrument = TestInstrument::new("TRIGGER-TEST", date(2026, 6, 30));
+        let mut ctx = metric_context(&instrument, test_date);
+        ctx.computed.insert(MetricId::custom("total_leverage"), 6.0);
+        ctx.computed
+            .insert(MetricId::custom("senior_leverage"), 4.0);
+
+        let maintenance_reports = engine
+            .evaluate_for_trigger(&mut ctx, test_date, &EvaluationTrigger::Maintenance)
+            .expect("evaluation succeeds");
+        assert_eq!(maintenance_reports.len(), 1);
+        assert!(maintenance_reports.contains_key("Total Leverage <= 5.00x"));
+
+        let incurrence_reports = engine
+            .evaluate_for_trigger(
+                &mut ctx,
+                test_date,
+                &EvaluationTrigger::Incurrence {
+                    action: "New debt issuance".to_string(),
+                },
+            )
+            .expect("evaluation succeeds");
+        assert_eq!(incurrence_reports.len(), 1);
+        assert!(incurrence_reports.contains_key("Senior Leverage <= 3.00x"));
+    }
+
+    #[test]
+    fn waiver_bypasses_covenant_evaluation() {
+        let mut engine = CovenantEngine::new();
+        engine.add_spec(CovenantSpec::with_metric(
+            Covenant::new(
+                CovenantType::MaxTotalLeverage { threshold: 5.0 },
+                Tenor::quarterly(),
+            ),
+            MetricId::custom("total_leverage"),
+        ));
+
+        let test_date = date(2025, 6, 30);
+
+        // Full waiver (no amended threshold)
+        engine.add_waiver(CovenantWaiver {
+            covenant_id: "max_total_leverage".to_string(),
+            effective_date: date(2025, 1, 1),
+            expiry_date: Some(date(2025, 12, 31)),
+            amended_threshold: None,
+            description: "Temporary waiver for Q2-Q4".to_string(),
+        });
+
+        let instrument = TestInstrument::new("WAIVER-TEST", date(2026, 6, 30));
+        let mut ctx = metric_context(&instrument, test_date);
+        ctx.computed.insert(MetricId::custom("total_leverage"), 7.0);
+
+        let reports = engine
+            .evaluate(&mut ctx, test_date)
+            .expect("evaluation succeeds");
+        let report = reports
+            .get("Total Leverage <= 5.00x")
+            .expect("leverage covenant present");
+        assert!(report.passed, "should pass due to waiver");
+        assert_eq!(
+            report.details.as_deref(),
+            Some("Waived by lender agreement")
+        );
+    }
+
+    #[test]
+    fn waiver_amendment_overrides_threshold() {
+        let mut engine = CovenantEngine::new();
+        engine.add_spec(CovenantSpec::with_metric(
+            Covenant::new(
+                CovenantType::MaxTotalLeverage { threshold: 5.0 },
+                Tenor::quarterly(),
+            ),
+            MetricId::custom("total_leverage"),
+        ));
+
+        let test_date = date(2025, 6, 30);
+
+        // Amendment: raise threshold from 5.0 to 7.0
+        engine.add_waiver(CovenantWaiver {
+            covenant_id: "max_total_leverage".to_string(),
+            effective_date: date(2025, 1, 1),
+            expiry_date: Some(date(2025, 12, 31)),
+            amended_threshold: Some(7.0),
+            description: "Amended leverage threshold".to_string(),
+        });
+
+        let instrument = TestInstrument::new("AMEND-TEST", date(2026, 6, 30));
+        let mut ctx = metric_context(&instrument, test_date);
+        ctx.computed.insert(MetricId::custom("total_leverage"), 6.0);
+
+        let reports = engine
+            .evaluate(&mut ctx, test_date)
+            .expect("evaluation succeeds");
+        let report = reports
+            .get("Total Leverage <= 5.00x")
+            .expect("leverage covenant present");
+        assert!(report.passed, "6.0 should pass with amended 7.0 threshold");
+        assert_eq!(report.threshold, Some(7.0));
     }
 }

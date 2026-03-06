@@ -2,7 +2,7 @@
  * Calibration State Types - Shared Primitives and Wire Format Types
  *
  * This module provides:
- * 1. **Wire Format Types** (re-exported from `./generated/`)
+ * 1. **Wire Format Types** (re-exported from `finstack-wasm/types`)
  *    - Match the JSON accepted/returned by finstack-wasm `fromJSON`/`toJSON` methods
  *    - Generated from Rust via ts-rs; do not edit manually
  *
@@ -31,7 +31,7 @@ export type {
   InflationQuote,
   MarketQuote,
   FutureSpecs,
-} from './generated';
+} from 'finstack-wasm/types';
 
 // ============================================================================
 // Shared UI Primitives (used by component state types)

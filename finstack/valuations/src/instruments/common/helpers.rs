@@ -115,6 +115,36 @@ where
     Ok(neumaier_sum(terms))
 }
 
+/// Resolve an optional dividend-yield scalar from the market context.
+///
+/// Returns `0.0` only when no dividend yield ID is configured. If an ID is
+/// configured, missing or wrongly-typed market data is treated as a validation
+/// error rather than silently assuming zero carry.
+pub fn resolve_optional_dividend_yield(
+    curves: &MarketContext,
+    div_yield_id: Option<&finstack_core::types::CurveId>,
+) -> finstack_core::Result<f64> {
+    let Some(div_id) = div_yield_id else {
+        return Ok(0.0);
+    };
+
+    let scalar = curves.price(div_id.as_str()).map_err(|e| {
+        finstack_core::Error::Validation(format!(
+            "Failed to fetch dividend yield '{}': {}",
+            div_id, e
+        ))
+    })?;
+
+    match scalar {
+        MarketScalar::Unitless(v) => Ok(*v),
+        MarketScalar::Price(m) => Err(finstack_core::Error::Validation(format!(
+            "Dividend yield '{}' should be a unitless scalar, got Price({})",
+            div_id,
+            m.currency()
+        ))),
+    }
+}
+
 /// Shared helper to build a ValuationResult with a set of metrics.
 ///
 /// Centralizes the repeated pattern across instruments to compute base value,
@@ -395,6 +425,40 @@ mod tests {
         assert!(r_short > 0.0, "r_eff should be positive for df < 1");
         assert!(r_short.is_finite(), "r_eff should be finite");
     }
+
+    #[test]
+    fn configured_dividend_yield_must_exist() {
+        let market = MarketContext::new();
+        let err = resolve_optional_dividend_yield(
+            &market,
+            Some(&finstack_core::types::CurveId::new("DIV")),
+        )
+        .err()
+        .map(|err| err.to_string());
+        assert!(err
+            .as_deref()
+            .is_some_and(|msg| msg.contains("Failed to fetch dividend yield")));
+    }
+
+    #[test]
+    fn configured_dividend_yield_must_be_unitless() {
+        let market = MarketContext::new().insert_price(
+            "DIV",
+            finstack_core::market_data::scalars::MarketScalar::Price(Money::new(
+                1.0,
+                Currency::USD,
+            )),
+        );
+        let err = resolve_optional_dividend_yield(
+            &market,
+            Some(&finstack_core::types::CurveId::new("DIV")),
+        )
+        .err()
+        .map(|err| err.to_string());
+        assert!(err
+            .as_deref()
+            .is_some_and(|msg| msg.contains("should be a unitless scalar")));
+    }
 }
 
 /// Convert a trait object reference to Arc-wrapped trait object.
@@ -541,26 +605,7 @@ pub fn collect_black_scholes_inputs_df(
     };
 
     // Dividend yield (q)
-    let q = if let Some(div_id) = div_yield_id {
-        let ms = curves.price(div_id.as_str()).map_err(|e| {
-            finstack_core::Error::Validation(format!(
-                "Failed to fetch dividend yield '{}': {}",
-                div_id, e
-            ))
-        })?;
-        match ms {
-            MarketScalar::Unitless(v) => *v,
-            MarketScalar::Price(m) => {
-                return Err(finstack_core::Error::Validation(format!(
-                    "Dividend yield '{}' should be a unitless scalar, got Price({})",
-                    div_id,
-                    m.currency()
-                )));
-            }
-        }
-    } else {
-        0.0
-    };
+    let q = resolve_optional_dividend_yield(curves, div_yield_id)?;
 
     // Volatility (sigma) using vol surface's time basis
     let vol_surface = curves.surface(vol_surface_id)?;

@@ -165,6 +165,14 @@ impl XvaConfig {
                     )));
                 }
             }
+            if let Some(benefit) = funding.funding_benefit_bps {
+                if benefit > funding.funding_spread_bps {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "XvaConfig: funding_benefit_bps {benefit} must not exceed funding_spread_bps {}",
+                        funding.funding_spread_bps
+                    )));
+                }
+            }
         }
 
         Ok(())
@@ -349,6 +357,106 @@ impl ExposureProfile {
     }
 }
 
+/// Configuration for stochastic exposure simulation.
+///
+/// Used by the Monte Carlo-based XVA exposure engine to control simulation
+/// size, reproducibility, and the PFE confidence level.
+#[cfg(feature = "mc")]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct StochasticExposureConfig {
+    /// Number of Monte Carlo paths to simulate.
+    pub num_paths: usize,
+
+    /// Deterministic RNG seed for reproducible exposure profiles.
+    pub seed: u64,
+
+    /// Quantile used for Potential Future Exposure.
+    ///
+    /// Market practice is typically 95% to 99%; the XVA module defaults to 97.5%.
+    pub pfe_quantile: f64,
+}
+
+#[cfg(feature = "mc")]
+impl Default for StochasticExposureConfig {
+    fn default() -> Self {
+        Self {
+            num_paths: 10_000,
+            seed: 42,
+            pfe_quantile: 0.975,
+        }
+    }
+}
+
+#[cfg(feature = "mc")]
+impl StochasticExposureConfig {
+    /// Validate stochastic exposure simulation parameters.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.num_paths == 0 {
+            return Err(finstack_core::Error::Validation(
+                "StochasticExposureConfig: num_paths must be positive".into(),
+            ));
+        }
+
+        if !self.pfe_quantile.is_finite() || self.pfe_quantile <= 0.0 || self.pfe_quantile >= 1.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "StochasticExposureConfig: pfe_quantile {} must be in (0, 1)",
+                self.pfe_quantile
+            )));
+        }
+
+        Ok(())
+    }
+}
+
+/// Stochastic exposure profile with distribution-based PFE.
+///
+/// The embedded [`ExposureProfile`] contains the pathwise averages needed for CVA/DVA/FVA
+/// integration, while `pfe_profile` preserves the chosen tail quantile of the simulated
+/// positive exposure distribution.
+#[cfg(feature = "mc")]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct StochasticExposureProfile {
+    /// Average MtM/EPE/ENE profile used by the XVA calculators.
+    pub profile: ExposureProfile,
+
+    /// Potential future exposure profile at the configured quantile.
+    pub pfe_profile: Vec<f64>,
+
+    /// Number of Monte Carlo paths used to estimate the profile.
+    pub path_count: usize,
+
+    /// Tail quantile used for `pfe_profile`.
+    pub pfe_quantile: f64,
+}
+
+#[cfg(feature = "mc")]
+impl StochasticExposureProfile {
+    /// Maximum PFE across the simulated horizon.
+    pub fn max_pfe(&self) -> f64 {
+        self.pfe_profile.iter().copied().fold(0.0, f64::max)
+    }
+
+    /// Validate internal consistency between the average profile and PFE vector.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        self.profile.validate()?;
+        if self.pfe_profile.len() != self.profile.times.len() {
+            return Err(finstack_core::Error::Validation(format!(
+                "StochasticExposureProfile: pfe_profile length {} must match profile length {}",
+                self.pfe_profile.len(),
+                self.profile.times.len()
+            )));
+        }
+        for (i, pfe) in self.pfe_profile.iter().enumerate() {
+            if !pfe.is_finite() || *pfe < 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "StochasticExposureProfile: pfe_profile[{i}] = {pfe} must be non-negative and finite"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// A netting set: collection of trades under a single ISDA master agreement.
 ///
 /// Under a valid ISDA master agreement, upon counterparty default the
@@ -492,6 +600,21 @@ mod tests {
             include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn config_validation_rejects_funding_benefit_above_cost() {
+        let config = XvaConfig {
+            time_grid: vec![0.5, 1.0],
+            recovery_rate: 0.40,
+            include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: Some(FundingConfig {
+                funding_spread_bps: 35.0,
+                funding_benefit_bps: Some(40.0),
+            }),
         };
         assert!(config.validate().is_err());
     }

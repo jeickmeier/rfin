@@ -87,7 +87,8 @@ pub use calculators::{
     ScheduleImCalculator, SimmCalculator, VmCalculator, VmResult,
 };
 pub use traits::{
-    InstrumentMarginResult, Marginable, NettingSetId, SimmRiskClass, SimmSensitivities,
+    InstrumentMarginResult, Marginable, NettingSetId, SimmCreditSector, SimmRiskClass,
+    SimmSensitivities,
 };
 pub use types::{
     ClearingStatus, CollateralAssetClass, CollateralEligibility, CsaSpec,

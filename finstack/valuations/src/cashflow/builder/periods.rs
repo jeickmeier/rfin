@@ -3,9 +3,11 @@
 //! Provides canonical accrual/payment periods built on top of the cashflow
 //! builder's date generation and calendar policy.
 
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, StubKind, Tenor};
+use finstack_core::dates::{
+    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
+};
 
-use super::calendar::resolve_calendar_strict;
+use super::calendar::{adjust_date, resolve_calendar_strict};
 use super::date_generation::build_dates;
 use super::emission::compute_reset_date;
 
@@ -46,6 +48,45 @@ pub struct BuildPeriodsParams<'a> {
     pub payment_lag_days: i32,
     /// Optional reset lag in business days before accrual start.
     pub reset_lag_days: Option<i32>,
+}
+
+/// Build a single canonical period with the same lag/reset/accrual logic as full schedules.
+pub fn build_single_period(
+    params: BuildPeriodsParams<'_>,
+) -> finstack_core::Result<SchedulePeriod> {
+    let cal = resolve_calendar_strict(params.calendar_id)?;
+    let accrual_start = adjust_date(params.start, params.bdc, params.calendar_id)?;
+    let accrual_end = adjust_date(params.end, params.bdc, params.calendar_id)?;
+
+    let dc_ctx = DayCountCtx {
+        calendar: Some(cal),
+        frequency: Some(params.frequency),
+        bus_basis: None,
+    };
+
+    let accrual_year_fraction =
+        params
+            .day_count
+            .year_fraction(accrual_start, accrual_end, dc_ctx)?;
+
+    let payment_date = if params.payment_lag_days == 0 {
+        accrual_end
+    } else {
+        accrual_end.add_business_days(params.payment_lag_days, cal)?
+    };
+
+    let reset_date = params
+        .reset_lag_days
+        .map(|lag| compute_reset_date(accrual_start, lag, params.bdc, params.calendar_id))
+        .transpose()?;
+
+    Ok(SchedulePeriod {
+        accrual_start,
+        accrual_end,
+        payment_date,
+        reset_date,
+        accrual_year_fraction,
+    })
 }
 
 /// Build canonical schedule periods with consistent market conventions.

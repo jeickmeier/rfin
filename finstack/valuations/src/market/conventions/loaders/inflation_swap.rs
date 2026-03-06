@@ -1,6 +1,6 @@
 //! Loader for inflation swap conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, RegistryFile};
+use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::market::conventions::defs::InflationSwapConventions;
 use crate::market::conventions::ids::InflationSwapConventionId;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
@@ -33,10 +33,6 @@ impl InflationSwapConventionRecord {
             inflation_lag: lag,
         })
     }
-}
-
-fn normalize_registry_id(id: &str) -> String {
-    id.trim().to_string()
 }
 
 /// Load the Inflation Swap conventions from the embedded JSON registry.

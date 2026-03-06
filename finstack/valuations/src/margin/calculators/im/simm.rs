@@ -21,11 +21,9 @@
 //!
 //! Where K_i is the risk-weighted sensitivity for bucket i.
 //!
-//! > **Implementation note:** `calculate_from_sensitivities` applies the SIMM
-//! > risk-class correlation matrix (delta-only) but does not implement the
-//! > full SIMM bucket/tenor correlations, vega, or curvature aggregation.
-
-#![allow(clippy::unwrap_used)]
+//! > **Implementation note:** `calculate_from_sensitivities` applies intra-bucket
+//! > tenor correlations for IR delta, vega margin (IR, equity, FX), curvature
+//! > risk, concentration add-ons, and the SIMM risk-class correlation matrix.
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
@@ -33,14 +31,12 @@ use crate::margin::config::margin_registry_from_config;
 use crate::margin::registry::{embedded_registry, MarginRegistry, SimmParams};
 use crate::margin::traits::{SimmRiskClass, SimmSensitivities};
 use crate::margin::types::ImMethodology;
-use crate::metrics::{standard_registry, MetricContext, MetricId, StrictMode};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
 use finstack_core::Result;
-use std::sync::Arc;
 
 /// SIMM version identifier.
 #[derive(
@@ -64,80 +60,37 @@ impl std::fmt::Display for SimmVersion {
     }
 }
 
-/// SIMM risk weights by version.
-///
-/// Contains calibrated risk weights for delta, vega, and curvature
-/// across all risk classes.
-#[derive(Debug, Clone)]
-pub struct SimmRiskWeights {
-    /// Version of the risk weights
-    pub version: SimmVersion,
-
-    /// Interest rate delta risk weights by tenor bucket (years)
-    /// Tenors: 2w, 1m, 3m, 6m, 1y, 2y, 3y, 5y, 10y, 15y, 20y, 30y
-    pub ir_delta_weights: HashMap<String, f64>,
-
-    /// Credit qualifying delta risk weights by rating bucket
-    pub cq_delta_weights: HashMap<String, f64>,
-
-    /// Credit non-qualifying delta risk weights
-    pub cnq_delta_weight: f64,
-
-    /// Equity delta risk weight
-    pub equity_delta_weight: f64,
-
-    /// FX delta risk weight
-    pub fx_delta_weight: f64,
-
-    /// Risk-class correlation matrix (symmetric, excluding diagonal)
-    pub risk_class_correlations: HashMap<(SimmRiskClass, SimmRiskClass), f64>,
-
-    /// Commodity bucket weights
-    pub commodity_bucket_weights: HashMap<String, f64>,
-}
-
-impl Default for SimmRiskWeights {
-    fn default() -> Self {
-        let registry = embedded_registry().unwrap();
-        load_simm_weights(SimmVersion::V2_6, registry).unwrap()
-    }
-}
-
-impl SimmRiskWeights {
+// Lookup helpers for SimmParams fields.
+impl SimmParams {
     fn correlation(&self, a: SimmRiskClass, b: SimmRiskClass) -> f64 {
         if a == b {
             return 1.0;
         }
         let key = ordered_pair(a, b);
-        *self.risk_class_correlations.get(&key).unwrap_or(&1.0)
+        self.risk_class_correlations
+            .get(&key)
+            .copied()
+            .unwrap_or(1.0)
+    }
+
+    fn ir_tenor_correlation(&self, tenor_a: &str, tenor_b: &str) -> f64 {
+        if tenor_a == tenor_b {
+            return 1.0;
+        }
+        let key = ordered_tenor_pair(tenor_a, tenor_b);
+        self.ir_tenor_correlations.get(&key).copied().unwrap_or(0.5)
     }
 
     fn commodity_bucket_weight(&self, bucket: &str) -> f64 {
         let key = bucket_id_from_label(bucket)
             .map(|id| id.to_string())
             .unwrap_or_else(|| "other".to_string());
-        *self
-            .commodity_bucket_weights
+        self.commodity_bucket_weights
             .get(&key)
-            .unwrap_or_else(|| self.commodity_bucket_weights.get("other").unwrap_or(&64.0))
+            .or_else(|| self.commodity_bucket_weights.get("other"))
+            .copied()
+            .unwrap_or(64.0)
     }
-}
-
-fn load_simm_weights(
-    version: SimmVersion,
-    registry: &MarginRegistry,
-) -> finstack_core::Result<SimmRiskWeights> {
-    let params = resolve_simm_params(version, registry)?;
-    Ok(SimmRiskWeights {
-        version,
-        ir_delta_weights: params.ir_delta_weights.clone(),
-        cq_delta_weights: params.cq_delta_weights.clone(),
-        cnq_delta_weight: params.cnq_delta_weight,
-        equity_delta_weight: params.equity_delta_weight,
-        fx_delta_weight: params.fx_delta_weight,
-        risk_class_correlations: params.risk_class_correlations.clone(),
-        commodity_bucket_weights: params.commodity_bucket_weights.clone(),
-    })
 }
 
 fn resolve_simm_params(
@@ -167,6 +120,14 @@ fn ordered_pair(a: SimmRiskClass, b: SimmRiskClass) -> (SimmRiskClass, SimmRiskC
     }
 }
 
+fn ordered_tenor_pair(a: &str, b: &str) -> (String, String) {
+    if a <= b {
+        (a.to_string(), b.to_string())
+    } else {
+        (b.to_string(), a.to_string())
+    }
+}
+
 /// ISDA SIMM calculator.
 ///
 /// Calculates initial margin using the ISDA Standard Initial Margin Model.
@@ -174,8 +135,13 @@ fn ordered_pair(a: SimmRiskClass, b: SimmRiskClass) -> (SimmRiskClass, SimmRiskC
 ///
 /// # Usage
 ///
-/// The calculator uses instrument sensitivities (DV01, CS01, etc.) to compute
+/// The calculator uses SIMM sensitivities (DV01, CS01, delta, vega, etc.) to compute
 /// risk-weighted margin amounts across all SIMM risk classes.
+///
+/// The public [`ImCalculator`] entry point requires the provided instrument to expose
+/// [`crate::margin::traits::Marginable`] via [`Instrument::as_marginable`]. Instruments
+/// that do not provide SIMM sensitivities are rejected rather than being silently
+/// approximated with partial risk.
 ///
 /// # Example
 ///
@@ -202,12 +168,8 @@ fn ordered_pair(a: SimmRiskClass, b: SimmRiskClass) -> (SimmRiskClass, SimmRiskC
 /// ```
 #[derive(Debug, Clone)]
 pub struct SimmCalculator {
-    /// SIMM version
-    pub version: SimmVersion,
-    /// Risk weights
-    pub risk_weights: SimmRiskWeights,
-    /// Margin period of risk (days)
-    pub mpor_days: u32,
+    /// SIMM parameters (risk weights, correlations, thresholds)
+    pub params: SimmParams,
 }
 
 impl Default for SimmCalculator {
@@ -220,14 +182,11 @@ impl SimmCalculator {
     /// Create a new SIMM calculator with the specified version.
     #[must_use]
     pub fn new(version: SimmVersion) -> Self {
+        #[allow(clippy::unwrap_used)]
         let registry = embedded_registry().unwrap();
-        let params = resolve_simm_params(version, registry).unwrap();
-        let risk_weights = load_simm_weights(version, registry).unwrap();
-        Self {
-            version,
-            risk_weights,
-            mpor_days: params.mpor_days,
-        }
+        #[allow(clippy::unwrap_used)]
+        let params = resolve_simm_params(version, registry).unwrap().clone();
+        Self { params }
     }
 
     /// Create a new SIMM calculator resolved from a `FinstackConfig`.
@@ -236,38 +195,56 @@ impl SimmCalculator {
         cfg: &finstack_core::config::FinstackConfig,
     ) -> finstack_core::Result<Self> {
         let registry = margin_registry_from_config(cfg)?;
-        let params = resolve_simm_params(version, &registry)?;
-        let risk_weights = load_simm_weights(version, &registry)?;
-        Ok(Self {
-            version,
-            risk_weights,
-            mpor_days: params.mpor_days,
-        })
+        let params = resolve_simm_params(version, &registry)?.clone();
+        Ok(Self { params })
+    }
+
+    /// SIMM version.
+    #[must_use]
+    pub fn version(&self) -> SimmVersion {
+        self.params.version
+    }
+
+    /// Margin period of risk (days).
+    #[must_use]
+    pub fn mpor_days(&self) -> u32 {
+        self.params.mpor_days
     }
 
     /// Set margin period of risk.
     #[must_use]
     pub fn with_mpor(mut self, days: u32) -> Self {
-        self.mpor_days = days;
+        self.params.mpor_days = days;
         self
     }
 
     /// Calculate IR delta margin from DV01 sensitivities.
     ///
+    /// Uses intra-bucket tenor correlations per ISDA SIMM methodology:
+    /// `K = sqrt(sum_i sum_j rho(i,j) * WS_i * WS_j)`
+    ///
     /// # Arguments
     ///
     /// * `dv01_by_tenor` - Map of tenor bucket to DV01 sensitivity
     pub fn calculate_ir_delta(&self, dv01_by_tenor: &HashMap<String, f64>) -> f64 {
-        let mut weighted_sum = 0.0;
+        let weighted: HashMap<&str, f64> = dv01_by_tenor
+            .iter()
+            .filter_map(|(tenor, dv01)| {
+                self.params
+                    .ir_delta_weights
+                    .get(tenor)
+                    .map(|&weight| (tenor.as_str(), dv01 * weight))
+            })
+            .collect();
 
-        for (tenor, dv01) in dv01_by_tenor {
-            if let Some(&weight) = self.risk_weights.ir_delta_weights.get(tenor) {
-                // Risk weight is in bp, DV01 is in currency units
-                weighted_sum += (dv01 * weight).powi(2);
+        let mut sum = 0.0;
+        for (tenor_i, ws_i) in &weighted {
+            for (tenor_j, ws_j) in &weighted {
+                let rho = self.params.ir_tenor_correlation(tenor_i, tenor_j);
+                sum += rho * ws_i * ws_j;
             }
         }
-
-        weighted_sum.sqrt()
+        sum.max(0.0).sqrt()
     }
 
     /// Calculate credit delta margin from CS01 sensitivities.
@@ -279,12 +256,12 @@ impl SimmCalculator {
     pub fn calculate_credit_delta(&self, cs01: f64, qualifying: bool) -> f64 {
         let weight = if qualifying {
             *self
-                .risk_weights
+                .params
                 .cq_delta_weights
                 .get("corporates")
                 .unwrap_or(&73.0)
         } else {
-            self.risk_weights.cnq_delta_weight
+            self.params.cnq_delta_weight
         };
 
         (cs01 * weight).abs()
@@ -296,7 +273,7 @@ impl SimmCalculator {
     ///
     /// * `equity_delta` - Equity delta sensitivity
     pub fn calculate_equity_delta(&self, equity_delta: f64) -> f64 {
-        (equity_delta * self.risk_weights.equity_delta_weight).abs()
+        (equity_delta * self.params.equity_delta_weight).abs()
     }
 
     /// Calculate FX delta margin.
@@ -305,17 +282,85 @@ impl SimmCalculator {
     ///
     /// * `fx_delta` - FX delta sensitivity
     pub fn calculate_fx_delta(&self, fx_delta: f64) -> f64 {
-        (fx_delta * self.risk_weights.fx_delta_weight).abs()
+        (fx_delta * self.params.fx_delta_weight).abs()
     }
 
     /// Calculate commodity delta margin using SIMM bucket risk weights.
     pub fn calculate_commodity_delta(&self, delta_by_bucket: &HashMap<String, f64>) -> f64 {
         let mut weighted_sum = 0.0;
         for (bucket, delta) in delta_by_bucket {
-            let weight = self.risk_weights.commodity_bucket_weight(bucket);
+            let weight = self.params.commodity_bucket_weight(bucket);
             weighted_sum += (delta * weight).abs();
         }
         weighted_sum
+    }
+
+    /// Calculate IR vega margin from vega sensitivities.
+    pub fn calculate_ir_vega(&self, vega_by_tenor: &HashMap<String, f64>) -> f64 {
+        let weight = self.params.ir_vega_weight;
+        let mut sum = 0.0;
+        for (tenor_i, vega_i) in vega_by_tenor {
+            for (tenor_j, vega_j) in vega_by_tenor {
+                let rho = self.params.ir_tenor_correlation(tenor_i, tenor_j);
+                sum += rho * (vega_i * weight) * (vega_j * weight);
+            }
+        }
+        sum.max(0.0).sqrt()
+    }
+
+    /// Calculate credit vega margin.
+    pub fn calculate_credit_vega(&self, total_vega: f64, qualifying: bool) -> f64 {
+        let weight = if qualifying {
+            self.params.cq_vega_weight
+        } else {
+            self.params.cnq_vega_weight
+        };
+        (total_vega * weight).abs()
+    }
+
+    /// Calculate equity vega margin.
+    pub fn calculate_equity_vega(&self, total_vega: f64) -> f64 {
+        (total_vega * self.params.equity_vega_weight).abs()
+    }
+
+    /// Calculate FX vega margin.
+    pub fn calculate_fx_vega(&self, total_vega: f64) -> f64 {
+        (total_vega * self.params.fx_vega_weight).abs()
+    }
+
+    /// Calculate commodity vega margin.
+    pub fn calculate_commodity_vega(&self, total_vega: f64) -> f64 {
+        (total_vega * self.params.commodity_vega_weight).abs()
+    }
+
+    /// Calculate curvature margin for a risk class.
+    ///
+    /// SIMM curvature risk = scale_factor x max(0, sum of curvature CVR)
+    pub fn calculate_curvature(
+        &self,
+        curvature_by_risk_class: &HashMap<SimmRiskClass, f64>,
+    ) -> f64 {
+        let scale = self.params.curvature_scale_factor;
+        curvature_by_risk_class
+            .values()
+            .map(|cvr| (cvr * scale).abs())
+            .sum()
+    }
+
+    /// Calculate concentration add-on for a risk class.
+    ///
+    /// If the net sensitivity exceeds the concentration threshold,
+    /// apply a sqrt(|sensitivity| / threshold) multiplier.
+    pub fn concentration_factor(&self, risk_class: SimmRiskClass, net_sensitivity: f64) -> f64 {
+        if let Some(&threshold) = self.params.concentration_thresholds.get(&risk_class) {
+            if threshold > 0.0 && net_sensitivity.abs() > threshold {
+                (net_sensitivity.abs() / threshold).sqrt()
+            } else {
+                1.0
+            }
+        } else {
+            1.0
+        }
     }
 
     /// Calculate SIMM margin from pre-computed sensitivities.
@@ -350,6 +395,22 @@ impl SimmCalculator {
             if ir_margin > 0.0 {
                 breakdown.insert("IR_Delta".to_string(), Money::new(ir_margin, currency));
                 risk_class_margins.insert(SimmRiskClass::InterestRate, ir_margin);
+            }
+        }
+
+        // IR Vega
+        if !sensitivities.ir_vega.is_empty() {
+            let ir_vega_map: HashMap<String, f64> = sensitivities
+                .ir_vega
+                .iter()
+                .map(|((_, tenor), vega)| (tenor.clone(), *vega))
+                .collect();
+            let ir_vega_margin = self.calculate_ir_vega(&ir_vega_map);
+            if ir_vega_margin > 0.0 {
+                breakdown.insert("IR_Vega".to_string(), Money::new(ir_vega_margin, currency));
+                *risk_class_margins
+                    .entry(SimmRiskClass::InterestRate)
+                    .or_insert(0.0) += ir_vega_margin;
             }
         }
 
@@ -395,6 +456,21 @@ impl SimmCalculator {
             }
         }
 
+        // Equity Vega
+        let total_equity_vega: f64 = sensitivities.equity_vega.values().sum();
+        if total_equity_vega.abs() > 0.0 {
+            let equity_vega_margin = self.calculate_equity_vega(total_equity_vega);
+            if equity_vega_margin > 0.0 {
+                breakdown.insert(
+                    "Equity_Vega".to_string(),
+                    Money::new(equity_vega_margin, currency),
+                );
+                *risk_class_margins
+                    .entry(SimmRiskClass::Equity)
+                    .or_insert(0.0) += equity_vega_margin;
+            }
+        }
+
         // FX Delta
         let total_fx = sensitivities.fx_delta.values().sum::<f64>();
         if total_fx.abs() > 0.0 {
@@ -402,6 +478,16 @@ impl SimmCalculator {
             if fx_margin > 0.0 {
                 breakdown.insert("FX_Delta".to_string(), Money::new(fx_margin, currency));
                 risk_class_margins.insert(SimmRiskClass::Fx, fx_margin);
+            }
+        }
+
+        // FX Vega
+        let total_fx_vega: f64 = sensitivities.fx_vega.values().sum();
+        if total_fx_vega.abs() > 0.0 {
+            let fx_vega_margin = self.calculate_fx_vega(total_fx_vega);
+            if fx_vega_margin > 0.0 {
+                breakdown.insert("FX_Vega".to_string(), Money::new(fx_vega_margin, currency));
+                *risk_class_margins.entry(SimmRiskClass::Fx).or_insert(0.0) += fx_vega_margin;
             }
         }
 
@@ -417,58 +503,77 @@ impl SimmCalculator {
             }
         }
 
-        let total_im = if risk_class_margins.is_empty() {
+        // Apply concentration factors per risk class.
+        // SIMM scales the risk-class margin by sqrt(|net_sensitivity| / threshold)
+        // when the net sensitivity exceeds the concentration threshold.
+        let net_sensitivities: HashMap<SimmRiskClass, f64> = [
+            (SimmRiskClass::InterestRate, sensitivities.total_ir_delta()),
+            (
+                SimmRiskClass::CreditQualifying,
+                sensitivities.credit_qualifying_delta.values().sum::<f64>(),
+            ),
+            (
+                SimmRiskClass::CreditNonQualifying,
+                sensitivities
+                    .credit_non_qualifying_delta
+                    .values()
+                    .sum::<f64>(),
+            ),
+            (SimmRiskClass::Equity, sensitivities.total_equity_delta()),
+            (
+                SimmRiskClass::Fx,
+                sensitivities.fx_delta.values().sum::<f64>(),
+            ),
+            (
+                SimmRiskClass::Commodity,
+                sensitivities.commodity_delta.values().sum::<f64>(),
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        for (rc, margin) in risk_class_margins.iter_mut() {
+            let net = net_sensitivities.get(rc).copied().unwrap_or(0.0);
+            let cf = self.concentration_factor(*rc, net);
+            if cf > 1.0 {
+                *margin *= cf;
+            }
+        }
+
+        // Curvature -- added on top of the correlated risk-class total
+        let curvature_addon = if !sensitivities.curvature.is_empty() {
+            let cm = self.calculate_curvature(&sensitivities.curvature);
+            if cm > 0.0 {
+                breakdown.insert("Curvature".to_string(), Money::new(cm, currency));
+            }
+            cm
+        } else {
+            0.0
+        };
+
+        let correlated_total = if risk_class_margins.is_empty() {
             0.0
         } else {
             self.aggregate_risk_classes(&risk_class_margins)
         };
+        let total_im = correlated_total + curvature_addon;
 
         (total_im, breakdown)
     }
 
-    /// Aggregate risk class margins with correlation.
+    /// Aggregate risk class margins with the SIMM inter-risk-class correlation matrix.
     ///
-    /// SIMM uses a correlation matrix to aggregate across risk classes.
-    /// This helper provides a sqrt-of-sum-of-squares approximation and is used
-    /// only by the heuristic [`ImCalculator`] implementation. The primary
-    /// `calculate_from_sensitivities` path keeps a simple sum to preserve
-    /// backwards-compatible behavior.
+    /// `Total = sqrt(sum_i sum_j rho(i,j) * K_i * K_j)`
     pub fn aggregate_risk_classes(&self, risk_class_margins: &HashMap<SimmRiskClass, f64>) -> f64 {
         let mut sum = 0.0;
         for (risk_i, margin_i) in risk_class_margins {
             for (risk_j, margin_j) in risk_class_margins {
-                let rho = self.risk_weights.correlation(*risk_i, *risk_j);
+                let rho = self.params.correlation(*risk_i, *risk_j);
                 sum += rho * margin_i * margin_j;
             }
         }
         sum.max(0.0).sqrt()
     }
-}
-
-// ISDA SIMM v2.8+2506 risk-class correlations (applies to v2.5/v2.6 here).
-#[allow(dead_code)]
-fn risk_class_correlation(a: SimmRiskClass, b: SimmRiskClass) -> f64 {
-    if a == b {
-        return 1.0;
-    }
-    let params = default_simm_params();
-    if let Some(rho) = params.risk_class_correlations.get(&ordered_pair(a, b)) {
-        return *rho;
-    }
-    1.0
-}
-
-// Commodity delta risk weights by bucket (ISDA SIMM v2.8+2506).
-#[allow(dead_code)]
-fn commodity_bucket_weight(bucket: &str) -> f64 {
-    let key = bucket_id_from_label(bucket)
-        .map(|id| id.to_string())
-        .unwrap_or_else(|| "other".to_string());
-    let params = default_simm_params();
-    if let Some(weight) = params.commodity_bucket_weights.get(&key) {
-        return *weight;
-    }
-    *params.commodity_bucket_weights.get("other").unwrap()
 }
 
 fn bucket_id_from_label(bucket: &str) -> Option<u8> {
@@ -503,14 +608,6 @@ fn bucket_id_from_label(bucket: &str) -> Option<u8> {
     }
 }
 
-fn default_simm_params() -> &'static SimmParams {
-    let registry = embedded_registry().unwrap();
-    if let Some(default_id) = &registry.simm_default {
-        return registry.simm.get(default_id).unwrap();
-    }
-    registry.simm.values().next().unwrap()
-}
-
 impl ImCalculator for SimmCalculator {
     fn calculate(
         &self,
@@ -520,57 +617,20 @@ impl ImCalculator for SimmCalculator {
     ) -> Result<ImResult> {
         let pv = instrument.value(context, as_of)?;
         let currency = pv.currency();
-
-        // Compute actual sensitivities via the metrics framework
-        let instrument_arc: Arc<dyn Instrument> = Arc::from(instrument.clone_box());
-        let mut metric_ctx = MetricContext::new(
-            instrument_arc,
-            Arc::new(context.clone()),
-            as_of,
-            pv,
-            MetricContext::default_config(),
-        );
-
-        let metrics_registry = standard_registry();
-        let metrics = [
-            MetricId::BucketedDv01,
-            MetricId::Dv01,
-            MetricId::BucketedCs01,
-        ];
-        let computed = metrics_registry.compute_with_mode(
-            &metrics,
-            &mut metric_ctx,
-            StrictMode::BestEffort,
-        )?;
-
-        let parallel_dv01 = computed.get(&MetricId::Dv01).copied().unwrap_or(0.0);
-
-        // Build tenor-bucketed DV01 from the metrics framework
-        let dv01_by_tenor: HashMap<String, f64> = metric_ctx
-            .computed_series
-            .get(&MetricId::BucketedDv01)
-            .map(|series| series.iter().map(|(k, v)| (k.clone(), *v)).collect())
-            .unwrap_or_else(|| {
-                // Fall back to parallel DV01 in the 5Y bucket if bucketed is unavailable
-                [("5y".to_string(), parallel_dv01.abs())]
-                    .into_iter()
-                    .collect()
-            });
-
-        let mut breakdown = HashMap::default();
-        let mut risk_class_margins = HashMap::default();
-
-        let ir_margin = self.calculate_ir_delta(&dv01_by_tenor);
-        risk_class_margins.insert(SimmRiskClass::InterestRate, ir_margin);
-        breakdown.insert("interest_rate".to_string(), Money::new(ir_margin, currency));
-
-        let total_im = self.aggregate_risk_classes(&risk_class_margins);
+        let marginable = instrument.as_marginable().ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "Instrument '{}' does not expose SIMM sensitivities; public SIMM calculation requires a Marginable instrument",
+                instrument.id()
+            ))
+        })?;
+        let sensitivities = marginable.simm_sensitivities(context, as_of)?;
+        let (total_im, breakdown) = self.calculate_from_sensitivities(&sensitivities, currency);
 
         Ok(ImResult::with_breakdown(
             Money::new(total_im, currency),
             ImMethodology::Simm,
             as_of,
-            self.mpor_days,
+            self.mpor_days(),
             breakdown,
         ))
     }
@@ -584,6 +644,10 @@ impl ImCalculator for SimmCalculator {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common_impl::traits::Attributes;
+    use crate::margin::traits::Marginable;
+    use crate::pricer::InstrumentType;
+    use std::any::Any;
 
     #[test]
     fn simm_version_display() {
@@ -594,6 +658,8 @@ mod tests {
     fn ir_delta_calculation() {
         let calc = SimmCalculator::new(SimmVersion::V2_6);
 
+        // Single-tenor: correlation matrix is 1.0 on diagonal so
+        // result = sqrt((dv01 * weight)^2) = |dv01 * weight|
         let dv01_by_tenor: HashMap<String, f64> = [
             ("5y".to_string(), 100_000.0), // $100K DV01 at 5y
         ]
@@ -622,14 +688,11 @@ mod tests {
     }
 
     #[test]
-    fn risk_weights_loaded() {
+    fn params_loaded() {
         let calc = SimmCalculator::new(SimmVersion::V2_6);
-        assert_eq!(calc.risk_weights.version, SimmVersion::V2_6);
-        assert!(calc.risk_weights.ir_delta_weights.contains_key("5y"));
-        assert!(calc
-            .risk_weights
-            .cq_delta_weights
-            .contains_key("corporates"));
+        assert_eq!(calc.version(), SimmVersion::V2_6);
+        assert!(calc.params.ir_delta_weights.contains_key("5y"));
+        assert!(calc.params.cq_delta_weights.contains_key("corporates"));
     }
 
     #[test]
@@ -672,5 +735,220 @@ mod tests {
             (ir_margin * ir_margin + eq_margin * eq_margin + 2.0 * 0.12 * ir_margin * eq_margin)
                 .sqrt();
         assert!((total_im - expected).abs() < 1.0);
+    }
+
+    #[test]
+    fn ir_delta_multi_tenor_with_correlations() {
+        let calc = SimmCalculator::new(SimmVersion::V2_6);
+
+        let dv01_by_tenor: HashMap<String, f64> = [
+            ("5y".to_string(), 100_000.0),
+            ("10y".to_string(), -80_000.0), // Partially hedged
+        ]
+        .into_iter()
+        .collect();
+
+        let ir_margin = calc.calculate_ir_delta(&dv01_by_tenor);
+
+        // ws_5y = 100K*51 = 5.1M, ws_10y = -80K*51 = -4.08M
+        // With high tenor correlation (~0.96), the hedge offsets most of the risk
+        // so margin should be much less than the uncorrelated sqrt(5.1^2 + 4.08^2) ≈ 6.53M
+        assert!(ir_margin > 1_000_000.0);
+        assert!(ir_margin < 3_000_000.0);
+    }
+
+    #[test]
+    fn ir_vega_calculation() {
+        let calc = SimmCalculator::new(SimmVersion::V2_6);
+
+        let vega_by_tenor: HashMap<String, f64> =
+            [("5y".to_string(), 500_000.0)].into_iter().collect();
+
+        let ir_vega_margin = calc.calculate_ir_vega(&vega_by_tenor);
+        // Single tenor: sqrt((500K * 0.21)^2) = 500K * 0.21 = 105K
+        assert!((ir_vega_margin - 105_000.0).abs() < 1.0);
+    }
+
+    #[derive(Clone)]
+    struct MarginableTestInstrument {
+        id: String,
+        value: Money,
+        attrs: Attributes,
+        sensitivities: SimmSensitivities,
+    }
+
+    impl MarginableTestInstrument {
+        fn new(value: Money, sensitivities: SimmSensitivities) -> Self {
+            Self {
+                id: "SIMM-TEST".to_string(),
+                value,
+                attrs: Attributes::default(),
+                sensitivities,
+            }
+        }
+    }
+
+    impl Instrument for MarginableTestInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> InstrumentType {
+            InstrumentType::Bond
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn as_marginable(&self) -> Option<&dyn Marginable> {
+            Some(self)
+        }
+
+        fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+            Ok(self.value)
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attrs
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attrs
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+    }
+
+    impl Marginable for MarginableTestInstrument {
+        fn margin_spec(&self) -> Option<&crate::margin::types::OtcMarginSpec> {
+            None
+        }
+
+        fn netting_set_id(&self) -> Option<crate::margin::traits::NettingSetId> {
+            None
+        }
+
+        fn simm_sensitivities(
+            &self,
+            _market: &MarketContext,
+            _as_of: Date,
+        ) -> Result<SimmSensitivities> {
+            Ok(self.sensitivities.clone())
+        }
+
+        fn mtm_for_vm(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+            Ok(self.value)
+        }
+    }
+
+    #[derive(Clone)]
+    struct NonMarginableTestInstrument {
+        id: String,
+        value: Money,
+        attrs: Attributes,
+    }
+
+    impl NonMarginableTestInstrument {
+        fn new(value: Money) -> Self {
+            Self {
+                id: "NON-MARGINABLE".to_string(),
+                value,
+                attrs: Attributes::default(),
+            }
+        }
+    }
+
+    impl Instrument for NonMarginableTestInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> InstrumentType {
+            InstrumentType::Bond
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+            Ok(self.value)
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attrs
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attrs
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+    }
+
+    #[test]
+    fn public_calculate_matches_full_simm_sensitivities() {
+        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+
+        let mut sensitivities = SimmSensitivities::new(Currency::USD);
+        sensitivities.add_ir_delta(Currency::USD, "5y", 50_000.0);
+        sensitivities.add_equity_delta("AAPL", 100_000.0);
+        sensitivities.add_fx_delta(Currency::EUR, 80_000.0);
+
+        let instrument = MarginableTestInstrument::new(
+            Money::new(1_000_000.0, Currency::USD),
+            sensitivities.clone(),
+        );
+        let market = MarketContext::new();
+
+        let expected = calc.calculate_from_sensitivities(&sensitivities, Currency::USD);
+        let actual = calc
+            .calculate(&instrument, &market, as_of)
+            .expect("SIMM calculation should succeed");
+
+        assert!(
+            (actual.amount.amount() - expected.0).abs() < 1e-2,
+            "expected total {}, got {} with breakdown {:?}",
+            expected.0,
+            actual.amount.amount(),
+            actual.breakdown
+        );
+        for (key, expected_amount) in &expected.1 {
+            let actual_amount = actual
+                .breakdown
+                .get(key)
+                .expect("expected breakdown entry should be present");
+            assert!(
+                (actual_amount.amount() - expected_amount.amount()).abs() < 1e-2,
+                "breakdown mismatch for {key}: expected {}, got {}",
+                expected_amount.amount(),
+                actual_amount.amount()
+            );
+        }
+        assert!(actual.breakdown.contains_key("Equity_Delta"));
+        assert!(actual.breakdown.contains_key("FX_Delta"));
+    }
+
+    #[test]
+    fn public_calculate_rejects_instruments_without_simm_sensitivities() {
+        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+        let instrument = NonMarginableTestInstrument::new(Money::new(500_000.0, Currency::USD));
+        let market = MarketContext::new();
+
+        let err = calc
+            .calculate(&instrument, &market, as_of)
+            .expect_err("non-marginable instruments should be rejected");
+
+        assert!(
+            err.to_string().contains("SIMM sensitivities"),
+            "unexpected error: {err}"
+        );
     }
 }

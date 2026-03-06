@@ -58,16 +58,15 @@ impl MetricCalculator for VegaCalculator {
 
         let vega_raw = match option.vol_model {
             VolatilityModel::Black => {
-                if inputs.forward <= 0.0 {
-                    0.0
-                } else {
-                    use crate::instruments::common_impl::models::d1_black76;
-                    let d1 =
-                        d1_black76(inputs.forward, strike, inputs.sigma, inputs.time_to_expiry);
-                    inputs.forward
-                        * finstack_core::math::norm_pdf(d1)
-                        * inputs.time_to_expiry.sqrt()
+                if inputs.forward <= 0.0 || strike <= 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Black swaption vega requires positive forward and strike, got forward={} strike={}",
+                        inputs.forward, strike
+                    )));
                 }
+                use crate::instruments::common_impl::models::d1_black76;
+                let d1 = d1_black76(inputs.forward, strike, inputs.sigma, inputs.time_to_expiry);
+                inputs.forward * finstack_core::math::norm_pdf(d1) * inputs.time_to_expiry.sqrt()
             }
             VolatilityModel::Normal => {
                 use crate::instruments::common_impl::models::volatility::normal::d_bachelier;

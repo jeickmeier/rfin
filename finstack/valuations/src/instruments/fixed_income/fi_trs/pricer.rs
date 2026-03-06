@@ -1,6 +1,6 @@
-//! Fixed Income Index TRS pricing - carry/yield model.
+//! Fixed Income Index TRS pricing - carry/yield analytics model.
 //!
-//! This module implements the total return leg pricing for fixed income index TRS
+//! This module implements **carry-oriented analytics** for the total return leg of fixed income index TRS
 //! using a carry-based model where the index yield drives the expected total return.
 //!
 //! # Model Choice
@@ -20,6 +20,9 @@
 //! - FI index TRS are fundamentally carry products (yield vs financing cost)
 //! - Yield sensitivity is essential for what-if analysis and hedge ratio computation
 //! - It matches how dealers think about TRS economics: par spread ≈ yield - financing rate
+//!
+//! This is **not** a full production mark-to-market model for fixed income index TRS.
+//! It intentionally omits roll-down and mark-to-market from underlying rate/spread moves.
 
 use super::types::FIIndexTotalReturnSwap;
 use crate::instruments::common_impl::pricing::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
@@ -155,6 +158,10 @@ pub fn pv_total_return_leg(
     context: &MarketContext,
     as_of: Date,
 ) -> Result<Money> {
+    tracing::warn!(
+        "FIIndexTotalReturnSwap total-return leg uses a carry-only analytic model; \
+         it is not a full mark-to-market index return model"
+    );
     let index_yield = extract_index_yield(trs, context)?;
 
     let params = TotalReturnLegParams {

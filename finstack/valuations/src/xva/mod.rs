@@ -14,6 +14,7 @@
 //! - **FVA** (Funding Valuation Adjustment): Cost/benefit of funding uncollateralized exposure
 //! - **Bilateral XVA**: Combined CVA - DVA + FVA adjustment
 //! - **Exposure simulation**: Deterministic exposure profiles (EPE, ENE, PFE)
+//! - **Stochastic exposure simulation**: Monte Carlo pathwise exposure with quantile-based PFE
 //! - **Netting**: Close-out netting under ISDA master agreements
 //! - **Collateral**: CSA collateral reduction of credit exposure
 //!
@@ -63,6 +64,10 @@
 //! // 3. Compute exposure profile
 //! // let profile = compute_exposure_profile(&instruments, &market, as_of, &config, &netting_set)?;
 //!
+//! // Optional: under the `mc` feature, compute a stochastic exposure distribution
+//! // and use `stochastic.profile` for CVA/DVA integration while preserving
+//! // `stochastic.pfe_profile` for limit and tail-risk reporting.
+//!
 //! // 4. Compute unilateral CVA
 //! // let result = compute_cva(&profile, &hazard_curve, &discount_curve, config.recovery_rate)?;
 //! // println!("CVA = {:.2}", result.cva);
@@ -93,7 +98,6 @@
 //!
 //! - **KVA** (Capital Valuation Adjustment): Cost of regulatory capital
 //! - **MVA** (Margin Valuation Adjustment): Cost of initial margin
-//! - **Monte Carlo exposure**: Stochastic risk factor simulation
 //! - **Wrong-way risk**: Exposure-default correlation modeling
 //!
 //! # References

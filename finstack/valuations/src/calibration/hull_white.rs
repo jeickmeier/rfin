@@ -358,7 +358,7 @@ fn hw_ln_a(kappa: f64, sigma: f64, t: f64, big_t: f64, df: &dyn Fn(f64) -> f64) 
     let b = hw_b(kappa, t, big_t);
 
     // Instantaneous forward rate: f(0,t) ≈ −d/dt ln P(0,t)
-    let h = 1e-4;
+    let h = (t * 1e-3).clamp(1e-6, 1e-3);
     let f0t = if t > h {
         -(df(t + h).ln() - df(t - h).ln()) / (2.0 * h)
     } else {
@@ -483,7 +483,7 @@ fn hw1f_swaption_price(
     };
 
     // Initial guess: the instantaneous forward rate at t0
-    let h = 1e-4;
+    let h = (t0 * 1e-3).clamp(1e-6, 1e-3);
     let f0t0 = if t0 > h {
         -(df(t0 + h).ln() - df(t0 - h).ln()) / (2.0 * h)
     } else {

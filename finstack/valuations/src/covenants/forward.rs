@@ -50,12 +50,19 @@ pub struct CovenantForecastConfig {
     pub stochastic: bool,
     /// Number of Monte Carlo paths (if stochastic)
     pub num_paths: usize,
-    /// Volatility for stochastic scenarios
+    /// Volatility for stochastic scenarios (annualized)
     pub volatility: Option<f64>,
     /// Random seed for reproducibility
     pub random_seed: Option<u64>,
     /// Monte Carlo configuration
     pub mc: Option<McConfig>,
+    /// Reference date for time-scaling MC shocks. When set, shocks scale with
+    /// `sqrt(T)` where T is the year-fraction from this date to the test date.
+    /// When `None`, the engine uses the end date of the period immediately
+    /// preceding the first forecast period, so the first simulated point still
+    /// has a non-zero forecast horizon.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_date: Option<Date>,
 }
 
 /// Forecast output with headroom analytics.
@@ -63,6 +70,8 @@ pub struct CovenantForecastConfig {
 pub struct CovenantForecast {
     /// Covenant identifier
     pub covenant_id: String,
+    /// Comparison direction for the covenant threshold test.
+    pub comparator: Comparator,
     /// Future test dates for covenant evaluation
     pub test_dates: Vec<Date>,
     /// Projected metric values at each test date
@@ -73,6 +82,10 @@ pub struct CovenantForecast {
     pub headroom: Vec<f64>,
     /// Probability of breach at each test date (stochastic mode)
     pub breach_probability: Vec<f64>,
+    /// Standard error of the breach probability estimate (stochastic mode).
+    /// Computed as `sqrt(p * (1-p) / n)`.
+    #[serde(default)]
+    pub breach_probability_stderr: Vec<f64>,
     /// Date of first projected breach (if any)
     pub first_breach_date: Option<Date>,
     /// Date with minimum headroom
@@ -101,7 +114,11 @@ impl CovenantForecast {
             let thr = self.thresholds[i];
             let hr = self.headroom[i];
             let bp = self.breach_probability[i];
-            let status = if value > thr { "BREACH" } else { "OK" };
+            let is_breach = match self.comparator {
+                Comparator::LessOrEqual => value > thr,
+                Comparator::GreaterOrEqual => value < thr,
+            };
+            let status = if is_breach { "BREACH" } else { "OK" };
             s.push_str(&format!(
                 "{}: {:.4} (thr: {:.4}, headroom: {:+.1}%, breach prob: {:.0}%) {}\n",
                 date,
@@ -113,6 +130,13 @@ impl CovenantForecast {
             ));
         }
         s
+    }
+
+    /// 95% confidence interval for breach probability at a given index.
+    pub fn breach_probability_ci_95(&self, index: usize) -> Option<(f64, f64)> {
+        let se = self.breach_probability_stderr.get(index).copied()?;
+        let p = self.breach_probability[index];
+        Some(((p - 1.96 * se).max(0.0), (p + 1.96 * se).min(1.0)))
     }
 
     // Polars export lives in the meta crate to avoid bringing polars into valuations.
@@ -176,7 +200,14 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     for pid in periods {
         let date = model.period_end_date(pid);
         test_dates.push(date);
-        thresholds.push(base_threshold);
+
+        // Threshold: schedule > static base
+        let thr = covenant
+            .threshold_schedule
+            .as_ref()
+            .and_then(|s| crate::covenants::schedule::threshold_for_date(s, date))
+            .unwrap_or(base_threshold);
+        thresholds.push(thr);
 
         let is_active =
             springing_condition_active(covenant.covenant.springing_condition.as_ref(), model, pid)?;
@@ -184,7 +215,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
 
         let v = metric_value_for_spec(covenant, model, pid).ok_or_else(|| {
             Error::from(finstack_core::InputError::NotFound {
-                id: "metric_value".to_string(),
+                id: format!("metric:{}", id),
             })
         })?;
         values.push(v);
@@ -194,7 +225,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     let mut headroom: Vec<f64> = values
         .iter()
         .zip(thresholds.iter())
-        .map(|(&v, &t)| headroom_for(&covenant.covenant.covenant_type, v, t))
+        .map(|(&v, &t)| headroom_for(covenant.covenant.covenant_type.bound_kind(), v, t))
         .collect();
 
     let mut deterministic_breach_prob: Vec<f64> = values
@@ -218,33 +249,63 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     #[cfg(not(feature = "mc"))]
     let breach_probability = deterministic_breach_prob.clone();
 
-    // Optional MC overlay (multiplicative shock to metric value)
+    #[cfg(feature = "mc")]
+    let mut breach_probability_stderr_mc = vec![0.0f64; values.len()];
+
+    // MC overlay: GBM shock scaled by time horizon.
+    // shock = exp(-0.5 * sigma^2 * T + sigma * sqrt(T) * Z)
+    // where T = year-fraction from reference date to test date.
     #[cfg(feature = "mc")]
     if config.stochastic {
         let sigma = config.volatility.unwrap_or(0.0);
-        let paths = config.num_paths.max(1);
+        let total_paths = config.num_paths.max(1);
         let seed = config.random_seed.unwrap_or(42);
         let antithetic = config.mc.as_ref().map(|m| m.antithetic).unwrap_or(false);
+
+        let ref_date = config.reference_date.unwrap_or_else(|| {
+            periods[0]
+                .prev()
+                .ok()
+                .map(|prev| model.period_end_date(&prev))
+                .unwrap_or(test_dates[0])
+        });
+
+        // With antithetic variates, generate N/2 draws to produce N total paths.
+        let draws_per_date = if antithetic {
+            (total_paths + 1) / 2
+        } else {
+            total_paths
+        };
+        let effective_paths = if antithetic {
+            draws_per_date * 2
+        } else {
+            draws_per_date
+        };
 
         use crate::instruments::common_impl::models::monte_carlo::rng::philox::PhiloxRng;
         let mut rng = PhiloxRng::new(seed);
 
-        // For each test date, estimate breach probability
         for i in 0..values.len() {
             if !activation_flags[i] {
                 breach_probability[i] = 0.0;
+                breach_probability_stderr_mc[i] = 0.0;
                 continue;
             }
             let base = values[i];
             let thr = thresholds[i];
+
+            let t_years = (test_dates[i] - ref_date).whole_days().max(0) as f64 / 365.25;
+            let sqrt_t = t_years.sqrt();
+            let drift = -0.5 * sigma * sigma * t_years;
+
             let mut breaches = 0usize;
             let mut buf = vec![0.0f64; 1024];
-            let mut remaining = paths;
+            let mut remaining = draws_per_date;
             while remaining > 0 {
                 let take = remaining.min(buf.len());
                 rng.fill_std_normals(&mut buf[..take]);
                 for &z in &buf[..take] {
-                    let shock = (sigma * z).exp(); // lognormal multiplicative shock
+                    let shock = (drift + sigma * sqrt_t * z).exp();
                     let v = base * shock;
                     let breached = match bound_kind {
                         BoundKind::AtMost => v > thr,
@@ -254,7 +315,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
                         breaches += 1;
                     }
                     if antithetic {
-                        let shock_a = (sigma * -z).exp();
+                        let shock_a = (drift + sigma * sqrt_t * -z).exp();
                         let v_a = base * shock_a;
                         let breached_a = match bound_kind {
                             BoundKind::AtMost => v_a > thr,
@@ -267,8 +328,9 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
                 }
                 remaining -= take;
             }
-            breach_probability[i] =
-                (breaches as f64) / (paths as f64 * if antithetic { 2.0 } else { 1.0 });
+            let p = breaches as f64 / effective_paths as f64;
+            breach_probability[i] = p;
+            breach_probability_stderr_mc[i] = (p * (1.0 - p) / effective_paths as f64).sqrt();
         }
     }
 
@@ -294,13 +356,26 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         }
     });
 
+    let comparator = Comparator::from(bound_kind);
+
+    #[cfg(feature = "mc")]
+    let breach_probability_stderr = if config.stochastic {
+        breach_probability_stderr_mc
+    } else {
+        vec![0.0; breach_probability.len()]
+    };
+    #[cfg(not(feature = "mc"))]
+    let breach_probability_stderr = vec![0.0; breach_probability.len()];
+
     Ok(CovenantForecast {
         covenant_id: id,
+        comparator,
         test_dates,
         projected_values: values,
         thresholds,
         headroom,
         breach_probability,
+        breach_probability_stderr,
         first_breach_date,
         min_headroom_date,
         min_headroom_value,
@@ -502,6 +577,7 @@ mod tests {
             volatility: Some(0.25),
             random_seed: Some(42),
             mc: Some(McConfig { antithetic: true }),
+            reference_date: None,
         };
         let fc = forecast_covenant_generic(&spec, &mts, &periods, cfg)
             .expect("Forecast covenant should succeed in test");
@@ -520,6 +596,7 @@ mod tests {
         let spec = CovenantSpec {
             covenant,
             metric_id: Some(crate::metrics::MetricId::custom("NetDebtEbitda")),
+            threshold_schedule: None,
             custom_evaluator: None,
         };
         engine.add_spec(spec);

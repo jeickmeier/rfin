@@ -562,7 +562,7 @@ mod tests {
                 vol: 0.20,
                 option_type: "Call".to_string(),
 
-                convention: OptionConventionId("USD-Option".into()),
+                convention: OptionConventionId::new("USD-Option"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
                 underlying: "SPX".to_string().into(),
@@ -571,7 +571,7 @@ mod tests {
                 vol: 0.19,
                 option_type: "Call".to_string(),
 
-                convention: OptionConventionId("USD-Option".into()),
+                convention: OptionConventionId::new("USD-Option"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
                 underlying: "SPX".to_string().into(),
@@ -580,7 +580,7 @@ mod tests {
 
                 vol: 0.18,
                 option_type: "Call".to_string(),
-                convention: OptionConventionId("USD-Option".into()),
+                convention: OptionConventionId::new("USD-Option"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
                 underlying: "SPX".to_string().into(),
@@ -589,7 +589,7 @@ mod tests {
                 vol: 0.20,
                 option_type: "Call".to_string(),
 
-                convention: OptionConventionId("USD-Option".into()),
+                convention: OptionConventionId::new("USD-Option"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
                 underlying: "SPX".to_string().into(),
@@ -598,7 +598,7 @@ mod tests {
                 vol: 0.19,
                 option_type: "Call".to_string(),
 
-                convention: OptionConventionId("USD-Option".into()),
+                convention: OptionConventionId::new("USD-Option"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
                 underlying: "SPX".to_string().into(),
@@ -607,7 +607,7 @@ mod tests {
                 vol: 0.18,
                 option_type: "Call".to_string(),
 
-                convention: OptionConventionId("USD-Option".into()),
+                convention: OptionConventionId::new("USD-Option"),
             }),
         ];
 

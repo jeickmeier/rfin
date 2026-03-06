@@ -13,7 +13,6 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
-use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use finstack_core::Result;
 use std::sync::Arc;
@@ -472,7 +471,7 @@ fn taylor_pnl_for_scenario(
     base_market: &MarketContext,
     scenario: &crate::metrics::risk::MarketScenario,
     spot_cache: &mut HashMap<String, f64>,
-    vol_cache: &mut HashMap<String, f64>,
+    _vol_cache: &mut HashMap<String, f64>,
 ) -> f64 {
     let mut pnl = 0.0;
     let mut total_rate_shift_bp = 0.0;
@@ -528,15 +527,8 @@ fn taylor_pnl_for_scenario(
                 strike,
             } => {
                 if sensitivities.vega_rel.abs() > 0.0 {
-                    let key = format!("{}:{}:{}", surface_id, expiry_years, strike);
-                    let base_vol = *vol_cache.entry(key).or_insert_with(|| {
-                        base_vol_for_factor(base_market, surface_id, *expiry_years, *strike)
-                            .unwrap_or(0.0)
-                    });
-                    if base_vol > 0.0 {
-                        let vega_abs = sensitivities.vega_rel / base_vol;
-                        pnl += vega_abs * shift.shift;
-                    }
+                    let _ = (base_market, surface_id, expiry_years, strike);
+                    pnl += sensitivities.vega_rel * (shift.shift / 0.01);
                 }
             }
         }
@@ -591,16 +583,6 @@ fn spot_from_market(market: &MarketContext, ticker: &str) -> Option<f64> {
         Ok(MarketScalar::Price(m)) => Some(m.amount()),
         _ => None,
     }
-}
-
-fn base_vol_for_factor(
-    market: &MarketContext,
-    surface_id: &CurveId,
-    expiry_years: f64,
-    strike: f64,
-) -> Option<f64> {
-    let surface = market.surface(surface_id.as_str()).ok()?;
-    Some(surface.value_clamped(expiry_years, strike))
 }
 
 fn calculate_portfolio_var_taylor(
@@ -665,6 +647,9 @@ mod tests {
 
     use super::*;
     use crate::instruments::common_impl::traits::Instrument;
+    use crate::metrics::risk::{MarketScenario, RiskFactorShift, RiskFactorType};
+    use finstack_core::market_data::surfaces::VolSurface;
+    use finstack_core::types::CurveId;
     use std::sync::Arc;
     use test_utils::{
         history_from_rate_shifts, history_from_scenarios, sample_as_of, standard_bond,
@@ -790,6 +775,158 @@ mod tests {
             full_pnl,
             taylor_pnl,
             rel_diff * 100.0
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_taylor_vol_pnl_scales_vega_per_vol_point() {
+        let as_of = sample_as_of();
+        let base_market = MarketContext::new().insert_surface(
+            VolSurface::from_grid(
+                "EQ-VOL",
+                &[1.0, 2.0],
+                &[100.0, 120.0],
+                &[0.20, 0.20, 0.20, 0.20],
+            )
+            .expect("valid flat volatility surface for Vega scaling test"),
+        );
+        let scenario = MarketScenario::new(
+            as_of,
+            vec![RiskFactorShift {
+                factor: RiskFactorType::ImpliedVol {
+                    surface_id: CurveId::new("EQ-VOL"),
+                    expiry_years: 1.0,
+                    strike: 100.0,
+                },
+                shift: 0.01,
+            }],
+        );
+        let sensitivities = TaylorSensitivities {
+            vega_rel: 250.0,
+            ..Default::default()
+        };
+
+        let pnl = taylor_pnl_for_scenario(
+            &sensitivities,
+            &base_market,
+            &scenario,
+            &mut HashMap::default(),
+            &mut HashMap::default(),
+        );
+
+        assert!(
+            (pnl - 250.0).abs() < 1e-12,
+            "Taylor vol P&L should scale vega per 1 vol point: expected 250.0, got {pnl}"
+        );
+    }
+
+    #[test]
+    fn test_taylor_vol_shock_matches_full_revaluation_for_fx_option() -> Result<()> {
+        use crate::instruments::fx::fx_option::FxOption;
+        use crate::instruments::{
+            Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
+        };
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::DayCount;
+        use finstack_core::market_data::context::MarketContext;
+        use finstack_core::market_data::scalars::MarketScalar;
+        use finstack_core::market_data::surfaces::VolSurface;
+        use finstack_core::market_data::term_structures::DiscountCurve;
+        use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
+        use finstack_core::money::Money;
+        use finstack_core::types::{CurveId, InstrumentId};
+        use std::sync::Arc;
+        use time::macros::date;
+
+        let as_of = date!(2025 - 01 - 02);
+        let expiry = date!(2025 - 07 - 02);
+        let option = FxOption::builder()
+            .id(InstrumentId::new("FX-VAR-OPTION"))
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
+            .strike(1.15)
+            .option_type(OptionType::Call)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(expiry)
+            .day_count(DayCount::Act365F)
+            .notional(Money::new(1_000_000.0, Currency::EUR))
+            .settlement(SettlementType::Cash)
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+            .vol_surface_id(CurveId::new("EURUSD-VOL"))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("valid FX option");
+
+        let provider = SimpleFxProvider::new();
+        provider.set_quote(Currency::EUR, Currency::USD, 1.17);
+        let fx = FxMatrix::new(Arc::new(provider));
+        fx.set_quote(Currency::EUR, Currency::USD, 1.17);
+
+        let usd_disc = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (1.0, (-0.03_f64).exp())])
+            .build()
+            .expect("valid USD curve");
+        let eur_disc = DiscountCurve::builder("EUR-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (1.0, (-0.01_f64).exp())])
+            .build()
+            .expect("valid EUR curve");
+        let vol_surface = VolSurface::builder("EURUSD-VOL")
+            .expiries(&[0.5, 1.0])
+            .strikes(&[1.0, 1.15, 1.3])
+            .row(&[0.20, 0.20, 0.20])
+            .row(&[0.20, 0.20, 0.20])
+            .build()
+            .expect("valid FX vol surface");
+
+        let base_market = MarketContext::new()
+            .insert_discount(usd_disc)
+            .insert_discount(eur_disc)
+            .insert_surface(vol_surface)
+            .insert_price("FX_VOL_OVERRIDE", MarketScalar::Unitless(0.20))
+            .insert_fx(fx);
+
+        let scenario = crate::metrics::risk::MarketScenario::new(
+            as_of,
+            vec![crate::metrics::risk::RiskFactorShift {
+                factor: crate::metrics::risk::RiskFactorType::ImpliedVol {
+                    surface_id: CurveId::new("EURUSD-VOL"),
+                    expiry_years: 0.5,
+                    strike: 1.15,
+                },
+                shift: 0.01,
+            }],
+        );
+        let history = MarketHistory::new(as_of, 1, vec![scenario]);
+
+        let full = calculate_var(
+            &[&option as &dyn Instrument],
+            &base_market,
+            &history,
+            as_of,
+            &VarConfig::var_95(),
+        )?;
+        let taylor = calculate_var(
+            &[&option as &dyn Instrument],
+            &base_market,
+            &history,
+            as_of,
+            &VarConfig::var_95().with_method(VarMethod::TaylorApproximation),
+        )?;
+
+        let full_pnl = full.pnl_distribution[0];
+        let taylor_pnl = taylor.pnl_distribution[0];
+        let rel_diff = (taylor_pnl - full_pnl).abs() / full_pnl.abs().max(1.0);
+        assert!(
+            rel_diff < 0.10,
+            "Taylor vol P&L ({taylor_pnl}) should track full revaluation ({full_pnl}) for small shocks"
         );
 
         Ok(())

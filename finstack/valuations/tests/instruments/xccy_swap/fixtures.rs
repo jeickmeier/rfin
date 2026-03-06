@@ -114,6 +114,7 @@ pub fn leg_usd_receive(
         payment_lag_days: 0,
         calendar_id: Some(USD_CAL.to_string()),
         allow_calendar_fallback: false,
+        reset_lag_days: None,
     }
 }
 
@@ -137,6 +138,7 @@ pub fn leg_eur_pay(
         payment_lag_days: 0,
         calendar_id: Some(EUR_CAL.to_string()),
         allow_calendar_fallback: false,
+        reset_lag_days: None,
     }
 }
 

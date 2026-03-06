@@ -22,6 +22,7 @@
 mod helpers;
 
 mod test_calculator;
+mod test_conventions;
 mod test_edge_cases;
 mod test_greeks;
 mod test_implied_vol;

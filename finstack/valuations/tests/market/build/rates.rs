@@ -17,6 +17,13 @@ fn usd_build_ctx(as_of: Date) -> BuildCtx {
     BuildCtx::new(as_of, 1_000_000.0, curve_ids)
 }
 
+fn eur_build_ctx(as_of: Date) -> BuildCtx {
+    let mut curve_ids = finstack_core::HashMap::default();
+    curve_ids.insert("discount".to_string(), "EUR-OIS".to_string());
+    curve_ids.insert("forward".to_string(), "EUR-EURIBOR-3M".to_string());
+    BuildCtx::new(as_of, 1_000_000.0, curve_ids)
+}
+
 #[test]
 fn test_build_deposit() {
     let as_of = Date::from_calendar_date(2025, time::Month::January, 10).unwrap();
@@ -122,4 +129,29 @@ fn test_build_futures() {
     {
         panic!("Expected InterestRateFuture");
     }
+}
+
+#[test]
+fn test_build_euribor_futures() {
+    let as_of = Date::from_calendar_date(2025, time::Month::January, 10).unwrap();
+    let ctx = eur_build_ctx(as_of);
+
+    let quote = RateQuote::Futures {
+        id: "EUR-FUT-SEP25".into(),
+        contract: "ICE:ER".into(),
+        expiry: Date::from_calendar_date(2025, time::Month::September, 15).unwrap(),
+        price: 97.15,
+        convexity_adjustment: None,
+        vol_surface_id: None,
+    };
+
+    let instrument = build_rate_instrument(&quote, &ctx).expect("build euribor futures");
+    assert_eq!(instrument.id(), "EUR-FUT-SEP25");
+
+    let future = instrument
+        .as_any()
+        .downcast_ref::<finstack_valuations::instruments::rates::ir_future::InterestRateFuture>()
+        .expect("Expected InterestRateFuture");
+    assert_eq!(future.notional.currency(), Currency::EUR);
+    assert_eq!(future.day_count, finstack_core::dates::DayCount::Act360);
 }

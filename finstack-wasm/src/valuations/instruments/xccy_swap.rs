@@ -256,6 +256,7 @@ impl JsXccySwapLegBuilder {
                     .unwrap_or(Decimal::ZERO),
                 payment_lag_days: self.payment_lag_days.unwrap_or(0),
                 calendar_id: self.calendar_id,
+                reset_lag_days: None,
                 allow_calendar_fallback: true,
             },
         })
@@ -304,6 +305,7 @@ impl JsXccySwapLeg {
                 spread_bp: Decimal::try_from(spread_bp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO),
                 payment_lag_days: payment_lag_days.unwrap_or(0),
                 calendar_id,
+                reset_lag_days: None,
                 allow_calendar_fallback: true,
             },
         })

@@ -99,6 +99,18 @@ pub struct FxTouchOption {
     pub foreign_discount_curve_id: CurveId,
     /// FX volatility surface ID
     pub vol_surface_id: CurveId,
+    /// Observed barrier event state for expired valuations.
+    ///
+    /// `Some(true)` means the barrier was touched during the option life,
+    /// `Some(false)` means it was observed not to have touched, and `None`
+    /// means the historical touch state is unavailable.
+    ///
+    /// This is only required once the option has expired. Without it, a
+    /// touched-and-reverted path cannot be distinguished from an untouched path
+    /// using the terminal spot alone.
+    #[builder(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_touch: Option<bool>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping

@@ -162,6 +162,7 @@ mod tests {
     use crate::instruments::fixed_income::mbs_passthrough::{AgencyProgram, PoolType};
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
+    use finstack_core::market_data::scalars::ScalarTimeSeries;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
@@ -185,14 +186,14 @@ mod tests {
             .issue_date(Date::from_calendar_date(2024, Month::January, 1).expect("valid"))
             .maturity(Date::from_calendar_date(2054, Month::January, 1).expect("valid"))
             .prepayment_model(PrepaymentModelSpec::psa(1.0))
-            .discount_curve_id(CurveId::new("USD-OIS"))
+            .discount_curve_id(CurveId::new("USD-TSY"))
             .day_count(DayCount::Thirty360)
             .build()
             .expect("valid mbs")
     }
 
     fn create_test_market(as_of: Date) -> MarketContext {
-        let disc = DiscountCurve::builder("USD-OIS")
+        let disc = DiscountCurve::builder("USD-TSY")
             .base_date(as_of)
             .knots([
                 (0.0, 1.0),
@@ -205,7 +206,25 @@ mod tests {
             .build()
             .expect("valid curve");
 
-        MarketContext::new().insert_discount(disc)
+        let fixings = ScalarTimeSeries::new(
+            "FIXING:USD-TSY",
+            vec![
+                (
+                    Date::from_calendar_date(2024, Month::January, 1).expect("valid"),
+                    0.03,
+                ),
+                (
+                    Date::from_calendar_date(2024, Month::January, 15).expect("valid"),
+                    0.03,
+                ),
+            ],
+            None,
+        )
+        .expect("fixing series");
+
+        MarketContext::new()
+            .insert_discount(disc)
+            .insert_series(fixings)
     }
 
     #[test]
@@ -257,7 +276,7 @@ mod tests {
     fn test_bump_discount_curve() {
         let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
         let market = create_test_market(as_of);
-        let curve_id = CurveId::new("USD-OIS");
+        let curve_id = CurveId::new("USD-TSY");
 
         let base_curve = market.get_discount(&curve_id).expect("original");
         let bumped_curve = bump_discount_curve_synthetic(

@@ -74,6 +74,14 @@ pub struct CDSOption {
     pub credit_curve_id: CurveId,
     /// Volatility surface identifier
     pub vol_surface_id: CurveId,
+    /// Convention used by the underlying CDS contract.
+    ///
+    /// This controls the CDS schedule, settlement lag, business day convention,
+    /// and other market-standard mechanics used when deriving forward spread and
+    /// risky annuity for the option's underlying.
+    #[serde(default)]
+    #[builder(default)]
+    pub underlying_convention: crate::instruments::credit_derivatives::cds::CDSConvention,
     /// Pricing overrides (including implied volatility)
     #[serde(default)]
     #[builder(default)]
@@ -225,6 +233,8 @@ impl CDSOption {
             discount_curve_id: discount_curve_id.into(),
             credit_curve_id: credit_params.credit_curve_id.to_owned(),
             vol_surface_id: vol_surface_id.into(),
+            underlying_convention:
+                crate::instruments::credit_derivatives::cds::CDSConvention::default(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
             underlying_is_index: option_params.underlying_is_index,

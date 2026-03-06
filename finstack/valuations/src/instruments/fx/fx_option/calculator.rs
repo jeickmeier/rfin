@@ -351,16 +351,15 @@ impl FxOptionCalculator {
         let d2 = d1 - sigma * t.sqrt();
         let cdf_d1 = finstack_core::math::norm_cdf(d1);
         let cdf_d2 = finstack_core::math::norm_cdf(d2);
-        let exp_rf_t = (-r_f * t).exp();
+        let exp_rd_t = (-r_d * t).exp();
         let delta_forward_unit = match inst.option_type {
             OptionType::Call => cdf_d1,
             OptionType::Put => cdf_d1 - 1.0,
         };
-        // Premium-adjusted spot delta is the convention used in many EM FX option markets.
-        // Under Garman-Kohlhagen this corresponds to N(d2)-style spot sensitivity.
+        // Premium-adjusted spot delta scales the standard delta by the premium settlement ratio.
         let delta_premium_adjusted_unit = match inst.option_type {
-            OptionType::Call => exp_rf_t * cdf_d2,
-            OptionType::Put => exp_rf_t * (cdf_d2 - 1.0),
+            OptionType::Call => (inst.strike / spot) * exp_rd_t * cdf_d2,
+            OptionType::Put => (inst.strike / spot) * exp_rd_t * (cdf_d2 - 1.0),
         };
 
         let scale = inst.notional.amount();
@@ -424,8 +423,9 @@ pub struct FxOptionGreeks {
     pub delta_forward: f64,
     /// Premium-adjusted spot delta used in many EM FX option markets.
     ///
-    /// This convention adjusts spot delta for premium effects and is commonly
-    /// quoted for options where premium-adjusted hedging is standard.
+    /// This convention equals `(K / S) * exp(-r_d T) * N(±d2)` in the
+    /// Garman-Kohlhagen model and is commonly quoted for options where the
+    /// premium is settled in domestic currency.
     pub delta_premium_adjusted: f64,
     /// Gamma: rate of change of delta with respect to spot
     pub gamma: f64,
@@ -674,6 +674,26 @@ mod tests {
             OptionType::Put => -exp_rf_t * cdf_m_d1,
         };
         approx_eq(greeks.delta, expected_delta_unit * scale, 1e-6);
+
+        let expected_forward_delta_unit = match option.option_type {
+            OptionType::Call => cdf_d1,
+            OptionType::Put => cdf_d1 - 1.0,
+        };
+        approx_eq(
+            greeks.delta_forward,
+            expected_forward_delta_unit * scale,
+            1e-6,
+        );
+
+        let expected_premium_adjusted_delta_unit = match option.option_type {
+            OptionType::Call => (option.strike / spot) * exp_rd_t * cdf_d2,
+            OptionType::Put => (option.strike / spot) * exp_rd_t * (cdf_d2 - 1.0),
+        };
+        approx_eq(
+            greeks.delta_premium_adjusted,
+            expected_premium_adjusted_delta_unit * scale,
+            1e-6,
+        );
 
         let expected_gamma_unit = exp_rf_t * pdf_d1 / (spot * sigma * sqrt_t);
         approx_eq(greeks.gamma, expected_gamma_unit * scale, 1e-9);

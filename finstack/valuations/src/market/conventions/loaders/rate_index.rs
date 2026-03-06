@@ -1,6 +1,6 @@
 //! Loader for rate index conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, RegistryFile};
+use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::instruments::rates::irs::FloatingLegCompounding;
 use crate::market::conventions::defs::{RateIndexConventions, RateIndexKind};
 use crate::market::conventions::ids::IndexId; // Used for normalization if needed, or string
@@ -52,10 +52,7 @@ impl OisCompoundingSpec {
             Self::Estr => FloatingLegCompounding::estr(),
             Self::Tona => FloatingLegCompounding::tona(),
             Self::Fedfunds => FloatingLegCompounding::fedfunds(),
-            Self::Saron => FloatingLegCompounding::CompoundedInArrears {
-                lookback_days: 2,
-                observation_shift: None,
-            },
+            Self::Saron => FloatingLegCompounding::CompoundedWithObservationShift { shift_days: 2 },
             Self::CompoundedInArrears {
                 lookback_days,
                 observation_shift,
@@ -155,10 +152,6 @@ impl RateIndexConventionsRecord {
     }
 }
 
-fn normalize_registry_id(id: &str) -> String {
-    id.trim().to_string()
-}
-
 /// Load the rate index conventions from the embedded JSON registry.
 pub fn load_registry() -> Result<HashMap<IndexId, RateIndexConventions>, Error> {
     let json = include_str!("../../../../data/conventions/rate_index_conventions.json");
@@ -179,4 +172,48 @@ pub fn load_registry() -> Result<HashMap<IndexId, RateIndexConventions>, Error> 
         final_map.insert(IndexId::new(k), v?);
     }
     Ok(final_map)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chf_saron_uses_true_observation_shift() {
+        let registry = load_registry().expect("rate index registry");
+        let chf_saron = registry
+            .get(&IndexId::new("CHF-SARON-OIS"))
+            .expect("CHF-SARON-OIS conventions");
+
+        assert_eq!(
+            chf_saron.ois_compounding,
+            Some(FloatingLegCompounding::CompoundedWithObservationShift { shift_days: 2 })
+        );
+    }
+
+    #[test]
+    fn usd_sofr_alias_resolves_to_sofr_conventions() {
+        let registry = load_registry().expect("rate index registry");
+        let sofr = registry
+            .get(&IndexId::new("USD-SOFR"))
+            .expect("USD-SOFR conventions");
+
+        assert_eq!(sofr.ois_compounding, Some(FloatingLegCompounding::sofr()));
+    }
+
+    #[test]
+    fn eur_euribor_six_month_index_is_available_for_swaption_conventions() {
+        let registry = load_registry().expect("rate index registry");
+        let euribor = registry
+            .get(&IndexId::new("EUR-EURIBOR-6M"))
+            .expect("EUR-EURIBOR-6M conventions");
+
+        assert_eq!(euribor.currency, Currency::EUR);
+        assert_eq!(euribor.kind, RateIndexKind::Term);
+        assert_eq!(
+            euribor.tenor,
+            Some(Tenor::parse("6M").expect("valid tenor"))
+        );
+    }
 }

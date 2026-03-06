@@ -5,6 +5,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -486,6 +487,111 @@ fn test_fixing_vs_payment_date_timing() {
     // providing the actual fixed rate rather than relying on the forward curve.
     // The standard pricer uses forward curve rates, which is valid for forward-starting
     // caplets but not for seasoned caplets where the rate is already fixed.
+}
+
+#[test]
+fn test_seasoned_caplet_uses_historical_fixing_after_reset() {
+    let fixing_date = date!(2024 - 01 - 01);
+    let as_of = date!(2024 - 02 - 15);
+    let payment_date = date!(2024 - 04 - 01);
+
+    let caplet = InterestRateOption {
+        id: "CAPLET_SEASONED".into(),
+        rate_option_type: RateOptionType::Caplet,
+        notional: Money::new(1_000_000.0, Currency::USD),
+        strike: Decimal::try_from(0.05).expect("valid decimal"),
+        start_date: fixing_date,
+        maturity: payment_date,
+        frequency: Tenor::quarterly(),
+        day_count: DayCount::Act360,
+        stub: StubKind::None,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: None,
+        exercise_style: ExerciseStyle::European,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD_OIS".into(),
+        forward_curve_id: "USD_LIBOR_3M".into(),
+        vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
+        vol_shift: 0.0,
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    let disc_curve = build_flat_discount_curve(0.03, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.12, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+    let fixings =
+        ScalarTimeSeries::new("FIXING:USD_LIBOR_3M", vec![(fixing_date, 0.07)], None).unwrap();
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface)
+        .insert_series(fixings);
+
+    let pv = caplet.value(&market, as_of).unwrap().amount();
+
+    let tau = DayCount::Act360
+        .year_fraction(fixing_date, payment_date, Default::default())
+        .unwrap();
+    let df = market
+        .get_discount("USD_OIS")
+        .unwrap()
+        .df_between_dates(as_of, payment_date)
+        .unwrap();
+    let expected = 1_000_000.0 * tau * df * (0.07_f64 - 0.05_f64);
+
+    assert!(
+        (pv - expected).abs() < 0.01,
+        "Seasoned caplet should use realized fixing after reset: expected {expected}, got {pv}"
+    );
+}
+
+#[test]
+fn test_single_period_cap_matches_caplet_with_resolved_lags() {
+    let as_of = date!(2024 - 01 - 01);
+    let start = date!(2024 - 03 - 01);
+    let end = date!(2024 - 06 - 01);
+    let strike = 0.05;
+    let notional = Money::new(1_000_000.0, Currency::USD);
+
+    let cap = InterestRateOption::new_cap(
+        "ONE_PERIOD_CAP",
+        notional,
+        strike,
+        start,
+        end,
+        Tenor::quarterly(),
+        DayCount::Act360,
+        "USD_OIS",
+        "USD-SOFR-OIS",
+        "USD_CAP_VOL",
+    );
+    let caplet = InterestRateOption::new_caplet(
+        "ONE_PERIOD_CAPLET",
+        notional,
+        strike,
+        start,
+        end,
+        DayCount::Act360,
+        "USD_OIS",
+        "USD-SOFR-OIS",
+        "USD_CAP_VOL",
+    );
+
+    let market = MarketContext::new()
+        .insert_discount(build_flat_discount_curve(0.03, as_of, "USD_OIS"))
+        .insert_forward(build_flat_forward_curve(0.05, as_of, "USD-SOFR-OIS"))
+        .insert_surface(build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL"));
+
+    let cap_pv = cap.value(&market, as_of).unwrap().amount();
+    let caplet_pv = caplet.value(&market, as_of).unwrap().amount();
+
+    assert!(
+        (cap_pv - caplet_pv).abs() < 0.01,
+        "One-period cap and caplet should agree under the same lag conventions: cap={cap_pv}, caplet={caplet_pv}"
+    );
 }
 
 /// Test that a caplet valued after the payment date returns zero.

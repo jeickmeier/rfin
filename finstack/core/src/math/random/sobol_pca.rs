@@ -82,13 +82,17 @@ pub fn pca_ordering(correlation: &[f64], num_factors: usize) -> (Vec<f64>, Vec<f
     // Build permutation (original index → sorted index)
     let permutation: Vec<usize> = eigenvalues.iter().map(|(i, _)| *i).collect();
 
-    // Extract sorted eigenvalues
+    // Extract sorted eigenvalues and reorder eigenvector columns consistently.
     let sorted_eigenvalues: Vec<f64> = eigenvalues.iter().map(|(_, val)| *val).collect();
+    let mut sorted_eigenvectors = vec![0.0; num_factors * num_factors];
+    for (sorted_col, (original_col, _)) in eigenvalues.iter().enumerate() {
+        for row in 0..num_factors {
+            sorted_eigenvectors[row + sorted_col * num_factors] =
+                eigen.eigenvectors[(row, *original_col)];
+        }
+    }
 
-    // Extract eigenvectors (column-major from nalgebra)
-    let eigenvectors: Vec<f64> = eigen.eigenvectors.as_slice().to_vec();
-
-    (sorted_eigenvalues, eigenvectors, permutation)
+    (sorted_eigenvalues, sorted_eigenvectors, permutation)
 }
 
 /// Compute effective dimension for QMC.
@@ -131,15 +135,13 @@ pub fn transform_pca_to_assets(
     let n = z_pca.len();
     assert_eq!(eigenvectors.len(), n * n);
     assert_eq!(z_out.len(), n);
+    assert_eq!(permutation.len(), n);
 
     // z_asset = Q * z_pca (where Q is eigenvector matrix)
-    // Need to apply permutation to account for sorted order
-
     for i in 0..n {
         let mut sum = 0.0;
         for j in 0..n {
-            let sorted_j = permutation[j];
-            sum += eigenvectors[i * n + sorted_j] * z_pca[j];
+            sum += eigenvectors[i + j * n] * z_pca[j];
         }
         z_out[i] = sum;
     }
@@ -217,5 +219,35 @@ mod tests {
         println!("PCA transform: {:?} -> {:?}", z_pca, z_assets);
         assert!(z_assets[0].is_finite());
         assert!(z_assets[1].is_finite());
+    }
+
+    #[test]
+    fn test_pca_ordering_reconstructs_correlation_matrix() {
+        let correlation = vec![
+            1.0, 0.9, 0.8, //
+            0.9, 1.0, 0.7, //
+            0.8, 0.7, 1.0,
+        ];
+        let (eigenvalues, eigenvectors, _) = pca_ordering(&correlation, 3);
+
+        let mut reconstructed = [0.0; 9];
+        for row in 0..3 {
+            for col in 0..3 {
+                let mut value = 0.0;
+                for factor in 0..3 {
+                    let q_row = eigenvectors[row + factor * 3];
+                    let q_col = eigenvectors[col + factor * 3];
+                    value += q_row * eigenvalues[factor] * q_col;
+                }
+                reconstructed[row * 3 + col] = value;
+            }
+        }
+
+        for (actual, expected) in reconstructed.iter().zip(correlation.iter()) {
+            assert!(
+                (actual - expected).abs() < 1e-10,
+                "reconstructed correlation mismatch: {actual} vs {expected}"
+            );
+        }
     }
 }

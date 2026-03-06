@@ -234,6 +234,12 @@ pub struct CDSPricerConfig {
     /// The difference is typically < 1bp for investment grade but can reach 2-5 bps
     /// for distressed credits (hazard rate > 3%).
     pub par_spread_uses_full_premium: bool,
+    /// If true, apply the current restructuring-clause approximation to the protection leg.
+    ///
+    /// Default is `false` because the approximation is not clause-consistent enough for
+    /// production pricing. When enabled, protection PV ordering follows
+    /// `Xr14 <= Mr14 <= Mm14 <= Cr14` heuristically.
+    pub enable_restructuring_approximation: bool,
     /// Gauss–Legendre order for GaussianQuadrature method.
     /// Supported values: 2, 4, 8, 16. Invalid values default to 8.
     pub gl_order: usize,
@@ -277,6 +283,7 @@ impl CDSPricerConfig {
             integration_method: IntegrationMethod::IsdaStandardModel,
             use_isda_coupon_dates: true,
             par_spread_uses_full_premium: false,
+            enable_restructuring_approximation: false,
             gl_order: 8,
             adaptive_max_depth: 12,
             business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_US,
@@ -318,6 +325,7 @@ impl CDSPricerConfig {
             integration_method: IntegrationMethod::Midpoint,
             use_isda_coupon_dates: false,
             par_spread_uses_full_premium: false,
+            enable_restructuring_approximation: false,
             gl_order: 4,
             adaptive_max_depth: 10,
             business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_US,
@@ -581,12 +589,16 @@ impl CDSPricer {
             return Ok(0.0);
         }
 
-        // Determine the effective protection end considering the restructuring clause.
-        // For clauses with a maturity cap (Mr14, Mm14), the effective protection end
-        // for the restructuring component is limited. For Xr14, restructuring provides
-        // no additional protection. For Cr14, there is no cap.
+        // Determine the effective restructuring adjustment policy.
+        // By default the pricer disables restructuring uplift because the current
+        // implementation is only a heuristic approximation. It can be re-enabled
+        // explicitly via `CDSPricerConfig::enable_restructuring_approximation`.
         let effective_clause = cds.doc_clause_effective();
-        let restructuring_factor = restructuring_adjustment_factor(effective_clause, cds);
+        let restructuring_factor = if self.config.enable_restructuring_approximation {
+            restructuring_adjustment_factor(effective_clause, cds)
+        } else {
+            1.0
+        };
 
         // Use hazard curve's day-count for time axis (survival is the dominant factor)
         let t_asof = haz_t(surv, as_of)?;
@@ -2632,9 +2644,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cr14_higher_protection_than_xr14() {
-        // Full restructuring (Cr14) should give equal-or-higher protection PV
-        // because restructuring adds credit event types.
+    fn test_default_pricer_disables_restructuring_uplift() {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
 
@@ -2654,8 +2664,39 @@ mod tests {
             .expect("should succeed");
 
         assert!(
+            (pv_cr14 - pv_xr14).abs() < 1e-10,
+            "Default pricer should not apply restructuring uplift. Cr14={}, Xr14={}",
+            pv_cr14,
+            pv_xr14,
+        );
+    }
+
+    #[test]
+    fn test_cr14_higher_protection_than_xr14_when_approximation_enabled() {
+        let (disc, credit) = create_test_curves();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+
+        let mut cds_xr14 = create_test_cds("CDS-XR14", as_of, as_of.add_months(60), 100.0, 0.40);
+        cds_xr14.doc_clause = Some(CdsDocClause::Xr14);
+
+        let mut cds_cr14 = create_test_cds("CDS-CR14", as_of, as_of.add_months(60), 100.0, 0.40);
+        cds_cr14.doc_clause = Some(CdsDocClause::Cr14);
+
+        let pricer = CDSPricer::with_config(CDSPricerConfig {
+            enable_restructuring_approximation: true,
+            ..Default::default()
+        });
+
+        let pv_xr14 = pricer
+            .pv_protection_leg_raw(&cds_xr14, &disc, &credit, as_of)
+            .expect("should succeed");
+        let pv_cr14 = pricer
+            .pv_protection_leg_raw(&cds_cr14, &disc, &credit, as_of)
+            .expect("should succeed");
+
+        assert!(
             pv_cr14 > pv_xr14,
-            "Cr14 protection should exceed Xr14. Cr14={}, Xr14={}",
+            "Cr14 protection should exceed Xr14 when approximation is enabled. Cr14={}, Xr14={}",
             pv_cr14,
             pv_xr14,
         );
@@ -2675,7 +2716,10 @@ mod tests {
             CdsDocClause::Cr14,
         ];
 
-        let pricer = CDSPricer::new();
+        let pricer = CDSPricer::with_config(CDSPricerConfig {
+            enable_restructuring_approximation: true,
+            ..Default::default()
+        });
         let mut pvs = Vec::new();
 
         for clause in &clauses {

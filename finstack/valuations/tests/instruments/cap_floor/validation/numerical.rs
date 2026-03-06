@@ -317,8 +317,8 @@ fn test_vega_by_finite_difference() {
     let pv_down = caplet.value(&market_down, as_of).unwrap().amount();
     let pv_up = caplet.value(&market_up, as_of).unwrap().amount();
 
-    // FD vega (per 1% vol change)
-    let fd_vega = (pv_up - pv_down) / (2.0 * vol_bump);
+    // FD vega scaled to match the library convention: per 1% vol change.
+    let fd_vega = (pv_up - pv_down) / (2.0 * vol_bump) * 0.01;
 
     // Analytical vega (per 1% vol change)
     let result = caplet

@@ -50,7 +50,7 @@ where
     D: Discretization<P>,
     F: Payoff,
 {
-    let h = initial_spot * bump_size;
+    let h = (initial_spot * bump_size).max(1e-8);
 
     // Price with S₀ + h
     let initial_up = vec![initial_spot + h];
@@ -65,7 +65,7 @@ where
     )?;
 
     // Price with S₀ - h (using same RNG seed via split)
-    let initial_down = vec![initial_spot - h];
+    let initial_down = vec![(initial_spot - h).max(1e-12)];
     let result_down = engine.price(
         rng,
         process,
@@ -103,7 +103,7 @@ where
     D: Discretization<P>,
     F: Payoff,
 {
-    let h = initial_spot * bump_size;
+    let h = (initial_spot * bump_size).max(1e-8);
 
     // Price at base
     let initial_base = vec![initial_spot];
@@ -130,7 +130,7 @@ where
     )?;
 
     // Price down
-    let initial_down = vec![initial_spot - h];
+    let initial_down = vec![(initial_spot - h).max(1e-12)];
     let result_down = engine.price(
         rng,
         process,

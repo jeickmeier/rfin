@@ -10,11 +10,15 @@ use crate::common::tolerances;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::types::UnderlyingId;
+use finstack_valuations::instruments::OptionType;
 use finstack_valuations::market::conventions::ids::{
-    CdsConventionKey, CdsDocClause, InflationSwapConventionId, OptionConventionId,
+    BondConventionId, CdsConventionKey, CdsDocClause, FxConventionId, FxOptionConventionId,
+    InflationSwapConventionId, OptionConventionId,
 };
+use finstack_valuations::market::quotes::bond::BondQuote;
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
+use finstack_valuations::market::quotes::fx::FxQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
@@ -374,6 +378,172 @@ fn quote_serialization_roundtrip() {
             );
         }
         other => panic!("expected OptionVol, got {:?}", other),
+    }
+
+    let fx = FxQuote::ForwardOutright {
+        id: QuoteId::new("EURUSD-FWD-3M"),
+        convention: FxConventionId::new("EUR/USD"),
+        pillar: Pillar::Tenor("3M".parse().unwrap()),
+        forward_rate: 1.1050,
+    };
+    let fx_json = serde_json::to_string(&fx).expect("serialize fx");
+    let fx_parsed: FxQuote = serde_json::from_str(&fx_json).expect("deserialize fx");
+    match fx_parsed {
+        FxQuote::ForwardOutright { forward_rate, .. } => {
+            assert!(
+                (forward_rate - 1.1050).abs() < tolerances::TIGHT,
+                "fx forward roundtrip mismatch: expected 1.1050, got {forward_rate}"
+            );
+        }
+        other => panic!("expected ForwardOutright, got {:?}", other),
+    }
+
+    let fx_swap = FxQuote::SwapOutright {
+        id: QuoteId::new("EURUSD-SWAP-3M"),
+        convention: FxConventionId::new("EUR/USD"),
+        far_pillar: Pillar::Tenor("3M".parse().unwrap()),
+        near_rate: 1.1000,
+        far_rate: 1.1055,
+    };
+    let fx_swap_json = serde_json::to_string(&fx_swap).expect("serialize fx swap");
+    let fx_swap_parsed: FxQuote = serde_json::from_str(&fx_swap_json).expect("deserialize fx swap");
+    match fx_swap_parsed {
+        FxQuote::SwapOutright {
+            near_rate,
+            far_rate,
+            ..
+        } => {
+            assert!(
+                (near_rate - 1.1000).abs() < tolerances::TIGHT,
+                "fx swap near rate mismatch: expected 1.1000, got {near_rate}"
+            );
+            assert!(
+                (far_rate - 1.1055).abs() < tolerances::TIGHT,
+                "fx swap far rate mismatch: expected 1.1055, got {far_rate}"
+            );
+        }
+        other => panic!("expected SwapOutright, got {:?}", other),
+    }
+
+    let bond = BondQuote::FixedRateBulletCleanPrice {
+        id: QuoteId::new("BOND-UST-5Y"),
+        currency: Currency::USD,
+        issue_date: d(2025, time::Month::January, 15),
+        maturity: d(2030, time::Month::January, 15),
+        coupon_rate: 0.045,
+        convention: BondConventionId::new("USD-UST"),
+        clean_price_pct: 99.25,
+    };
+    let bond_json = serde_json::to_string(&bond).expect("serialize bond");
+    let bond_parsed: BondQuote = serde_json::from_str(&bond_json).expect("deserialize bond");
+    match bond_parsed {
+        BondQuote::FixedRateBulletCleanPrice {
+            clean_price_pct,
+            coupon_rate,
+            ..
+        } => {
+            assert!(
+                (clean_price_pct - 99.25).abs() < tolerances::TIGHT,
+                "bond clean price mismatch: expected 99.25, got {clean_price_pct}"
+            );
+            assert!(
+                (coupon_rate - 0.045).abs() < tolerances::TIGHT,
+                "bond coupon mismatch: expected 0.045, got {coupon_rate}"
+            );
+        }
+        other => panic!("expected FixedRateBulletCleanPrice, got {:?}", other),
+    }
+
+    let bond_ytm = BondQuote::FixedRateBulletYtm {
+        id: QuoteId::new("BOND-CORP-5Y-YTM"),
+        currency: Currency::USD,
+        issue_date: d(2025, time::Month::January, 15),
+        maturity: d(2030, time::Month::January, 15),
+        coupon_rate: 0.045,
+        convention: BondConventionId::new("USD-CORP"),
+        ytm: 0.0475,
+    };
+    let bond_ytm_json = serde_json::to_string(&bond_ytm).expect("serialize bond ytm");
+    let bond_ytm_parsed: BondQuote =
+        serde_json::from_str(&bond_ytm_json).expect("deserialize bond ytm");
+    match bond_ytm_parsed {
+        BondQuote::FixedRateBulletYtm {
+            ytm, coupon_rate, ..
+        } => {
+            assert!(
+                (ytm - 0.0475).abs() < tolerances::TIGHT,
+                "bond ytm mismatch: expected 0.0475, got {ytm}"
+            );
+            assert!(
+                (coupon_rate - 0.045).abs() < tolerances::TIGHT,
+                "bond coupon mismatch: expected 0.045, got {coupon_rate}"
+            );
+        }
+        other => panic!("expected FixedRateBulletYtm, got {:?}", other),
+    }
+
+    let bond_zspread = BondQuote::FixedRateBulletZSpread {
+        id: QuoteId::new("BOND-CORP-5Y-Z"),
+        currency: Currency::USD,
+        issue_date: d(2025, time::Month::January, 15),
+        maturity: d(2030, time::Month::January, 15),
+        coupon_rate: 0.045,
+        convention: BondConventionId::new("USD-CORP"),
+        z_spread: 0.0120,
+    };
+    let bond_z_json = serde_json::to_string(&bond_zspread).expect("serialize bond zspread");
+    let bond_z_parsed: BondQuote =
+        serde_json::from_str(&bond_z_json).expect("deserialize bond zspread");
+    match bond_z_parsed {
+        BondQuote::FixedRateBulletZSpread { z_spread, .. } => {
+            assert!((z_spread - 0.0120).abs() < tolerances::TIGHT);
+        }
+        other => panic!("expected FixedRateBulletZSpread, got {:?}", other),
+    }
+
+    let bond_oas = BondQuote::FixedRateBulletOas {
+        id: QuoteId::new("BOND-CORP-5Y-OAS"),
+        currency: Currency::USD,
+        issue_date: d(2025, time::Month::January, 15),
+        maturity: d(2030, time::Month::January, 15),
+        coupon_rate: 0.045,
+        convention: BondConventionId::new("USD-CORP"),
+        oas: 0.0080,
+    };
+    let bond_oas_json = serde_json::to_string(&bond_oas).expect("serialize bond oas");
+    let bond_oas_parsed: BondQuote =
+        serde_json::from_str(&bond_oas_json).expect("deserialize bond oas");
+    match bond_oas_parsed {
+        BondQuote::FixedRateBulletOas { oas, .. } => {
+            assert!((oas - 0.0080).abs() < tolerances::TIGHT);
+        }
+        other => panic!("expected FixedRateBulletOas, got {:?}", other),
+    }
+
+    let fx_option = FxQuote::OptionVanilla {
+        id: QuoteId::new("EURUSD-CALL-6M"),
+        convention: FxOptionConventionId::new("EUR/USD-VANILLA"),
+        expiry: d(2025, time::Month::July, 10),
+        strike: 1.12,
+        option_type: OptionType::Call,
+        vol_surface_id: "EURUSD-VOL".into(),
+    };
+    let fx_option_json = serde_json::to_string(&fx_option).expect("serialize fx option");
+    let fx_option_parsed: FxQuote =
+        serde_json::from_str(&fx_option_json).expect("deserialize fx option");
+    match fx_option_parsed {
+        FxQuote::OptionVanilla {
+            strike,
+            option_type,
+            ..
+        } => {
+            assert!(
+                (strike - 1.12).abs() < tolerances::TIGHT,
+                "fx option strike mismatch: expected 1.12, got {strike}"
+            );
+            assert_eq!(option_type, OptionType::Call);
+        }
+        other => panic!("expected OptionVanilla, got {:?}", other),
     }
 }
 

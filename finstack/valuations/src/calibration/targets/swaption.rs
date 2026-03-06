@@ -1014,7 +1014,7 @@ mod tests {
                 strike: k,
                 vol: vol_bp,
                 quote_type: "implied_vol".to_string(),
-                convention: SwaptionConventionId("USD-Annual".into()),
+                convention: SwaptionConventionId::new("USD-Annual"),
             }));
         }
 
@@ -1096,7 +1096,7 @@ mod tests {
                 strike: k,
                 vol: vol_pct,
                 quote_type: "implied_vol".to_string(),
-                convention: SwaptionConventionId("USD-Annual".into()),
+                convention: SwaptionConventionId::new("USD-Annual"),
             }));
         }
 
@@ -1181,7 +1181,7 @@ mod tests {
                 strike: k,
                 vol: 20.0,
                 quote_type: "implied_vol".to_string(),
-                convention: SwaptionConventionId("USD-Annual".into()),
+                convention: SwaptionConventionId::new("USD-Annual"),
             }));
         }
 

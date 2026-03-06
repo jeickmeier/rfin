@@ -5,9 +5,10 @@ use crate::errors::map_error;
 use finstack_core::config::FinstackConfig;
 use finstack_core::HashMap;
 use finstack_valuations::attribution::{
-    attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_waterfall,
-    AttributionFactor, AttributionMeta, AttributionMethod, CreditCurvesAttribution, JsonEnvelope,
-    ModelParamsAttribution, ModelParamsSnapshot, PnlAttribution, RatesCurvesAttribution,
+    attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor_compat,
+    attribute_pnl_waterfall, AttributionFactor, AttributionMeta, AttributionMethod,
+    CreditCurvesAttribution, JsonEnvelope, ModelParamsAttribution, ModelParamsSnapshot,
+    PnlAttribution, RatesCurvesAttribution,
 };
 use finstack_valuations::metrics::MetricId;
 use pyo3::prelude::*;
@@ -533,6 +534,15 @@ pub fn attribute_pnl(
             )
             .map_err(map_error)?
         }
+        AttributionMethod::Taylor(config_inner) => attribute_pnl_taylor_compat(
+            &instrument_arc,
+            &market_t0.inner,
+            &market_t1.inner,
+            date_t0,
+            date_t1,
+            &config_inner,
+        )
+        .map_err(map_error)?,
     };
 
     Ok(PyPnlAttribution { inner: attribution })

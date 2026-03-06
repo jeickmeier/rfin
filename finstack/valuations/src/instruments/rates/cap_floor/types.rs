@@ -73,6 +73,9 @@ pub enum CapFloorVolType {
     ///
     /// This is useful for portfolios spanning multiple currencies or rate
     /// regimes where some periods may have negative forwards.
+    ///
+    /// **Recommended default for production use** — safely handles mixed
+    /// positive/negative rate environments without manual intervention.
     Auto,
 }
 
@@ -336,6 +339,105 @@ impl InterestRateOption {
         )
     }
 
+    /// Create a single-period caplet instrument.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_caplet(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        strike: f64,
+        start_date: Date,
+        maturity: Date,
+        day_count: DayCount,
+        discount_curve_id: impl Into<CurveId>,
+        forward_curve_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
+    ) -> Self {
+        let option_params = InterestRateOptionParams {
+            rate_option_type: RateOptionType::Caplet,
+            notional,
+            strike: Decimal::try_from(strike).unwrap_or_default(),
+            frequency: infer_single_period_frequency(start_date, maturity),
+            day_count,
+            stub: StubKind::ShortFront,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+        };
+        Self::new(
+            id,
+            &option_params,
+            start_date,
+            maturity,
+            discount_curve_id.into(),
+            forward_curve_id.into(),
+            vol_surface_id,
+        )
+    }
+
+    /// Create a single-period floorlet instrument.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_floorlet(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        strike: f64,
+        start_date: Date,
+        maturity: Date,
+        day_count: DayCount,
+        discount_curve_id: impl Into<CurveId>,
+        forward_curve_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
+    ) -> Self {
+        let option_params = InterestRateOptionParams {
+            rate_option_type: RateOptionType::Floorlet,
+            notional,
+            strike: Decimal::try_from(strike).unwrap_or_default(),
+            frequency: infer_single_period_frequency(start_date, maturity),
+            day_count,
+            stub: StubKind::ShortFront,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+        };
+        Self::new(
+            id,
+            &option_params,
+            start_date,
+            maturity,
+            discount_curve_id.into(),
+            forward_curve_id.into(),
+            vol_surface_id,
+        )
+    }
+
+    pub(crate) fn pricing_periods(
+        &self,
+    ) -> finstack_core::Result<Vec<crate::cashflow::builder::periods::SchedulePeriod>> {
+        let params = crate::cashflow::builder::periods::BuildPeriodsParams {
+            start: self.start_date,
+            end: self.maturity,
+            frequency: self.frequency,
+            stub: self.stub,
+            bdc: self.bdc,
+            calendar_id: self
+                .calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
+            end_of_month: false,
+            day_count: self.day_count,
+            payment_lag_days: self.resolved_payment_lag_days(),
+            reset_lag_days: self.resolved_reset_lag_days(),
+        };
+
+        if matches!(
+            self.rate_option_type,
+            RateOptionType::Caplet | RateOptionType::Floorlet
+        ) {
+            Ok(vec![
+                crate::cashflow::builder::periods::build_single_period(params)?,
+            ])
+        } else {
+            crate::cashflow::builder::periods::build_periods(params)
+        }
+    }
+
     /// Set the volatility type convention.
     ///
     /// # Example
@@ -411,6 +513,64 @@ impl InterestRateOption {
     }
 }
 
+/// Resolve the effective vol type.
+///
+/// `Auto` selects a compatible model based on forward/strike sign. Explicit
+/// model selections remain explicit and should fail if their domain
+/// assumptions are violated.
+fn resolve_vol_type(
+    vol_type: CapFloorVolType,
+    forward: f64,
+    strike: f64,
+    _vol_shift: f64,
+) -> CapFloorVolType {
+    match vol_type {
+        CapFloorVolType::Auto => {
+            if forward > 0.0 && strike > 0.0 {
+                CapFloorVolType::Lognormal
+            } else {
+                CapFloorVolType::Normal
+            }
+        }
+        CapFloorVolType::Lognormal => CapFloorVolType::Lognormal,
+        CapFloorVolType::ShiftedLognormal => CapFloorVolType::ShiftedLognormal,
+        other => other,
+    }
+}
+
+fn cap_floor_fixing_series_id(forward_curve_id: &CurveId) -> String {
+    format!("FIXING:{}", forward_curve_id.as_str())
+}
+
+fn infer_single_period_frequency(start_date: Date, maturity: Date) -> Tenor {
+    let day_span = (maturity - start_date).whole_days().abs();
+    if day_span <= 45 {
+        Tenor::monthly()
+    } else if day_span <= 135 {
+        Tenor::quarterly()
+    } else if day_span <= 225 {
+        Tenor::semi_annual()
+    } else {
+        Tenor::annual()
+    }
+}
+
+fn historical_cap_floor_fixing(
+    curves: &finstack_core::market_data::context::MarketContext,
+    forward_curve_id: &CurveId,
+    fixing_date: finstack_core::dates::Date,
+) -> finstack_core::Result<f64> {
+    let fixings_id = cap_floor_fixing_series_id(forward_curve_id);
+    let series = curves.series(&fixings_id).map_err(|_| {
+        finstack_core::Error::Validation(format!(
+            "Seasoned cap/floor requires historical fixing series '{}' for fixing date {}. \
+             Fixed-but-unpaid coupons must be valued off observed fixings, not the live forward curve.",
+            fixings_id, fixing_date
+        ))
+    })?;
+    series.value_on_exact(fixing_date)
+}
+
 impl crate::instruments::common_impl::traits::Instrument for InterestRateOption {
     impl_instrument_base!(crate::pricer::InstrumentType::CapFloor);
 
@@ -435,103 +595,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
         let mut total_pv = finstack_core::money::Money::new(0.0, self.notional.currency());
         let dc_ctx = finstack_core::dates::DayCountCtx::default();
 
-        // Single caplet/floorlet
-        if matches!(
-            self.rate_option_type,
-            RateOptionType::Caplet | RateOptionType::Floorlet
-        ) {
-            // Skip entirely settled cashflows (payment date already passed)
-            if self.maturity <= as_of {
-                return Ok(total_pv);
-            }
-
-            // Time to fixing using instrument's day count (for vol surface)
-            let t_fix = self
-                .day_count
-                .year_fraction(as_of, self.start_date, dc_ctx)?;
-
-            // Accrual year fraction
-            let tau = self
-                .day_count
-                .year_fraction(self.start_date, self.maturity, dc_ctx)?;
-
-            // Use curve-consistent helpers for forward rate and discount factor
-            let forward = rate_period_on_dates(fwd_curve.as_ref(), self.start_date, self.maturity)?;
-            let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, self.maturity)?;
-
-            // Use MIN_VOL_LOOKUP_TIME floor for seasoned caplets (t_fix <= 0)
-            let sigma = vol_surface.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), strike);
-
-            let is_cap = matches!(
-                self.rate_option_type,
-                RateOptionType::Caplet | RateOptionType::Cap
-            );
-            let black_price = |strike: f64, forward: f64| {
-                black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
-                    is_cap,
-                    notional: self.notional.amount(),
-                    strike,
-                    forward,
-                    discount_factor: df,
-                    volatility: sigma,
-                    time_to_fixing: t_fix,
-                    accrual_year_fraction: tau,
-                    currency: self.notional.currency(),
-                })
-            };
-            let normal_price = || {
-                normal_ir::price_caplet_floorlet(normal_ir::CapletFloorletInputs {
-                    is_cap,
-                    notional: self.notional.amount(),
-                    strike,
-                    forward,
-                    discount_factor: df,
-                    volatility: sigma,
-                    time_to_fixing: t_fix,
-                    accrual_year_fraction: tau,
-                    currency: self.notional.currency(),
-                })
-            };
-            return match self.vol_type {
-                CapFloorVolType::Lognormal => black_price(strike, forward),
-                CapFloorVolType::ShiftedLognormal => {
-                    let vol_shift = self.resolved_vol_shift();
-                    black_price(strike + vol_shift, forward + vol_shift)
-                }
-                CapFloorVolType::Normal => normal_price(),
-                CapFloorVolType::Auto => {
-                    if forward > 0.0 && strike > 0.0 {
-                        black_price(strike, forward)
-                    } else {
-                        tracing::info!(
-                            forward = forward,
-                            strike = strike,
-                            "Auto vol type: using Normal (Bachelier) model for non-positive forward/strike"
-                        );
-                        normal_price()
-                    }
-                }
-            };
-        }
-
-        // Cap/floor portfolio of caplets/floorlets
-        let periods = crate::cashflow::builder::periods::build_periods(
-            crate::cashflow::builder::periods::BuildPeriodsParams {
-                start: self.start_date,
-                end: self.maturity,
-                frequency: self.frequency,
-                stub: self.stub,
-                bdc: self.bdc,
-                calendar_id: self
-                    .calendar_id
-                    .as_deref()
-                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-                end_of_month: false,
-                day_count: self.day_count,
-                payment_lag_days: self.resolved_payment_lag_days(),
-                reset_lag_days: self.resolved_reset_lag_days(),
-            },
-        )?;
+        let periods = self.pricing_periods()?;
 
         if periods.is_empty() {
             return Ok(total_pv);
@@ -551,18 +615,33 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             // Time to fixing using instrument's day count (for vol surface lookup).
             // Use the actual reset (fixing) date when available; fall back to accrual_start.
             let fixing_date = period.reset_date.unwrap_or(period.accrual_start);
-            let t_fix = self.day_count.year_fraction(as_of, fixing_date, dc_ctx)?;
+            let is_fixed_unpaid = fixing_date < as_of;
+            let t_fix = if is_fixed_unpaid {
+                0.0
+            } else {
+                self.day_count.year_fraction(as_of, fixing_date, dc_ctx)?
+            };
+            let effective_t_fix = if is_fixed_unpaid {
+                0.0
+            } else {
+                t_fix.max(MIN_VOL_LOOKUP_TIME)
+            };
 
             // Accrual year fraction
             let tau = period.accrual_year_fraction;
 
-            // Use curve-consistent helpers for forward rate and discount factor
-            let forward =
-                rate_period_on_dates(fwd_curve.as_ref(), period.accrual_start, period.accrual_end)?;
+            let forward = if is_fixed_unpaid {
+                historical_cap_floor_fixing(curves, &self.forward_curve_id, fixing_date)?
+            } else {
+                rate_period_on_dates(fwd_curve.as_ref(), period.accrual_start, period.accrual_end)?
+            };
             let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, pay)?;
 
-            // Use MIN_VOL_LOOKUP_TIME floor for seasoned caplets (t_fix <= 0)
-            let sigma = vol_surface.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), strike);
+            let sigma = if effective_t_fix > 0.0 {
+                vol_surface.value_clamped(effective_t_fix, strike)
+            } else {
+                0.0
+            };
 
             // Include ALL periods where payment_date > as_of, including
             // seasoned periods where fixing_date <= as_of < payment_date.
@@ -574,7 +653,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                 forward,
                 discount_factor: df,
                 volatility: sigma,
-                time_to_fixing: t_fix,
+                time_to_fixing: effective_t_fix,
                 accrual_year_fraction: tau,
                 currency: self.notional.currency(),
             };
@@ -585,33 +664,29 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                 forward,
                 discount_factor: df,
                 volatility: sigma,
-                time_to_fixing: t_fix,
+                time_to_fixing: effective_t_fix,
                 accrual_year_fraction: tau,
                 currency: self.notional.currency(),
             };
-            let leg_pv = match self.vol_type {
+            let vol_shift = self.resolved_vol_shift();
+            let resolved = resolve_vol_type(self.vol_type, forward, strike, vol_shift);
+            let leg_pv = match resolved {
                 CapFloorVolType::Lognormal => black_ir::price_caplet_floorlet(black_inputs())?,
                 CapFloorVolType::ShiftedLognormal => {
-                    let vol_shift = self.resolved_vol_shift();
                     black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
                         strike: strike + vol_shift,
                         forward: forward + vol_shift,
                         ..black_inputs()
                     })?
                 }
-                CapFloorVolType::Normal => normal_ir::price_caplet_floorlet(normal_inputs())?,
                 CapFloorVolType::Auto => {
                     if forward > 0.0 && strike > 0.0 {
                         black_ir::price_caplet_floorlet(black_inputs())?
                     } else {
-                        tracing::info!(
-                            forward = forward,
-                            strike = strike,
-                            "Auto vol type: using Normal (Bachelier) model for non-positive forward/strike"
-                        );
                         normal_ir::price_caplet_floorlet(normal_inputs())?
                     }
                 }
+                CapFloorVolType::Normal => normal_ir::price_caplet_floorlet(normal_inputs())?,
             };
             total_pv = total_pv.checked_add(leg_pv)?;
         }
@@ -948,11 +1023,14 @@ mod tests {
             "Normal cap/floor PV should be finite and non-negative"
         );
 
-        // For black model the same negative forward should fail with a clear error.
-        let black_result = black_floorlet.value(&ctx, base_date);
+        let black_err = black_floorlet
+            .value(&ctx, base_date)
+            .expect_err("Explicit lognormal should reject negative forwards");
         assert!(
-            black_result.is_err(),
-            "Black model should reject non-positive forwards"
+            black_err
+                .to_string()
+                .contains("Black model requires positive forward rate"),
+            "unexpected lognormal error: {black_err}"
         );
     }
 

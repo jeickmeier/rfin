@@ -138,6 +138,10 @@ pub struct DiscountCurve {
     style: InterpStyle,
     /// Extrapolation policy (stored for serialization and bumping)
     extrapolation: ExtrapolationPolicy,
+    /// Minimum forward rate floor used during validation, if any.
+    min_forward_rate: Option<f64>,
+    /// Whether non-monotonic discount factors were explicitly allowed.
+    allow_non_monotonic: bool,
     /// Minimum tenor for forward rate calculations (configurable)
     min_forward_tenor: f64,
 }
@@ -192,8 +196,8 @@ impl From<DiscountCurve> for RawDiscountCurve {
                 interp_style: curve.style,
                 extrapolation: curve.extrapolation,
             },
-            min_forward_rate: None, // Can't recover from existing curves easily without storing it
-            allow_non_monotonic: false,
+            min_forward_rate: curve.min_forward_rate,
+            allow_non_monotonic: curve.allow_non_monotonic,
             min_forward_tenor: curve.min_forward_tenor,
         }
     }
@@ -666,7 +670,7 @@ impl DiscountCurve {
             .interp(self.style)
             .extrapolation(self.extrapolation)
             .min_forward_tenor(self.min_forward_tenor)
-            .allow_non_monotonic() // Allow for negative rate environments
+            .apply_non_monotonic_settings(self.allow_non_monotonic, self.min_forward_rate)
             .build()
     }
 
@@ -771,7 +775,7 @@ impl DiscountCurve {
             .interp(self.style)
             .extrapolation(self.extrapolation)
             .min_forward_tenor(self.min_forward_tenor)
-            .allow_non_monotonic() // Allow for negative rate environments
+            .apply_non_monotonic_settings(self.allow_non_monotonic, self.min_forward_rate)
             .build()
     }
 
@@ -834,6 +838,7 @@ impl DiscountCurve {
             .interp(self.style)
             .extrapolation(self.extrapolation)
             .min_forward_tenor(self.min_forward_tenor)
+            .apply_non_monotonic_settings(self.allow_non_monotonic, self.min_forward_rate)
             .build()
     }
 
@@ -1193,6 +1198,16 @@ impl DiscountCurveBuilder {
         self
     }
 
+    fn apply_non_monotonic_settings(
+        mut self,
+        allow_non_monotonic: bool,
+        min_forward_rate: Option<f64>,
+    ) -> Self {
+        self.allow_non_monotonic = allow_non_monotonic;
+        self.min_forward_rate = min_forward_rate;
+        self
+    }
+
     /// Build the curve with minimal validation for solver use.
     ///
     /// This method skips monotonicity validation and forward rate checks, providing
@@ -1244,6 +1259,8 @@ impl DiscountCurveBuilder {
             interp,
             style: self.style,
             extrapolation: self.extrapolation,
+            min_forward_rate: self.min_forward_rate,
+            allow_non_monotonic: self.allow_non_monotonic,
             min_forward_tenor: self.min_forward_tenor,
         })
     }
@@ -1311,6 +1328,8 @@ impl DiscountCurveBuilder {
             interp,
             style: self.style,
             extrapolation: self.extrapolation,
+            min_forward_rate: self.min_forward_rate,
+            allow_non_monotonic: self.allow_non_monotonic,
             min_forward_tenor: self.min_forward_tenor,
         })
     }

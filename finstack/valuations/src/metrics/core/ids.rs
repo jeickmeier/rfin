@@ -124,6 +124,15 @@ impl MetricId {
     /// Time decay (theta) - 1D Day Time decay P&L
     pub const Theta: Self = Self(Cow::Borrowed("theta"));
 
+    /// Theta carry component (coupon accrual, pull-to-par, funding)
+    pub const ThetaCarry: Self = Self(Cow::Borrowed("theta_carry"));
+
+    /// Theta roll-down component (PV change from moving along same curve)
+    pub const ThetaRollDown: Self = Self(Cow::Borrowed("theta_roll_down"));
+
+    /// Theta decay component (pure time value loss, optionality decay)
+    pub const ThetaDecay: Self = Self(Cow::Borrowed("theta_decay"));
+
     /// Dollar value of 01 (DV01) - Standard for all parallel rate sensitivity
     pub const Dv01: Self = Self(Cow::Borrowed("dv01"));
 
@@ -135,6 +144,16 @@ impl MetricId {
 
     /// Bucketed Credit Spread Risk - Pointwise sensitivity to credit spread
     pub const BucketedCs01: Self = Self(Cow::Borrowed("bucketed_cs01"));
+
+    /// Credit spread sensitivity via direct hazard rate bump (CS01 Hazard)
+    ///
+    /// Unlike `Cs01` which bumps par spreads and re-bootstraps, this metric
+    /// directly shifts hazard rates. Use when par spread points are unavailable
+    /// or when hazard-rate sensitivity is specifically needed.
+    pub const Cs01Hazard: Self = Self(Cow::Borrowed("cs01_hazard"));
+
+    /// Bucketed credit spread risk via direct hazard rate bump
+    pub const BucketedCs01Hazard: Self = Self(Cow::Borrowed("bucketed_cs01_hazard"));
 
     // ========================================================================
     // FX Spot Metrics
@@ -821,10 +840,15 @@ impl MetricId {
     /// All standard (non-custom) metric IDs.
     pub const ALL_STANDARD: &'static [MetricId] = &[
         MetricId::Theta,
+        MetricId::ThetaCarry,
+        MetricId::ThetaRollDown,
+        MetricId::ThetaDecay,
         MetricId::Dv01,
         MetricId::Cs01,
         MetricId::BucketedDv01,
         MetricId::BucketedCs01,
+        MetricId::Cs01Hazard,
+        MetricId::BucketedCs01Hazard,
         MetricId::SpotRate,
         MetricId::BaseAmount,
         MetricId::QuoteAmount,

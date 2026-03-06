@@ -18,7 +18,9 @@
 
 use super::common::DAYCOUNT_TOLERANCE;
 use finstack_core::dates::calendar::TARGET2;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor, TenorUnit};
+use finstack_core::dates::{
+    act_act_isma_year_fraction_with_reference_period, Date, DayCount, DayCountCtx, Tenor, TenorUnit,
+};
 use time::Month;
 
 fn make_date(y: i32, m: u8, d: u8) -> Date {
@@ -544,6 +546,60 @@ fn actact_vs_actact_isma_comparison() {
         (yf_isma - 1.0).abs() < TOL,
         "ISMA expected 1.0, got {}",
         yf_isma
+    );
+}
+
+#[test]
+fn actact_isma_reference_period_handles_short_front_stub_with_month_end_anchor() {
+    let start = make_date(2025, 3, 15);
+    let end = make_date(2025, 7, 31);
+    let reference_start = make_date(2025, 1, 31);
+    let reference_end = make_date(2025, 7, 31);
+
+    let yf = act_act_isma_year_fraction_with_reference_period(
+        start,
+        end,
+        reference_start,
+        reference_end,
+    )
+    .unwrap();
+
+    let expected = ((end - start).whole_days() as f64
+        / (reference_end - reference_start).whole_days() as f64)
+        * 0.5;
+    assert!(
+        (yf - expected).abs() < TOL,
+        "Expected {:.12}, got {:.12}",
+        expected,
+        yf
+    );
+}
+
+#[test]
+fn actact_isma_reference_period_handles_long_first_stub() {
+    let start = make_date(2025, 1, 31);
+    let end = make_date(2025, 10, 15);
+    let reference_start = make_date(2025, 7, 31);
+    let reference_end = make_date(2026, 1, 31);
+
+    let yf = act_act_isma_year_fraction_with_reference_period(
+        start,
+        end,
+        reference_start,
+        reference_end,
+    )
+    .unwrap();
+
+    let first_regular = 0.5;
+    let stub_fraction = ((end - reference_start).whole_days() as f64
+        / (reference_end - reference_start).whole_days() as f64)
+        * 0.5;
+    let expected = first_regular + stub_fraction;
+    assert!(
+        (yf - expected).abs() < TOL,
+        "Expected {:.12}, got {:.12}",
+        expected,
+        yf
     );
 }
 

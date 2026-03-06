@@ -213,8 +213,13 @@ impl Money {
 
     #[inline]
     fn new_finite(amount: f64, currency: Currency, cfg: Option<&FinstackConfig>) -> Self {
-        let (dp, mode) = Self::ingest_rounding_params(currency, cfg);
-        let rounded = round_f64(amount, dp as i32, mode);
+        let rounded = if let Some(cfg) = cfg {
+            let (dp, mode) = Self::ingest_rounding_params(currency, Some(cfg));
+            round_f64(amount, dp as i32, mode)
+        } else {
+            AmountRepr::from_f64_retain(amount)
+                .unwrap_or_else(|| unreachable!("finite amount should convert to Decimal"))
+        };
         Self {
             amount: rounded,
             currency,
@@ -883,6 +888,12 @@ mod tests {
         let m =
             Money::try_new_with_config(1.2345, Currency::USD, &cfg).expect("Finite should succeed");
         assert!((m.amount() - 1.234).abs() < 1e-9);
+    }
+
+    #[test]
+    fn try_new_preserves_internal_precision_by_default() {
+        let m = Money::try_new(10.005, Currency::USD).expect("Finite should succeed");
+        assert!((m.amount() - 10.005).abs() < 1e-12);
     }
 
     #[test]

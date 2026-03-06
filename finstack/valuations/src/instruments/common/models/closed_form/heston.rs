@@ -257,7 +257,7 @@ fn heston_pj(
     // Use composite Gauss-Legendre integration over [0, u_max]
     let integral = gauss_legendre_integrate_composite(
         integrand,
-        settings.phi_eps, // Start slightly above 0 to avoid singularity
+        0.0,
         settings.u_max,
         settings.gl_order,
         settings.panels,

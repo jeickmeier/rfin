@@ -10,7 +10,6 @@
 //! settlement date for a given accrual period, useful for aligning TBA trade
 //! settlement and pool allocation.
 
-use super::delay::actual_payment_date;
 use super::AgencyMbsPassthrough;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -50,8 +49,16 @@ pub struct MbsCashflow {
 }
 
 /// Derive the SIFMA Good Delivery settlement date for a given accrual period.
-pub fn sifma_settlement_for_period(period_end: Date) -> Date {
-    finstack_core::dates::sifma_settlement_date(period_end.month(), period_end.year())
+pub fn sifma_settlement_for_period(period_end: Date) -> Result<Date> {
+    finstack_core::dates::sifma_settlement_date(period_end.month(), period_end.year()).ok_or_else(
+        || {
+            finstack_core::Error::Validation(format!(
+                "No published SIFMA settlement date for {:02}/{}",
+                period_end.month() as u8,
+                period_end.year()
+            ))
+        },
+    )
 }
 
 /// Generate projected cashflows for an agency MBS.
@@ -71,21 +78,20 @@ pub fn generate_cashflows(
         ));
     }
 
-    // Start from the first of next month after as_of, but never before issue_date.
-    // For forward-settling instruments (e.g. TBAs), issue_date is in the future
-    // and no cashflows should accrue before it.
+    // Start from the active accrual period containing as_of, unless the pool
+    // has a forward issue date inside the month, in which case the partial
+    // pre-issue accrual month is skipped entirely.
     let effective_start = as_of.max(mbs.issue_date);
     let mut period_start =
         Date::from_calendar_date(effective_start.year(), effective_start.month(), 1)
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-    if period_start <= effective_start {
+    if mbs.issue_date > period_start && as_of < mbs.issue_date {
         period_start = period_start
             .checked_add(Duration::days(32))
             .and_then(|d| Date::from_calendar_date(d.year(), d.month(), 1).ok())
             .unwrap_or(period_start);
     }
 
-    let payment_delay = mbs.effective_payment_delay();
     let max_periods = max_periods.unwrap_or(mbs.wam);
     let monthly_rate = mbs.pass_through_rate / 12.0;
     let monthly_mortgage_rate = mbs.wac / 12.0;
@@ -97,7 +103,7 @@ pub fn generate_cashflows(
         }
 
         let period_end = end_of_month(period_start)?;
-        let payment_date = actual_payment_date(period_end, payment_delay, false)?;
+        let payment_date = mbs.payment_date_for_accrual_period(period_start)?;
 
         if payment_date <= as_of {
             period_start = next_month_start(period_start)?;
@@ -131,7 +137,7 @@ pub fn generate_cashflows(
         let total_principal = scheduled_principal + prepayment;
         let ending_balance = (balance - total_principal).max(0.0);
 
-        let sifma_date = sifma_settlement_for_period(period_end);
+        let sifma_date = sifma_settlement_for_period(period_end)?;
 
         cashflows.push(MbsCashflow {
             period_start,
@@ -324,6 +330,10 @@ mod tests {
         assert!(!cashflows.is_empty());
         assert!(cashflows.len() <= 12);
         assert!((cashflows[0].beginning_balance - 1_000_000.0).abs() < 1.0);
+        assert_eq!(
+            cashflows[0].period_start,
+            Date::from_calendar_date(2024, Month::January, 1).expect("valid")
+        );
 
         for cf in &cashflows {
             assert!(cf.interest > 0.0);
@@ -380,8 +390,10 @@ mod tests {
         let cashflows = generate_cashflows(&mbs, as_of, Some(3)).expect("should generate");
 
         for cf in &cashflows {
-            let days_diff = (cf.payment_date - cf.period_end).whole_days();
-            assert_eq!(days_diff as u32, mbs.effective_payment_delay());
+            let expected_payment = mbs
+                .payment_date_for_accrual_period(cf.period_start)
+                .expect("payment date should resolve");
+            assert_eq!(cf.payment_date, expected_payment);
         }
     }
 

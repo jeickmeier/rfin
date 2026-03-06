@@ -678,12 +678,12 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
                     vol_surface_id,
                     ..
                 } => {
-                    // Warn if a vol surface is provided but no pre-computed adjustment
                     if vol_surface_id.is_some() && convexity_adjustment.is_none() {
-                        tracing::warn!(
-                            "Futures quote has vol_surface_id but no convexity_adjustment; \
-                             consider pre-computing the adjustment before calibration"
-                        );
+                        return Err(finstack_core::Error::Validation(
+                            "Discount curve calibration requires a pre-computed convexity_adjustment \
+                             for futures quotes; dynamic vol-surface lookup is not wired"
+                                .to_string(),
+                        ));
                     }
                     // Hull convention: forward = futures - convexity_adjustment
                     let futures_rate = (100.0 - price) / 100.0;

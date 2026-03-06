@@ -476,11 +476,14 @@ impl JsMarketQuote {
     #[wasm_bindgen(getter)]
     pub fn kind(&self) -> String {
         match &self.inner {
+            MarketQuote::Bond(_) => "bond".to_string(),
             MarketQuote::Rates(_) => "rates".to_string(),
             MarketQuote::Cds(_) => "cds".to_string(),
             MarketQuote::CDSTranche(_) => "cds_tranche".to_string(),
-            MarketQuote::Vol(_) => "vol".to_string(),
+            MarketQuote::Fx(_) => "fx".to_string(),
             MarketQuote::Inflation(_) => "inflation".to_string(),
+            MarketQuote::Vol(_) => "vol".to_string(),
+            MarketQuote::Xccy(_) => "xccy".to_string(),
         }
     }
 

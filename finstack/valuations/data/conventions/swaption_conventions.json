@@ -11,9 +11,9 @@
                 "calendar_id": "nyse",
                 "settlement_days": 2,
                 "business_day_convention": "modified_following",
-                "fixed_leg_frequency": "6M",
-                "fixed_leg_day_count": "Thirty360",
-                "float_leg_index": "USD-SOFR"
+                "fixed_leg_frequency": "1Y",
+                "fixed_leg_day_count": "Act360",
+                "float_leg_index": "USD-SOFR-OIS"
             }
         },
         {

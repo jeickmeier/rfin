@@ -48,8 +48,15 @@ pub fn calculate_settlement_dates_for_class(
     let first_of_month = Date::from_calendar_date(year, month_enum, 1)
         .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
 
-    let settlement_date =
-        finstack_core::dates::sifma_settlement_date_for_class(month_enum, year, class);
+    let settlement_date = finstack_core::dates::sifma_settlement_date_for_class(
+        month_enum, year, class,
+    )
+    .ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "No published SIFMA settlement date for {:02}/{} and class {:?}",
+            month, year, class
+        ))
+    })?;
 
     let notification_date = subtract_business_days(settlement_date, 2)?;
 
@@ -122,19 +129,16 @@ mod tests {
 
     #[test]
     fn test_calculate_settlement_dates() {
-        let dates = calculate_settlement_dates(2024, 3).expect("valid dates");
+        let dates = calculate_settlement_dates(2027, 3).expect("valid dates");
 
-        // March 2024's third Wednesday is March 20
+        // March 2027 is covered by the embedded SIFMA calendar.
         assert_eq!(dates.settlement_date.month(), Month::March);
-        assert_eq!(dates.settlement_date.year(), 2024);
-
-        // Settlement should be on a Wednesday
-        assert_eq!(dates.settlement_date.weekday(), Weekday::Wednesday);
+        assert_eq!(dates.settlement_date.year(), 2027);
     }
 
     #[test]
     fn test_notification_before_settlement() {
-        let dates = calculate_settlement_dates(2024, 3).expect("valid dates");
+        let dates = calculate_settlement_dates(2027, 3).expect("valid dates");
 
         // Notification should be before settlement
         assert!(dates.notification_date < dates.settlement_date);
@@ -148,8 +152,8 @@ mod tests {
 
     #[test]
     fn test_drop_date() {
-        let drop = calculate_drop_date(2024, 3).expect("valid date");
-        let dates = calculate_settlement_dates(2024, 3).expect("valid dates");
+        let drop = calculate_drop_date(2027, 3).expect("valid date");
+        let dates = calculate_settlement_dates(2027, 3).expect("valid dates");
 
         // Drop should be before notification
         assert!(drop < dates.notification_date);
@@ -158,24 +162,24 @@ mod tests {
     #[test]
     fn test_next_settlement_month() {
         // Early in month, should return current month
-        let early = Date::from_calendar_date(2024, Month::March, 1).expect("valid");
+        let early = Date::from_calendar_date(2027, Month::March, 1).expect("valid");
         let (year, month) = next_settlement_month(early).expect("valid");
-        assert_eq!(year, 2024);
+        assert_eq!(year, 2027);
         assert_eq!(month, 3);
 
         // Late in month, should return next month
-        let late = Date::from_calendar_date(2024, Month::March, 25).expect("valid");
+        let late = Date::from_calendar_date(2027, Month::March, 25).expect("valid");
         let (year2, month2) = next_settlement_month(late).expect("valid");
-        assert_eq!(year2, 2024);
+        assert_eq!(year2, 2027);
         assert_eq!(month2, 4);
     }
 
     #[test]
     fn test_december_rollover() {
         // December should roll to January next year
-        let late_dec = Date::from_calendar_date(2024, Month::December, 25).expect("valid");
+        let late_dec = Date::from_calendar_date(2026, Month::December, 25).expect("valid");
         let (year, month) = next_settlement_month(late_dec).expect("valid");
-        assert_eq!(year, 2025);
+        assert_eq!(year, 2027);
         assert_eq!(month, 1);
     }
 }

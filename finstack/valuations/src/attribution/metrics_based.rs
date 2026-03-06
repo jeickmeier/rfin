@@ -316,6 +316,15 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         // Theta is typically quoted per day, so multiply by days
         let carry_amount = theta * time_period_days;
         attribution.carry = Money::new(carry_amount, val_t1.value.currency());
+
+        // In metrics-based attribution, carry = theta (pure time decay).
+        // Roll-down requires full repricing which isn't available here;
+        // use parallel/waterfall attribution for total carry including roll-down.
+        attribution.carry_detail = Some(CarryDetail {
+            total: attribution.carry,
+            theta: Some(attribution.carry),
+            roll_down: None,
+        });
     }
 
     // 2. Rates curves attribution (DV01)
@@ -597,28 +606,97 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         }
     }
 
-    // 6. Market scalars (spot prices, dividends, etc.)
-    // For instruments with scalar exposure (equity options, etc.), use Delta/Gamma
-    // Note: Requires instrument to have equity_id() or underlying_id() method
-    // For now, skip spot attribution as it needs instrument-specific metadata
-    // (Instrument trait would need to expose underlying_id())
+    // 6. Market scalars: spot price Delta/Gamma attribution
+    //
+    // METRIC DEFINITION:
+    // - Delta: Dollar change per 1% spot move ($ / %)
+    // - Gamma: Dollar second derivative per (%)² spot move
+    // - Formula: PnL = Delta × Δspot + ½ × Gamma × (Δspot)²
+    //
+    // Uses spot_ids from MarketDependencies to identify underlying spot prices.
+    {
+        let spot_ids = &market_deps.spot_ids;
+        let delta_opt = val_t0.measures.get(MetricId::Delta.as_str());
+        let gamma_opt = val_t0.measures.get(MetricId::Gamma.as_str());
+
+        if let Some(&delta) = delta_opt {
+            let mut total_spot_pnl = 0.0;
+            let mut spot_shift_for_vanna = 0.0;
+            let mut spots_found = 0;
+
+            for spot_id in spot_ids {
+                if let Ok(spot_shift_pct) = measure_scalar_shift(spot_id, market_t0, market_t1) {
+                    total_spot_pnl += delta * spot_shift_pct;
+                    spot_shift_for_vanna += spot_shift_pct;
+                    spots_found += 1;
+                }
+            }
+
+            // Second-order: Gamma
+            if let Some(&gamma) = gamma_opt {
+                if spots_found > 0 {
+                    let avg_shift = spot_shift_for_vanna / spots_found as f64;
+                    total_spot_pnl += 0.5 * gamma * avg_shift * avg_shift;
+                }
+            }
+
+            if spots_found > 0 {
+                attribution.market_scalars_pnl =
+                    Money::new(total_spot_pnl, val_t1.value.currency());
+
+                // 6b. Vanna cross-gamma: spot-vol interaction
+                //
+                // METRIC DEFINITION:
+                // - Vanna: ∂²V / (∂spot × ∂σ), dollar cross-gamma per (% spot × vol point)
+                // - Formula: PnL = Vanna × Δspot × Δσ
+                if let Some(&vanna) = val_t0.measures.get(MetricId::Vanna.as_str()) {
+                    let avg_spot_shift = spot_shift_for_vanna / spots_found as f64;
+
+                    // Get vol shift for the vanna cross-term
+                    let vol_shift_opt = market_deps
+                        .equity_dependencies()
+                        .vol_surface_id
+                        .as_ref()
+                        .and_then(|surface_id| {
+                            measure_vol_surface_shift(
+                                surface_id.as_str(),
+                                market_t0,
+                                market_t1,
+                                None,
+                                None,
+                            )
+                            .ok()
+                        });
+
+                    if let Some(vol_shift) = vol_shift_opt {
+                        let vanna_pnl = vanna * avg_spot_shift * vol_shift;
+                        // Add vanna to vol P&L (it's a cross-term between spot and vol)
+                        attribution.vol_pnl = Money::new(
+                            attribution.vol_pnl.amount() + vanna_pnl,
+                            val_t1.value.currency(),
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     // 8. Model parameters attribution
     // Requires measuring parameter shifts from instrument at T0 vs T1
     // This needs instrument-specific parameter extraction (prepayment, default, recovery)
-    // For now, skip as it requires accessing instrument model parameters
     // (See model_params.rs for parameter extraction infrastructure)
 
-    // 7. Dividend attribution
+    // 7. Dividend attribution (accumulates into market_scalars_pnl alongside spot Delta/Gamma)
     if let Some(dividend01) = val_t0.measures.get(MetricId::Dividend01.as_str()) {
         if let Some(scalar_id) = instrument.dividend_schedule_id() {
-            // Try to measure dividend shift from market scalars
             if let Ok(div_shift_pct) =
                 measure_scalar_shift(scalar_id.as_str(), market_t0, market_t1)
             {
-                // Dividend01 is typically per 1% shift in dividend yield or amount
                 let div_amount = dividend01 * div_shift_pct;
-                attribution.market_scalars_pnl = Money::new(div_amount, val_t1.value.currency());
+                attribution.market_scalars_pnl = Money::new(
+                    attribution.market_scalars_pnl.amount() + div_amount,
+                    val_t1.value.currency(),
+                );
             }
         }
     }

@@ -1,6 +1,6 @@
 //! Loader for interest rate future conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, RegistryFile};
+use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::market::conventions::defs::IrFutureConventions;
 use crate::market::conventions::ids::{IndexId, IrFutureContractId};
 use finstack_core::Error;
@@ -61,10 +61,6 @@ impl IrFutureConventionsRecord {
     }
 }
 
-fn normalize_registry_id(id: &str) -> String {
-    id.trim().to_string()
-}
-
 /// Load the IR futures conventions from the embedded JSON registry.
 pub fn load_registry() -> Result<HashMap<IrFutureContractId, IrFutureConventions>, Error> {
     let json = include_str!("../../../../data/conventions/ir_future_conventions.json");
@@ -84,4 +80,26 @@ pub fn load_registry() -> Result<HashMap<IrFutureContractId, IrFutureConventions
         final_map.insert(IrFutureContractId::new(k), v?);
     }
     Ok(final_map)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn euribor_three_month_future_contract_is_available() {
+        let registry = load_registry().expect("ir future registry");
+        let euribor = registry
+            .get(&IrFutureContractId::new("ICE:ER"))
+            .expect("ICE:ER conventions");
+
+        assert_eq!(euribor.index_id, IndexId::new("EUR-EURIBOR-3M"));
+        assert_eq!(euribor.calendar_id, "target2");
+        assert_eq!(euribor.settlement_days, 2);
+        assert_eq!(euribor.delivery_months, 3);
+        assert_eq!(euribor.face_value, 1_000_000.0);
+        assert_eq!(euribor.tick_size, 0.005);
+        assert_eq!(euribor.tick_value, 12.50);
+    }
 }

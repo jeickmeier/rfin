@@ -123,6 +123,11 @@ pub fn apply_control_variate(
     control_analytical: f64,
     num_samples: usize,
 ) -> Estimate {
+    if num_samples < 2 {
+        let ci_95 = (mc_mean, mc_mean);
+        return Estimate::new(mc_mean, 0.0, ci_95, num_samples).with_std_dev(0.0);
+    }
+
     // Optimal beta coefficient
     let beta = if control_var > 1e-10 {
         covariance / control_var
@@ -135,6 +140,11 @@ pub fn apply_control_variate(
 
     // Adjusted variance
     let adjusted_var = mc_var - 2.0 * beta * covariance + beta * beta * control_var;
+    let adjusted_var = if adjusted_var < 0.0 && adjusted_var.abs() < 1e-12 {
+        0.0
+    } else {
+        adjusted_var.max(0.0)
+    };
     let adjusted_stderr = (adjusted_var / num_samples as f64).sqrt();
 
     // 95% confidence interval
@@ -151,7 +161,7 @@ pub fn apply_control_variate(
 pub fn covariance(x: &[f64], y: &[f64]) -> f64 {
     assert_eq!(x.len(), y.len(), "Samples must have same length");
     let n = x.len();
-    if n == 0 {
+    if n < 2 {
         return 0.0;
     }
 
@@ -280,5 +290,19 @@ mod tests {
         // Deep OTM call should be close to zero
         let price = black_scholes_call(80.0, 100.0, 0.01, 0.05, 0.0, 0.01);
         assert!(price < 0.1);
+    }
+
+    #[test]
+    fn covariance_returns_zero_for_single_sample() {
+        assert_eq!(covariance(&[1.0], &[2.0]), 0.0);
+    }
+
+    #[test]
+    fn control_variate_handles_single_sample_without_nan() {
+        let estimate = apply_control_variate(10.0, 1.0, 9.5, 0.5, 0.2, 9.0, 1);
+        assert_eq!(estimate.mean, 10.0);
+        assert_eq!(estimate.stderr, 0.0);
+        assert_eq!(estimate.ci_95, (10.0, 10.0));
+        assert_eq!(estimate.std_dev, Some(0.0));
     }
 }

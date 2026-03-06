@@ -59,9 +59,11 @@ impl MetricCalculator for DeltaCalculator {
 
         let delta = match option.vol_model {
             VolatilityModel::Black => {
-                if inputs.forward <= 0.0 {
-                    // Black model undefined for negative rates
-                    return Ok(0.0);
+                if inputs.forward <= 0.0 || strike <= 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Black swaption delta requires positive forward and strike, got forward={} strike={}",
+                        inputs.forward, strike
+                    )));
                 }
                 use crate::instruments::common_impl::models::d1_black76;
                 let d1 = d1_black76(inputs.forward, strike, inputs.sigma, inputs.time_to_expiry);

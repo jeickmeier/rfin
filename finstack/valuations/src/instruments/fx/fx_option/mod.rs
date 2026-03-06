@@ -50,13 +50,14 @@
 //!
 //! FX markets use multiple delta conventions:
 //!
-//! - **Spot delta**: ∂V/∂S (used here)
+//! - **Spot delta**: ∂V/∂S
 //! - **Forward delta**: ∂V/∂F where F = S·e^((r_d - r_f)T)
-//! - **Premium adjusted**: Accounts for premium payment
+//! - **Premium-adjusted spot delta**: spot delta scaled for domestic-currency premium settlement
+//! - **Premium-adjusted forward delta**: forward-delta quoting with premium adjustment
 //!
 //! Common strikes quoted in delta terms:
 //! - **25-delta call/put**: Out-of-money options
-//! - **ATM**: Either spot, forward, or delta-neutral ATM
+//! - **ATM**: Either spot, forward, or premium-adjusted delta-neutral ATM
 //! - **Risk reversal**: Spread between OTM call and put
 //! - **Butterfly**: Convexity measure
 //!
@@ -91,7 +92,7 @@
 //!
 //! - **European options only**: Uses analytical Garman-Kohlhagen formula
 //! - American and Bermudan exercise styles are **not supported** and will return an error
-//! - Spot delta convention (can convert to forward delta)
+//! - Spot, forward, and premium-adjusted delta conventions are exposed separately
 //! - Volatility surface interpolation via SABR when available
 //!
 //! # Examples
@@ -118,4 +119,4 @@ mod types;
 pub use crate::instruments::common_impl::parameters::FxUnderlyingParams;
 pub use parameters::FxOptionParams;
 pub use pricer::SimpleFxOptionBlackPricer;
-pub use types::FxOption;
+pub use types::{FxAtmDeltaConvention, FxOption};

@@ -1,6 +1,6 @@
 //! Loader for CDS conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, RegistryFile};
+use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::market::conventions::defs::CdsConventions;
 use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_core::currency::Currency;
@@ -41,10 +41,6 @@ impl CdsConventionsRecord {
             frequency: payment_frequency,
         })
     }
-}
-
-fn normalize_registry_id(id: &str) -> String {
-    id.trim().to_string()
 }
 
 /// Parse a doc clause string into `CdsDocClause`.
@@ -131,4 +127,47 @@ pub fn load_registry() -> Result<HashMap<CdsConventionKey, CdsConventions>, Erro
     }
 
     Ok(final_map)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explicit_asian_currency_overrides_take_precedence_over_any_defaults() {
+        let registry = load_registry().expect("cds registry");
+
+        let aud = registry
+            .get(&CdsConventionKey {
+                currency: Currency::AUD,
+                doc_clause: CdsDocClause::IsdaAs,
+            })
+            .expect("AUD IsdaAs");
+        assert_eq!(aud.calendar_id, "auce");
+
+        let nzd = registry
+            .get(&CdsConventionKey {
+                currency: Currency::NZD,
+                doc_clause: CdsDocClause::IsdaAs,
+            })
+            .expect("NZD IsdaAs");
+        assert_eq!(nzd.calendar_id, "nzau");
+
+        let hkd = registry
+            .get(&CdsConventionKey {
+                currency: Currency::HKD,
+                doc_clause: CdsDocClause::IsdaAs,
+            })
+            .expect("HKD IsdaAs");
+        assert_eq!(hkd.calendar_id, "hkhk");
+
+        let sgd = registry
+            .get(&CdsConventionKey {
+                currency: Currency::SGD,
+                doc_clause: CdsDocClause::IsdaAs,
+            })
+            .expect("SGD IsdaAs");
+        assert_eq!(sgd.calendar_id, "sgsi");
+    }
 }

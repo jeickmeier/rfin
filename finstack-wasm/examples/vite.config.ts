@@ -17,6 +17,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      'finstack-wasm/types': resolve(__dirname, '../types/generated'),
       'finstack-wasm': resolve(__dirname, '../pkg'),
       '@': resolve(__dirname, './src'),
     },

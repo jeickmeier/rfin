@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use serde::{de::DeserializeOwned, Serialize};
+
 use crate::market_data::bumps::{BumpSpec, BumpType, Bumpable};
 use crate::market_data::term_structures::{
     BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve,
@@ -21,32 +23,29 @@ pub(crate) trait RebuildableWithId: Sized {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self>;
 }
 
+fn rebuild_via_serde<C>(curve: &C, id: CurveId) -> Result<C>
+where
+    C: Serialize + DeserializeOwned,
+{
+    let mut value = serde_json::to_value(curve)
+        .map_err(|e| crate::Error::Validation(format!("failed to serialize curve state: {e}")))?;
+    let object = value.as_object_mut().ok_or_else(|| {
+        crate::Error::Validation("curve state did not serialize as an object".to_string())
+    })?;
+    object.insert("id".to_string(), serde_json::Value::String(id.to_string()));
+    serde_json::from_value(value)
+        .map_err(|e| crate::Error::Validation(format!("failed to deserialize curve state: {e}")))
+}
+
 impl RebuildableWithId for DiscountCurve {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
-        DiscountCurve::builder(id)
-            .base_date(self.base_date())
-            .day_count(self.day_count())
-            .knots(self.knots().iter().copied().zip(self.dfs().iter().copied()))
-            .interp(self.interp_style())
-            .extrapolation(self.extrapolation())
-            .allow_non_monotonic()
-            .build()
+        rebuild_via_serde(self, id)
     }
 }
 
 impl RebuildableWithId for ForwardCurve {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
-        ForwardCurve::builder(id, self.tenor())
-            .base_date(self.base_date())
-            .reset_lag(self.reset_lag())
-            .day_count(self.day_count())
-            .knots(
-                self.knots()
-                    .iter()
-                    .copied()
-                    .zip(self.forwards().iter().copied()),
-            )
-            .build()
+        rebuild_via_serde(self, id)
     }
 }
 
@@ -58,15 +57,7 @@ impl RebuildableWithId for HazardCurve {
 
 impl RebuildableWithId for InflationCurve {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
-        InflationCurve::builder(id)
-            .base_cpi(self.base_cpi())
-            .knots(
-                self.knots()
-                    .iter()
-                    .copied()
-                    .zip(self.cpi_levels().iter().copied()),
-            )
-            .build()
+        rebuild_via_serde(self, id)
     }
 }
 
@@ -85,33 +76,13 @@ impl RebuildableWithId for BaseCorrelationCurve {
 
 impl RebuildableWithId for VolatilityIndexCurve {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
-        VolatilityIndexCurve::builder(id)
-            .base_date(self.base_date())
-            .day_count(self.day_count())
-            .spot_level(self.spot_level())
-            .knots(
-                self.knots()
-                    .iter()
-                    .copied()
-                    .zip(self.levels().iter().copied()),
-            )
-            .build()
+        rebuild_via_serde(self, id)
     }
 }
 
 impl RebuildableWithId for PriceCurve {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
-        PriceCurve::builder(id)
-            .base_date(self.base_date())
-            .day_count(self.day_count())
-            .spot_price(self.spot_price())
-            .knots(
-                self.knots()
-                    .iter()
-                    .copied()
-                    .zip(self.prices().iter().copied()),
-            )
-            .build()
+        rebuild_via_serde(self, id)
     }
 }
 
@@ -464,5 +435,119 @@ impl From<PriceCurve> for CurveStorage {
 impl From<Arc<PriceCurve>> for CurveStorage {
     fn from(c: Arc<PriceCurve>) -> Self {
         Self::Price(c)
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+mod tests {
+    use super::*;
+    use crate::dates::{Date, DayCount};
+    use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
+    use serde_json::Value;
+    use time::Month;
+
+    fn test_date() -> Date {
+        Date::from_calendar_date(2025, Month::January, 1).expect("valid test date")
+    }
+
+    fn json(curve: &impl serde::Serialize) -> Value {
+        serde_json::to_value(curve).expect("curve should serialize")
+    }
+
+    #[test]
+    fn forward_bump_preserves_interp_and_extrapolation() {
+        let curve = ForwardCurve::builder("FWD", 0.25)
+            .base_date(test_date())
+            .reset_lag(0)
+            .day_count(DayCount::Act365F)
+            .interp(InterpStyle::LogLinear)
+            .extrapolation(ExtrapolationPolicy::FlatZero)
+            .knots([(0.5, 0.02), (1.0, 0.025), (2.0, 0.03)])
+            .build()
+            .expect("curve builds");
+        let original = json(&curve);
+
+        let storage = CurveStorage::from(curve);
+        let bumped = storage
+            .apply_bump_preserving_id(&CurveId::from("FWD"), BumpSpec::parallel_bp(1.0))
+            .expect("bump succeeds");
+        let bumped_curve = bumped.forward().expect("forward curve");
+        let bumped_json = json(bumped_curve.as_ref());
+
+        assert_eq!(bumped_curve.interp_style(), InterpStyle::LogLinear);
+        assert_eq!(bumped_json["reset_lag"], original["reset_lag"]);
+        assert_eq!(bumped_json["day_count"], original["day_count"]);
+        assert_eq!(bumped_json["interp_style"], original["interp_style"]);
+        assert_eq!(bumped_json["extrapolation"], original["extrapolation"]);
+    }
+
+    #[test]
+    fn inflation_bump_preserves_lag_day_count_and_interp() {
+        let curve = InflationCurve::builder("CPI")
+            .base_date(test_date())
+            .base_cpi(300.0)
+            .day_count(DayCount::Act360)
+            .indexation_lag_months(2)
+            .interp(InterpStyle::LogLinear)
+            .knots([(0.0, 300.0), (5.0, 325.0), (10.0, 350.0)])
+            .build()
+            .expect("curve builds");
+        let original = json(&curve);
+
+        let storage = CurveStorage::from(curve);
+        let bumped = storage
+            .apply_bump_preserving_id(&CurveId::from("CPI"), BumpSpec::inflation_shift_pct(1.0))
+            .expect("bump succeeds");
+        let bumped_curve = bumped.inflation().expect("inflation curve");
+        let bumped_json = json(bumped_curve.as_ref());
+
+        assert_eq!(bumped_curve.day_count(), DayCount::Act360);
+        assert_eq!(bumped_curve.indexation_lag_months(), 2);
+        assert_eq!(bumped_curve.interp_style(), InterpStyle::LogLinear);
+        assert_eq!(bumped_json["base_date"], original["base_date"]);
+        assert_eq!(bumped_json["day_count"], original["day_count"]);
+        assert_eq!(
+            bumped_json["indexation_lag_months"],
+            original["indexation_lag_months"]
+        );
+        assert_eq!(bumped_json["interp_style"], original["interp_style"]);
+        assert_eq!(bumped_json["extrapolation"], original["extrapolation"]);
+    }
+
+    #[test]
+    fn discount_bump_preserves_forward_controls() {
+        let curve = DiscountCurve::builder("DISC")
+            .base_date(test_date())
+            .day_count(DayCount::Act365F)
+            .interp(InterpStyle::Linear)
+            .extrapolation(ExtrapolationPolicy::FlatForward)
+            .knots([(0.5, 1.0), (1.0, 1.001), (2.0, 1.002)])
+            .allow_non_monotonic_with_floor()
+            .min_forward_tenor(1e-8)
+            .build()
+            .expect("curve builds");
+        let original = json(&curve);
+
+        let storage = CurveStorage::from(curve);
+        let bumped = storage
+            .apply_bump_preserving_id(&CurveId::from("DISC"), BumpSpec::parallel_bp(1.0))
+            .expect("bump succeeds");
+        let bumped_curve = bumped.discount().expect("discount curve");
+        let bumped_json = json(bumped_curve.as_ref());
+
+        assert_eq!(bumped_curve.interp_style(), InterpStyle::Linear);
+        assert_eq!(
+            bumped_json["allow_non_monotonic"],
+            original["allow_non_monotonic"]
+        );
+        assert_eq!(
+            bumped_json["min_forward_rate"],
+            original["min_forward_rate"]
+        );
+        assert_eq!(
+            bumped_json["min_forward_tenor"],
+            original["min_forward_tenor"]
+        );
     }
 }

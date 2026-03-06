@@ -316,6 +316,11 @@ let rv = realized_variance(&prices, RealizedVarMethod::CloseToClose, 252.0);
 assert!(rv >= 0.0);
 ```
 
+`RealizedVarMethod::CloseToClose` uses the mean squared log-return estimator
+rather than sample variance, and the Yang-Zhang implementation includes
+overnight, open-to-close, and Rogers-Satchell components in the standard
+weighting formula.
+
 ---
 
 ## Adding New Features

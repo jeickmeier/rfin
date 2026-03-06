@@ -328,6 +328,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             use crate::instruments::common_impl::parameters::legs::PayReceive;
 
             // Map conventions
+            let end_of_month = start == start.end_of_month();
             let leg_conv = IrsLegConventions {
                 fixed_freq: conv.default_fixed_leg_frequency,
                 float_freq: conv.default_payment_frequency,
@@ -336,7 +337,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 bdc: conv.market_business_day_convention,
                 payment_calendar_id: Some(conv.market_calendar_id.clone()),
                 fixing_calendar_id: Some(conv.market_calendar_id.clone()),
-                stub: finstack_core::dates::StubKind::None, // Default
+                stub: finstack_core::dates::StubKind::ShortFront,
                 reset_lag_days: conv.default_reset_lag_days,
                 payment_lag_days: conv.default_payment_lag_days,
             };
@@ -380,7 +381,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 par_method: None,
                 compounding_simple: true,
                 payment_lag_days: leg_conv.payment_lag_days,
-                end_of_month: false,
+                end_of_month,
             };
 
             let float = crate::instruments::common_impl::parameters::legs::FloatLegSpec {
@@ -398,7 +399,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 end: maturity,
                 compounding,
                 payment_lag_days: leg_conv.payment_lag_days,
-                end_of_month: false,
+                end_of_month,
             };
 
             let mut swap = InterestRateSwap::builder()
@@ -685,6 +686,67 @@ mod tests {
                 days_diff
             );
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_swap_defaults_to_short_front_stub() -> Result<()> {
+        let ctx = usd_build_ctx();
+
+        let quote = RateQuote::Swap {
+            id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
+            index: IndexId::new("USD-SOFR-OIS"),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
+            rate: 0.0450,
+            spread_decimal: None,
+        };
+
+        let instrument = build_rate_instrument(&quote, &ctx)?;
+        use crate::instruments::rates::irs::InterestRateSwap;
+        let swap = instrument
+            .as_any()
+            .downcast_ref::<InterestRateSwap>()
+            .expect("Expected InterestRateSwap");
+
+        assert_eq!(swap.fixed.stub, finstack_core::dates::StubKind::ShortFront);
+        assert_eq!(swap.float.stub, finstack_core::dates::StubKind::ShortFront);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_swap_enables_eom_when_start_is_month_end() -> Result<()> {
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 31).unwrap();
+        let mut curve_ids = HashMap::default();
+        curve_ids.insert("discount".to_string(), "GBP-SONIA-OIS".to_string());
+        curve_ids.insert("forward".to_string(), "GBP-SONIA-OIS".to_string());
+        let ctx = BuildCtx::new(as_of, 1_000_000.0, curve_ids);
+
+        let quote = RateQuote::Swap {
+            id: QuoteId::new("GBP-SONIA-OIS-SWAP-2Y"),
+            index: IndexId::new("GBP-SONIA-OIS"),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                2,
+                finstack_core::dates::TenorUnit::Years,
+            )),
+            rate: 0.04,
+            spread_decimal: None,
+        };
+
+        let instrument = build_rate_instrument(&quote, &ctx)?;
+        use crate::instruments::rates::irs::InterestRateSwap;
+        let swap = instrument
+            .as_any()
+            .downcast_ref::<InterestRateSwap>()
+            .expect("Expected InterestRateSwap");
+
+        assert!(swap.fixed.start.month() == time::Month::January && swap.fixed.start.day() == 31);
+        assert!(swap.fixed.end_of_month);
+        assert!(swap.float.end_of_month);
 
         Ok(())
     }

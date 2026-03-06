@@ -584,3 +584,8 @@ mod tests {
 | Curve interpolation or discount factors | `core::math::interp`, `market_data` |
 
 Keep analytics functions in this module **instrument-agnostic** and **dependency-free**: no Polars, no market data curves, no instrument types. If a function needs a curve or a price model, it belongs in `valuations` or `scenarios`.
+
+Data-quality note: compounded-return helpers now propagate `NaN` inputs rather
+than coercing them into synthetic wipeouts, and `Performance::new(...)` rejects
+ragged price matrices or ticker/date mismatches instead of silently aligning
+them with truncated series.

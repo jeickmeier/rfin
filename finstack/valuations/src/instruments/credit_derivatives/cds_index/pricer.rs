@@ -109,7 +109,14 @@ impl CDSIndexPricer {
             |pricer, cds, disc, surv, as_of| pricer.npv(cds, disc, surv, as_of),
         )?;
         if let Some(upfront) = index.pricing_overrides.market_quotes.upfront_payment {
-            result.total = result.total.checked_add(upfront)?;
+            result.total = match index.side {
+                crate::instruments::credit_derivatives::cds::PayReceive::PayFixed => {
+                    result.total.checked_sub(upfront)?
+                }
+                crate::instruments::credit_derivatives::cds::PayReceive::ReceiveFixed => {
+                    result.total.checked_add(upfront)?
+                }
+            };
         }
         Ok(result)
     }
@@ -317,60 +324,46 @@ impl CDSIndexPricer {
     ) -> Result<f64> {
         let credit_id = &cds.protection.credit_curve_id;
         let discount_id = &cds.premium.discount_curve_id;
+        let bump_bp = 1.0_f64;
 
-        // Base PV
         let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         let hazard = curves.get_hazard(credit_id)?;
         let hazard_ref = hazard.as_ref();
         let has_par_points = hazard_ref.par_spread_points().next().is_some();
 
-        let base_pv = if has_par_points {
-            match bump_hazard_spreads(
-                hazard_ref,
-                curves,
-                &BumpRequest::Parallel(0.0),
-                Some(discount_id),
-            ) {
-                Ok(base_recal) => {
-                    let base_ctx = curves.clone().insert_hazard(base_recal);
-                    let disc = base_ctx.get_discount(discount_id)?;
-                    let surv = base_ctx.get_hazard(credit_id)?;
-                    pricer.npv(cds, disc.as_ref(), surv.as_ref(), as_of)?
+        let bump_hazard_for = |bp: f64| -> Result<_> {
+            if has_par_points {
+                match bump_hazard_spreads(
+                    hazard_ref,
+                    curves,
+                    &BumpRequest::Parallel(bp),
+                    Some(discount_id),
+                ) {
+                    Ok(curve) => Ok(curve),
+                    Err(_) => bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(bp)),
                 }
-                Err(_) => {
-                    let disc = curves.get_discount(discount_id)?;
-                    let surv = curves.get_hazard(credit_id)?;
-                    pricer.npv(cds, disc.as_ref(), surv.as_ref(), as_of)?
-                }
+            } else {
+                bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(bp))
             }
-        } else {
-            let disc = curves.get_discount(discount_id)?;
-            let surv = curves.get_hazard(credit_id)?;
-            pricer.npv(cds, disc.as_ref(), surv.as_ref(), as_of)?
         };
 
-        let bumped_hazard = if has_par_points {
-            match bump_hazard_spreads(
-                hazard_ref,
-                curves,
-                &BumpRequest::Parallel(1.0),
-                Some(discount_id),
-            ) {
-                Ok(curve) => curve,
-                Err(_) => bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(1.0))?,
-            }
-        } else {
-            bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(1.0))?
-        };
-
-        let bumped_ctx = curves.clone().insert_hazard(bumped_hazard);
-        let bumped_disc = bumped_ctx.get_discount(discount_id)?;
-        let bumped_surv = bumped_ctx.get_hazard(credit_id)?;
-        let bumped_pv = pricer
-            .npv(cds, bumped_disc.as_ref(), bumped_surv.as_ref(), as_of)?
+        let bumped_up = bump_hazard_for(bump_bp)?;
+        let ctx_up = curves.clone().insert_hazard(bumped_up);
+        let disc_up = ctx_up.get_discount(discount_id)?;
+        let surv_up = ctx_up.get_hazard(credit_id)?;
+        let pv_up = pricer
+            .npv(cds, disc_up.as_ref(), surv_up.as_ref(), as_of)?
             .amount();
 
-        Ok(bumped_pv - base_pv.amount())
+        let bumped_down = bump_hazard_for(-bump_bp)?;
+        let ctx_down = curves.clone().insert_hazard(bumped_down);
+        let disc_down = ctx_down.get_discount(discount_id)?;
+        let surv_down = ctx_down.get_hazard(credit_id)?;
+        let pv_down = pricer
+            .npv(cds, disc_down.as_ref(), surv_down.as_ref(), as_of)?
+            .amount();
+
+        Ok((pv_up - pv_down) / (2.0 * bump_bp))
     }
 
     // ----- internals -----
@@ -494,18 +487,26 @@ impl CDSIndexPricer {
                 return Err(finstack_core::InputError::Invalid.into());
             }
         }
-        let norm = if self.config.normalize_weights && sum_w > 0.0 {
+        let active_constituents: Vec<_> =
+            index.constituents.iter().filter(|c| !c.defaulted).collect();
+        if active_constituents.is_empty() {
+            return Ok(Vec::new());
+        }
+        let active_sum_w: f64 = active_constituents.iter().map(|c| c.weight).sum();
+        let norm = if active_constituents.len() != index.constituents.len() && active_sum_w > 0.0 {
+            active_sum_w
+        } else if self.config.normalize_weights && sum_w > 0.0 {
             sum_w
         } else {
             1.0
         };
-        let mut out = Vec::with_capacity(index.constituents.len());
+        let mut out = Vec::with_capacity(active_constituents.len());
         let scale = if self.config.use_index_factor {
             index.index_factor
         } else {
             1.0
         };
-        for (i, con) in index.constituents.iter().enumerate() {
+        for (i, con) in active_constituents.into_iter().enumerate() {
             let eff_w = con.weight / norm;
             let notional = Money::new(
                 index.notional.amount() * scale * eff_w,
@@ -615,5 +616,104 @@ impl crate::pricer::Pricer for SimpleCdsIndexHazardPricer {
             as_of,
             pv,
         ))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/test_utils.rs"
+        ));
+    }
+
+    use super::*;
+    use crate::instruments::common_impl::parameters::CreditParams;
+    use crate::instruments::credit_derivatives::cds_index::CDSIndexConstituent;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::term_structures::HazardCurve;
+    use test_utils::{date, flat_discount_with_tenor};
+
+    fn sample_market(as_of: Date) -> MarketContext {
+        let hazard = HazardCurve::builder("CDX.NA.IG.HAZARD")
+            .base_date(as_of)
+            .currency(Currency::USD)
+            .recovery_rate(0.40)
+            .knots([(0.0, 0.02), (5.0, 0.02)])
+            .build()
+            .expect("hazard curve should build");
+
+        MarketContext::new()
+            .insert_discount(flat_discount_with_tenor("USD-OIS", as_of, 0.03, 5.0))
+            .insert_hazard(hazard)
+    }
+
+    #[test]
+    fn constituent_positions_skip_defaulted_names_and_renormalize_live_weights() {
+        let mut index = CDSIndex::example();
+        index.pricing = IndexPricing::Constituents;
+        index.index_factor = 0.6;
+        index.constituents = vec![
+            CDSIndexConstituent {
+                credit: CreditParams::corporate_standard("LIVE", "LIVE-HAZARD"),
+                weight: 0.6,
+                defaulted: false,
+            },
+            CDSIndexConstituent {
+                credit: CreditParams::corporate_standard("DEFAULTED", "DEFAULTED-HAZARD"),
+                weight: 0.4,
+                defaulted: true,
+            },
+        ];
+
+        let positions = CDSIndexPricer::new()
+            .constituent_positions(&index)
+            .expect("constituent positions should resolve");
+
+        assert_eq!(positions.len(), 1);
+        assert_eq!(positions[0].credit_curve_id.as_str(), "LIVE-HAZARD");
+        assert!((positions[0].weight_effective - 1.0).abs() < 1e-12);
+        assert!(
+            (positions[0].cds.notional.amount() - index.notional.amount() * index.index_factor)
+                .abs()
+                < 1e-8
+        );
+    }
+
+    #[test]
+    fn upfront_override_respects_pay_receive_sign() {
+        let as_of = date(2024, 1, 1);
+        let market = sample_market(as_of);
+        let pricer = CDSIndexPricer::new();
+        let upfront = Money::new(125_000.0, Currency::USD);
+
+        let mut pay = CDSIndex::example();
+        pay.pricing_overrides.market_quotes.upfront_payment = Some(upfront);
+        let pay_base = pricer
+            .npv(&CDSIndex::example(), &market, as_of)
+            .expect("base pay npv");
+        let pay_with_upfront = pricer
+            .npv(&pay, &market, as_of)
+            .expect("pay npv with upfront");
+
+        let mut receive = CDSIndex::example();
+        receive.side = crate::instruments::credit_derivatives::cds::PayReceive::ReceiveFixed;
+        let mut receive_with_upfront = receive.clone();
+        receive_with_upfront
+            .pricing_overrides
+            .market_quotes
+            .upfront_payment = Some(upfront);
+        let receive_base = pricer
+            .npv(&receive, &market, as_of)
+            .expect("base receive npv");
+        let receive_total = pricer
+            .npv(&receive_with_upfront, &market, as_of)
+            .expect("receive npv with upfront");
+
+        assert!((pay_with_upfront.amount() - (pay_base.amount() - upfront.amount())).abs() < 1e-8);
+        assert!((receive_total.amount() - (receive_base.amount() + upfront.amount())).abs() < 1e-8);
     }
 }

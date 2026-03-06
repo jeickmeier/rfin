@@ -434,10 +434,10 @@ mod tests {
     #[test]
     fn test_agency_program_payment_delays() {
         assert_eq!(AgencyProgram::Fnma.payment_lag_days(), 55);
-        assert_eq!(AgencyProgram::Fhlmc.payment_lag_days(), 75);
-        assert_eq!(AgencyProgram::Gnma.payment_lag_days(), 45);
+        assert_eq!(AgencyProgram::Fhlmc.payment_lag_days(), 55);
+        assert_eq!(AgencyProgram::Gnma.payment_lag_days(), 50);
         assert_eq!(AgencyProgram::GnmaI.payment_lag_days(), 14);
-        assert_eq!(AgencyProgram::GnmaII.payment_lag_days(), 45);
+        assert_eq!(AgencyProgram::GnmaII.payment_lag_days(), 50);
     }
 
     #[test]

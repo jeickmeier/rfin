@@ -707,6 +707,15 @@ pub fn multi_factor_greeks(
     if n < p + 1 || k == 0 {
         return zero_result;
     }
+    if returns.iter().any(|r| !r.is_finite()) {
+        return zero_result;
+    }
+    if factors
+        .iter()
+        .any(|factor| factor.len() != n || factor.iter().any(|v| !v.is_finite()))
+    {
+        return zero_result;
+    }
 
     // Build X'X and X'y where X[:,0] = 1 (intercept)
     let mut xtx = vec![0.0_f64; p * p];
@@ -716,18 +725,18 @@ pub fn multi_factor_greeks(
         // X'y
         xty[0] += y;
         for j in 0..k {
-            let fj = factors[j].get(t).copied().unwrap_or(0.0);
+            let fj = factors[j][t];
             xty[j + 1] += fj * y;
         }
 
         // X'X
         xtx[0] += 1.0; // (0,0)
         for j in 0..k {
-            let fj = factors[j].get(t).copied().unwrap_or(0.0);
+            let fj = factors[j][t];
             xtx[j + 1] += fj; // (0, j+1)
             xtx[(j + 1) * p] += fj; // (j+1, 0)
             for m in 0..k {
-                let fm = factors[m].get(t).copied().unwrap_or(0.0);
+                let fm = factors[m][t];
                 xtx[(j + 1) * p + (m + 1)] += fj * fm;
             }
         }
@@ -782,7 +791,7 @@ pub fn multi_factor_greeks(
     for (t, &r) in returns.iter().enumerate().take(n) {
         let mut y_hat = alpha_per_period;
         for j in 0..k {
-            let fj = factors[j].get(t).copied().unwrap_or(0.0);
+            let fj = factors[j][t];
             y_hat += factor_betas[j] * fj;
         }
         let residual = r - y_hat;
@@ -989,6 +998,16 @@ mod tests {
     fn multi_factor_empty() {
         let result = multi_factor_greeks(&[], &[&[]], 252.0);
         assert_eq!(result.alpha, 0.0);
+    }
+
+    #[test]
+    fn multi_factor_mismatched_factor_lengths_return_zero_result() {
+        let y = [0.02, 0.04, 0.06, 0.08, 0.10];
+        let f1 = [0.01, 0.02, 0.03];
+        let result = multi_factor_greeks(&y, &[&f1], 252.0);
+        assert_eq!(result.alpha, 0.0);
+        assert_eq!(result.betas, vec![0.0]);
+        assert_eq!(result.r_squared, 0.0);
     }
 
     #[test]

@@ -227,6 +227,24 @@ pub struct SimmRecord {
     pub fx_delta_weight: f64,
     pub risk_class_correlations: Vec<RiskClassCorrelationRecord>,
     pub commodity_bucket_weights: Value,
+    #[serde(default)]
+    pub ir_tenor_correlations: Value,
+    #[serde(default)]
+    pub ir_vega_weight: Option<f64>,
+    #[serde(default)]
+    pub cq_vega_weight: Option<f64>,
+    #[serde(default)]
+    pub cnq_vega_weight: Option<f64>,
+    #[serde(default)]
+    pub equity_vega_weight: Option<f64>,
+    #[serde(default)]
+    pub fx_vega_weight: Option<f64>,
+    #[serde(default)]
+    pub commodity_vega_weight: Option<f64>,
+    #[serde(default)]
+    pub curvature_scale_factor: Option<f64>,
+    #[serde(default)]
+    pub concentration_thresholds: Value,
 }
 
 #[derive(Debug, Deserialize)]

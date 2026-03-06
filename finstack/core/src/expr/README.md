@@ -10,6 +10,11 @@ etc.) over plain `f64` slices. It is designed to be:
 - **Cache‑friendly**: intermediate node results can be cached with an LRU cache and explicit memory budget.
 - **Embedding‑friendly**: no Polars dependency, `ExpressionContext` makes the caller responsible for column resolution.
 
+Semantics note: when input columns have mismatched lengths, missing tail values
+propagate as `NaN` instead of being silently zero-filled. Adjusted EWM mean also
+uses the standard weighted numerator/denominator form (`adjust=true`) rather than
+normalizing a recursive EMA after the fact.
+
 At a high level, you:
 
 - **Build an AST** with `Expr`, `ExprNode`, `BinOp`, `UnaryOp`, and `Function`.

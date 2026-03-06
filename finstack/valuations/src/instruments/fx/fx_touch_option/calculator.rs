@@ -28,11 +28,17 @@ impl FxTouchOptionCalculator {
         let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
 
         if t <= 0.0 {
-            // Expired without being exercised - for no-touch, full payout;
-            // for one-touch, check if barrier was breached (assume not for static valuation).
-            let pv = match inst.touch_type {
-                TouchType::OneTouch => 0.0,
-                TouchType::NoTouch => inst.payout_amount.amount(),
+            let observed_touch = inst.observed_touch.ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "Expired FX touch option requires explicit observed touch state".to_string(),
+                )
+            })?;
+            let pv = match (inst.touch_type, observed_touch, inst.payout_timing) {
+                (TouchType::OneTouch, true, PayoutTiming::AtExpiry) => inst.payout_amount.amount(),
+                (TouchType::OneTouch, true, PayoutTiming::AtHit) => 0.0,
+                (TouchType::OneTouch, false, _) => 0.0,
+                (TouchType::NoTouch, true, _) => 0.0,
+                (TouchType::NoTouch, false, _) => inst.payout_amount.amount(),
             };
             return Ok(Money::new(pv, inst.quote_currency));
         }
@@ -484,7 +490,9 @@ mod tests {
     #[test]
     fn expired_one_touch_returns_zero() {
         let expiry = date(2025, 1, 3);
-        let option = base_touch_option(expiry, TouchType::OneTouch, BarrierDirection::Down, 1.05);
+        let mut option =
+            base_touch_option(expiry, TouchType::OneTouch, BarrierDirection::Down, 1.05);
+        option.observed_touch = Some(false);
         let ctx = market_context(expiry, 1.18, 0.2, 0.02, 0.01);
         let calc = FxTouchOptionCalculator;
 
@@ -495,7 +503,9 @@ mod tests {
     #[test]
     fn expired_no_touch_returns_full_payout() {
         let expiry = date(2025, 1, 3);
-        let option = base_touch_option(expiry, TouchType::NoTouch, BarrierDirection::Down, 1.05);
+        let mut option =
+            base_touch_option(expiry, TouchType::NoTouch, BarrierDirection::Down, 1.05);
+        option.observed_touch = Some(false);
         let ctx = market_context(expiry, 1.18, 0.2, 0.02, 0.01);
         let calc = FxTouchOptionCalculator;
 
@@ -540,5 +550,64 @@ mod tests {
             pv_hit.amount(),
             pv_expiry.amount()
         );
+    }
+
+    #[test]
+    fn expired_touch_option_requires_observed_touch_state() {
+        let expiry = date(2025, 1, 3);
+        let option = base_touch_option(expiry, TouchType::OneTouch, BarrierDirection::Down, 1.05);
+        let ctx = market_context(expiry, 1.18, 0.2, 0.02, 0.01);
+        let calc = FxTouchOptionCalculator;
+
+        let err = calc
+            .npv(&option, &ctx, expiry)
+            .expect_err("expired touch option should require explicit observed touch state");
+
+        assert!(
+            err.to_string().contains("observed touch state"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn expired_touch_option_uses_observed_touch_state_for_settlement() {
+        let expiry = date(2025, 1, 3);
+        let mut one_touch =
+            base_touch_option(expiry, TouchType::OneTouch, BarrierDirection::Down, 1.05);
+        one_touch.observed_touch = Some(true);
+
+        let mut no_touch =
+            base_touch_option(expiry, TouchType::NoTouch, BarrierDirection::Down, 1.05);
+        no_touch.observed_touch = Some(true);
+
+        let ctx = market_context(expiry, 1.18, 0.2, 0.02, 0.01);
+        let calc = FxTouchOptionCalculator;
+
+        let pv_ot = calc
+            .npv(&one_touch, &ctx, expiry)
+            .expect("should settle one-touch");
+        let pv_nt = calc
+            .npv(&no_touch, &ctx, expiry)
+            .expect("should settle no-touch");
+
+        approx_eq(pv_ot.amount(), one_touch.payout_amount.amount(), 1e-6);
+        approx_eq(pv_nt.amount(), 0.0, 1e-6);
+    }
+
+    #[test]
+    fn expired_pay_at_hit_one_touch_has_no_remaining_value_after_observed_hit() {
+        let expiry = date(2025, 1, 3);
+        let mut option =
+            base_touch_option(expiry, TouchType::OneTouch, BarrierDirection::Down, 1.05);
+        option.payout_timing = PayoutTiming::AtHit;
+        option.observed_touch = Some(true);
+
+        let ctx = market_context(expiry, 1.18, 0.2, 0.02, 0.01);
+        let calc = FxTouchOptionCalculator;
+
+        let pv = calc
+            .npv(&option, &ctx, expiry)
+            .expect("should settle touched pay-at-hit option");
+        approx_eq(pv.amount(), 0.0, 1e-6);
     }
 }

@@ -4,8 +4,8 @@
 //! with stable schemas and deterministic round-trip serialization.
 
 use super::{
-    attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_waterfall,
-    AttributionMethod, JsonEnvelope, ModelParamsSnapshot, PnlAttribution,
+    attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor_compat,
+    attribute_pnl_waterfall, AttributionMethod, JsonEnvelope, ModelParamsSnapshot, PnlAttribution,
 };
 use crate::instruments::json_loader::InstrumentJson;
 use crate::metrics::MetricId;
@@ -167,6 +167,15 @@ impl AttributionSpec {
                 order.clone(),
                 strict_validation,
                 self.model_params_t0.as_ref(),
+            )?,
+
+            AttributionMethod::Taylor(ref taylor_config) => attribute_pnl_taylor_compat(
+                &instrument_arc,
+                &market_t0,
+                &market_t1,
+                self.as_of_t0,
+                self.as_of_t1,
+                taylor_config,
             )?,
 
             AttributionMethod::MetricsBased => {

@@ -49,6 +49,293 @@ use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 
 use super::types::{ExposureProfile, FundingConfig, XvaResult};
 
+fn validate_exposure_profile_lengths(
+    exposure_profile: &ExposureProfile,
+    label: &str,
+) -> finstack_core::Result<usize> {
+    if exposure_profile.times.is_empty() {
+        return Err(finstack_core::Error::Validation(format!(
+            "{label}: exposure profile must not be empty"
+        )));
+    }
+
+    let n = exposure_profile.times.len();
+    if exposure_profile.epe.len() != n || exposure_profile.ene.len() != n {
+        return Err(finstack_core::Error::Validation(format!(
+            "{label}: exposure profile vector lengths must be equal \
+             (times={n}, epe={}, ene={})",
+            exposure_profile.epe.len(),
+            exposure_profile.ene.len()
+        )));
+    }
+
+    Ok(n)
+}
+
+fn compute_cva_internal(
+    exposure_profile: &ExposureProfile,
+    counterparty_hazard_curve: &HazardCurve,
+    discount_curve: &DiscountCurve,
+    recovery_rate: f64,
+    own_survival_curve: Option<&HazardCurve>,
+) -> finstack_core::Result<XvaResult> {
+    let n = validate_exposure_profile_lengths(exposure_profile, "CVA")?;
+
+    if !(0.0..=1.0).contains(&recovery_rate) {
+        return Err(finstack_core::Error::Validation(format!(
+            "CVA: recovery_rate {recovery_rate} must be in [0, 1]"
+        )));
+    }
+
+    let lgd = 1.0 - recovery_rate;
+
+    let mut cva = 0.0;
+    let mut epe_profile = Vec::with_capacity(n);
+    let mut ene_profile = Vec::with_capacity(n);
+    let mut pfe_profile = Vec::with_capacity(n);
+    let mut effective_epe_profile = Vec::with_capacity(n);
+    let mut max_pfe: f64 = 0.0;
+    let mut effective_epe_running: f64 = 0.0;
+    let mut eff_epe_time_integral: f64 = 0.0;
+    let maturity = exposure_profile.times[n - 1];
+    let effective_epe_horizon = maturity.min(1.0);
+
+    let mut prev_survival = 1.0;
+    let mut prev_own_survival = 1.0;
+    let mut prev_epe: f64 = 0.0;
+    let mut prev_df: f64 = 1.0;
+    let mut prev_t: f64 = 0.0;
+
+    for i in 0..n {
+        let t = exposure_profile.times[i];
+        let epe_t = exposure_profile.epe[i];
+        let ene_t = exposure_profile.ene[i];
+
+        let survival_t = counterparty_hazard_curve.sp(t);
+        if !survival_t.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "CVA: non-finite survival probability at t={t}: S(t)={survival_t}"
+            )));
+        }
+
+        let own_survival_t = if let Some(curve) = own_survival_curve {
+            let sp = curve.sp(t);
+            if !sp.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "CVA: non-finite own survival probability at t={t}: S_own(t)={sp}"
+                )));
+            }
+            sp
+        } else {
+            1.0
+        };
+
+        let df_t = discount_curve.df(t);
+        if !df_t.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "CVA: non-finite discount factor at t={t}: DF(t)={df_t}"
+            )));
+        }
+
+        let marginal_pd = (prev_survival - survival_t).max(0.0);
+        let epe_mid = 0.5 * (prev_epe + epe_t);
+        let df_mid = 0.5 * (prev_df + df_t);
+        let own_survival_mid = 0.5 * (prev_own_survival + own_survival_t);
+
+        cva += lgd * epe_mid * marginal_pd * df_mid * own_survival_mid;
+
+        effective_epe_running = effective_epe_running.max(epe_t);
+
+        if prev_t < effective_epe_horizon {
+            let dt = (t.min(effective_epe_horizon) - prev_t).max(0.0);
+            eff_epe_time_integral += effective_epe_running * dt;
+        }
+
+        let pfe_t = epe_t;
+        max_pfe = max_pfe.max(pfe_t);
+
+        epe_profile.push((t, epe_t));
+        ene_profile.push((t, ene_t));
+        pfe_profile.push((t, pfe_t));
+        effective_epe_profile.push((t, effective_epe_running));
+
+        prev_survival = survival_t;
+        prev_own_survival = own_survival_t;
+        prev_epe = epe_t;
+        prev_df = df_t;
+        prev_t = t;
+    }
+
+    let normalization = effective_epe_horizon;
+    let effective_epe = if normalization > 0.0 {
+        eff_epe_time_integral / normalization
+    } else {
+        effective_epe_running
+    };
+
+    Ok(XvaResult {
+        cva,
+        dva: None,
+        fva: None,
+        bilateral_cva: None,
+        epe_profile,
+        ene_profile,
+        pfe_profile,
+        max_pfe,
+        effective_epe_profile,
+        effective_epe,
+    })
+}
+
+fn compute_dva_internal(
+    exposure_profile: &ExposureProfile,
+    own_hazard_curve: &HazardCurve,
+    discount_curve: &DiscountCurve,
+    own_recovery_rate: f64,
+    counterparty_survival_curve: Option<&HazardCurve>,
+) -> finstack_core::Result<f64> {
+    let n = validate_exposure_profile_lengths(exposure_profile, "DVA")?;
+
+    if !(0.0..=1.0).contains(&own_recovery_rate) {
+        return Err(finstack_core::Error::Validation(format!(
+            "DVA: own_recovery_rate {own_recovery_rate} must be in [0, 1]"
+        )));
+    }
+
+    let lgd_own = 1.0 - own_recovery_rate;
+    let mut dva = 0.0;
+    let mut prev_survival = 1.0;
+    let mut prev_counterparty_survival = 1.0;
+    let mut prev_ene: f64 = 0.0;
+    let mut prev_df: f64 = 1.0;
+
+    for i in 0..n {
+        let t = exposure_profile.times[i];
+        let ene_t = exposure_profile.ene[i];
+
+        let survival_t = own_hazard_curve.sp(t);
+        if !survival_t.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "DVA: non-finite survival probability at t={t}: S_own(t)={survival_t}"
+            )));
+        }
+
+        let counterparty_survival_t = if let Some(curve) = counterparty_survival_curve {
+            let sp = curve.sp(t);
+            if !sp.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "DVA: non-finite counterparty survival probability at t={t}: S_c(t)={sp}"
+                )));
+            }
+            sp
+        } else {
+            1.0
+        };
+
+        let df_t = discount_curve.df(t);
+        if !df_t.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "DVA: non-finite discount factor at t={t}: DF(t)={df_t}"
+            )));
+        }
+
+        let marginal_pd = (prev_survival - survival_t).max(0.0);
+        let ene_mid = 0.5 * (prev_ene + ene_t);
+        let df_mid = 0.5 * (prev_df + df_t);
+        let counterparty_survival_mid =
+            0.5 * (prev_counterparty_survival + counterparty_survival_t);
+
+        dva += lgd_own * ene_mid * marginal_pd * df_mid * counterparty_survival_mid;
+
+        prev_survival = survival_t;
+        prev_counterparty_survival = counterparty_survival_t;
+        prev_ene = ene_t;
+        prev_df = df_t;
+    }
+
+    Ok(dva)
+}
+
+fn compute_fva_internal(
+    exposure_profile: &ExposureProfile,
+    discount_curve: &DiscountCurve,
+    funding_spread_bps: f64,
+    funding_benefit_bps: f64,
+    counterparty_hazard_curve: Option<&HazardCurve>,
+    own_hazard_curve: Option<&HazardCurve>,
+) -> finstack_core::Result<f64> {
+    let n = validate_exposure_profile_lengths(exposure_profile, "FVA")?;
+
+    let spread_cost = funding_spread_bps / 10_000.0;
+    let spread_benefit = funding_benefit_bps / 10_000.0;
+
+    let mut fva = 0.0;
+    let mut prev_counterparty_survival = 1.0;
+    let mut prev_own_survival = 1.0;
+    let mut prev_epe: f64 = 0.0;
+    let mut prev_ene: f64 = 0.0;
+    let mut prev_df: f64 = 1.0;
+    let mut prev_t: f64 = 0.0;
+
+    for i in 0..n {
+        let t = exposure_profile.times[i];
+        let epe_t = exposure_profile.epe[i];
+        let ene_t = exposure_profile.ene[i];
+
+        let counterparty_survival_t = if let Some(curve) = counterparty_hazard_curve {
+            let sp = curve.sp(t);
+            if !sp.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "FVA: non-finite counterparty survival probability at t={t}: S_c(t)={sp}"
+                )));
+            }
+            sp
+        } else {
+            1.0
+        };
+
+        let own_survival_t = if let Some(curve) = own_hazard_curve {
+            let sp = curve.sp(t);
+            if !sp.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "FVA: non-finite own survival probability at t={t}: S_own(t)={sp}"
+                )));
+            }
+            sp
+        } else {
+            1.0
+        };
+
+        let df_t = discount_curve.df(t);
+        if !df_t.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "FVA: non-finite discount factor at t={t}: DF(t)={df_t}"
+            )));
+        }
+
+        let dt = t - prev_t;
+        let epe_mid = 0.5 * (prev_epe + epe_t);
+        let ene_mid = 0.5 * (prev_ene + ene_t);
+        let df_mid = 0.5 * (prev_df + df_t);
+        let counterparty_survival_mid =
+            0.5 * (prev_counterparty_survival + counterparty_survival_t);
+        let own_survival_mid = 0.5 * (prev_own_survival + own_survival_t);
+        let joint_survival_mid = counterparty_survival_mid * own_survival_mid;
+
+        fva +=
+            (epe_mid * spread_cost - ene_mid * spread_benefit) * df_mid * dt * joint_survival_mid;
+
+        prev_counterparty_survival = counterparty_survival_t;
+        prev_own_survival = own_survival_t;
+        prev_epe = epe_t;
+        prev_ene = ene_t;
+        prev_df = df_t;
+        prev_t = t;
+    }
+
+    Ok(fva)
+}
+
 /// Compute unilateral CVA from an exposure profile.
 ///
 /// Uses midpoint/trapezoidal numerical integration for O(Δt²) accuracy:
@@ -107,129 +394,13 @@ pub fn compute_cva(
     discount_curve: &DiscountCurve,
     recovery_rate: f64,
 ) -> finstack_core::Result<XvaResult> {
-    // Validate inputs
-    if exposure_profile.times.is_empty() {
-        return Err(finstack_core::Error::Validation(
-            "CVA: exposure profile must not be empty".into(),
-        ));
-    }
-
-    let n = exposure_profile.times.len();
-
-    // B2: Validate vector lengths are consistent
-    if exposure_profile.epe.len() != n || exposure_profile.ene.len() != n {
-        return Err(finstack_core::Error::Validation(format!(
-            "CVA: exposure profile vector lengths must be equal \
-             (times={n}, epe={}, ene={})",
-            exposure_profile.epe.len(),
-            exposure_profile.ene.len()
-        )));
-    }
-
-    if !(0.0..=1.0).contains(&recovery_rate) {
-        return Err(finstack_core::Error::Validation(format!(
-            "CVA: recovery_rate {recovery_rate} must be in [0, 1]"
-        )));
-    }
-
-    let lgd = 1.0 - recovery_rate; // Loss Given Default
-
-    let mut cva = 0.0;
-    let mut epe_profile = Vec::with_capacity(n);
-    let mut ene_profile = Vec::with_capacity(n);
-    let mut pfe_profile = Vec::with_capacity(n);
-    let mut effective_epe_profile = Vec::with_capacity(n);
-    let mut max_pfe: f64 = 0.0;
-
-    // Effective EPE: non-decreasing version of EPE (Basel III SA-CCR)
-    let mut effective_epe_running: f64 = 0.0;
-
-    // Time-weighted average of effective EPE over the first-year horizon.
-    let mut eff_epe_time_integral: f64 = 0.0;
-    let maturity = exposure_profile.times[n - 1];
-    let effective_epe_horizon = maturity.min(1.0);
-
-    // Previous values for midpoint/trapezoidal integration
-    let mut prev_survival = 1.0; // S(0) = 1.0
-    let mut prev_epe: f64 = 0.0; // EPE at t=0 (before first grid point)
-    let mut prev_df: f64 = 1.0; // DF(0) = 1.0
-    let mut prev_t: f64 = 0.0; // t=0
-
-    for i in 0..n {
-        let t = exposure_profile.times[i];
-        let epe_t = exposure_profile.epe[i];
-        let ene_t = exposure_profile.ene[i];
-
-        // M5: Validate curve outputs are finite
-        let survival_t = counterparty_hazard_curve.sp(t);
-        if !survival_t.is_finite() {
-            return Err(finstack_core::Error::Validation(format!(
-                "CVA: non-finite survival probability at t={t}: S(t)={survival_t}"
-            )));
-        }
-
-        let df_t = discount_curve.df(t);
-        if !df_t.is_finite() {
-            return Err(finstack_core::Error::Validation(format!(
-                "CVA: non-finite discount factor at t={t}: DF(t)={df_t}"
-            )));
-        }
-
-        // Marginal default probability in [t_{i-1}, t_i]
-        let marginal_pd = (prev_survival - survival_t).max(0.0);
-
-        // M4: Midpoint/trapezoidal integration for O(Δt²) accuracy
-        let epe_mid = 0.5 * (prev_epe + epe_t);
-        let df_mid = 0.5 * (prev_df + df_t);
-
-        // CVA contribution for this time bucket
-        cva += lgd * epe_mid * marginal_pd * df_mid;
-
-        // Effective EPE: non-decreasing (running max)
-        effective_epe_running = effective_epe_running.max(epe_t);
-
-        // M1: Accumulate only over [0, min(1Y, maturity)].
-        if prev_t < effective_epe_horizon {
-            let dt = (t.min(effective_epe_horizon) - prev_t).max(0.0);
-            eff_epe_time_integral += effective_epe_running * dt;
-        }
-
-        // In deterministic model, PFE = EPE (single scenario)
-        let pfe_t = epe_t;
-        max_pfe = max_pfe.max(pfe_t);
-
-        epe_profile.push((t, epe_t));
-        ene_profile.push((t, ene_t));
-        pfe_profile.push((t, pfe_t));
-        effective_epe_profile.push((t, effective_epe_running));
-
-        prev_survival = survival_t;
-        prev_epe = epe_t;
-        prev_df = df_t;
-        prev_t = t;
-    }
-
-    // M1: Time-weighted average effective EPE per BCBS 279
-    // Effective_EPE_avg = (1 / min(1, M)) × ∫₀ᴹ Effective_EPE(t) dt
-    let normalization = effective_epe_horizon;
-    let effective_epe = if normalization > 0.0 {
-        eff_epe_time_integral / normalization
-    } else {
-        effective_epe_running
-    };
-
-    Ok(XvaResult {
-        cva,
-        dva: None,
-        fva: None,
-        bilateral_cva: None,
-        epe_profile,
-        ene_profile,
-        pfe_profile,
-        max_pfe,
-        effective_epe_profile,
-        effective_epe,
-    })
+    compute_cva_internal(
+        exposure_profile,
+        counterparty_hazard_curve,
+        discount_curve,
+        recovery_rate,
+        None,
+    )
 }
 
 /// Compute Debit Valuation Adjustment (DVA).
@@ -273,66 +444,13 @@ pub fn compute_dva(
     discount_curve: &DiscountCurve,
     own_recovery_rate: f64,
 ) -> finstack_core::Result<f64> {
-    if exposure_profile.times.is_empty() {
-        return Err(finstack_core::Error::Validation(
-            "DVA: exposure profile must not be empty".into(),
-        ));
-    }
-
-    let n = exposure_profile.times.len();
-
-    if exposure_profile.epe.len() != n || exposure_profile.ene.len() != n {
-        return Err(finstack_core::Error::Validation(format!(
-            "DVA: exposure profile vector lengths must be equal \
-             (times={n}, epe={}, ene={})",
-            exposure_profile.epe.len(),
-            exposure_profile.ene.len()
-        )));
-    }
-
-    if !(0.0..=1.0).contains(&own_recovery_rate) {
-        return Err(finstack_core::Error::Validation(format!(
-            "DVA: own_recovery_rate {own_recovery_rate} must be in [0, 1]"
-        )));
-    }
-
-    let lgd_own = 1.0 - own_recovery_rate;
-
-    let mut dva = 0.0;
-    let mut prev_survival = 1.0;
-    let mut prev_ene: f64 = 0.0;
-    let mut prev_df: f64 = 1.0;
-
-    for i in 0..n {
-        let t = exposure_profile.times[i];
-        let ene_t = exposure_profile.ene[i];
-
-        let survival_t = own_hazard_curve.sp(t);
-        if !survival_t.is_finite() {
-            return Err(finstack_core::Error::Validation(format!(
-                "DVA: non-finite survival probability at t={t}: S_own(t)={survival_t}"
-            )));
-        }
-
-        let df_t = discount_curve.df(t);
-        if !df_t.is_finite() {
-            return Err(finstack_core::Error::Validation(format!(
-                "DVA: non-finite discount factor at t={t}: DF(t)={df_t}"
-            )));
-        }
-
-        let marginal_pd = (prev_survival - survival_t).max(0.0);
-        let ene_mid = 0.5 * (prev_ene + ene_t);
-        let df_mid = 0.5 * (prev_df + df_t);
-
-        dva += lgd_own * ene_mid * marginal_pd * df_mid;
-
-        prev_survival = survival_t;
-        prev_ene = ene_t;
-        prev_df = df_t;
-    }
-
-    Ok(dva)
+    compute_dva_internal(
+        exposure_profile,
+        own_hazard_curve,
+        discount_curve,
+        own_recovery_rate,
+        None,
+    )
 }
 
 /// Compute Funding Valuation Adjustment (FVA).
@@ -380,60 +498,14 @@ pub fn compute_fva(
     funding_spread_bps: f64,
     funding_benefit_bps: f64,
 ) -> finstack_core::Result<f64> {
-    if exposure_profile.times.is_empty() {
-        return Err(finstack_core::Error::Validation(
-            "FVA: exposure profile must not be empty".into(),
-        ));
-    }
-
-    let n = exposure_profile.times.len();
-
-    if exposure_profile.epe.len() != n || exposure_profile.ene.len() != n {
-        return Err(finstack_core::Error::Validation(format!(
-            "FVA: exposure profile vector lengths must be equal \
-             (times={n}, epe={}, ene={})",
-            exposure_profile.epe.len(),
-            exposure_profile.ene.len()
-        )));
-    }
-
-    // Convert basis points to decimal fraction: 100 bps = 1% = 0.01
-    let spread_cost = funding_spread_bps / 10_000.0;
-    let spread_benefit = funding_benefit_bps / 10_000.0;
-
-    let mut fva = 0.0;
-    let mut prev_epe: f64 = 0.0;
-    let mut prev_ene: f64 = 0.0;
-    let mut prev_df: f64 = 1.0;
-    let mut prev_t: f64 = 0.0;
-
-    for i in 0..n {
-        let t = exposure_profile.times[i];
-        let epe_t = exposure_profile.epe[i];
-        let ene_t = exposure_profile.ene[i];
-
-        let df_t = discount_curve.df(t);
-        if !df_t.is_finite() {
-            return Err(finstack_core::Error::Validation(format!(
-                "FVA: non-finite discount factor at t={t}: DF(t)={df_t}"
-            )));
-        }
-
-        let dt = t - prev_t;
-        let epe_mid = 0.5 * (prev_epe + epe_t);
-        let ene_mid = 0.5 * (prev_ene + ene_t);
-        let df_mid = 0.5 * (prev_df + df_t);
-
-        // Funding cost on positive exposure minus funding benefit on negative exposure
-        fva += (epe_mid * spread_cost - ene_mid * spread_benefit) * df_mid * dt;
-
-        prev_epe = epe_t;
-        prev_ene = ene_t;
-        prev_df = df_t;
-        prev_t = t;
-    }
-
-    Ok(fva)
+    compute_fva_internal(
+        exposure_profile,
+        discount_curve,
+        funding_spread_bps,
+        funding_benefit_bps,
+        None,
+        None,
+    )
 }
 
 /// Compute bilateral XVA: CVA, DVA, FVA, and the combined bilateral adjustment.
@@ -477,30 +549,31 @@ pub fn compute_bilateral_xva(
     own_recovery_rate: f64,
     funding: Option<&FundingConfig>,
 ) -> finstack_core::Result<XvaResult> {
-    // Compute unilateral CVA (populates the full XvaResult with profiles)
-    let mut result = compute_cva(
+    let mut result = compute_cva_internal(
         exposure_profile,
         counterparty_hazard_curve,
         discount_curve,
         counterparty_recovery_rate,
+        Some(own_hazard_curve),
     )?;
 
-    // Compute DVA
-    let dva = compute_dva(
+    let dva = compute_dva_internal(
         exposure_profile,
         own_hazard_curve,
         discount_curve,
         own_recovery_rate,
+        Some(counterparty_hazard_curve),
     )?;
     result.dva = Some(dva);
 
-    // Compute FVA if funding config is provided
     let fva = if let Some(fc) = funding {
-        let fva_val = compute_fva(
+        let fva_val = compute_fva_internal(
             exposure_profile,
             discount_curve,
             fc.funding_spread_bps,
             fc.effective_benefit_bps(),
+            Some(counterparty_hazard_curve),
+            Some(own_hazard_curve),
         )?;
         result.fva = Some(fva_val);
         fva_val
@@ -1248,6 +1321,67 @@ mod tests {
         assert!(
             (fva_sym - fva_exp).abs() < 1e-12,
             "Symmetric FVA ({fva_sym}) should equal explicit ({fva_exp})"
+        );
+    }
+
+    #[test]
+    fn bilateral_xva_applies_first_to_default_weighting() {
+        let counterparty_hazard = flat_hazard_curve(0.08);
+        let own_hazard = flat_hazard_curve(0.12);
+        let discount = flat_discount_curve(0.03);
+        let times: Vec<f64> = (1..=20).map(|i| i as f64 * 0.5).collect();
+
+        let profile = ExposureProfile {
+            times: times.clone(),
+            mtm_values: times.iter().map(|_| 250_000.0).collect(),
+            epe: times.iter().map(|_| 800_000.0).collect(),
+            ene: times.iter().map(|_| 500_000.0).collect(),
+        };
+
+        let funding = FundingConfig {
+            funding_spread_bps: 60.0,
+            funding_benefit_bps: Some(40.0),
+        };
+
+        let unilateral_cva = compute_cva(&profile, &counterparty_hazard, &discount, 0.40)
+            .expect("unilateral CVA should compute")
+            .cva;
+        let unilateral_dva = compute_dva(&profile, &own_hazard, &discount, 0.35)
+            .expect("unilateral DVA should compute");
+        let standalone_fva =
+            compute_fva(&profile, &discount, 60.0, 40.0).expect("standalone FVA should compute");
+
+        let bilateral = compute_bilateral_xva(
+            &profile,
+            &counterparty_hazard,
+            &own_hazard,
+            &discount,
+            0.40,
+            0.35,
+            Some(&funding),
+        )
+        .expect("bilateral XVA should compute");
+
+        let bilateral_dva = bilateral.dva.expect("DVA should be populated");
+        let bilateral_fva = bilateral.fva.expect("FVA should be populated");
+
+        assert!(
+            bilateral.cva < unilateral_cva,
+            "First-to-default weighting should reduce bilateral CVA component: bilateral={} unilateral={}",
+            bilateral.cva,
+            unilateral_cva
+        );
+        assert!(
+            bilateral_dva < unilateral_dva,
+            "First-to-default weighting should reduce bilateral DVA component: bilateral={} unilateral={}",
+            bilateral_dva,
+            unilateral_dva
+        );
+        assert!(
+            bilateral_fva.abs() < standalone_fva.abs(),
+            "Joint-survival weighting should reduce FVA magnitude: bilateral={} standalone={}",
+            bilateral_fva,
+            standalone_fva
         );
     }
 

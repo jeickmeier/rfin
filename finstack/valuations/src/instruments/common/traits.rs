@@ -296,6 +296,14 @@ impl Attributes {
         self
     }
 
+    /// Set a metadata key-value pair on an existing `Attributes` instance.
+    ///
+    /// Unlike `with_meta` (which consumes `self`), this takes `&mut self`
+    /// for use when mutation in-place is needed.
+    pub fn set(&mut self, key: &str, value: impl ToString) {
+        self.meta.insert(key.to_string(), value.to_string());
+    }
+
     /// Check if a specific tag exists.
     ///
     /// Tag matching is case-sensitive and exact.

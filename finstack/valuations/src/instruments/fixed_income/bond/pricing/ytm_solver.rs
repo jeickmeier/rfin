@@ -372,9 +372,9 @@ impl YtmSolver {
         let price_pct = target_price.amount() / notional.amount();
         let pull_to_par = (1.0 / price_pct - 1.0) / years_to_maturity;
         let initial_guess = current_yield + 0.5 * pull_to_par;
-        // Clamp to [-1.0, 2.0] to support distressed debt with YTMs > 100%
+        // Clamp to [-1.0, 5.0] to support distressed debt with YTMs > 100%
         // while still providing reasonable bounds for the solver
-        Ok(initial_guess.clamp(-1.0, 2.0))
+        Ok(initial_guess.clamp(-1.0, 5.0))
     }
 }
 

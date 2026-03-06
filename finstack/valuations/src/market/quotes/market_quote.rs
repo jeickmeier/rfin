@@ -4,11 +4,14 @@
 //! enum provides a unified interface for working with quotes across all instrument types,
 //! enabling generic calibration workflows and quote processing.
 
+use super::bond::BondQuote;
 use super::cds::CdsQuote;
 use super::cds_tranche::CDSTrancheQuote;
+use super::fx::FxQuote;
 use super::inflation::InflationQuote;
 use super::rates::RateQuote;
 use super::vol::VolQuote;
+use super::xccy::XccyQuote;
 use finstack_core::InputError;
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
@@ -66,6 +69,8 @@ use ts_rs::TS;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "class", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MarketQuote {
+    /// Bond instruments
+    Bond(BondQuote),
     /// Interest rate instruments
     Rates(RateQuote),
     /// Credit default swaps
@@ -73,10 +78,14 @@ pub enum MarketQuote {
     /// CDS Tranches
     #[serde(rename = "cds_tranche")]
     CDSTranche(CDSTrancheQuote),
+    /// FX instruments
+    Fx(FxQuote),
     /// Inflation instruments
     Inflation(InflationQuote),
     /// Volatility instruments
     Vol(VolQuote),
+    /// Cross-currency swap instruments
+    Xccy(XccyQuote),
 }
 
 /// Explicit bump units for market quotes.
@@ -129,6 +138,23 @@ impl MarketQuote {
             (MarketQuote::Vol(q), MarketQuoteBump::VolAbsolute(b)) => {
                 Ok(MarketQuote::Vol(q.bump_vol_absolute(b)))
             }
+            (MarketQuote::Fx(q), MarketQuoteBump::RateDecimal(b)) => {
+                Ok(MarketQuote::Fx(q.bump_rate_decimal(b)))
+            }
+
+            (MarketQuote::Xccy(q), MarketQuoteBump::SpreadDecimal(b)) => {
+                Ok(MarketQuote::Xccy(q.bump_spread_decimal(b)))
+            }
+            (MarketQuote::Xccy(q), MarketQuoteBump::SpreadBp(bp)) => {
+                Ok(MarketQuote::Xccy(q.bump_spread_bp(bp)))
+            }
+
+            (MarketQuote::Bond(q), MarketQuoteBump::RateDecimal(b)) => {
+                Ok(MarketQuote::Bond(q.bump_value_decimal(b)))
+            }
+            (MarketQuote::Bond(q), MarketQuoteBump::RateBp(bp)) => {
+                Ok(MarketQuote::Bond(q.bump_value_bp(bp)))
+            }
 
             _ => Err(finstack_core::Error::from(InputError::Invalid)),
         }
@@ -176,6 +202,28 @@ impl ExtractQuotes<RateQuote> for [MarketQuote] {
         self.iter()
             .filter_map(|q| match q {
                 MarketQuote::Rates(rq) => Some(rq.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+impl ExtractQuotes<BondQuote> for [MarketQuote] {
+    fn extract_quotes(&self) -> Vec<BondQuote> {
+        self.iter()
+            .filter_map(|q| match q {
+                MarketQuote::Bond(bq) => Some(bq.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+impl ExtractQuoteRefs<'_, BondQuote> for [MarketQuote] {
+    fn extract_quote_refs(&self) -> Vec<&BondQuote> {
+        self.iter()
+            .filter_map(|q| match q {
+                MarketQuote::Bond(bq) => Some(bq),
                 _ => None,
             })
             .collect()
@@ -259,6 +307,28 @@ impl ExtractQuoteRefs<'_, InflationQuote> for [MarketQuote] {
     }
 }
 
+impl ExtractQuotes<FxQuote> for [MarketQuote] {
+    fn extract_quotes(&self) -> Vec<FxQuote> {
+        self.iter()
+            .filter_map(|q| match q {
+                MarketQuote::Fx(fq) => Some(fq.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+impl ExtractQuoteRefs<'_, FxQuote> for [MarketQuote] {
+    fn extract_quote_refs(&self) -> Vec<&FxQuote> {
+        self.iter()
+            .filter_map(|q| match q {
+                MarketQuote::Fx(fq) => Some(fq),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
 impl ExtractQuotes<VolQuote> for [MarketQuote] {
     fn extract_quotes(&self) -> Vec<VolQuote> {
         self.iter()
@@ -275,6 +345,28 @@ impl ExtractQuoteRefs<'_, VolQuote> for [MarketQuote] {
         self.iter()
             .filter_map(|q| match q {
                 MarketQuote::Vol(vq) => Some(vq),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+impl ExtractQuotes<XccyQuote> for [MarketQuote] {
+    fn extract_quotes(&self) -> Vec<XccyQuote> {
+        self.iter()
+            .filter_map(|q| match q {
+                MarketQuote::Xccy(xq) => Some(xq.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+impl ExtractQuoteRefs<'_, XccyQuote> for [MarketQuote] {
+    fn extract_quote_refs(&self) -> Vec<&XccyQuote> {
+        self.iter()
+            .filter_map(|q| match q {
+                MarketQuote::Xccy(xq) => Some(xq),
                 _ => None,
             })
             .collect()

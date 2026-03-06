@@ -71,7 +71,7 @@ fn test_bermudan_pricer_cached_model_sets_measure() {
         )
         .expect("valid Bermudan schedule"),
         "USD_OIS",
-        "USD-SOFR-3M",
+        "USD_OIS",
         "USD-SWPNVOL",
     );
 
@@ -110,7 +110,7 @@ fn test_bermudan_pricer_expired_returns_zero() {
         )
         .expect("valid Bermudan schedule"),
         "USD_OIS",
-        "USD-SOFR-3M",
+        "USD_OIS",
         "USD-SWPNVOL",
     );
 
@@ -119,4 +119,39 @@ fn test_bermudan_pricer_expired_returns_zero() {
     let result = pricer.price_dyn(&swaption, &market, as_of).unwrap();
 
     assert_approx_eq(result.value.amount(), 0.0, 1e-12, "expired bermudan pv");
+}
+
+#[test]
+fn test_bermudan_tree_pricer_rejects_mixed_curves() {
+    let as_of = date!(2025 - 01 - 01);
+    let swap_start = as_of;
+    let swap_end = date!(2030 - 01 - 01);
+    let first_exercise = date!(2026 - 01 - 01);
+    let swaption = BermudanSwaption::new_payer(
+        "BERM-MIXED",
+        Money::new(1_000_000.0, finstack_core::currency::Currency::USD),
+        0.03,
+        swap_start,
+        swap_end,
+        BermudanSchedule::co_terminal(
+            first_exercise,
+            swap_end,
+            finstack_core::dates::Tenor::semi_annual(),
+        )
+        .expect("valid Bermudan schedule"),
+        "USD_OIS",
+        "USD-SOFR-3M",
+        "USD-SWPNVOL",
+    );
+
+    let market = create_flat_market(as_of, 0.03, 0.2);
+    let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default());
+    let err = pricer
+        .price_dyn(&swaption, &market, as_of)
+        .expect_err("mixed-curve Bermudan tree pricer should reject pricing");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("single-curve"),
+        "expected single-curve rejection error, got: {msg}"
+    );
 }

@@ -249,10 +249,11 @@ pub fn realized_variance(
     match method {
         RealizedVarMethod::CloseToClose => {
             let returns = log_returns(prices);
-            variance(&returns) * annualization_factor
+            returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64 * annualization_factor
         }
         // For other methods, we need OHLC data which isn't available in simple price series
         // These methods require high/low/open data, so fall back to close-to-close
+        // TODO: Implement high/low/open/close methods and then remove this fallback
         RealizedVarMethod::Parkinson
         | RealizedVarMethod::GarmanKlass
         | RealizedVarMethod::RogersSatchell
@@ -260,7 +261,7 @@ pub fn realized_variance(
             // These methods require OHLC data, use realized_variance_ohlc instead
             // For single price series, fall back to close-to-close
             let returns = log_returns(prices);
-            variance(&returns) * annualization_factor
+            returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64 * annualization_factor
         }
     }
 }
@@ -365,13 +366,18 @@ pub fn realized_variance_ohlc(
             /// Yang-Zhang optimal weight denominator base adjustment
             const YANG_ZHANG_K_DENOMINATOR_BASE: f64 = 1.34;
 
-            let mut sum_oc = 0.0;
+            let mut overnight_returns = Vec::with_capacity(n.saturating_sub(1));
+            let mut open_close_returns = Vec::with_capacity(n.saturating_sub(1));
             let mut sum_rs = 0.0;
 
             for i in 1..n {
                 // Overnight component
                 let overnight = (open[i] / close[i - 1]).ln();
-                sum_oc += overnight.powi(2);
+                overnight_returns.push(overnight);
+
+                // Open-to-close component
+                let open_close = (close[i] / open[i]).ln();
+                open_close_returns.push(open_close);
 
                 // Rogers-Satchell component for intraday
                 let hc = (high[i] / close[i]).ln();
@@ -383,10 +389,29 @@ pub fn realized_variance_ohlc(
 
             let k = YANG_ZHANG_K_NUMERATOR
                 / (YANG_ZHANG_K_DENOMINATOR_BASE + (n + 1) as f64 / (n - 1) as f64);
-            let var_oc = sum_oc / (n - 1) as f64;
-            let var_rs = sum_rs / n as f64;
+            let mean_overnight =
+                overnight_returns.iter().sum::<f64>() / overnight_returns.len() as f64;
+            let mean_open_close =
+                open_close_returns.iter().sum::<f64>() / open_close_returns.len() as f64;
+            let var_overnight = overnight_returns
+                .iter()
+                .map(|r| {
+                    let d = r - mean_overnight;
+                    d * d
+                })
+                .sum::<f64>()
+                / (overnight_returns.len() - 1) as f64;
+            let var_open_close = open_close_returns
+                .iter()
+                .map(|r| {
+                    let d = r - mean_open_close;
+                    d * d
+                })
+                .sum::<f64>()
+                / (open_close_returns.len() - 1) as f64;
+            let var_rs = sum_rs / (n - 1) as f64;
 
-            (k * var_oc + (1.0 - k) * var_rs) * annualization_factor
+            (var_overnight + k * var_open_close + (1.0 - k) * var_rs) * annualization_factor
         }
     }
 }

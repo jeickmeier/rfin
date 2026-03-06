@@ -33,6 +33,11 @@ pub struct RegistryEntry<R> {
     pub record: R,
 }
 
+/// Normalize a registry ID by trimming whitespace.
+pub fn normalize_registry_id(id: &str) -> String {
+    id.trim().to_string()
+}
+
 /// Build a lookup map from a registry file while mapping records to a derived value.
 pub fn build_lookup_map_mapped<R, K, V: Clone>(
     file: RegistryFile<R>,

@@ -36,6 +36,11 @@ fn log_returns_and_realized_variance_close_to_close() {
 
     let rv = realized_variance(&prices, RealizedVarMethod::CloseToClose, 252.0);
     assert!(rv.is_finite() && rv >= 0.0);
+    let expected = returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64 * 252.0;
+    assert!(
+        (rv - expected).abs() < 1e-12,
+        "close-to-close RV should use squared log returns"
+    );
 
     let rv_alt = realized_variance(&prices, RealizedVarMethod::Parkinson, 252.0);
     assert!(rv_alt.is_finite());
@@ -161,4 +166,59 @@ fn garman_klass_variance_golden() {
         expected_annual,
         (result - expected_annual).abs()
     );
+}
+
+#[test]
+fn yang_zhang_includes_open_to_close_component() {
+    let open = [100.0, 105.0, 95.0, 110.0];
+    let high = [102.0, 108.0, 98.0, 112.0];
+    let low = [99.0, 103.0, 93.0, 108.0];
+    let close = [101.0, 104.0, 97.0, 111.0];
+    let annualization = 252.0;
+
+    let yz = realized_variance_ohlc(
+        &open,
+        &high,
+        &low,
+        &close,
+        RealizedVarMethod::YangZhang,
+        annualization,
+    );
+
+    let n = open.len();
+    let k = 0.34 / (1.34 + (n + 1) as f64 / (n - 1) as f64);
+    let overnight: Vec<f64> = (1..n).map(|i| (open[i] / close[i - 1]).ln()).collect();
+    let open_close: Vec<f64> = (1..n).map(|i| (close[i] / open[i]).ln()).collect();
+    let rs_sum: f64 = (1..n)
+        .map(|i| {
+            let hc = (high[i] / close[i]).ln();
+            let ho = (high[i] / open[i]).ln();
+            let lc = (low[i] / close[i]).ln();
+            let lo = (low[i] / open[i]).ln();
+            hc * ho + lc * lo
+        })
+        .sum();
+
+    let overnight_mean = overnight.iter().sum::<f64>() / overnight.len() as f64;
+    let open_close_mean = open_close.iter().sum::<f64>() / open_close.len() as f64;
+    let var_overnight = overnight
+        .iter()
+        .map(|r| {
+            let d = r - overnight_mean;
+            d * d
+        })
+        .sum::<f64>()
+        / (overnight.len() - 1) as f64;
+    let var_open_close = open_close
+        .iter()
+        .map(|r| {
+            let d = r - open_close_mean;
+            d * d
+        })
+        .sum::<f64>()
+        / (open_close.len() - 1) as f64;
+    let var_rs = rs_sum / (n - 1) as f64;
+    let expected = (var_overnight + k * var_open_close + (1.0 - k) * var_rs) * annualization;
+
+    assert!((yz - expected).abs() < 1e-12, "Yang-Zhang formula mismatch");
 }

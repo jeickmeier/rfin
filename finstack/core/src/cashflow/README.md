@@ -125,6 +125,10 @@ assert!((pv_explicit.amount() - pv_trait.amount()).abs() < 1e-12);
 
 To ensure **par-rate consistency** between metrics and NPV, use `npv(&curve, base, None, &flows)` so the curve's own `day_count` is used.
 
+If the chosen day-count convention needs extra context, use `npv_with_ctx(...)`
+or `npv_amounts_with_ctx(...)` to provide the calendar/business-day basis
+explicitly (for example, `Bus/252` discounting).
+
 ### NPV with a Flat Discount Rate
 
 For **project or investment analysis** where a single discount rate is sufficient, use `npv_amounts`:

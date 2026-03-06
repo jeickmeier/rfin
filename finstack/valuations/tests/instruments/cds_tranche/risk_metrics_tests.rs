@@ -148,12 +148,82 @@ fn test_cs01_different_bump_sizes() {
     let cs01_1bp = pricer_1bp.calculate_cs01(&tranche, &market, as_of).unwrap();
     let cs01_2bp = pricer_2bp.calculate_cs01(&tranche, &market, as_of).unwrap();
 
-    // Assert: 2bp bump should give ~2x the sensitivity
+    // Assert: normalized CS01 should be approximately invariant to bump size
     assert_relative_eq(
         cs01_2bp / cs01_1bp,
-        2.0,
+        1.0,
         0.1,
-        "CS01 should scale approximately with bump size",
+        "CS01 should be normalized per 1bp regardless of configured bump size",
+    );
+}
+
+#[test]
+fn test_cs01_preserves_bespoke_index_structure_during_bumps() {
+    let market = market_context_with_issuers(5);
+    let as_of = base_date();
+    let tranche = custom_tranche(3.0, 7.0, 500.0, TrancheSide::SellProtection);
+    let pricer = CDSTranchePricer::new();
+
+    let index = market.credit_index(&tranche.credit_index_id).unwrap();
+    let delta_lambda = 1e-4;
+    let bumped_curve_up = index
+        .index_credit_curve
+        .with_parallel_bump(delta_lambda)
+        .unwrap();
+    let bumped_curve_down = index
+        .index_credit_curve
+        .with_parallel_bump(-delta_lambda)
+        .unwrap();
+
+    let bumped_up = finstack_core::market_data::term_structures::CreditIndexData::builder()
+        .num_constituents(index.num_constituents)
+        .recovery_rate(index.recovery_rate)
+        .index_credit_curve(std::sync::Arc::new(bumped_curve_up))
+        .base_correlation_curve(std::sync::Arc::clone(&index.base_correlation_curve))
+        .issuer_curves(index.issuer_credit_curves.clone().unwrap_or_default())
+        .issuer_recovery_rates(index.issuer_recovery_rates.clone().unwrap_or_default())
+        .issuer_weights(index.issuer_weights.clone().unwrap_or_default())
+        .build()
+        .unwrap();
+    let bumped_down = finstack_core::market_data::term_structures::CreditIndexData::builder()
+        .num_constituents(index.num_constituents)
+        .recovery_rate(index.recovery_rate)
+        .index_credit_curve(std::sync::Arc::new(bumped_curve_down))
+        .base_correlation_curve(std::sync::Arc::clone(&index.base_correlation_curve))
+        .issuer_curves(index.issuer_credit_curves.clone().unwrap_or_default())
+        .issuer_recovery_rates(index.issuer_recovery_rates.clone().unwrap_or_default())
+        .issuer_weights(index.issuer_weights.clone().unwrap_or_default())
+        .build()
+        .unwrap();
+
+    let pv_up = pricer
+        .price_tranche(
+            &tranche,
+            &market
+                .clone()
+                .insert_credit_index(&tranche.credit_index_id, bumped_up),
+            as_of,
+        )
+        .unwrap()
+        .amount();
+    let pv_down = pricer
+        .price_tranche(
+            &tranche,
+            &market
+                .clone()
+                .insert_credit_index(&tranche.credit_index_id, bumped_down),
+            as_of,
+        )
+        .unwrap()
+        .amount();
+    let expected_cs01 = (pv_up - pv_down) / 2.0;
+    let actual_cs01 = pricer.calculate_cs01(&tranche, &market, as_of).unwrap();
+
+    assert_relative_eq(
+        actual_cs01,
+        expected_cs01,
+        1e-6,
+        "CS01 bumps should preserve bespoke issuer curves, recoveries, and weights",
     );
 }
 

@@ -626,10 +626,8 @@ pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) 
     }
     let mut data: Vec<f64> = returns.to_vec();
     let var = quantile(&mut data, 1.0 - confidence);
-    match ann_factor {
-        Some(af) => var * af.sqrt(),
-        None => var,
-    }
+    let _ = ann_factor;
+    var
 }
 
 /// Expected Shortfall (CVaR / ES) at the given confidence level.
@@ -685,10 +683,8 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
         return var_threshold;
     }
     let es = mean(&tail);
-    match ann_factor {
-        Some(af) => es * af.sqrt(),
-        None => es,
-    }
+    let _ = ann_factor;
+    es
 }
 
 /// Tail ratio = |upper tail| / |lower tail|.
@@ -1158,10 +1154,9 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
     let m = mean(returns);
     let vol = variance(returns).sqrt();
     let z = crate::math::special_functions::standard_normal_inv_cdf(1.0 - confidence);
-    let var = m + z * vol;
     match ann_factor {
-        Some(af) => var * af.sqrt(),
-        None => var,
+        Some(af) => m * af + z * vol * af.sqrt(),
+        None => m + z * vol,
     }
 }
 
@@ -1225,10 +1220,9 @@ pub fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f
     let z3 = z2 * z;
     let z_cf =
         z + (z2 - 1.0) * s / 6.0 + (z3 - 3.0 * z) * k / 24.0 - (2.0 * z3 - 5.0 * z) * s * s / 36.0;
-    let var = m + z_cf * vol;
     match ann_factor {
-        Some(af) => var * af.sqrt(),
-        None => var,
+        Some(af) => m * af + z_cf * vol * af.sqrt(),
+        None => m + z_cf * vol,
     }
 }
 
@@ -2172,5 +2166,63 @@ mod tests {
     #[test]
     fn modified_sharpe_empty() {
         assert_eq!(modified_sharpe(&[], 0.02, 0.95, 252.0), 0.0);
+    }
+
+    #[test]
+    fn historical_var_does_not_apply_sqrt_time_scaling() {
+        let returns = [-0.03, -0.02, -0.01, 0.01, 0.02];
+        let period_var = value_at_risk(&returns, 0.95, None);
+        let annualized_var = value_at_risk(&returns, 0.95, Some(252.0));
+
+        assert!(
+            (annualized_var - period_var).abs() < 1e-14,
+            "historical VaR should remain a period statistic: {annualized_var} vs {period_var}"
+        );
+    }
+
+    #[test]
+    fn historical_es_does_not_apply_sqrt_time_scaling() {
+        let returns = [-0.03, -0.02, -0.01, 0.01, 0.02];
+        let period_es = expected_shortfall(&returns, 0.95, None);
+        let annualized_es = expected_shortfall(&returns, 0.95, Some(252.0));
+
+        assert!(
+            (annualized_es - period_es).abs() < 1e-14,
+            "historical ES should remain a period statistic: {annualized_es} vs {period_es}"
+        );
+    }
+
+    #[test]
+    fn parametric_var_scales_mean_and_vol_by_horizon() {
+        let returns = [0.01, -0.02, 0.03, -0.01, 0.02, -0.005];
+        let ann_factor = 12.0;
+        let m = mean(&returns);
+        let vol = variance(&returns).sqrt();
+        let z = crate::math::special_functions::standard_normal_inv_cdf(0.05);
+        let expected = m * ann_factor + z * vol * ann_factor.sqrt();
+
+        let actual = parametric_var(&returns, 0.95, Some(ann_factor));
+        assert!((actual - expected).abs() < 1e-14, "{actual} vs {expected}");
+    }
+
+    #[test]
+    fn cornish_fisher_var_scales_mean_and_vol_by_horizon() {
+        let returns = [
+            0.05, -0.10, 0.03, -0.15, 0.07, -0.02, 0.01, -0.08, -0.05, 0.02,
+        ];
+        let ann_factor = 12.0;
+        let m = mean(&returns);
+        let vol = variance(&returns).sqrt();
+        let s = skewness(&returns);
+        let k = kurtosis(&returns);
+        let z = crate::math::special_functions::standard_normal_inv_cdf(0.05);
+        let z2 = z * z;
+        let z3 = z2 * z;
+        let z_cf = z + (z2 - 1.0) * s / 6.0 + (z3 - 3.0 * z) * k / 24.0
+            - (2.0 * z3 - 5.0 * z) * s * s / 36.0;
+        let expected = m * ann_factor + z_cf * vol * ann_factor.sqrt();
+
+        let actual = cornish_fisher_var(&returns, 0.95, Some(ann_factor));
+        assert!((actual - expected).abs() < 1e-14, "{actual} vs {expected}");
     }
 }

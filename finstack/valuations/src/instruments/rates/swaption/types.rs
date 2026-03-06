@@ -599,7 +599,7 @@ impl Swaption {
             cash_settlement_method: CashSettlementMethod::default(),
             vol_model: VolatilityModel::Black,
             discount_curve_id: CurveId::new("USD-OIS"),
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            forward_curve_id: CurveId::new("USD-OIS"),
             vol_surface_id: CurveId::new("USD-SWPNVOL"),
             calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
@@ -783,6 +783,20 @@ impl Swaption {
         volatility: f64,
         as_of: Date,
     ) -> Result<Money> {
+        let time_to_expiry = year_fraction(self.day_count, as_of, self.expiry)?;
+        if time_to_expiry <= 0.0 {
+            return Ok(Money::new(0.0, self.notional.currency()));
+        }
+
+        let strike = self.strike_f64()?;
+        let forward = self.forward_swap_rate(curves, as_of)?;
+        if forward <= 0.0 || strike <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Black swaption pricing requires positive forward and strike, got forward={} strike={}",
+                forward, strike
+            )));
+        }
+
         self.price_model_base(curves, volatility, as_of, |fwd, strike, vol, t, annuity| {
             // Use stable handling if volatility is near zero
             if vol <= 0.0 || !vol.is_finite() {
@@ -1372,7 +1386,7 @@ impl BermudanSwaption {
             day_count: DayCount::Thirty360,
             settlement: SwaptionSettlement::Physical,
             discount_curve_id: CurveId::new("USD-OIS"),
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            forward_curve_id: CurveId::new("USD-OIS"),
             vol_surface_id: CurveId::new("USD-SWPNVOL"),
             bermudan_schedule: BermudanSchedule::co_terminal(
                 first_exercise,

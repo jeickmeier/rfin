@@ -8,7 +8,7 @@
 //! - Statistical operations (Std, Var, Median, Rank, Quantile)
 
 use finstack_core::expr::{
-    CompiledExpr, EvalOpts, Expr, ExpressionContext, Function, SimpleContext,
+    BinOp, CompiledExpr, EvalOpts, Expr, ExpressionContext, Function, SimpleContext,
 };
 
 /// Simple context for testing.
@@ -647,6 +647,49 @@ mod ewm_operations {
         for (i, (a, b)) in result.iter().zip(expected.iter()).enumerate() {
             assert!((a - b).abs() < 1e-10, "ewm_mean[{}]: {} != {}", i, a, b);
         }
+    }
+
+    #[test]
+    fn ewm_mean_adjust_true_matches_weighted_definition() {
+        let (ctx, data) = small_test_data();
+        let cols = to_slice_refs(&data);
+
+        let ewm_expr = CompiledExpr::new(Expr::call(
+            Function::EwmMean,
+            vec![Expr::column("x"), Expr::literal(0.5), Expr::literal(1.0)], // adjust=true
+        ));
+        let result = ewm_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+
+        let expected = [1.0, 5.0 / 3.0, 17.0 / 7.0, 49.0 / 15.0, 129.0 / 31.0];
+        for (i, (a, b)) in result.iter().zip(expected.iter()).enumerate() {
+            assert!(
+                (a - b).abs() < 1e-10,
+                "ewm_mean_adjust_true[{}]: {} != {}",
+                i,
+                a,
+                b
+            );
+        }
+    }
+
+    #[test]
+    fn binary_op_missing_tail_yields_nan() {
+        let ctx = TestContext::new(vec!["lhs", "rhs"]);
+        let lhs = vec![1.0, 2.0, 3.0, 4.0];
+        let rhs = vec![10.0, 20.0];
+        let cols = vec![lhs.as_slice(), rhs.as_slice()];
+
+        let expr = CompiledExpr::new(Expr::bin_op(
+            BinOp::Add,
+            Expr::column("lhs"),
+            Expr::column("rhs"),
+        ));
+        let result = expr.eval(&ctx, &cols, EvalOpts::default()).values;
+
+        assert_eq!(result[0], 11.0);
+        assert_eq!(result[1], 22.0);
+        assert!(result[2].is_nan());
+        assert!(result[3].is_nan());
     }
 
     #[test]

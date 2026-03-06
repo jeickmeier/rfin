@@ -1892,6 +1892,36 @@ impl CDSTranchePricer {
     /// Create a bumped credit index with shifted hazard rates for CS01 calculation.
     ///
     /// Creates a new CreditIndexData with the index hazard curve shifted by delta_lambda.
+    fn rebuild_credit_index(
+        &self,
+        original_index: &CreditIndexData,
+        recovery_rate: f64,
+        index_credit_curve: std::sync::Arc<
+            finstack_core::market_data::term_structures::HazardCurve,
+        >,
+        base_correlation_curve: std::sync::Arc<
+            finstack_core::market_data::term_structures::BaseCorrelationCurve,
+        >,
+    ) -> Result<CreditIndexData> {
+        let mut builder = CreditIndexData::builder()
+            .num_constituents(original_index.num_constituents)
+            .recovery_rate(recovery_rate)
+            .index_credit_curve(index_credit_curve)
+            .base_correlation_curve(base_correlation_curve);
+
+        if let Some(curves) = &original_index.issuer_credit_curves {
+            builder = builder.issuer_curves(curves.clone());
+        }
+        if let Some(rates) = &original_index.issuer_recovery_rates {
+            builder = builder.issuer_recovery_rates(rates.clone());
+        }
+        if let Some(weights) = &original_index.issuer_weights {
+            builder = builder.issuer_weights(weights.clone());
+        }
+
+        builder.build()
+    }
+
     fn bump_index_hazard(
         &self,
         original_index: &CreditIndexData,
@@ -1902,15 +1932,12 @@ impl CDSTranchePricer {
             .index_credit_curve
             .with_parallel_bump(delta_lambda)?;
 
-        // Create new credit index data with bumped hazard curve
-        CreditIndexData::builder()
-            .num_constituents(original_index.num_constituents)
-            .recovery_rate(original_index.recovery_rate)
-            .index_credit_curve(std::sync::Arc::new(bumped_hazard_curve))
-            .base_correlation_curve(std::sync::Arc::clone(
-                &original_index.base_correlation_curve,
-            ))
-            .build()
+        self.rebuild_credit_index(
+            original_index,
+            original_index.recovery_rate,
+            std::sync::Arc::new(bumped_hazard_curve),
+            std::sync::Arc::clone(&original_index.base_correlation_curve),
+        )
     }
 
     /// Calculate prior realized loss on the tranche as a fraction of original tranche notional.
@@ -2118,6 +2145,12 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
+        if self.params.cs01_bump_size <= 0.0 {
+            return Err(finstack_core::Error::Validation(
+                "CS01 bump size must be positive".to_string(),
+            ));
+        }
+
         let original_index_arc = market_ctx.credit_index(&tranche.credit_index_id)?;
 
         // Calculate the hazard rate bump based on configured units
@@ -2149,8 +2182,8 @@ impl CDSTranchePricer {
         let pv_up = self.price_tranche(tranche, &ctx_up, as_of)?.amount();
         let pv_down = self.price_tranche(tranche, &ctx_down, as_of)?.amount();
 
-        // Return sensitivity per basis point (central difference divided by 2)
-        Ok((pv_up - pv_down) / 2.0)
+        // Return sensitivity normalized to a 1bp configured bump.
+        Ok((pv_up - pv_down) / (2.0 * self.params.cs01_bump_size))
     }
 
     /// Calculate correlation delta (sensitivity to correlation changes) using central difference.
@@ -2170,23 +2203,19 @@ impl CDSTranchePricer {
         let bumped_corr_curve_down =
             self.bump_base_correlation(&original_index_arc.base_correlation_curve, -bump_abs)?;
 
-        let bumped_index_up = CreditIndexData::builder()
-            .num_constituents(original_index_arc.num_constituents)
-            .recovery_rate(original_index_arc.recovery_rate)
-            .index_credit_curve(std::sync::Arc::clone(
-                &original_index_arc.index_credit_curve,
-            ))
-            .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve_up))
-            .build()?;
+        let bumped_index_up = self.rebuild_credit_index(
+            original_index_arc.as_ref(),
+            original_index_arc.recovery_rate,
+            std::sync::Arc::clone(&original_index_arc.index_credit_curve),
+            std::sync::Arc::new(bumped_corr_curve_up),
+        )?;
 
-        let bumped_index_down = CreditIndexData::builder()
-            .num_constituents(original_index_arc.num_constituents)
-            .recovery_rate(original_index_arc.recovery_rate)
-            .index_credit_curve(std::sync::Arc::clone(
-                &original_index_arc.index_credit_curve,
-            ))
-            .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve_down))
-            .build()?;
+        let bumped_index_down = self.rebuild_credit_index(
+            original_index_arc.as_ref(),
+            original_index_arc.recovery_rate,
+            std::sync::Arc::clone(&original_index_arc.index_credit_curve),
+            std::sync::Arc::new(bumped_corr_curve_down),
+        )?;
 
         let ctx_up = market_ctx
             .clone()

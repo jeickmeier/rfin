@@ -44,7 +44,7 @@
 //! - [`DayCount::Thirty360`] - 30/360 US (Bond Basis)
 //! - [`DayCount::ThirtyE360`] - 30E/360 (Eurobond Basis)
 //! - [`DayCount::ActAct`] - Actual/Actual (ISDA)
-//! - [`DayCount::ActActIsma`] - Actual/Actual (ICMA)
+//! - [`DayCount::ActActIsma`] - Actual/Actual (ICMA) regular-period helper
 //! - [`DayCount::Bus252`] - Business/252 (Brazilian and some equity markets)
 //!
 //! # Examples
@@ -100,8 +100,8 @@
 //! // ACT/ACT (ISDA): 181 days / 366 days (leap year) = 0.4945355191256831
 //! let yf_isda = DayCount::ActAct.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
 //!
-//! // ACT/ACT (ISMA): requires frequency for coupon period context
-//! // Returns year fractions: a full 6-month period = 0.5 years
+//! // ACT/ACT (ISMA): frequency-only helper for regular coupon periods
+//! // Returns year fractions: a full 6-month regular period = 0.5 years
 //! let freq = Tenor::semi_annual(); // Semi-annual
 //! let yf_isma = DayCount::ActActIsma
 //!     .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq), bus_basis: None })
@@ -479,7 +479,9 @@ pub enum DayCount {
     ///
     /// # Requirements
     ///
-    /// Requires `frequency` in [`DayCountCtx`] to determine coupon periods.
+    /// Requires `frequency` in [`DayCountCtx`] to determine regular coupon periods.
+    /// For irregular first/last coupons, use
+    /// [`act_act_isma_year_fraction_with_reference_period`].
     ///
     /// # Examples
     ///
@@ -711,6 +713,135 @@ impl DayCount {
             Ok(-self.year_fraction(end, start, ctx)?)
         }
     }
+}
+
+/// Calculate ACT/ACT (ICMA/ISMA) year fraction using explicit reference coupon boundaries.
+///
+/// This helper is intended for irregular first/last coupons where the regular
+/// coupon period cannot be inferred from `start`, `end`, and `frequency` alone.
+/// The `reference_start`/`reference_end` pair must describe one regular coupon
+/// period from the underlying schedule.
+pub fn act_act_isma_year_fraction_with_reference_period(
+    start: Date,
+    end: Date,
+    reference_start: Date,
+    reference_end: Date,
+) -> crate::Result<f64> {
+    if start > end {
+        return Err(InputError::InvalidDateRange.into());
+    }
+    if start == end {
+        return Ok(0.0);
+    }
+    if reference_start >= reference_end {
+        return Err(InputError::InvalidDateRange.into());
+    }
+
+    let period_months = reference_start.months_until(reference_end);
+    if period_months == 0 {
+        return Err(InputError::Invalid.into());
+    }
+    let coupon_length_years = period_months as f64 / 12.0;
+
+    fn recurse(
+        start: Date,
+        end: Date,
+        reference_start: Date,
+        reference_end: Date,
+        period_months: u32,
+        coupon_length_years: f64,
+    ) -> crate::Result<f64> {
+        if start == end {
+            return Ok(0.0);
+        }
+        if reference_start >= reference_end {
+            return Err(InputError::InvalidDateRange.into());
+        }
+
+        if start >= reference_start && end <= reference_end {
+            let accrual_days = (end - start).whole_days() as f64;
+            let reference_days = (reference_end - reference_start).whole_days() as f64;
+            if reference_days <= 0.0 {
+                return Err(InputError::Invalid.into());
+            }
+            return Ok((accrual_days / reference_days) * coupon_length_years);
+        }
+
+        let period_months_i32 = i32::try_from(period_months).map_err(|_| InputError::Invalid)?;
+
+        if end <= reference_start {
+            let previous_start = reference_start.add_months(-period_months_i32);
+            return recurse(
+                start,
+                end,
+                previous_start,
+                reference_start,
+                period_months,
+                coupon_length_years,
+            );
+        }
+
+        if start >= reference_end {
+            let next_end = reference_end.add_months(period_months_i32);
+            return recurse(
+                start,
+                end,
+                reference_end,
+                next_end,
+                period_months,
+                coupon_length_years,
+            );
+        }
+
+        if start < reference_start {
+            let previous_start = reference_start.add_months(-period_months_i32);
+            return Ok(recurse(
+                start,
+                reference_start,
+                previous_start,
+                reference_start,
+                period_months,
+                coupon_length_years,
+            )? + recurse(
+                reference_start,
+                end,
+                reference_start,
+                reference_end,
+                period_months,
+                coupon_length_years,
+            )?);
+        }
+
+        if end > reference_end {
+            let next_end = reference_end.add_months(period_months_i32);
+            return Ok(recurse(
+                start,
+                reference_end,
+                reference_start,
+                reference_end,
+                period_months,
+                coupon_length_years,
+            )? + recurse(
+                reference_end,
+                end,
+                reference_end,
+                next_end,
+                period_months,
+                coupon_length_years,
+            )?);
+        }
+
+        Err(InputError::Invalid.into())
+    }
+
+    recurse(
+        start,
+        end,
+        reference_start,
+        reference_end,
+        period_months,
+        coupon_length_years,
+    )
 }
 
 // -------------------------------------------------------------------------------------------------

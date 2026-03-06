@@ -229,8 +229,11 @@ impl SABRCalibrationDerivatives {
 
         // Main volatility formula components
         let f_mid_power = f_mid.powf(1.0 - beta);
-        let term1 =
-            alpha / (f_mid_power * (1.0 + log_fk * log_fk / 24.0 + log_fk.powi(4) / 1920.0));
+        let term1 = alpha
+            / (f_mid_power
+                * (1.0
+                    + (1.0 - beta).powi(2) / 24.0 * log_fk.powi(2)
+                    + (1.0 - beta).powi(4) / 1920.0 * log_fk.powi(4)));
 
         let term2_base = 1.0
             + t * (((1.0 - beta).powi(2) * alpha * alpha)
@@ -374,10 +377,13 @@ impl SABRCalibrationDerivatives {
         let f_power = f_mid.powf(1.0 - beta);
 
         // term1 = alpha / (f_mid_power * denom)
-        let denom = 1.0 + log_fk * log_fk / 24.0 + log_fk.powi(4) / 1920.0;
+        let denom = 1.0
+            + (1.0 - beta).powi(2) / 24.0 * log_fk.powi(2)
+            + (1.0 - beta).powi(4) / 1920.0 * log_fk.powi(4);
         let term1 = sabr_params.alpha / (f_power * denom);
 
         // d_term1/d_alpha = 1 / (f_power * denom)
+        // Note: denom depends on beta which is fixed during calibration, so d_denom/d_alpha = 0
         let d_term1_d_alpha = 1.0 / (f_power * denom);
 
         // d_term2/d_alpha
@@ -421,10 +427,12 @@ impl SABRCalibrationDerivatives {
         let f_power = f_mid.powf(1.0 - beta);
 
         // term1 = alpha / (f_mid_power * denom)
-        let denom = 1.0 + log_fk * log_fk / 24.0 + log_fk.powi(4) / 1920.0;
+        let denom = 1.0
+            + (1.0 - beta).powi(2) / 24.0 * log_fk.powi(2)
+            + (1.0 - beta).powi(4) / 1920.0 * log_fk.powi(4);
         let term1 = sabr_params.alpha / (f_power * denom);
 
-        // d_term1/d_nu = 0 (term1 doesn't depend on nu)
+        // d_term1/d_nu = 0 (term1 doesn't depend on nu; beta is fixed)
 
         // d_term2/d_nu
         let d_term2_d_nu = t
@@ -467,10 +475,12 @@ impl SABRCalibrationDerivatives {
         let f_power = f_mid.powf(1.0 - beta);
 
         // term1 = alpha / (f_mid_power * denom)
-        let denom = 1.0 + log_fk * log_fk / 24.0 + log_fk.powi(4) / 1920.0;
+        let denom = 1.0
+            + (1.0 - beta).powi(2) / 24.0 * log_fk.powi(2)
+            + (1.0 - beta).powi(4) / 1920.0 * log_fk.powi(4);
         let term1 = sabr_params.alpha / (f_power * denom);
 
-        // d_term1/d_rho = 0 (term1 doesn't depend on rho)
+        // d_term1/d_rho = 0 (term1 doesn't depend on rho; beta is fixed)
 
         // d_term2/d_rho
         let d_term2_d_rho = t
@@ -697,5 +707,68 @@ mod tests {
                 rel_error
             );
         }
+    }
+
+    /// Validate that the FD-mode derivatives from `sabr_vol_and_derivatives`
+    /// agree with manual central-difference derivatives using `SABRModel::implied_volatility`.
+    ///
+    /// Uses rates-scale params where analytical approximations are known to
+    /// diverge, so we test the FD pathway which is used in production calibration.
+    #[test]
+    fn test_sabr_fd_vs_manual_fd_single_strike_derivatives() {
+        let alpha = 0.04;
+        let beta = 0.5;
+        let rho = -0.3;
+        let nu = 0.4;
+        let forward = 0.03;
+        let strike = 0.035;
+        let t = 1.0;
+
+        let market_data = SABRMarketData {
+            forward,
+            time_to_expiry: t,
+            strikes: vec![strike],
+            market_vols: vec![0.20],
+            beta,
+            shift: None,
+        };
+
+        let provider = SABRCalibrationDerivatives::new_with_fd(market_data);
+
+        let (vol, d_alpha_provider, d_nu_provider, d_rho_provider) =
+            provider.sabr_vol_and_derivatives(strike, alpha, nu, rho);
+
+        let h = 1e-5;
+        let sabr_vol = |a: f64, n: f64, r: f64| -> f64 {
+            let params = SABRParameters::new(a, beta, n, r).expect("valid SABR params");
+            SABRModel::new(params)
+                .implied_volatility(forward, strike, t)
+                .expect("valid vol")
+        };
+
+        assert!(vol > 0.0, "Base vol should be positive: {}", vol);
+
+        let d_alpha_fd = (sabr_vol(alpha + h, nu, rho) - sabr_vol(alpha - h, nu, rho)) / (2.0 * h);
+        let d_nu_fd = (sabr_vol(alpha, nu + h, rho) - sabr_vol(alpha, nu - h, rho)) / (2.0 * h);
+        let d_rho_fd = (sabr_vol(alpha, nu, rho + h) - sabr_vol(alpha, nu, rho - h)) / (2.0 * h);
+
+        let rel_tol = 1e-4;
+        let check = |name: &str, provider_val: f64, manual_fd: f64| {
+            let denom = manual_fd.abs().max(1e-12);
+            let rel_err = (provider_val - manual_fd).abs() / denom;
+            assert!(
+                rel_err < rel_tol,
+                "{}: provider={:.8e}, manual_fd={:.8e}, rel_err={:.4e} exceeds {:.0e}",
+                name,
+                provider_val,
+                manual_fd,
+                rel_err,
+                rel_tol,
+            );
+        };
+
+        check("d_sigma/d_alpha", d_alpha_provider, d_alpha_fd);
+        check("d_sigma/d_nu", d_nu_provider, d_nu_fd);
+        check("d_sigma/d_rho", d_rho_provider, d_rho_fd);
     }
 }

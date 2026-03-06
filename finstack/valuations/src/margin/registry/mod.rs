@@ -119,6 +119,15 @@ pub struct SimmParams {
     pub fx_delta_weight: f64,
     pub risk_class_correlations: HashMap<(SimmRiskClass, SimmRiskClass), f64>,
     pub commodity_bucket_weights: HashMap<String, f64>,
+    pub ir_tenor_correlations: HashMap<(String, String), f64>,
+    pub ir_vega_weight: f64,
+    pub cq_vega_weight: f64,
+    pub cnq_vega_weight: f64,
+    pub equity_vega_weight: f64,
+    pub fx_vega_weight: f64,
+    pub commodity_vega_weight: f64,
+    pub curvature_scale_factor: f64,
+    pub concentration_thresholds: HashMap<SimmRiskClass, f64>,
 }
 
 static EMBEDDED_REGISTRY: OnceLock<MarginRegistry> = OnceLock::new();
@@ -381,6 +390,17 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
             correlations.insert(key, cor.rho);
         }
 
+        let ir_tenor_correlations = parse_ir_tenor_correlations(&record.ir_tenor_correlations)?;
+        let ir_vega_weight = record.ir_vega_weight.unwrap_or(0.21);
+        let cq_vega_weight = record.cq_vega_weight.unwrap_or(0.27);
+        let cnq_vega_weight = record.cnq_vega_weight.unwrap_or(0.27);
+        let equity_vega_weight = record.equity_vega_weight.unwrap_or(0.26);
+        let fx_vega_weight = record.fx_vega_weight.unwrap_or(0.30);
+        let commodity_vega_weight = record.commodity_vega_weight.unwrap_or(0.36);
+        let curvature_scale_factor = record.curvature_scale_factor.unwrap_or(1.5);
+        let concentration_thresholds =
+            parse_concentration_thresholds(&record.concentration_thresholds)?;
+
         let params = SimmParams {
             version,
             mpor_days: record.mpor_days,
@@ -391,6 +411,15 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
             fx_delta_weight: record.fx_delta_weight,
             risk_class_correlations: correlations,
             commodity_bucket_weights,
+            ir_tenor_correlations,
+            ir_vega_weight,
+            cq_vega_weight,
+            cnq_vega_weight,
+            equity_vega_weight,
+            fx_vega_weight,
+            commodity_vega_weight,
+            curvature_scale_factor,
+            concentration_thresholds,
         };
 
         for id in entry.ids {
@@ -483,6 +512,65 @@ fn parse_number_map(value: &Value, context: &str) -> Result<HashMap<String, f64>
             Error::Validation(format!("{context} value for key '{k}' must be a number"))
         })?;
         out.insert(k.clone(), num);
+    }
+    Ok(out)
+}
+
+fn parse_ir_tenor_correlations(value: &Value) -> Result<HashMap<(String, String), f64>> {
+    if value.is_null() {
+        return Ok(HashMap::default());
+    }
+    let obj = value
+        .as_object()
+        .ok_or_else(|| Error::Validation("ir_tenor_correlations must be an object".to_string()))?;
+    let mut out = HashMap::default();
+    for (k, v) in obj {
+        let parts: Vec<&str> = k.splitn(2, '_').collect();
+        if parts.len() != 2 {
+            return Err(Error::Validation(format!(
+                "invalid ir_tenor_correlations key '{k}': expected format 'tenor1_tenor2'"
+            )));
+        }
+        let rho = v.as_f64().ok_or_else(|| {
+            Error::Validation(format!(
+                "ir_tenor_correlations value for '{k}' must be a number"
+            ))
+        })?;
+        if !(-1.0..=1.0).contains(&rho) {
+            return Err(Error::Validation(format!(
+                "ir_tenor_correlations value for '{k}' must be in [-1,1]"
+            )));
+        }
+        let (a, b) = ordered_tenor_pair(parts[0], parts[1]);
+        out.insert((a, b), rho);
+    }
+    Ok(out)
+}
+
+fn ordered_tenor_pair(a: &str, b: &str) -> (String, String) {
+    if a <= b {
+        (a.to_string(), b.to_string())
+    } else {
+        (b.to_string(), a.to_string())
+    }
+}
+
+fn parse_concentration_thresholds(value: &Value) -> Result<HashMap<SimmRiskClass, f64>> {
+    if value.is_null() {
+        return Ok(HashMap::default());
+    }
+    let obj = value.as_object().ok_or_else(|| {
+        Error::Validation("concentration_thresholds must be an object".to_string())
+    })?;
+    let mut out = HashMap::default();
+    for (k, v) in obj {
+        let rc = parse_simm_risk_class(k)?;
+        let threshold = v.as_f64().ok_or_else(|| {
+            Error::Validation(format!(
+                "concentration_thresholds value for '{k}' must be a number"
+            ))
+        })?;
+        out.insert(rc, threshold);
     }
     Ok(out)
 }

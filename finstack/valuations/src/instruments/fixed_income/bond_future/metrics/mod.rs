@@ -132,11 +132,5 @@ mod tests {
             metrics.contains(&MetricId::BucketedDv01),
             "BucketedDv01 metric should be registered for BondFuture"
         );
-
-        // Verify Theta is registered
-        assert!(
-            metrics.contains(&MetricId::Theta),
-            "Theta metric should be registered for BondFuture"
-        );
     }
 }

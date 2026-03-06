@@ -281,3 +281,38 @@ pub(crate) fn execute_params_and_apply(
     apply_output(&mut new_context, output, credit_index_update);
     Ok((new_context, report))
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::calibration::api::schema::StudentTParams;
+
+    #[test]
+    fn student_t_step_is_rejected_until_real_pricing_is_wired() {
+        let params = StepParams::StudentT(StudentTParams {
+            tranche_instrument_id: "TRANCHE-1".to_string(),
+            base_correlation_curve_id: "INDEX_CORR".to_string(),
+            initial_df: 5.0,
+            df_bounds: (2.1, 50.0),
+            correlation: 0.3,
+        });
+
+        let err = match execute_params(
+            &params,
+            &[],
+            &MarketContext::new(),
+            &CalibrationConfig::default(),
+        ) {
+            Ok(_) => panic!(
+                "Student-t calibration should be rejected until tranche repricing is implemented"
+            ),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string().contains("not implemented"),
+            "unexpected error: {err}"
+        );
+    }
+}

@@ -154,7 +154,11 @@ fn default_driver_node_id(spec: &CovenantSpec) -> Option<&'static str> {
         | CovenantType::Negative { .. }
         | CovenantType::Affirmative { .. }
         | CovenantType::Custom { .. }
-        | CovenantType::Basket { .. } => None,
+        | CovenantType::Basket { .. }
+        | CovenantType::MinDSCR { .. }
+        | CovenantType::MaxNetDebtToEBITDA { .. }
+        | CovenantType::MaxCapex { .. }
+        | CovenantType::MinLiquidity { .. } => None,
     }
 }
 
@@ -218,6 +222,7 @@ mod tests {
         let spec = CovenantSpec {
             covenant,
             metric_id: Some(MetricId::custom("NetDebtEbitda")),
+            threshold_schedule: None,
             custom_evaluator: None,
         };
         engine.add_spec(spec);

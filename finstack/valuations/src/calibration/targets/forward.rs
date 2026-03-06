@@ -269,11 +269,19 @@ impl BootstrapTarget for ForwardCurveTarget {
             RateQuote::Futures {
                 price,
                 convexity_adjustment,
+                vol_surface_id,
                 ..
             } => {
+                if vol_surface_id.is_some() && convexity_adjustment.is_none() {
+                    return Err(finstack_core::Error::Validation(
+                        "Forward curve calibration requires a pre-computed convexity_adjustment \
+                         for futures quotes; dynamic vol-surface lookup is not wired"
+                            .to_string(),
+                    ));
+                }
                 let implied_rate = (100.0 - price) / 100.0;
                 if let Some(adj) = convexity_adjustment {
-                    Ok(implied_rate + adj)
+                    Ok(implied_rate - adj)
                 } else {
                     Ok(implied_rate)
                 }
@@ -353,8 +361,53 @@ impl BootstrapTarget for ForwardCurveTarget {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::calibration::prepared::CalibrationQuote;
     use crate::calibration::solver::traits::BootstrapTarget;
+    use crate::instruments::common_impl::traits::{Attributes, Instrument};
+    use crate::market::build::prepared::PreparedQuote;
+    use crate::market::conventions::ids::IrFutureContractId;
+    use crate::market::quotes::ids::QuoteId;
+    use crate::market::quotes::rates::RateQuote;
+    use crate::pricer::InstrumentType;
+    use finstack_core::currency::Currency;
+    use finstack_core::money::Money;
+    use std::any::Any;
+    use std::sync::Arc;
     use time::Month;
+
+    #[derive(Clone)]
+    struct DummyInstrument;
+
+    impl Instrument for DummyInstrument {
+        fn id(&self) -> &str {
+            "dummy"
+        }
+
+        fn key(&self) -> InstrumentType {
+            InstrumentType::Deposit
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+            Ok(Money::new(0.0, Currency::USD))
+        }
+
+        fn attributes(&self) -> &Attributes {
+            static ATTRS: std::sync::OnceLock<Attributes> = std::sync::OnceLock::new();
+            ATTRS.get_or_init(Attributes::default)
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            unreachable!("dummy instrument should not mutate attributes")
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+    }
 
     #[test]
     fn forward_curve_anchor_insertion_independent_of_solver_tolerance() {
@@ -402,5 +455,77 @@ mod tests {
 
         assert_eq!(low_tol_curve.knots(), high_tol_curve.knots());
         assert_eq!(low_tol_curve.knots(), &[0.0, 1e-6, 1.0]);
+    }
+
+    #[test]
+    fn futures_initial_guess_subtracts_convexity_adjustment() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let target = ForwardCurveTarget {
+            base_date,
+            currency: Currency::USD,
+            fwd_curve_id: CurveId::new("fwd"),
+            discount_curve_id: CurveId::new("disc"),
+            tenor_years: 1.0,
+            solve_interp: InterpStyle::Linear,
+            config: CalibrationConfig::default(),
+            time_day_count: DayCount::Act365F,
+            base_context: MarketContext::new(),
+            reuse_context: Some(RefCell::new(MarketContext::new())),
+        };
+
+        let quote = CalibrationQuote::Rates(PreparedQuote::new(
+            Arc::new(RateQuote::Futures {
+                id: QuoteId::new("SR3"),
+                contract: IrFutureContractId::new("CME:SR3"),
+                expiry: base_date,
+                price: 98.50,
+                convexity_adjustment: Some(0.0010),
+                vol_surface_id: None,
+            }),
+            Arc::new(DummyInstrument),
+            base_date,
+            1.0,
+        ));
+
+        let guess = target.initial_guess(&quote, &[]).expect("initial guess");
+        assert!((guess - 0.014).abs() < 1e-12, "expected 1.40%, got {guess}");
+    }
+
+    #[test]
+    fn futures_initial_guess_rejects_unwired_dynamic_convexity_shape() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let target = ForwardCurveTarget {
+            base_date,
+            currency: Currency::USD,
+            fwd_curve_id: CurveId::new("fwd"),
+            discount_curve_id: CurveId::new("disc"),
+            tenor_years: 1.0,
+            solve_interp: InterpStyle::Linear,
+            config: CalibrationConfig::default(),
+            time_day_count: DayCount::Act365F,
+            base_context: MarketContext::new(),
+            reuse_context: Some(RefCell::new(MarketContext::new())),
+        };
+
+        let quote = CalibrationQuote::Rates(PreparedQuote::new(
+            Arc::new(RateQuote::Futures {
+                id: QuoteId::new("SR3"),
+                contract: IrFutureContractId::new("CME:SR3"),
+                expiry: base_date,
+                price: 98.50,
+                convexity_adjustment: None,
+                vol_surface_id: Some(CurveId::new("USD-SR3-VOL")),
+            }),
+            Arc::new(DummyInstrument),
+            base_date,
+            1.0,
+        ));
+
+        let err = target
+            .initial_guess(&quote, &[])
+            .expect_err("unsupported dynamic convexity shape should fail closed");
+        assert!(err
+            .to_string()
+            .contains("pre-computed convexity_adjustment"));
     }
 }

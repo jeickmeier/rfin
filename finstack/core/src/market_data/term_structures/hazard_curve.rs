@@ -47,7 +47,7 @@
 //! let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 //! let hc = HazardCurve::builder("USD-CREDIT")
 //!     .base_date(base)
-//!     .knots([(0.0, 0.01), (10.0, 0.015)])
+//!     .knots([(1.0, 0.01), (10.0, 0.015)])
 //!     .build()
 //!     .expect("HazardCurve builder should succeed");
 //! assert!(hc.sp(5.0) < 1.0); // Survival probability < 1
@@ -111,7 +111,7 @@ use crate::{
 pub struct HazardCurve {
     id: CurveId,
     base: Date,
-    /// Time grid in years from base date; strictly increasing (first may be 0.0)
+    /// Time grid in years from base date; strictly increasing and strictly positive.
     knots: Box<[f64]>,
     /// Piecewise-constant hazard rates λ ≥ 0; same length as `knots`.
     lambdas: Box<[f64]>,
@@ -611,7 +611,7 @@ impl TermStructure for HazardCurve {
 /// let curve = HazardCurve::builder("USD-CREDIT")
 ///     .base_date(base)
 ///     .recovery_rate(0.40)
-///     .knots([(0.0, 0.01), (5.0, 0.015), (10.0, 0.02)])
+///     .knots([(1.0, 0.01), (5.0, 0.015), (10.0, 0.02)])
 ///     .build()
 ///     .expect("HazardCurve builder should succeed");
 /// assert!(curve.sp(5.0) < 1.0);
@@ -743,9 +743,9 @@ impl HazardCurveBuilder {
             return Err(InputError::TooFewPoints.into());
         }
 
-        // Validate knot times and hazard rates: times must be finite/non-negative; rates non-negative and finite.
+        // Validate knot times and hazard rates: times must be finite/strictly positive; rates non-negative and finite.
         for &(t, lambda) in &self.points {
-            if !t.is_finite() || t < 0.0 {
+            if !t.is_finite() || t <= 0.0 {
                 return Err(InputError::Invalid.into());
             }
             if lambda < 0.0 {
@@ -848,7 +848,7 @@ mod tests {
         let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let hc = HazardCurve::builder("USD-CREDIT")
             .base_date(base)
-            .knots([(0.0, 0.01), (5.0, 0.02)])
+            .knots([(1.0, 0.01), (5.0, 0.02)])
             .build()
             .expect("HazardCurve builder should succeed with valid test data");
         assert!(hc.sp(1.0) < 1.0);
@@ -860,7 +860,7 @@ mod tests {
         let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let hc = HazardCurve::builder("USD")
             .base_date(base)
-            .knots([(0.0, 0.01), (10.0, 0.015)])
+            .knots([(1.0, 0.01), (10.0, 0.015)])
             .build()
             .expect("HazardCurve builder should succeed with valid test data");
         let dp = hc
@@ -920,6 +920,17 @@ mod tests {
         // 1.5 - (183/365) = 1.5 - 0.50137 = 0.9986
         // 2.5 - (183/365) = 1.9986
         assert!(knots[0] < 1.0 && knots[0] > 0.99);
+    }
+
+    #[test]
+    fn builder_rejects_explicit_zero_time_knot() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let result = HazardCurve::builder("USD-CREDIT")
+            .base_date(base)
+            .knots([(0.0, 0.01), (5.0, 0.02)])
+            .build();
+
+        assert!(result.is_err(), "t=0 hazard knots should be rejected");
     }
 }
 

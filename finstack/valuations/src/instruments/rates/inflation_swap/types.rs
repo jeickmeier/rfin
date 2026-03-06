@@ -218,10 +218,7 @@ impl InflationSwap {
             // Fall back to curve-based lookup - we must apply lag ourselves
             let default_lag = self.effective_lag(curves);
             let lagged_start = self.apply_lag(self.start_date, default_lag);
-            // Compute signed year fraction (can be negative if lagged_start < discount_base)
-            let t_start = Self::signed_year_fraction(discount_base, lagged_start);
-            // cpi(t) returns base_cpi for t <= 0, which is correct for historical dates
-            inflation_curve.cpi(t_start)
+            Self::curve_cpi_value(inflation_curve.as_ref(), discount_base, lagged_start)?
         };
 
         if i_start <= 0.0 {
@@ -232,11 +229,8 @@ impl InflationSwap {
         // (The index may not have future projections, so we always use the curve for maturity)
         let default_lag = self.effective_lag(curves);
         let lagged_maturity = self.apply_lag(self.maturity, default_lag);
-
-        // Compute signed year fraction (can be negative if matured)
-        let t_maturity_infl = Self::signed_year_fraction(discount_base, lagged_maturity);
-        // cpi(t) returns base_cpi for t <= 0, which is correct for matured swaps
-        let i_maturity_projected = inflation_curve.cpi(t_maturity_infl);
+        let i_maturity_projected =
+            Self::curve_cpi_value(inflation_curve.as_ref(), discount_base, lagged_maturity)?;
 
         Ok(i_maturity_projected / i_start)
     }
@@ -261,6 +255,7 @@ impl InflationSwap {
     ///
     /// Note: The instrument's `day_count` field is used for fixed leg compounding
     /// (see `pv_fixed_leg`), while this function is used only for inflation curve lookups.
+    #[allow(dead_code)]
     fn signed_year_fraction(start: Date, end: Date) -> f64 {
         if end >= start {
             DayCount::Act365F
@@ -271,6 +266,21 @@ impl InflationSwap {
             -DayCount::Act365F
                 .year_fraction(end, start, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or(0.0)
+        }
+    }
+
+    fn curve_cpi_value(
+        curve: &finstack_core::market_data::term_structures::InflationCurve,
+        fallback_base: Date,
+        lookup_date: Date,
+    ) -> finstack_core::Result<f64> {
+        let default_anchor =
+            Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
+        if curve.base_date() == default_anchor {
+            let t = Self::signed_year_fraction(fallback_base, lookup_date);
+            Ok(curve.cpi(t))
+        } else {
+            curve.cpi_on_date(lookup_date)
         }
     }
 
@@ -419,8 +429,8 @@ impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Matured swaps have zero PV
-        if as_of >= self.maturity {
+        let payment_date = self.adjusted_payment_date(self.maturity);
+        if as_of >= payment_date {
             return Ok(finstack_core::money::Money::new(
                 0.0,
                 self.notional.currency(),
@@ -572,6 +582,7 @@ impl YoYInflationSwap {
     ///
     /// Uses Act365F for inflation curve time calculations (see `InflationSwap::signed_year_fraction`
     /// for detailed rationale). The instrument's `day_count` field is used for fixed leg accrual only.
+    #[allow(dead_code)]
     fn signed_year_fraction(start: Date, end: Date) -> f64 {
         if end >= start {
             DayCount::Act365F
@@ -599,8 +610,7 @@ impl YoYInflationSwap {
         let lag = self.effective_lag(curves);
         let lagged_date = Self::apply_lag(date, lag);
         let curve = curves.get_inflation(self.inflation_index_id.as_str())?;
-        let t = Self::signed_year_fraction(as_of, lagged_date);
-        Ok(curve.cpi(t))
+        InflationSwap::curve_cpi_value(curve.as_ref(), as_of, lagged_date)
     }
 
     fn schedule(&self) -> finstack_core::Result<Vec<(Date, Date, Date)>> {
@@ -790,5 +800,97 @@ impl crate::instruments::common_impl::traits::CurveDependencies for YoYInflation
             .discount(self.discount_curve_id.clone())
             .forward(self.inflation_index_id.clone())
             .build()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::common_impl::traits::Instrument;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::term_structures::{DiscountCurve, InflationCurve};
+    use time::Month;
+
+    fn d(year: i32, month: Month, day: u8) -> Date {
+        Date::from_calendar_date(year, month, day).expect("valid date")
+    }
+
+    fn sample_inflation_curve(base_date: Date) -> InflationCurve {
+        InflationCurve::builder("US-CPI")
+            .base_date(base_date)
+            .base_cpi(100.0)
+            .knots([(0.0, 100.0), (1.0, 110.0), (2.0, 121.0)])
+            .build()
+            .expect("inflation curve should build")
+    }
+
+    fn sample_discount_curve(base_date: Date) -> DiscountCurve {
+        DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .knots([(0.0, 1.0), (2.0, 1.0)])
+            .build()
+            .expect("discount curve should build")
+    }
+
+    fn sample_swap(start_date: Date, maturity: Date) -> InflationSwap {
+        InflationSwap::builder()
+            .id(InstrumentId::new("INFL-SWAP"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .start_date(start_date)
+            .maturity(maturity)
+            .fixed_rate(Decimal::ZERO)
+            .inflation_index_id(CurveId::new("US-CPI"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .day_count(DayCount::Act365F)
+            .side(PayReceive::PayFixed)
+            .lag_override(InflationLag::None)
+            .attributes(Attributes::new())
+            .build()
+            .expect("swap should build")
+    }
+
+    #[test]
+    fn projected_index_ratio_uses_inflation_curve_anchor_date() {
+        let curve_base = d(2024, Month::January, 1);
+        let discount_base = d(2024, Month::June, 1);
+        let start = d(2024, Month::March, 1);
+        let maturity = d(2025, Month::March, 1);
+        let swap = sample_swap(start, maturity);
+        let inflation_curve = sample_inflation_curve(curve_base);
+        let market = MarketContext::new()
+            .insert_discount(sample_discount_curve(discount_base))
+            .insert_inflation(inflation_curve.clone());
+
+        let ratio = swap
+            .projected_index_ratio(&market, discount_base)
+            .expect("ratio should compute");
+        let expected = inflation_curve.cpi_on_date(maturity).expect("maturity CPI")
+            / inflation_curve.cpi_on_date(start).expect("start CPI");
+
+        assert!(
+            (ratio - expected).abs() < 1e-10,
+            "expected ratio {expected}, got {ratio}"
+        );
+    }
+
+    #[test]
+    fn matured_but_unpaid_swap_retains_value_until_adjusted_payment_date() {
+        let start = d(2024, Month::January, 15);
+        let maturity = d(2025, Month::January, 18);
+        let as_of = d(2025, Month::January, 19);
+        let mut swap = sample_swap(start, maturity);
+        swap.bdc = BusinessDayConvention::Following;
+        swap.calendar_id = Some("nyse".into());
+
+        let market = MarketContext::new()
+            .insert_discount(sample_discount_curve(as_of))
+            .insert_inflation(sample_inflation_curve(d(2024, Month::January, 1)));
+
+        let pv = swap.value(&market, as_of).expect("value should compute");
+        assert!(
+            pv.amount().abs() > 0.0,
+            "swap should retain value between contractual maturity and adjusted payment date"
+        );
     }
 }

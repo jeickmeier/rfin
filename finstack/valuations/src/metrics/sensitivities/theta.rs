@@ -440,6 +440,119 @@ fn collect_cashflows_in_period(
 // or `None` for instruments without a clear expiry concept (e.g., equity spot positions).
 // See the `Instrument` trait in `instruments/common/traits.rs`.
 
+/// Theta decomposition calculator.
+///
+/// Decomposes total theta into three additive components:
+///
+/// - **Carry**: net cashflows received during the period (coupons, interest, fees)
+/// - **Roll-down**: PV change from time passing along the *same* curve (no curve movement)
+/// - **Decay**: residual time-value / optionality decay (`total_theta - carry - roll_down`)
+///
+/// With static (T0) curves, `total_theta = carry + roll_down` by construction, so
+/// decay is identically zero. Non-zero decay arises only when the total theta is
+/// computed with distinct T1 curves (e.g., in daily P&L attribution).
+///
+/// The calculator is registered under [`MetricId::ThetaCarry`] and stores all three
+/// components as side-effects in [`MetricContext::computed`].
+pub struct GenericThetaDecomposed;
+
+impl Default for GenericThetaDecomposed {
+    fn default() -> Self {
+        Self
+    }
+}
+
+impl crate::metrics::MetricCalculator for GenericThetaDecomposed {
+    fn calculate(&self, context: &mut crate::metrics::MetricContext) -> Result<f64> {
+        let period_str = context
+            .pricing_overrides
+            .as_ref()
+            .and_then(|po| po.scenario.theta_period.as_deref())
+            .unwrap_or("1D");
+
+        let expiry_date = context.instrument.expiry();
+        let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;
+
+        if rolled_date <= context.as_of {
+            context
+                .computed
+                .insert(crate::metrics::MetricId::ThetaCarry, 0.0);
+            context
+                .computed
+                .insert(crate::metrics::MetricId::ThetaRollDown, 0.0);
+            context
+                .computed
+                .insert(crate::metrics::MetricId::ThetaDecay, 0.0);
+            return Ok(0.0);
+        }
+
+        let base_pv = context
+            .instrument
+            .value(&context.curves, context.as_of)?
+            .amount();
+        let base_ccy = context.base_value.currency();
+
+        let rolled_pv = context
+            .instrument
+            .value(&context.curves, rolled_date)?
+            .amount();
+
+        let carry = collect_cashflows_in_period(
+            context.instrument.as_ref(),
+            &context.curves,
+            context.as_of,
+            rolled_date,
+            base_ccy,
+        )?;
+
+        let roll_down = rolled_pv - base_pv;
+
+        // Total theta = carry + roll-down with T0-only curves.
+        // Decay would be non-zero if a separate total theta (with T1 curves) were available,
+        // but with static curves the decomposition is exact: total = carry + roll_down.
+        let total_theta = carry + roll_down;
+        let decay = total_theta - carry - roll_down;
+
+        context
+            .computed
+            .insert(crate::metrics::MetricId::ThetaCarry, carry);
+        context
+            .computed
+            .insert(crate::metrics::MetricId::ThetaRollDown, roll_down);
+        context
+            .computed
+            .insert(crate::metrics::MetricId::ThetaDecay, decay);
+
+        Ok(total_theta)
+    }
+
+    fn dependencies(&self) -> &[crate::metrics::MetricId] {
+        &[]
+    }
+}
+
+/// Lookup calculator for theta sub-components stored by [`GenericThetaDecomposed`].
+///
+/// Returns a value previously inserted into [`MetricContext::computed`] by the
+/// decomposition calculator, avoiding redundant re-computation.
+pub(crate) struct ThetaComponentLookup(pub crate::metrics::MetricId);
+
+impl crate::metrics::MetricCalculator for ThetaComponentLookup {
+    fn calculate(&self, context: &mut crate::metrics::MetricContext) -> Result<f64> {
+        context.computed.get(&self.0).copied().ok_or_else(|| {
+            finstack_core::InputError::NotFound {
+                id: format!("metric:{}", self.0),
+            }
+            .into()
+        })
+    }
+
+    fn dependencies(&self) -> &[crate::metrics::MetricId] {
+        static DEPS: &[crate::metrics::MetricId] = &[crate::metrics::MetricId::ThetaCarry];
+        DEPS
+    }
+}
+
 /// Universal theta calculator that works with any instrument via the Instrument trait.
 ///
 /// Computes theta as the total carry from rolling the valuation date forward:

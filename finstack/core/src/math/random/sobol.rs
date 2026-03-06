@@ -303,7 +303,8 @@ impl SobolRng {
     pub fn fill_std_normals(&mut self, out: &mut [f64]) {
         self.fill_u01(out);
         for x in out {
-            *x = inverse_normal_cdf(*x);
+            let clamped = x.clamp(f64::MIN_POSITIVE, 1.0 - f64::EPSILON);
+            *x = inverse_normal_cdf(clamped);
         }
     }
 }
@@ -488,12 +489,12 @@ mod tests {
 
     #[test]
     fn test_fill_std_normals() {
-        let mut sobol = SobolRng::new(1, 12345); // Use non-zero seed to avoid edge cases
+        let mut sobol = SobolRng::new(1, 0);
         let mut normals = vec![0.0; 100];
         sobol.fill_std_normals(&mut normals);
 
-        // All values should be finite (skip first few which might hit edges)
-        for &n in &normals[5..] {
+        // All values should be finite, including the first Sobol point.
+        for &n in &normals {
             assert!(n.is_finite(), "Non-finite value: {}", n);
         }
 

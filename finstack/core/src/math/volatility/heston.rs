@@ -406,11 +406,12 @@ pub fn calibrate_heston(
 
     for (&t, (ks, vs)) in expiries.iter().zip(strikes.iter().zip(market_vols.iter())) {
         let fwd = spot * ((r - q) * t).exp();
+        let df = (-r * t).exp();
         for (&k, &vol) in ks.iter().zip(vs.iter()) {
             flat_expiry.push(t);
             flat_strike.push(k);
-            let mkt_price = crate::math::volatility::black_call(fwd, k, vol, t);
-            let vega = crate::math::volatility::black_vega(fwd, k, vol, t).max(1e-10);
+            let mkt_price = df * crate::math::volatility::black_call(fwd, k, vol, t);
+            let vega = (df * crate::math::volatility::black_vega(fwd, k, vol, t)).max(1e-10);
             flat_market_price.push(mkt_price);
             flat_vega.push(vega);
         }
@@ -505,10 +506,11 @@ pub fn calibrate_heston(
     let mut sse = 0.0;
     for (&t, (ks, vs)) in expiries.iter().zip(strikes.iter().zip(market_vols.iter())) {
         let fwd = spot * ((r - q) * t).exp();
+        let df = (-r * t).exp();
         for (&k, &mv) in ks.iter().zip(vs.iter()) {
             let model_price = fitted.price_european(spot, k, r, q, t, true);
             let model_vol =
-                crate::math::volatility::implied_vol_black(model_price, fwd, k, t, true)
+                crate::math::volatility::implied_vol_black(model_price / df, fwd, k, t, true)
                     .unwrap_or(mv);
             sse += (model_vol - mv) * (model_vol - mv);
         }
@@ -682,10 +684,11 @@ mod tests {
         // Compute synthetic implied vols via Heston price → BS inversion
         let make_vols = |ks: &[f64], t: f64| -> Vec<f64> {
             let fwd = spot * ((r - q) * t).exp();
+            let df = (-r * t).exp();
             ks.iter()
                 .map(|&k| {
                     let price = true_params.price_european(spot, k, r, q, t, true);
-                    crate::math::volatility::implied_vol_black(price, fwd, k, t, true)
+                    crate::math::volatility::implied_vol_black(price / df, fwd, k, t, true)
                         .unwrap_or(0.2)
                 })
                 .collect()
@@ -733,5 +736,62 @@ mod tests {
             &[vols_only.as_slice()],
         );
         assert!(result.is_err(), "Should reject < 5 data points");
+    }
+
+    #[test]
+    fn calibrate_heston_round_trip_with_nonzero_rates_and_dividends() {
+        let true_params = HestonParams::new(0.04, 2.0, 0.04, 0.3, -0.5).expect("valid");
+        let spot = 100.0;
+        let r = 0.05;
+        let q = 0.02;
+
+        let expiries = [0.5, 1.0];
+        let strikes_1: Vec<f64> = vec![90.0, 95.0, 100.0, 105.0, 110.0];
+        let strikes_2: Vec<f64> = vec![85.0, 90.0, 95.0, 100.0, 105.0, 110.0, 115.0];
+
+        let make_vols = |ks: &[f64], t: f64| -> Vec<f64> {
+            let fwd = spot * ((r - q) * t).exp();
+            let df = (-r * t).exp();
+            ks.iter()
+                .map(|&k| {
+                    let discounted_price = true_params.price_european(spot, k, r, q, t, true);
+                    crate::math::volatility::implied_vol_black(
+                        discounted_price / df,
+                        fwd,
+                        k,
+                        t,
+                        true,
+                    )
+                    .unwrap_or(0.2)
+                })
+                .collect()
+        };
+
+        let vols_1 = make_vols(&strikes_1, 0.5);
+        let vols_2 = make_vols(&strikes_2, 1.0);
+
+        let strikes: Vec<&[f64]> = vec![&strikes_1, &strikes_2];
+        let market_vols: Vec<&[f64]> = vec![&vols_1, &vols_2];
+
+        let result = calibrate_heston(spot, r, q, &expiries, &strikes, &market_vols)
+            .expect("should succeed");
+
+        assert!(
+            result.rmse < 0.02,
+            "RMSE should stay small: {:.4}",
+            result.rmse
+        );
+        assert!(
+            (result.params.v0 - true_params.v0).abs() < 0.02,
+            "v0 mismatch: {:.4} vs {:.4}",
+            result.params.v0,
+            true_params.v0
+        );
+        assert!(
+            (result.params.theta - true_params.theta).abs() < 0.02,
+            "theta mismatch: {:.4} vs {:.4}",
+            result.params.theta,
+            true_params.theta
+        );
     }
 }
