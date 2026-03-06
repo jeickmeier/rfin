@@ -53,6 +53,8 @@ impl PyXvaConfig {
             time_grid,
             recovery_rate,
             include_wrong_way_risk,
+            own_recovery_rate: None,
+            funding: None,
         };
         inner.validate().map_err(core_to_py)?;
         Ok(Self { inner })

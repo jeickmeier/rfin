@@ -165,7 +165,13 @@ fn py_bump_discount_curve_synthetic(
     let bump_inner = bump.inner.clone();
     let bumped = py
         .detach(|| {
-            bump_discount_curve_synthetic(&curve_inner, &market_inner, &bump_inner, as_of_date)
+            bump_discount_curve_synthetic(
+                &curve_inner,
+                &market_inner,
+                &bump_inner,
+                as_of_date,
+                None,
+            )
         })
         .map_err(core_to_py)?;
     Ok(PyDiscountCurve::new_arc(Arc::new(bumped)))

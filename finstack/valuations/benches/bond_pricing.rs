@@ -4,6 +4,7 @@
 //! - YTM solver convergence
 //! - Duration and convexity calculations
 //! - DV01 calculation
+//! - Yield-basis DV01 calculation
 //! - Clean/dirty price computation
 //!
 //! Market Standards Review (Week 5)
@@ -151,6 +152,31 @@ fn bench_bond_dv01(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::Dv01]),
+                    )
+                });
+            },
+        );
+    }
+    group.finish();
+}
+
+fn bench_bond_yield_dv01(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bond_yield_dv01");
+    let market = create_market();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    for tenor in [2, 5, 10, 30].iter() {
+        let mut bond = create_test_bond(*tenor);
+        bond.pricing_overrides = PricingOverrides::default().with_clean_price(99.25);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{}Y", tenor)),
+            tenor,
+            |b, _| {
+                b.iter(|| {
+                    bond.price_with_metrics(
+                        black_box(&market),
+                        black_box(as_of),
+                        black_box(&[MetricId::YieldDv01]),
                     )
                 });
             },
@@ -399,6 +425,7 @@ criterion_group!(
     bench_bond_ytm,
     bench_bond_duration,
     bench_bond_dv01,
+    bench_bond_yield_dv01,
     bench_callable_bond_tree_pv,
     bench_tree_oas_solver,
     bench_tree_step_scaling,

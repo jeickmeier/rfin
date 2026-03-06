@@ -303,6 +303,7 @@ impl PyCashflowSpec {
         match &self.inner {
             CashflowSpec::Fixed(_) => "fixed",
             CashflowSpec::Floating(_) => "floating",
+            CashflowSpec::StepUp(_) => "step_up",
             CashflowSpec::Amortizing { .. } => "amortizing",
         }
     }

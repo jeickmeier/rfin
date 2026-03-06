@@ -84,13 +84,12 @@ fn test_modified_macaulay_duration_relationship() {
 }
 
 #[test]
-fn test_dv01_duration_price_relationship() {
-    // Test the approximate relationship: DV01 ≈ −Price × ModDur × 0.0001
+fn test_yield_dv01_duration_price_relationship() {
+    // Test the direct relationship: Yield DV01 ≈ −Price × ModDur × 0.0001.
     //
-    // This test validates that the curve-based DV01 and yield-based ModDur
-    // are in the same ballpark, while acknowledging they measure different things.
-    //
-    // See module documentation for detailed explanation of why these differ.
+    // This validates the new bond-specific yield-basis DV01 metric, which should
+    // align tightly with modified duration because both are defined on the same
+    // yield compounding basis.
     let as_of = date!(2024 - 01 - 01);
     let maturity = date!(2029 - 01 - 01);
 
@@ -119,29 +118,30 @@ fn test_dv01_duration_price_relationship() {
     let market = MarketContext::new().insert_discount(curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::DurationMod, MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DurationMod, MetricId::YieldDv01],
+        )
         .unwrap();
 
     let mod_dur = *result.measures.get("duration_mod").unwrap();
-    let dv01 = *result.measures.get("dv01").unwrap();
+    let yield_dv01 = *result.measures.get("yield_dv01").unwrap();
     let price = result.value.amount();
 
-    // DV01 is computed via generic bump-and-reprice (more accurate than linear approximation)
-    // Verify sign: DV01 < 0 for fixed-rate bonds (price decreases when rates rise)
-    assert!(dv01 < 0.0, "DV01 should be negative for fixed-rate bond");
+    assert!(
+        yield_dv01 < 0.0,
+        "Yield DV01 should be negative for fixed-rate bond"
+    );
 
-    // Approximate relationship: DV01 ≈ −Price × ModDur × 0.0001
-    //
-    // The curve-based central-difference DV01 and yield-based ModDur can diverge
-    // for bonds with pricing overrides (clean price anchoring introduces OAS-dependent
-    // nonlinearity). The relationship is directionally correct but not tight.
+    // Approximate relationship: Yield DV01 ≈ −Price × ModDur × 0.0001
     let approx_dv01 = -(price * mod_dur * 0.0001);
-    let relative_diff = ((dv01 - approx_dv01) / approx_dv01).abs();
+    let relative_diff = ((yield_dv01 - approx_dv01) / approx_dv01).abs();
 
     assert!(
-        relative_diff < 0.20,
-        "DV01={:.6} differs from duration estimate {:.6} by {:.2}% (max 20%)",
-        dv01,
+        relative_diff < 0.015,
+        "Yield DV01={:.6} differs from duration estimate {:.6} by {:.2}% (max 1.5%)",
+        yield_dv01,
         approx_dv01,
         relative_diff * 100.0,
     );

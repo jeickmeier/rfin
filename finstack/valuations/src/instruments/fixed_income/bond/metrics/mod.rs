@@ -57,6 +57,8 @@ pub mod effective;
 pub mod price_yield_spread;
 /// Weighted Average Life calculator
 pub mod wal;
+/// Yield-basis DV01 calculator
+pub mod yield_dv01;
 
 pub use accrued::AccruedInterestCalculator;
 pub use convexity::ConvexityCalculator;
@@ -68,6 +70,7 @@ pub use price_yield_spread::{
     YtmCalculator, YtwCalculator, ZSpreadCalculator,
 };
 pub use wal::BondWalCalculator;
+pub use yield_dv01::YieldDv01Calculator;
 
 /// Registers all bond metrics to a registry.
 ///
@@ -102,6 +105,7 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
 
             (DurationMac, MacaulayDurationCalculator),
             (DurationMod, ModifiedDurationCalculator),
+            (YieldDv01, YieldDv01Calculator),
             (Convexity, ConvexityCalculator),
 
             (Oas, OasCalculator),

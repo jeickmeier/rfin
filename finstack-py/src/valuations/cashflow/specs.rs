@@ -14,7 +14,7 @@ use crate::core::currency::PyCurrency;
 use crate::core::dates::calendar::PyBusinessDayConvention;
 use crate::core::dates::utils::py_to_date;
 use crate::core::money::{extract_money, PyMoney};
-use crate::errors::PyContext;
+use crate::errors::{core_to_py, PyContext};
 
 // ---------------------------------------------------------------------------
 // AmortizationSpec
@@ -439,8 +439,8 @@ impl PyPrepaymentModelSpec {
 
     #[pyo3(text_signature = "(self, seasoning_months)")]
     /// Compute the Single Monthly Mortality (SMM) rate for a given month.
-    fn smm(&self, seasoning_months: u32) -> f64 {
-        self.inner.smm(seasoning_months)
+    fn smm(&self, seasoning_months: u32) -> PyResult<f64> {
+        self.inner.smm(seasoning_months).map_err(core_to_py)
     }
 
     #[getter]
@@ -536,8 +536,8 @@ impl PyDefaultModelSpec {
 
     #[pyo3(text_signature = "(self, seasoning_months)")]
     /// Compute the Monthly Default Rate (MDR) for a given month.
-    fn mdr(&self, seasoning_months: u32) -> f64 {
-        self.inner.mdr(seasoning_months)
+    fn mdr(&self, seasoning_months: u32) -> PyResult<f64> {
+        self.inner.mdr(seasoning_months).map_err(core_to_py)
     }
 
     #[getter]

@@ -266,16 +266,16 @@ fn test_bond_modified_duration_benchmark() {
     );
 }
 
-/// DV01 (Dollar Value of 01) market standard test
+/// Yield-basis DV01 market standard test
 ///
-/// DV01 Sign Convention:
-/// - DV01 = ΔPrice / Δ(1bp rate increase)
-/// - For fixed-rate bonds: DV01 < 0 (inverse price/yield relationship)
+/// Yield DV01 Sign Convention:
+/// - Yield DV01 = ΔPrice / Δ(1bp yield increase)
+/// - For fixed-rate bonds: Yield DV01 < 0 (inverse price/yield relationship)
 /// - Magnitude ≈ ModDur × Price × 0.0001
 ///
-/// For $100 par, ModDur=4.0, |DV01| should be ~0.04 per $100 face
+/// For $100 par, ModDur=4.0, |Yield DV01| should be ~0.04 per $100 face
 #[test]
-fn test_bond_dv01_market_standard() {
+fn test_bond_yield_dv01_market_standard() {
     let as_of = date!(2024 - 01 - 01);
     let maturity = date!(2029 - 01 - 01);
 
@@ -303,30 +303,34 @@ fn test_bond_dv01_market_standard() {
     let market = MarketContext::new().insert_discount(disc_curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::DurationMod, MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DurationMod, MetricId::YieldDv01],
+        )
         .unwrap();
 
     let mod_duration = *result.measures.get("duration_mod").unwrap();
-    let dv01 = *result.measures.get("dv01").unwrap();
+    let yield_dv01 = *result.measures.get("yield_dv01").unwrap();
     let price = result.value.amount();
 
-    // DV01 is computed via generic bump-and-reprice (more accurate than linear approximation)
-    // Verify sign: DV01 < 0 for fixed-rate bonds (price decreases when rates rise)
-    assert!(dv01 < 0.0, "DV01 should be negative for fixed-rate bond");
+    // Yield DV01 is the direct yield-basis analog of modified duration.
+    assert!(
+        yield_dv01 < 0.0,
+        "Yield DV01 should be negative for fixed-rate bond"
+    );
 
-    // Approximate relationship: DV01 ≈ −Price × ModDur × 1bp
-    // The curve-based central-difference DV01 and yield-based ModDur can diverge
-    // for bonds with pricing overrides (clean price anchoring introduces OAS-dependent
-    // nonlinearity). The relationship is directionally correct but not tight.
+    // Approximate relationship: Yield DV01 ≈ −Price × ModDur × 1bp
     let approx_dv01 = -(price * mod_duration * 0.0001);
-    let relative_diff = ((dv01 - approx_dv01) / approx_dv01).abs();
+    let relative_diff = ((yield_dv01 - approx_dv01) / approx_dv01).abs();
 
     assert!(
-        relative_diff < 0.20,
-        "DV01={:.6} differs from duration estimate {:.6} by {:.2}% (max 20%)",
-        dv01,
+        relative_diff < tolerances::BUMP_VS_ANALYTICAL,
+        "Yield DV01={:.6} differs from duration estimate {:.6} by {:.2}% (max {:.1}%)",
+        yield_dv01,
         approx_dv01,
         relative_diff * 100.0,
+        tolerances::BUMP_VS_ANALYTICAL * 100.0,
     );
 }
 

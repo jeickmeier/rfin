@@ -687,6 +687,7 @@ impl JsBond {
         let freq = match &self.inner.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.freq,
             CashflowSpec::Floating(spec) => spec.freq,
+            CashflowSpec::StepUp(spec) => spec.freq,
             CashflowSpec::Amortizing { base, .. } => base.frequency(),
         };
         JsFrequency::from_inner(freq)
@@ -697,6 +698,7 @@ impl JsBond {
         let dc = match &self.inner.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.dc,
             CashflowSpec::Floating(spec) => spec.rate_spec.dc,
+            CashflowSpec::StepUp(spec) => spec.dc,
             CashflowSpec::Amortizing { base, .. } => base.day_count(),
         };
         format!("{:?}", dc)
@@ -710,8 +712,10 @@ impl JsBond {
             CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
                 CashflowSpec::Fixed(spec) => spec.bdc,
                 CashflowSpec::Floating(spec) => spec.rate_spec.bdc,
+                CashflowSpec::StepUp(spec) => spec.bdc,
                 _ => finstack_core::dates::BusinessDayConvention::Following,
             },
+            CashflowSpec::StepUp(spec) => spec.bdc,
         };
         bdc.into()
     }

@@ -219,6 +219,12 @@ impl MetricId {
     /// Modified duration
     pub const DurationMod: Self = Self(Cow::Borrowed("duration_mod"));
 
+    /// Yield-basis DV01 for bonds and other yield-quoted fixed-income instruments.
+    ///
+    /// Measures the dollar price change for a 1bp change in the instrument's own
+    /// quoted yield convention, rather than a parallel bump of the market curve.
+    pub const YieldDv01: Self = Self(Cow::Borrowed("yield_dv01"));
+
     /// Convexity
     pub const Convexity: Self = Self(Cow::Borrowed("convexity"));
 
@@ -834,6 +840,7 @@ impl MetricId {
         MetricId::Ytw,
         MetricId::DurationMac,
         MetricId::DurationMod,
+        MetricId::YieldDv01,
         MetricId::Convexity,
         MetricId::ZSpread,
         MetricId::Oas,

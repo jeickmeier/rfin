@@ -407,7 +407,9 @@ impl PyStructuredCredit {
         seasoning_months: u32,
     ) -> PyResult<f64> {
         let date = py_to_date(pay_date)?;
-        Ok(self.inner.calculate_prepayment_rate(date, seasoning_months))
+        self.inner
+            .calculate_prepayment_rate(date, seasoning_months)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Calculate default rate (MDR) for a given period.
@@ -417,7 +419,9 @@ impl PyStructuredCredit {
         seasoning_months: u32,
     ) -> PyResult<f64> {
         let date = py_to_date(pay_date)?;
-        Ok(self.inner.calculate_default_rate(date, seasoning_months))
+        self.inner
+            .calculate_default_rate(date, seasoning_months)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Stochastic pricing using tree-based engine.
