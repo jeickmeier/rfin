@@ -500,18 +500,25 @@ where
         let sensitivity = if knot_idx < knots.len() {
             let (t, v) = knots[knot_idx];
             let h = bump_h * (1.0 + v.abs());
-            let mut bumped_knots = knots.to_vec();
-            bumped_knots[knot_idx] = (t, v + h);
+            let quote = &quotes[sq.original_idx];
 
-            match target.build_curve_for_solver(&bumped_knots) {
-                Ok(bumped_curve) => {
-                    let quote = &quotes[sq.original_idx];
-                    match target.calculate_residual(&bumped_curve, quote) {
-                        Ok(bumped_resid) => (bumped_resid - resid) / h,
-                        Err(_) => 0.0,
-                    }
-                }
-                Err(_) => 0.0,
+            // Central differences: O(h^2) accuracy
+            let mut knots_up = knots.to_vec();
+            knots_up[knot_idx] = (t, v + h);
+            let mut knots_dn = knots.to_vec();
+            knots_dn[knot_idx] = (t, v - h);
+
+            let resid_up = target
+                .build_curve_for_solver(&knots_up)
+                .and_then(|c| target.calculate_residual(&c, quote));
+            let resid_dn = target
+                .build_curve_for_solver(&knots_dn)
+                .and_then(|c| target.calculate_residual(&c, quote));
+
+            match (resid_up, resid_dn) {
+                (Ok(r_up), Ok(r_dn)) => (r_up - r_dn) / (2.0 * h),
+                (Ok(r_up), Err(_)) => (r_up - resid) / h,
+                _ => 0.0,
             }
         } else {
             0.0

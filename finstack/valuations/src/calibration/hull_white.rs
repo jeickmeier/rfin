@@ -126,6 +126,45 @@ pub struct SwaptionQuote {
     pub is_normal_vol: bool,
 }
 
+/// Number of coupon payments per year for the underlying swap in HW1F calibration.
+///
+/// USD swaps are semi-annual (2), EUR swaps are annual (1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SwapFrequency {
+    /// 1 payment per year (EUR, GBP standard).
+    Annual,
+    /// 2 payments per year (USD standard).
+    SemiAnnual,
+    /// 4 payments per year.
+    Quarterly,
+}
+
+impl SwapFrequency {
+    fn periods_per_year(self) -> usize {
+        match self {
+            Self::Annual => 1,
+            Self::SemiAnnual => 2,
+            Self::Quarterly => 4,
+        }
+    }
+}
+
+impl Default for SwapFrequency {
+    fn default() -> Self {
+        Self::SemiAnnual
+    }
+}
+
+/// Convenience wrapper that uses [`SwapFrequency::SemiAnnual`] (USD standard).
+///
+/// See [`calibrate_hull_white_to_swaptions_with_frequency`] for full documentation.
+pub fn calibrate_hull_white_to_swaptions(
+    df: &dyn Fn(f64) -> f64,
+    quotes: &[SwaptionQuote],
+) -> finstack_core::Result<(HullWhiteParams, CalibrationReport)> {
+    calibrate_hull_white_to_swaptions_with_frequency(df, quotes, SwapFrequency::default())
+}
+
 /// Calibrate Hull-White 1-factor parameters to European swaption market data.
 ///
 /// Fits κ (mean reversion) and σ (short rate volatility) by minimising
@@ -135,6 +174,8 @@ pub struct SwaptionQuote {
 ///
 /// * `df` - Discount factor function: `df(t)` returns P(0, t). Must satisfy `df(0) ≈ 1`.
 /// * `quotes` - Swaption market data
+/// * `frequency` - Coupon frequency of the underlying swap (e.g., semi-annual for USD,
+///   annual for EUR). This materially affects the annuity factor and forward swap rate.
 ///
 /// # Returns
 ///
@@ -158,7 +199,7 @@ pub struct SwaptionQuote {
 ///
 /// ```rust,no_run
 /// use finstack_valuations::calibration::hull_white::{
-///     calibrate_hull_white_to_swaptions, SwaptionQuote,
+///     calibrate_hull_white_to_swaptions_with_frequency, SwaptionQuote, SwapFrequency,
 /// };
 ///
 /// let quotes = vec![
@@ -167,17 +208,18 @@ pub struct SwaptionQuote {
 ///     SwaptionQuote { expiry: 10.0, tenor: 5.0, volatility: 0.005, is_normal_vol: true },
 /// ];
 ///
-/// // Flat 3% discount curve
+/// // Flat 3% discount curve, semi-annual USD convention
 /// let df = |t: f64| (-0.03 * t).exp();
-///
-/// let (params, report) = calibrate_hull_white_to_swaptions(&df, &quotes).unwrap();
+/// let (params, report) = calibrate_hull_white_to_swaptions_with_frequency(
+///     &df, &quotes, SwapFrequency::SemiAnnual,
+/// ).unwrap();
 /// assert!(report.success);
 /// ```
-pub fn calibrate_hull_white_to_swaptions(
+pub fn calibrate_hull_white_to_swaptions_with_frequency(
     df: &dyn Fn(f64) -> f64,
     quotes: &[SwaptionQuote],
+    frequency: SwapFrequency,
 ) -> finstack_core::Result<(HullWhiteParams, CalibrationReport)> {
-    // ---- Validate inputs ----
     if quotes.len() < 2 {
         return Err(finstack_core::Error::Validation(format!(
             "Need at least 2 swaption quotes for HW1F calibration (2 free parameters), got {}",
@@ -194,14 +236,14 @@ pub fn calibrate_hull_white_to_swaptions(
     }
 
     let n_quotes = quotes.len();
+    let ppy = frequency.periods_per_year();
 
-    // ---- Pre-compute market prices ----
     let mut market_prices = Vec::with_capacity(n_quotes);
     let mut annuities = Vec::with_capacity(n_quotes);
     let mut fwd_swap_rates = Vec::with_capacity(n_quotes);
 
     for q in quotes {
-        let (annuity, fwd_rate) = compute_swap_annuity_and_rate(df, q.expiry, q.tenor);
+        let (annuity, fwd_rate) = compute_swap_annuity_and_rate(df, q.expiry, q.tenor, ppy);
         let market_price = compute_swaption_market_price(
             annuity,
             fwd_rate,
@@ -214,28 +256,32 @@ pub fn calibrate_hull_white_to_swaptions(
         fwd_swap_rates.push(fwd_rate);
     }
 
-    // ---- Initial guess ----
     let kappa_init: f64 = 0.05;
     let sigma_init: f64 = 0.01;
     let x0 = [kappa_init.ln(), sigma_init.ln()];
 
-    // ---- LM residual function ----
     let residuals = |x: &[f64], resid: &mut [f64]| {
         let kappa = x[0].exp();
         let sigma = x[1].exp();
 
         for (idx, q) in quotes.iter().enumerate() {
-            let model_price =
-                hw1f_swaption_price(kappa, sigma, df, q.expiry, q.tenor, fwd_swap_rates[idx]);
+            let model_price = hw1f_swaption_price(
+                kappa,
+                sigma,
+                df,
+                q.expiry,
+                q.tenor,
+                fwd_swap_rates[idx],
+                ppy,
+            );
             if model_price.is_finite() {
                 resid[idx] = model_price - market_prices[idx];
             } else {
-                resid[idx] = 1.0; // penalty
+                resid[idx] = 1.0;
             }
         }
     };
 
-    // ---- Solve ----
     let solver = LevenbergMarquardtSolver::new()
         .with_tolerance(1e-12)
         .with_max_iterations(300);
@@ -245,11 +291,17 @@ pub fn calibrate_hull_white_to_swaptions(
     let kappa = solution.params[0].exp();
     let sigma = solution.params[1].exp();
 
-    // ---- Build residuals map for report ----
     let mut residual_map = BTreeMap::new();
     for (idx, q) in quotes.iter().enumerate() {
-        let model_price =
-            hw1f_swaption_price(kappa, sigma, df, q.expiry, q.tenor, fwd_swap_rates[idx]);
+        let model_price = hw1f_swaption_price(
+            kappa,
+            sigma,
+            df,
+            q.expiry,
+            q.tenor,
+            fwd_swap_rates[idx],
+            ppy,
+        );
         let resid = model_price - market_prices[idx];
         let label = format!("{}Yx{}Y", q.expiry, q.tenor);
         residual_map.insert(label, resid);
@@ -263,7 +315,8 @@ pub fn calibrate_hull_white_to_swaptions(
     )
     .with_model_version("Hull-White 1F (Jamshidian decomposition)")
     .with_metadata("kappa", format!("{kappa:.6}"))
-    .with_metadata("sigma", format!("{sigma:.6}"));
+    .with_metadata("sigma", format!("{sigma:.6}"))
+    .with_metadata("swap_frequency", format!("{frequency:?}"));
 
     let params = HullWhiteParams::new(kappa, sigma)?;
 
@@ -323,9 +376,14 @@ fn hw_ln_a(kappa: f64, sigma: f64, t: f64, big_t: f64, df: &dyn Fn(f64) -> f64) 
 }
 
 /// Compute annuity and forward swap rate for a swap starting at `t0`
-/// with given `tenor`, assuming annual payment frequency.
-fn compute_swap_annuity_and_rate(df: &dyn Fn(f64) -> f64, t0: f64, tenor: f64) -> (f64, f64) {
-    let n_periods = tenor.round().max(1.0) as usize;
+/// with given `tenor` and `periods_per_year` coupon payments.
+fn compute_swap_annuity_and_rate(
+    df: &dyn Fn(f64) -> f64,
+    t0: f64,
+    tenor: f64,
+    periods_per_year: usize,
+) -> (f64, f64) {
+    let n_periods = (tenor * periods_per_year as f64).round().max(1.0) as usize;
     let dt = tenor / n_periods as f64;
 
     let mut annuity = 0.0;
@@ -376,8 +434,9 @@ fn hw1f_swaption_price(
     t0: f64,
     tenor: f64,
     swap_rate: f64,
+    periods_per_year: usize,
 ) -> f64 {
-    let n_periods = tenor.round().max(1.0) as usize;
+    let n_periods = (tenor * periods_per_year as f64).round().max(1.0) as usize;
     let dt = tenor / n_periods as f64;
 
     // Payment dates and cashflows
@@ -547,7 +606,7 @@ mod tests {
     #[test]
     fn swaption_price_positive() {
         let df_fn = flat_df(0.03);
-        let price = hw1f_swaption_price(0.05, 0.01, &df_fn, 1.0, 5.0, 0.03);
+        let price = hw1f_swaption_price(0.05, 0.01, &df_fn, 1.0, 5.0, 0.03, 2);
         assert!(price > 0.0, "Swaption price should be positive: {price:.6}");
     }
 
@@ -555,11 +614,11 @@ mod tests {
     fn swaption_price_monotone_in_sigma() {
         let df_fn = flat_df(0.03);
         let fwd = {
-            let (_, r) = compute_swap_annuity_and_rate(&df_fn, 1.0, 5.0);
+            let (_, r) = compute_swap_annuity_and_rate(&df_fn, 1.0, 5.0, 2);
             r
         };
-        let p_low = hw1f_swaption_price(0.05, 0.005, &df_fn, 1.0, 5.0, fwd);
-        let p_high = hw1f_swaption_price(0.05, 0.015, &df_fn, 1.0, 5.0, fwd);
+        let p_low = hw1f_swaption_price(0.05, 0.005, &df_fn, 1.0, 5.0, fwd, 2);
+        let p_high = hw1f_swaption_price(0.05, 0.015, &df_fn, 1.0, 5.0, fwd, 2);
         assert!(
             p_high > p_low,
             "Higher sigma should give higher swaption price: {p_high:.6} vs {p_low:.6}"
@@ -568,27 +627,24 @@ mod tests {
 
     #[test]
     fn calibrate_hw1f_round_trip() {
-        // Generate synthetic swaption prices from known HW1F params
         let true_kappa = 0.05;
         let true_sigma = 0.01;
         let rate = 0.03;
         let df_fn = flat_df(rate);
+        let ppy = SwapFrequency::SemiAnnual.periods_per_year();
 
         let swaption_specs: Vec<(f64, f64)> =
             vec![(1.0, 5.0), (2.0, 5.0), (5.0, 5.0), (1.0, 10.0), (5.0, 10.0)];
 
-        // Compute model swaption prices, then convert to normal vols
         let quotes: Vec<SwaptionQuote> = swaption_specs
             .iter()
             .map(|&(expiry, tenor)| {
-                let (annuity, fwd_rate) = compute_swap_annuity_and_rate(&df_fn, expiry, tenor);
-                let model_price =
-                    hw1f_swaption_price(true_kappa, true_sigma, &df_fn, expiry, tenor, fwd_rate);
+                let (annuity, fwd_rate) = compute_swap_annuity_and_rate(&df_fn, expiry, tenor, ppy);
+                let model_price = hw1f_swaption_price(
+                    true_kappa, true_sigma, &df_fn, expiry, tenor, fwd_rate, ppy,
+                );
 
-                // Invert to normal vol: payer ATM ≈ annuity × σ_n × √(T/2π)
-                // More precisely, use Bachelier inversion
                 let normal_vol = if annuity > 1e-15 && expiry > 0.0 {
-                    // For ATM payer: price = annuity × σ_n × √(T/(2π))
                     let approx_vol =
                         model_price / (annuity * (expiry / (2.0 * std::f64::consts::PI)).sqrt());
                     approx_vol.max(1e-6)
@@ -608,15 +664,11 @@ mod tests {
         let (params, report) =
             calibrate_hull_white_to_swaptions(&df_fn, &quotes).expect("Calibration should succeed");
 
-        // Check convergence
         assert!(
             report.success,
             "Calibration should succeed: {}",
             report.convergence_reason
         );
-
-        // Parameters should be in the right ballpark
-        // Note: round-trip precision depends on the vol inversion approximation
         assert!(
             params.kappa > 0.0 && params.kappa < 1.0,
             "kappa should be reasonable: {:.4}",
@@ -630,15 +682,58 @@ mod tests {
     }
 
     #[test]
+    fn calibrate_hw1f_annual_vs_semiannual_produces_different_params() {
+        let df_fn = flat_df(0.03);
+        let quotes = vec![
+            SwaptionQuote {
+                expiry: 1.0,
+                tenor: 5.0,
+                volatility: 0.005,
+                is_normal_vol: true,
+            },
+            SwaptionQuote {
+                expiry: 5.0,
+                tenor: 5.0,
+                volatility: 0.006,
+                is_normal_vol: true,
+            },
+            SwaptionQuote {
+                expiry: 10.0,
+                tenor: 5.0,
+                volatility: 0.005,
+                is_normal_vol: true,
+            },
+        ];
+
+        let (params_semi, _) = calibrate_hull_white_to_swaptions_with_frequency(
+            &df_fn,
+            &quotes,
+            SwapFrequency::SemiAnnual,
+        )
+        .expect("semi-annual");
+        let (params_ann, _) = calibrate_hull_white_to_swaptions_with_frequency(
+            &df_fn,
+            &quotes,
+            SwapFrequency::Annual,
+        )
+        .expect("annual");
+
+        assert!(
+            (params_semi.kappa - params_ann.kappa).abs() > 1e-6
+                || (params_semi.sigma - params_ann.sigma).abs() > 1e-6,
+            "Different frequencies should produce different params: semi={:?} ann={:?}",
+            params_semi,
+            params_ann
+        );
+    }
+
+    #[test]
     fn test_hw1f_brent_fallback_extreme_params() {
-        // Extreme κ and σ that make Newton diverge
         let kappa = 5.0;
         let sigma = 0.03;
         let df = flat_df(0.03);
 
-        // These extreme params should still produce a finite swaption price
-        // because the Brent fallback catches Newton divergence.
-        let price = hw1f_swaption_price(kappa, sigma, &df, 1.0, 5.0, 0.03);
+        let price = hw1f_swaption_price(kappa, sigma, &df, 1.0, 5.0, 0.03, 2);
         assert!(
             price.is_finite(),
             "Swaption price should be finite with Brent fallback"

@@ -181,6 +181,16 @@ pub struct InflationCurveSolveConfig {
     ///
     /// Default: `1e-8` (suitable for per-unit-notional residuals).
     pub validation_tolerance: f64,
+    /// Minimum allowed CPI level during calibration.
+    ///
+    /// Default: `1.0`. For indices with different base conventions or rebased
+    /// indices, adjust accordingly.
+    pub cpi_hard_min: f64,
+    /// Maximum allowed CPI level during calibration.
+    ///
+    /// Default: `10_000.0`. For hyperinflation currencies (TRY, ARS, VES),
+    /// increase this bound significantly (e.g. `1e9`).
+    pub cpi_hard_max: f64,
 }
 
 impl Default for InflationCurveSolveConfig {
@@ -188,6 +198,23 @@ impl Default for InflationCurveSolveConfig {
         Self {
             weighting_scheme: ResidualWeightingScheme::default(),
             validation_tolerance: 1e-8,
+            cpi_hard_min: 1.0,
+            cpi_hard_max: 10_000.0,
+        }
+    }
+}
+
+impl InflationCurveSolveConfig {
+    /// Configuration suitable for hyperinflation currencies (TRY, ARS, VES, etc.).
+    ///
+    /// Widens CPI bounds to accommodate very high index levels and relaxes
+    /// the validation tolerance for noisier inflation markets.
+    pub fn hyperinflation() -> Self {
+        Self {
+            weighting_scheme: ResidualWeightingScheme::default(),
+            validation_tolerance: 1e-6,
+            cpi_hard_min: 0.01,
+            cpi_hard_max: 1e9,
         }
     }
 }

@@ -590,22 +590,35 @@ where
     let mut jacobian: Vec<Vec<f64>> = vec![vec![0.0; n_params]; n_residuals];
     let mut jacobian_ok = true;
 
-    for j in 0..n_params {
-        let mut bumped = solved_params.to_vec();
-        let h = bump_h * (1.0 + solved_params[j].abs());
-        bumped[j] += h;
+    let mut bumped = solved_params.to_vec();
+    let mut resid_up = vec![0.0; n_residuals];
+    let mut resid_dn = vec![0.0; n_residuals];
 
-        let mut bumped_resid = vec![0.0; n_residuals];
-        if let Ok(bumped_curve) = target.build_curve_for_solver_from_params(times, &bumped) {
-            if target
-                .calculate_residuals(&bumped_curve, active_quotes, &mut bumped_resid)
-                .is_ok()
-            {
-                for i in 0..n_residuals {
-                    jacobian[i][j] = (bumped_resid[i] - resid_values[i]) / h;
-                }
-            } else {
-                jacobian_ok = false;
+    for j in 0..n_params {
+        let h = bump_h * (1.0 + solved_params[j].abs());
+
+        // Central differences: O(h^2) accuracy
+        bumped[j] = solved_params[j] + h;
+        let ok_up = target
+            .build_curve_for_solver_from_params(times, &bumped)
+            .and_then(|c| target.calculate_residuals(&c, active_quotes, &mut resid_up))
+            .is_ok();
+
+        bumped[j] = solved_params[j] - h;
+        let ok_dn = target
+            .build_curve_for_solver_from_params(times, &bumped)
+            .and_then(|c| target.calculate_residuals(&c, active_quotes, &mut resid_dn))
+            .is_ok();
+
+        bumped[j] = solved_params[j];
+
+        if ok_up && ok_dn {
+            for i in 0..n_residuals {
+                jacobian[i][j] = (resid_up[i] - resid_dn[i]) / (2.0 * h);
+            }
+        } else if ok_up {
+            for i in 0..n_residuals {
+                jacobian[i][j] = (resid_up[i] - resid_values[i]) / h;
             }
         } else {
             jacobian_ok = false;

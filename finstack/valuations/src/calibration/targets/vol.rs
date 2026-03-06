@@ -374,13 +374,25 @@ Set params.expiry_extrapolation='clamp' to allow flat extrapolation.",
         match (before, after) {
             (Some((t1, p1)), Some((t2, p2))) if (t2 - t1).abs() > 1e-12 => {
                 let w = (t - t1) / (t2 - t1);
-                // Linear interp of parameters
+                let w = w.clamp(0.0, 1.0);
+
+                // Log-space interpolation for α and ν preserves positivity and
+                // is consistent with the swaption vol target implementation.
+                let log_alpha1 = p1.alpha.max(1e-16).ln();
+                let log_alpha2 = p2.alpha.max(1e-16).ln();
+                let log_nu1 = p1.nu.max(1e-16).ln();
+                let log_nu2 = p2.nu.max(1e-16).ln();
+
+                let alpha = (log_alpha1 * (1.0 - w) + log_alpha2 * w).exp();
+                let nu = (log_nu1 * (1.0 - w) + log_nu2 * w).exp();
+                let rho = (p1.rho * (1.0 - w) + p2.rho * w).clamp(-0.999, 0.999);
+
                 Ok(SABRParameters {
-                    alpha: p1.alpha * (1.0 - w) + p2.alpha * w,
-                    beta: p1.beta, // assume constant
-                    nu: p1.nu * (1.0 - w) + p2.nu * w,
-                    rho: p1.rho * (1.0 - w) + p2.rho * w,
-                    shift: p1.shift, // assume constant or interpolate
+                    alpha,
+                    beta: p1.beta,
+                    nu,
+                    rho,
+                    shift: p1.shift,
                 })
             }
             (Some((_, p)), _) => Ok(p.clone()),
@@ -452,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn interpolate_params_linearly_interpolates_in_range() {
+    fn interpolate_params_log_space_interpolates_in_range() {
         let mut map = BTreeMap::new();
         map.insert(OrderedF64(1.0), params(0.10, 0.5, 0.30, -0.20, 0.01));
         map.insert(OrderedF64(2.0), params(0.20, 0.5, 0.50, 0.10, 0.01));
@@ -464,8 +476,20 @@ mod tests {
         )
         .expect("in-range");
 
-        assert!((mid.alpha - 0.15).abs() < 1e-12);
-        assert!((mid.nu - 0.40).abs() < 1e-12);
+        // α and ν use log-space: geometric mean at midpoint
+        let expected_alpha = (0.10_f64 * 0.20).sqrt(); // ≈ 0.1414
+        let expected_nu = (0.30_f64 * 0.50).sqrt(); // ≈ 0.3873
+        assert!(
+            (mid.alpha - expected_alpha).abs() < 1e-12,
+            "alpha: expected {expected_alpha}, got {}",
+            mid.alpha
+        );
+        assert!(
+            (mid.nu - expected_nu).abs() < 1e-12,
+            "nu: expected {expected_nu}, got {}",
+            mid.nu
+        );
+        // ρ is still linear
         assert!((mid.rho - (-0.05)).abs() < 1e-12);
     }
 

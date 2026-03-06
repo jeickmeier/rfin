@@ -989,56 +989,55 @@ Ensure quotes map to strictly increasing year fractions.",
             });
         }
 
-        // 1. Calculate base residuals
-        let base_curve = self.build_curve_for_solver_from_params(times, params)?;
-        let mut base_residuals = vec![0.0; quotes.len()];
-        self.calculate_residuals(&base_curve, quotes, &mut base_residuals)?;
-
-        // Use configured step size
+        // Central finite differences: O(h^2) accuracy vs O(h) for forward FD.
         let fd_eps = self.config.discount_curve.jacobian_step_size;
-        let mut params_plus = params.to_vec();
+        let mut params_bumped = params.to_vec();
         let mut temp_context = self.base_context.clone();
 
-        // 2. Iterate parameters (columns)
         for j in 0..params.len() {
-            let _t_knot = times[j];
             let p_orig = params[j];
 
-            // Bump parameter
             let h = (p_orig.abs() * fd_eps).max(fd_eps);
-            params_plus[j] = p_orig + h;
 
-            // Build bumped curve
-            let curve_plus = self.build_curve_for_solver_from_params(times, &params_plus)?;
-
-            // Update context with bumped curve
+            // +h evaluation
+            params_bumped[j] = p_orig + h;
+            let curve_plus = self.build_curve_for_solver_from_params(times, &params_bumped)?;
             temp_context = temp_context.insert_discount(curve_plus);
+            let ctx_plus = &temp_context;
 
-            // 3. Iterate quotes (rows)
+            let mut vals_plus = vec![0.0_f64; quotes.len()];
             let t_cutoff = if j > 0 { times[j - 1] } else { 0.0 };
-            let ctx = &temp_context;
 
             for (i, quote) in quotes.iter().enumerate() {
-                // Skip if quote is "safely" before the bumped knot
                 let t_quote = self.quote_time(quote)?;
-
                 if t_quote < t_cutoff - 1e-4 {
-                    // Derivative is effectively 0
+                    continue;
+                }
+                let pv = quote.get_instrument().value_raw(ctx_plus, self.base_date)?;
+                vals_plus[i] = pv / self.residual_notional;
+            }
+
+            // -h evaluation
+            params_bumped[j] = p_orig - h;
+            let curve_minus = self.build_curve_for_solver_from_params(times, &params_bumped)?;
+            temp_context = temp_context.insert_discount(curve_minus);
+            let ctx_minus = &temp_context;
+
+            for (i, quote) in quotes.iter().enumerate() {
+                let t_quote = self.quote_time(quote)?;
+                if t_quote < t_cutoff - 1e-4 {
                     jacobian[i][j] = 0.0;
                     continue;
                 }
+                let pv = quote
+                    .get_instrument()
+                    .value_raw(ctx_minus, self.base_date)?;
+                let val_minus = pv / self.residual_notional;
 
-                // Use value_raw() instead of value().amount() to avoid Money representation
-                // noise in finite-difference Jacobian calculations.
-                let pv = quote.get_instrument().value_raw(ctx, self.base_date)?;
-                let val_plus = pv / self.residual_notional;
-                let val_base = base_residuals[i];
-
-                jacobian[i][j] = (val_plus - val_base) / h;
+                jacobian[i][j] = (vals_plus[i] - val_minus) / (2.0 * h);
             }
 
-            // Reset parameter
-            params_plus[j] = p_orig;
+            params_bumped[j] = p_orig;
         }
 
         Ok(())

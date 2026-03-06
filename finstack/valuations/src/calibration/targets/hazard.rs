@@ -264,10 +264,16 @@ impl BootstrapTarget for HazardBootstrapper {
         })
     }
 
-    fn initial_guess(&self, _quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
-        let guess = previous_knots.last().map(|&(_, v)| v).unwrap_or(0.01);
+    fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
         let hazard_min = self.config.hazard_curve.hazard_hard_min;
         let hazard_max = self.config.hazard_curve.hazard_hard_max;
+
+        // Prefer a spread-implied guess: λ ≈ spread / (1 − R)
+        if let Some(spread_guess) = self.quote_hazard_guess(quote) {
+            return Ok(spread_guess.clamp(hazard_min, hazard_max));
+        }
+
+        let guess = previous_knots.last().map(|&(_, v)| v).unwrap_or(0.01);
         if guess.is_finite() {
             Ok(guess.clamp(hazard_min, hazard_max))
         } else {
