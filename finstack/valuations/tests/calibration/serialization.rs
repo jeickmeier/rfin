@@ -14,8 +14,9 @@ use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use finstack_valuations::calibration::api::schema::{
     BaseCorrelationParams, CalibrationEnvelope, CalibrationPlan, CalibrationStep,
-    DiscountCurveParams, ForwardCurveParams, HazardCurveParams, InflationCurveParams, StepParams,
-    SurfaceExtrapolationPolicy, SwaptionVolParams, VolSurfaceParams,
+    DiscountCurveParams, ForwardCurveParams, HazardCurveParams, HullWhiteStepParams,
+    InflationCurveParams, StepParams, SurfaceExtrapolationPolicy, SviSurfaceParams,
+    SwaptionVolParams, VolSurfaceParams,
 };
 use finstack_valuations::calibration::CalibrationMethod;
 use finstack_valuations::market::conventions::ids::{
@@ -261,4 +262,42 @@ fn envelope_unknown_field_is_rejected() {
     }"#;
     serde_json::from_str::<CalibrationEnvelope>(payload)
         .expect_err("unknown field should be rejected");
+}
+
+#[test]
+fn test_hull_white_step_params_serde() {
+    let json = r#"{"kind":"hull_white","id":"hw","quote_set":"swaptions","curve_id":"USD-OIS","currency":"USD","base_date":"2024-01-02"}"#;
+    let step: CalibrationStep = serde_json::from_str(json).expect("should deserialize");
+    assert!(matches!(step.params, StepParams::HullWhite(_)));
+
+    // Also test roundtrip through Rust struct construction
+    let base_date = Date::from_calendar_date(2024, Month::January, 2).unwrap();
+    let hw = StepParams::HullWhite(HullWhiteStepParams {
+        curve_id: "USD-OIS".into(),
+        currency: Currency::USD,
+        base_date,
+        initial_kappa: Some(0.05),
+        initial_sigma: None,
+    });
+    let _ = roundtrip_json(&hw);
+}
+
+#[test]
+fn test_svi_surface_step_params_serde() {
+    let json = r#"{"kind":"svi_surface","id":"svi","quote_set":"vols","surface_id":"EQ_SPX","base_date":"2024-01-02","underlying_ticker":"SPX"}"#;
+    let step: CalibrationStep = serde_json::from_str(json).expect("should deserialize");
+    assert!(matches!(step.params, StepParams::SviSurface(_)));
+
+    // Also test roundtrip through Rust struct construction
+    let base_date = Date::from_calendar_date(2024, Month::January, 2).unwrap();
+    let svi = StepParams::SviSurface(SviSurfaceParams {
+        surface_id: "EQ_SPX".to_string(),
+        base_date,
+        underlying_ticker: "SPX".to_string(),
+        discount_curve_id: Some("USD-OIS".into()),
+        target_expiries: vec![0.5, 1.0],
+        target_strikes: vec![90.0, 100.0, 110.0],
+        spot_override: Some(100.0),
+    });
+    let _ = roundtrip_json(&svi);
 }

@@ -1,5 +1,6 @@
 use crate::calibration::api::schema::{CalibrationStep, StepParams};
 use crate::calibration::config::CalibrationConfig;
+use crate::calibration::hull_white::{calibrate_hull_white_to_swaptions, SwaptionQuote};
 use crate::calibration::targets::base_correlation::BaseCorrelationBootstrapper;
 use crate::calibration::targets::discount::DiscountCurveTarget;
 use crate::calibration::targets::forward::ForwardCurveTarget;
@@ -10,6 +11,8 @@ use crate::calibration::targets::swaption::SwaptionVolBootstrapper;
 use crate::calibration::targets::vol::VolSurfaceBootstrapper;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::MarketQuote;
+use crate::market::quotes::vol::VolQuote;
+use finstack_core::dates::{DayCount, DayCountCtx};
 use finstack_core::explain::TraceEntry;
 use finstack_core::market_data::context::{CurveStorage, MarketContext};
 use finstack_core::market_data::scalars::MarketScalar;
@@ -55,6 +58,8 @@ pub(crate) fn output_key(step: &CalibrationStep) -> OutputKey {
         StepParams::StudentT(p) => {
             OutputKey::Scalar(format!("{}_STUDENT_T_DF", p.tranche_instrument_id))
         }
+        StepParams::HullWhite(p) => OutputKey::Scalar(format!("{}_HW1F", p.curve_id.as_str())),
+        StepParams::SviSurface(p) => OutputKey::Surface(CurveId::from(p.surface_id.as_str())),
     }
 }
 
@@ -183,6 +188,67 @@ pub(crate) fn execute_params(
                 credit_index_update: None,
                 report,
             })
+        }
+        StepParams::HullWhite(p) => {
+            let disc_curve = context.get_discount(&p.curve_id)?;
+            let df = |t: f64| disc_curve.df(t);
+            let dc = DayCount::Act365F;
+
+            // Extract swaption quotes from MarketQuote::Vol(VolQuote::SwaptionVol { .. })
+            let hw_quotes: Vec<SwaptionQuote> = quotes
+                .iter()
+                .filter_map(|q| {
+                    if let MarketQuote::Vol(VolQuote::SwaptionVol {
+                        expiry,
+                        maturity,
+                        vol,
+                        quote_type,
+                        ..
+                    }) = q
+                    {
+                        let t_exp = dc
+                            .year_fraction(p.base_date, *expiry, DayCountCtx::default())
+                            .ok()?;
+                        let t_ten = dc
+                            .year_fraction(*expiry, *maturity, DayCountCtx::default())
+                            .ok()?;
+                        if t_exp <= 0.0 || t_ten <= 0.0 {
+                            return None;
+                        }
+                        let is_normal = quote_type.eq_ignore_ascii_case("normal");
+                        Some(SwaptionQuote {
+                            expiry: t_exp,
+                            tenor: t_ten,
+                            volatility: *vol,
+                            is_normal_vol: is_normal,
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            let (hw_params, report) = calibrate_hull_white_to_swaptions(&df, &hw_quotes)?;
+
+            Ok(StepOutcome {
+                output: StepOutput::Scalar {
+                    key: format!("{}_HW1F", p.curve_id.as_str()),
+                    value: MarketScalar::Unitless(hw_params.kappa),
+                },
+                credit_index_update: None,
+                report,
+            })
+        }
+        StepParams::SviSurface(_p) => {
+            // SVI calibration via calibrate_svi() from finstack-core.
+            // Full implementation requires:
+            // 1. Extract vol quotes from MarketQuote::Vol(VolQuote::OptionVol { .. })
+            // 2. Group by expiry
+            // 3. Call calibrate_svi per expiry
+            // 4. Build VolSurface from SVI slices
+            Err(finstack_core::Error::Validation(
+                "SVI surface calibration step: quote extraction not yet wired".to_string(),
+            ))
         }
     }
 }
