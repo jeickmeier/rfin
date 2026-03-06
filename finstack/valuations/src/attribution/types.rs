@@ -300,6 +300,11 @@ pub struct PnlAttribution {
     pub fx_pnl: Money,
 
     /// Implied volatility changes P&L.
+    ///
+    /// In metrics-based attribution, this includes the Vanna cross-gamma term
+    /// (spot-vol interaction: `Vanna × Δspot × Δσ`) when both spot and vol
+    /// shifts are measurable. Vanna is attributed to vol because it represents
+    /// the sensitivity of delta to volatility changes.
     pub vol_pnl: Money,
 
     /// Model parameters P&L.
@@ -312,6 +317,9 @@ pub struct PnlAttribution {
     pub residual: Money,
 
     // Detailed breakdowns
+    /// Detailed carry decomposition (theta + roll-down).
+    pub carry_detail: Option<CarryDetail>,
+
     /// Detailed rates curves attribution (by curve and tenor).
     pub rates_detail: Option<RatesCurvesAttribution>,
 
@@ -434,6 +442,42 @@ pub struct ModelParamsAttribution {
     pub other: IndexMap<String, Money>,
 }
 
+/// Detailed carry decomposition.
+///
+/// When available, breaks carry into sub-components:
+/// - **theta**: Pure time decay at constant curve shape
+/// - **roll_down**: Benefit from curve slope (moving down the term structure)
+///
+/// In metrics-based attribution, theta comes from the pre-computed Theta metric
+/// and roll-down is estimated as `total - theta`. In parallel/waterfall attribution,
+/// only the total is available (theta/roll_down require a second repricing or
+/// pre-computed metrics).
+///
+/// # Reference
+///
+/// Bloomberg PORT decomposes carry into Carry (coupon/funding), Curve Roll-Down,
+/// and Shift as distinct P&L components. This struct captures the first two.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarryDetail {
+    /// Total carry P&L (theta + roll_down + other time effects).
+    pub total: Money,
+
+    /// Pure time decay component (from Theta metric if available).
+    ///
+    /// Theta represents the P&L from the passage of time at constant curve shape:
+    /// coupon accrual, option decay, funding cost.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub theta: Option<Money>,
+
+    /// Curve roll-down component (total - theta).
+    ///
+    /// Roll-down represents the P&L from moving down a positively-sloped curve:
+    /// the instrument's remaining life shortens, and it benefits from lower
+    /// discount rates at shorter tenors.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roll_down: Option<Money>,
+}
+
 /// Detailed attribution for market scalars.
 ///
 /// Includes dividends, equity/commodity prices, inflation indices, etc.
@@ -532,6 +576,7 @@ impl PnlAttribution {
             model_params_pnl: zero,
             market_scalars_pnl: zero,
             residual: total_pnl, // Initially all P&L is residual
+            carry_detail: None,
             rates_detail: None,
             credit_detail: None,
             inflation_detail: None,
@@ -600,6 +645,16 @@ impl PnlAttribution {
         self.residual *= factor;
 
         // Scale details if present
+        if let Some(d) = &mut self.carry_detail {
+            d.total *= factor;
+            if let Some(v) = &mut d.theta {
+                *v *= factor;
+            }
+            if let Some(v) = &mut d.roll_down {
+                *v *= factor;
+            }
+        }
+
         if let Some(d) = &mut self.rates_detail {
             for v in d.by_curve.values_mut() {
                 *v *= factor;
@@ -844,7 +899,8 @@ impl PnlAttribution {
     /// Generate a structured tree explanation of P&L attribution.
     ///
     /// Creates a human-readable tree showing the total P&L broken down by factor.
-    /// Includes detailed breakdowns where available (per-curve, per-tenor, etc.).
+    /// Zero-valued factors are omitted for a clean presentation. Use
+    /// [`explain_verbose`] to include all factors regardless of value.
     ///
     /// # Returns
     ///
@@ -864,12 +920,21 @@ impl PnlAttribution {
     ///   └─ Residual: -$1,570 (-1.2%)
     /// ```
     pub fn explain(&self) -> String {
-        let mut lines = Vec::new();
+        self.explain_impl(false)
+    }
 
-        // Use the stamped rounding context for all display calculations
+    /// Generate a verbose tree explanation showing all factors including zeros.
+    ///
+    /// Unlike [`explain`], this method shows every attribution factor regardless
+    /// of whether its value is zero. Useful for debugging and verifying that all
+    /// factors are being computed.
+    pub fn explain_verbose(&self) -> String {
+        self.explain_impl(true)
+    }
+
+    fn explain_impl(&self, show_zeros: bool) -> String {
         let rc = &self.meta.rounding;
 
-        // Helper to format money and percentage
         let fmt = |amount: &Money, total: &Money| -> String {
             let pct = if !rc.is_effectively_zero_money(total.amount(), total.currency()) {
                 (amount.amount() / total.amount()) * 100.0
@@ -879,19 +944,26 @@ impl PnlAttribution {
             format!("{} ({:.1}%)", amount, pct)
         };
 
-        // Total P&L
+        let show = |m: &Money| -> bool {
+            show_zeros || !rc.is_effectively_zero_money(m.amount(), m.currency())
+        };
+
+        let mut lines = Vec::new();
         lines.push(format!("Total P&L: {}", self.total_pnl));
 
-        // Carry
-        if !rc.is_effectively_zero_money(self.carry.amount(), self.carry.currency()) {
+        if show(&self.carry) {
             lines.push(format!("  ├─ Carry: {}", fmt(&self.carry, &self.total_pnl)));
+            if let Some(ref detail) = self.carry_detail {
+                if let Some(ref theta) = detail.theta {
+                    lines.push(format!("  │   ├─ Theta: {}", theta));
+                }
+                if let Some(ref roll_down) = detail.roll_down {
+                    lines.push(format!("  │   └─ Roll-Down: {}", roll_down));
+                }
+            }
         }
 
-        // Rates curves
-        if !rc.is_effectively_zero_money(
-            self.rates_curves_pnl.amount(),
-            self.rates_curves_pnl.currency(),
-        ) {
+        if show(&self.rates_curves_pnl) {
             lines.push(format!(
                 "  ├─ Rates Curves: {}",
                 fmt(&self.rates_curves_pnl, &self.total_pnl)
@@ -903,11 +975,7 @@ impl PnlAttribution {
             }
         }
 
-        // Credit curves
-        if !rc.is_effectively_zero_money(
-            self.credit_curves_pnl.amount(),
-            self.credit_curves_pnl.currency(),
-        ) {
+        if show(&self.credit_curves_pnl) {
             lines.push(format!(
                 "  ├─ Credit Curves: {}",
                 fmt(&self.credit_curves_pnl, &self.total_pnl)
@@ -919,61 +987,42 @@ impl PnlAttribution {
             }
         }
 
-        // Inflation curves
-        if !rc.is_effectively_zero_money(
-            self.inflation_curves_pnl.amount(),
-            self.inflation_curves_pnl.currency(),
-        ) {
+        if show(&self.inflation_curves_pnl) {
             lines.push(format!(
                 "  ├─ Inflation Curves: {}",
                 fmt(&self.inflation_curves_pnl, &self.total_pnl)
             ));
         }
 
-        // Correlations
-        if !rc.is_effectively_zero_money(
-            self.correlations_pnl.amount(),
-            self.correlations_pnl.currency(),
-        ) {
+        if show(&self.correlations_pnl) {
             lines.push(format!(
                 "  ├─ Correlations: {}",
                 fmt(&self.correlations_pnl, &self.total_pnl)
             ));
         }
 
-        // FX
-        if !rc.is_effectively_zero_money(self.fx_pnl.amount(), self.fx_pnl.currency()) {
+        if show(&self.fx_pnl) {
             lines.push(format!("  ├─ FX: {}", fmt(&self.fx_pnl, &self.total_pnl)));
         }
 
-        // Volatility
-        if !rc.is_effectively_zero_money(self.vol_pnl.amount(), self.vol_pnl.currency()) {
+        if show(&self.vol_pnl) {
             lines.push(format!("  ├─ Vol: {}", fmt(&self.vol_pnl, &self.total_pnl)));
         }
 
-        // Model parameters
-        if !rc.is_effectively_zero_money(
-            self.model_params_pnl.amount(),
-            self.model_params_pnl.currency(),
-        ) {
+        if show(&self.model_params_pnl) {
             lines.push(format!(
                 "  ├─ Model Params: {}",
                 fmt(&self.model_params_pnl, &self.total_pnl)
             ));
         }
 
-        // Market scalars
-        if !rc.is_effectively_zero_money(
-            self.market_scalars_pnl.amount(),
-            self.market_scalars_pnl.currency(),
-        ) {
+        if show(&self.market_scalars_pnl) {
             lines.push(format!(
                 "  ├─ Market Scalars: {}",
                 fmt(&self.market_scalars_pnl, &self.total_pnl)
             ));
         }
 
-        // Residual (always show)
         lines.push(format!(
             "  └─ Residual: {}",
             fmt(&self.residual, &self.total_pnl)

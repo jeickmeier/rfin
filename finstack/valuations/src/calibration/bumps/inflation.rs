@@ -52,10 +52,10 @@ pub fn bump_inflation_rates(
 
     // Map currency to standard inflation convention ID
     let convention_id = match currency {
-        Currency::USD => InflationSwapConventionId("USD-CPI".into()),
-        Currency::EUR => InflationSwapConventionId("EUR-HICP".into()),
-        Currency::GBP => InflationSwapConventionId("UK-RPI".into()),
-        _ => InflationSwapConventionId(format!("{}-CPI", currency)), // Best guess fallback
+        Currency::USD => InflationSwapConventionId::new("USD-CPI"),
+        Currency::EUR => InflationSwapConventionId::new("EUR-HICP"),
+        Currency::GBP => InflationSwapConventionId::new("UK-RPI"),
+        _ => InflationSwapConventionId::new(format!("{}-CPI", currency)), // Best guess fallback
     };
 
     let base_cpi = curve.base_cpi();

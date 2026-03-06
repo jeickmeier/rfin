@@ -180,7 +180,7 @@ pub fn prepare_rate_quote(
         .as_any()
         .downcast_ref::<crate::instruments::rates::ir_future::InterestRateFuture>(
     ) {
-        fut.expiry
+        fut.period_end.unwrap_or(fut.expiry)
     } else {
         base_date
     };
@@ -220,4 +220,52 @@ pub fn prepare_cds_quote(
         maturity_date,
         pillar_time,
     ))
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::market::quotes::ids::QuoteId;
+    use crate::market::quotes::rates::RateQuote;
+    use finstack_core::HashMap;
+    use time::Month;
+
+    #[test]
+    fn prepare_rate_quote_uses_future_period_end_as_pillar() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 10).expect("valid date");
+        let mut curve_ids = HashMap::default();
+        curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+        curve_ids.insert("forward".to_string(), "USD-SOFR".to_string());
+        let ctx = BuildCtx::new(as_of, 1_000_000.0, curve_ids);
+
+        let quote = RateQuote::Futures {
+            id: QuoteId::new("USD-FUT-SEP25"),
+            contract: "SR3".into(),
+            expiry: Date::from_calendar_date(2025, Month::September, 15).expect("valid expiry"),
+            price: 96.50,
+            convexity_adjustment: None,
+            vol_surface_id: None,
+        };
+
+        let prepared = prepare_rate_quote(
+            quote,
+            &ctx,
+            DayCount::Act365F,
+            as_of,
+            &PillarPolicy::default(),
+        )
+        .expect("prepared futures quote");
+
+        let future = prepared
+            .instrument
+            .as_any()
+            .downcast_ref::<crate::instruments::rates::ir_future::InterestRateFuture>()
+            .expect("expected interest rate future");
+
+        assert_eq!(
+            prepared.pillar_date,
+            future.period_end.expect("future period_end")
+        );
+    }
 }

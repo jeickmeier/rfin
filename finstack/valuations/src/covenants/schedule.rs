@@ -3,16 +3,27 @@ use serde::{Deserialize, Serialize};
 
 /// Piecewise-constant threshold schedule for covenants.
 ///
-/// Entries should be sorted by date ascending; the effective threshold for a
+/// Entries are stored sorted by date ascending. The effective threshold for a
 /// test date is the last entry with date <= test_date. If no entry applies,
 /// `threshold_for_date` returns `None`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ThresholdSchedule(pub Vec<(Date, f64)>);
 
 impl ThresholdSchedule {
-    /// Check if the threshold schedule is empty
+    /// Create a new threshold schedule, sorting entries by date.
+    pub fn new(mut entries: Vec<(Date, f64)>) -> Self {
+        entries.sort_by_key(|(d, _)| *d);
+        Self(entries)
+    }
+
+    /// Check if the threshold schedule is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// Number of threshold entries.
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -21,8 +32,10 @@ pub fn threshold_for_date(schedule: &ThresholdSchedule, test_date: Date) -> Opti
     if schedule.0.is_empty() {
         return None;
     }
-    // Assumes schedule is reasonably small; linear scan keeps ordering simple
-    // and deterministic without additional allocations.
+    debug_assert!(
+        schedule.0.windows(2).all(|w| w[0].0 <= w[1].0),
+        "ThresholdSchedule entries must be sorted by date ascending"
+    );
     let mut last: Option<f64> = None;
     for (d, v) in &schedule.0 {
         if *d <= test_date {

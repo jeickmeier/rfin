@@ -126,6 +126,7 @@ impl JsCovenantForecastConfig {
             volatility,
             random_seed: seed,
             mc,
+            reference_date: None,
         };
         JsCovenantForecastConfig { inner: cfg }
     }

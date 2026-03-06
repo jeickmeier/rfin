@@ -186,8 +186,21 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
         rounding,
     );
 
-    // Step 2: Carry attribution (time decay + accruals)
-    // Price at T₁ date with T₀ market
+    // Step 2: Carry attribution (time decay + accruals + roll-down)
+    //
+    // METHODOLOGY: Price at T₁ date with T₀ market (frozen curves).
+    // This captures the combined effect of:
+    //   - Theta (pure time decay): coupon accrual, option decay, funding cost
+    //   - Roll-down: benefit from moving down a positively-sloped curve
+    //
+    // These sub-components are separated in metrics-based attribution (where
+    // Theta is pre-computed), but in parallel attribution the total carry
+    // is reported. Use `carry_detail` for the decomposition when available.
+    //
+    // FX CONVENTION: Both T₀ and carry values are converted at T₁ FX rates
+    // (via `compute_pnl`). This isolates the pricing effect of time passage
+    // from FX translation effects. The FX factor (Step 7) captures all
+    // translation P&L, ensuring consistent summation.
     let market_frozen = market_t0.clone();
     let val_carry = reprice_instrument(instrument, &market_frozen, as_of_t1)?;
     num_repricings += 1;
@@ -284,11 +297,16 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     //    reported USD value changes even if EUR PV is unchanged.
     //    This is captured by using date-appropriate FX rates for conversion.
     //
-    // DESIGN DECISION: This implementation combines both effects into a single `fx_pnl`
-    // field. For most use cases this is sufficient, as the total FX impact is what
-    // matters for P&L reporting. If you need to separate these effects:
-    //   - FX Exposure: Reprice with T₀ FX, compare using SAME FX rate for both PVs
-    //   - FX Translation: Keep FX at T₁ for pricing, compare using T₀ vs T₁ FX for conversion
+    // FX CONVERSION METHODOLOGY:
+    //   - Non-FX factors (carry, rates, credit, vol, etc.) use `compute_pnl` which
+    //     converts BOTH T₀ and T₁ values at T₁ FX. This isolates pricing effects.
+    //   - Total P&L uses `compute_pnl_with_fx` which converts T₀ at T₀ FX and T₁
+    //     at T₁ FX (actual P&L).
+    //   - The FX factor uses `compute_pnl_with_fx` to capture both exposure and
+    //     translation effects, absorbing the V₀×(X₁-X₀) translation term that
+    //     the non-FX factors exclude.
+    //   - Any residual cross-terms (ΔV×ΔX) are inherent in the parallel approach
+    //     and appear in the residual by design.
     //
     // For single-currency instruments in their native reporting currency, this step
     // produces zero P&L as expected.

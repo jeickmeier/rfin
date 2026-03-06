@@ -260,7 +260,7 @@ pub(crate) mod waterfall;
 
 // Re-export core types
 pub use types::{
-    AttributionFactor, AttributionInput, AttributionMeta, AttributionMethod,
+    AttributionFactor, AttributionInput, AttributionMeta, AttributionMethod, CarryDetail,
     CorrelationsAttribution, CreditCurvesAttribution, FxAttribution, InflationCurvesAttribution,
     JsonEnvelope, ModelParamsAttribution, PnlAttribution, RatesCurvesAttribution,
     ScalarsAttribution, VolAttribution,

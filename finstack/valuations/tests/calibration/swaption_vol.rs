@@ -43,7 +43,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             strike: 0.035,
             vol: 120.0,
             quote_type: "OTM-100".to_string(),
-            convention: SwaptionConventionId("USD".into()),
+            convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
@@ -51,7 +51,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             strike: 0.040,
             vol: 100.0,
             quote_type: "ATM-50".to_string(),
-            convention: SwaptionConventionId("USD".into()),
+            convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
@@ -59,7 +59,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             strike: 0.043,
             vol: 90.0,
             quote_type: "ATM".to_string(),
-            convention: SwaptionConventionId("USD".into()),
+            convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
@@ -67,7 +67,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             strike: 0.046,
             vol: 100.0,
             quote_type: "ATM+50".to_string(),
-            convention: SwaptionConventionId("USD".into()),
+            convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
@@ -75,7 +75,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             strike: 0.050,
             vol: 120.0,
             quote_type: "OTM+100".to_string(),
-            convention: SwaptionConventionId("USD".into()),
+            convention: SwaptionConventionId::new("USD"),
         }),
         // 1Y x 5Y bucket (5 strikes)
         MarketQuote::Vol(VolQuote::SwaptionVol {
@@ -84,7 +84,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             strike: 0.038,
             vol: 85.0,
             quote_type: "OTM-100".to_string(),
-            convention: SwaptionConventionId("USD".into()),
+            convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
@@ -92,7 +92,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             strike: 0.042,
             vol: 75.0,
             quote_type: "ATM-50".to_string(),
-            convention: SwaptionConventionId("USD".into()),
+            convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
@@ -100,7 +100,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             strike: 0.045,
             vol: 70.0,
             quote_type: "ATM".to_string(),
-            convention: SwaptionConventionId("USD".into()),
+            convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
@@ -108,7 +108,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             strike: 0.048,
             vol: 75.0,
             quote_type: "ATM+50".to_string(),
-            convention: SwaptionConventionId("USD".into()),
+            convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
@@ -116,7 +116,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             strike: 0.052,
             vol: 85.0,
             quote_type: "OTM+100".to_string(),
-            convention: SwaptionConventionId("USD".into()),
+            convention: SwaptionConventionId::new("USD"),
         }),
     ]
 }

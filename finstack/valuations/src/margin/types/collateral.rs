@@ -399,6 +399,52 @@ impl EligibleCollateralSchedule {
         self.eligible.iter().any(|e| &e.asset_class == asset_class)
             || self.default_haircut.is_some()
     }
+
+    /// Validate a proposed collateral portfolio against concentration limits.
+    ///
+    /// Each entry in `allocations` maps an asset class to the proposed amount.
+    /// Returns a list of asset classes that breach their concentration limit.
+    #[must_use]
+    pub fn check_concentration_limits(
+        &self,
+        allocations: &[(CollateralAssetClass, f64)],
+    ) -> Vec<ConcentrationBreach> {
+        let total: f64 = allocations.iter().map(|(_, amt)| *amt).sum();
+        if total <= 0.0 {
+            return Vec::new();
+        }
+
+        let mut breaches = Vec::new();
+        for (asset_class, amount) in allocations {
+            let fraction = amount / total;
+            if let Some(entry) = self.eligible.iter().find(|e| &e.asset_class == asset_class) {
+                if let Some(limit) = entry.concentration_limit {
+                    if fraction > limit {
+                        breaches.push(ConcentrationBreach {
+                            asset_class: asset_class.clone(),
+                            fraction,
+                            limit,
+                            excess: fraction - limit,
+                        });
+                    }
+                }
+            }
+        }
+        breaches
+    }
+}
+
+/// A breach of a collateral concentration limit.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConcentrationBreach {
+    /// Asset class that breached
+    pub asset_class: CollateralAssetClass,
+    /// Actual fraction of total collateral
+    pub fraction: f64,
+    /// Allowed concentration limit
+    pub limit: f64,
+    /// Excess fraction above limit
+    pub excess: f64,
 }
 
 #[cfg(test)]
@@ -472,5 +518,49 @@ mod tests {
         assert!(schedule.is_eligible(&CollateralAssetClass::GovernmentBonds));
         assert!(!schedule.is_eligible(&CollateralAssetClass::Equity));
         assert!(!schedule.rehypothecation_allowed);
+    }
+
+    #[test]
+    fn concentration_limit_no_breach() {
+        let schedule = EligibleCollateralSchedule {
+            eligible: vec![
+                CollateralEligibility::cash(),
+                CollateralEligibility::corporate_bonds(0.04, "BBB"),
+            ],
+            default_haircut: None,
+            rehypothecation_allowed: false,
+        };
+
+        let allocations = vec![
+            (CollateralAssetClass::Cash, 80.0),
+            (CollateralAssetClass::CorporateBonds, 20.0),
+        ];
+        let breaches = schedule.check_concentration_limits(&allocations);
+        assert!(breaches.is_empty());
+    }
+
+    #[test]
+    fn concentration_limit_breach() {
+        let schedule = EligibleCollateralSchedule {
+            eligible: vec![
+                CollateralEligibility::cash(),
+                CollateralEligibility::corporate_bonds(0.04, "BBB"),
+            ],
+            default_haircut: None,
+            rehypothecation_allowed: false,
+        };
+
+        let allocations = vec![
+            (CollateralAssetClass::Cash, 60.0),
+            (CollateralAssetClass::CorporateBonds, 40.0),
+        ];
+        let breaches = schedule.check_concentration_limits(&allocations);
+        assert_eq!(breaches.len(), 1);
+        assert_eq!(
+            breaches[0].asset_class,
+            CollateralAssetClass::CorporateBonds
+        );
+        assert!((breaches[0].fraction - 0.40).abs() < 0.001);
+        assert!((breaches[0].limit - 0.30).abs() < 0.001);
     }
 }

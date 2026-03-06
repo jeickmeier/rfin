@@ -19,7 +19,8 @@ mod thresholds;
 // Re-export all types
 pub use call::{MarginCall, MarginCallType};
 pub use collateral::{
-    CollateralAssetClass, CollateralEligibility, EligibleCollateralSchedule, MaturityConstraints,
+    CollateralAssetClass, CollateralEligibility, ConcentrationBreach, EligibleCollateralSchedule,
+    MaturityConstraints,
 };
 pub use csa::{CsaSpec, MarginCallTiming};
 pub use enums::{ClearingStatus, ImMethodology, MarginTenor};

@@ -808,6 +808,11 @@ pub fn restore_volatility(market: &MarketContext, snapshot: &VolatilitySnapshot)
 
 /// Replace market scalars in a market context.
 ///
+/// Rebuilds a new market preserving all curves, FX, and vol surfaces from the
+/// original, but replacing ALL scalar data (prices, series, inflation indices,
+/// dividends) with the snapshot values. Scalars present in `market` but absent
+/// from `snapshot` are dropped to ensure clean factor isolation.
+///
 /// # Arguments
 ///
 /// * `market` - Market context to modify
@@ -817,36 +822,34 @@ pub fn restore_volatility(market: &MarketContext, snapshot: &VolatilitySnapshot)
 ///
 /// New market context with replaced market scalars.
 pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> MarketContext {
-    // Create a fresh market context
     let mut new_market = MarketContext::new();
 
-    // Copy all curves
+    // Preserve all curves via Arc clone (cheap)
     for curve_id in market.curve_ids() {
-        if let Ok(discount) = market.get_discount(curve_id) {
-            let owned = Arc::try_unwrap(discount).unwrap_or_else(|arc| arc.as_ref().clone());
-            new_market = new_market.insert_discount(owned);
-        } else if let Ok(forward) = market.get_forward(curve_id) {
-            let owned = Arc::try_unwrap(forward).unwrap_or_else(|arc| arc.as_ref().clone());
-            new_market = new_market.insert_forward(owned);
-        } else if let Ok(hazard) = market.get_hazard(curve_id) {
-            let owned = Arc::try_unwrap(hazard).unwrap_or_else(|arc| arc.as_ref().clone());
-            new_market = new_market.insert_hazard(owned);
-        } else if let Ok(inflation) = market.get_inflation(curve_id) {
-            let owned = Arc::try_unwrap(inflation).unwrap_or_else(|arc| arc.as_ref().clone());
-            new_market = new_market.insert_inflation(owned);
-        } else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            let owned = Arc::try_unwrap(base_corr).unwrap_or_else(|arc| arc.as_ref().clone());
-            new_market = new_market.insert_base_correlation(owned);
+        if let Ok(c) = market.get_discount(curve_id) {
+            new_market = new_market.insert_discount((*c).clone());
+        }
+        if let Ok(c) = market.get_forward(curve_id) {
+            new_market = new_market.insert_forward((*c).clone());
+        }
+        if let Ok(c) = market.get_hazard(curve_id) {
+            new_market = new_market.insert_hazard((*c).clone());
+        }
+        if let Ok(c) = market.get_inflation(curve_id) {
+            new_market = new_market.insert_inflation((*c).clone());
+        }
+        if let Ok(c) = market.get_base_correlation(curve_id) {
+            new_market = new_market.insert_base_correlation((*c).clone());
         }
     }
 
-    // Copy FX and surfaces
+    // Preserve FX and surfaces
     if let Some(fx) = market.fx() {
         new_market = new_market.insert_fx(Arc::clone(fx));
     }
     new_market.replace_surfaces_mut(market.surfaces_snapshot());
 
-    // Restore scalars from snapshot (overwrites any existing)
+    // Insert ONLY snapshot scalars (market scalars are dropped)
     for (id, scalar) in &snapshot.prices {
         new_market = new_market.insert_price(id.as_str(), scalar.clone());
     }

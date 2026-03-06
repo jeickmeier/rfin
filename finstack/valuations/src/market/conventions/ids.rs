@@ -166,7 +166,7 @@ impl fmt::Display for CdsConventionKey {
 /// assert_eq!(id.as_str(), "USD-EQUITY");
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct OptionConventionId(pub String);
+pub struct OptionConventionId(String);
 
 impl OptionConventionId {
     /// Create a new `OptionConventionId` from a string.
@@ -217,7 +217,7 @@ impl From<&str> for OptionConventionId {
 /// assert_eq!(id.as_str(), "USD");
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct SwaptionConventionId(pub String);
+pub struct SwaptionConventionId(String);
 
 impl SwaptionConventionId {
     /// Create a new `SwaptionConventionId` from a string.
@@ -268,7 +268,7 @@ impl From<&str> for SwaptionConventionId {
 /// assert_eq!(id.as_str(), "USD-CPI");
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct InflationSwapConventionId(pub String);
+pub struct InflationSwapConventionId(String);
 
 impl InflationSwapConventionId {
     /// Create a new `InflationSwapConventionId` from a string.
@@ -300,6 +300,118 @@ impl fmt::Display for InflationSwapConventionId {
 }
 
 impl From<&str> for InflationSwapConventionId {
+    fn from(s: &str) -> Self {
+        Self::new(s)
+    }
+}
+
+/// Identifier for FX pair market conventions (e.g., "EUR/USD", "USD/CAD").
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+pub struct FxConventionId(String);
+
+impl FxConventionId {
+    /// Create a new `FxConventionId` from a string.
+    pub fn new(s: impl Into<String>) -> Self {
+        Self(s.into())
+    }
+
+    /// View the inner string representation.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for FxConventionId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<&str> for FxConventionId {
+    fn from(s: &str) -> Self {
+        Self::new(s)
+    }
+}
+
+/// Identifier for bond market conventions (e.g., "USD-UST", "USD-CORP").
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+pub struct BondConventionId(String);
+
+impl BondConventionId {
+    /// Create a new `BondConventionId` from a string.
+    pub fn new(s: impl Into<String>) -> Self {
+        Self(s.into())
+    }
+
+    /// View the inner string representation.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for BondConventionId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<&str> for BondConventionId {
+    fn from(s: &str) -> Self {
+        Self::new(s)
+    }
+}
+
+/// Identifier for cross-currency swap market conventions (e.g., "EUR/USD-XCCY").
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+pub struct XccyConventionId(String);
+
+impl XccyConventionId {
+    /// Create a new `XccyConventionId` from a string.
+    pub fn new(s: impl Into<String>) -> Self {
+        Self(s.into())
+    }
+
+    /// View the inner string representation.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for XccyConventionId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<&str> for XccyConventionId {
+    fn from(s: &str) -> Self {
+        Self::new(s)
+    }
+}
+
+/// Identifier for FX option market conventions (e.g., "EUR/USD-VANILLA").
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+pub struct FxOptionConventionId(String);
+
+impl FxOptionConventionId {
+    /// Create a new `FxOptionConventionId` from a string.
+    pub fn new(s: impl Into<String>) -> Self {
+        Self(s.into())
+    }
+
+    /// View the inner string representation.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for FxOptionConventionId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<&str> for FxOptionConventionId {
     fn from(s: &str) -> Self {
         Self::new(s)
     }

@@ -122,7 +122,7 @@
         "default_payment_frequency": "1Y",
         "default_payment_lag_days": 2,
         "default_reset_lag_days": 0,
-        "ois_compounding": "fedfunds",
+        "ois_compounding": "sofr",
         "market_calendar_id": "usny",
         "market_settlement_days": 2,
         "market_business_day_convention": "modified_following",
@@ -142,7 +142,7 @@
         "default_payment_frequency": "1Y",
         "default_payment_lag_days": 2,
         "default_reset_lag_days": 0,
-        "ois_compounding": "fedfunds",
+        "ois_compounding": "sofr",
         "market_calendar_id": "usny",
         "market_settlement_days": 2,
         "market_business_day_convention": "modified_following",
@@ -265,6 +265,46 @@
         "market_settlement_days": 2,
         "market_business_day_convention": "modified_following",
         "default_fixed_leg_day_count": "Act360",
+        "default_fixed_leg_frequency": "1Y"
+      }
+    },
+    {
+      "ids": [
+        "EUR-EURIBOR-3M"
+      ],
+      "record": {
+        "currency": "EUR",
+        "kind": "term",
+        "tenor": "3M",
+        "day_count": "Act360",
+        "default_payment_frequency": "3M",
+        "default_payment_lag_days": 0,
+        "default_reset_lag_days": 2,
+        "ois_compounding": null,
+        "market_calendar_id": "target2",
+        "market_settlement_days": 2,
+        "market_business_day_convention": "modified_following",
+        "default_fixed_leg_day_count": "Thirty360",
+        "default_fixed_leg_frequency": "1Y"
+      }
+    },
+    {
+      "ids": [
+        "EUR-EURIBOR-6M"
+      ],
+      "record": {
+        "currency": "EUR",
+        "kind": "term",
+        "tenor": "6M",
+        "day_count": "Act360",
+        "default_payment_frequency": "6M",
+        "default_payment_lag_days": 0,
+        "default_reset_lag_days": 2,
+        "ois_compounding": null,
+        "market_calendar_id": "target2",
+        "market_settlement_days": 2,
+        "market_business_day_convention": "modified_following",
+        "default_fixed_leg_day_count": "Thirty360",
         "default_fixed_leg_frequency": "1Y"
       }
     },

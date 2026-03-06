@@ -29,27 +29,42 @@ impl PnlAttribution {
     /// # Returns
     ///
     /// CSV string with columns:
-    /// - instrument_id, currency, total, carry, rates_curves, credit_curves,
-    ///   inflation_curves, correlations, fx, vol, model_params,
-    ///   market_scalars, residual, residual_pct
+    /// - instrument_id, currency, total, carry, carry_theta, carry_roll_down,
+    ///   rates_curves, credit_curves, inflation_curves, correlations, fx, vol,
+    ///   model_params, market_scalars, residual, residual_pct
     pub fn to_csv(&self) -> String {
         let mut lines = Vec::new();
 
         // Header
         lines.push(
-            "instrument_id,currency,total,carry,rates_curves,credit_curves,\
+            "instrument_id,currency,total,carry,carry_theta,carry_roll_down,\
+             rates_curves,credit_curves,\
              inflation_curves,correlations,fx,vol,model_params,\
              market_scalars,residual,residual_pct"
                 .to_string(),
         );
 
+        let theta_str = self
+            .carry_detail
+            .as_ref()
+            .and_then(|d| d.theta.as_ref())
+            .map_or(String::new(), |m| m.amount().to_string());
+
+        let roll_down_str = self
+            .carry_detail
+            .as_ref()
+            .and_then(|d| d.roll_down.as_ref())
+            .map_or(String::new(), |m| m.amount().to_string());
+
         // Data row
         lines.push(format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             self.meta.instrument_id,
             self.total_pnl.currency(),
             self.total_pnl.amount(),
             self.carry.amount(),
+            theta_str,
+            roll_down_str,
             self.rates_curves_pnl.amount(),
             self.credit_curves_pnl.amount(),
             self.inflation_curves_pnl.amount(),

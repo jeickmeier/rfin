@@ -238,6 +238,7 @@ fn covenant_window_roundtrip() {
 #[test]
 fn covenant_breach_roundtrip() {
     let breach = CovenantBreach {
+        covenant_id: "max_debt_ebitda".to_string(),
         covenant_type: "Debt/EBITDA <= 5.00".to_string(),
         breach_date: date(2025, 3, 31),
         actual_value: Some(5.5),
@@ -281,6 +282,7 @@ fn covenant_engine_roundtrip() {
     });
 
     engine.breach_history.push(CovenantBreach {
+        covenant_id: "max_debt_ebitda".to_string(),
         covenant_type: "Test Breach".to_string(),
         breach_date: date(2025, 2, 28),
         actual_value: Some(6.0),
@@ -340,6 +342,7 @@ fn covenant_forecast_config_roundtrip() {
         volatility: Some(0.25),
         random_seed: Some(42),
         mc: Some(McConfig { antithetic: true }),
+        reference_date: Some(date(2025, 1, 1)),
     };
 
     let rt = roundtrip(&config);
@@ -357,11 +360,13 @@ fn covenant_forecast_config_default_roundtrip() {
 fn covenant_forecast_roundtrip() {
     let forecast = CovenantForecast {
         covenant_id: "Debt/EBITDA <= 5.00x".to_string(),
+        comparator: Comparator::LessOrEqual,
         test_dates: vec![date(2025, 3, 31), date(2025, 6, 30), date(2025, 9, 30)],
         projected_values: vec![4.2, 4.5, 4.8],
         thresholds: vec![5.0, 5.0, 5.0],
         headroom: vec![0.16, 0.10, 0.04],
         breach_probability: vec![0.0, 0.0, 0.0],
+        breach_probability_stderr: vec![0.0, 0.0, 0.0],
         first_breach_date: None,
         min_headroom_date: date(2025, 9, 30),
         min_headroom_value: 0.04,
@@ -375,11 +380,13 @@ fn covenant_forecast_roundtrip() {
 fn covenant_forecast_with_breach_roundtrip() {
     let forecast = CovenantForecast {
         covenant_id: "Interest Coverage >= 1.50x".to_string(),
+        comparator: Comparator::GreaterOrEqual,
         test_dates: vec![date(2025, 3, 31), date(2025, 6, 30)],
         projected_values: vec![1.6, 1.3],
         thresholds: vec![1.5, 1.5],
         headroom: vec![0.067, -0.133],
         breach_probability: vec![0.05, 0.75],
+        breach_probability_stderr: vec![0.0, 0.0],
         first_breach_date: Some(date(2025, 6, 30)),
         min_headroom_date: date(2025, 6, 30),
         min_headroom_value: -0.133,
@@ -508,6 +515,7 @@ fn complex_covenant_package_roundtrip() {
 
     // Add some breach history
     engine.breach_history.push(CovenantBreach {
+        covenant_id: "max_debt_ebitda".to_string(),
         covenant_type: "Debt/EBITDA <= 5.00".to_string(),
         breach_date: date(2024, 12, 31),
         actual_value: Some(5.2),
@@ -534,6 +542,7 @@ fn complex_covenant_package_roundtrip() {
 fn json_format_stability() {
     // Verify that the JSON format is human-readable and stable
     let breach = CovenantBreach {
+        covenant_id: "max_total_leverage".to_string(),
         covenant_type: "Max Leverage".to_string(),
         breach_date: date(2025, 6, 30),
         actual_value: Some(5.5),

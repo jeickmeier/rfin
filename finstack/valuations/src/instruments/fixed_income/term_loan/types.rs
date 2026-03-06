@@ -637,6 +637,52 @@ impl crate::instruments::common_impl::traits::CurveDependencies for TermLoan {
     }
 }
 
+impl crate::covenants::InstrumentMutator for TermLoan {
+    fn set_default_status(&mut self, is_default: bool, as_of: Date) -> finstack_core::Result<()> {
+        self.attributes
+            .meta
+            .insert("defaulted".to_string(), is_default.to_string());
+        if is_default {
+            self.attributes
+                .meta
+                .insert("default_date".to_string(), as_of.to_string());
+        }
+        Ok(())
+    }
+
+    fn increase_rate(&mut self, increase: f64) -> finstack_core::Result<()> {
+        let bps_increase = (increase * 10_000.0).round() as i32;
+        match &mut self.rate {
+            RateSpec::Fixed { rate_bp } => {
+                *rate_bp += bps_increase;
+            }
+            RateSpec::Floating(spec) => {
+                spec.spread_bp += rust_decimal::Decimal::new(bps_increase as i64, 0);
+            }
+        }
+        Ok(())
+    }
+
+    fn set_cash_sweep(&mut self, percentage: f64) -> finstack_core::Result<()> {
+        self.attributes
+            .meta
+            .insert("cash_sweep_pct".to_string(), percentage.to_string());
+        Ok(())
+    }
+
+    fn set_distribution_block(&mut self, blocked: bool) -> finstack_core::Result<()> {
+        self.attributes
+            .meta
+            .insert("distributions_blocked".to_string(), blocked.to_string());
+        Ok(())
+    }
+
+    fn set_maturity(&mut self, new_maturity: Date) -> finstack_core::Result<()> {
+        self.maturity = new_maturity;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
