@@ -629,16 +629,20 @@ impl PyMarketQuote {
     #[getter]
     fn kind(&self) -> &'static str {
         match &self.inner {
+            MarketQuote::Bond(_) => "bond",
             MarketQuote::Rates(_) => "rates",
             MarketQuote::Cds(_) => "cds",
             MarketQuote::CDSTranche(_) => "cds_tranche",
+            MarketQuote::Fx(_) => "fx",
             MarketQuote::Vol(_) => "vol",
             MarketQuote::Inflation(_) => "inflation",
+            MarketQuote::Xccy(_) => "xccy",
         }
     }
 
     fn __repr__(&self) -> String {
         match &self.inner {
+            MarketQuote::Bond(_) => "MarketQuote.from_bond(bond)".to_string(),
             MarketQuote::Rates(q) => match q {
                 RatesQuote::Deposit { .. } => "MarketQuote.from_rates(deposit)".to_string(),
                 RatesQuote::Fra { .. } => "MarketQuote.from_rates(fra)".to_string(),
@@ -652,6 +656,7 @@ impl PyMarketQuote {
                 CdsQuote::CdsUpfront { .. } => "MarketQuote.from_credit(cds_upfront)".to_string(),
             },
             MarketQuote::CDSTranche(_) => "MarketQuote.from_credit(cds_tranche)".to_string(),
+            MarketQuote::Fx(_) => "MarketQuote.from_fx(fx)".to_string(),
             MarketQuote::Vol(q) => match q {
                 VolQuote::OptionVol { .. } => "MarketQuote.from_vol(option)".to_string(),
                 VolQuote::SwaptionVol { .. } => "MarketQuote.from_vol(swaption)".to_string(),
@@ -664,6 +669,7 @@ impl PyMarketQuote {
                     "MarketQuote.from_inflation(yoy_inflation_swap)".to_string()
                 }
             },
+            MarketQuote::Xccy(_) => "MarketQuote.from_xccy(xccy)".to_string(),
         }
     }
 }

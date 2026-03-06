@@ -702,6 +702,7 @@ impl PyCrossCurrencySwapBuilder {
             spread_bp: Decimal::try_from(slf.leg1_spread).unwrap_or(Decimal::ZERO),
             payment_lag_days: slf.leg1_payment_lag_days,
             calendar_id: slf.leg1_calendar_id.clone(),
+            reset_lag_days: None,
             allow_calendar_fallback: slf.allow_calendar_fallback,
         };
 
@@ -742,6 +743,7 @@ impl PyCrossCurrencySwapBuilder {
             spread_bp: Decimal::try_from(slf.leg2_spread).unwrap_or(Decimal::ZERO),
             payment_lag_days: slf.leg2_payment_lag_days,
             calendar_id: slf.leg2_calendar_id.clone(),
+            reset_lag_days: None,
             allow_calendar_fallback: slf.allow_calendar_fallback,
         };
 
