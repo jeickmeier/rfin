@@ -39,10 +39,41 @@ use std::sync::Arc;
 use finstack_core::dates::{Date, CALENDAR_DAYS_PER_YEAR};
 use finstack_core::market_data::context::MarketContext;
 
+#[cfg(feature = "mc")]
+use crate::instruments::common::models::monte_carlo::rng::philox::PhiloxRng;
+#[cfg(feature = "mc")]
+use crate::instruments::common::models::monte_carlo::{
+    state_keys, Discretization, PathState, RandomStream, StochasticProcess,
+};
 use crate::instruments::Instrument;
 
 use super::netting::{apply_collateral, apply_netting};
 use super::types::{ExposureProfile, NettingSet, XvaConfig};
+#[cfg(feature = "mc")]
+use super::types::{StochasticExposureConfig, StochasticExposureProfile};
+
+#[inline]
+fn years_to_days_act_365f(years: f64) -> i64 {
+    (years * CALENDAR_DAYS_PER_YEAR).round() as i64
+}
+
+#[cfg(feature = "mc")]
+fn interpolate_quantile(samples: &mut [f64], quantile: f64) -> f64 {
+    samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    if samples.len() == 1 {
+        return samples[0];
+    }
+
+    let scaled = quantile * (samples.len() - 1) as f64;
+    let lo = scaled.floor() as usize;
+    let hi = scaled.ceil() as usize;
+    if lo == hi {
+        samples[lo]
+    } else {
+        let w = scaled - lo as f64;
+        samples[lo] * (1.0 - w) + samples[hi] * w
+    }
+}
 
 /// Compute the exposure profile for a portfolio of instruments.
 ///
@@ -103,7 +134,7 @@ pub fn compute_exposure_profile(
 
     for &t in &config.time_grid {
         // Convert years to days using ACT/365F convention
-        let days = (t * CALENDAR_DAYS_PER_YEAR).round() as i64;
+        let days = years_to_days_act_365f(t);
         let future_date = as_of + time::Duration::days(days);
 
         // Roll market data forward (constant-curves assumption).
@@ -137,20 +168,21 @@ pub fn compute_exposure_profile(
 
         // Apply close-out netting: net portfolio value
         let net_value: f64 = values.iter().sum();
-        let positive_exposure = apply_netting(&values);
+        let gross_positive_exposure = apply_netting(&values);
+        let gross_negative_exposure = (-net_value).max(0.0);
 
-        // Apply CSA collateral reduction if applicable
-        let exposure = if let Some(ref csa) = netting_set.csa {
-            apply_collateral(positive_exposure, csa)
+        let (positive_exposure, negative_exposure) = if let Some(ref csa) = netting_set.csa {
+            (
+                apply_collateral(gross_positive_exposure, csa),
+                apply_collateral(gross_negative_exposure, csa),
+            )
         } else {
-            positive_exposure
+            (gross_positive_exposure, gross_negative_exposure)
         };
-
-        let negative_exposure = (-net_value).max(0.0);
 
         times.push(t);
         mtm_values.push(net_value);
-        epe.push(exposure);
+        epe.push(positive_exposure);
         ene.push(negative_exposure);
     }
 
@@ -184,18 +216,167 @@ pub fn compute_exposure_profile(
     })
 }
 
+/// Compute a stochastic exposure profile using the Monte Carlo primitives.
+///
+/// This engine simulates factor paths and revalues the portfolio through a
+/// pathwise callback at each time bucket. It keeps the current deterministic
+/// exposure API intact while providing a reusable route to genuine exposure
+/// distributions and quantile-based PFE.
+#[cfg(feature = "mc")]
+pub fn compute_stochastic_exposure_profile<P, D, V>(
+    process: &P,
+    discretization: &D,
+    initial_state: &[f64],
+    xva_config: &XvaConfig,
+    stochastic_config: &StochasticExposureConfig,
+    valuation_fn: V,
+) -> finstack_core::Result<StochasticExposureProfile>
+where
+    P: StochasticProcess,
+    D: Discretization<P>,
+    V: Fn(&PathState) -> finstack_core::Result<f64>,
+{
+    xva_config.validate()?;
+    stochastic_config.validate()?;
+
+    if initial_state.len() != process.dim() {
+        return Err(finstack_core::Error::Validation(format!(
+            "Stochastic exposure: initial_state length {} must match process dim {}",
+            initial_state.len(),
+            process.dim()
+        )));
+    }
+
+    let time_count = xva_config.time_grid.len();
+    let mut pathwise_mtms = vec![Vec::with_capacity(stochastic_config.num_paths); time_count];
+    let base_rng = PhiloxRng::new(stochastic_config.seed);
+
+    for path_idx in 0..stochastic_config.num_paths {
+        let mut rng = base_rng.split((path_idx + 1) as u64);
+        let mut state_vector = initial_state.to_vec();
+        let mut shocks = vec![0.0; process.num_factors()];
+        let mut work = vec![0.0; discretization.work_size(process)];
+        let mut prev_t = 0.0;
+
+        for (step_idx, &t) in xva_config.time_grid.iter().enumerate() {
+            let dt = t - prev_t;
+            rng.fill_std_normals(&mut shocks);
+            discretization.step(process, prev_t, dt, &mut state_vector, &shocks, &mut work);
+
+            let mut path_state = PathState::new(step_idx + 1, t);
+            path_state.set(state_keys::TIME, t);
+            path_state.set(state_keys::STEP, (step_idx + 1) as f64);
+            process.populate_path_state(&state_vector, &mut path_state);
+
+            let mtm = valuation_fn(&path_state)?;
+            pathwise_mtms[step_idx].push(mtm);
+            prev_t = t;
+        }
+    }
+
+    let mut mtm_values = Vec::with_capacity(time_count);
+    let mut epe = Vec::with_capacity(time_count);
+    let mut ene = Vec::with_capacity(time_count);
+    let mut pfe_profile = Vec::with_capacity(time_count);
+
+    for mtms in &pathwise_mtms {
+        let path_count = mtms.len() as f64;
+        let mut positive_exposure: Vec<f64> = mtms.iter().map(|v| v.max(0.0)).collect();
+        let negative_exposure: Vec<f64> = mtms.iter().map(|v| (-v).max(0.0)).collect();
+
+        mtm_values.push(mtms.iter().sum::<f64>() / path_count);
+        epe.push(positive_exposure.iter().sum::<f64>() / path_count);
+        ene.push(negative_exposure.iter().sum::<f64>() / path_count);
+        pfe_profile.push(interpolate_quantile(
+            &mut positive_exposure,
+            stochastic_config.pfe_quantile,
+        ));
+    }
+
+    let profile = ExposureProfile {
+        times: xva_config.time_grid.clone(),
+        mtm_values,
+        epe,
+        ene,
+    };
+    profile.validate()?;
+
+    let stochastic_profile = StochasticExposureProfile {
+        profile,
+        pfe_profile,
+        path_count: stochastic_config.num_paths,
+        pfe_quantile: stochastic_config.pfe_quantile,
+    };
+    stochastic_profile.validate()?;
+    Ok(stochastic_profile)
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::instruments::Attributes;
     use crate::xva::cva::compute_cva;
     use crate::xva::types::CsaTerms;
+    use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+    use finstack_core::money::Money;
     use time::Month;
 
     // Note: Full integration tests require constructing instrument and market mocks.
     // These unit tests verify the exposure profile logic with synthetic data.
+
+    #[derive(Clone, Debug)]
+    struct StaticInstrument {
+        id: String,
+        attributes: Attributes,
+        pv: f64,
+    }
+
+    impl StaticInstrument {
+        fn new(id: &str, pv: f64) -> Self {
+            Self {
+                id: id.to_string(),
+                attributes: Attributes::new(),
+                pv,
+            }
+        }
+    }
+
+    impl Instrument for StaticInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> crate::pricer::InstrumentType {
+            crate::pricer::InstrumentType::Bond
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attributes
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attributes
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+            Ok(Money::new(self.pv, Currency::USD))
+        }
+
+        fn value_raw(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<f64> {
+            Ok(self.pv)
+        }
+    }
 
     #[test]
     fn exposure_profile_basic_structure() {
@@ -427,5 +608,125 @@ mod tests {
         profile
             .validate()
             .expect("Manually constructed valid profile should pass validation");
+    }
+
+    #[test]
+    fn collateral_reduces_ene_for_negative_net_mtm() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+        let instruments: Vec<Arc<dyn Instrument>> =
+            vec![Arc::new(StaticInstrument::new("NEGATIVE-PV", -1_000_000.0))];
+        let market = MarketContext::new();
+        let config = XvaConfig {
+            time_grid: vec![0.25],
+            recovery_rate: 0.40,
+            include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
+        };
+        let csa = CsaTerms {
+            threshold: 0.0,
+            mta: 500.0,
+            mpor_days: 10,
+            independent_amount: 0.0,
+        };
+        let netting_set = NettingSet {
+            id: "CSA-NEG".into(),
+            counterparty_id: "CP".into(),
+            csa: Some(csa.clone()),
+        };
+
+        let profile = compute_exposure_profile(&instruments, &market, as_of, &config, &netting_set)
+            .expect("profile should compute");
+
+        let expected_ene = apply_collateral(1_000_000.0, &csa);
+        assert!(
+            (profile.ene[0] - expected_ene).abs() < 1e-12,
+            "CSA should reduce negative exposure symmetrically: got {}, expected {}",
+            profile.ene[0],
+            expected_ene
+        );
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn stochastic_exposure_profile_uses_quantile_based_pfe() {
+        use crate::instruments::common::models::monte_carlo::prelude::{ExactGbm, GbmProcess};
+        use crate::xva::types::StochasticExposureConfig;
+
+        let process = GbmProcess::with_params(0.0, 0.0, 0.25);
+        let discretization = ExactGbm::new();
+        let xva_config = XvaConfig {
+            time_grid: vec![0.5, 1.0],
+            recovery_rate: 0.40,
+            include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
+        };
+        let stochastic = StochasticExposureConfig {
+            num_paths: 1_024,
+            seed: 7,
+            pfe_quantile: 0.975,
+        };
+
+        let profile = compute_stochastic_exposure_profile(
+            &process,
+            &discretization,
+            &[100.0],
+            &xva_config,
+            &stochastic,
+            |state| Ok(state.spot().unwrap_or(0.0) - 100.0),
+        )
+        .expect("stochastic profile should compute");
+
+        assert_eq!(profile.profile.times.len(), 2);
+        assert_eq!(profile.pfe_profile.len(), 2);
+        assert!(
+            profile.pfe_profile[0] > profile.profile.epe[0],
+            "PFE should exceed EPE for a non-degenerate positive-tail distribution"
+        );
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn stochastic_exposure_profile_collapses_to_deterministic_when_paths_are_identical() {
+        use crate::instruments::common::models::monte_carlo::prelude::{ExactGbm, GbmProcess};
+        use crate::xva::types::StochasticExposureConfig;
+
+        let process = GbmProcess::with_params(0.0, 0.0, 0.0);
+        let discretization = ExactGbm::new();
+        let xva_config = XvaConfig {
+            time_grid: vec![0.25, 0.5, 1.0],
+            recovery_rate: 0.40,
+            include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
+        };
+        let stochastic = StochasticExposureConfig {
+            num_paths: 128,
+            seed: 11,
+            pfe_quantile: 0.975,
+        };
+
+        let profile = compute_stochastic_exposure_profile(
+            &process,
+            &discretization,
+            &[110.0],
+            &xva_config,
+            &stochastic,
+            |state| Ok(state.spot().unwrap_or(0.0) - 100.0),
+        )
+        .expect("stochastic profile should compute");
+
+        assert!(profile
+            .profile
+            .epe
+            .iter()
+            .zip(profile.pfe_profile.iter())
+            .all(|(epe, pfe)| (*epe - *pfe).abs() < 1e-12));
+        assert!(profile
+            .profile
+            .mtm_values
+            .iter()
+            .all(|mtm| (*mtm - 10.0).abs() < 1e-12));
     }
 }
