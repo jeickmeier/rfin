@@ -6,6 +6,8 @@
 use crate::instruments::rates::cap_floor::InterestRateOption;
 use crate::metrics::MetricContext;
 
+const MIN_EFFECTIVE_FIXING_TIME: f64 = 1e-6;
+
 /// Iterate over caplets/floorlets and aggregate contributions.
 ///
 /// The supplied function `f` should return the "per-unit" measure for a single
@@ -42,15 +44,16 @@ where
                           payment_date: finstack_core::dates::Date,
                           tau: f64|
      -> finstack_core::Result<f64> {
+        if fixing_date < context.as_of {
+            return Ok(0.0);
+        }
+
         let t_fix = option.day_count.year_fraction(
             context.as_of,
             fixing_date,
             finstack_core::dates::DayCountCtx::default(),
         )?;
-
-        if t_fix <= 0.0 {
-            return Ok(0.0);
-        }
+        let effective_t_fix = t_fix.max(MIN_EFFECTIVE_FIXING_TIME);
 
         let forward = crate::instruments::common_impl::pricing::time::rate_period_on_dates(
             fwd_curve.as_ref(),
@@ -65,57 +68,13 @@ where
         let sigma = context
             .curves
             .surface(option.vol_surface_id.as_str())?
-            .value_clamped(t_fix, strike);
+            .value_clamped(effective_t_fix, strike);
 
-        let per_unit = f(forward, sigma, t_fix);
+        let per_unit = f(forward, sigma, effective_t_fix);
         Ok(per_unit * option.notional.amount() * tau * df)
     };
 
-    // Caplet/floorlet: single period — no reset lag, fixing = accrual_start.
-    if matches!(
-        option.rate_option_type,
-        super::super::RateOptionType::Caplet | super::super::RateOptionType::Floorlet
-    ) {
-        let payment_date = crate::cashflow::builder::calendar::adjust_date(
-            option.maturity,
-            option.bdc,
-            option
-                .calendar_id
-                .as_deref()
-                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-        )?;
-        let tau = option.day_count.year_fraction(
-            option.start_date,
-            option.maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        return accumulate(
-            option.start_date,
-            option.start_date,
-            option.maturity,
-            payment_date,
-            tau,
-        );
-    }
-
-    // Cap/floor: iterate schedule using the same lag parameters as the pricer.
-    let periods = crate::cashflow::builder::periods::build_periods(
-        crate::cashflow::builder::periods::BuildPeriodsParams {
-            start: option.start_date,
-            end: option.maturity,
-            frequency: option.frequency,
-            stub: option.stub,
-            bdc: option.bdc,
-            calendar_id: option
-                .calendar_id
-                .as_deref()
-                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-            end_of_month: false,
-            day_count: option.day_count,
-            payment_lag_days: option.resolved_payment_lag_days(),
-            reset_lag_days: option.resolved_reset_lag_days(),
-        },
-    )?;
+    let periods = option.pricing_periods()?;
     if periods.is_empty() {
         return Ok(0.0);
     }

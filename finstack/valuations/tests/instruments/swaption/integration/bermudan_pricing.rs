@@ -57,7 +57,7 @@ fn test_bermudan_swaption(
         day_count: DayCount::Thirty360,
         settlement: SwaptionSettlement::Physical,
         discount_curve_id: CurveId::new("USD-OIS"),
-        forward_curve_id: CurveId::new("USD-SOFR"),
+        forward_curve_id: CurveId::new("USD-OIS"),
         vol_surface_id: CurveId::new("USD-VOL"),
         bermudan_schedule: BermudanSchedule::co_terminal(
             first_exercise,
@@ -70,6 +70,33 @@ fn test_bermudan_swaption(
         pricing_overrides: Default::default(),
         attributes: Default::default(),
     }
+}
+
+#[test]
+fn test_tree_valuator_rejects_mixed_curve_bermudan() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+    let swap_start = as_of;
+    let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
+    let first_exercise = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
+
+    let mut swaption =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
+    swaption.forward_curve_id = CurveId::new("USD-SOFR");
+
+    let curve = test_discount_curve();
+    let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
+    let model =
+        CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
+            .expect("Calibration should succeed");
+
+    let err = BermudanSwaptionTreeValuator::new(&swaption, &model, &curve, as_of)
+        .err()
+        .expect("mixed-curve Bermudan tree pricing should be rejected");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("single-curve"),
+        "expected single-curve rejection error, got: {msg}"
+    );
 }
 
 #[test]

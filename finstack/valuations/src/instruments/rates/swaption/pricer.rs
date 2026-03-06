@@ -493,6 +493,15 @@ impl BermudanSwaptionPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
+        if swaption.forward_curve_id != swaption.discount_curve_id {
+            return Err(PricingError::model_failure_with_context(
+                "Bermudan tree pricing is currently single-curve only. \
+                 Set forward_curve_id equal to discount_curve_id or use a multi-curve-capable engine."
+                    .to_string(),
+                PricingErrorContext::default(),
+            ));
+        }
+
         // Get discount curve
         let disc = market
             .get_discount(swaption.discount_curve_id.as_str())
@@ -584,6 +593,15 @@ impl BermudanSwaptionPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
+        if swaption.forward_curve_id != swaption.discount_curve_id {
+            return Err(PricingError::model_failure_with_context(
+                "Bermudan Hull-White pricing is currently single-curve only. \
+                 Set forward_curve_id equal to discount_curve_id or use a multi-curve-capable engine."
+                    .to_string(),
+                PricingErrorContext::default(),
+            ));
+        }
+
         // Get discount curve
         let disc = market
             .get_discount(swaption.discount_curve_id.as_str())

@@ -29,6 +29,16 @@ impl MetricCalculator for ImpliedVolCalculator {
         // Target price is the base PV already computed under instrument pricing
         let target_pv = context.base_value.amount();
 
+        let forward = option.forward_swap_rate(context.curves.as_ref(), context.as_of)?;
+        if option.vol_model == crate::instruments::rates::swaption::VolatilityModel::Black
+            && (forward <= 0.0 || strike <= 0.0)
+        {
+            return Err(finstack_core::Error::Validation(format!(
+                "Black swaption implied vol requires positive forward and strike, got forward={} strike={}",
+                forward, strike
+            )));
+        }
+
         // Build objective in log-vol space x = ln(sigma)
         let f = |x: f64| -> f64 {
             let sigma = x.exp();
@@ -41,7 +51,6 @@ impl MetricCalculator for ImpliedVolCalculator {
         };
 
         // Initial guess: overrides -> SABR ATM -> surface -> 20%
-        let forward = option.forward_swap_rate(context.curves.as_ref(), context.as_of)?;
         let initial_sigma =
             if let Some(ov) = option.pricing_overrides.market_quotes.implied_volatility {
                 ov

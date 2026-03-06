@@ -45,12 +45,21 @@ impl LookbackOptionMcPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        if as_of >= inst.expiry {
+            let payoff = expired_lookback_payoff(inst, lookback_spot(curves, &inst.spot_id)?)?;
+            return Ok(finstack_core::money::Money::new(
+                payoff * inst.notional.amount(),
+                inst.notional.currency(),
+            ));
+        }
+
         let t = inst
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
         if t <= 0.0 {
+            let payoff = expired_lookback_payoff(inst, lookback_spot(curves, &inst.spot_id)?)?;
             return Ok(finstack_core::money::Money::new(
-                0.0,
+                payoff * inst.notional.amount(),
                 inst.notional.currency(),
             ));
         }
@@ -283,6 +292,66 @@ use crate::instruments::common_impl::models::closed_form::lookback::{
     floating_strike_lookback_put,
 };
 
+fn lookback_spot(
+    curves: &MarketContext,
+    spot_id: &finstack_core::types::PriceId,
+) -> finstack_core::Result<f64> {
+    let spot_scalar = curves.price(spot_id)?;
+    Ok(match spot_scalar {
+        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+        finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+    })
+}
+
+fn expired_lookback_payoff(inst: &LookbackOption, spot: f64) -> finstack_core::Result<f64> {
+    let payoff = match inst.lookback_type {
+        LookbackType::FixedStrike => {
+            let strike = inst.strike.ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "FixedStrike lookback requires a strike".to_string(),
+                )
+            })?;
+            match inst.option_type {
+                crate::instruments::OptionType::Call => {
+                    let observed_max = inst
+                        .observed_max
+                        .as_ref()
+                        .map(|m| m.amount())
+                        .unwrap_or(spot);
+                    (observed_max.max(spot) - strike).max(0.0)
+                }
+                crate::instruments::OptionType::Put => {
+                    let observed_min = inst
+                        .observed_min
+                        .as_ref()
+                        .map(|m| m.amount())
+                        .unwrap_or(spot);
+                    (strike - observed_min.min(spot)).max(0.0)
+                }
+            }
+        }
+        LookbackType::FloatingStrike => match inst.option_type {
+            crate::instruments::OptionType::Call => {
+                let observed_min = inst
+                    .observed_min
+                    .as_ref()
+                    .map(|m| m.amount())
+                    .unwrap_or(spot);
+                spot - observed_min.min(spot)
+            }
+            crate::instruments::OptionType::Put => {
+                let observed_max = inst
+                    .observed_max
+                    .as_ref()
+                    .map(|m| m.amount())
+                    .unwrap_or(spot);
+                observed_max.max(spot) - spot
+            }
+        },
+    };
+    Ok(payoff)
+}
+
 /// Helper to collect inputs for lookback option pricing.
 fn collect_lookback_inputs(
     inst: &LookbackOption,
@@ -364,6 +433,29 @@ impl Pricer for LookbackOptionAnalyticalPricer {
                 PricingError::type_mismatch(InstrumentType::LookbackOption, instrument.key())
             })?;
 
+        if as_of >= lookback.expiry {
+            let spot = lookback_spot(market, &lookback.spot_id).map_err(|e| {
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
+            })?;
+            let payoff = expired_lookback_payoff(lookback, spot).map_err(|e| {
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
+            })?;
+            return Ok(ValuationResult::stamped(
+                lookback.id(),
+                as_of,
+                Money::new(
+                    payoff * lookback.notional.amount(),
+                    lookback.notional.currency(),
+                ),
+            ));
+        }
+
         let (spot, r, q, sigma, t) =
             collect_lookback_inputs(lookback, market, as_of).map_err(|e| {
                 PricingError::model_failure_with_context(
@@ -373,10 +465,19 @@ impl Pricer for LookbackOptionAnalyticalPricer {
             })?;
 
         if t <= 0.0 {
+            let payoff = expired_lookback_payoff(lookback, spot).map_err(|e| {
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
+            })?;
             return Ok(ValuationResult::stamped(
                 lookback.id(),
                 as_of,
-                Money::new(0.0, lookback.notional.currency()),
+                Money::new(
+                    payoff * lookback.notional.amount(),
+                    lookback.notional.currency(),
+                ),
             ));
         }
 

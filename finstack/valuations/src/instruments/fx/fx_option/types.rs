@@ -125,6 +125,20 @@ impl crate::instruments::common_impl::traits::CurveDependencies for FxOption {
     }
 }
 
+/// Delta conventions relevant for FX ATM DNS strikes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FxAtmDeltaConvention {
+    /// Unadjusted spot delta convention.
+    Spot,
+    /// Unadjusted forward delta convention.
+    Forward,
+    /// Premium-adjusted spot delta convention.
+    PremiumAdjustedSpot,
+    /// Premium-adjusted forward delta convention.
+    PremiumAdjustedForward,
+}
+
 impl FxOption {
     fn price_internal(
         &self,
@@ -343,12 +357,12 @@ impl FxOption {
     /// The DNS strike is the strike where the call delta equals the negative of
     /// the put delta. This is the interbank convention for "ATM" options.
     ///
-    /// For spot delta convention:
+    /// For unadjusted spot or forward delta conventions:
     /// ```text
     /// K_DNS = F × exp(0.5 × σ² × T)
     /// ```
     ///
-    /// For forward delta convention (premium-adjusted):
+    /// For premium-adjusted spot or forward delta conventions:
     /// ```text
     /// K_DNS = F × exp(-0.5 × σ² × T)
     /// ```
@@ -358,7 +372,8 @@ impl FxOption {
     /// * `forward` - Forward FX rate (use [`atm_forward_strike`](Self::atm_forward_strike))
     /// * `vol` - ATM volatility (decimal, e.g., 0.10 for 10%)
     /// * `time_to_expiry` - Time to expiry in years
-    /// * `use_forward_delta` - If true, use forward delta convention (interbank standard)
+    /// * `use_forward_delta` - Legacy boolean wrapper. `false` maps to spot delta DNS and
+    ///   `true` maps to forward delta DNS.
     ///
     /// # Example
     ///
@@ -370,7 +385,7 @@ impl FxOption {
     /// // Spot delta DNS (Bloomberg default)
     /// let k_dns_spot = FxOption::atm_dns_strike(forward, vol, t, false);
     ///
-    /// // Forward delta DNS (interbank standard)
+    /// // Legacy forward-delta DNS helper
     /// let k_dns_fwd = FxOption::atm_dns_strike(forward, vol, t, true);
     /// ```
     ///
@@ -378,19 +393,46 @@ impl FxOption {
     ///
     /// - Wystup, U. (2006). *FX Options and Structured Products*. Chapter 2.
     /// - Clark, I. J. (2011). *Foreign Exchange Option Pricing*. Chapter 3.
+    pub fn atm_dns_strike_for_convention(
+        forward: f64,
+        vol: f64,
+        time_to_expiry: f64,
+        convention: FxAtmDeltaConvention,
+    ) -> f64 {
+        let variance = vol * vol * time_to_expiry;
+        match convention {
+            FxAtmDeltaConvention::Spot | FxAtmDeltaConvention::Forward => {
+                forward * (0.5_f64 * variance).exp()
+            }
+            FxAtmDeltaConvention::PremiumAdjustedSpot
+            | FxAtmDeltaConvention::PremiumAdjustedForward => forward * (-0.5_f64 * variance).exp(),
+        }
+    }
+
+    /// Legacy DNS helper maintained for backward compatibility.
+    ///
+    /// `use_forward_delta = false` maps to [`FxAtmDeltaConvention::Spot`].
+    /// `use_forward_delta = true` maps to [`FxAtmDeltaConvention::Forward`].
     pub fn atm_dns_strike(
         forward: f64,
         vol: f64,
         time_to_expiry: f64,
         use_forward_delta: bool,
     ) -> f64 {
-        let variance = vol * vol * time_to_expiry;
         if use_forward_delta {
-            // Forward delta convention: K = F × exp(-0.5 × σ² × T)
-            forward * (-0.5 * variance).exp()
+            Self::atm_dns_strike_for_convention(
+                forward,
+                vol,
+                time_to_expiry,
+                FxAtmDeltaConvention::Forward,
+            )
         } else {
-            // Spot delta convention: K = F × exp(+0.5 × σ² × T)
-            forward * (0.5 * variance).exp()
+            Self::atm_dns_strike_for_convention(
+                forward,
+                vol,
+                time_to_expiry,
+                FxAtmDeltaConvention::Spot,
+            )
         }
     }
 }

@@ -209,3 +209,38 @@ fn test_fixed_strike_put_seasoning() {
         "Seasoned high min should equal unseasoned (effective min is spot)"
     );
 }
+
+#[test]
+fn test_expired_fixed_strike_call_returns_realized_payoff() {
+    let as_of = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+    let market = create_test_market(as_of).insert_price(
+        "SPX-SPOT",
+        finstack_core::market_data::scalars::MarketScalar::Price(Money::new(120.0, Currency::USD)),
+    );
+
+    let expired = LookbackOption::builder()
+        .id(InstrumentId::new("TEST-LOOKBACK-EXPIRED"))
+        .underlying_ticker("SPX".to_string())
+        .strike_opt(Some(100.0))
+        .option_type(finstack_valuations::instruments::OptionType::Call)
+        .lookback_type(LookbackType::FixedStrike)
+        .expiry(as_of)
+        .notional(Money::new(1.0, Currency::USD))
+        .day_count(DayCount::Act365F)
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .spot_id("SPX-SPOT".into())
+        .vol_surface_id(CurveId::new("SPX-VOL"))
+        .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
+        .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
+        .observed_min_opt(None)
+        .observed_max_opt(Some(Money::new(130.0, Currency::USD)))
+        .attributes(finstack_valuations::instruments::Attributes::new())
+        .build()
+        .unwrap();
+
+    let pv = expired.value(&market, as_of).unwrap().amount();
+    assert!(
+        (pv - 30.0).abs() < 1e-10,
+        "Expired lookback should settle to realized intrinsic value, got {pv}"
+    );
+}

@@ -98,6 +98,14 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
         discount_curve: &'a dyn Discounting,
         as_of: Date,
     ) -> Result<Self> {
+        if swaption.forward_curve_id != swaption.discount_curve_id {
+            return Err(finstack_core::Error::Validation(
+                "Bermudan tree pricing is currently single-curve only. \
+                 Set forward_curve_id equal to discount_curve_id or use a multi-curve-capable engine."
+                    .into(),
+            ));
+        }
+
         // Non-co-terminal Bermudans require per-exercise-date swap end dates,
         // which this valuator does not yet support. Reject early with a clear
         // message rather than silently pricing incorrectly.
@@ -485,7 +493,7 @@ mod tests {
             day_count: DayCount::Thirty360,
             settlement: SwaptionSettlement::Physical,
             discount_curve_id: CurveId::new("USD-OIS"),
-            forward_curve_id: CurveId::new("USD-SOFR"),
+            forward_curve_id: CurveId::new("USD-OIS"),
             vol_surface_id: CurveId::new("USD-VOL"),
             bermudan_schedule: BermudanSchedule::co_terminal(
                 first_exercise,

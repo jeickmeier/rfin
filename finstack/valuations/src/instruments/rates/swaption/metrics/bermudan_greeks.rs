@@ -676,7 +676,7 @@ mod tests {
             day_count: DayCount::Thirty360,
             settlement: SwaptionSettlement::Physical,
             discount_curve_id: CurveId::new("USD-OIS"),
-            forward_curve_id: CurveId::new("USD-SOFR"),
+            forward_curve_id: CurveId::new("USD-OIS"),
             vol_surface_id: CurveId::new("USD-VOL"),
             bermudan_schedule: BermudanSchedule::co_terminal(
                 first_exercise,

@@ -3,6 +3,7 @@
 use crate::common::test_helpers::tolerances;
 use crate::swaption::common::*;
 use finstack_core::currency::Currency;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::helpers::year_fraction;
 use finstack_valuations::instruments::Instrument;
@@ -225,6 +226,39 @@ fn test_volatility_impact() {
     assert!(
         pv_high > 1.2 * pv_low,
         "50% vol should be meaningfully higher than 10% vol"
+    );
+}
+
+#[test]
+fn test_black_pricing_rejects_non_positive_forward() {
+    let (as_of, expiry, swap_start, swap_end) = standard_dates();
+    let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
+    let market = MarketContext::new()
+        .insert_discount(build_flat_discount_curve(0.03, as_of, "USD_OIS"))
+        .insert_forward(build_flat_forward_curve(-0.005, as_of, "USD_LIBOR_3M"))
+        .insert_surface(build_flat_vol_surface(0.30, as_of, "USD_SWAPTION_VOL"));
+
+    let err = swaption
+        .value(&market, as_of)
+        .expect_err("unshifted Black pricing should reject non-positive forwards");
+    assert!(
+        err.to_string().contains("Black"),
+        "expected Black-domain error, got: {err}"
+    );
+}
+
+#[test]
+fn test_black_pricing_rejects_non_positive_strike() {
+    let (as_of, expiry, swap_start, swap_end) = standard_dates();
+    let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.0);
+    let market = create_flat_market(as_of, 0.03, 0.30);
+
+    let err = swaption
+        .value(&market, as_of)
+        .expect_err("unshifted Black pricing should reject non-positive strikes");
+    assert!(
+        err.to_string().contains("Black"),
+        "expected Black-domain error, got: {err}"
     );
 }
 
