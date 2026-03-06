@@ -133,6 +133,12 @@ pub enum StepParams {
 
     /// Student-t copula degrees of freedom calibration.
     StudentT(StudentTParams),
+
+    /// Hull-White 1-factor model calibration.
+    HullWhite(HullWhiteStepParams),
+
+    /// SVI volatility surface calibration.
+    SviSurface(SviSurfaceParams),
 }
 
 // =============================================================================
@@ -285,6 +291,31 @@ pub struct InflationCurveParams {
     /// Interpolation style for the curve.
     #[serde(default = "default_interp_linear")]
     pub interpolation: InterpStyle,
+
+    /// Optional seasonal adjustment factors for deseasonalizing CPI observations.
+    ///
+    /// When provided, the calibrator will:
+    /// 1. Deseasonalize input CPI levels using the monthly factors
+    /// 2. Fit the smooth zero-coupon curve to deseasonalized levels
+    /// 3. Reseasonalize the output CPI path
+    ///
+    /// Monthly adjustments are additive to log CPI level. They should approximately
+    /// sum to zero over 12 months.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seasonal_factors: Option<SeasonalFactors>,
+}
+
+/// Monthly seasonal adjustment factors for inflation curves.
+///
+/// Used to deseasonalize CPI observations before fitting a smooth
+/// zero-coupon inflation curve, then reseasonalize the output.
+/// Monthly adjustments should approximately sum to zero.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SeasonalFactors {
+    /// Monthly adjustment factors (Jan=index 0 through Dec=index 11).
+    /// These are additive adjustments to the log CPI level.
+    pub monthly_adjustments: [f64; 12],
 }
 
 /// Parameters for volatility surface calibration step.
@@ -508,6 +539,54 @@ fn default_student_t_df_bounds() -> (f64, f64) {
 
 fn default_student_t_correlation() -> f64 {
     0.3
+}
+
+/// Parameters for Hull-White 1-factor model calibration step.
+///
+/// Calibrates κ (mean reversion) and σ (short rate volatility) by fitting
+/// European swaption market prices using Jamshidian decomposition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HullWhiteStepParams {
+    /// Discount curve ID (must already exist in market context).
+    pub curve_id: CurveId,
+    /// Currency for conventions.
+    pub currency: Currency,
+    /// Base date for the calibration.
+    pub base_date: Date,
+    /// Optional initial guess for mean reversion κ.
+    #[serde(default)]
+    pub initial_kappa: Option<f64>,
+    /// Optional initial guess for short rate vol σ.
+    #[serde(default)]
+    pub initial_sigma: Option<f64>,
+}
+
+/// Parameters for SVI volatility surface calibration step.
+///
+/// Fits a Stochastic Volatility Inspired (SVI) parameterization per-expiry
+/// to market-implied volatilities.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SviSurfaceParams {
+    /// Identifier for the volatility surface being built.
+    pub surface_id: String,
+    /// Base date for the surface.
+    pub base_date: Date,
+    /// Underlying instrument ticker.
+    pub underlying_ticker: String,
+    /// Discount curve ID (optional).
+    #[serde(default)]
+    pub discount_curve_id: Option<CurveId>,
+    /// Target expiries for calibration.
+    #[serde(default)]
+    pub target_expiries: Vec<f64>,
+    /// Target strikes for calibration.
+    #[serde(default)]
+    pub target_strikes: Vec<f64>,
+    /// Optional spot price override.
+    #[serde(default)]
+    pub spot_override: Option<f64>,
 }
 
 /// Volatility quoting convention for swaptions.

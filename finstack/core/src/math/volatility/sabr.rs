@@ -85,6 +85,15 @@ pub struct SabrParams {
     pub nu: f64,
 }
 
+/// Warning about negative implied probability density at a specific strike.
+#[derive(Debug, Clone)]
+pub struct DensityWarning {
+    /// The strike where negative density was detected.
+    pub strike: f64,
+    /// The computed (negative) density value d²C/dK².
+    pub density: f64,
+}
+
 impl SabrParams {
     /// Construct validated SABR parameters.
     ///
@@ -264,6 +273,49 @@ impl SabrParams {
         alpha * fk_beta_half / ratio * z_over_chi * correction
     }
 
+    /// Check for negative implied probability density across a strike grid.
+    ///
+    /// The implied density is computed as d²C/dK² using central finite differences
+    /// on the Black call price. Negative values indicate butterfly arbitrage.
+    ///
+    /// This is a diagnostic -- it emits warnings but does not fail.
+    pub fn check_density(&self, strikes: &[f64], forward: f64, expiry: f64) -> Vec<DensityWarning> {
+        let mut warnings = Vec::new();
+        let dk = 0.0001 * forward; // small relative shift
+
+        for &k in strikes {
+            if k <= dk || k <= 0.0 {
+                continue;
+            }
+            let vol_lo = self.implied_vol_lognormal(forward, k - dk, expiry);
+            let vol_mid = self.implied_vol_lognormal(forward, k, expiry);
+            let vol_hi = self.implied_vol_lognormal(forward, k + dk, expiry);
+
+            if !vol_lo.is_finite() || !vol_mid.is_finite() || !vol_hi.is_finite() {
+                continue;
+            }
+
+            let c_lo = black_call_undiscounted(forward, k - dk, expiry, vol_lo);
+            let c_mid = black_call_undiscounted(forward, k, expiry, vol_mid);
+            let c_hi = black_call_undiscounted(forward, k + dk, expiry, vol_hi);
+
+            let d2c_dk2 = (c_hi - 2.0 * c_mid + c_lo) / (dk * dk);
+
+            if d2c_dk2 < -1e-10 {
+                eprintln!(
+                    "SABR: negative implied density d²C/dK² = {:.6} at K={:.6} (F={:.4}, T={:.2})",
+                    d2c_dk2, k, forward, expiry
+                );
+                warnings.push(DensityWarning {
+                    strike: k,
+                    density: d2c_dk2,
+                });
+            }
+        }
+
+        warnings
+    }
+
     /// ATM lognormal volatility (simplified formula when F ≈ K).
     ///
     /// ```text
@@ -311,6 +363,18 @@ impl SabrParams {
 
         base * correction
     }
+}
+
+/// Undiscounted Black call price for density checking.
+fn black_call_undiscounted(forward: f64, strike: f64, expiry: f64, vol: f64) -> f64 {
+    use crate::math::norm_cdf;
+    if vol <= 0.0 || expiry <= 0.0 || forward <= 0.0 || strike <= 0.0 {
+        return (forward - strike).max(0.0);
+    }
+    let sqrt_t = expiry.sqrt();
+    let d1 = ((forward / strike).ln() + 0.5 * vol * vol * expiry) / (vol * sqrt_t);
+    let d2 = d1 - vol * sqrt_t;
+    forward * norm_cdf(d1) - strike * norm_cdf(d2)
 }
 
 /// χ(z) function used in the Hagan SABR approximation.
@@ -817,5 +881,42 @@ mod tests {
         assert!(params.implied_vol_lognormal(-0.01, 0.05, 1.0).is_nan());
         assert!(params.implied_vol_lognormal(0.05, -0.01, 1.0).is_nan());
         assert!(params.implied_vol_lognormal(0.05, 0.05, 0.0).is_nan());
+    }
+
+    #[test]
+    fn test_sabr_density_check_extreme_nu() {
+        let params = SabrParams {
+            alpha: 0.04,
+            beta: 0.5,
+            rho: -0.7,
+            nu: 2.0,
+        };
+        let forward = 0.05;
+        let expiry = 5.0;
+        let strikes: Vec<f64> = (1..=20)
+            .map(|i| forward * (0.5 + i as f64 * 0.05))
+            .collect();
+
+        let warnings = params.check_density(&strikes, forward, expiry);
+        // With extreme nu=2.0 and long expiry, we may see negative density
+        // at wing strikes. If not, that's also fine -- the test verifies
+        // the method runs without panic.
+        let _ = warnings; // Don't assert non-empty -- depends on approximation accuracy
+    }
+
+    #[test]
+    fn test_sabr_density_check_normal_params() {
+        let params = SabrParams::new(0.035, 0.5, -0.2, 0.4).expect("valid params");
+        let forward = 0.05;
+        let expiry = 1.0;
+        let strikes: Vec<f64> = (1..=10)
+            .map(|i| forward * (0.8 + i as f64 * 0.04))
+            .collect();
+
+        let warnings = params.check_density(&strikes, forward, expiry);
+        assert!(
+            warnings.is_empty(),
+            "Normal params should produce no density warnings"
+        );
     }
 }

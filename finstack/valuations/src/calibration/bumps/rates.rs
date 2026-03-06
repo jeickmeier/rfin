@@ -118,23 +118,33 @@ pub fn bump_discount_curve_synthetic(
     context: &MarketContext,
     bump: &BumpRequest,
     as_of: Date,
+    currency_override: Option<Currency>,
 ) -> finstack_core::Result<DiscountCurve> {
     let curve_id = curve.id();
     let base_date = as_of;
     let knots = curve.knots();
 
-    // Determine currency from ID or default
-    let id_str = curve_id.as_str();
-    let currency = if id_str.contains("USD") {
-        Currency::USD
-    } else if id_str.contains("EUR") {
-        Currency::EUR
-    } else if id_str.contains("GBP") {
-        Currency::GBP
-    } else if id_str.contains("JPY") {
-        Currency::JPY
+    // Determine currency: use explicit override if provided, otherwise fall back to string heuristic
+    let currency = if let Some(ccy) = currency_override {
+        ccy
     } else {
-        Currency::USD
+        tracing::warn!(
+            "bump_discount_curve_synthetic: no currency provided for '{}', \
+             falling back to string heuristic",
+            curve_id.as_str()
+        );
+        let id_str = curve_id.as_str();
+        if id_str.contains("USD") {
+            Currency::USD
+        } else if id_str.contains("EUR") {
+            Currency::EUR
+        } else if id_str.contains("GBP") {
+            Currency::GBP
+        } else if id_str.contains("JPY") {
+            Currency::JPY
+        } else {
+            Currency::USD
+        }
     };
 
     // Choose synthetic index

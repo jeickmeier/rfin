@@ -55,6 +55,8 @@ pub fn preflight_step(
         StepParams::SwaptionVol(p) => validate_swaption_vol_step(p, context),
         StepParams::BaseCorrelation(p) => validate_base_correlation_step(p, quotes, context),
         StepParams::StudentT(_) => Ok(()), // Student-t df calibration has no preflight requirements
+        StepParams::HullWhite(_) => Ok(()), // HW1F calibration validates quotes at execution time
+        StepParams::SviSurface(_) => Ok(()), // SVI calibration not yet wired
     }
 }
 

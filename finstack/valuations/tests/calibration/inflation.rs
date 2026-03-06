@@ -101,6 +101,7 @@ fn inflation_quote_time_uses_lagged_fixing_date() {
                 notional: 1.0,
                 method: Default::default(),
                 interpolation: Default::default(),
+                seasonal_factors: None,
             }),
         }],
     };
@@ -159,6 +160,7 @@ fn inflation_preflight_rejects_base_cpi_mismatch_with_fixings() {
                 notional: 1.0,
                 method: Default::default(),
                 interpolation: Default::default(),
+                seasonal_factors: None,
             }),
         }],
     };

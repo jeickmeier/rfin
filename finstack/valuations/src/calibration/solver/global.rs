@@ -124,6 +124,9 @@ impl GlobalFitOptimizer {
         }
         let weight_scales: Vec<f64> = weights.iter().map(|w| w.sqrt()).collect();
 
+        let lb = target.lower_bounds();
+        let ub = target.upper_bounds();
+
         let residuals_func = |params: &[f64], resid: &mut [f64]| {
             let eval_idx = eval_counter.get() + 1;
             eval_counter.set(eval_idx);
@@ -149,18 +152,44 @@ impl GlobalFitOptimizer {
                 *r = 0.0;
             }
 
+            // Clamp parameters to bounds (projected LM)
+            let params_to_use: Vec<f64>;
+            let params_ref = if lb.is_some() || ub.is_some() {
+                params_to_use = params
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &p)| {
+                        let mut v = p;
+                        if let Some(ref lower) = lb {
+                            if i < lower.len() {
+                                v = v.max(lower[i]);
+                            }
+                        }
+                        if let Some(ref upper) = ub {
+                            if i < upper.len() {
+                                v = v.min(upper[i]);
+                            }
+                        }
+                        v
+                    })
+                    .collect();
+                &params_to_use
+            } else {
+                params
+            };
+
             // 1. Build curve
-            let curve = match target.build_curve_for_solver_from_params(&times, params) {
+            let curve = match target.build_curve_for_solver_from_params(&times, params_ref) {
                 Ok(c) => c,
                 Err(e) => {
                     record_eval_error(
                         &eval_diagnostics,
                         eval_idx,
                         "curve construction",
-                        params,
+                        params_ref,
                         &format!("{}", e),
                     );
-                    fill_penalty(resid, n_residuals, params);
+                    fill_penalty(resid, n_residuals, params_ref);
                     return;
                 }
             };
@@ -173,10 +202,10 @@ impl GlobalFitOptimizer {
                     &eval_diagnostics,
                     eval_idx,
                     "residual evaluation",
-                    params,
+                    params_ref,
                     &format!("while evaluating {} quotes: {}", active_quotes.len(), e),
                 );
-                fill_penalty(resid, n_residuals, params);
+                fill_penalty(resid, n_residuals, params_ref);
                 return;
             }
 
@@ -192,6 +221,8 @@ impl GlobalFitOptimizer {
             active_quotes: &'a [T::Quote],
             weight_scales: &'a [f64],
             times: &'a [f64],
+            lb: &'a Option<Vec<f64>>,
+            ub: &'a Option<Vec<f64>>,
         }
 
         impl<'a, T: GlobalSolveTarget> finstack_core::math::solver_multi::AnalyticalDerivatives
@@ -206,10 +237,36 @@ impl GlobalFitOptimizer {
             }
 
             fn jacobian(&self, params: &[f64], jacobian: &mut [Vec<f64>]) -> Option<()> {
+                // Clamp parameters to bounds (projected LM)
+                let params_to_use: Vec<f64>;
+                let params_ref = if self.lb.is_some() || self.ub.is_some() {
+                    params_to_use = params
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &p)| {
+                            let mut v = p;
+                            if let Some(ref lower) = self.lb {
+                                if i < lower.len() {
+                                    v = v.max(lower[i]);
+                                }
+                            }
+                            if let Some(ref upper) = self.ub {
+                                if i < upper.len() {
+                                    v = v.min(upper[i]);
+                                }
+                            }
+                            v
+                        })
+                        .collect();
+                    &params_to_use
+                } else {
+                    params
+                };
+
                 // Optional feasibility check: avoid producing a Jacobian for infeasible params.
                 if self
                     .target
-                    .build_curve_for_solver_from_params(self.times, params)
+                    .build_curve_for_solver_from_params(self.times, params_ref)
                     .is_err()
                 {
                     return None;
@@ -218,7 +275,7 @@ impl GlobalFitOptimizer {
                 // 2. Compute Jacobian
                 if self
                     .target
-                    .jacobian(params, self.times, self.active_quotes, jacobian)
+                    .jacobian(params_ref, self.times, self.active_quotes, jacobian)
                     .is_err()
                 {
                     return None;
@@ -246,6 +303,8 @@ impl GlobalFitOptimizer {
                 active_quotes: &active_quotes,
                 weight_scales: &weight_scales,
                 times: &times,
+                lb: &lb,
+                ub: &ub,
             };
             solver.solve_system_with_jacobian_stats(residuals_func, &derivatives, &initials)?
         } else {

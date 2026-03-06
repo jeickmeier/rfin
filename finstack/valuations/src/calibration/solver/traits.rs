@@ -190,4 +190,22 @@ pub trait GlobalSolveTarget {
     fn supports_efficient_jacobian(&self) -> bool {
         false
     }
+
+    /// Optional lower bounds for parameters.
+    ///
+    /// If provided, the solver will clamp parameters to these bounds after
+    /// each Levenberg-Marquardt step (projected LM). The length must match
+    /// the parameter vector length.
+    fn lower_bounds(&self) -> Option<Vec<f64>> {
+        None
+    }
+
+    /// Optional upper bounds for parameters.
+    ///
+    /// If provided, the solver will clamp parameters to these bounds after
+    /// each Levenberg-Marquardt step (projected LM). The length must match
+    /// the parameter vector length.
+    fn upper_bounds(&self) -> Option<Vec<f64>> {
+        None
+    }
 }
