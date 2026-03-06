@@ -278,21 +278,7 @@ pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
             (DpiLp, DpiLpCalculator),
             (TvpiLp, TvpiLpCalculator),
             (CarryAccrued, CarryAccruedCalculator),
-            (Theta, ThetaCalculator),
         ]
-    }
-}
-
-/// Theta calculator for private markets fund time decay
-pub struct ThetaCalculator;
-
-impl MetricCalculator for ThetaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        crate::metrics::generic_theta_calculator::<PrivateMarketsFund>(context)
-    }
-
-    fn dependencies(&self) -> &[crate::metrics::MetricId] {
-        &[]
     }
 }
 

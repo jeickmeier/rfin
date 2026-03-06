@@ -33,9 +33,6 @@ pub fn register_fx_forward_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::fx::fx_forward::FxForward,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::fx::fx_forward::FxForward,
-            >::default()),
         ]
     }
 }

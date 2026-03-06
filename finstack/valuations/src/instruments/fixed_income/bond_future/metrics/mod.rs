@@ -103,9 +103,6 @@ pub fn register_bond_future_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::fixed_income::bond_future::BondFuture,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::fixed_income::bond_future::BondFuture,
-            >::default()),
         ]
     };
 }

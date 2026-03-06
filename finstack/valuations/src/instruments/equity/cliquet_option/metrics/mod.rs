@@ -61,9 +61,6 @@ pub fn register_cliquet_option_metrics(registry: &mut MetricRegistry) {
                 (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::CliquetOption,
                 >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-                (Theta, crate::metrics::GenericTheta::<
-                    crate::instruments::CliquetOption,
-                >::default()),
             ]
         }
     }

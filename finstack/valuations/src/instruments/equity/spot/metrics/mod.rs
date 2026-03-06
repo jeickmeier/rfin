@@ -36,9 +36,6 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Equity,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::Equity,
-            >::default()),
         ]
     }
 }

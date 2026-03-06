@@ -47,9 +47,6 @@ pub fn register_inflation_cap_floor_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InflationCapFloor,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::InflationCapFloor,
-            >::default()),
         ]
     };
 }

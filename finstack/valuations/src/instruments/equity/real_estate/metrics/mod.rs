@@ -22,9 +22,6 @@ pub fn register_real_estate_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::RealEstateAsset,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::RealEstateAsset,
-            >::default()),
         ]
     };
 
@@ -83,9 +80,6 @@ pub fn register_levered_real_estate_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::LeveredRealEstateEquity,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::LeveredRealEstateEquity,
-            >::default()),
         ]
     };
 

@@ -50,9 +50,6 @@ pub fn register_dollar_roll_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::DollarRoll,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::DollarRoll,
-            >::default()),
             (ImpliedFinancingRate, ImpliedFinancingRateCalculator),
             (RollSpecialness, RollSpecialnessCalculator)
         ]

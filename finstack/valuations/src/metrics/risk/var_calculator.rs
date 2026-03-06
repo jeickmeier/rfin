@@ -350,6 +350,7 @@ struct TaylorSensitivities {
     cs01: BucketedSeries,
     parallel_dv01: f64,
     parallel_cs01: f64,
+    ir_convexity: f64,
     equity_delta: f64,
     equity_gamma: f64,
     vega_rel: f64,
@@ -406,6 +407,7 @@ fn compute_taylor_sensitivities(
         MetricId::Dv01,
         MetricId::BucketedCs01,
         MetricId::Cs01,
+        MetricId::IrConvexity,
         MetricId::Delta,
         MetricId::Gamma,
         MetricId::IndexDelta,
@@ -420,6 +422,7 @@ fn compute_taylor_sensitivities(
 
     let parallel_dv01 = computed.get(&MetricId::Dv01).copied().unwrap_or(0.0);
     let parallel_cs01 = computed.get(&MetricId::Cs01).copied().unwrap_or(0.0);
+    let ir_convexity = computed.get(&MetricId::IrConvexity).copied().unwrap_or(0.0);
 
     let has_delta = registry.is_applicable(&MetricId::Delta, instrument_type);
     let has_gamma = registry.is_applicable(&MetricId::Gamma, instrument_type);
@@ -457,6 +460,7 @@ fn compute_taylor_sensitivities(
         cs01,
         parallel_dv01,
         parallel_cs01,
+        ir_convexity,
         equity_delta: delta,
         equity_gamma: gamma,
         vega_rel,
@@ -471,6 +475,9 @@ fn taylor_pnl_for_scenario(
     vol_cache: &mut HashMap<String, f64>,
 ) -> f64 {
     let mut pnl = 0.0;
+    let mut total_rate_shift_bp = 0.0;
+    let mut rate_shift_count = 0u32;
+
     for shift in &scenario.shifts {
         match &shift.factor {
             crate::metrics::risk::RiskFactorType::DiscountRate {
@@ -486,7 +493,10 @@ fn taylor_pnl_for_scenario(
                     .dv01
                     .get(curve_id.as_str(), bucket.as_str())
                     .unwrap_or(sensitivities.parallel_dv01);
-                pnl += dv01 * shift.shift * 10_000.0;
+                let shift_bp = shift.shift * 10_000.0;
+                pnl += dv01 * shift_bp;
+                total_rate_shift_bp += shift_bp;
+                rate_shift_count += 1;
             }
             crate::metrics::risk::RiskFactorType::CreditSpread {
                 curve_id,
@@ -518,7 +528,6 @@ fn taylor_pnl_for_scenario(
                 strike,
             } => {
                 if sensitivities.vega_rel.abs() > 0.0 {
-                    // Use string key because f64 doesn't implement Hash
                     let key = format!("{}:{}:{}", surface_id, expiry_years, strike);
                     let base_vol = *vol_cache.entry(key).or_insert_with(|| {
                         base_vol_for_factor(base_market, surface_id, *expiry_years, *strike)
@@ -532,6 +541,15 @@ fn taylor_pnl_for_scenario(
             }
         }
     }
+
+    // Second-order rate term: 0.5 * convexity * (avg_shift_bp)^2
+    // Uses average shift across rate buckets as an approximation for the
+    // parallel equivalent shift, capturing non-linear P&L for options on rates.
+    if sensitivities.ir_convexity.abs() > 0.0 && rate_shift_count > 0 {
+        let avg_shift_bp = total_rate_shift_bp / rate_shift_count as f64;
+        pnl += 0.5 * sensitivities.ir_convexity * avg_shift_bp * avg_shift_bp;
+    }
+
     pnl
 }
 

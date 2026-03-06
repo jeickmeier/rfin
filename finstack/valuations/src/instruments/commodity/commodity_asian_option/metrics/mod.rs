@@ -42,11 +42,4 @@ pub fn register_commodity_asian_option_metrics(registry: &mut MetricRegistry) {
         )),
         &[InstrumentType::CommodityAsianOption],
     );
-    registry.register_metric(
-        MetricId::Theta,
-        Arc::new(crate::metrics::GenericTheta::<
-            crate::instruments::commodity::commodity_asian_option::CommodityAsianOption,
-        >::default()),
-        &[InstrumentType::CommodityAsianOption],
-    );
 }

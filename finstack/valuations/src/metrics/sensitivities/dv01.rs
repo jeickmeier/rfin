@@ -270,7 +270,7 @@ where
         Ok(curves)
     }
 
-    /// Compute parallel DV01 with all curves bumped together.
+    /// Compute parallel DV01 with all curves bumped together (central differencing).
     fn compute_parallel_combined(
         &self,
         context: &mut MetricContext,
@@ -283,10 +283,8 @@ where
 
         let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
-        // Use value_raw for high-precision sensitivity calculations
-        let base_pv = context.instrument.value_raw(base_ctx, as_of)?;
 
-        let bumps: Vec<MarketBump> = curves
+        let bumps_up: Vec<MarketBump> = curves
             .iter()
             .map(|(curve_id, _kind)| MarketBump::Curve {
                 id: curve_id.clone(),
@@ -294,14 +292,24 @@ where
             })
             .collect();
 
-        let bumped_ctx = base_ctx.bump(bumps)?;
-        let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
+        let bumps_down: Vec<MarketBump> = curves
+            .iter()
+            .map(|(curve_id, _kind)| MarketBump::Curve {
+                id: curve_id.clone(),
+                spec: BumpSpec::parallel_bp(-bump_bp),
+            })
+            .collect();
 
-        let dv01 = calculate_dv01_raw(base_pv, bumped_pv, bump_bp);
+        let ctx_up = base_ctx.bump(bumps_up)?;
+        let ctx_down = base_ctx.bump(bumps_down)?;
+        let pv_up = context.instrument.value_raw(&ctx_up, as_of)?;
+        let pv_down = context.instrument.value_raw(&ctx_down, as_of)?;
+
+        let dv01 = calculate_dv01_central(pv_up, pv_down, bump_bp);
         Ok(dv01)
     }
 
-    /// Compute parallel DV01 per curve and store as series.
+    /// Compute parallel DV01 per curve and store as series (central differencing).
     fn compute_parallel_per_curve(
         &self,
         context: &mut MetricContext,
@@ -314,19 +322,22 @@ where
 
         let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
-        // Use value_raw for high-precision sensitivity calculations
-        let base_pv = context.instrument.value_raw(base_ctx, as_of)?;
 
         let mut series = Vec::new();
         let mut total_dv01 = 0.0;
 
         for (curve_id, _kind) in curves {
-            let bumped_ctx = base_ctx.bump([MarketBump::Curve {
+            let ctx_up = base_ctx.bump([MarketBump::Curve {
                 id: curve_id.clone(),
                 spec: BumpSpec::parallel_bp(bump_bp),
             }])?;
-            let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
-            let dv01 = calculate_dv01_raw(base_pv, bumped_pv, bump_bp);
+            let ctx_down = base_ctx.bump([MarketBump::Curve {
+                id: curve_id.clone(),
+                spec: BumpSpec::parallel_bp(-bump_bp),
+            }])?;
+            let pv_up = context.instrument.value_raw(&ctx_up, as_of)?;
+            let pv_down = context.instrument.value_raw(&ctx_down, as_of)?;
+            let dv01 = calculate_dv01_central(pv_up, pv_down, bump_bp);
 
             series.push((curve_id.as_str().to_string(), dv01));
             total_dv01 += dv01;
@@ -385,7 +396,7 @@ where
         Ok(total_dv01)
     }
 
-    /// Compute triangular key-rate DV01 for a single curve.
+    /// Compute triangular key-rate DV01 for a single curve (central differencing).
     ///
     /// Uses triangular weights based on the bucket grid, ensuring proper partitioning.
     fn compute_triangular_for_curve(
@@ -397,8 +408,6 @@ where
     ) -> finstack_core::Result<f64> {
         let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
-        // Use value_raw for high-precision sensitivity calculations
-        let base_pv = context.instrument.value_raw(base_ctx, as_of)?;
 
         let buckets = &self.config.buckets;
         let mut series: Vec<(String, f64)> = Vec::new();
@@ -406,17 +415,14 @@ where
         for (i, &target_time) in buckets.iter().enumerate() {
             let label = format_bucket_label(target_time);
 
-            // Determine bucket neighbors for proper triangular weight
-            // This is the key to ensuring sum of bucketed DV01 = parallel DV01
             let prev_bucket = if i == 0 { 0.0 } else { buckets[i - 1] };
             let next_bucket = if i == buckets.len() - 1 {
-                f64::INFINITY // Last bucket extends to infinity
+                f64::INFINITY
             } else {
                 buckets[i + 1]
             };
 
-            // Create triangular key-rate bump with proper neighbors
-            let bumped_ctx = base_ctx.bump([MarketBump::Curve {
+            let ctx_up = base_ctx.bump([MarketBump::Curve {
                 id: curve_id.clone(),
                 spec: BumpSpec::triangular_key_rate_bp(
                     prev_bucket,
@@ -425,8 +431,18 @@ where
                     bump_bp,
                 ),
             }])?;
-            let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
-            let dv01 = calculate_dv01_raw(base_pv, bumped_pv, bump_bp);
+            let ctx_down = base_ctx.bump([MarketBump::Curve {
+                id: curve_id.clone(),
+                spec: BumpSpec::triangular_key_rate_bp(
+                    prev_bucket,
+                    target_time,
+                    next_bucket,
+                    -bump_bp,
+                ),
+            }])?;
+            let pv_up = context.instrument.value_raw(&ctx_up, as_of)?;
+            let pv_down = context.instrument.value_raw(&ctx_down, as_of)?;
+            let dv01 = calculate_dv01_central(pv_up, pv_down, bump_bp);
 
             series.push((label, dv01));
         }
@@ -440,23 +456,25 @@ where
 // Re-export for backward compatibility and convenience
 pub use super::config::format_bucket_label;
 
-/// Calculate DV01 from PV changes (high-precision f64 version).
+/// Calculate DV01 from PV changes using central differencing (high-precision f64 version).
 ///
 /// Uses raw f64 values to avoid Money rounding precision loss in sensitivity calculations.
+/// Central difference formula: `(PV_up - PV_down) / (2 * bump)` provides O(h^2) accuracy,
+/// eliminating first-order convexity contamination that affects forward differencing.
 ///
 /// # Units
 ///
 /// Returns DV01 in **currency units per basis point**. For example:
-/// - If `base_pv = 1_000_000` and `bumped_pv = 999_500` with `bump_bp = 1.0`
-/// - DV01 = (999_500 - 1_000_000) / 1.0 = -500
+/// - If `pv_up = 999_500` and `pv_down = 1_000_500` with `bump_bp = 1.0`
+/// - DV01 = (999_500 - 1_000_500) / (2 * 1.0) = -500
 /// - This means the instrument loses $500 per 1bp rate increase
 ///
 /// # Arguments
 ///
-/// * `base_pv` - Present value before bump (in currency units)
-/// * `bumped_pv` - Present value after bump (in currency units)
+/// * `pv_up` - Present value after upward bump (in currency units)
+/// * `pv_down` - Present value after downward bump (in currency units)
 /// * `bump_bp` - Bump size in basis points (typically 1.0)
 #[inline]
-fn calculate_dv01_raw(base_pv: f64, bumped_pv: f64, bump_bp: f64) -> f64 {
-    (bumped_pv - base_pv) / bump_bp
+fn calculate_dv01_central(pv_up: f64, pv_down: f64, bump_bp: f64) -> f64 {
+    (pv_up - pv_down) / (2.0 * bump_bp)
 }

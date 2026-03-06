@@ -18,7 +18,6 @@ pub fn register_commodity_swaption_metrics(registry: &mut MetricRegistry) {
             (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::CommoditySwaption>::default()),
             (Gamma, crate::metrics::OptionGammaCalculator::<crate::instruments::CommoditySwaption>::default()),
             (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::CommoditySwaption>::default()),
-            (Theta, crate::metrics::GenericTheta::<crate::instruments::CommoditySwaption>::default()),
         ]
     }
 

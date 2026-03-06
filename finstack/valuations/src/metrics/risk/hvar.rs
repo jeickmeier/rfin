@@ -42,6 +42,11 @@ impl GenericHVar {
 
 impl MetricCalculator for GenericHVar {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
+        // If ES already computed (it populates HVAR), return the cached value.
+        if let Some(&var) = context.computed.get(&MetricId::HVAR) {
+            return Ok(var);
+        }
+
         let history = context.market_history.as_deref().ok_or_else(|| {
             finstack_core::Error::Validation(
                 "Market history required for VaR calculation. Provide it via Instrument::price_with_options(...) with PricingOptions::with_market_history(...)"
@@ -49,7 +54,6 @@ impl MetricCalculator for GenericHVar {
             )
         })?;
 
-        // Calculate VaR for this instrument
         let result = calculate_var(
             &[context.instrument.as_ref()],
             &context.curves,
@@ -58,16 +62,10 @@ impl MetricCalculator for GenericHVar {
             &self.config,
         )?;
 
-        // Store additional metrics
-        // Store Expected Shortfall as a separate metric
         context
             .computed
             .insert(MetricId::EXPECTED_SHORTFALL, result.expected_shortfall);
 
-        // TODO: Store P&L distribution as a series metric if needed
-        // context.store_series(...)?;
-
-        // Return VaR as the primary metric value
         Ok(result.var)
     }
 
@@ -99,6 +97,11 @@ impl GenericExpectedShortfall {
 
 impl MetricCalculator for GenericExpectedShortfall {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
+        // If HVAR already computed (it populates ES), return the cached value.
+        if let Some(&es) = context.computed.get(&MetricId::EXPECTED_SHORTFALL) {
+            return Ok(es);
+        }
+
         let history = context.market_history.as_deref().ok_or_else(|| {
             finstack_core::Error::Validation(
                 "Market history required for VaR/ES calculation. Provide it via Instrument::price_with_options(...) with PricingOptions::with_market_history(...)"
@@ -114,8 +117,6 @@ impl MetricCalculator for GenericExpectedShortfall {
             &self.config,
         )?;
 
-        // Populate VaR as an auxiliary metric so callers requesting both get
-        // deterministic, single-pass results.
         context.computed.insert(MetricId::HVAR, result.var);
 
         Ok(result.expected_shortfall)

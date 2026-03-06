@@ -202,6 +202,7 @@ pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured
 /// Format a standard risk bucket (years) as a human-readable label.
 pub use sensitivities::config::format_bucket_label;
 /// Parse simple period strings (e.g., "1D", "2W") to day counts.
+#[allow(deprecated)]
 pub use sensitivities::theta::parse_period_days;
 
 // -----------------------------------------------------------------------------
@@ -228,9 +229,7 @@ pub(crate) use sensitivities::option_greeks::{
     OptionThetaCalculator, OptionVannaCalculator, OptionVegaCalculator, OptionVolgaCalculator,
 };
 pub(crate) use sensitivities::rho::GenericRho;
-pub(crate) use sensitivities::theta::{
-    calculate_theta_date, generic_theta_calculator, GenericTheta, GenericThetaAny,
-};
+pub(crate) use sensitivities::theta::{calculate_theta_date, GenericThetaAny};
 pub(crate) use sensitivities::vega::KeyRateVega;
 pub(crate) use shared::df_end::GenericDfEndCalculator;
 pub(crate) use shared::df_start::GenericDfStartCalculator;

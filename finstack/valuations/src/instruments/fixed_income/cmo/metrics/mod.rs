@@ -45,9 +45,6 @@ pub fn register_cmo_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::AgencyCmo,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::AgencyCmo,
-            >::default()),
         ]
     }
 }

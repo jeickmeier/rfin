@@ -24,9 +24,6 @@ pub fn register_fx_touch_option_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxTouchOption,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::FxTouchOption,
-            >::default()),
         ]
     }
 }

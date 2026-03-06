@@ -47,7 +47,9 @@ impl MarketScenario {
     /// Apply this scenario to a base market context.
     ///
     /// Creates a new `MarketContext` with all risk factor shifts applied.
-    /// Uses the `MarketContext::bump()` infrastructure for consistent bumping.
+    /// Uses key-rate triangular bumps for rate/credit shifts at specific tenors,
+    /// preserving curve shape information. Equity and vol shifts are applied
+    /// as multiplicative and additive bumps respectively.
     ///
     /// # Arguments
     ///
@@ -61,18 +63,18 @@ impl MarketScenario {
 
         for shift in &self.shifts {
             let maybe_bump: Option<(CurveId, BumpSpec)> = match &shift.factor {
-                RiskFactorType::DiscountRate { curve_id, .. } => {
-                    // For historical VaR, apply parallel shift to the curve.
-                    // The tenor is used for factor identification, not for localized bumping.
-                    Some(parallel_bp_bump(curve_id, shift.shift))
-                }
-                RiskFactorType::ForwardRate { curve_id, .. } => {
-                    // For historical VaR, apply parallel shift to the curve.
-                    Some(parallel_bp_bump(curve_id, shift.shift))
-                }
-                RiskFactorType::CreditSpread { curve_id, .. } => {
-                    Some(parallel_bp_bump(curve_id, shift.shift))
-                }
+                RiskFactorType::DiscountRate {
+                    curve_id,
+                    tenor_years,
+                } => Some(key_rate_bp_bump(curve_id, *tenor_years, shift.shift)),
+                RiskFactorType::ForwardRate {
+                    curve_id,
+                    tenor_years,
+                } => Some(key_rate_bp_bump(curve_id, *tenor_years, shift.shift)),
+                RiskFactorType::CreditSpread {
+                    curve_id,
+                    tenor_years,
+                } => Some(key_rate_bp_bump(curve_id, *tenor_years, shift.shift)),
                 RiskFactorType::EquitySpot { ticker } => Some((
                     CurveId::from(ticker.as_str()),
                     BumpSpec::multiplier(1.0 + shift.shift),
@@ -97,8 +99,47 @@ impl MarketScenario {
     }
 }
 
-fn parallel_bp_bump(curve_id: &CurveId, shift: f64) -> (CurveId, BumpSpec) {
-    (curve_id.clone(), BumpSpec::parallel_bp(shift * 10_000.0))
+/// Build a triangular key-rate bump for a specific tenor on a curve.
+///
+/// Uses the standard bucket grid to determine the triangular weight neighbors,
+/// ensuring that localized shifts preserve curve shape.
+fn key_rate_bp_bump(curve_id: &CurveId, tenor_years: f64, shift: f64) -> (CurveId, BumpSpec) {
+    let shift_bp = shift * 10_000.0;
+
+    let (prev, next) = find_triangular_neighbors(tenor_years);
+    (
+        curve_id.clone(),
+        BumpSpec::triangular_key_rate_bp(prev, tenor_years, next, shift_bp),
+    )
+}
+
+/// Find the neighboring bucket boundaries for a triangular key-rate bump.
+fn find_triangular_neighbors(tenor: f64) -> (f64, f64) {
+    let buckets = &crate::metrics::sensitivities::config::STANDARD_BUCKETS_YEARS;
+
+    // Find the closest bucket index
+    let mut closest_idx = 0;
+    let mut min_dist = f64::MAX;
+    for (i, &b) in buckets.iter().enumerate() {
+        let dist = (tenor - b).abs();
+        if dist < min_dist {
+            min_dist = dist;
+            closest_idx = i;
+        }
+    }
+
+    let prev = if closest_idx == 0 {
+        0.0
+    } else {
+        buckets[closest_idx - 1]
+    };
+    let next = if closest_idx == buckets.len() - 1 {
+        f64::INFINITY
+    } else {
+        buckets[closest_idx + 1]
+    };
+
+    (prev, next)
 }
 
 /// Historical market data for VaR calculation.

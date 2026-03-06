@@ -17,9 +17,6 @@ pub fn register_xccy_swap_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::XccySwap,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::XccySwap,
-            >::default()),
         ]
     };
 }

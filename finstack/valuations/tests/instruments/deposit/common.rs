@@ -205,8 +205,7 @@ pub fn compute_metric(
     base: Date,
     metric_id: MetricId,
 ) -> f64 {
-    let mut registry = MetricRegistry::new();
-    finstack_valuations::instruments::rates::deposit::register_deposit_metrics(&mut registry);
+    let registry = finstack_valuations::metrics::standard_registry();
 
     let base_val = deposit.value(ctx, base).unwrap();
     let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> =
@@ -232,8 +231,7 @@ pub fn compute_metrics(
     base: Date,
     metric_ids: &[MetricId],
 ) -> finstack_core::HashMap<MetricId, f64> {
-    let mut registry = MetricRegistry::new();
-    finstack_valuations::instruments::rates::deposit::register_deposit_metrics(&mut registry);
+    let registry = finstack_valuations::metrics::standard_registry();
 
     let base_val = deposit.value(ctx, base).unwrap();
     let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> =

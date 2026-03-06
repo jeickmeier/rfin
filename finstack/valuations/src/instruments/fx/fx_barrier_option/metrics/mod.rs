@@ -26,9 +26,6 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
             (Vanna, crate::metrics::OptionVannaCalculator::<crate::instruments::FxBarrierOption>::default()),
             (Volga, crate::metrics::OptionVolgaCalculator::<crate::instruments::FxBarrierOption>::default()),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::FxBarrierOption,
-            >::default()),
         ]
     }
 }
@@ -47,9 +44,6 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxBarrierOption,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::FxBarrierOption,
-            >::default()),
         ]
     }
 }

@@ -41,9 +41,6 @@ pub fn register_deposit_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Deposit,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::Deposit,
-            >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Deposit,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),

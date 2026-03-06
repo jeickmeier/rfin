@@ -52,9 +52,6 @@ pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxSpot,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::FxSpot,
-            >::default()),
         ]
     };
 }

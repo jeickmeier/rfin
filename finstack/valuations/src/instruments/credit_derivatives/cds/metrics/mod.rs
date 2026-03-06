@@ -82,9 +82,6 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CreditDefaultSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::CreditDefaultSwap,
-            >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CreditDefaultSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),

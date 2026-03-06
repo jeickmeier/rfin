@@ -80,9 +80,6 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InflationSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::InflationSwap,
-            >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InflationSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
@@ -96,9 +93,6 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::YoYInflationSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::YoYInflationSwap,
-            >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::YoYInflationSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),

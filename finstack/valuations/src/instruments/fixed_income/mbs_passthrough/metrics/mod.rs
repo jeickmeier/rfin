@@ -78,9 +78,6 @@ pub fn register_mbs_passthrough_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::AgencyMbsPassthrough,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::AgencyMbsPassthrough,
-            >::default()),
         ]
     }
 }

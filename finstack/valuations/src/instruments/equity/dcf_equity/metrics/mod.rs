@@ -154,11 +154,6 @@ pub fn register_dcf_metrics(registry: &mut MetricRegistry) {
                     crate::instruments::equity::dcf_equity::DiscountedCashFlow,
                 >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())
             ),
-            // Generic theta (rolls valuation date by configured period)
-            (
-                Theta,
-                crate::metrics::GenericTheta::<crate::instruments::equity::dcf_equity::DiscountedCashFlow>::default()
-            ),
             (EnterpriseValue, EnterpriseValueCalculator),
             (EquityValue, EquityValueCalculator),
             (TerminalValuePV, TerminalValuePVCalculator),

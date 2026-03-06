@@ -113,11 +113,6 @@ pub fn register_commodity_spread_option_metrics(registry: &mut MetricRegistry) {
         &[InstrumentType::CommoditySpreadOption],
     );
     registry.register_metric(
-        MetricId::Theta,
-        Arc::new(crate::metrics::GenericTheta::<CommoditySpreadOption>::default()),
-        &[InstrumentType::CommoditySpreadOption],
-    );
-    registry.register_metric(
         MetricId::Dv01,
         Arc::new(
             crate::metrics::UnifiedDv01Calculator::<CommoditySpreadOption>::new(

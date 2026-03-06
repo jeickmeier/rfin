@@ -23,9 +23,6 @@ pub fn register_vol_index_option_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::equity::vol_index_option::VolatilityIndexOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::equity::vol_index_option::VolatilityIndexOption,
-            >::default()),
         ]
     }
 }

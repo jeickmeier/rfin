@@ -232,11 +232,9 @@
 //! - **Zero theta**: No time-dependent value change (rare)
 
 use crate::instruments::common_impl::traits::Instrument;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt};
 use finstack_core::Result;
-use std::marker::PhantomData;
 
 /// Parse a period string to an **approximate** number of calendar days.
 ///
@@ -278,7 +276,10 @@ use std::marker::PhantomData;
 /// # See Also
 ///
 /// - `calculate_theta_date`: Calendar-aware date rolling (recommended for theta calculations)
-#[allow(dead_code)]
+#[deprecated(
+    since = "0.9.0",
+    note = "Uses fixed 30-day months and 365-day years. Prefer `calculate_theta_date` for calendar-aware date rolling."
+)]
 pub fn parse_period_days(period: &str) -> Result<i64> {
     let period = period.trim().to_uppercase();
 
@@ -344,8 +345,11 @@ fn parse_theta_period(period: &str) -> Result<ThetaPeriod> {
         .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
 
     match unit {
-        // For fixed-day periods, reuse the public helper so it stays exercised in production.
-        "D" | "W" => Ok(ThetaPeriod::Days(parse_period_days(&period)?)),
+        "D" | "W" => {
+            #[allow(deprecated)]
+            let days = parse_period_days(&period)?;
+            Ok(ThetaPeriod::Days(days))
+        }
         "M" => Ok(ThetaPeriod::Months(i32::try_from(num_i64).map_err(
             |_| finstack_core::Error::from(finstack_core::InputError::Invalid),
         )?)),
@@ -393,123 +397,6 @@ pub fn calculate_theta_date(
     }
 
     Ok(rolled_date)
-}
-
-/// Generic theta calculator for any instrument implementing `Instrument` trait.
-///
-/// Computes theta as the total carry from rolling the valuation date forward:
-///   Theta = PV(end_date) - PV(start_date) + Sum(Cashflows from start to end)
-///
-/// This accounts for:
-/// - Pull-to-par effects (PV change)
-/// - Coupon/interest receipts during the period
-/// - Principal payments during the period
-///
-/// # Type Parameters
-/// * `I` - Instrument type implementing `Instrument` trait
-///
-/// # Arguments
-/// * `context` - Metric context containing instrument, market data, and pricing overrides
-///
-/// # Returns
-/// Theta value as total carry including PV change and cashflows (in base currency units)
-pub fn generic_theta_calculator<I>(context: &MetricContext) -> Result<f64>
-where
-    I: Instrument + 'static,
-{
-    // Downcast to concrete instrument type
-    let instrument: &I = context
-        .instrument
-        .as_any()
-        .downcast_ref::<I>()
-        .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
-
-    // Get theta period from pricing overrides, default to "1D"
-    let period_str = context
-        .pricing_overrides
-        .as_ref()
-        .and_then(|po| po.scenario.theta_period.as_deref())
-        .unwrap_or("1D");
-
-    // Get expiry date if available (via Instrument trait method)
-    let expiry_date = instrument.expiry();
-
-    // Calculate rolled date
-    let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;
-
-    // If already expired or rolling to same date, theta is zero
-    if rolled_date <= context.as_of {
-        tracing::warn!(
-            instrument_type = std::any::type_name::<I>(),
-            as_of = %context.as_of,
-            rolled_date = %rolled_date,
-            "Theta: Instrument already expired or rolling to same date, returning 0.0"
-        );
-        return Ok(0.0);
-    }
-
-    // Base PV from the pre-computed valuation
-    let base_pv = context.base_value.amount();
-    let base_ccy = context.base_value.currency();
-
-    // Reprice at rolled date with same market context
-    let bumped_value = instrument.value(&context.curves, rolled_date)?.amount();
-    let pv_change = bumped_value - base_pv;
-
-    // Collect cashflows during the period (if instrument provides them)
-    let cashflows_during_period = collect_cashflows_in_period(
-        instrument as &dyn Instrument,
-        &context.curves,
-        context.as_of,
-        rolled_date,
-        base_ccy,
-    )?;
-
-    // Theta = PV change + cashflows received
-    Ok(pv_change + cashflows_during_period)
-}
-
-/// Generic Theta calculator wrapper for any instrument implementing `Instrument` trait.
-///
-/// This eliminates the need for per-instrument theta calculator files that only
-/// wrap the `generic_theta_calculator` function. Instead, instruments can directly
-/// register `GenericTheta::<InstrumentType>::default()` in their metric registries.
-///
-/// # Type Parameters
-/// * `I` - Instrument type implementing `Instrument` trait
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// // GenericTheta is internal - use MetricId::Theta via price_with_metrics
-/// use finstack_valuations::metrics::sensitivities::theta::GenericTheta;
-/// use finstack_valuations::instruments::Bond;
-///
-/// let calculator = GenericTheta::<Bond>::default();
-/// ```
-pub struct GenericTheta<I> {
-    _phantom: PhantomData<I>,
-}
-
-impl<I> Default for GenericTheta<I> {
-    fn default() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<I> MetricCalculator for GenericTheta<I>
-where
-    I: Instrument + 'static,
-{
-    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        generic_theta_calculator::<I>(context)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
 }
 
 /// Collect cashflows that occur during a time period.
@@ -593,18 +480,20 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
             return Ok(0.0);
         }
 
-        // Base PV from the pre-computed valuation
-        let base_pv = context.base_value.amount();
+        // Theta uses value() (holder-view) for both base and rolled dates.
+        // See GenericTheta for rationale on why value_raw() is not appropriate here.
+        let base_pv = context
+            .instrument
+            .value(&context.curves, context.as_of)?
+            .amount();
         let base_ccy = context.base_value.currency();
 
-        // Reprice at rolled date with same market context using the trait method directly
-        let bumped_value = context
+        let bumped_pv = context
             .instrument
             .value(&context.curves, rolled_date)?
             .amount();
-        let pv_change = bumped_value - base_pv;
+        let pv_change = bumped_pv - base_pv;
 
-        // Collect cashflows during the period (if available via Instrument::as_cashflow_provider()).
         let cashflows_during_period = collect_cashflows_in_period(
             context.instrument.as_ref(),
             &context.curves,
@@ -613,7 +502,6 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
             base_ccy,
         )?;
 
-        // Theta = PV change + cashflows received
         Ok(pv_change + cashflows_during_period)
     }
 
@@ -627,7 +515,7 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
 // ================================================================================================
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::panic, deprecated)]
 mod tests {
     use super::*;
     use time::macros::date;

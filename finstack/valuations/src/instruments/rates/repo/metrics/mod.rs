@@ -68,9 +68,6 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
             (EffectiveRate, effective_rate::EffectiveRateCalculator),
             (TimeToMaturity, time_to_maturity::TimeToMaturityCalculator),
             (ImpliedCollateralReturn, implied_collateral_return::ImpliedCollateralReturnCalculator),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::Repo,
-            >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Repo,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
