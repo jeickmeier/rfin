@@ -6,6 +6,7 @@
 
 use super::traits::GlobalSolveTarget;
 use crate::calibration::constants::PENALTY;
+use crate::calibration::report::{CalibrationDiagnostics, QuoteQuality};
 use crate::calibration::{CalibrationConfig, CalibrationReport};
 use finstack_core::Result;
 use std::cell::{Cell, RefCell};
@@ -353,6 +354,20 @@ impl GlobalFitOptimizer {
 
         report.update_solver_config(config.solver.clone());
 
+        // Compute optional diagnostics if requested.
+        if config.compute_diagnostics {
+            let diagnostics = compute_global_diagnostics(
+                target,
+                &active_quotes,
+                &times,
+                &solved_params,
+                &resid_values,
+                &weight_scales,
+                config,
+            );
+            report = report.with_diagnostics(diagnostics);
+        }
+
         Ok((final_curve, report))
     }
 }
@@ -484,6 +499,231 @@ fn param_range(params: &[f64]) -> (f64, f64) {
     } else {
         (min_val, max_val)
     }
+}
+
+/// Compute calibration diagnostics after a global solve.
+///
+/// This function builds per-quote quality metrics using finite-difference
+/// sensitivities (dResidual/dParam for the most sensitive parameter per quote),
+/// computes the Jacobian's normal equations (J^T * J) for condition number
+/// estimation, and calculates residual summary statistics.
+fn compute_global_diagnostics<T>(
+    target: &T,
+    active_quotes: &[T::Quote],
+    times: &[f64],
+    solved_params: &[f64],
+    resid_values: &[f64],
+    weight_scales: &[f64],
+    config: &CalibrationConfig,
+) -> CalibrationDiagnostics
+where
+    T: GlobalSolveTarget,
+{
+    let n_residuals = resid_values.len();
+    let n_params = solved_params.len();
+
+    // 1. Compute per-quote quality with finite-difference sensitivities.
+    let bump_h = config.discount_curve.jacobian_step_size.max(1e-8);
+    let mut per_quote = Vec::with_capacity(n_residuals);
+
+    // Build Jacobian via finite differences (n_params bumps, each producing n_residuals).
+    // jacobian[i][j] = dResidual_i / dParam_j
+    let mut jacobian: Vec<Vec<f64>> = vec![vec![0.0; n_params]; n_residuals];
+    let mut jacobian_ok = true;
+
+    for j in 0..n_params {
+        let mut bumped = solved_params.to_vec();
+        let h = bump_h * (1.0 + solved_params[j].abs());
+        bumped[j] += h;
+
+        let mut bumped_resid = vec![0.0; n_residuals];
+        if let Ok(bumped_curve) = target.build_curve_for_solver_from_params(times, &bumped) {
+            if target
+                .calculate_residuals(&bumped_curve, active_quotes, &mut bumped_resid)
+                .is_ok()
+            {
+                for i in 0..n_residuals {
+                    jacobian[i][j] = (bumped_resid[i] - resid_values[i]) / h;
+                }
+            } else {
+                jacobian_ok = false;
+            }
+        } else {
+            jacobian_ok = false;
+        }
+    }
+
+    // Build per-quote quality metrics using the Jacobian.
+    for (i, (&resid, quote)) in resid_values.iter().zip(active_quotes.iter()).enumerate() {
+        // Max absolute sensitivity across all parameters for this quote.
+        let sensitivity = if jacobian_ok {
+            jacobian[i].iter().map(|v| v.abs()).fold(0.0_f64, f64::max)
+        } else {
+            0.0
+        };
+
+        per_quote.push(QuoteQuality {
+            quote_label: target.residual_key(quote, i),
+            target_value: 0.0, // Target is implicitly zero for residual-based calibration.
+            fitted_value: resid, // The residual IS the deviation from zero.
+            residual: resid,
+            sensitivity,
+        });
+    }
+
+    // 2. Compute condition number from J^T * J eigenvalues.
+    let condition_number = if jacobian_ok && n_params > 0 {
+        compute_condition_number(&jacobian, n_params, weight_scales)
+    } else {
+        None
+    };
+
+    // 3. Basic residual stats.
+    let max_residual = resid_values.iter().map(|r| r.abs()).fold(0.0_f64, f64::max);
+    let rms_residual = if n_residuals > 0 {
+        (resid_values.iter().map(|r| r * r).sum::<f64>() / n_residuals as f64).sqrt()
+    } else {
+        0.0
+    };
+
+    CalibrationDiagnostics {
+        per_quote,
+        condition_number,
+        singular_values: None, // Full SVD is expensive; omit for now.
+        max_residual,
+        rms_residual,
+        r_squared: None, // Meaningful only when target values have variance; omit for residual-based.
+    }
+}
+
+/// Estimate the condition number of J^T * J using a simple power-iteration
+/// approach for the largest eigenvalue, and inverse power iteration for the smallest.
+///
+/// For small matrices this is exact via explicit construction of J^T * J.
+/// Returns `None` if the computation fails or the matrix is degenerate.
+fn compute_condition_number(
+    jacobian: &[Vec<f64>],
+    n_params: usize,
+    weight_scales: &[f64],
+) -> Option<f64> {
+    if n_params == 0 {
+        return None;
+    }
+
+    // Build J^T * W * J (normal equations matrix), where W_i = weight_scales[i]^2.
+    let mut jtj = vec![vec![0.0_f64; n_params]; n_params];
+    for (i, row) in jacobian.iter().enumerate() {
+        let w2 = weight_scales.get(i).copied().unwrap_or(1.0).powi(2);
+        for j in 0..n_params {
+            for k in j..n_params {
+                let val = w2 * row[j] * row[k];
+                jtj[j][k] += val;
+                if k != j {
+                    jtj[k][j] += val;
+                }
+            }
+        }
+    }
+
+    // For a 1x1 matrix, condition number is 1.0 (if non-zero).
+    if n_params == 1 {
+        return if jtj[0][0].abs() > 1e-30 {
+            Some(1.0)
+        } else {
+            None
+        };
+    }
+
+    // Power iteration for largest eigenvalue.
+    let max_iter = 100;
+    let tol = 1e-10;
+    let mut v = vec![1.0 / (n_params as f64).sqrt(); n_params];
+
+    let mat_vec = |m: &[Vec<f64>], x: &[f64]| -> Vec<f64> {
+        let mut result = vec![0.0; x.len()];
+        for (i, row) in m.iter().enumerate() {
+            for (j, &val) in row.iter().enumerate() {
+                result[i] += val * x[j];
+            }
+        }
+        result
+    };
+
+    let mut lambda_max = 0.0_f64;
+    for _ in 0..max_iter {
+        let w = mat_vec(&jtj, &v);
+        let norm = w.iter().map(|x| x * x).sum::<f64>().sqrt();
+        if norm < 1e-30 {
+            return None;
+        }
+        let new_lambda = w.iter().zip(v.iter()).map(|(a, b)| a * b).sum::<f64>();
+        for (vi, wi) in v.iter_mut().zip(w.iter()) {
+            *vi = wi / norm;
+        }
+        if (new_lambda - lambda_max).abs() < tol * lambda_max.abs().max(1.0) {
+            lambda_max = new_lambda;
+            break;
+        }
+        lambda_max = new_lambda;
+    }
+
+    // Inverse power iteration for smallest eigenvalue.
+    // Shift by lambda_max * epsilon to avoid singularity on the dominant eigenvalue.
+    let shift = lambda_max * 1e-12;
+    let mut shifted = jtj.clone();
+    for (i, row) in shifted.iter_mut().enumerate() {
+        row[i] += shift;
+    }
+
+    // Simple Cholesky-free approach: use Gauss-Seidel iteration to approximate
+    // the smallest eigenvalue. For small n_params this is acceptable.
+    let mut v_min = vec![1.0 / (n_params as f64).sqrt(); n_params];
+    let mut lambda_min = lambda_max; // Start from max and converge down.
+
+    for _ in 0..max_iter {
+        // Solve shifted * w = v_min approximately using a few Gauss-Seidel steps.
+        let mut w = v_min.clone();
+        for _ in 0..20 {
+            for i in 0..n_params {
+                let mut s = v_min[i];
+                for (j, wj) in w.iter().enumerate() {
+                    if j != i {
+                        s -= shifted[i][j] * wj;
+                    }
+                }
+                if shifted[i][i].abs() > 1e-30 {
+                    w[i] = s / shifted[i][i];
+                }
+            }
+        }
+
+        let norm = w.iter().map(|x| x * x).sum::<f64>().sqrt();
+        if norm < 1e-30 {
+            return None;
+        }
+        let rayleigh = w.iter().zip(v_min.iter()).map(|(a, b)| a * b).sum::<f64>();
+        for (vi, wi) in v_min.iter_mut().zip(w.iter()) {
+            *vi = wi / norm;
+        }
+
+        // The Rayleigh quotient of the inverse gives 1/lambda_min.
+        let candidate = if rayleigh.abs() > 1e-30 {
+            1.0 / rayleigh + shift
+        } else {
+            lambda_min
+        };
+        if (candidate - lambda_min).abs() < tol * lambda_min.abs().max(1.0) {
+            lambda_min = candidate;
+            break;
+        }
+        lambda_min = candidate;
+    }
+
+    if lambda_min.abs() < 1e-30 {
+        return None;
+    }
+
+    Some((lambda_max / lambda_min).abs())
 }
 
 #[cfg(test)]

@@ -373,6 +373,19 @@ pub struct CalibrationConfig {
     #[serde(default)]
     pub calibration_method: CalibrationMethod,
 
+    /// Whether to compute detailed calibration diagnostics (condition number,
+    /// per-quote quality metrics, singular values, R-squared, etc.).
+    ///
+    /// When `true`, the solver will perform additional post-solve analysis
+    /// including Jacobian-based condition number estimation. This adds
+    /// computational overhead and should typically be disabled in production
+    /// hot paths but enabled for calibration debugging, auditing, or
+    /// quality monitoring.
+    ///
+    /// Default: `false`.
+    #[serde(default)]
+    pub compute_diagnostics: bool,
+
     /// Discount-curve specific solver configuration.
     #[serde(default)]
     pub discount_curve: DiscountCurveSolveConfig,
@@ -401,6 +414,7 @@ impl Default for CalibrationConfig {
             rate_bounds_policy: RateBoundsPolicy::AutoCurrency,
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
+            compute_diagnostics: false,
             discount_curve: DiscountCurveSolveConfig::default(),
             hazard_curve: HazardCurveSolveConfig::default(),
             inflation_curve: InflationCurveSolveConfig::default(),
@@ -535,6 +549,16 @@ impl CalibrationConfig {
         self
     }
 
+    /// Enable or disable detailed calibration diagnostics.
+    ///
+    /// When enabled, the solver will compute condition number, per-quote
+    /// quality metrics, and other diagnostic information after calibration.
+    #[must_use]
+    pub fn with_compute_diagnostics(mut self, enabled: bool) -> Self {
+        self.compute_diagnostics = enabled;
+        self
+    }
+
     /// Create a conservative calibration configuration.
     ///
     /// Conservative settings prioritize stability and robustness over speed:
@@ -572,6 +596,7 @@ impl CalibrationConfig {
                 max_rate: 1.00, // Allow up to 100% for conservative edge cases
             },
             calibration_method: CalibrationMethod::default(),
+            compute_diagnostics: false,
             discount_curve: DiscountCurveSolveConfig::default(),
             hazard_curve: HazardCurveSolveConfig::default(),
             inflation_curve: InflationCurveSolveConfig::default(),
@@ -612,6 +637,7 @@ impl CalibrationConfig {
             rate_bounds_policy: RateBoundsPolicy::Explicit,
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
+            compute_diagnostics: false,
             discount_curve: DiscountCurveSolveConfig::default(),
             hazard_curve: HazardCurveSolveConfig::default(),
             inflation_curve: InflationCurveSolveConfig::default(),
@@ -652,6 +678,7 @@ impl CalibrationConfig {
             rate_bounds_policy: RateBoundsPolicy::Explicit,
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
+            compute_diagnostics: false,
             discount_curve: DiscountCurveSolveConfig::default(),
             hazard_curve: HazardCurveSolveConfig::default(),
             inflation_curve: InflationCurveSolveConfig::default(),

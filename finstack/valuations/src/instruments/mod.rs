@@ -244,7 +244,10 @@ pub use fx::{
 pub use fx::{FxBarrierOption, FxForward, FxOption, FxSpot, FxSwap, Ndf, QuantoOption};
 
 // Commodity
-pub use commodity::{CommodityAsianOption, CommodityForward, CommodityOption, CommoditySwap};
+pub use commodity::{
+    CommodityAsianOption, CommodityForward, CommodityOption, CommoditySpreadOption, CommoditySwap,
+    CommoditySwaption,
+};
 
 // Exotics
 pub use exotics::{

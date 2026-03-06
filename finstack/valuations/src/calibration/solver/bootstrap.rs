@@ -4,6 +4,7 @@ use super::bracket_solve_1d_with_diagnostics;
 use super::helpers::BracketDiagnostics;
 use super::traits::BootstrapTarget;
 use crate::calibration::constants::{OBJECTIVE_VALID_ABS_MAX, RESIDUAL_PENALTY_ABS_MIN};
+use crate::calibration::report::{CalibrationDiagnostics, QuoteQuality};
 use crate::calibration::{CalibrationConfig, CalibrationReport};
 use finstack_core::Result;
 use std::collections::BTreeMap;
@@ -338,16 +339,24 @@ impl SequentialBootstrapper {
         }
 
         let final_curve = target.build_curve_final(&knots)?;
-        let report = CalibrationReport::for_type_with_tolerance(
+        let mut report = CalibrationReport::for_type_with_tolerance(
             "generic_bootstrap",
             residuals,
             total_iterations,
             validation_tolerance,
         );
-        let report = match trace {
+        report = match trace {
             Some(t) => report.with_explanation(t),
             None => report,
         };
+
+        // Compute optional diagnostics if requested.
+        if config.compute_diagnostics {
+            let resid_vec: Vec<f64> = report.residuals.values().copied().collect();
+            let diagnostics =
+                compute_bootstrap_diagnostics(target, quotes, &knots, &resid_vec, config);
+            report = report.with_diagnostics(diagnostics);
+        }
 
         Ok((final_curve, report))
     }
@@ -443,6 +452,94 @@ impl SequentialBootstrapper {
         };
 
         Ok((solved_value, diag.eval_count))
+    }
+}
+
+/// Compute bootstrap diagnostics via per-knot finite-difference sensitivity.
+///
+/// For each knot, bumps the solved value by a small amount and re-evaluates
+/// the residual for the corresponding quote to estimate dResidual/dKnotValue.
+fn compute_bootstrap_diagnostics<T>(
+    target: &T,
+    quotes: &[T::Quote],
+    knots: &[(f64, f64)],
+    resid_values: &[f64],
+    config: &CalibrationConfig,
+) -> CalibrationDiagnostics
+where
+    T: BootstrapTarget,
+    T::Quote: std::fmt::Debug,
+{
+    let n = resid_values.len();
+    let bump_h = config.discount_curve.jacobian_step_size.max(1e-8);
+
+    let mut per_quote = Vec::with_capacity(n);
+
+    // Sort quotes by time for consistent ordering (matching the bootstrap solve order).
+    let sorted_quotes = match sort_quotes_by_time(target, quotes) {
+        Ok(sq) => sq,
+        Err(_) => {
+            // Fall back to basic diagnostics if sorting fails.
+            return CalibrationDiagnostics::from_residuals(resid_values);
+        }
+    };
+
+    // For each sorted quote, compute a finite-difference sensitivity.
+    // The knots vector has initial_knots + solved knots. The solved knots
+    // correspond 1:1 with the sorted quotes (appended in order).
+    let n_initial = if knots.len() >= sorted_quotes.len() {
+        knots.len() - sorted_quotes.len()
+    } else {
+        0
+    };
+
+    for (sorted_idx, sq) in sorted_quotes.iter().enumerate() {
+        let knot_idx = n_initial + sorted_idx;
+        let resid = resid_values.get(sorted_idx).copied().unwrap_or(0.0);
+
+        let sensitivity = if knot_idx < knots.len() {
+            let (t, v) = knots[knot_idx];
+            let h = bump_h * (1.0 + v.abs());
+            let mut bumped_knots = knots.to_vec();
+            bumped_knots[knot_idx] = (t, v + h);
+
+            match target.build_curve_for_solver(&bumped_knots) {
+                Ok(bumped_curve) => {
+                    let quote = &quotes[sq.original_idx];
+                    match target.calculate_residual(&bumped_curve, quote) {
+                        Ok(bumped_resid) => (bumped_resid - resid) / h,
+                        Err(_) => 0.0,
+                    }
+                }
+                Err(_) => 0.0,
+            }
+        } else {
+            0.0
+        };
+
+        per_quote.push(QuoteQuality {
+            quote_label: format!("quote_{sorted_idx:06}"),
+            target_value: 0.0,
+            fitted_value: resid,
+            residual: resid,
+            sensitivity: sensitivity.abs(),
+        });
+    }
+
+    let max_residual = resid_values.iter().map(|r| r.abs()).fold(0.0_f64, f64::max);
+    let rms_residual = if n > 0 {
+        (resid_values.iter().map(|r| r * r).sum::<f64>() / n as f64).sqrt()
+    } else {
+        0.0
+    };
+
+    CalibrationDiagnostics {
+        per_quote,
+        condition_number: None, // Bootstrap is sequential; no J^T*J available.
+        singular_values: None,
+        max_residual,
+        rms_residual,
+        r_squared: None,
     }
 }
 

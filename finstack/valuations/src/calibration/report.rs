@@ -11,6 +11,84 @@ fn default_true() -> bool {
     true
 }
 
+/// Per-quote quality metrics from a calibration run.
+///
+/// Captures the fitted vs target values for a single market quote,
+/// along with the residual and a local sensitivity measure.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuoteQuality {
+    /// Human-readable label identifying this quote (e.g., "USD-1Y-SWAP").
+    pub quote_label: String,
+    /// Market-observed target value for this quote.
+    pub target_value: f64,
+    /// Model-implied fitted value after calibration.
+    pub fitted_value: f64,
+    /// Residual (fitted - target) for this quote.
+    pub residual: f64,
+    /// Local sensitivity: dOutput/dParam (via finite difference or Jacobian diagonal).
+    pub sensitivity: f64,
+}
+
+/// Calibration diagnostics providing condition number, residual analysis, and fit quality.
+///
+/// These diagnostics are only populated when `CalibrationConfig::compute_diagnostics`
+/// is set to `true`. They are relatively expensive to compute (requiring Jacobian
+/// analysis) and are intended for calibration debugging, auditing, and quality
+/// monitoring rather than production hot paths.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CalibrationDiagnostics {
+    /// Per-quote quality metrics for each calibration instrument.
+    pub per_quote: Vec<QuoteQuality>,
+    /// Condition number of the Jacobian's normal equations (J^T * J).
+    ///
+    /// A high condition number (e.g., > 1e10) indicates an ill-conditioned
+    /// calibration problem where small changes in market data can produce
+    /// large changes in calibrated parameters.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub condition_number: Option<f64>,
+    /// Singular values of the Jacobian matrix (if computed).
+    ///
+    /// Useful for diagnosing rank deficiency and understanding which
+    /// parameter directions are well-determined vs poorly-determined.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub singular_values: Option<Vec<f64>>,
+    /// Maximum absolute residual across all quotes.
+    pub max_residual: f64,
+    /// Root mean square residual across all quotes.
+    pub rms_residual: f64,
+    /// Coefficient of determination (R-squared) for the fit.
+    ///
+    /// Values close to 1.0 indicate a good fit. Only meaningful when
+    /// target values have meaningful variance.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub r_squared: Option<f64>,
+}
+
+impl CalibrationDiagnostics {
+    /// Compute basic diagnostics from a vector of residuals.
+    ///
+    /// This is a lightweight computation that does not require the Jacobian.
+    /// Condition number and singular values are left as `None`.
+    pub fn from_residuals(residuals: &[f64]) -> Self {
+        let n = residuals.len();
+        let max_residual = residuals.iter().map(|r| r.abs()).fold(0.0_f64, f64::max);
+        let rms_residual = if n > 0 {
+            (residuals.iter().map(|r| r * r).sum::<f64>() / n as f64).sqrt()
+        } else {
+            0.0
+        };
+
+        Self {
+            per_quote: Vec::new(),
+            condition_number: None,
+            singular_values: None,
+            max_residual,
+            rms_residual,
+            r_squared: None,
+        }
+    }
+}
+
 /// Diagnostics computed from residual values.
 ///
 /// Provides a statistical summary of the instrument fitting errors.
@@ -150,6 +228,13 @@ pub struct CalibrationReport {
     /// - "SABR v1.0" for volatility surface calibration
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub model_version: Option<String>,
+    /// Optional calibration diagnostics (condition number, per-quote quality, etc.).
+    ///
+    /// Only populated when `CalibrationConfig::compute_diagnostics` is `true`.
+    /// Provides detailed information about the quality and stability of the
+    /// calibration for debugging, auditing, and monitoring purposes.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub diagnostics: Option<CalibrationDiagnostics>,
 }
 
 impl CalibrationReport {
@@ -185,6 +270,7 @@ impl CalibrationReport {
             results_meta,
             explanation: None,
             model_version: None,
+            diagnostics: None,
         }
     }
 
@@ -210,6 +296,13 @@ impl CalibrationReport {
     #[must_use]
     pub fn with_model_version(mut self, version: impl Into<String>) -> Self {
         self.model_version = Some(version.into());
+        self
+    }
+
+    /// Attach calibration diagnostics to this report.
+    #[must_use]
+    pub fn with_diagnostics(mut self, diagnostics: CalibrationDiagnostics) -> Self {
+        self.diagnostics = Some(diagnostics);
         self
     }
 
@@ -406,6 +499,7 @@ impl Default for CalibrationReport {
             results_meta,
             explanation: None,
             model_version: None,
+            diagnostics: None,
         }
     }
 }
@@ -536,6 +630,189 @@ mod tests {
             report.metadata.get("success_tolerance"),
             deserialized.metadata.get("success_tolerance")
         );
+    }
+
+    #[test]
+    fn diagnostics_serde_roundtrip() {
+        let diagnostics = CalibrationDiagnostics {
+            per_quote: vec![
+                QuoteQuality {
+                    quote_label: "USD-1Y-SWAP".to_string(),
+                    target_value: 0.05,
+                    fitted_value: 0.0500001,
+                    residual: 1e-7,
+                    sensitivity: 12.5,
+                },
+                QuoteQuality {
+                    quote_label: "USD-5Y-SWAP".to_string(),
+                    target_value: 0.06,
+                    fitted_value: 0.0599998,
+                    residual: -2e-7,
+                    sensitivity: 8.3,
+                },
+            ],
+            condition_number: Some(1234.5),
+            singular_values: Some(vec![100.0, 50.0, 0.1]),
+            max_residual: 2e-7,
+            rms_residual: 1.58e-7,
+            r_squared: Some(0.9999),
+        };
+
+        let json = serde_json::to_string(&diagnostics).expect("Serialization should succeed");
+        let deser: CalibrationDiagnostics =
+            serde_json::from_str(&json).expect("Deserialization should succeed");
+
+        assert_eq!(deser.per_quote.len(), 2);
+        assert_eq!(deser.per_quote[0].quote_label, "USD-1Y-SWAP");
+        assert_eq!(deser.per_quote[1].quote_label, "USD-5Y-SWAP");
+        assert!((deser.per_quote[0].residual - 1e-7).abs() < 1e-15);
+        assert!((deser.per_quote[1].sensitivity - 8.3).abs() < 1e-10);
+        assert!((deser.condition_number.expect("condition_number") - 1234.5).abs() < 1e-10);
+        assert_eq!(
+            deser
+                .singular_values
+                .as_ref()
+                .expect("singular_values")
+                .len(),
+            3
+        );
+        assert!((deser.max_residual - 2e-7).abs() < 1e-15);
+        assert!((deser.rms_residual - 1.58e-7).abs() < 1e-15);
+        assert!((deser.r_squared.expect("r_squared") - 0.9999).abs() < 1e-10);
+    }
+
+    #[test]
+    fn diagnostics_serde_roundtrip_with_none_fields() {
+        let diagnostics = CalibrationDiagnostics {
+            per_quote: vec![],
+            condition_number: None,
+            singular_values: None,
+            max_residual: 0.0,
+            rms_residual: 0.0,
+            r_squared: None,
+        };
+
+        let json = serde_json::to_string(&diagnostics).expect("Serialization should succeed");
+        // Verify that None fields are skipped in JSON.
+        assert!(!json.contains("condition_number"));
+        assert!(!json.contains("singular_values"));
+        assert!(!json.contains("r_squared"));
+
+        let deser: CalibrationDiagnostics =
+            serde_json::from_str(&json).expect("Deserialization should succeed");
+        assert!(deser.condition_number.is_none());
+        assert!(deser.singular_values.is_none());
+        assert!(deser.r_squared.is_none());
+    }
+
+    #[test]
+    fn rms_residual_computation_is_correct() {
+        let residuals = vec![3.0, 4.0];
+        let diag = CalibrationDiagnostics::from_residuals(&residuals);
+
+        // RMS of [3.0, 4.0] = sqrt((9 + 16) / 2) = sqrt(12.5) = 3.5355...
+        let expected_rms = (12.5_f64).sqrt();
+        assert!(
+            (diag.rms_residual - expected_rms).abs() < 1e-12,
+            "Expected RMS {expected_rms}, got {}",
+            diag.rms_residual
+        );
+        assert!((diag.max_residual - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rms_residual_computation_single_value() {
+        let residuals = vec![5.0];
+        let diag = CalibrationDiagnostics::from_residuals(&residuals);
+        assert!((diag.rms_residual - 5.0).abs() < 1e-12);
+        assert!((diag.max_residual - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rms_residual_computation_empty() {
+        let residuals: Vec<f64> = vec![];
+        let diag = CalibrationDiagnostics::from_residuals(&residuals);
+        assert!((diag.rms_residual - 0.0).abs() < 1e-12);
+        assert!((diag.max_residual - 0.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn diagnostics_none_when_compute_diagnostics_false() {
+        // Default CalibrationReport should have diagnostics = None.
+        let mut residuals = BTreeMap::new();
+        residuals.insert("1Y".to_string(), 1e-12);
+        let report = CalibrationReport::new(residuals, 10, true, "Converged");
+        assert!(
+            report.diagnostics.is_none(),
+            "Diagnostics should be None by default (compute_diagnostics = false)"
+        );
+    }
+
+    #[test]
+    fn diagnostics_none_when_compute_diagnostics_false_for_type() {
+        let mut residuals = BTreeMap::new();
+        residuals.insert("quote_1Y".to_string(), 1e-10);
+        let report = CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
+        assert!(
+            report.diagnostics.is_none(),
+            "for_type_with_tolerance should not produce diagnostics"
+        );
+    }
+
+    #[test]
+    fn report_with_diagnostics_roundtrip() {
+        let mut residuals = BTreeMap::new();
+        residuals.insert("1Y".to_string(), 1e-10);
+
+        let diagnostics = CalibrationDiagnostics {
+            per_quote: vec![QuoteQuality {
+                quote_label: "1Y".to_string(),
+                target_value: 0.0,
+                fitted_value: 1e-10,
+                residual: 1e-10,
+                sensitivity: 1.0,
+            }],
+            condition_number: Some(42.0),
+            singular_values: None,
+            max_residual: 1e-10,
+            rms_residual: 1e-10,
+            r_squared: None,
+        };
+
+        let report =
+            CalibrationReport::new(residuals, 10, true, "Converged").with_diagnostics(diagnostics);
+
+        let json = serde_json::to_string(&report).expect("Serialization should succeed");
+        let deser: CalibrationReport =
+            serde_json::from_str(&json).expect("Deserialization should succeed");
+
+        assert!(deser.diagnostics.is_some());
+        let d = deser.diagnostics.expect("diagnostics");
+        assert_eq!(d.per_quote.len(), 1);
+        assert_eq!(d.per_quote[0].quote_label, "1Y");
+        assert!((d.condition_number.expect("condition_number") - 42.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn quote_quality_struct_construction_and_access() {
+        let qq = QuoteQuality {
+            quote_label: "EUR-3M-DEPOSIT".to_string(),
+            target_value: 0.025,
+            fitted_value: 0.0250003,
+            residual: 3e-7,
+            sensitivity: 15.2,
+        };
+
+        assert_eq!(qq.quote_label, "EUR-3M-DEPOSIT");
+        assert!((qq.target_value - 0.025).abs() < 1e-15);
+        assert!((qq.fitted_value - 0.0250003).abs() < 1e-15);
+        assert!((qq.residual - 3e-7).abs() < 1e-15);
+        assert!((qq.sensitivity - 15.2).abs() < 1e-10);
+
+        // Verify Clone works.
+        let cloned = qq.clone();
+        assert_eq!(cloned.quote_label, qq.quote_label);
+        assert!((cloned.residual - qq.residual).abs() < 1e-15);
     }
 
     #[test]

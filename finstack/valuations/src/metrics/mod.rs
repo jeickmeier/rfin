@@ -470,6 +470,12 @@ pub fn standard_registry() -> &'static MetricRegistry {
         crate::instruments::commodity::commodity_asian_option::metrics::register_commodity_asian_option_metrics(
             &mut registry,
         );
+        crate::instruments::commodity::commodity_swaption::metrics::register_commodity_swaption_metrics(
+            &mut registry,
+        );
+        crate::instruments::commodity::commodity_spread_option::metrics::register_commodity_spread_option_metrics(
+            &mut registry,
+        );
         // FX instruments
         crate::instruments::fx::fx_forward::metrics::register_fx_forward_metrics(&mut registry);
         crate::instruments::fx::ndf::metrics::register_ndf_metrics(&mut registry);

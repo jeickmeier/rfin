@@ -250,6 +250,8 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
         },
         pricing_overrides: PricingOverrides::default(),
         upfront: upfront_payment,
+        doc_clause: None,
+        protection_effective_date: None,
         margin_spec: None,
         attributes: Attributes::new(),
     };

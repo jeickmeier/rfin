@@ -68,6 +68,7 @@ impl MarketContext {
             inflation_indices: self.inflation_indices.clone(),
             credit_indices: self.credit_indices.clone(),
             dividends: self.dividends.clone(),
+            fx_delta_vol_surfaces: self.fx_delta_vol_surfaces.clone(),
             collateral: self.collateral.clone(),
         };
 

@@ -1248,12 +1248,6 @@ impl Bond {
                     )));
                 }
             }
-            CashflowSpec::Amortizing { base, .. } => {
-                Self::validate_coupon_rate(base)?;
-            }
-            CashflowSpec::Floating(_) => {
-                // No fixed coupon rate to validate
-            }
             CashflowSpec::StepUp(s) => {
                 let rate = s.initial_rate.to_f64().unwrap_or(0.0);
                 if rate < 0.0 {
@@ -1262,6 +1256,21 @@ impl Bond {
                         rate
                     )));
                 }
+                for (_, step_rate) in &s.step_schedule {
+                    let r = step_rate.to_f64().unwrap_or(0.0);
+                    if r < 0.0 {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "Bond step-up coupon rate must be non-negative, got {}",
+                            r
+                        )));
+                    }
+                }
+            }
+            CashflowSpec::Amortizing { base, .. } => {
+                Self::validate_coupon_rate(base)?;
+            }
+            CashflowSpec::Floating(_) => {
+                // No fixed coupon rate to validate
             }
         }
         Ok(())
@@ -1422,6 +1431,12 @@ impl Bond {
             }
             CashflowSpec::Floating(_) => {
                 return Err(finstack_core::InputError::Invalid.into());
+            }
+            CashflowSpec::StepUp(spec) => {
+                // Use initial_rate for Merton MC calibration
+                let rate = spec.initial_rate.to_f64().unwrap_or(0.0);
+                let freq = (1.0 / spec.freq.to_years_simple()).round() as usize;
+                (rate, spec.coupon_type, freq)
             }
             CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
                 CashflowSpec::Fixed(spec) => {
@@ -2572,5 +2587,306 @@ mod tests {
                 );
             }
         }
+    }
+
+    // =========================================================================
+    // Step-up coupon bond tests
+    // =========================================================================
+
+    /// Helper: build a step-up bond and return its full cashflow schedule.
+    fn build_step_up_bond_schedule(
+        initial_rate: f64,
+        step_schedule: Vec<(Date, f64)>,
+        issue: Date,
+        maturity: Date,
+    ) -> (Bond, crate::cashflow::builder::CashFlowSchedule) {
+        let bond = Bond::builder()
+            .id("STEP-UP-TEST".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue_date(issue)
+            .maturity(maturity)
+            .cashflow_spec(CashflowSpec::step_up(
+                initial_rate,
+                step_schedule,
+                Tenor::semi_annual(),
+                DayCount::Thirty360,
+            ))
+            .discount_curve_id("USD-OIS".into())
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Bond builder should succeed for step-up test");
+
+        let market = MarketContext::new().insert_discount(
+            DiscountCurve::builder("USD-OIS")
+                .base_date(issue)
+                .knots([(0.0, 1.0), (5.0, 0.90)])
+                .interp(InterpStyle::Linear)
+                .build()
+                .expect("DiscountCurve builder should succeed in test"),
+        );
+
+        let schedule = bond
+            .get_full_schedule(&market)
+            .expect("get_full_schedule should succeed for step-up bond");
+
+        (bond, schedule)
+    }
+
+    #[test]
+    fn step_up_no_steps_equals_fixed_rate() {
+        use crate::cashflow::primitives::CFKind;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
+
+        // Step-up with no steps = fixed rate at initial_rate
+        let (_, step_sched) = build_step_up_bond_schedule(0.05, vec![], issue, maturity);
+
+        // Build equivalent fixed-rate bond
+        let fixed_bond = Bond::builder()
+            .id("FIXED-EQUIV".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue_date(issue)
+            .maturity(maturity)
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                Tenor::semi_annual(),
+                DayCount::Thirty360,
+            ))
+            .discount_curve_id("USD-OIS".into())
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Bond builder should succeed for fixed test");
+
+        let market = MarketContext::new().insert_discount(
+            DiscountCurve::builder("USD-OIS")
+                .base_date(issue)
+                .knots([(0.0, 1.0), (5.0, 0.90)])
+                .interp(InterpStyle::Linear)
+                .build()
+                .expect("DiscountCurve builder should succeed in test"),
+        );
+
+        let fixed_sched = fixed_bond
+            .get_full_schedule(&market)
+            .expect("get_full_schedule should succeed for fixed bond");
+
+        // Compare coupon flows
+        let step_coupons: Vec<_> = step_sched
+            .flows
+            .iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub))
+            .collect();
+        let fixed_coupons: Vec<_> = fixed_sched
+            .flows
+            .iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub))
+            .collect();
+
+        assert_eq!(
+            step_coupons.len(),
+            fixed_coupons.len(),
+            "Step-up with no steps should produce same number of coupons as fixed"
+        );
+
+        for (s, f) in step_coupons.iter().zip(fixed_coupons.iter()) {
+            assert_eq!(s.date, f.date, "Coupon dates should match");
+            assert!(
+                (s.amount.amount() - f.amount.amount()).abs() < 1e-6,
+                "Coupon amounts should match: step={}, fixed={}",
+                s.amount.amount(),
+                f.amount.amount()
+            );
+            assert_eq!(s.rate, f.rate, "Coupon rates should match");
+        }
+    }
+
+    #[test]
+    fn step_up_one_step_changes_rate() {
+        use crate::cashflow::primitives::CFKind;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
+        let step_date = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
+
+        // 3% for first year, then 5% for second year
+        let (_, schedule) =
+            build_step_up_bond_schedule(0.03, vec![(step_date, 0.05)], issue, maturity);
+
+        let coupons: Vec<_> = schedule
+            .flows
+            .iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub))
+            .collect();
+
+        // Semi-annual over 2 years = 4 coupon periods
+        assert_eq!(
+            coupons.len(),
+            4,
+            "Should have 4 semi-annual coupons over 2 years"
+        );
+
+        // First 2 coupons (before step_date) should have initial_rate = 3%
+        for c in &coupons[..2] {
+            assert_eq!(
+                c.rate,
+                Some(0.03),
+                "Pre-step coupon rate should be 3%, got {:?} on {}",
+                c.rate,
+                c.date
+            );
+        }
+
+        // Last 2 coupons (on or after step_date) should have stepped rate = 5%
+        for c in &coupons[2..] {
+            assert_eq!(
+                c.rate,
+                Some(0.05),
+                "Post-step coupon rate should be 5%, got {:?} on {}",
+                c.rate,
+                c.date
+            );
+        }
+
+        // Verify amounts are consistent with rates:
+        // Notional = 1,000,000, 30/360 semi-annual, so each period is 0.5 years
+        // 3% coupon: 1,000,000 * 0.03 * 0.5 = 15,000
+        // 5% coupon: 1,000,000 * 0.05 * 0.5 = 25,000
+        for c in &coupons[..2] {
+            assert!(
+                (c.amount.amount() - 15_000.0).abs() < 1.0,
+                "3% coupon should be ~15000, got {}",
+                c.amount.amount()
+            );
+        }
+        for c in &coupons[2..] {
+            assert!(
+                (c.amount.amount() - 25_000.0).abs() < 1.0,
+                "5% coupon should be ~25000, got {}",
+                c.amount.amount()
+            );
+        }
+    }
+
+    #[test]
+    fn step_up_multiple_steps() {
+        use crate::cashflow::primitives::CFKind;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2028, Month::January, 1).expect("Valid test date");
+        let step1 = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
+        let step2 = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
+
+        // 2% -> 4% after 1 year -> 6% after 2 years
+        let (_, schedule) =
+            build_step_up_bond_schedule(0.02, vec![(step1, 0.04), (step2, 0.06)], issue, maturity);
+
+        let coupons: Vec<_> = schedule
+            .flows
+            .iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub))
+            .collect();
+
+        // Semi-annual over 3 years = 6 coupon periods
+        assert_eq!(
+            coupons.len(),
+            6,
+            "Should have 6 semi-annual coupons over 3 years"
+        );
+
+        // Verify rates by period
+        let expected_rates = [0.02, 0.02, 0.04, 0.04, 0.06, 0.06];
+        for (i, (c, &expected_rate)) in coupons.iter().zip(expected_rates.iter()).enumerate() {
+            assert_eq!(
+                c.rate,
+                Some(expected_rate),
+                "Period {} rate should be {}, got {:?}",
+                i,
+                expected_rate,
+                c.rate
+            );
+        }
+    }
+
+    #[test]
+    fn step_up_serde_roundtrip() {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
+        let step_date = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
+
+        let spec = CashflowSpec::step_up(
+            0.03,
+            vec![(step_date, 0.05)],
+            Tenor::semi_annual(),
+            DayCount::Thirty360,
+        );
+
+        let bond = Bond::builder()
+            .id("SERDE-STEP-UP".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue_date(issue)
+            .maturity(maturity)
+            .cashflow_spec(spec)
+            .discount_curve_id("USD-OIS".into())
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Bond builder should succeed");
+
+        // Serialize to JSON
+        let json = serde_json::to_string(&bond).expect("Serialization should succeed");
+
+        // Verify it contains StepUp tag
+        assert!(
+            json.contains("StepUp"),
+            "Serialized JSON should contain StepUp variant tag"
+        );
+
+        // Deserialize back
+        let bond2: Bond = serde_json::from_str(&json).expect("Deserialization should succeed");
+
+        // Verify roundtrip fidelity
+        assert_eq!(bond.id.as_str(), bond2.id.as_str());
+        assert_eq!(bond.issue_date, bond2.issue_date);
+        assert_eq!(bond.maturity, bond2.maturity);
+        assert_eq!(
+            bond.cashflow_spec.frequency(),
+            bond2.cashflow_spec.frequency()
+        );
+        assert_eq!(
+            bond.cashflow_spec.day_count(),
+            bond2.cashflow_spec.day_count()
+        );
+
+        // Verify the spec details survived roundtrip
+        match (&bond.cashflow_spec, &bond2.cashflow_spec) {
+            (CashflowSpec::StepUp(a), CashflowSpec::StepUp(b)) => {
+                assert_eq!(a.initial_rate, b.initial_rate);
+                assert_eq!(a.step_schedule.len(), b.step_schedule.len());
+                for ((d1, r1), (d2, r2)) in a.step_schedule.iter().zip(b.step_schedule.iter()) {
+                    assert_eq!(d1, d2);
+                    assert_eq!(r1, r2);
+                }
+            }
+            _ => panic!("Expected StepUp variant after roundtrip"),
+        }
+    }
+
+    #[test]
+    fn step_up_frequency_and_day_count() {
+        let _issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let step_date = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
+
+        let spec = CashflowSpec::step_up(
+            0.03,
+            vec![(step_date, 0.05)],
+            Tenor::quarterly(),
+            DayCount::Act360,
+        );
+
+        assert_eq!(spec.frequency(), Tenor::quarterly());
+        assert_eq!(spec.day_count(), DayCount::Act360);
     }
 }

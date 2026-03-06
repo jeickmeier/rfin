@@ -162,6 +162,14 @@ impl StochasticProcess for SchwartzSmithProcess {
         // Not diagonal due to correlation between X and Y
         false
     }
+
+    fn populate_path_state(&self, x: &[f64], state: &mut super::super::traits::PathState) {
+        // For Schwartz-Smith: state is [X, Y] but spot = exp(X + Y)
+        if x.len() >= 2 {
+            let spot = (x[0] + x[1]).exp();
+            state.set(super::super::traits::state_keys::SPOT, spot);
+        }
+    }
 }
 
 #[cfg(test)]

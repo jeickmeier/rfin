@@ -103,6 +103,9 @@ impl PoolAsset {
                         crate::instruments::fixed_income::bond::CashflowSpec::Floating(spec) => {
                             spec.rate_spec.dc
                         }
+                        crate::instruments::fixed_income::bond::CashflowSpec::StepUp(spec) => {
+                            spec.dc
+                        }
                         _ => DayCount::Act360, // Fallback if not clear, though bond should have one
                     }
                 }

@@ -10,7 +10,7 @@ use crate::market_data::{
     dividends::DividendSchedule,
     scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
-    surfaces::VolSurface,
+    surfaces::{FxDeltaVolSurface, VolSurface},
     term_structures::{
         BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve,
         InflationCurve, PriceCurve, VolatilityIndexCurve,
@@ -152,6 +152,39 @@ impl MarketContext {
         let arc_surface = surface.into();
         let id = arc_surface.id().to_owned();
         self.surfaces.insert(id, arc_surface);
+        self
+    }
+
+    /// Insert an FX delta-quoted volatility surface.
+    ///
+    /// Accepts either an owned [`FxDeltaVolSurface`] or an `Arc<FxDeltaVolSurface>`.
+    /// When passing an owned value, it will be wrapped in an `Arc` automatically.
+    /// When passing an `Arc`, it is used directly (enabling surface sharing between contexts).
+    ///
+    /// # Parameters
+    /// - `surface`: a [`FxDeltaVolSurface`] or `Arc<FxDeltaVolSurface>`
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use finstack_core::market_data::context::MarketContext;
+    /// # use finstack_core::market_data::surfaces::FxDeltaVolSurface;
+    /// let surface = FxDeltaVolSurface::new(
+    ///     "EURUSD-DELTA-VOL",
+    ///     vec![0.25, 0.5, 1.0],
+    ///     vec![0.08, 0.085, 0.09],
+    ///     vec![0.01, 0.012, 0.015],
+    ///     vec![0.005, 0.006, 0.007],
+    /// ).expect("surface should build");
+    /// let ctx = MarketContext::new().insert_fx_delta_vol_surface(surface);
+    /// assert!(ctx.fx_delta_vol_surface("EURUSD-DELTA-VOL").is_some());
+    /// ```
+    pub fn insert_fx_delta_vol_surface(
+        mut self,
+        surface: impl Into<Arc<FxDeltaVolSurface>>,
+    ) -> Self {
+        let arc_surface = surface.into();
+        let id = arc_surface.id().to_owned();
+        self.fx_delta_vol_surfaces.insert(id, arc_surface);
         self
     }
 

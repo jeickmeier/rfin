@@ -315,6 +315,7 @@ fn curve_storage_roundtrip_and_market_context_state_error_branch() {
             issuer_recovery_rates: None,
             issuer_weights: None,
         }],
+        fx_delta_vol_surfaces: vec![],
         collateral: std::collections::BTreeMap::new(),
     };
     assert!(MarketContext::try_from(bad_state).is_err());

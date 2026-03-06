@@ -233,6 +233,10 @@ pub(super) enum CouponSpec {
         overnight_compounding: Option<super::specs::OvernightCompoundingMethod>,
         fallback: super::specs::FloatingRateFallback,
     },
+    StepUp {
+        initial_rate: Decimal,
+        step_schedule: Vec<(finstack_core::dates::Date, Decimal)>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -495,6 +499,85 @@ pub(super) fn compute_coupon_schedules(
                 };
                 used_fixed_specs.push(spec.clone());
                 fixed_schedules.push((spec, dates.clone(), prev.clone(), first_or_last));
+            }
+            CouponSpec::StepUp {
+                initial_rate,
+                step_schedule,
+            } => {
+                // For step-up coupons, emit one FixedSchedule per period with
+                // the rate determined by the step schedule. We group consecutive
+                // periods that share the same rate into a single FixedSchedule
+                // so existing emission code works unchanged.
+
+                // Helper: find the applicable rate for a given accrual start
+                let rate_for = |period_start: Date| -> Decimal {
+                    let mut rate = *initial_rate;
+                    for (step_date, step_rate) in step_schedule {
+                        if *step_date <= period_start {
+                            rate = *step_rate;
+                        } else {
+                            break;
+                        }
+                    }
+                    rate
+                };
+
+                // Group consecutive periods by rate into FixedSchedule tuples.
+                // Each group is emitted as a separate FixedSchedule.
+                type RateGroup = (
+                    Decimal,
+                    Vec<Date>,
+                    finstack_core::HashMap<Date, SchedulePeriod>,
+                    finstack_core::HashSet<Date>,
+                );
+                let mut rate_groups: Vec<RateGroup> = Vec::new();
+
+                for &payment_date in &dates {
+                    if let Some(period) = prev.get(&payment_date) {
+                        let period_rate = rate_for(period.accrual_start);
+
+                        // Check if we can extend the last group
+                        let extend_last = rate_groups
+                            .last()
+                            .map(|(r, _, _, _)| *r == period_rate)
+                            .unwrap_or(false);
+
+                        if extend_last {
+                            // Safe: extend_last is true only when last() is Some
+                            if let Some(last) = rate_groups.last_mut() {
+                                last.1.push(payment_date);
+                                last.2.insert(payment_date, *period);
+                                if first_or_last.contains(&payment_date) {
+                                    last.3.insert(payment_date);
+                                }
+                            }
+                        } else {
+                            let mut period_map = finstack_core::HashMap::default();
+                            period_map.insert(payment_date, *period);
+                            let mut fol = finstack_core::HashSet::default();
+                            if first_or_last.contains(&payment_date) {
+                                fol.insert(payment_date);
+                            }
+                            rate_groups.push((period_rate, vec![payment_date], period_map, fol));
+                        }
+                    }
+                }
+
+                for (group_rate, group_dates, group_prev, group_fol) in rate_groups {
+                    let spec = FixedCouponSpec {
+                        coupon_type: split,
+                        rate: group_rate,
+                        freq: chosen_coupon.schedule.freq,
+                        dc: chosen_coupon.schedule.dc,
+                        bdc: chosen_coupon.schedule.bdc,
+                        calendar_id: chosen_coupon.schedule.calendar_id.clone(),
+                        stub: chosen_coupon.schedule.stub,
+                        end_of_month: chosen_coupon.schedule.end_of_month,
+                        payment_lag_days: chosen_coupon.schedule.payment_lag_days,
+                    };
+                    used_fixed_specs.push(spec.clone());
+                    fixed_schedules.push((spec, group_dates, group_prev, group_fol));
+                }
             }
             CouponSpec::Float {
                 index_id,

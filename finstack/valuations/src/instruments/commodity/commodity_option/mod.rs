@@ -11,4 +11,8 @@ pub(crate) mod traits;
 mod types;
 
 pub use pricer::CommodityOptionBlackPricer;
+#[cfg(feature = "mc")]
+pub use pricer::CommodityOptionMcPricer;
 pub use types::CommodityOption;
+#[cfg(feature = "mc")]
+pub use types::{CommodityMcParams, CommodityPricingModel};

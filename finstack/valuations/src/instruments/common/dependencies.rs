@@ -242,6 +242,8 @@ impl MarketDependencies {
             InstrumentJson::CommodityOption(i) => Self::from_curves_and_equity(i),
             InstrumentJson::CommodityForward(i) => Self::from_curves_and_equity(i),
             InstrumentJson::CommoditySwap(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::CommoditySwaption(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::CommoditySpreadOption(i) => Self::from_curve_dependencies(i),
 
             // Exotic Options
             InstrumentJson::Autocallable(i) => Self::from_curves_and_equity(i),

@@ -203,6 +203,8 @@ mod tests {
             time_grid: vec![0.25, 0.5, 1.0],
             recovery_rate: 0.40,
             include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
         };
         config.validate().expect("Config should be valid");
         assert_eq!(config.time_grid.len(), 3);

@@ -71,7 +71,7 @@ use super::{
     dividends::DividendSchedule,
     scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
-    surfaces::VolSurface,
+    surfaces::{FxDeltaVolSurface, VolSurface},
     term_structures::CreditIndexData,
 };
 
@@ -107,6 +107,9 @@ pub struct MarketContext {
     /// Shared dividend schedules keyed by `CurveId` (e.g., "AAPL-DIVS")
     dividends: HashMap<CurveId, Arc<DividendSchedule>>,
 
+    /// FX delta-quoted volatility surfaces
+    fx_delta_vol_surfaces: HashMap<CurveId, Arc<FxDeltaVolSurface>>,
+
     /// Collateral CSA code mappings
     collateral: HashMap<String, CurveId>,
 }
@@ -122,6 +125,7 @@ impl std::fmt::Debug for MarketContext {
             .field("inflation_indices", &self.inflation_indices.len())
             .field("credit_indices", &self.credit_indices.len())
             .field("dividends", &self.dividends.len())
+            .field("fx_delta_vol_surfaces", &self.fx_delta_vol_surfaces.len())
             .field("collateral", &self.collateral.len())
             .finish()
     }

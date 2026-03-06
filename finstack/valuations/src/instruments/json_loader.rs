@@ -158,6 +158,10 @@ pub enum InstrumentJson {
     CommodityForward(CommodityForward),
     /// Commodity swap
     CommoditySwap(CommoditySwap),
+    /// Commodity swaption
+    CommoditySwaption(CommoditySwaption),
+    /// Commodity spread option
+    CommoditySpreadOption(CommoditySpreadOption),
 
     // Exotic Options
     /// Autocallable note
@@ -257,6 +261,8 @@ impl InstrumentJson {
             InstrumentJson::CommodityOption(i) => Ok(Box::new(i)),
             InstrumentJson::CommodityForward(i) => Ok(Box::new(i)),
             InstrumentJson::CommoditySwap(i) => Ok(Box::new(i)),
+            InstrumentJson::CommoditySwaption(i) => Ok(Box::new(i)),
+            InstrumentJson::CommoditySpreadOption(i) => Ok(Box::new(i)),
 
             // Exotic Options
             InstrumentJson::Autocallable(i) => Ok(Box::new(i)),
@@ -453,6 +459,12 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                 .map_err(D::Error::custom),
             "commodity_swap" => serde_json::from_str(&spec_str)
                 .map(Self::CommoditySwap)
+                .map_err(D::Error::custom),
+            "commodity_swaption" => serde_json::from_str(&spec_str)
+                .map(Self::CommoditySwaption)
+                .map_err(D::Error::custom),
+            "commodity_spread_option" => serde_json::from_str(&spec_str)
+                .map(Self::CommoditySpreadOption)
                 .map_err(D::Error::custom),
 
             // Exotic Options

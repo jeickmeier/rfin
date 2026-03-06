@@ -16,6 +16,59 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 
+// ---------------------------------------------------------------------------
+// Monte Carlo types (feature-gated)
+// ---------------------------------------------------------------------------
+
+/// Monte Carlo configuration for commodity option pricing.
+///
+/// When provided, enables simulation-based pricing using the specified
+/// stochastic model instead of the default Black-76 analytical formula.
+#[cfg(feature = "mc")]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CommodityMcParams {
+    /// Pricing model to use for simulation.
+    pub model: CommodityPricingModel,
+    /// Number of Monte Carlo paths.
+    pub n_paths: usize,
+    /// Number of time steps per path.
+    pub n_steps: usize,
+    /// Optional random seed for reproducibility.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seed: Option<u64>,
+}
+
+/// Commodity option pricing model selection.
+///
+/// Determines the stochastic dynamics used for Monte Carlo simulation.
+#[cfg(feature = "mc")]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum CommodityPricingModel {
+    /// Analytical Black-76 (no MC needed; included for completeness).
+    BlackScholes,
+    /// Schwartz-Smith two-factor model.
+    ///
+    /// Models commodity prices as S(t) = exp(X(t) + Y(t)) where:
+    /// - X(t): short-term mean-reverting deviation (OU process)
+    /// - Y(t): long-term equilibrium trend (arithmetic Brownian motion)
+    SchwartzSmith {
+        /// Mean reversion speed for short-term component (kappa).
+        kappa: f64,
+        /// Volatility of short-term component (sigma_x).
+        sigma_x: f64,
+        /// Volatility of long-term component (sigma_y).
+        sigma_y: f64,
+        /// Correlation between short-term and long-term factors (rho_xy).
+        rho_xy: f64,
+        /// Drift of long-term trend (mu_y).
+        mu_y: f64,
+        /// Risk premium for short-term factor (lambda_x).
+        ///
+        /// Under risk-neutral measure: dX = -(kappa + lambda_x) X dt + sigma_x dW_X
+        lambda_x: f64,
+    },
+}
+
 /// Commodity option (option on commodity forward or spot).
 ///
 /// # Pricing
@@ -268,6 +321,146 @@ impl CommodityOption {
         self.premium_settlement_days
             .or_else(|| self.convention.map(|c| c.settlement_days()))
             .unwrap_or(1)
+    }
+
+    /// Price commodity option using Monte Carlo with Schwartz-Smith dynamics.
+    ///
+    /// Simulates paths under the Schwartz-Smith two-factor model and
+    /// computes discounted expected payoff.
+    ///
+    /// # Arguments
+    ///
+    /// * `mc_params` - Monte Carlo configuration (model, paths, steps, seed)
+    /// * `market` - Market data context for discount curves and forward prices
+    /// * `as_of` - Valuation date
+    ///
+    /// # Returns
+    ///
+    /// Present value as `Money` in the underlying currency.
+    #[cfg(feature = "mc")]
+    pub fn npv_mc(
+        &self,
+        mc_params: &CommodityMcParams,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
+        use crate::instruments::common_impl::models::monte_carlo::prelude::*;
+
+        let t = self.time_to_expiry(as_of)?;
+        if t <= 0.0 {
+            // At or past expiry: return intrinsic value
+            let underlying = if let Some(spot) = self.spot_price(market)? {
+                spot
+            } else {
+                self.forward_price(market, as_of)?
+            };
+            let intrinsic = self.intrinsic_value(underlying);
+            return Ok(Money::new(
+                intrinsic * self.quantity * self.multiplier,
+                self.underlying.currency,
+            ));
+        }
+
+        match &mc_params.model {
+            CommodityPricingModel::BlackScholes => {
+                // Fall back to analytical Black-76
+                let inputs = self.collect_inputs(market, as_of)?;
+                let unit_price = black76_unit_price(
+                    inputs.forward,
+                    self.strike,
+                    inputs.sigma,
+                    inputs.t,
+                    inputs.df,
+                    self.option_type,
+                );
+                Ok(Money::new(
+                    unit_price * self.quantity * self.multiplier,
+                    self.underlying.currency,
+                ))
+            }
+            CommodityPricingModel::SchwartzSmith {
+                kappa,
+                sigma_x,
+                sigma_y,
+                rho_xy,
+                mu_y,
+                lambda_x,
+            } => {
+                // Build risk-neutral Schwartz-Smith process.
+                // Under Q: dX = -(kappa + lambda_x) X dt + sigma_x dW_X
+                let rn_kappa = kappa + lambda_x;
+                if rn_kappa <= 0.0 {
+                    return Err(finstack_core::Error::Validation(
+                        "Risk-neutral kappa (kappa + lambda_x) must be positive".to_string(),
+                    ));
+                }
+
+                let ss_params =
+                    SchwartzSmithParams::new(rn_kappa, *sigma_x, *mu_y, *sigma_y, *rho_xy);
+
+                // Get initial spot price
+                let initial_spot = if let Some(spot) = self.spot_price(market)? {
+                    spot
+                } else {
+                    self.forward_price(market, as_of)?
+                };
+
+                let process = SchwartzSmithProcess::from_spot(ss_params, initial_spot, None);
+                let disc_scheme = ExactSchwartzSmith::from_process(&process)?;
+
+                // Discount factor
+                let disc_curve = market.get_discount(self.discount_curve_id.as_str())?;
+                let df = disc_curve.df_between_dates(as_of, self.expiry)?;
+
+                // Build MC engine
+                let seed = mc_params.seed.unwrap_or(42);
+                let time_grid = TimeGrid::uniform(t, mc_params.n_steps)?;
+                let engine_config = McEngineConfig::new(mc_params.n_paths, time_grid)
+                    .with_seed(seed)
+                    .with_parallel(cfg!(feature = "parallel"));
+                let engine = McEngine::new(engine_config);
+
+                let rng = PhiloxRng::new(seed);
+                let initial_state = process.initial_state().to_vec();
+                let maturity_step = mc_params.n_steps;
+
+                // Dispatch on option type (EuropeanCall / EuropeanPut are
+                // distinct concrete types, so we branch here).
+                let unit_pv = match self.option_type {
+                    OptionType::Call => {
+                        let payoff = EuropeanCall::new(self.strike, 1.0, maturity_step);
+                        let est = engine.price(
+                            &rng,
+                            &process,
+                            &disc_scheme,
+                            &initial_state,
+                            &payoff,
+                            self.underlying.currency,
+                            df,
+                        )?;
+                        est.mean.amount()
+                    }
+                    OptionType::Put => {
+                        let payoff = EuropeanPut::new(self.strike, 1.0, maturity_step);
+                        let est = engine.price(
+                            &rng,
+                            &process,
+                            &disc_scheme,
+                            &initial_state,
+                            &payoff,
+                            self.underlying.currency,
+                            df,
+                        )?;
+                        est.mean.amount()
+                    }
+                };
+
+                Ok(Money::new(
+                    unit_pv * self.quantity * self.multiplier,
+                    self.underlying.currency,
+                ))
+            }
+        }
     }
 }
 

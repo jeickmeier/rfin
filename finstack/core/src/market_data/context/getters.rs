@@ -11,7 +11,7 @@ use crate::market_data::{
     dividends::DividendSchedule,
     scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
-    surfaces::VolSurface,
+    surfaces::{FxDeltaVolSurface, VolSurface},
     term_structures::{
         BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve,
         InflationCurve, PriceCurve, VolatilityIndexCurve,
@@ -226,6 +226,28 @@ impl MarketContext {
     /// ```
     pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {
         self.inflation_indices.get(id.as_ref()).cloned()
+    }
+
+    /// Clone an FX delta-quoted volatility surface by identifier.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use finstack_core::market_data::context::MarketContext;
+    /// # use finstack_core::market_data::surfaces::FxDeltaVolSurface;
+    /// # let surface = FxDeltaVolSurface::new(
+    /// #     "EURUSD-DELTA-VOL",
+    /// #     vec![0.25, 0.5, 1.0],
+    /// #     vec![0.08, 0.085, 0.09],
+    /// #     vec![0.01, 0.012, 0.015],
+    /// #     vec![0.005, 0.006, 0.007],
+    /// # ).expect("surface should build");
+    /// # let ctx = MarketContext::new().insert_fx_delta_vol_surface(surface);
+    /// let surf = ctx.fx_delta_vol_surface("EURUSD-DELTA-VOL")
+    ///     .expect("surface should exist");
+    /// assert_eq!(surf.id().as_str(), "EURUSD-DELTA-VOL");
+    /// ```
+    pub fn fx_delta_vol_surface(&self, id: impl AsRef<str>) -> Option<Arc<FxDeltaVolSurface>> {
+        self.fx_delta_vol_surfaces.get(id.as_ref()).cloned()
     }
 
     /// Clone a dividend schedule by identifier.

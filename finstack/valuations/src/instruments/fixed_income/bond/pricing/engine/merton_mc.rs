@@ -1009,6 +1009,11 @@ pub mod calibration {
                     CashflowSpec::Fixed(f)
                 }
                 CashflowSpec::Floating(_) => return Err(InputError::Invalid.into()),
+                CashflowSpec::StepUp(s) => {
+                    let mut s = s.clone();
+                    s.coupon_type = CouponType::Cash;
+                    CashflowSpec::StepUp(s)
+                }
                 CashflowSpec::Amortizing { base, schedule } => CashflowSpec::Amortizing {
                     base: Box::new(cashify_spec(base.as_ref())?),
                     schedule: schedule.clone(),

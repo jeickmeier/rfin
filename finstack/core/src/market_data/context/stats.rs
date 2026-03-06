@@ -101,6 +101,7 @@ impl MarketContext {
             inflation_index_count: self.inflation_indices.len(),
             credit_index_count: self.credit_indices.len(),
             dividend_schedule_count: self.dividends.len(),
+            fx_delta_vol_surface_count: self.fx_delta_vol_surfaces.len(),
             collateral_mapping_count: self.collateral.len(),
         }
     }
@@ -114,6 +115,7 @@ impl MarketContext {
             && self.series.is_empty()
             && self.inflation_indices.is_empty()
             && self.credit_indices.is_empty()
+            && self.fx_delta_vol_surfaces.is_empty()
             && self.collateral.is_empty()
     }
 
@@ -125,6 +127,7 @@ impl MarketContext {
             + self.series.len()
             + self.inflation_indices.len()
             + self.credit_indices.len()
+            + self.fx_delta_vol_surfaces.len()
             + if self.fx.is_some() { 1 } else { 0 }
     }
 
@@ -225,6 +228,8 @@ pub struct ContextStats {
     pub credit_index_count: usize,
     /// Number of dividend schedules
     pub dividend_schedule_count: usize,
+    /// Number of FX delta-quoted volatility surfaces
+    pub fx_delta_vol_surface_count: usize,
     /// Number of collateral mappings
     pub collateral_mapping_count: usize,
 }
@@ -242,6 +247,11 @@ impl core::fmt::Display for ContextStats {
         writeln!(f, "  Inflation indices: {}", self.inflation_index_count)?;
         writeln!(f, "  Credit indices: {}", self.credit_index_count)?;
         writeln!(f, "  Dividend schedules: {}", self.dividend_schedule_count)?;
+        writeln!(
+            f,
+            "  FX delta vol surfaces: {}",
+            self.fx_delta_vol_surface_count
+        )?;
         writeln!(
             f,
             "  Collateral mappings: {}",

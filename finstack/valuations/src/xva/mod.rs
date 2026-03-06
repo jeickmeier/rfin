@@ -1,15 +1,18 @@
 //! XVA (Valuation Adjustments) framework.
 //!
-//! Implements credit valuation adjustment (CVA) and related metrics
-//! for OTC derivative portfolios. XVA adjustments capture the cost
-//! of counterparty credit risk, funding, and capital for uncollateralized
-//! or partially collateralized derivative positions.
+//! Implements credit, debit, and funding valuation adjustments (CVA, DVA, FVA)
+//! and related metrics for OTC derivative portfolios. XVA adjustments capture
+//! the cost of counterparty credit risk, own-default benefit, funding, and
+//! capital for uncollateralized or partially collateralized derivative positions.
 //!
 //! # Overview
 //!
 //! The XVA framework provides:
 //!
 //! - **CVA** (Credit Valuation Adjustment): Expected loss from counterparty default
+//! - **DVA** (Debit Valuation Adjustment): Expected gain from own default
+//! - **FVA** (Funding Valuation Adjustment): Cost/benefit of funding uncollateralized exposure
+//! - **Bilateral XVA**: Combined CVA - DVA + FVA adjustment
 //! - **Exposure simulation**: Deterministic exposure profiles (EPE, ENE, PFE)
 //! - **Netting**: Close-out netting under ISDA master agreements
 //! - **Collateral**: CSA collateral reduction of credit exposure
@@ -23,11 +26,13 @@
 //!                      ├─ Netting            │
 //!                      └─ CSA Collateral     │
 //!                                            ▼
-//!                               CVA Calculator
+//!                               XVA Calculators
 //!                                    │
-//!                                    ├─ Hazard Curve (PD)
+//!                                    ├─ CVA (counterparty hazard + EPE)
+//!                                    ├─ DVA (own hazard + ENE)
+//!                                    ├─ FVA (funding spread + EPE/ENE)
 //!                                    ├─ Discount Curve (DF)
-//!                                    └─ Recovery Rate (LGD)
+//!                                    └─ Recovery Rates (LGD)
 //!                                    │
 //!                                    ▼
 //!                               XvaResult
@@ -37,9 +42,9 @@
 //!
 //! ```rust,no_run
 //! use finstack_valuations::xva::{
-//!     types::{XvaConfig, NettingSet},
+//!     types::{XvaConfig, NettingSet, FundingConfig},
 //!     exposure::compute_exposure_profile,
-//!     cva::compute_cva,
+//!     cva::{compute_cva, compute_dva, compute_fva, compute_bilateral_xva},
 //! };
 //! use std::sync::Arc;
 //! # use finstack_core::market_data::context::MarketContext;
@@ -58,9 +63,17 @@
 //! // 3. Compute exposure profile
 //! // let profile = compute_exposure_profile(&instruments, &market, as_of, &config, &netting_set)?;
 //!
-//! // 4. Compute CVA
+//! // 4. Compute unilateral CVA
 //! // let result = compute_cva(&profile, &hazard_curve, &discount_curve, config.recovery_rate)?;
 //! // println!("CVA = {:.2}", result.cva);
+//!
+//! // 5. Compute bilateral XVA (CVA - DVA + FVA)
+//! // let funding = FundingConfig { funding_spread_bps: 50.0, funding_benefit_bps: None };
+//! // let bilateral = compute_bilateral_xva(
+//! //     &profile, &cpty_hazard, &own_hazard, &discount,
+//! //     0.40, 0.40, Some(&funding),
+//! // )?;
+//! // println!("Bilateral XVA = {:.2}", bilateral.bilateral_cva.unwrap());
 //! # Ok(())
 //! # }
 //! ```
@@ -69,19 +82,19 @@
 //!
 //! | Standard | Metric | Implementation Status |
 //! |----------|--------|----------------------|
-//! | Basel III SA-CCR | Effective EPE | ✅ Computed |
-//! | IFRS 13 / ASC 820 | Fair value CVA | ✅ Unilateral CVA |
-//! | Basel III CVA risk | CVA capital | ❌ Future work |
-//! | SA-CVA / BA-CVA | Standardized CVA | ❌ Future work |
+//! | Basel III SA-CCR | Effective EPE | Computed |
+//! | IFRS 13 / ASC 820 | Fair value CVA | Unilateral CVA |
+//! | IFRS 13 / ASC 820 | Fair value DVA | DVA (own-default) |
+//! | IFRS 13 / ASC 820 | Funding adjustment | FVA |
+//! | Basel III CVA risk | CVA capital | Future work |
+//! | SA-CVA / BA-CVA | Standardized CVA | Future work |
 //!
 //! # Future Extensions
 //!
-//! - **DVA** (Debit Valuation Adjustment): Own-default benefit
-//! - **FVA** (Funding Valuation Adjustment): Funding cost/benefit
 //! - **KVA** (Capital Valuation Adjustment): Cost of regulatory capital
 //! - **MVA** (Margin Valuation Adjustment): Cost of initial margin
 //! - **Monte Carlo exposure**: Stochastic risk factor simulation
-//! - **Wrong-way risk**: Exposure–default correlation modeling
+//! - **Wrong-way risk**: Exposure-default correlation modeling
 //!
 //! # References
 //!

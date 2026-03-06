@@ -134,6 +134,7 @@ pub(crate) mod parameters;
 pub(crate) mod pricer;
 mod types;
 
+pub use crate::market::conventions::ids::CdsDocClause;
 pub use parameters::{
     RECOVERY_HIGH_YIELD_DEFAULT, RECOVERY_SENIOR_UNSECURED, RECOVERY_SUBORDINATED,
 };

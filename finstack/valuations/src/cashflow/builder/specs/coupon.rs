@@ -364,15 +364,32 @@ pub struct FloatingCouponSpec {
 ///
 /// # Examples
 ///
-/// ```rust,no_run
-/// // Bond with 3% for years 1-3, stepping up to 4.5% for years 4-5
-/// use finstack_valuations::cashflow::builder::specs::StepUpCouponSpec;
-/// use time::macros::date;
+/// ```rust
+/// use finstack_core::dates::{Date, DayCount, Tenor, BusinessDayConvention, StubKind};
+/// use finstack_valuations::cashflow::builder::StepUpCouponSpec;
+/// use finstack_valuations::cashflow::builder::CouponType;
 /// use rust_decimal_macros::dec;
+/// use time::Month;
+///
+/// let spec = StepUpCouponSpec {
+///     coupon_type: CouponType::Cash,
+///     initial_rate: dec!(0.03),
+///     step_schedule: vec![
+///         (Date::from_calendar_date(2027, Month::January, 1).unwrap(), dec!(0.04)),
+///         (Date::from_calendar_date(2029, Month::January, 1).unwrap(), dec!(0.05)),
+///     ],
+///     freq: Tenor::semi_annual(),
+///     dc: DayCount::Thirty360,
+///     bdc: BusinessDayConvention::Following,
+///     calendar_id: "weekends_only".to_string(),
+///     stub: StubKind::None,
+///     end_of_month: false,
+///     payment_lag_days: 0,
+/// };
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct StepUpCouponSpec {
-    /// Coupon type (Cash or PIK).
+    /// Coupon type (Cash/PIK/Split).
     pub coupon_type: CouponType,
     /// Initial coupon rate (annual, decimal). Used until the first step date.
     pub initial_rate: Decimal,
@@ -393,7 +410,7 @@ pub struct StepUpCouponSpec {
     pub stub: StubKind,
     /// Whether to apply end-of-month rule.
     pub end_of_month: bool,
-    /// Payment lag in calendar days.
+    /// Payment lag in business days after accrual end.
     pub payment_lag_days: i32,
 }
 

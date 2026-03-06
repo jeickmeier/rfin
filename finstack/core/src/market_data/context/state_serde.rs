@@ -9,7 +9,7 @@ use super::MarketContext;
 use crate::market_data::{
     dividends::DividendSchedule,
     scalars::{InflationIndex, MarketScalar, ScalarTimeSeries},
-    surfaces::VolSurface,
+    surfaces::{FxDeltaVolSurface, VolSurface},
 };
 use crate::money::fx::{FxMatrix, FxMatrixState, FxProvider, SimpleFxProvider};
 
@@ -171,6 +171,9 @@ pub struct MarketContextState {
     pub dividends: Vec<DividendSchedule>,
     /// Credit index aggregates (references curves by ID)
     pub credit_indices: Vec<CreditIndexState>,
+    /// FX delta-quoted volatility surfaces
+    #[serde(default)]
+    pub fx_delta_vol_surfaces: Vec<FxDeltaVolSurface>,
     /// Collateral CSA mappings
     pub collateral: std::collections::BTreeMap<String, String>,
 }
@@ -270,6 +273,16 @@ impl From<&MarketContext> for MarketContextState {
         dividend_pairs.sort_by(|a, b| a.0.cmp(&b.0));
         let dividends: Vec<_> = dividend_pairs.into_iter().map(|(_, d)| d).collect();
 
+        // Convert FX delta vol surfaces (sort deterministically by key id).
+        let mut fx_delta_pairs: Vec<(CurveId, FxDeltaVolSurface)> = ctx
+            .fx_delta_vol_surfaces
+            .iter()
+            .map(|(id, surf)| (id.clone(), (**surf).clone()))
+            .collect();
+        fx_delta_pairs.sort_by(|a, b| a.0.cmp(&b.0));
+        let fx_delta_vol_surfaces: Vec<_> =
+            fx_delta_pairs.into_iter().map(|(_, surf)| surf).collect();
+
         // Convert collateral mappings
         let collateral: std::collections::BTreeMap<String, String> = ctx
             .collateral
@@ -287,6 +300,7 @@ impl From<&MarketContext> for MarketContextState {
             inflation_indices,
             dividends,
             credit_indices,
+            fx_delta_vol_surfaces,
             collateral,
         }
     }
@@ -381,6 +395,12 @@ impl TryFrom<MarketContextState> for MarketContext {
 
             ctx.credit_indices
                 .insert(CurveId::from(credit_state.id), Arc::new(data));
+        }
+
+        // Reconstruct FX delta vol surfaces
+        for surface in state.fx_delta_vol_surfaces {
+            let id = surface.id().to_owned();
+            ctx.fx_delta_vol_surfaces.insert(id, Arc::new(surface));
         }
 
         // Reconstruct collateral mappings

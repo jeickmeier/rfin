@@ -3,6 +3,44 @@
 //! Defines configuration, result containers, netting set specifications,
 //! and CSA (Credit Support Annex) terms used across all XVA calculations.
 
+/// Funding cost/benefit configuration for FVA calculation.
+///
+/// Models the asymmetric funding costs that arise from uncollateralized
+/// derivative positions. Positive exposure requires funding (cost),
+/// while negative exposure provides funding (benefit).
+///
+/// # References
+///
+/// - Gregory, J. (2020). *The xVA Challenge*, 4th ed. Wiley. Chapter 19 (FVA).
+/// - Green, A. (2015). *XVA: Credit, Funding and Capital Valuation Adjustments*. Chapter 5.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct FundingConfig {
+    /// Funding spread in basis points (cost on positive exposure).
+    ///
+    /// This is the spread over the risk-free rate that the institution
+    /// pays to fund positive (out-of-the-money to counterparty) exposure.
+    /// Typical values: 20–100 bps depending on the institution's credit quality.
+    pub funding_spread_bps: f64,
+
+    /// Funding benefit spread in basis points (benefit on negative exposure).
+    ///
+    /// If `None`, symmetric funding is assumed: `funding_benefit = funding_spread`.
+    /// In practice, the benefit spread may be lower than the cost spread
+    /// due to asymmetric funding conditions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub funding_benefit_bps: Option<f64>,
+}
+
+impl FundingConfig {
+    /// Returns the effective funding benefit spread in basis points.
+    ///
+    /// If `funding_benefit_bps` is `None`, returns `funding_spread_bps`
+    /// (symmetric funding assumption).
+    pub fn effective_benefit_bps(&self) -> f64 {
+        self.funding_benefit_bps.unwrap_or(self.funding_spread_bps)
+    }
+}
+
 /// XVA calculation configuration.
 ///
 /// Controls the time grid, recovery assumptions, and optional modeling
@@ -36,6 +74,21 @@ pub struct XvaConfig {
     /// When enabled, correlation between exposure and default probability
     /// is modeled, which can significantly increase CVA for certain portfolios.
     pub include_wrong_way_risk: bool,
+
+    /// Recovery rate for own default (used in DVA calculation).
+    ///
+    /// If `None`, defaults to the counterparty `recovery_rate`.
+    /// May differ from counterparty recovery if the institution's
+    /// seniority or credit quality warrants a different assumption.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub own_recovery_rate: Option<f64>,
+
+    /// Funding configuration for FVA calculation.
+    ///
+    /// If `None`, FVA is not computed. When provided, funding costs
+    /// and benefits are calculated based on the exposure profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub funding: Option<FundingConfig>,
 }
 
 impl Default for XvaConfig {
@@ -47,6 +100,8 @@ impl Default for XvaConfig {
             time_grid,
             recovery_rate: 0.40,
             include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
         }
     }
 }
@@ -88,6 +143,30 @@ impl XvaConfig {
             )));
         }
 
+        if let Some(own_r) = self.own_recovery_rate {
+            if !(0.0..=1.0).contains(&own_r) {
+                return Err(finstack_core::Error::Validation(format!(
+                    "XvaConfig: own_recovery_rate {own_r} must be in [0, 1]"
+                )));
+            }
+        }
+
+        if let Some(ref funding) = self.funding {
+            if !funding.funding_spread_bps.is_finite() || funding.funding_spread_bps < 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "XvaConfig: funding_spread_bps {} must be non-negative and finite",
+                    funding.funding_spread_bps
+                )));
+            }
+            if let Some(benefit) = funding.funding_benefit_bps {
+                if !benefit.is_finite() || benefit < 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "XvaConfig: funding_benefit_bps {benefit} must be non-negative and finite"
+                    )));
+                }
+            }
+        }
+
         Ok(())
     }
 }
@@ -108,6 +187,34 @@ pub struct XvaResult {
     /// Represents the expected loss due to counterparty default,
     /// discounted to present value.
     pub cva: f64,
+
+    /// DVA (Debit Valuation Adjustment): own-default benefit.
+    ///
+    /// Positive DVA represents the expected gain to the desk from
+    /// the institution's own default on negative-exposure positions.
+    ///
+    /// `None` when DVA is not computed (unilateral CVA only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dva: Option<f64>,
+
+    /// FVA (Funding Valuation Adjustment): net funding cost/benefit.
+    ///
+    /// Positive FVA represents a net funding cost; negative FVA
+    /// represents a net funding benefit. Captures the cost of
+    /// funding uncollateralized derivative positions.
+    ///
+    /// `None` when FVA is not computed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fva: Option<f64>,
+
+    /// Bilateral CVA: CVA - DVA.
+    ///
+    /// The net credit adjustment accounting for both counterparty
+    /// default risk (CVA) and own-default benefit (DVA).
+    ///
+    /// `None` when bilateral CVA is not computed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bilateral_cva: Option<f64>,
 
     /// Expected Positive Exposure profile: `(time, EPE(t))`.
     ///
@@ -338,6 +445,8 @@ mod tests {
             time_grid: vec![],
             recovery_rate: 0.40,
             include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
         };
         assert!(config.validate().is_err());
     }
@@ -348,6 +457,8 @@ mod tests {
             time_grid: vec![1.0, 0.5, 2.0],
             recovery_rate: 0.40,
             include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
         };
         assert!(config.validate().is_err());
     }
@@ -358,6 +469,8 @@ mod tests {
             time_grid: vec![1.0, 2.0],
             recovery_rate: 1.5,
             include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
         };
         assert!(config.validate().is_err());
 
@@ -365,6 +478,8 @@ mod tests {
             time_grid: vec![1.0, 2.0],
             recovery_rate: -0.1,
             include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
         };
         assert!(config_neg.validate().is_err());
     }
@@ -375,6 +490,8 @@ mod tests {
             time_grid: vec![0.0, 1.0],
             recovery_rate: 0.40,
             include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
         };
         assert!(config.validate().is_err());
     }

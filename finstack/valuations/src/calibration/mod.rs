@@ -100,7 +100,7 @@ pub use validation::surfaces::SurfaceValidator;
 pub use validation::{RateBounds, RateBoundsPolicy, ValidationConfig, ValidationMode};
 
 /// Calibration diagnostics and results.
-pub use report::CalibrationReport;
+pub use report::{CalibrationDiagnostics, CalibrationReport, QuoteQuality};
 
 // Internal/advanced re-exports (not part of typical usage)
 #[doc(hidden)]

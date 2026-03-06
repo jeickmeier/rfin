@@ -425,6 +425,12 @@ impl MetricCalculator for AssetSwapParCalculator {
                     Some(spec.rate_spec.calendar_id.as_str()),
                     spec.stub,
                 ),
+                CashflowSpec::StepUp(spec) => (
+                    spec.freq,
+                    spec.bdc,
+                    Some(spec.calendar_id.as_str()),
+                    spec.stub,
+                ),
                 _ => return Err(finstack_core::InputError::Invalid.into()),
             },
         };
@@ -596,6 +602,12 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                     spec.stub,
                     spec.rate_spec.bdc,
                     Some(spec.rate_spec.calendar_id.as_str()),
+                ),
+                CashflowSpec::StepUp(spec) => (
+                    spec.freq,
+                    spec.stub,
+                    spec.bdc,
+                    Some(spec.calendar_id.as_str()),
                 ),
                 _ => return Err(finstack_core::InputError::Invalid.into()),
             },

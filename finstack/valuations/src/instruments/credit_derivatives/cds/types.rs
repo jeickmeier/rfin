@@ -45,6 +45,7 @@ use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
+use crate::market::conventions::ids::CdsDocClause;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -405,6 +406,20 @@ fn cds_conventions_registry() -> &'static finstack_core::HashMap<String, CdsConv
 // Re-export from common parameters
 pub use crate::instruments::common_impl::parameters::legs::{PremiumLegSpec, ProtectionLegSpec};
 
+/// Resolve a meta documentation clause (e.g., `IsdaNa`, `IsdaEu`) to its
+/// concrete restructuring variant. Concrete clauses pass through unchanged.
+fn resolve_doc_clause(clause: CdsDocClause) -> CdsDocClause {
+    match clause {
+        CdsDocClause::IsdaNa => CdsDocClause::Xr14,
+        CdsDocClause::IsdaEu => CdsDocClause::Mm14,
+        CdsDocClause::IsdaAs => CdsDocClause::Xr14,
+        CdsDocClause::IsdaAu => CdsDocClause::Xr14,
+        CdsDocClause::IsdaNz => CdsDocClause::Xr14,
+        // Concrete clauses pass through
+        other => other,
+    }
+}
+
 /// Credit Default Swap instrument.
 ///
 /// # Market Standards & Citations (Week 5)
@@ -471,6 +486,34 @@ pub struct CreditDefaultSwap {
     /// - If negative: Seller pays Buyer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upfront: Option<(Date, Money)>,
+    /// ISDA documentation clause for restructuring credit events.
+    ///
+    /// Controls which restructuring events trigger protection payments and
+    /// the maximum deliverable obligation maturity upon restructuring:
+    ///
+    /// - **Cr14** (Full Restructuring): All restructuring events trigger; no maturity cap.
+    /// - **Mr14** (Modified Restructuring): Restructuring triggers with 30-month maturity cap.
+    /// - **Mm14** (Modified-Modified Restructuring): Restructuring triggers with 60-month cap.
+    /// - **Xr14** (No Restructuring): Restructuring does not trigger protection.
+    ///
+    /// If `None`, the effective clause is derived from the CDS convention:
+    /// - `IsdaNa` / `IsdaAs` -> `Xr14` (no restructuring, North American / Asian standard)
+    /// - `IsdaEu` -> `Mm14` (modified-modified restructuring, European standard)
+    ///
+    /// See [`doc_clause_effective`](Self::doc_clause_effective) for resolution logic.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doc_clause: Option<CdsDocClause>,
+    /// Optional protection effective date for forward-starting CDS.
+    ///
+    /// When `Some(date)`, protection begins on the specified date rather than
+    /// the premium leg start date. This allows a CDS where premium accrues
+    /// from the original start date but credit protection only kicks in later.
+    ///
+    /// Must satisfy: `premium.start <= protection_effective_date <= premium.end`.
+    ///
+    /// When `None`, protection starts on the premium leg start date (standard CDS).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub protection_effective_date: Option<Date>,
     /// Optional OTC margin specification for VM/IM.
     ///
     /// For cleared CDS (e.g., via ICE Clear Credit), use
@@ -584,6 +627,8 @@ impl CreditDefaultSwap {
             },
             pricing_overrides: PricingOverrides::default(),
             upfront: None,
+            doc_clause: None,
+            protection_effective_date: None,
             margin_spec: None,
             attributes: Attributes::new(),
         };
@@ -647,10 +692,62 @@ impl CreditDefaultSwap {
         // Validate recovery rate (must be in [0, 1])
         validation::validate_recovery_rate(self.protection.recovery_rate)?;
 
+        // Validate protection_effective_date bounds if set
+        if let Some(ped) = self.protection_effective_date {
+            if ped < self.premium.start {
+                return Err(finstack_core::Error::Validation(format!(
+                    "CDS protection_effective_date ({}) must be >= premium start date ({})",
+                    ped, self.premium.start
+                )));
+            }
+            if ped > self.premium.end {
+                return Err(finstack_core::Error::Validation(format!(
+                    "CDS protection_effective_date ({}) must be <= premium end date ({})",
+                    ped, self.premium.end
+                )));
+            }
+        }
+
         // Note: Zero notional is allowed for testing scenarios
         // Note: Negative spreads are allowed (theoretically possible in unusual market conditions)
 
         Ok(())
+    }
+
+    /// Resolve the effective documentation clause.
+    ///
+    /// If an explicit `doc_clause` is set on the instrument, returns it directly.
+    /// Otherwise, derives the standard clause from the CDS convention:
+    ///
+    /// | Convention | Default Clause | Rationale |
+    /// |-----------|---------------|-----------|
+    /// | `IsdaNa` | `Xr14` | NA standard: no restructuring (post-Big Bang) |
+    /// | `IsdaEu` | `Mm14` | European standard: modified-modified restructuring |
+    /// | `IsdaAs` | `Xr14` | Asian standard: follows NA convention |
+    /// | `Custom` | `Xr14` | Conservative default |
+    ///
+    /// For meta-clauses (`IsdaNa`, `IsdaEu`, `IsdaAs` on `CdsDocClause`), the
+    /// method further resolves them to their concrete restructuring variant.
+    #[must_use]
+    pub fn doc_clause_effective(&self) -> CdsDocClause {
+        match self.doc_clause {
+            Some(clause) => resolve_doc_clause(clause),
+            None => match self.convention {
+                CDSConvention::IsdaNa => CdsDocClause::Xr14,
+                CDSConvention::IsdaEu => CdsDocClause::Mm14,
+                CDSConvention::IsdaAs => CdsDocClause::Xr14,
+                CDSConvention::Custom => CdsDocClause::Xr14,
+            },
+        }
+    }
+
+    /// Returns the effective protection start date.
+    ///
+    /// For a forward-starting CDS, this returns the `protection_effective_date`.
+    /// For a standard (spot) CDS, this returns `premium.start`.
+    #[must_use]
+    pub fn protection_start(&self) -> Date {
+        self.protection_effective_date.unwrap_or(self.premium.start)
     }
 
     /// Build premium leg cashflows

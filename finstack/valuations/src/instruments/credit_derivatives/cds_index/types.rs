@@ -292,6 +292,8 @@ impl CDSIndex {
             protection: self.protection.clone(),
             pricing_overrides: self.pricing_overrides.clone(),
             upfront: None,
+            doc_clause: None,
+            protection_effective_date: None,
             margin_spec: self.margin_spec.clone(),
             attributes: self.attributes.clone(),
         }

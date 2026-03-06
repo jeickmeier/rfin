@@ -46,6 +46,7 @@ fn test_attribution_envelope_json_roundtrip() {
             dividends: vec![],
             credit_indices: vec![],
             collateral: std::collections::BTreeMap::new(),
+            fx_delta_vol_surfaces: vec![],
         },
         market_t1: MarketContextState {
             version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
@@ -58,6 +59,7 @@ fn test_attribution_envelope_json_roundtrip() {
             dividends: vec![],
             credit_indices: vec![],
             collateral: std::collections::BTreeMap::new(),
+            fx_delta_vol_surfaces: vec![],
         },
         as_of_t0: create_date(2025, Month::January, 1).unwrap(),
         as_of_t1: create_date(2025, Month::January, 2).unwrap(),
@@ -115,6 +117,7 @@ fn test_attribution_envelope_waterfall_roundtrip() {
             dividends: vec![],
             credit_indices: vec![],
             collateral: std::collections::BTreeMap::new(),
+            fx_delta_vol_surfaces: vec![],
         },
         market_t1: MarketContextState {
             version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
@@ -127,6 +130,7 @@ fn test_attribution_envelope_waterfall_roundtrip() {
             dividends: vec![],
             credit_indices: vec![],
             collateral: std::collections::BTreeMap::new(),
+            fx_delta_vol_surfaces: vec![],
         },
         as_of_t0: create_date(2025, Month::January, 1).unwrap(),
         as_of_t1: create_date(2025, Month::January, 2).unwrap(),
@@ -222,6 +226,7 @@ fn test_attribution_envelope_to_from_json_helpers() {
             dividends: vec![],
             credit_indices: vec![],
             collateral: std::collections::BTreeMap::new(),
+            fx_delta_vol_surfaces: vec![],
         },
         market_t1: MarketContextState {
             version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
@@ -234,6 +239,7 @@ fn test_attribution_envelope_to_from_json_helpers() {
             dividends: vec![],
             credit_indices: vec![],
             collateral: std::collections::BTreeMap::new(),
+            fx_delta_vol_surfaces: vec![],
         },
         as_of_t0: create_date(2025, Month::January, 1).unwrap(),
         as_of_t1: create_date(2025, Month::January, 2).unwrap(),

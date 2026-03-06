@@ -124,6 +124,10 @@ pub enum InstrumentType {
     CommodityOption = 68,
     /// Commodity Asian option (option on arithmetic/geometric average of commodity prices).
     CommodityAsianOption = 72,
+    /// Commodity swaption (option on a fixed-for-floating commodity swap).
+    CommoditySwaption = 74,
+    /// Commodity spread option (option on the spread between two commodities).
+    CommoditySpreadOption = 75,
     /// Volatility index future (VIX, VXN, VSTOXX).
     VolatilityIndexFuture = 57,
     /// Volatility index option (options on VIX, etc.).
@@ -203,6 +207,8 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::CommoditySwap => "commodity_swap",
             InstrumentType::CommodityOption => "commodity_option",
             InstrumentType::CommodityAsianOption => "commodity_asian_option",
+            InstrumentType::CommoditySwaption => "commodity_swaption",
+            InstrumentType::CommoditySpreadOption => "commodity_spread_option",
             InstrumentType::VolatilityIndexFuture => "volatility_index_future",
             InstrumentType::VolatilityIndexOption => "volatility_index_option",
             InstrumentType::EquityIndexFuture => "equity_index_future",
@@ -297,6 +303,10 @@ impl std::str::FromStr for InstrumentType {
             }
             "commodity_swap" | "commodityswap" => Ok(InstrumentType::CommoditySwap),
             "commodity_option" | "commodityoption" => Ok(InstrumentType::CommodityOption),
+            "commodity_swaption" | "commodityswaption" => Ok(InstrumentType::CommoditySwaption),
+            "commodity_spread_option" | "commodityspreadoption" => {
+                Ok(InstrumentType::CommoditySpreadOption)
+            }
             "volatility_index_future" | "vol_index_future" | "vix_future" | "vixfuture" => {
                 Ok(InstrumentType::VolatilityIndexFuture)
             }
@@ -436,6 +446,10 @@ pub enum ModelKey {
     ///
     /// Used for: PIK bonds, credit-risky bonds with structural default model.
     MertonMc = 30,
+    /// Monte Carlo with Schwartz-Smith two-factor commodity model.
+    ///
+    /// Used for: commodity options requiring mean-reverting short-term dynamics.
+    MonteCarloSchwartzSmith = 31,
 }
 
 impl std::fmt::Display for ModelKey {
@@ -458,6 +472,7 @@ impl std::fmt::Display for ModelKey {
             ModelKey::FxBarrierBSContinuous => "fx_barrier_bs_continuous",
             ModelKey::HestonFourier => "heston_fourier",
             ModelKey::MertonMc => "merton_mc",
+            ModelKey::MonteCarloSchwartzSmith => "monte_carlo_schwartz_smith",
         };
         write!(f, "{}", label)
     }
@@ -502,6 +517,9 @@ impl std::str::FromStr for ModelKey {
                 Ok(ModelKey::HestonFourier)
             }
             "merton_mc" | "merton" | "structural_mc" => Ok(ModelKey::MertonMc),
+            "monte_carlo_schwartz_smith" | "mc_schwartz_smith" | "schwartz_smith_mc" => {
+                Ok(ModelKey::MonteCarloSchwartzSmith)
+            }
             other => Err(format!("Unknown model key: {}", other)),
         }
     }
@@ -2188,6 +2206,22 @@ pub fn register_commodity_pricers(registry: &mut PricerRegistry) {
         crate::instruments::commodity::commodity_option::pricer::CommodityOptionBlackPricer::with_model(
             ModelKey::Discounting
         )
+    );
+
+    // Commodity Swaption
+    register_pricer!(
+        registry,
+        CommoditySwaption,
+        Black76,
+        crate::instruments::commodity::commodity_swaption::pricer::CommoditySwaptionBlackPricer::default()
+    );
+
+    // Commodity Spread Option (Kirk's approximation)
+    register_pricer!(
+        registry,
+        CommoditySpreadOption,
+        Black76,
+        crate::instruments::commodity::commodity_spread_option::pricer::CommoditySpreadOptionKirkPricer::default()
     );
 }
 

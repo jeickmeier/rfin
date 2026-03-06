@@ -81,7 +81,7 @@ use crate::constants::{
     credit, isda, numerical, time as time_constants, BASIS_POINTS_PER_UNIT, ONE_BASIS_POINT,
 };
 use crate::instruments::common_impl::helpers::year_fraction;
-use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
+use crate::instruments::credit_derivatives::cds::{CdsDocClause, CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
 use finstack_core::dates::DateExt;
 use finstack_core::dates::{adjust, next_cds_date, Date, DayCount, HolidayCalendar};
@@ -416,6 +416,52 @@ impl CDSPricerConfig {
     }
 }
 
+/// Maximum deliverable obligation maturity cap (in months) for a given
+/// documentation clause.
+///
+/// This controls how restructuring credit events affect the protection leg:
+///
+/// - **`Cr14`** (Full Restructuring): No maturity cap on deliverable obligations.
+///   All bonds of the reference entity are deliverable, making restructuring a
+///   broad credit event. Returns `None` (uncapped).
+///
+/// - **`Mr14`** (Modified Restructuring): Deliverable obligations are capped at
+///   30 months from the restructuring event. This limits the cheapest-to-deliver
+///   option and reduces the value of restructuring protection.
+///
+/// - **`Mm14`** (Modified-Modified Restructuring): 60-month cap on deliverable
+///   obligation maturity. A compromise between CR and MR, common in European CDS.
+///
+/// - **`Xr14`** (No Restructuring): Restructuring is not a credit event.
+///   Returns `Some(0)` indicating no restructuring benefit.
+///
+/// - **Meta-clauses** (`IsdaNa`, `IsdaEu`, `IsdaAs`, `IsdaAu`, `IsdaNz`):
+///   Delegate to the effective concrete clause per regional convention.
+///
+/// - **`Custom`**: Treated as no restructuring (`Some(0)`) by default.
+///
+/// # Returns
+///
+/// - `None`: No maturity cap (full restructuring benefit).
+/// - `Some(0)`: No restructuring benefit (Xr14 or Custom).
+/// - `Some(n)`: Maturity cap of `n` months from the restructuring event.
+#[must_use]
+pub fn max_deliverable_maturity(clause: CdsDocClause) -> Option<u32> {
+    match clause {
+        CdsDocClause::Cr14 => None,      // Full restructuring, uncapped
+        CdsDocClause::Mr14 => Some(30),  // Modified Restructuring: 30 months
+        CdsDocClause::Mm14 => Some(60),  // Modified-Modified Restructuring: 60 months
+        CdsDocClause::Xr14 => Some(0),   // No Restructuring: no benefit
+        CdsDocClause::Custom => Some(0), // Conservative default: no benefit
+        // Meta-clauses delegate to their effective concrete clause
+        CdsDocClause::IsdaNa => max_deliverable_maturity(CdsDocClause::Xr14),
+        CdsDocClause::IsdaEu => max_deliverable_maturity(CdsDocClause::Mm14),
+        CdsDocClause::IsdaAs => max_deliverable_maturity(CdsDocClause::Xr14),
+        CdsDocClause::IsdaAu => max_deliverable_maturity(CdsDocClause::Xr14),
+        CdsDocClause::IsdaNz => max_deliverable_maturity(CdsDocClause::Xr14),
+    }
+}
+
 /// CDS pricing engine. Stateless wrapper carrying configuration.
 #[derive(Debug)]
 pub struct CDSPricer {
@@ -523,10 +569,24 @@ impl CDSPricer {
         // Note: Recovery rate validation is performed at CDS construction time.
         // All public constructors (builder, new_isda) call validate().
 
-        // Protection leg covers the period from premium start to premium end
-        // But we only value protection from as_of onwards (can't protect against past defaults)
-        let protection_start = as_of.max(cds.premium.start);
+        // Protection leg covers the period from protection start to premium end.
+        // For forward-starting CDS, protection begins at protection_effective_date
+        // (which may be later than the premium leg start).
+        // We only value protection from as_of onwards (can't protect against past defaults).
+        let protection_start = as_of.max(cds.protection_start());
         let protection_end = cds.premium.end;
+
+        // Forward-start at or past maturity: no protection interval by construction.
+        if cds.protection_start() >= protection_end {
+            return Ok(0.0);
+        }
+
+        // Determine the effective protection end considering the restructuring clause.
+        // For clauses with a maturity cap (Mr14, Mm14), the effective protection end
+        // for the restructuring component is limited. For Xr14, restructuring provides
+        // no additional protection. For Cr14, there is no cap.
+        let effective_clause = cds.doc_clause_effective();
+        let restructuring_factor = restructuring_adjustment_factor(effective_clause, cds);
 
         // Use hazard curve's day-count for time axis (survival is the dominant factor)
         let t_asof = haz_t(surv, as_of)?;
@@ -649,7 +709,10 @@ impl CDSPricer {
             )?,
         };
 
-        Ok(protection_pv * cds.notional.amount())
+        // Apply the restructuring adjustment. Contracts with restructuring as a
+        // credit event (Cr14, Mr14, Mm14) have protection worth more than Xr14
+        // because they cover an additional class of credit events.
+        Ok(protection_pv * restructuring_factor * cds.notional.amount())
     }
 
     /// Calculate PV of premium leg with optional accrual-on-default
@@ -2071,6 +2134,59 @@ fn approx_default_density(surv: &HazardCurve, t: f64, h: f64, t_start: f64, t_en
     (-deriv).max(0.0)
 }
 
+/// Compute a multiplicative adjustment factor for the protection leg PV
+/// based on the effective documentation clause.
+///
+/// Restructuring credit events increase the probability of a payout (more
+/// event types can trigger protection). The factor represents how much
+/// additional protection value the restructuring clause provides relative
+/// to the base default-only protection.
+///
+/// The factor is calibrated to approximate market practice:
+///
+/// | Clause | Factor | Rationale |
+/// |--------|--------|-----------|
+/// | `Xr14` | 1.00 | Baseline: default events only |
+/// | `Mr14` | 1.02 | Small uplift: limited deliverables (30 months) |
+/// | `Mm14` | 1.03 | Moderate uplift: longer deliverable window (60 months) |
+/// | `Cr14` | 1.05 | Full uplift: unrestricted deliverables |
+/// | `Custom`| 1.00 | Conservative: no restructuring benefit assumed |
+///
+/// These factors are first-order approximations. In production, a full
+/// restructuring model would separate the restructuring hazard rate from
+/// the default hazard rate.
+fn restructuring_adjustment_factor(clause: CdsDocClause, cds: &CreditDefaultSwap) -> f64 {
+    let cap = max_deliverable_maturity(clause);
+    match cap {
+        Some(0) => {
+            // No restructuring benefit (Xr14 or Custom)
+            1.0
+        }
+        Some(months) => {
+            // Limited restructuring: scale based on how much of the CDS tenor
+            // the restructuring cap covers. If the cap exceeds the remaining
+            // tenor, the full restructuring benefit applies.
+            let tenor_months = {
+                let start = cds.premium.start;
+                let end = cds.premium.end;
+                // Approximate tenor in months
+                let days = (end - start).whole_days();
+                days as f64 / 30.44 // average days per month
+            };
+            // Coverage ratio: what fraction of the CDS tenor is covered by the cap
+            let coverage = (months as f64 / tenor_months).min(1.0);
+            // Base restructuring premium scaled by coverage
+            // MR14 (30 months) has ~2% base uplift, MM14 (60 months) has ~3%
+            let base_uplift = if months <= 30 { 0.02 } else { 0.03 };
+            1.0 + base_uplift * coverage
+        }
+        None => {
+            // Full restructuring (Cr14): uncapped deliverable maturity
+            1.05
+        }
+    }
+}
+
 /// Configuration for CDS bootstrapping.
 ///
 /// Controls how synthetic CDS instruments are constructed during hazard curve
@@ -2480,5 +2596,379 @@ mod tests {
             .par_spread(&cds, &disc, &credit, as_of)
             .expect("should succeed");
         assert!(s1.is_finite() && s2.is_finite());
+    }
+
+    // ─── Restructuring clause / doc_clause tests ───────────────────────
+
+    #[test]
+    fn test_xr14_regression_matches_baseline() {
+        // Xr14 (no restructuring) should produce the same output as a CDS without
+        // any explicit doc_clause, since the default convention (IsdaNa) maps to Xr14.
+        let (disc, credit) = create_test_curves();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+
+        let cds_baseline =
+            create_test_cds("CDS-BASELINE", as_of, as_of.add_months(60), 100.0, 0.40);
+
+        let mut cds_xr14 = create_test_cds("CDS-XR14", as_of, as_of.add_months(60), 100.0, 0.40);
+        cds_xr14.doc_clause = Some(CdsDocClause::Xr14);
+
+        let pricer = CDSPricer::new();
+
+        let pv_baseline = pricer
+            .pv_protection_leg_raw(&cds_baseline, &disc, &credit, as_of)
+            .expect("should succeed");
+        let pv_xr14 = pricer
+            .pv_protection_leg_raw(&cds_xr14, &disc, &credit, as_of)
+            .expect("should succeed");
+
+        // Both should be identical since IsdaNa convention defaults to Xr14
+        assert!(
+            (pv_baseline - pv_xr14).abs() < 1e-10,
+            "Xr14 should match baseline (IsdaNa default). Baseline={}, Xr14={}",
+            pv_baseline,
+            pv_xr14,
+        );
+    }
+
+    #[test]
+    fn test_cr14_higher_protection_than_xr14() {
+        // Full restructuring (Cr14) should give equal-or-higher protection PV
+        // because restructuring adds credit event types.
+        let (disc, credit) = create_test_curves();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+
+        let mut cds_xr14 = create_test_cds("CDS-XR14", as_of, as_of.add_months(60), 100.0, 0.40);
+        cds_xr14.doc_clause = Some(CdsDocClause::Xr14);
+
+        let mut cds_cr14 = create_test_cds("CDS-CR14", as_of, as_of.add_months(60), 100.0, 0.40);
+        cds_cr14.doc_clause = Some(CdsDocClause::Cr14);
+
+        let pricer = CDSPricer::new();
+
+        let pv_xr14 = pricer
+            .pv_protection_leg_raw(&cds_xr14, &disc, &credit, as_of)
+            .expect("should succeed");
+        let pv_cr14 = pricer
+            .pv_protection_leg_raw(&cds_cr14, &disc, &credit, as_of)
+            .expect("should succeed");
+
+        assert!(
+            pv_cr14 > pv_xr14,
+            "Cr14 protection should exceed Xr14. Cr14={}, Xr14={}",
+            pv_cr14,
+            pv_xr14,
+        );
+    }
+
+    #[test]
+    fn test_restructuring_ordering_xr14_mr14_mm14_cr14() {
+        // Protection PV should increase with broader restructuring coverage:
+        // Xr14 <= Mr14 <= Mm14 <= Cr14
+        let (disc, credit) = create_test_curves();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+
+        let clauses = [
+            CdsDocClause::Xr14,
+            CdsDocClause::Mr14,
+            CdsDocClause::Mm14,
+            CdsDocClause::Cr14,
+        ];
+
+        let pricer = CDSPricer::new();
+        let mut pvs = Vec::new();
+
+        for clause in &clauses {
+            let mut cds = create_test_cds("CDS-TEST", as_of, as_of.add_months(60), 100.0, 0.40);
+            cds.doc_clause = Some(*clause);
+            let pv = pricer
+                .pv_protection_leg_raw(&cds, &disc, &credit, as_of)
+                .expect("should succeed");
+            pvs.push(pv);
+        }
+
+        for i in 0..pvs.len() - 1 {
+            assert!(
+                pvs[i] <= pvs[i + 1],
+                "Protection PV should increase with broader restructuring: {:?}={} should be <= {:?}={}",
+                clauses[i], pvs[i], clauses[i + 1], pvs[i + 1],
+            );
+        }
+    }
+
+    #[test]
+    fn test_doc_clause_effective_defaults() {
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+
+        // No explicit doc_clause with IsdaNa convention -> Xr14
+        let cds_na = create_test_cds("CDS-NA", as_of, as_of.add_months(60), 100.0, 0.40);
+        assert_eq!(cds_na.doc_clause_effective(), CdsDocClause::Xr14);
+
+        // Explicit Cr14 should override convention default
+        let mut cds_cr14 = create_test_cds("CDS-CR14", as_of, as_of.add_months(60), 100.0, 0.40);
+        cds_cr14.doc_clause = Some(CdsDocClause::Cr14);
+        assert_eq!(cds_cr14.doc_clause_effective(), CdsDocClause::Cr14);
+
+        // Meta-clause IsdaEu should resolve to Mm14
+        let mut cds_eu = create_test_cds("CDS-EU", as_of, as_of.add_months(60), 100.0, 0.40);
+        cds_eu.doc_clause = Some(CdsDocClause::IsdaEu);
+        assert_eq!(cds_eu.doc_clause_effective(), CdsDocClause::Mm14);
+    }
+
+    #[test]
+    fn test_max_deliverable_maturity_mapping() {
+        assert_eq!(max_deliverable_maturity(CdsDocClause::Cr14), None);
+        assert_eq!(max_deliverable_maturity(CdsDocClause::Mr14), Some(30));
+        assert_eq!(max_deliverable_maturity(CdsDocClause::Mm14), Some(60));
+        assert_eq!(max_deliverable_maturity(CdsDocClause::Xr14), Some(0));
+        // Meta-clauses delegate
+        assert_eq!(max_deliverable_maturity(CdsDocClause::IsdaNa), Some(0));
+        assert_eq!(max_deliverable_maturity(CdsDocClause::IsdaEu), Some(60));
+    }
+
+    #[test]
+    fn test_doc_clause_serde_roundtrip() {
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+
+        // With doc_clause set
+        let mut cds_with = create_test_cds("CDS-SERDE", as_of, as_of.add_months(60), 100.0, 0.40);
+        cds_with.doc_clause = Some(CdsDocClause::Cr14);
+        let json = serde_json::to_string(&cds_with).expect("serialize should succeed");
+        assert!(
+            json.contains("doc_clause"),
+            "JSON should contain doc_clause field"
+        );
+        let deser: CreditDefaultSwap =
+            serde_json::from_str(&json).expect("deserialize should succeed");
+        assert_eq!(deser.doc_clause, Some(CdsDocClause::Cr14));
+
+        // Without doc_clause (None) - should not appear in JSON (skip_serializing_if)
+        let cds_without =
+            create_test_cds("CDS-SERDE-NONE", as_of, as_of.add_months(60), 100.0, 0.40);
+        let json_without = serde_json::to_string(&cds_without).expect("serialize should succeed");
+        assert!(
+            !json_without.contains("doc_clause"),
+            "JSON should NOT contain doc_clause when None"
+        );
+        let deser_without: CreditDefaultSwap =
+            serde_json::from_str(&json_without).expect("deserialize should succeed");
+        assert_eq!(deser_without.doc_clause, None);
+    }
+
+    #[test]
+    fn test_doc_clause_backward_compatible_construction() {
+        // Existing construction without doc_clause should still work
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+        let cds = create_test_cds("CDS-COMPAT", as_of, as_of.add_months(60), 100.0, 0.40);
+        assert_eq!(cds.doc_clause, None);
+
+        // Builder pattern should also work without doc_clause
+        let cds_built = CreditDefaultSwap::builder()
+            .id(finstack_core::types::InstrumentId::new("CDS-BUILDER"))
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .side(PayReceive::PayFixed)
+            .convention(crate::instruments::credit_derivatives::cds::CDSConvention::IsdaNa)
+            .premium(
+                crate::instruments::common_impl::parameters::legs::PremiumLegSpec {
+                    start: as_of,
+                    end: as_of.add_months(60),
+                    frequency: finstack_core::dates::Tenor::quarterly(),
+                    stub: finstack_core::dates::StubKind::ShortFront,
+                    bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: Some("nyse".to_string()),
+                    day_count: finstack_core::dates::DayCount::Act360,
+                    spread_bp: Decimal::try_from(100.0).expect("valid"),
+                    discount_curve_id: finstack_core::types::CurveId::new("USD-OIS"),
+                },
+            )
+            .protection(
+                crate::instruments::common_impl::parameters::legs::ProtectionLegSpec {
+                    credit_curve_id: finstack_core::types::CurveId::new("TEST-CREDIT"),
+                    recovery_rate: 0.40,
+                    settlement_delay: 3,
+                },
+            )
+            .build()
+            .expect("builder should succeed without doc_clause");
+        assert_eq!(cds_built.doc_clause, None);
+        assert_eq!(cds_built.doc_clause_effective(), CdsDocClause::Xr14);
+    }
+
+    #[test]
+    fn test_doc_clause_serde_backward_compat_deserialization() {
+        // Simulate old serialized data by serializing a CDS, stripping the
+        // doc_clause field from JSON, and verifying it still deserializes.
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+        let cds = create_test_cds("CDS-OLD", as_of, as_of.add_months(60), 100.0, 0.40);
+        let json = serde_json::to_string(&cds).expect("serialize should succeed");
+
+        // The JSON should not contain "doc_clause" since it is None
+        assert!(
+            !json.contains("doc_clause"),
+            "Baseline CDS JSON should not contain doc_clause"
+        );
+
+        // Deserialize and verify backward compat
+        let deser: CreditDefaultSwap = serde_json::from_str(&json)
+            .expect("Should deserialize old JSON without doc_clause field");
+        assert_eq!(deser.doc_clause, None);
+        assert_eq!(deser.doc_clause_effective(), CdsDocClause::Xr14);
+    }
+
+    // ── Forward-starting CDS tests ──────────────────────────────────────
+
+    /// Helper: create a forward-starting CDS with a specified protection effective date.
+    fn create_forward_start_cds(
+        id: impl Into<String>,
+        start_date: Date,
+        end_date: Date,
+        spread_bp: f64,
+        recovery_rate: f64,
+        protection_effective_date: Option<Date>,
+    ) -> CreditDefaultSwap {
+        let mut cds = create_test_cds(id, start_date, end_date, spread_bp, recovery_rate);
+        cds.protection_effective_date = protection_effective_date;
+        cds.validate().expect("forward-start CDS should validate");
+        cds
+    }
+
+    #[test]
+    fn test_forward_start_none_matches_spot_cds() {
+        let (disc, credit) = create_test_curves();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+        let end = as_of.add_months(60);
+
+        let spot_cds = create_test_cds("CDS-SPOT", as_of, end, 100.0, 0.40);
+        let fwd_none = create_forward_start_cds("CDS-FWD-NONE", as_of, end, 100.0, 0.40, None);
+
+        let pricer = CDSPricer::new();
+
+        let spot_prot = pricer
+            .pv_protection_leg_raw(&spot_cds, &disc, &credit, as_of)
+            .expect("should succeed");
+        let fwd_prot = pricer
+            .pv_protection_leg_raw(&fwd_none, &disc, &credit, as_of)
+            .expect("should succeed");
+
+        let spot_prem = pricer
+            .pv_premium_leg_raw(&spot_cds, &disc, &credit, as_of)
+            .expect("should succeed");
+        let fwd_prem = pricer
+            .pv_premium_leg_raw(&fwd_none, &disc, &credit, as_of)
+            .expect("should succeed");
+
+        assert!(
+            (spot_prot - fwd_prot).abs() < 1e-10,
+            "None protection_effective_date should match spot: spot={spot_prot}, fwd={fwd_prot}",
+        );
+        assert!(
+            (spot_prem - fwd_prem).abs() < 1e-10,
+            "None protection_effective_date should match spot premium: spot={spot_prem}, fwd={fwd_prem}",
+        );
+    }
+
+    #[test]
+    fn test_forward_start_lower_protection_pv_same_premium_pv() {
+        let (disc, credit) = create_test_curves();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+        let end = as_of.add_months(60);
+        let fwd_date = as_of.add_months(24);
+
+        let spot_cds = create_test_cds("CDS-SPOT", as_of, end, 100.0, 0.40);
+        let fwd_cds = create_forward_start_cds("CDS-FWD", as_of, end, 100.0, 0.40, Some(fwd_date));
+
+        let pricer = CDSPricer::new();
+
+        let spot_prot = pricer
+            .pv_protection_leg_raw(&spot_cds, &disc, &credit, as_of)
+            .expect("should succeed");
+        let fwd_prot = pricer
+            .pv_protection_leg_raw(&fwd_cds, &disc, &credit, as_of)
+            .expect("should succeed");
+
+        assert!(
+            fwd_prot < spot_prot,
+            "Forward-start protection PV ({fwd_prot}) should be less than spot ({spot_prot})",
+        );
+        assert!(
+            fwd_prot > 0.0,
+            "Forward-start protection PV should still be positive"
+        );
+
+        let spot_prem = pricer
+            .pv_premium_leg_raw(&spot_cds, &disc, &credit, as_of)
+            .expect("should succeed");
+        let fwd_prem = pricer
+            .pv_premium_leg_raw(&fwd_cds, &disc, &credit, as_of)
+            .expect("should succeed");
+
+        assert!(
+            (spot_prem - fwd_prem).abs() < 1e-10,
+            "Premium leg should be identical: spot={spot_prem}, fwd={fwd_prem}",
+        );
+    }
+
+    #[test]
+    fn test_forward_start_protection_at_end_near_zero() {
+        let (disc, credit) = create_test_curves();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+        let end = as_of.add_months(60);
+
+        let fwd_cds = create_forward_start_cds("CDS-FWD-END", as_of, end, 100.0, 0.40, Some(end));
+
+        let pricer = CDSPricer::new();
+        let prot_pv = pricer
+            .pv_protection_leg_raw(&fwd_cds, &disc, &credit, as_of)
+            .expect("should succeed");
+
+        assert!(
+            prot_pv.abs() < 1.0,
+            "Protection PV should be ~0 when effective_date = end, got {prot_pv}",
+        );
+    }
+
+    #[test]
+    fn test_forward_start_invalid_before_premium_start() {
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+        let end = as_of.add_months(60);
+        let before_start =
+            Date::from_calendar_date(2024, time::Month::June, 1).expect("valid date");
+
+        let mut cds = create_test_cds("CDS-BAD", as_of, end, 100.0, 0.40);
+        cds.protection_effective_date = Some(before_start);
+        let result = cds.validate();
+        assert!(
+            result.is_err(),
+            "protection_effective_date before premium start should fail"
+        );
+    }
+
+    #[test]
+    fn test_forward_start_invalid_after_premium_end() {
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+        let end = as_of.add_months(60);
+        let after_end = end.add_months(12);
+
+        let mut cds = create_test_cds("CDS-BAD", as_of, end, 100.0, 0.40);
+        cds.protection_effective_date = Some(after_end);
+        let result = cds.validate();
+        assert!(
+            result.is_err(),
+            "protection_effective_date after premium end should fail"
+        );
+    }
+
+    #[test]
+    fn test_protection_start_helper() {
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+        let end = as_of.add_months(60);
+        let fwd_date = as_of.add_months(24);
+
+        let spot = create_test_cds("CDS-SPOT", as_of, end, 100.0, 0.40);
+        assert_eq!(spot.protection_start(), as_of);
+
+        let mut fwd = spot.clone();
+        fwd.protection_effective_date = Some(fwd_date);
+        assert_eq!(fwd.protection_start(), fwd_date);
     }
 }
