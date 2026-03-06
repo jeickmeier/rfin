@@ -59,10 +59,13 @@ Everything is accessible via `finstack_core::dates`, and is designed to be:
       - `Thirty360`, `ThirtyE360`
       - `ActAct`, `ActActIsma`
       - `Bus252`
-    - `DayCountCtx` / `DayCountCtxState` to supply calendars and coupon frequency (for `Bus252`, `ActActIsma`).
+    - `DayCountCtx` / `DayCountCtxState` to supply calendars and coupon frequency (for `Bus252`, `ActActIsma` regular periods).
     - Core API:
       - `DayCount::year_fraction(start, end, ctx) -> Result<f64>`
     - Helpers for 30/360, Act/Act (ISDA + ISMA), Act/365L, and business‑day counting.
+    - For irregular ICMA coupons (short/long stubs), use
+      `act_act_isma_year_fraction_with_reference_period(...)` with explicit
+      reference coupon boundaries rather than relying on the frequency-only helper.
 - **`schedule_iter.rs`**
   - Schedule generation engine:
     - `Tenor` (time periods with units: Days, Weeks, Months, Years, with helpers like `monthly()`, `quarterly()`, `weekly()`, etc.)

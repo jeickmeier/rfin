@@ -99,7 +99,17 @@ impl Performance {
         if prices.is_empty() || dates.is_empty() {
             return Err(crate::error::InputError::Invalid.into());
         }
+        if ticker_names.len() != prices.len() {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        if prices
+            .iter()
+            .any(|price_col| price_col.len() != dates.len())
+        {
+            return Err(crate::error::InputError::Invalid.into());
+        }
         let n_tickers = prices.len();
+        let expected_returns_len = dates.len().saturating_sub(1);
 
         let benchmark_idx = match benchmark_ticker {
             Some(name) => ticker_names.iter().position(|t| t == name).unwrap_or(0),
@@ -117,6 +127,9 @@ impl Performance {
                 sr[1..].to_vec()
             };
             clean_returns(&mut r);
+            if r.len() != expected_returns_len {
+                return Err(crate::error::InputError::Invalid.into());
+            }
             let dd = to_drawdown_series(&r);
             all_drawdowns.push(dd);
             all_returns.push(r);
@@ -1147,5 +1160,43 @@ mod tests {
         assert_eq!(corr.len(), 2);
         assert_eq!(corr[0].len(), 2);
         assert!((corr[0][0] - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn performance_rejects_price_length_mismatch() {
+        let dates = make_dates(5);
+        let p1 = make_prices(5);
+        let p2 = make_prices(4);
+        let result = Performance::new(
+            dates,
+            vec![p1, p2],
+            vec!["A".into(), "B".into()],
+            None,
+            PeriodKind::Daily,
+            false,
+        );
+        assert!(
+            result.is_err(),
+            "mismatched price lengths should be rejected"
+        );
+    }
+
+    #[test]
+    fn performance_rejects_ticker_name_mismatch() {
+        let dates = make_dates(5);
+        let p1 = make_prices(5);
+        let p2 = make_prices(5);
+        let result = Performance::new(
+            dates,
+            vec![p1, p2],
+            vec!["A".into()],
+            None,
+            PeriodKind::Daily,
+            false,
+        );
+        assert!(
+            result.is_err(),
+            "ticker names must match the price matrix width"
+        );
     }
 }

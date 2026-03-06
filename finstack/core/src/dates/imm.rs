@@ -292,14 +292,16 @@ static SIFMA_CALENDAR: &[(i32, u8, u8, u8, u8, u8)] = &[
 /// Look up the published SIFMA settlement date for a specific class.
 ///
 /// Returns the exact date from the embedded calendar when available
-/// (currently 2026-2027). Falls back to `third_wednesday()` for years
-/// not in the calendar.
+/// (currently 2026-2027).
+///
+/// Returns `None` when no published date is embedded for the requested
+/// month/year/class.
 #[must_use]
 pub fn sifma_settlement_date_for_class(
     month: Month,
     year: i32,
     class: SifmaSettlementClass,
-) -> Date {
+) -> Option<Date> {
     let month_num = month as u8;
     for &(y, m, a, b, c, d) in SIFMA_CALENDAR {
         if y == year && m == month_num {
@@ -309,11 +311,10 @@ pub fn sifma_settlement_date_for_class(
                 SifmaSettlementClass::C => c,
                 SifmaSettlementClass::D => d,
             };
-            return Date::from_calendar_date(year, month, day)
-                .unwrap_or_else(|_| third_wednesday(month, year));
+            return Date::from_calendar_date(year, month, day).ok();
         }
     }
-    third_wednesday(month, year)
+    None
 }
 
 /// Return the **SIFMA TBA settlement date** for the given `month` and `year`.
@@ -321,58 +322,48 @@ pub fn sifma_settlement_date_for_class(
 /// Defaults to **Class B** (conventional 30-year UMBS). For other settlement
 /// classes, use [`sifma_settlement_date_for_class`].
 ///
-/// # Panics
-/// Never panics for valid Gregorian years supported by the `time` crate.
-///
 /// # Example
 /// ```rust
 /// use finstack_core::dates::sifma_settlement_date;
 /// use time::{Date, Month};
 ///
-/// let settle = sifma_settlement_date(Month::March, 2024);
-/// assert_eq!(settle.weekday(), time::Weekday::Wednesday);
-/// assert_eq!(settle, Date::from_calendar_date(2024, Month::March, 20).expect("Valid date"));
+/// let settle = sifma_settlement_date(Month::March, 2027);
+/// assert_eq!(
+///     settle,
+///     Some(Date::from_calendar_date(2027, Month::March, 15).expect("Valid date"))
+/// );
 /// ```
 #[must_use]
-pub fn sifma_settlement_date(month: Month, year: i32) -> Date {
+pub fn sifma_settlement_date(month: Month, year: i32) -> Option<Date> {
     sifma_settlement_date_for_class(month, year, SifmaSettlementClass::B)
 }
 
-/// Return the **next SIFMA TBA settlement date** (third Wednesday of any month)
+/// Return the **next published SIFMA TBA settlement date**
 /// **strictly after** `date`.
 ///
-/// Scans forward through all months (not just quarterly) to find the next
-/// third Wednesday settlement date.
+/// Scans forward through the embedded published calendar entries and returns
+/// `None` when there is no later covered month.
 ///
 /// # Example
 /// ```rust
 /// use finstack_core::dates::next_sifma_settlement;
 /// use time::{Date, Month};
 ///
-/// let start = Date::from_calendar_date(2024, Month::March, 21).expect("Valid date");
+/// let start = Date::from_calendar_date(2027, Month::March, 16).expect("Valid date");
 /// let next = next_sifma_settlement(start);
-/// // After March 20 (3rd Wed), next is April's 3rd Wednesday
-/// assert_eq!(next.month(), Month::April);
-/// assert_eq!(next.weekday(), time::Weekday::Wednesday);
+/// assert_eq!(next, Some(Date::from_calendar_date(2027, Month::April, 15).expect("Valid date")));
 /// ```
 #[must_use]
-pub fn next_sifma_settlement(date: Date) -> Date {
-    const ALL_MONTHS: [Month; 12] = [
-        Month::January,
-        Month::February,
-        Month::March,
-        Month::April,
-        Month::May,
-        Month::June,
-        Month::July,
-        Month::August,
-        Month::September,
-        Month::October,
-        Month::November,
-        Month::December,
-    ];
-
-    next_date_from_months(date, &ALL_MONTHS, sifma_settlement_date)
+pub fn next_sifma_settlement(date: Date) -> Option<Date> {
+    let mut best = None;
+    for &(year, month_num, _a, b, _c, _d) in SIFMA_CALENDAR {
+        let month = Month::try_from(month_num).ok()?;
+        let candidate = Date::from_calendar_date(year, month, b).ok()?;
+        if candidate > date && best.is_none_or(|current| candidate < current) {
+            best = Some(candidate);
+        }
+    }
+    best
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -569,7 +560,7 @@ mod tests {
         let d = sifma_settlement_date_for_class(Month::January, 2026, SifmaSettlementClass::B);
         assert_eq!(
             d,
-            Date::from_calendar_date(2026, Month::January, 20).expect("valid")
+            Some(Date::from_calendar_date(2026, Month::January, 20).expect("valid"))
         );
     }
 
@@ -578,7 +569,7 @@ mod tests {
         let d = sifma_settlement_date_for_class(Month::January, 2026, SifmaSettlementClass::A);
         assert_eq!(
             d,
-            Date::from_calendar_date(2026, Month::January, 14).expect("valid")
+            Some(Date::from_calendar_date(2026, Month::January, 14).expect("valid"))
         );
     }
 
@@ -587,14 +578,14 @@ mod tests {
         let d = sifma_settlement_date_for_class(Month::March, 2027, SifmaSettlementClass::D);
         assert_eq!(
             d,
-            Date::from_calendar_date(2027, Month::March, 23).expect("valid")
+            Some(Date::from_calendar_date(2027, Month::March, 23).expect("valid"))
         );
     }
 
     #[test]
-    fn sifma_fallback_for_uncovered_year() {
+    fn sifma_returns_none_for_uncovered_year() {
         let d = sifma_settlement_date_for_class(Month::March, 2024, SifmaSettlementClass::B);
-        assert_eq!(d, third_wednesday(Month::March, 2024));
+        assert_eq!(d, None);
     }
 
     #[test]

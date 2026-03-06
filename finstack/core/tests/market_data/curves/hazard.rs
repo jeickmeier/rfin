@@ -30,7 +30,7 @@ fn builder_rejects_empty_knots() {
 #[test]
 fn builder_rejects_negative_hazard_rate() {
     let err = HazardCurve::builder("NEG")
-        .knots([(0.0, -0.01), (1.0, 0.02)])
+        .knots([(1.0, -0.01), (2.0, 0.02)])
         .build()
         .expect_err("negative lambda should fail");
     assert!(matches!(err, finstack_core::Error::Input(_)));
@@ -44,7 +44,7 @@ fn builder_rejects_negative_hazard_rate() {
 fn survival_and_default_probabilities() {
     let curve = HazardCurve::builder("HC")
         .base_date(base_date())
-        .knots([(0.0, 0.01), (2.0, 0.015), (5.0, 0.02)])
+        .knots([(1.0, 0.01), (2.0, 0.015), (5.0, 0.02)])
         .par_spreads([(1.0, 100.0), (3.0, 150.0)])
         .build()
         .unwrap();
@@ -62,7 +62,7 @@ fn survival_and_default_probabilities() {
 fn hazard_shift_clamps_negative_rates() {
     let curve = HazardCurve::builder("HC")
         .base_date(base_date())
-        .knots([(0.0, 0.01), (5.0, 0.02)])
+        .knots([(1.0, 0.01), (5.0, 0.02)])
         .build()
         .unwrap();
     let shifted = curve.with_parallel_bump(-0.02).unwrap();
@@ -85,7 +85,7 @@ fn to_builder_preserves_metadata() {
         .issuer("ACME Corp")
         .seniority(Seniority::Senior)
         .currency(Currency::USD)
-        .knots([(0.0, 0.01), (3.0, 0.02)])
+        .knots([(1.0, 0.01), (3.0, 0.02)])
         .par_spreads([(2.0, 120.0)])
         .build()
         .unwrap();
@@ -112,7 +112,7 @@ fn sp_analytical_verification_constant_hazard() {
     // Constant hazard rate for simple verification
     let curve = HazardCurve::builder("SP-VERIFY")
         .base_date(base_date())
-        .knots([(0.0, 0.02), (5.0, 0.02), (10.0, 0.02)])
+        .knots([(1.0, 0.02), (5.0, 0.02), (10.0, 0.02)])
         .build()
         .unwrap();
 
@@ -133,18 +133,15 @@ fn sp_analytical_verification_constant_hazard() {
 #[test]
 fn sp_piecewise_verification() {
     // Piecewise hazard curve: knots define λ at each point
-    // Implementation uses λ[i] for interval (knot[i-1], knot[i]]
-    // So for knots [(0.0, 0.01), (2.0, 0.015), (5.0, 0.02)]:
-    // - From t=0 to t=2: uses λ=0.015 (rate at upper bound)
-    // - From t=2 to t=5: uses λ=0.02 (rate at upper bound)
+    // Implementation uses the first lambda on [0, first_knot], then λ[i] on (knot[i-1], knot[i]].
     let curve = HazardCurve::builder("SP-PIECEWISE")
         .base_date(base_date())
-        .knots([(0.0, 0.01), (2.0, 0.015), (5.0, 0.02)])
+        .knots([(1.0, 0.01), (2.0, 0.015), (5.0, 0.02)])
         .build()
         .unwrap();
 
-    // S(1) = exp(-0.015*1) - using λ=0.015 from knot[1] for interval (0,2]
-    let expected_1 = (-0.015_f64 * 1.0).exp();
+    // S(1) = exp(-0.01*1) - first lambda applies through the first pillar
+    let expected_1 = (-0.01_f64 * 1.0).exp();
     assert!(
         (curve.sp(1.0) - expected_1).abs() < 1e-12,
         "SP at t=1: got {}, expected {}",
@@ -152,9 +149,8 @@ fn sp_piecewise_verification() {
         expected_1
     );
 
-    // S(3) = exp(-(0.015*2 + 0.02*1))
-    // First 2 years at λ=0.015, next 1 year at λ=0.02
-    let expected_3 = (-(0.015_f64 * 2.0 + 0.02 * 1.0)).exp();
+    // S(3) = exp(-(0.01*1 + 0.015*1 + 0.02*1))
+    let expected_3 = (-(0.01_f64 * 1.0 + 0.015 * 1.0 + 0.02 * 1.0)).exp();
     assert!(
         (curve.sp(3.0) - expected_3).abs() < 1e-12,
         "SP at t=3: got {}, expected {}",
@@ -184,7 +180,7 @@ fn test_date() -> Date {
 fn test_hazard_curve_sp() {
     let curve = HazardCurve::builder("CDS-TEST")
         .base_date(test_date())
-        .knots([(0.0, 0.01), (1.0, 0.012), (5.0, 0.015)])
+        .knots([(1.0, 0.01), (2.0, 0.012), (5.0, 0.015)])
         .recovery_rate(0.4)
         .build()
         .unwrap();
@@ -205,7 +201,7 @@ fn test_hazard_curve_sp() {
 fn test_hazard_curve_default_probability() {
     let curve = HazardCurve::builder("CDS-TEST")
         .base_date(test_date())
-        .knots([(0.0, 0.01), (5.0, 0.02)])
+        .knots([(1.0, 0.01), (5.0, 0.02)])
         .recovery_rate(0.4)
         .build()
         .unwrap();
@@ -239,7 +235,7 @@ fn test_hazard_curve_recovery_rate_zero() {
     // Zero recovery (harshest case)
     let curve = HazardCurve::builder("ZERO-REC")
         .base_date(test_date())
-        .knots([(0.0, 0.02), (5.0, 0.03)])
+        .knots([(1.0, 0.02), (5.0, 0.03)])
         .recovery_rate(0.0)
         .build()
         .unwrap();
@@ -253,7 +249,7 @@ fn test_hazard_curve_recovery_rate_full() {
     // Full recovery (no loss given default)
     let curve = HazardCurve::builder("FULL-REC")
         .base_date(test_date())
-        .knots([(0.0, 0.02), (5.0, 0.03)])
+        .knots([(1.0, 0.02), (5.0, 0.03)])
         .recovery_rate(1.0)
         .build()
         .unwrap();
@@ -268,7 +264,7 @@ fn test_hazard_curve_edge_case_zero_spreads() {
     // Zero hazard rates (no default risk)
     let curve = HazardCurve::builder("RISK-FREE")
         .base_date(test_date())
-        .knots([(0.0, 0.0), (10.0, 0.0)])
+        .knots([(1.0, 0.0), (10.0, 0.0)])
         .recovery_rate(0.4)
         .build()
         .unwrap();
@@ -283,7 +279,7 @@ fn test_hazard_curve_very_long_tenor() {
     // Very long dated CDS
     let curve = HazardCurve::builder("LONG")
         .base_date(test_date())
-        .knots([(0.0, 0.01), (30.0, 0.02)])
+        .knots([(1.0, 0.01), (30.0, 0.02)])
         .recovery_rate(0.4)
         .build()
         .unwrap();
@@ -314,7 +310,7 @@ fn test_hazard_curve_interpolation() {
 fn test_hazard_curve_serde_round_trip() {
     let original = HazardCurve::builder("SERDE-TEST")
         .base_date(test_date())
-        .knots([(0.0, 0.01), (1.0, 0.015), (5.0, 0.02)])
+        .knots([(1.0, 0.01), (2.0, 0.015), (5.0, 0.02)])
         .recovery_rate(0.4)
         .build()
         .unwrap();

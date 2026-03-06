@@ -11,6 +11,15 @@ The `market_data` module in `finstack-core` provides the **core infrastructure f
 
 The module is designed to be **deterministic**, **type-safe**, and **serde-stable** (serde is always on), forming the backbone for the higher-level `valuations`, `scenarios`, and `portfolio` crates.
 
+Two important convention notes:
+
+- Hazard curves now require strictly positive knot times; use the first positive pillar
+  as the start of the published term structure instead of encoding a synthetic `t=0`
+  hazard node.
+- Parallel inflation bumps are applied in zero-inflation-rate space so a `+x%` shift
+  moves annualized inflation rates consistently across tenors instead of scaling CPI
+  levels directly.
+
 ---
 
 ## Module Structure
@@ -207,7 +216,7 @@ let fwd3m = ForwardCurve::builder("USD-SOFR3M", 0.25)
 
 let hazard = HazardCurve::builder("USD-CRED")
     .base_date(base)
-    .knots([(0.0, 0.01), (10.0, 0.015)])
+    .knots([(1.0, 0.01), (10.0, 0.015)])
     .build()
     ?;
 

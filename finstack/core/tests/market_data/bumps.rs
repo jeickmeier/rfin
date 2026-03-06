@@ -137,7 +137,7 @@ fn hazard_curve_rejects_invalid_recovery_for_bumps() {
     let curve = HazardCurve::builder("CDX-RISKLESS")
         .base_date(sample_base_date())
         .recovery_rate(1.0)
-        .knots([(0.0, 0.01), (3.0, 0.015)])
+        .knots([(1.0, 0.01), (3.0, 0.015)])
         .build()
         .expect("hazard curve construction should succeed in test");
 
@@ -158,6 +158,22 @@ fn inflation_curve_supports_percent_shifts() {
     assert!(
         bumped.cpi(1.0) > curve.cpi(1.0),
         "additive percent shifts increase CPI levels"
+    );
+}
+
+#[test]
+fn inflation_curve_parallel_shift_is_tenor_consistent_in_zero_rate_space() {
+    let curve = sample_inflation_curve("USD-CPI");
+    let bumped = curve
+        .apply_bump(BumpSpec::inflation_shift_pct(1.0))
+        .expect("inflation shift should succeed");
+
+    let one_year_shift = bumped.inflation_rate(0.0, 1.0) - curve.inflation_rate(0.0, 1.0);
+    let two_year_shift = bumped.inflation_rate(0.0, 2.0) - curve.inflation_rate(0.0, 2.0);
+
+    assert!(
+        (one_year_shift - two_year_shift).abs() < 1e-10,
+        "parallel inflation shifts should move zero rates consistently across tenors"
     );
 }
 

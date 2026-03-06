@@ -192,6 +192,10 @@ pub enum Tolerance {
 }
 
 impl Tolerance {
+    fn bp_error(actual: f64, expected: f64) -> f64 {
+        (actual - expected).abs() * 10_000.0
+    }
+
     /// Check if actual is within tolerance of expected.
     pub fn is_within(&self, actual: f64, expected: f64) -> bool {
         match self {
@@ -203,10 +207,7 @@ impl Tolerance {
                     ((actual - expected) / expected).abs() <= *tol
                 }
             }
-            Tolerance::Bps(tol) => {
-                // For bp tolerance, the values are already in bp or the diff is in bp
-                (actual - expected).abs() <= *tol
-            }
+            Tolerance::Bps(tol) => Self::bp_error(actual, expected) <= *tol,
             Tolerance::Pct(tol) => {
                 if expected.abs() < 1e-15 {
                     actual.abs() <= *tol
@@ -228,7 +229,7 @@ impl Tolerance {
                     ((actual - expected) / expected).abs()
                 }
             }
-            Tolerance::Bps(_) => (actual - expected).abs(),
+            Tolerance::Bps(_) => Self::bp_error(actual, expected),
             Tolerance::Pct(_) => {
                 if expected.abs() < 1e-15 {
                     actual.abs()
@@ -451,6 +452,14 @@ mod tests {
         let tol = Tolerance::Bps(0.5);
         assert!(tol.is_within(100.3, 100.0));
         assert!(!tol.is_within(100.6, 100.0));
+    }
+
+    #[test]
+    fn test_tolerance_bp_on_decimal_rates() {
+        let tol = Tolerance::Bps(0.5);
+        assert!(tol.is_within(0.05004, 0.05000));
+        assert!(!tol.is_within(0.05006, 0.05000));
+        assert!((tol.compute_error(0.05004, 0.05000) - 0.4).abs() < 1e-12);
     }
 
     #[test]

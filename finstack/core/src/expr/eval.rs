@@ -273,6 +273,7 @@ impl CompiledExpr {
                 };
                 let len = out.len().min(col_data.len());
                 out[..len].copy_from_slice(&col_data[..len]);
+                out[len..].fill(f64::NAN);
             }
             ExprNode::Literal(val) => {
                 out.fill(*val);
@@ -569,19 +570,24 @@ impl CompiledExpr {
             true
         };
         let mut prev: f64 = 0.0;
+        let mut weighted_sum: f64 = 0.0;
         let mut wsum: f64 = 0.0;
         for (i, &x) in base.iter().enumerate() {
             if i == 0 {
                 prev = x;
+                weighted_sum = x;
                 wsum = 1.0;
                 out[0] = x;
                 continue;
             }
             if adjust {
+                weighted_sum = x + (1.0 - alpha) * weighted_sum;
                 wsum = 1.0 + (1.0 - alpha) * wsum;
+                out[i] = weighted_sum / wsum;
+            } else {
+                prev = alpha * x + (1.0 - alpha) * prev;
+                out[i] = prev;
             }
-            prev = alpha * x + (1.0 - alpha) * prev;
-            out[i] = prev / if adjust { wsum } else { 1.0 };
         }
     }
 
@@ -1019,8 +1025,10 @@ impl CompiledExpr {
         let len = out.len();
 
         for (i, out_val) in out.iter_mut().enumerate().take(len) {
-            let l = *left.get(i).unwrap_or(&0.0);
-            let r = *right.get(i).unwrap_or(&0.0);
+            let (Some(&l), Some(&r)) = (left.get(i), right.get(i)) else {
+                *out_val = f64::NAN;
+                continue;
+            };
 
             *out_val = match op {
                 // Arithmetic
@@ -1119,6 +1127,7 @@ impl CompiledExpr {
                 }
             };
         }
+        out[len..].fill(f64::NAN);
     }
 
     /// Evaluate if-then-else element-wise into a provided output slice.
@@ -1131,9 +1140,12 @@ impl CompiledExpr {
     ) {
         let len = out.len();
         for (i, out_val) in out.iter_mut().enumerate().take(len) {
-            let cond = *condition.get(i).unwrap_or(&0.0);
-            let then_val = *then_vals.get(i).unwrap_or(&0.0);
-            let else_val = *else_vals.get(i).unwrap_or(&0.0);
+            let (Some(&cond), Some(&then_val), Some(&else_val)) =
+                (condition.get(i), then_vals.get(i), else_vals.get(i))
+            else {
+                *out_val = f64::NAN;
+                continue;
+            };
             *out_val = if cond != 0.0 { then_val } else { else_val };
         }
     }

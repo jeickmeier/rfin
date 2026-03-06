@@ -49,8 +49,16 @@ pub struct MbsCashflow {
 }
 
 /// Derive the SIFMA Good Delivery settlement date for a given accrual period.
-pub fn sifma_settlement_for_period(period_end: Date) -> Date {
-    finstack_core::dates::sifma_settlement_date(period_end.month(), period_end.year())
+pub fn sifma_settlement_for_period(period_end: Date) -> Result<Date> {
+    finstack_core::dates::sifma_settlement_date(period_end.month(), period_end.year()).ok_or_else(
+        || {
+            finstack_core::Error::Validation(format!(
+                "No published SIFMA settlement date for {:02}/{}",
+                period_end.month() as u8,
+                period_end.year()
+            ))
+        },
+    )
 }
 
 /// Generate projected cashflows for an agency MBS.
@@ -129,7 +137,7 @@ pub fn generate_cashflows(
         let total_principal = scheduled_principal + prepayment;
         let ending_balance = (balance - total_principal).max(0.0);
 
-        let sifma_date = sifma_settlement_for_period(period_end);
+        let sifma_date = sifma_settlement_for_period(period_end)?;
 
         cashflows.push(MbsCashflow {
             period_start,

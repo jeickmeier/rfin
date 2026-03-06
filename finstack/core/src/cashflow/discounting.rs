@@ -206,6 +206,17 @@ pub fn npv<D: Discounting + ?Sized>(
     dc: Option<DayCount>,
     flows: &[(Date, Money)],
 ) -> crate::Result<Money> {
+    npv_with_ctx(disc, base, dc, DayCountCtx::default(), flows)
+}
+
+/// Compute NPV of dated `Money` cashflows using an explicit day-count context.
+pub fn npv_with_ctx<D: Discounting + ?Sized>(
+    disc: &D,
+    base: Date,
+    dc: Option<DayCount>,
+    ctx: DayCountCtx<'_>,
+    flows: &[(Date, Money)],
+) -> crate::Result<Money> {
     if flows.is_empty() {
         return Err(crate::error::InputError::TooFewPoints.into());
     }
@@ -221,8 +232,6 @@ pub fn npv<D: Discounting + ?Sized>(
             });
         }
     }
-
-    let ctx = DayCountCtx::default();
 
     // Accumulate using Money arithmetic to preserve internal Decimal precision.
     // Money uses rust_decimal::Decimal internally, which doesn't suffer from the
@@ -260,11 +269,34 @@ pub fn npv_amounts(
     base_date: Option<Date>,
     day_count: Option<DayCount>,
 ) -> crate::Result<f64> {
+    npv_amounts_with_ctx(
+        cash_flows,
+        discount_rate,
+        base_date,
+        day_count,
+        crate::dates::DayCountCtx::default(),
+    )
+}
+
+/// Compute scalar NPV with an explicit day-count context.
+pub fn npv_amounts_with_ctx(
+    cash_flows: &[(Date, f64)],
+    discount_rate: f64,
+    base_date: Option<Date>,
+    day_count: Option<DayCount>,
+    ctx: crate::dates::DayCountCtx<'_>,
+) -> crate::Result<f64> {
     if cash_flows.is_empty() {
         return Err(crate::Error::from(crate::error::InputError::TooFewPoints));
     }
 
-    let base = base_date.unwrap_or_else(|| cash_flows[0].0);
+    let base = base_date.unwrap_or_else(|| {
+        cash_flows
+            .iter()
+            .map(|(date, _)| *date)
+            .min()
+            .unwrap_or(cash_flows[0].0)
+    });
     let dc = day_count.unwrap_or(DayCount::Act365F);
 
     // Convert annually compounded rate to continuously compounded rate:
@@ -277,11 +309,62 @@ pub fn npv_amounts(
     // Use Neumaier compensated summation for numerical stability with many cashflows
     let mut acc = NeumaierAccumulator::new();
     for (date, amount) in cash_flows {
-        let t = dc.signed_year_fraction(base, *date, crate::dates::DayCountCtx::default())?;
+        let t = dc.signed_year_fraction(base, *date, ctx)?;
         acc.add(amount * (-continuous_rate * t).exp());
     }
 
     Ok(acc.total())
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+mod hardening_tests {
+    use super::*;
+    use crate::currency::Currency;
+    use crate::dates::calendar::TARGET2;
+    use crate::dates::create_date;
+    use crate::market_data::term_structures::FlatCurve;
+    use time::Month;
+
+    #[test]
+    fn npv_amounts_uses_earliest_cashflow_as_default_base_date() {
+        let base = create_date(2024, Month::January, 1).expect("Valid test date");
+        let later = create_date(2025, Month::January, 1).expect("Valid test date");
+        let rate = 0.05;
+
+        let sorted = vec![(base, -100000.0), (later, 110000.0)];
+        let unsorted = vec![(later, 110000.0), (base, -100000.0)];
+
+        let pv_sorted = npv_amounts(&sorted, rate, None, Some(DayCount::Act365F))
+            .expect("sorted npv should succeed");
+        let pv_unsorted = npv_amounts(&unsorted, rate, None, Some(DayCount::Act365F))
+            .expect("unsorted npv should succeed");
+
+        assert!((pv_sorted - pv_unsorted).abs() < 1e-10);
+    }
+
+    #[test]
+    fn npv_with_bus252_context_counts_business_days() {
+        let base = create_date(2025, Month::January, 6).expect("Valid test date"); // Monday
+        let pay = create_date(2025, Month::January, 13).expect("Valid test date"); // Next Monday
+        let curve = FlatCurve::new(0.10, base, DayCount::Bus252, "BRL-FLAT");
+        let flows = vec![(pay, Money::new(100.0, Currency::USD))];
+        let ctx = DayCountCtx {
+            calendar: Some(&TARGET2),
+            frequency: None,
+            bus_basis: None,
+        };
+
+        let pv = npv_with_ctx(&curve, base, Some(DayCount::Bus252), ctx, &flows)
+            .expect("Bus/252 NPV should succeed");
+        let expected = 100.0 * (-0.10_f64 * (5.0 / 252.0)).exp();
+        assert!(
+            (pv.amount() - expected).abs() < 1e-10,
+            "{} vs {}",
+            pv.amount(),
+            expected
+        );
+    }
 }
 
 /// Compute NPV of dated `Money` flows using a discount curve.

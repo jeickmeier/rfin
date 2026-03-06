@@ -93,11 +93,11 @@ pub struct TbaSettlement {
 /// use time::Month;
 ///
 /// let tba = AgencyTba::builder()
-///     .id(InstrumentId::new("FN30-4.0-202403"))
+///     .id(InstrumentId::new("FN30-4.0-202703"))
 ///     .agency(AgencyProgram::Fnma)
 ///     .coupon(0.04)
 ///     .term(TbaTerm::ThirtyYear)
-///     .settlement_year(2024)
+///     .settlement_year(2027)
 ///     .settlement_month(3)
 ///     .notional(Money::new(10_000_000.0, Currency::USD))
 ///     .trade_price(98.5)
@@ -164,11 +164,11 @@ impl AgencyTba {
     /// Create a canonical example TBA for testing and documentation.
     pub fn example() -> Self {
         Self::builder()
-            .id(InstrumentId::new("FN30-4.0-202403"))
+            .id(InstrumentId::new("FN30-4.0-202703"))
             .agency(AgencyProgram::Fnma)
             .coupon(0.04)
             .term(TbaTerm::ThirtyYear)
-            .settlement_year(2024)
+            .settlement_year(2027)
             .settlement_month(3)
             .notional(Money::new(10_000_000.0, Currency::USD))
             .trade_price(98.5)
@@ -198,11 +198,13 @@ impl AgencyTba {
         let month = time::Month::try_from(self.settlement_month)
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
         let class = self.effective_settlement_class();
-        Ok(finstack_core::dates::sifma_settlement_date_for_class(
-            month,
-            self.settlement_year,
-            class,
-        ))
+        finstack_core::dates::sifma_settlement_date_for_class(month, self.settlement_year, class)
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "No published SIFMA settlement date for {:02}/{} and class {:?}",
+                    self.settlement_month, self.settlement_year, class
+                ))
+            })
     }
 
     /// Effective settlement class (explicit or inferred from agency + term).
@@ -335,7 +337,7 @@ mod tests {
         let tba = AgencyTba::example();
         let settle = tba.get_settlement_date().expect("valid date");
         assert_eq!(settle.month(), Month::March);
-        assert_eq!(settle.year(), 2024);
+        assert_eq!(settle.year(), 2027);
     }
 
     #[test]

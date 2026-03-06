@@ -398,6 +398,8 @@ impl Bumpable for ForwardCurve {
                     .reset_lag(self.reset_lag())
                     .day_count(self.day_count())
                     .knots(bumped_rates)
+                    .interp(self.interp_style())
+                    .extrapolation(self.extrapolation())
                     .build()
             }
             BumpType::TriangularKeyRate {
@@ -518,13 +520,7 @@ impl Bumpable for InflationCurve {
                     ),
                 }
             })?;
-
-            if is_multiplicative {
-                raw_val
-            } else {
-                // Additive bumps on inflation curve (e.g. 1%) are treated as 1 + delta factor
-                1.0 + raw_val
-            }
+            (raw_val, is_multiplicative)
         };
 
         let bumped_id = match spec.units {
@@ -537,13 +533,29 @@ impl Bumpable for InflationCurve {
             .knots()
             .iter()
             .copied()
-            .zip(self.cpi_levels().iter().copied())
-            .map(|(t, cpi)| (t, cpi * factor))
+            .map(|t| {
+                if t <= 0.0 {
+                    return (t, self.base_cpi());
+                }
+
+                let zero_rate = self.inflation_rate(0.0, t);
+                let bumped_zero_rate = if factor.1 {
+                    (1.0 + zero_rate) * factor.0 - 1.0
+                } else {
+                    zero_rate + factor.0
+                };
+                let bumped_cpi = self.base_cpi() * (1.0 + bumped_zero_rate).powf(t);
+                (t, bumped_cpi)
+            })
             .collect();
 
         InflationCurve::builder(bumped_id)
             .base_cpi(self.base_cpi())
+            .base_date(self.base_date())
+            .day_count(self.day_count())
+            .indexation_lag_months(self.indexation_lag_months())
             .knots(bumped_points)
+            .interp(self.interp_style())
             .build()
     }
 }
