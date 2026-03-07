@@ -128,13 +128,20 @@ impl SobolRng {
     /// // Create a 5-dimensional Sobol sequence with scrambling
     /// let sobol = SobolRng::new(5, 42);
     /// ```
+    #[allow(clippy::expect_used)]
     pub fn new(dimension: usize, scramble_seed: u64) -> Self {
-        assert!(
-            dimension > 0 && dimension <= MAX_SOBOL_DIMENSION,
-            "Dimension must be 1-{MAX_SOBOL_DIMENSION}. For higher dimensions, \
-             extend direction_numbers using Joe & Kuo tables from \
-             https://web.maths.unsw.edu.au/~fkuo/sobol/"
-        );
+        Self::try_new(dimension, scramble_seed).expect("Sobol dimension out of range")
+    }
+
+    /// Fallible constructor for a new Sobol sequence.
+    ///
+    /// Returns an error if `dimension` is 0 or exceeds [`MAX_SOBOL_DIMENSION`].
+    pub fn try_new(dimension: usize, scramble_seed: u64) -> crate::Result<Self> {
+        if dimension == 0 || dimension > MAX_SOBOL_DIMENSION {
+            return Err(crate::Error::Validation(format!(
+                "Sobol dimension must be 1-{MAX_SOBOL_DIMENSION}, got {dimension}"
+            )));
+        }
 
         // Initialize direction numbers (simplified for first 8 dimensions)
         let direction_numbers = initialize_direction_numbers(dimension);
@@ -164,13 +171,13 @@ impl SobolRng {
             scramble_matrices.push(matrix);
         }
 
-        Self {
+        Ok(Self {
             index: 0,
             dimension,
             scramble_seeds,
             scramble_matrices,
             direction_numbers,
-        }
+        })
     }
 
     /// Get the next point in the Sobol sequence.
@@ -289,6 +296,12 @@ impl SobolRng {
     ///
     /// This fills with consecutive Sobol points (row-major by dimension).
     pub fn fill_u01(&mut self, out: &mut [f64]) {
+        debug_assert!(
+            out.len().is_multiple_of(self.dimension),
+            "fill_u01: buffer length {} is not a multiple of dimension {}",
+            out.len(),
+            self.dimension
+        );
         for chunk in out.chunks_mut(self.dimension) {
             let point = self.next_point();
             for (i, &val) in point.iter().enumerate().take(chunk.len()) {

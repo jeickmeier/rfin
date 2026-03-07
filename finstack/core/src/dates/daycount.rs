@@ -1079,7 +1079,7 @@ fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
 
     let actual_days = (end - start).whole_days() as f64;
 
-    // Check if Feb 29 falls between start (exclusive) and end (inclusive)
+    // Check if Feb 29 falls in the half-open interval [start, end)
     let denominator = if contains_feb_29(start, end) {
         366.0
     } else {

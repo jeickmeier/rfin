@@ -74,7 +74,16 @@ pub trait InterpFn: Send + Sync + Debug {
     /// better accuracy and performance.
     fn interp_prime(&self, x: f64) -> f64 {
         let h = (x.abs() * DERIVATIVE_EPSILON).max(1e-8);
-        (self.interp(x + h) - self.interp(x - h)) / (2.0 * h)
+        let f_plus = self.interp(x + h);
+        let f_minus = self.interp(x - h);
+        // Fall back to one-sided differences at domain boundaries
+        if !f_minus.is_finite() {
+            return (f_plus - self.interp(x)) / h;
+        }
+        if !f_plus.is_finite() {
+            return (self.interp(x) - f_minus) / h;
+        }
+        (f_plus - f_minus) / (2.0 * h)
     }
 }
 

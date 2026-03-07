@@ -361,7 +361,7 @@ where
         if let Ok(root) = newton.solve_with_derivative(npv, npv_derivative, g) {
             // Reject rates at or below MIN_VALID_RATE (-99.9%)
             // Such extreme rates are economically implausible and numerically unstable
-            if root > MIN_VALID_RATE {
+            if root > MIN_VALID_RATE && npv(root).abs() < DEFAULT_TOLERANCE * 100.0 {
                 return Ok(root);
             }
         }

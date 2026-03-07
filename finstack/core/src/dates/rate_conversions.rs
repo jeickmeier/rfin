@@ -84,11 +84,6 @@ use crate::error::{InputError, NonFiniteKind};
 use crate::{Error, Result};
 
 #[inline]
-fn non_finite(kind: NonFiniteKind) -> Error {
-    Error::Input(InputError::NonFiniteValue { kind })
-}
-
-#[inline]
 fn ensure_finite(function: &'static str, name: &'static str, x: f64) -> Result<()> {
     if x.is_finite() {
         return Ok(());
@@ -100,11 +95,14 @@ fn ensure_finite(function: &'static str, name: &'static str, x: f64) -> Result<(
     } else {
         NonFiniteKind::NegInfinity
     };
-    // Preserve which parameter was non-finite via a stable InputError category.
-    // (We keep these arguments to make callsites self-documenting and allow future
-    // expansion without an API change.)
-    let _ = (function, name);
-    Err(non_finite(kind))
+    let kind_str = match kind {
+        NonFiniteKind::NaN => "NaN",
+        NonFiniteKind::PosInfinity => "+Inf",
+        NonFiniteKind::NegInfinity => "-Inf",
+    };
+    Err(crate::Error::Validation(format!(
+        "{function}: {name} is {kind_str}"
+    )))
 }
 
 #[inline]

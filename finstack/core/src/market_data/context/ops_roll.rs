@@ -55,6 +55,10 @@ impl MarketContext {
     /// # }
     /// ```
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
+        // NOTE: Non-curve fields (surfaces, fx, credit_indices, etc.) are
+        // shallow-cloned and retain references to pre-roll state. This is
+        // intentional for performance — callers needing fully consistent
+        // rolled state should rebuild dependent structures from rolled curves.
         let mut new_ctx = Self {
             curves: {
                 let mut m = HashMap::default();
