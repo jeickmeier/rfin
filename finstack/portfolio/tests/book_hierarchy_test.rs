@@ -349,3 +349,110 @@ fn test_position_without_book() {
     assert_eq!(portfolio.positions[0].book_id, None);
     assert_eq!(portfolio.books.len(), 0);
 }
+
+#[test]
+fn test_book_hierarchy_is_order_independent() {
+    let as_of = date!(2024 - 01 - 01);
+
+    let deposit = Deposit::builder()
+        .id("DEP".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start_date(as_of)
+        .maturity(date!(2024 - 02 - 01))
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id("USD".into())
+        .quote_rate_opt(Some(
+            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+        ))
+        .build()
+        .expect("deposit should build");
+
+    let position = Position::new(
+        "POS_001",
+        "ENTITY_A",
+        "DEP",
+        Arc::new(deposit),
+        1.0,
+        PositionUnit::Units,
+    )
+    .expect("position should build");
+
+    let americas = Book::new("americas", Some("Americas".to_string()));
+    let credit = Book::with_parent("credit", Some("Credit".to_string()), "americas");
+    let ig = Book::with_parent("ig", Some("Investment Grade".to_string()), "credit");
+
+    let portfolio = PortfolioBuilder::new("TEST_PORTFOLIO")
+        .base_ccy(Currency::USD)
+        .as_of(as_of)
+        .entity(Entity::new("ENTITY_A"))
+        .book(ig)
+        .book(credit)
+        .book(americas)
+        .position(position)
+        .add_position_to_book("POS_001", "ig")
+        .expect("should assign position to ig")
+        .build()
+        .expect("portfolio should build");
+
+    let americas_book = portfolio
+        .books
+        .get("americas")
+        .expect("americas should exist");
+    let credit_book = portfolio.books.get("credit").expect("credit should exist");
+
+    assert_eq!(americas_book.children(), &[BookId::new("credit")]);
+    assert_eq!(credit_book.children(), &[BookId::new("ig")]);
+}
+
+#[test]
+fn test_reassigning_position_between_books_removes_stale_membership() {
+    let as_of = date!(2024 - 01 - 01);
+
+    let deposit = Deposit::builder()
+        .id("DEP".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start_date(as_of)
+        .maturity(date!(2024 - 02 - 01))
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id("USD".into())
+        .quote_rate_opt(Some(
+            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+        ))
+        .build()
+        .expect("deposit should build");
+
+    let position = Position::new(
+        "POS_001",
+        "ENTITY_A",
+        "DEP",
+        Arc::new(deposit),
+        1.0,
+        PositionUnit::Units,
+    )
+    .expect("position should build");
+
+    let portfolio = PortfolioBuilder::new("TEST_PORTFOLIO")
+        .base_ccy(Currency::USD)
+        .as_of(as_of)
+        .entity(Entity::new("ENTITY_A"))
+        .book(Book::new("book_a", Some("Book A".to_string())))
+        .book(Book::new("book_b", Some("Book B".to_string())))
+        .position(position)
+        .add_position_to_book("POS_001", "book_a")
+        .expect("should assign to book_a")
+        .add_position_to_book("POS_001", "book_b")
+        .expect("should reassign to book_b")
+        .build()
+        .expect("portfolio should build");
+
+    let book_a = portfolio.books.get("book_a").expect("book_a should exist");
+    let book_b = portfolio.books.get("book_b").expect("book_b should exist");
+    let position = portfolio
+        .get_position("POS_001")
+        .expect("position should exist");
+
+    assert!(book_a.positions().is_empty());
+    assert_eq!(book_b.positions().len(), 1);
+    assert_eq!(book_b.positions()[0], "POS_001");
+    assert_eq!(position.book_id, Some(BookId::new("book_b")));
+}

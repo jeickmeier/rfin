@@ -185,13 +185,29 @@ impl PortfolioBuilder {
     ///
     /// * `book` - Book definition with optional parent reference.
     pub fn book(mut self, book: Book) -> Self {
-        // If book has a parent, ensure parent exists or will be added
-        if let Some(parent_id) = &book.parent_id {
-            if let Some(parent) = self.books.get_mut(parent_id) {
-                parent.add_child(book.id.clone());
+        let book_id = book.id.clone();
+        let parent_id = book.parent_id.clone();
+        self.books.insert(book_id.clone(), book);
+
+        if let Some(parent_id) = parent_id {
+            if let Some(parent) = self.books.get_mut(&parent_id) {
+                parent.add_child(book_id.clone());
             }
         }
-        self.books.insert(book.id.clone(), book);
+
+        let existing_children: Vec<_> = self
+            .books
+            .values()
+            .filter(|candidate| candidate.parent_id.as_ref() == Some(&book_id))
+            .map(|candidate| candidate.id.clone())
+            .collect();
+
+        if let Some(inserted_book) = self.books.get_mut(&book_id) {
+            for child_id in existing_children {
+                inserted_book.add_child(child_id);
+            }
+        }
+
         self
     }
 
@@ -236,6 +252,16 @@ impl PortfolioBuilder {
             .ok_or_else(|| {
                 crate::error::Error::InvalidInput(format!("Position not found: {}", pos_id))
             })?;
+
+        let previous_book_id = position.book_id.clone();
+
+        if let Some(previous_book_id) = previous_book_id {
+            if previous_book_id != bk_id {
+                if let Some(previous_book) = self.books.get_mut(&previous_book_id) {
+                    previous_book.remove_position(&pos_id);
+                }
+            }
+        }
 
         // Update position's book_id
         position.book_id = Some(bk_id.clone());

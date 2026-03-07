@@ -242,6 +242,14 @@ fn fx_rate_for_position(
     1.0
 }
 
+fn scale_position_metric(metric_id: &str, value: f64, metric_scale: f64) -> f64 {
+    if is_summable(metric_id) {
+        value * metric_scale
+    } else {
+        value
+    }
+}
+
 /// Serial implementation of metrics aggregation.
 #[cfg(not(feature = "parallel"))]
 fn aggregate_metrics_serial(
@@ -267,7 +275,11 @@ fn aggregate_metrics_serial(
             let metrics: IndexMap<String, f64> = val_result
                 .measures
                 .iter()
-                .map(|(id, v)| (id.as_str().to_string(), *v))
+                .map(|(id, v)| {
+                    let metric_id = id.as_str().to_string();
+                    let scaled = scale_position_metric(&metric_id, *v, position_value.metric_scale);
+                    (metric_id, scaled)
+                })
                 .collect();
             // Store native-currency metrics for per-position drill-down
             by_position.insert(position_id.clone(), metrics.clone());
@@ -363,7 +375,12 @@ fn aggregate_metrics_parallel(
                 let measures: IndexMap<String, f64> = val_result
                     .measures
                     .iter()
-                    .map(|(id, v)| (id.as_str().to_string(), *v))
+                    .map(|(id, v)| {
+                        let metric_id = id.as_str().to_string();
+                        let scaled =
+                            scale_position_metric(&metric_id, *v, position_value.metric_scale);
+                        (metric_id, scaled)
+                    })
                     .collect();
                 let fx_rate = fx_rate_for_position(position_value, base_ccy, market, as_of);
                 (
