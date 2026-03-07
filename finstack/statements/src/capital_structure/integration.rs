@@ -90,32 +90,26 @@ pub fn calculate_period_flows(
     // Extract flows that fall within this period
     for cf in &full_schedule.flows {
         if cf.date >= period.start && cf.date < period.end {
-            let abs_value = if cf.amount.amount() < 0.0 {
-                Money::new(-cf.amount.amount(), cf.amount.currency())
-            } else {
-                cf.amount
-            };
-
-            let scaled_abs_value = Money::new(abs_value.amount() * scale, abs_value.currency());
+            let scaled_value = Money::new(cf.amount.amount() * scale, cf.amount.currency());
 
             match cf.kind {
                 CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => {
-                    breakdown.interest_expense_cash += scaled_abs_value;
+                    breakdown.interest_expense_cash += scaled_value;
                 }
                 CFKind::Amortization => {
-                    breakdown.principal_payment += scaled_abs_value;
+                    breakdown.principal_payment += scaled_value;
                 }
                 CFKind::PrePayment | CFKind::RevolvingRepayment => {
-                    breakdown.principal_payment += scaled_abs_value;
+                    breakdown.principal_payment += scaled_value;
                 }
                 CFKind::Notional if cf.amount.amount() > 0.0 => {
-                    breakdown.principal_payment += scaled_abs_value;
+                    breakdown.principal_payment += scaled_value;
                 }
                 CFKind::Fee | CFKind::CommitmentFee | CFKind::UsageFee | CFKind::FacilityFee => {
-                    breakdown.fees += scaled_abs_value;
+                    breakdown.fees += scaled_value;
                 }
                 CFKind::PIK => {
-                    breakdown.interest_expense_pik += scaled_abs_value;
+                    breakdown.interest_expense_pik += scaled_value;
                 }
                 CFKind::Notional | CFKind::RevolvingDraw => {
                     // Funding / draw events are not treated as scheduled principal payments in statements.
@@ -706,5 +700,72 @@ pub fn build_any_instrument_from_spec(
                 attempts.join("; ")
             )))
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::cashflow::CashFlow;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{DayCount, PeriodId};
+    use finstack_core::money::Money;
+    use finstack_valuations::cashflow::builder::{CashFlowMeta, CashFlowSchedule, Notional};
+    use finstack_valuations::cashflow::primitives::CFKind;
+    use time::Month;
+
+    struct SignedFlowInstrument {
+        schedule: CashFlowSchedule,
+    }
+
+    impl CashflowProvider for SignedFlowInstrument {
+        fn build_full_schedule(
+            &self,
+            _curves: &MarketContext,
+            _as_of: Date,
+        ) -> finstack_core::Result<CashFlowSchedule> {
+            Ok(self.schedule.clone())
+        }
+    }
+
+    #[test]
+    fn calculate_period_flows_preserves_signed_interest_economics() {
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 1).expect("valid date");
+        let period = Period {
+            id: PeriodId::quarter(2025, 1),
+            start,
+            end,
+            is_actual: false,
+        };
+
+        let instrument = SignedFlowInstrument {
+            schedule: CashFlowSchedule {
+                flows: vec![CashFlow {
+                    date: Date::from_calendar_date(2025, Month::February, 15).expect("valid date"),
+                    reset_date: None,
+                    amount: Money::new(-50_000.0, Currency::USD),
+                    kind: CFKind::Fixed,
+                    accrual_factor: 0.25,
+                    rate: None,
+                }],
+                notional: Notional::par(1_000_000.0, Currency::USD),
+                day_count: DayCount::Act365F,
+                meta: CashFlowMeta::default(),
+            },
+        };
+
+        let market_ctx = MarketContext::new();
+        let (breakdown, _) = calculate_period_flows(
+            &instrument,
+            &period,
+            Money::new(1_000_000.0, Currency::USD),
+            &market_ctx,
+            start,
+        )
+        .expect("period flow calculation should succeed");
+
+        assert_eq!(breakdown.interest_expense_cash.amount(), -50_000.0);
     }
 }

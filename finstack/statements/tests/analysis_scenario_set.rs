@@ -155,3 +155,81 @@ fn diff_uses_variance_analyzer() {
     assert_eq!(ebitda_row.comparison, 54_000.0);
     assert_eq!(ebitda_row.abs_var, -6_000.0);
 }
+
+#[test]
+fn evaluate_all_preserves_actual_history_when_applying_overrides() {
+    let model = ModelBuilder::new("scenario_actuals")
+        .periods("2025Q1..Q4", Some("2025Q2"))
+        .expect("valid period range")
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
+            ],
+        )
+        .build()
+        .expect("valid model");
+
+    let mut scenarios = IndexMap::new();
+    scenarios.insert(
+        "base".to_string(),
+        ScenarioDefinition {
+            model_id: Some(model.id.clone()),
+            parent: None,
+            overrides: IndexMap::new(),
+        },
+    );
+
+    let mut downside_overrides = IndexMap::new();
+    downside_overrides.insert("revenue".to_string(), 90_000.0);
+    scenarios.insert(
+        "downside".to_string(),
+        ScenarioDefinition {
+            model_id: Some(model.id.clone()),
+            parent: Some("base".to_string()),
+            overrides: downside_overrides,
+        },
+    );
+
+    let set = ScenarioSet { scenarios };
+    let results = set
+        .evaluate_all(&model)
+        .expect("scenario evaluation should succeed");
+
+    let downside = results
+        .scenarios
+        .get("downside")
+        .expect("downside scenario should be present");
+
+    assert_eq!(
+        downside.get("revenue", &PeriodId::quarter(2025, 1)),
+        Some(100_000.0)
+    );
+    assert_eq!(
+        downside.get("revenue", &PeriodId::quarter(2025, 2)),
+        Some(110_000.0)
+    );
+    assert_eq!(
+        downside.get("revenue", &PeriodId::quarter(2025, 3)),
+        Some(90_000.0)
+    );
+    assert_eq!(
+        downside.get("revenue", &PeriodId::quarter(2025, 4)),
+        Some(90_000.0)
+    );
+}

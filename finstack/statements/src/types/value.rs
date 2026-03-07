@@ -1,5 +1,7 @@
 //! Value types for node data.
 
+use crate::error::{Error, Result};
+use crate::types::NodeValueType;
 use finstack_core::{currency::Currency, money::Money};
 use serde::{Deserialize, Serialize};
 
@@ -85,6 +87,53 @@ impl From<Money> for AmountOrScalar {
     }
 }
 
+/// Infer a consistent node value type from a series of values.
+///
+/// Returns:
+/// - `Ok(None)` for an empty series
+/// - `Ok(Some(NodeValueType::Scalar))` when all values are scalar
+/// - `Ok(Some(NodeValueType::Monetary { .. }))` when all values are monetary and share a currency
+/// - `Err(..)` when the series mixes scalars and amounts or mixes currencies
+pub fn infer_series_value_type<'a, I>(values: I) -> Result<Option<NodeValueType>>
+where
+    I: IntoIterator<Item = &'a AmountOrScalar>,
+{
+    let mut inferred: Option<NodeValueType> = None;
+
+    for value in values {
+        match (inferred, value) {
+            (None, AmountOrScalar::Scalar(_)) => {
+                inferred = Some(NodeValueType::Scalar);
+            }
+            (None, AmountOrScalar::Amount(money)) => {
+                inferred = Some(NodeValueType::Monetary {
+                    currency: money.currency(),
+                });
+            }
+            (Some(NodeValueType::Scalar), AmountOrScalar::Scalar(_)) => {}
+            (Some(NodeValueType::Monetary { currency }), AmountOrScalar::Amount(money))
+                if money.currency() == currency => {}
+            (Some(NodeValueType::Monetary { currency }), AmountOrScalar::Amount(money)) => {
+                return Err(Error::currency_mismatch(currency, money.currency()));
+            }
+            (Some(NodeValueType::Scalar), AmountOrScalar::Amount(money)) => {
+                return Err(Error::invalid_input(format!(
+                    "Mixed scalar and monetary values in one node; found monetary value in {}",
+                    money.currency()
+                )));
+            }
+            (Some(NodeValueType::Monetary { currency }), AmountOrScalar::Scalar(_)) => {
+                return Err(Error::invalid_input(format!(
+                    "Mixed monetary and scalar values in one node; expected currency {}",
+                    currency
+                )));
+            }
+        }
+    }
+
+    Ok(inferred)
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
@@ -132,5 +181,17 @@ mod tests {
 
         let scalar = AmountOrScalar::scalar(42.0);
         assert!(scalar.as_money().is_none());
+    }
+
+    #[test]
+    fn test_infer_series_value_type_rejects_mixed_currencies() {
+        let values = [
+            AmountOrScalar::amount(100.0, Currency::USD),
+            AmountOrScalar::amount(90.0, Currency::EUR),
+        ];
+
+        let err = infer_series_value_type(values.iter())
+            .expect_err("mixed currencies should be rejected");
+        assert!(err.to_string().contains("Currency mismatch"));
     }
 }
