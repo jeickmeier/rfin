@@ -64,6 +64,9 @@ pub use eval::{CompiledExpr, EvalOpts};
 /// They remain public for bindings/tests that need them, but are hidden from
 /// the primary docs and are not a stable surface.
 #[doc(hidden)]
-pub use dag::{BoundaryType, CacheStrategy, DagBuilder, DagNode, ExecutionPlan, PushdownAnalyzer};
+pub use dag::{
+    BoundaryType, CacheStrategy, DagBuilder, DagNode, ExecutionPlan, PushdownBoundaries,
+    PushdownBoundary,
+};
 
 // Polars Series no longer part of public API surface here

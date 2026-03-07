@@ -27,7 +27,7 @@ nalgebra = "0.34"
 num-complex = "0.4"
 # Production-grade random number generation
 rand = { version = "0.9", default-features = false, features = ["std"] }
-rand_pcg = "0.9"
+rand_pcg = { version = "0.9", features = ["serde"] }
 
 [build-dependencies]
 serde = { workspace = true, features = ["alloc"] }

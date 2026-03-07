@@ -70,6 +70,8 @@ impl RevolvingCreditDiscretization {
 }
 
 impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
+    // apply_correlation dimensions are guaranteed by construction; expect is unreachable.
+    #[allow(clippy::expect_used)]
     fn step(
         &self,
         process: &RevolvingCreditProcess,
@@ -86,7 +88,10 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
         let z_corr = if let Some(ref chol) = self.cholesky_factor {
             // Split work buffer: [z_corr | ...]
             let z_corr_buf = &mut work[0..3];
-            apply_correlation(chol, z, z_corr_buf);
+            // Dimensions are guaranteed by construction: cholesky_factor is 3×3 and
+            // z_corr_buf has length 3 matching the 3-factor process.
+            apply_correlation(chol, z, z_corr_buf)
+                .expect("apply_correlation: dimensions guaranteed by construction");
             z_corr_buf
         } else {
             // No correlation, use original shocks

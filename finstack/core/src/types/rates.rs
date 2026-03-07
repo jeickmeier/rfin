@@ -93,6 +93,22 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use serde::{Deserialize, Serialize};
 
+use crate::error::{InputError, NonFiniteKind};
+use crate::Result;
+
+/// Classify a non-finite `f64` value into a `NonFiniteKind`.
+///
+/// The caller is responsible for ensuring `v` is not finite before calling.
+fn non_finite_kind(v: f64) -> NonFiniteKind {
+    if v.is_nan() {
+        NonFiniteKind::NaN
+    } else if v.is_sign_positive() {
+        NonFiniteKind::PosInfinity
+    } else {
+        NonFiniteKind::NegInfinity
+    }
+}
+
 /// A financial rate (e.g., interest rate, discount rate).
 ///
 /// Internally stored as a decimal value where 0.05 represents 5%. This is the
@@ -142,6 +158,25 @@ impl Rate {
     /// Create a rate from a decimal value (0.05 = 5%)
     pub fn from_decimal(decimal: f64) -> Self {
         Self(decimal)
+    }
+
+    /// Create a rate from a decimal value, rejecting non-finite inputs.
+    ///
+    /// Returns an error if `decimal` is NaN or infinite, preventing silent
+    /// corruption of downstream financial calculations.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Input(InputError::NonFiniteValue { .. })` when `decimal`
+    /// is NaN or infinite.
+    pub fn try_from_decimal(decimal: f64) -> Result<Self> {
+        if !decimal.is_finite() {
+            return Err(InputError::NonFiniteValue {
+                kind: non_finite_kind(decimal),
+            }
+            .into());
+        }
+        Ok(Self::from_decimal(decimal))
     }
 
     /// Create a rate from a percentage value (5.0 = 5%)
@@ -302,6 +337,25 @@ impl Bps {
         Self(bps)
     }
 
+    /// Create a Bps value from a floating-point basis-point amount, rejecting non-finite inputs.
+    ///
+    /// Accepts a `f64` (e.g., `25.0` for 25 bps), validates finiteness, then rounds to
+    /// the nearest integer. Use this when the raw input originates from an external source
+    /// that could supply NaN or infinity.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Input(InputError::NonFiniteValue { .. })` when `bps` is NaN or infinite.
+    pub fn try_new(bps: f64) -> Result<Self> {
+        if !bps.is_finite() {
+            return Err(InputError::NonFiniteValue {
+                kind: non_finite_kind(bps),
+            }
+            .into());
+        }
+        Ok(Self(bps.round() as i32))
+    }
+
     /// Get the basis points as an integer
     pub fn as_bps(self) -> i32 {
         self.0
@@ -444,6 +498,25 @@ impl Percentage {
     /// Create a new percentage (12.5 = 12.5%)
     pub fn new(percent: f64) -> Self {
         Self(percent)
+    }
+
+    /// Create a percentage value, rejecting non-finite inputs.
+    ///
+    /// Returns an error if `pct` is NaN or infinite, preventing silent
+    /// corruption of downstream financial calculations.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Input(InputError::NonFiniteValue { .. })` when `pct`
+    /// is NaN or infinite.
+    pub fn try_new(pct: f64) -> Result<Self> {
+        if !pct.is_finite() {
+            return Err(InputError::NonFiniteValue {
+                kind: non_finite_kind(pct),
+            }
+            .into());
+        }
+        Ok(Self::new(pct))
     }
 
     /// Get the percentage value

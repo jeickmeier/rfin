@@ -261,7 +261,7 @@ pub struct BetaResult {
 /// # Returns
 ///
 /// A [`BetaResult`] with `beta`, `std_err`, `ci_lower`, and `ci_upper`.
-/// All fields are `0.0` / `NAN` when the series are too short.
+/// All fields are `NAN` when the series are too short (`n < 3`).
 ///
 /// # Examples
 ///
@@ -280,7 +280,7 @@ pub fn calc_beta(portfolio: &[f64], benchmark: &[f64]) -> BetaResult {
     let n = portfolio.len().min(benchmark.len());
     if n < 3 {
         return BetaResult {
-            beta: 0.0,
+            beta: f64::NAN,
             std_err: f64::NAN,
             ci_lower: f64::NAN,
             ci_upper: f64::NAN,

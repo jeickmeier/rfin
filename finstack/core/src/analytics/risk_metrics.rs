@@ -396,8 +396,9 @@ pub fn ulcer_index(drawdown: &[f64]) -> f64 {
 ///
 /// # Returns
 ///
-/// Probability of ruin in `[0, 1]`. Returns `0.0` if `vol` is zero
-/// (deterministic returns cannot ruin). Clamped to `1.0` from above.
+/// Probability of ruin in `[0, 1]`. When `vol` is zero (deterministic
+/// returns), returns `0.0` if `mean_ret > 0.0` (guaranteed no ruin) or
+/// `1.0` if `mean_ret <= 0.0` (ruin is certain). Clamped to `1.0` from above.
 ///
 /// # Examples
 ///
@@ -414,7 +415,7 @@ pub fn ulcer_index(drawdown: &[f64]) -> f64 {
 /// ```
 pub fn risk_of_ruin(mean_ret: f64, vol: f64) -> f64 {
     if vol == 0.0 {
-        return 0.0;
+        return if mean_ret > 0.0 { 0.0 } else { 1.0 };
     }
     let var = vol * vol;
     (-2.0 * mean_ret / var).exp().min(1.0)
@@ -594,14 +595,15 @@ pub fn geometric_mean(returns: &[f64]) -> f64 {
 /// under the historical distribution.
 ///
 /// Returns a **negative** number representing the loss threshold.
-/// Optionally scaled by `sqrt(ann_factor)` for horizon adjustment.
+/// The `ann_factor` parameter is not applied (see parameter docs below).
 ///
 /// # Arguments
 ///
 /// * `returns` - Slice of period simple returns.
 /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95` for 95% VaR.
-/// * `ann_factor` - If `Some(f)`, multiplies the result by `sqrt(f)` to
-///   scale to an annual horizon.
+/// * `ann_factor` - Reserved; not applied for historical (empirical) VaR
+///   because sqrt-T scaling is invalid for non-parametric quantiles. Pass
+///   `None`.
 ///
 /// # Returns
 ///
@@ -650,7 +652,9 @@ pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) 
 ///
 /// * `returns`    - Slice of period simple returns.
 /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
-/// * `ann_factor` - If `Some(f)`, multiplies the result by `sqrt(f)`.
+/// * `ann_factor` - Reserved; not applied for historical (empirical) ES
+///   because sqrt-T scaling is invalid for non-parametric tail means. Pass
+///   `None`.
 ///
 /// # Returns
 ///

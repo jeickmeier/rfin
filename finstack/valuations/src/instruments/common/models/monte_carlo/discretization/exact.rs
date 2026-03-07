@@ -160,6 +160,8 @@ impl ExactMultiGbmCorrelated {
 }
 
 impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
+    // apply_correlation dimensions are guaranteed by construction; expect is unreachable.
+    #[allow(clippy::expect_used)]
     fn step(
         &self,
         process: &MultiGbmProcess,
@@ -182,7 +184,10 @@ impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
 
         // Apply Cholesky decomposition to get correlated shocks
         // z_corr = L * z_indep where L is lower triangular Cholesky factor
-        apply_correlation(&self.cholesky_factor, z, z_corr);
+        // Dimensions are guaranteed by construction: cholesky_factor is dim×dim and
+        // work_size() allocates 3*dim so z_corr has length dim.
+        apply_correlation(&self.cholesky_factor, z, z_corr)
+            .expect("apply_correlation: dimensions guaranteed by construction");
 
         // Apply exact GBM formula for each component using correlated shocks
         // S_i(t+dt) = S_i(t) exp((μ_i - ½σ_i²)dt + σ_i√dt Z_corr_i)

@@ -10,7 +10,7 @@
 use finstack_core::config::{
     NumericMode, ResultsMeta, RoundingContext, RoundingMode, ToleranceConfig,
 };
-use finstack_core::expr::{DagBuilder, PushdownAnalyzer};
+use finstack_core::expr::DagBuilder;
 use finstack_core::expr::{Expr, ExprNode, Function};
 
 #[test]
@@ -254,43 +254,6 @@ fn test_dag_cost_estimation() {
 
     // RollingStd should have higher cost than Lag
     assert!(rolling_std_node.cost > lag_node.cost);
-}
-
-#[test]
-fn test_pushdown_boundary_analysis() {
-    let mut builder = DagBuilder::new();
-
-    // Create a mixed scenario: Polars-eligible function depending on scalar-only function
-    let col_x = Expr::column("x");
-    let cum_sum = Expr::call(Function::CumSum, vec![col_x.clone()]); // Scalar-only
-    let rolling_mean = Expr::call(Function::RollingMean, vec![cum_sum, Expr::literal(3.0)]); // Polars-eligible
-
-    let meta = ResultsMeta {
-        numeric_mode: NumericMode::F64,
-        rounding: RoundingContext {
-            mode: RoundingMode::Bankers,
-            ingest_scale_by_ccy: Default::default(),
-            output_scale_by_ccy: Default::default(),
-            tolerances: ToleranceConfig::default(),
-            version: 1,
-        },
-        fx_policy_applied: None,
-        timestamp: None,
-        version: None,
-    };
-    let plan = builder.build_plan(vec![rolling_mean], meta);
-
-    // Analyze pushdown boundaries
-    let boundaries = PushdownAnalyzer::analyze_boundaries(&plan);
-
-    // Boundaries analysis should complete successfully
-    assert!(
-        boundaries.estimated_speedup >= 0.0,
-        "Speedup should be non-negative"
-    );
-
-    // Should have some analysis result (may or may not find boundaries)
-    // Just verify the analysis completes without error
 }
 
 #[test]

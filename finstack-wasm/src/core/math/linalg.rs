@@ -44,6 +44,11 @@ pub fn cholesky_decomposition_js(matrix: &[f64], n: usize) -> Result<Vec<f64>, J
 /// const zCorr = applyCorrelation(chol, z);
 /// // zCorr now contains correlated shocks
 /// ```
+/// # Panics
+///
+/// Cannot panic in practice: the dimension check above ensures `chol` and `correlated` are
+/// correctly sized before calling `apply_correlation`.
+#[allow(clippy::expect_used)]
 #[wasm_bindgen(js_name = applyCorrelation)]
 pub fn apply_correlation_js(chol: &[f64], independent: &[f64]) -> Result<Vec<f64>, JsValue> {
     let n = independent.len();
@@ -58,7 +63,9 @@ pub fn apply_correlation_js(chol: &[f64], independent: &[f64]) -> Result<Vec<f64
     }
 
     let mut correlated = vec![0.0; n];
-    apply_correlation(chol, independent, &mut correlated);
+    // Dimension check already performed above, so this cannot fail.
+    apply_correlation(chol, independent, &mut correlated)
+        .expect("apply_correlation: dimensions pre-validated");
     Ok(correlated)
 }
 
