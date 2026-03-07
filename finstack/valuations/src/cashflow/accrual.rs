@@ -23,6 +23,7 @@ use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::money::Money;
+use tracing::warn;
 
 /// Maximum reasonable accrual factor for deriving issue date from coupon periods.
 ///
@@ -346,6 +347,19 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<P
                     _ => 365.0,
                 };
 
+                // This branch should be unreachable when schedules are built via
+                // `CashFlowBuilder` (which always sets `meta.issue_date`) or the RCF
+                // engine (which now sets `commitment_date`). Reaching it means a new
+                // construction path forgot to populate `meta.issue_date`. The resulting
+                // date is approximate (±1-2 day error for non-30/360 conventions).
+                warn!(
+                    first_coupon_date = %first_bucket.date,
+                    accrual_factor = first_bucket.accrual_factor,
+                    day_count = ?dc,
+                    "build_coupon_periods: meta.issue_date not set; deriving from accrual factor \
+                     via inverse day count approximation (may be off by 1-2 days). \
+                     Set meta.issue_date on the CashFlowSchedule to suppress this warning."
+                );
                 if first_bucket.accrual_factor > 0.0
                     && first_bucket.accrual_factor <= MAX_REASONABLE_ACCRUAL_FACTOR
                 {
@@ -398,16 +412,18 @@ fn build_period_inputs(
     let mut result = Vec::with_capacity(periods.len());
 
     for p in periods {
-        // Find the outstanding at period start by looking for the latest entry
-        // on or before p.start. If no entry exists, use initial notional.
-        // Use rev().find() instead of filter().last() to avoid iterating the
-        // entire collection when we only need the last matching element.
-        let notional_start = outstanding_path
-            .iter()
-            .rev()
-            .find(|(d, _)| *d <= p.start)
-            .map(|(_, m)| m.amount())
-            .unwrap_or_else(|| schedule.notional.initial.amount());
+        // Find the outstanding at period start: the latest entry on or before p.start.
+        // outstanding_path is sorted by date (guaranteed by CashFlowSchedule construction),
+        // so partition_point gives us O(log n) binary search instead of O(n) linear scan.
+        //
+        //   partition_point(|d| d <= p.start)  →  first index where d > p.start
+        //   idx - 1                            →  last index where d <= p.start
+        let idx = outstanding_path.partition_point(|(d, _)| *d <= p.start);
+        let notional_start = if idx > 0 {
+            outstanding_path[idx - 1].1.amount()
+        } else {
+            schedule.notional.initial.amount()
+        };
 
         let coupon_total = p.bucket.cash_amount + p.bucket.pik_amount;
 

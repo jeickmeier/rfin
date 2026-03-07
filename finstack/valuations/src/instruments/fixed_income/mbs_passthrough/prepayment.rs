@@ -193,6 +193,11 @@ pub fn cpr_to_smm(cpr: f64) -> f64 {
 ///
 /// CPR = 1 - (1 - SMM)^12
 pub fn smm_to_cpr(smm: f64) -> f64 {
+    // SMM is a monthly mortality rate and must be non-negative.
+    debug_assert!(
+        smm >= 0.0,
+        "smm_to_cpr: SMM must be non-negative, got {smm}"
+    );
     1.0 - (1.0 - smm).powi(12)
 }
 

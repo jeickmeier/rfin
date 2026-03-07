@@ -91,6 +91,14 @@ pub fn cpr_to_smm(cpr: f64) -> finstack_core::Result<f64> {
 /// assert!((cpr - cpr_back).abs() < 1e-10);
 /// ```
 pub fn smm_to_cpr(smm: f64) -> f64 {
+    // SMM is a monthly mortality rate and must be non-negative.
+    // cpr_to_smm already rejects negatives; this assertion ensures the
+    // inverse direction has symmetric protection in debug/test builds.
+    debug_assert!(
+        smm >= 0.0,
+        "smm_to_cpr: SMM must be non-negative, got {smm}. \
+         Use cpr_to_smm(cpr)? → smm_to_cpr(smm) for roundtrip conversions."
+    );
     if smm == 0.0 {
         return 0.0;
     }
