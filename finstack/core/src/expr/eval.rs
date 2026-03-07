@@ -18,7 +18,7 @@ use super::{
     dag::{DagBuilder, ExecutionPlan},
 };
 use crate::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::vec::Vec;
 
 /// Options controlling expression evaluation strategy and caching.
@@ -96,6 +96,10 @@ pub struct CompiledExpr {
     /// Small scratch arena to reuse temporary buffers within hot paths.
     #[serde(skip, default = "default_scratch")]
     scratch: Mutex<ScratchArena>,
+    /// Lazily-built fallback plan, populated on first `eval()` when `plan` is None.
+    /// Prevents rebuilding the DAG on every call for expressions created via `new()`.
+    #[serde(skip)]
+    lazy_plan: OnceLock<ExecutionPlan>,
 }
 
 fn default_scratch() -> Mutex<ScratchArena> {
@@ -117,8 +121,9 @@ impl Clone for CompiledExpr {
             ast: self.ast.clone(),
             plan: self.plan.clone(),
             cache: self.cache.clone(),
-            // Fresh scratch for clones; per-instance reuse only.
+            // Fresh scratch and lazy_plan for clones; per-instance reuse only.
             scratch: Mutex::new(ScratchArena::default()),
+            lazy_plan: OnceLock::new(),
         }
     }
 }
@@ -131,6 +136,7 @@ impl CompiledExpr {
             plan: None,
             cache: None,
             scratch: Mutex::new(ScratchArena::default()),
+            lazy_plan: OnceLock::new(),
         }
     }
 
@@ -145,6 +151,7 @@ impl CompiledExpr {
             plan: Some(plan),
             cache: Some(cache),
             scratch: Mutex::new(ScratchArena::default()),
+            lazy_plan: OnceLock::new(),
         }
     }
 
@@ -168,12 +175,17 @@ impl CompiledExpr {
         cols: &[&[f64]],
         opts: EvalOpts,
     ) -> EvaluationResult {
-        // Decide on execution plan preference: opts > self > auto-build
+        // Decide on execution plan preference: opts > self > lazy-cached auto-build
         let plan_to_use: ExecutionPlan =
             opts.plan.or_else(|| self.plan.clone()).unwrap_or_else(|| {
-                let mut builder = DagBuilder::new();
-                let meta = crate::config::results_meta(&crate::config::FinstackConfig::default());
-                builder.build_plan(vec![self.ast.clone()], meta)
+                self.lazy_plan
+                    .get_or_init(|| {
+                        let mut builder = DagBuilder::new();
+                        let meta =
+                            crate::config::results_meta(&crate::config::FinstackConfig::default());
+                        builder.build_plan(vec![self.ast.clone()], meta)
+                    })
+                    .clone()
             });
 
         // Decide on cache to use for this evaluation

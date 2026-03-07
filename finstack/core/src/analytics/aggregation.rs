@@ -4,9 +4,7 @@
 //! date-to-period mapping.
 
 use crate::dates::{Date, DateExt, FiscalConfig, PeriodId, PeriodKind};
-use crate::math::stats::mean;
 
-use super::consecutive::count_consecutive;
 use super::returns::comp_total;
 
 /// Period-level aggregate statistics.
@@ -197,25 +195,62 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
         };
     }
 
-    let returns: Vec<f64> = grouped.iter().map(|(_, r)| *r).collect();
-    let best = returns.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let worst = returns.iter().copied().fold(f64::INFINITY, f64::min);
+    // Single pass: compute all stats without intermediate allocations.
+    let mut best = f64::NEG_INFINITY;
+    let mut worst = f64::INFINITY;
+    let mut total_sum = 0.0_f64;
+    let mut win_sum = 0.0_f64;
+    let mut loss_sum = 0.0_f64;
+    let mut win_count = 0usize;
+    let mut loss_count = 0usize;
+    // Consecutive streak tracking — computed inline to avoid a second pass.
+    let mut cur_win_streak = 0usize;
+    let mut cur_loss_streak = 0usize;
+    let mut consecutive_wins = 0usize;
+    let mut consecutive_losses = 0usize;
 
-    let consecutive_wins = count_consecutive(&returns, |v| v > 0.0);
-    let consecutive_losses = count_consecutive(&returns, |v| v < 0.0);
+    for &(_, r) in grouped {
+        if r > best {
+            best = r;
+        }
+        if r < worst {
+            worst = r;
+        }
+        total_sum += r;
+        if r > 0.0 {
+            win_sum += r;
+            win_count += 1;
+            cur_win_streak += 1;
+            if cur_win_streak > consecutive_wins {
+                consecutive_wins = cur_win_streak;
+            }
+            cur_loss_streak = 0;
+        } else if r < 0.0 {
+            loss_sum += r;
+            loss_count += 1;
+            cur_loss_streak += 1;
+            if cur_loss_streak > consecutive_losses {
+                consecutive_losses = cur_loss_streak;
+            }
+            cur_win_streak = 0;
+        } else {
+            cur_win_streak = 0;
+            cur_loss_streak = 0;
+        }
+    }
 
-    let wins: Vec<f64> = returns.iter().filter(|&&r| r > 0.0).copied().collect();
-    let losses: Vec<f64> = returns.iter().filter(|&&r| r < 0.0).copied().collect();
-
-    let win_count = wins.len();
-    let total = returns.len();
+    let total = grouped.len();
     let win_rate = win_count as f64 / total as f64;
-    let avg_return = mean(&returns);
-    let avg_win = if wins.is_empty() { 0.0 } else { mean(&wins) };
-    let avg_loss = if losses.is_empty() {
+    let avg_return = total_sum / total as f64;
+    let avg_win = if win_count == 0 {
         0.0
     } else {
-        mean(&losses)
+        win_sum / win_count as f64
+    };
+    let avg_loss = if loss_count == 0 {
+        0.0
+    } else {
+        loss_sum / loss_count as f64
     };
 
     let payoff_ratio = if avg_loss == 0.0 {
@@ -224,8 +259,8 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
         avg_win / avg_loss.abs()
     };
 
-    let total_profit: f64 = wins.iter().sum();
-    let total_loss: f64 = losses.iter().map(|l| l.abs()).sum();
+    let total_profit = win_sum;
+    let total_loss = loss_sum.abs();
 
     let profit_ratio = if total_loss == 0.0 {
         if total_profit > 0.0 {

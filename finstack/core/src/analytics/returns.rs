@@ -2,7 +2,7 @@
 //! compounded returns. Delegates to `math::stats::log_returns` for log variants
 //! and `math::summation` for numerically stable accumulation.
 
-use crate::math::summation::{kahan_sum, NeumaierAccumulator};
+use crate::math::summation::NeumaierAccumulator;
 
 /// Replace infinities with NaN and strip trailing all-NaN rows in-place.
 ///
@@ -320,15 +320,19 @@ pub fn comp_total(returns: &[f64]) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
-    if returns.iter().any(|r| !r.is_finite()) {
-        return f64::NAN;
+    // Single pass: check finiteness and Kahan-accumulate log-space sum.
+    let mut sum = 0.0_f64;
+    let mut comp = 0.0_f64;
+    for &r in returns {
+        if !r.is_finite() {
+            return f64::NAN;
+        }
+        let y = (1.0 + r).max(MIN_GROWTH_FACTOR).ln() - comp;
+        let t = sum + y;
+        comp = (t - sum) - y;
+        sum = t;
     }
-    let log_sum = kahan_sum(
-        returns
-            .iter()
-            .map(|&r| (1.0 + r).max(MIN_GROWTH_FACTOR).ln()),
-    );
-    log_sum.exp() - 1.0
+    sum.exp() - 1.0
 }
 
 #[cfg(test)]

@@ -72,14 +72,11 @@ impl InterpolationStrategy for LinearStrategy {
             return val;
         }
 
-        // Exact knot match
-        if let Ok(idx_exact) =
-            knots.binary_search_by(|k| k.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Less))
-        {
-            return values[idx_exact];
-        }
-
-        // Interior linear interpolation
+        // Interior linear interpolation.
+        // Exact knot hits are handled correctly: locate_segment returns idx where
+        // knots[idx] <= x, so w = 0.0 when x == knots[idx] and w = 1.0 when
+        // x == knots[idx+1] — both produce the exact knot value without a
+        // separate binary search.
         let idx = match locate_segment(knots, x) {
             Ok(i) => i,
             Err(_) => return f64::NAN,
