@@ -302,6 +302,9 @@ pub struct WaterfallDistribution {
     pub had_diversions: bool,
     /// Diversion reason if applicable
     pub diversion_reason: Option<String>,
+    /// Detailed diverted payment records.
+    #[serde(default)]
+    pub diverted_amounts: Vec<DiversionRecord>,
 
     /// Recovery proceeds included in this period's available cash.
     /// Tracked separately from principal collections for trustee report reconciliation.
@@ -317,6 +320,19 @@ impl WaterfallDistribution {
     fn zero_usd() -> Money {
         Money::new(0.0, finstack_core::currency::Currency::USD)
     }
+}
+
+/// Record of a diverted payment from one tier to another recipient.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiversionRecord {
+    /// Source tier where cash originated.
+    pub source_tier: String,
+    /// Recipient identifier that received the diverted cash.
+    pub target_tranche: String,
+    /// Diverted amount.
+    pub amount: Money,
+    /// Human-readable reason for diversion.
+    pub reason: String,
 }
 
 /// Record of individual payment

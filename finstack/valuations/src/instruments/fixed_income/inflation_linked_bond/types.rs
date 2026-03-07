@@ -1054,14 +1054,88 @@ impl CashflowProvider for InflationLinkedBond {
     fn build_full_schedule(
         &self,
         curves: &MarketContext,
-        as_of: Date,
+        _as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
-        let flows = self.build_schedule(curves, as_of)?;
-        Ok(crate::cashflow::traits::schedule_from_dated_flows(
-            flows,
-            self.notional(),
-            self.day_count,
-        ))
+        let inflation_source = self.inflation_source(curves)?;
+        let sched = crate::cashflow::builder::build_dates(
+            self.issue_date,
+            self.maturity,
+            self.frequency,
+            self.stub,
+            self.bdc,
+            false,
+            0,
+            self.calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
+        )?;
+        let periods = &sched.periods;
+
+        let mut detailed_flows = Vec::with_capacity(periods.len() + 1);
+        let mut coupon_rows = Vec::with_capacity(periods.len());
+        for period in periods {
+            let accrual_factor = self
+                .day_count
+                .year_fraction(
+                    period.accrual_start,
+                    period.accrual_end,
+                    DayCountCtx::default(),
+                )?
+                .max(0.0);
+            let coupon_rate = self
+                .real_coupon
+                .to_f64()
+                .ok_or(finstack_core::InputError::ConversionOverflow)?;
+            let base_amount = self.notional.amount() * coupon_rate * accrual_factor;
+            let raw_ratio = inflation_source.ratio(self, period.payment_date)?;
+            let ratio = match self.deflation_protection {
+                DeflationProtection::AllPayments => raw_ratio.max(1.0),
+                DeflationProtection::None | DeflationProtection::MaturityOnly => raw_ratio,
+            };
+            coupon_rows.push((
+                period.payment_date,
+                base_amount * ratio,
+                accrual_factor,
+                coupon_rate,
+            ));
+        }
+        crate::cashflow::builder::emission::emit_inflation_coupons(
+            self.notional.currency(),
+            &coupon_rows,
+            &mut detailed_flows,
+        );
+
+        let raw_principal_ratio = inflation_source.ratio(self, self.maturity)?;
+        let principal_ratio = match self.deflation_protection {
+            DeflationProtection::None => raw_principal_ratio,
+            DeflationProtection::MaturityOnly | DeflationProtection::AllPayments => {
+                raw_principal_ratio.max(1.0)
+            }
+        };
+        detailed_flows.push(crate::cashflow::primitives::CashFlow {
+            date: self.maturity,
+            reset_date: None,
+            amount: self.notional * principal_ratio,
+            kind: crate::cashflow::primitives::CFKind::Notional,
+            accrual_factor: 0.0,
+            rate: None,
+        });
+
+        detailed_flows.sort_by(|a, b| match a.date.cmp(&b.date) {
+            core::cmp::Ordering::Equal => crate::cashflow::builder::schedule::kind_rank(a.kind)
+                .cmp(&crate::cashflow::builder::schedule::kind_rank(b.kind)),
+            other => other,
+        });
+
+        Ok(crate::cashflow::builder::CashFlowSchedule {
+            flows: detailed_flows,
+            notional: crate::cashflow::builder::Notional::par(
+                self.notional.amount(),
+                self.notional.currency(),
+            ),
+            day_count: self.day_count,
+            meta: crate::cashflow::builder::CashFlowMeta::default(),
+        })
     }
 }
 
@@ -1079,6 +1153,8 @@ impl crate::instruments::common_impl::traits::CurveDependencies for InflationLin
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::traits::CashflowProvider;
+    use finstack_core::cashflow::CFKind;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::{DiscountCurve, InflationCurve};
     use time::Month;
@@ -1166,5 +1242,31 @@ mod tests {
 
         assert_eq!(first_coupon, 20_000.0);
         assert_eq!(principal, 1_000_000.0);
+    }
+
+    #[test]
+    fn build_full_schedule_marks_inflation_coupons_explicitly() {
+        let as_of = d(2024, Month::January, 15);
+        let market = market_with_deflation(as_of);
+        let bond = sample_bond(DeflationProtection::AllPayments);
+
+        let schedule = bond
+            .build_full_schedule(&market, as_of)
+            .expect("full schedule should build");
+
+        assert!(
+            schedule
+                .flows
+                .iter()
+                .any(|flow| flow.kind == CFKind::InflationCoupon),
+            "expected inflation-linked coupons in full schedule"
+        );
+        assert!(
+            schedule
+                .flows
+                .iter()
+                .any(|flow| flow.date == bond.maturity && flow.kind == CFKind::Notional),
+            "expected principal notional flow at maturity"
+        );
     }
 }

@@ -407,10 +407,17 @@ fn test_golden_clo_oc_breach_diversion() {
         result.had_diversions,
         "OC breach should trigger diversion flag"
     );
-
-    // Note: diverted_cash tracking is currently limited to tiers that actually redirect
-    // For now, just verify the flag is set
-    // TODO: Enhance diversion tracking to capture all diverted amounts
+    assert!(
+        !result.diverted_amounts.is_empty(),
+        "Diversion tracking should capture redirected payments"
+    );
+    assert!(
+        result
+            .diverted_amounts
+            .iter()
+            .all(|record| record.amount.amount() > 0.0),
+        "Diversion records should have positive amounts"
+    );
 }
 
 #[test]

@@ -336,30 +336,28 @@ fn test_equity_forward_price_high_dividend() {
     assert!((forward_price.amount() - expected).abs() < 0.01);
 }
 
-// TODO: Market Standard Requirement - Discrete Dividend Modeling
-//
-// Current implementation uses continuous dividend yield (q) via exp((r-q)t).
-// This is acceptable for broad-based equity indices (e.g., SPX, NDX) where
-// dividends are effectively continuous.
-//
-// However, for single-name equities and equity forwards/options, the market
-// standard is to use discrete cash dividends with specific ex-dividend dates:
-//
-//   F = S * exp(r*t) - Σ D_i * exp(r*(t - t_i))
-//
-// where:
-//   - D_i = dividend amount on ex-date i
-//   - t_i = time to ex-date i
-//
-// Implementation should:
-//
-// 1. Add a `discrete_dividends: Vec<(Date, f64)>` field to `Equity`
-// 2. Update `forward_price_per_share()` to handle both continuous and discrete
-// 3. Ensure options (equity_option module) correctly adjust for discrete divs
-// 4. Validate against market data for single-name equity forwards
-//
-// Example test case:
-//   - Spot: $100
-//   - Rate: 5%
-//   - Dividend: $2.50 on t=0.25 (3 months)
-//   - Forward (1Y): 100 * exp(0.05) - 2.50 * exp(0.05*0.75) ≈ 102.60
+#[test]
+fn test_equity_forward_price_with_discrete_dividend() {
+    let base_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let mut equity = Equity::new("AAPL", "AAPL", Currency::USD).with_price(100.0);
+    equity.discrete_dividends = vec![(
+        Date::from_calendar_date(2024, time::Month::April, 1).unwrap(),
+        2.50,
+    )];
+
+    let curve = build_flat_curve(0.05, base_date, "USD");
+    let market = MarketContext::new().insert_discount(curve);
+    let pricer = EquityPricer;
+
+    let forward_price = pricer
+        .forward_price_per_share(&equity, &market, base_date, 1.0)
+        .unwrap();
+
+    let expected = (100.0 - 2.50 * (-0.05_f64 * 0.25).exp()) * (0.05_f64).exp();
+    assert!(
+        (forward_price.amount() - expected).abs() < 0.02,
+        "forward={} expected={}",
+        forward_price.amount(),
+        expected
+    );
+}

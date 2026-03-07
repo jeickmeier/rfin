@@ -46,6 +46,10 @@ pub struct Equity {
     pub price_id: Option<String>,
     /// Explicit market data identifier to resolve the dividend yield
     pub div_yield_id: Option<CurveId>,
+    /// Optional discrete cash dividends `(ex_date, amount)` for single-name forwards.
+    #[serde(default)]
+    #[builder(default)]
+    pub discrete_dividends: Vec<(Date, f64)>,
     /// Discount curve ID for pricing
     pub discount_curve_id: CurveId,
     /// Attributes for scenario selection and tagging
@@ -84,6 +88,7 @@ impl Equity {
             price_quote: None,
             price_id: None,
             div_yield_id: None,
+            discrete_dividends: Vec::new(),
             discount_curve_id,
             pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),
@@ -111,6 +116,12 @@ impl Equity {
     /// Override the market data identifier used to resolve the dividend yield
     pub fn with_dividend_yield_id(mut self, div_id: impl Into<CurveId>) -> Self {
         self.div_yield_id = Some(div_id.into());
+        self
+    }
+
+    /// Set an explicit discrete dividend schedule.
+    pub fn with_discrete_dividends(mut self, dividends: Vec<(Date, f64)>) -> Self {
+        self.discrete_dividends = dividends;
         self
     }
 
@@ -279,11 +290,32 @@ impl Equity {
         t: f64,
     ) -> finstack_core::Result<Money> {
         let s0 = self.price_per_share(market, as_of)?;
-        let dy = self.dividend_yield(market)?;
-        // Use configured discount curve ID
         let disc = market.get_discount(self.discount_curve_id.as_str())?;
-        let r = disc.zero(t);
-        let fwd = s0.amount() * ((r - dy) * t).exp();
+        let fwd = if !self.discrete_dividends.is_empty() {
+            let pv_dividends: f64 = self
+                .discrete_dividends
+                .iter()
+                .filter_map(|(ex_date, amount)| {
+                    let t_div = finstack_core::dates::DayCount::Act365F
+                        .year_fraction(
+                            as_of,
+                            *ex_date,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .ok()?;
+                    if t_div > 0.0 && t_div <= t {
+                        Some(amount * disc.df(t_div))
+                    } else {
+                        None
+                    }
+                })
+                .sum();
+            (s0.amount() - pv_dividends) / disc.df(t)
+        } else {
+            let dy = self.dividend_yield(market)?;
+            let r = disc.zero(t);
+            s0.amount() * ((r - dy) * t).exp()
+        };
         Ok(Money::new(fwd, self.currency))
     }
 

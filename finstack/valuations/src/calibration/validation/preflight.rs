@@ -11,6 +11,7 @@
 use crate::calibration::api::schema::{CalibrationStep, StepParams};
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::targets::util::curve_day_count_from_quotes;
+use crate::market::quotes::cds_tranche::CDSTrancheQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
@@ -54,13 +55,91 @@ pub fn preflight_step(
         StepParams::VolSurface(p) => validate_vol_surface_step(p, context),
         StepParams::SwaptionVol(p) => validate_swaption_vol_step(p, context),
         StepParams::BaseCorrelation(p) => validate_base_correlation_step(p, quotes, context),
-        StepParams::StudentT(_) => Err(finstack_core::Error::Validation(
-            "Student-t calibration step is not implemented: tranche repricing is not yet wired"
-                .to_string(),
-        )),
+        StepParams::StudentT(p) => validate_student_t_step(p, quotes, context),
         StepParams::HullWhite(_) => Ok(()), // HW1F calibration validates quotes at execution time
-        StepParams::SviSurface(_) => Ok(()), // SVI calibration not yet wired
+        StepParams::SviSurface(p) => validate_svi_surface_step(p, context),
     }
+}
+
+fn validate_student_t_step(
+    p: &crate::calibration::api::schema::StudentTParams,
+    quotes: &[MarketQuote],
+    context: &MarketContext,
+) -> Result<()> {
+    if !p.initial_df.is_finite() || p.initial_df <= 2.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "Student-t initial_df must be finite and > 2.0; got {}",
+            p.initial_df
+        )));
+    }
+    if !p.df_bounds.0.is_finite()
+        || !p.df_bounds.1.is_finite()
+        || p.df_bounds.0 <= 2.0
+        || p.df_bounds.0 >= p.df_bounds.1
+    {
+        return Err(finstack_core::Error::Validation(format!(
+            "Student-t df_bounds must satisfy 2.0 < lo < hi; got ({}, {})",
+            p.df_bounds.0, p.df_bounds.1
+        )));
+    }
+
+    let tranche_quotes: Vec<CDSTrancheQuote> = quotes.extract_quotes();
+    let tranche_quote = tranche_quotes
+        .iter()
+        .find(|quote| quote.id().as_str() == p.tranche_instrument_id)
+        .ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::InputError::NotFound {
+                id: format!("CDS tranche quote '{}'", p.tranche_instrument_id),
+            })
+        })?;
+
+    let index_id = match tranche_quote {
+        CDSTrancheQuote::CDSTranche { index, .. } => index,
+    };
+
+    let _ = context.get_base_correlation(&p.base_correlation_curve_id)?;
+    let _ = context.credit_index(index_id)?;
+
+    if let Some(curve_id) = &p.discount_curve_id {
+        let _ = context.get_discount(curve_id)?;
+    } else {
+        let mut discount_curves = context.curves_of_type("Discount");
+        if discount_curves.next().is_none() {
+            return Err(finstack_core::Error::Input(
+                finstack_core::InputError::NotFound {
+                    id: "discount curve".to_string(),
+                },
+            ));
+        }
+        if discount_curves.next().is_some() {
+            return Err(finstack_core::Error::Validation(
+                "Student-t calibration requires discount_curve_id when multiple discount curves are present"
+                    .to_string(),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_svi_surface_step(
+    p: &crate::calibration::api::schema::SviSurfaceParams,
+    context: &MarketContext,
+) -> Result<()> {
+    if p.target_expiries.is_empty() {
+        return Err(finstack_core::Error::Validation(
+            "SVI surface step requires non-empty target_expiries".to_string(),
+        ));
+    }
+    if p.target_strikes.len() < 5 {
+        return Err(finstack_core::Error::Validation(
+            "SVI surface step requires at least five target_strikes".to_string(),
+        ));
+    }
+    if let Some(discount_curve_id) = &p.discount_curve_id {
+        let _ = context.get_discount(discount_curve_id)?;
+    }
+    Ok(())
 }
 
 /// Validate discount curve calibration step.
@@ -426,13 +505,21 @@ fn validate_base_correlation_step(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::calibration::api::schema::{DiscountCurveParams, StepParams, StudentTParams};
+    use crate::calibration::api::schema::{
+        DiscountCurveParams, StepParams, StudentTParams, SviSurfaceParams,
+    };
     use crate::calibration::config::CalibrationMethod;
-    use crate::market::conventions::ids::IndexId;
+    use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause, IndexId};
+    use crate::market::quotes::cds_tranche::CDSTrancheQuote;
     use crate::market::quotes::ids::{Pillar, QuoteId};
-    use finstack_core::dates::{Tenor, TenorUnit};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{Date, Tenor, TenorUnit};
+    use finstack_core::market_data::term_structures::{
+        BaseCorrelationCurve, CreditIndexData, DiscountCurve, HazardCurve,
+    };
     use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
     use finstack_core::types::CurveId;
+    use std::sync::Arc;
     use time::Month;
 
     fn make_discount_step() -> CalibrationStep {
@@ -452,6 +539,20 @@ mod tests {
                 conventions: Default::default(),
             }),
         }
+    }
+
+    fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
+        DiscountCurve::builder(curve_id)
+            .base_date(base_date)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-rate).exp()),
+                (5.0, (-rate * 5.0).exp()),
+                (10.0, (-rate * 10.0).exp()),
+            ])
+            .build()
+            .expect("flat discount curve should build")
     }
 
     #[test]
@@ -491,25 +592,146 @@ mod tests {
     }
 
     #[test]
-    fn preflight_rejects_student_t_step_until_wired() {
+    fn preflight_accepts_student_t_when_quote_and_market_are_present() {
+        let base_date = Date::from_calendar_date(2025, Month::March, 20).expect("valid date");
         let step = CalibrationStep {
             id: "student-t".to_string(),
             quote_set: "credit".to_string(),
             params: StepParams::StudentT(StudentTParams {
                 tranche_instrument_id: "TRANCHE-1".to_string(),
-                base_correlation_curve_id: "INDEX_CORR".to_string(),
+                base_correlation_curve_id: "CDX_CORR".to_string(),
+                discount_curve_id: Some("USD-OIS".into()),
                 initial_df: 5.0,
                 df_bounds: (2.1, 50.0),
                 correlation: 0.3,
             }),
         };
         let config = CalibrationConfig::default();
-        let ctx = MarketContext::new();
+        let hazard = HazardCurve::builder("CDX_HAZARD")
+            .base_date(base_date)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .recovery_rate(0.40)
+            .knots([(1.0, 0.0010), (5.0, 0.0012), (10.0, 0.0015)])
+            .build()
+            .expect("hazard curve");
+        let base_corr = BaseCorrelationCurve::builder("CDX_CORR")
+            .knots([(3.0, 0.25), (7.0, 0.35)])
+            .build()
+            .expect("base correlation");
+        let credit_index = CreditIndexData::builder()
+            .num_constituents(125)
+            .recovery_rate(0.40)
+            .index_credit_curve(Arc::new(hazard.clone()))
+            .base_correlation_curve(Arc::new(base_corr.clone()))
+            .build()
+            .expect("credit index");
+        let ctx = MarketContext::new()
+            .insert_discount(build_flat_discount_curve(0.03, base_date, "USD-OIS"))
+            .insert_hazard(hazard)
+            .insert_base_correlation(base_corr)
+            .insert_credit_index("CDX.NA.IG", credit_index);
+        let quotes = vec![MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
+            id: QuoteId::new("TRANCHE-1"),
+            index: "CDX.NA.IG".to_string(),
+            attachment: 0.03,
+            detachment: 0.07,
+            maturity: Date::from_calendar_date(2030, Month::March, 20).expect("valid maturity"),
+            upfront_pct: -0.01,
+            running_spread_bp: 500.0,
+            convention: CdsConventionKey {
+                currency: Currency::USD,
+                doc_clause: CdsDocClause::Cr14,
+            },
+        })];
 
-        let err = preflight_step(&step, &[], &ctx, &config)
-            .expect_err("Student-t preflight should fail closed");
+        let result = preflight_step(&step, &quotes, &ctx, &config);
+        assert!(result.is_ok(), "unexpected error: {result:?}");
+    }
+
+    #[test]
+    fn preflight_accepts_student_t_with_explicit_discount_curve_in_multi_curve_context() {
+        let base_date = Date::from_calendar_date(2025, Month::March, 20).expect("valid date");
+        let step = CalibrationStep {
+            id: "student-t".to_string(),
+            quote_set: "credit".to_string(),
+            params: StepParams::StudentT(StudentTParams {
+                tranche_instrument_id: "TRANCHE-1".to_string(),
+                base_correlation_curve_id: "CDX_CORR".to_string(),
+                discount_curve_id: Some("USD-OIS".into()),
+                initial_df: 5.0,
+                df_bounds: (2.1, 50.0),
+                correlation: 0.3,
+            }),
+        };
+        let config = CalibrationConfig::default();
+        let hazard = HazardCurve::builder("CDX_HAZARD")
+            .base_date(base_date)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .recovery_rate(0.40)
+            .knots([(1.0, 0.0010), (5.0, 0.0012), (10.0, 0.0015)])
+            .build()
+            .expect("hazard curve");
+        let base_corr = BaseCorrelationCurve::builder("CDX_CORR")
+            .knots([(3.0, 0.25), (7.0, 0.35)])
+            .build()
+            .expect("base correlation");
+        let credit_index = CreditIndexData::builder()
+            .num_constituents(125)
+            .recovery_rate(0.40)
+            .index_credit_curve(Arc::new(hazard.clone()))
+            .base_correlation_curve(Arc::new(base_corr.clone()))
+            .build()
+            .expect("credit index");
+        let ctx = MarketContext::new()
+            .insert_discount(build_flat_discount_curve(0.03, base_date, "USD-OIS"))
+            .insert_discount(build_flat_discount_curve(0.025, base_date, "USD-ALT"))
+            .insert_hazard(hazard)
+            .insert_base_correlation(base_corr)
+            .insert_credit_index("CDX.NA.IG", credit_index);
+        let quotes = vec![MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
+            id: QuoteId::new("TRANCHE-1"),
+            index: "CDX.NA.IG".to_string(),
+            attachment: 0.03,
+            detachment: 0.07,
+            maturity: Date::from_calendar_date(2030, Month::March, 20).expect("valid maturity"),
+            upfront_pct: -0.01,
+            running_spread_bp: 500.0,
+            convention: CdsConventionKey {
+                currency: Currency::USD,
+                doc_clause: CdsDocClause::Cr14,
+            },
+        })];
+
+        let result = preflight_step(&step, &quotes, &ctx, &config);
+        assert!(result.is_ok(), "unexpected error: {result:?}");
+    }
+
+    #[test]
+    fn preflight_rejects_svi_surface_without_discount_curve() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let step = CalibrationStep {
+            id: "svi".to_string(),
+            quote_set: "vols".to_string(),
+            params: StepParams::SviSurface(SviSurfaceParams {
+                surface_id: "SPX-SVI".to_string(),
+                base_date,
+                underlying_ticker: "SPX".to_string(),
+                discount_curve_id: Some("USD-OIS".into()),
+                target_expiries: vec![0.5, 1.0],
+                target_strikes: vec![80.0, 90.0, 100.0, 110.0, 120.0],
+                spot_override: Some(100.0),
+            }),
+        };
+
+        let err = preflight_step(
+            &step,
+            &[],
+            &MarketContext::new(),
+            &CalibrationConfig::default(),
+        )
+        .expect_err("SVI preflight should require the configured discount curve");
         assert!(
-            err.to_string().contains("not implemented"),
+            err.to_string().contains("USD-OIS"),
             "unexpected error: {err}"
         );
     }

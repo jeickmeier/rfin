@@ -22,6 +22,26 @@ use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date};
 use crate::cashflow::builder::calendar::resolve_calendar_strict;
 
+/// Emit inflation-linked coupon cashflows.
+///
+/// Each tuple is `(payment_date, indexed_coupon_amount, accrual_factor, real_coupon_rate)`.
+pub(crate) fn emit_inflation_coupons(
+    ccy: Currency,
+    coupons: &[(Date, f64, f64, f64)],
+    out_flows: &mut Vec<CashFlow>,
+) {
+    for &(date, amount, accrual_factor, real_coupon_rate) in coupons {
+        out_flows.push(CashFlow {
+            date,
+            reset_date: None,
+            amount: Money::new(amount, ccy),
+            kind: CFKind::InflationCoupon,
+            accrual_factor,
+            rate: Some(real_coupon_rate),
+        });
+    }
+}
+
 /// Convert an f64 to Decimal, returning an error for non-finite values.
 ///
 /// This prevents silent masking of NaN/Infinity values as zero, which would
@@ -472,4 +492,38 @@ pub(crate) fn emit_float_coupons_on(
         }
     }
     Ok(pik_to_add)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use time::Month;
+
+    #[test]
+    fn emit_inflation_coupons_preserves_non_positive_amounts() {
+        let mut flows = Vec::new();
+        emit_inflation_coupons(
+            Currency::USD,
+            &[
+                (
+                    Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
+                    0.0,
+                    0.5,
+                    0.02,
+                ),
+                (
+                    Date::from_calendar_date(2025, Month::July, 1).expect("valid date"),
+                    -12.5,
+                    0.5,
+                    0.02,
+                ),
+            ],
+            &mut flows,
+        );
+
+        assert_eq!(flows.len(), 2);
+        assert_eq!(flows[0].kind, CFKind::InflationCoupon);
+        assert_eq!(flows[1].amount.amount(), -12.5);
+    }
 }

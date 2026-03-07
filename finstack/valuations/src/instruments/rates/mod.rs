@@ -119,6 +119,8 @@ pub mod irs;
 pub mod range_accrual;
 /// Repo module - Repurchase agreements.
 pub mod repo;
+/// Shared rates pricing utilities.
+pub mod shared;
 /// Swaption module - Options on interest rate swaps.
 pub mod swaption;
 /// Cross-currency swap module.

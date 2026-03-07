@@ -8,16 +8,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-
-// TODO: Equity price scalar attribution
-//
-// The required infrastructure (ScalarsSnapshot::extract, restore_scalars) is in place,
-// but equity instruments need to use price_id consistently for attribution
-// to detect spot price changes automatically.
-//
-// Enable once equity pricing correctly uses AAPL-SPOT or EQUITY-SPOT
-// conventions for scalar attribution. Missing: Equity option instrument
-// using MarketContext.price(equity_id) for spot price lookup during pricing.
+use finstack_valuations::instruments::equity::spot::Equity;
+use finstack_valuations::instruments::Instrument;
 
 #[test]
 fn test_scalars_snapshot_extraction() {
@@ -82,4 +74,52 @@ fn test_market_scalar_freeze_restore() {
     if let MarketScalar::Price(money) = price {
         assert_eq!(money.amount(), 180.0); // Should be T₀ value
     }
+}
+
+#[test]
+fn test_equity_price_id_uses_restored_scalar_price() {
+    use finstack_valuations::attribution::{restore_scalars, MarketExtractable, ScalarsSnapshot};
+
+    let equity = Equity::new("AAPL", "AAPL", Currency::USD)
+        .with_price_id("AAPL-SPOT")
+        .with_shares(1.0);
+
+    let market_t0 = MarketContext::new()
+        .insert_discount(
+            finstack_core::market_data::term_structures::DiscountCurve::builder("USD")
+                .base_date(
+                    finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+                        .unwrap(),
+                )
+                .knots([(0.0, 1.0), (1.0, 0.95)])
+                .build()
+                .unwrap(),
+        )
+        .insert_price(
+            "AAPL-SPOT",
+            MarketScalar::Price(Money::new(180.0, Currency::USD)),
+        );
+    let market_t1 = MarketContext::new()
+        .insert_discount(
+            finstack_core::market_data::term_structures::DiscountCurve::builder("USD")
+                .base_date(
+                    finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+                        .unwrap(),
+                )
+                .knots([(0.0, 1.0), (1.0, 0.95)])
+                .build()
+                .unwrap(),
+        )
+        .insert_price(
+            "AAPL-SPOT",
+            MarketScalar::Price(Money::new(185.0, Currency::USD)),
+        );
+
+    let snapshot = ScalarsSnapshot::extract(&market_t0);
+    let restored_market = restore_scalars(&market_t1, &snapshot);
+    let as_of =
+        finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+
+    let restored_value = equity.value(&restored_market, as_of).unwrap();
+    assert_eq!(restored_value.amount(), 180.0);
 }

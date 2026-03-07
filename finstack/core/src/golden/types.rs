@@ -450,8 +450,10 @@ mod tests {
     #[test]
     fn test_tolerance_bp() {
         let tol = Tolerance::Bps(0.5);
-        assert!(tol.is_within(100.3, 100.0));
-        assert!(!tol.is_within(100.6, 100.0));
+        // 0.00004 * 10_000 = 0.4 bp < 0.5 bp tolerance
+        assert!(tol.is_within(100.00004, 100.0));
+        // 0.00006 * 10_000 = 0.6 bp > 0.5 bp tolerance
+        assert!(!tol.is_within(100.00006, 100.0));
     }
 
     #[test]

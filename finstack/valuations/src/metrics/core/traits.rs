@@ -8,6 +8,7 @@ use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::structured_credit::TrancheCashflows;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::MetricId;
+use finstack_core::cashflow::CashFlow;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -178,6 +179,9 @@ pub struct MetricContext {
     /// Cached cashflows for the instrument.
     pub cashflows: Option<Vec<(Date, Money)>>,
 
+    /// Cached detailed cashflows with CFKind metadata.
+    pub tagged_cashflows: Option<Vec<CashFlow>>,
+
     /// Tranche-level detailed cashflow results (for structured credit)
     pub detailed_tranche_cashflows: Option<TrancheCashflows>,
 
@@ -244,6 +248,7 @@ impl MetricContext {
             computed_matrix: finstack_core::HashMap::default(),
             computed_tensor3: finstack_core::HashMap::default(),
             cashflows: None,
+            tagged_cashflows: None,
             detailed_tranche_cashflows: None,
             discount_curve_id: None,
             day_count: None,

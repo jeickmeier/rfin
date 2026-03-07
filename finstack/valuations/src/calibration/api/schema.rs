@@ -516,6 +516,12 @@ pub struct StudentTParams {
     pub tranche_instrument_id: String,
     /// Identifier for the pre-calibrated base correlation curve.
     pub base_correlation_curve_id: String,
+    /// Discount curve identifier used to price the tranche.
+    ///
+    /// When omitted, calibration falls back to the only discount curve present
+    /// in the market context for backward compatibility.
+    #[serde(default)]
+    pub discount_curve_id: Option<CurveId>,
     /// Starting guess for degrees of freedom (typically 4-10).
     #[serde(default = "default_student_t_initial_df")]
     pub initial_df: f64,

@@ -260,10 +260,20 @@ impl Money {
         Self::new_finite(amount, currency, cfg)
     }
 
+    #[inline]
+    fn amount_and_currency(self) -> (f64, Currency) {
+        (amount_from_repr(self.amount), self.currency)
+    }
+
+    #[inline]
+    fn try_amount_and_currency(self) -> Result<(f64, Currency), Error> {
+        Ok((try_amount_from_repr(self.amount)?, self.currency))
+    }
+
     /// Amount accessor (by value).
     #[inline]
     pub fn amount(&self) -> f64 {
-        amount_from_repr(self.amount)
+        (*self).into_amount()
     }
 
     /// Currency accessor.
@@ -276,14 +286,14 @@ impl Money {
     #[inline]
     #[must_use]
     pub fn into_amount(self) -> f64 {
-        amount_from_repr(self.amount)
+        self.into_parts().0
     }
 
     /// Consume `self` into `(amount, currency)`.
     #[inline]
     #[must_use]
     pub fn into_parts(self) -> (f64, Currency) {
-        (amount_from_repr(self.amount), self.currency)
+        self.amount_and_currency()
     }
 
     // ---------------------------------------------------------------------
@@ -309,7 +319,7 @@ impl Money {
     /// ```
     #[inline]
     pub fn try_amount(&self) -> Result<f64, Error> {
-        try_amount_from_repr(self.amount)
+        (*self).try_into_amount()
     }
 
     /// Fallible consuming amount accessor.
@@ -330,7 +340,7 @@ impl Money {
     /// ```
     #[inline]
     pub fn try_into_amount(self) -> Result<f64, Error> {
-        try_amount_from_repr(self.amount)
+        self.try_into_parts().map(|(amount, _)| amount)
     }
 
     /// Fallible consuming parts accessor.
@@ -353,7 +363,7 @@ impl Money {
     /// ```
     #[inline]
     pub fn try_into_parts(self) -> Result<(f64, Currency), Error> {
-        Ok((try_amount_from_repr(self.amount)?, self.currency))
+        self.try_amount_and_currency()
     }
 
     // ---------------------------------------------------------------------
@@ -586,20 +596,17 @@ macro_rules! money {
 // -------------------------------------------------------------------------
 // Unchecked arithmetic – currency must match or panic
 // -------------------------------------------------------------------------
-// NOTE: AddAssign and SubAssign require matching currencies. In debug builds,
-// currency mismatch will panic to catch bugs early. In release builds, the
-// operation is a no-op on mismatch to avoid panics. For explicit error handling,
-// use `checked_add` and `checked_sub` which return `Result<Money, Error>`.
+// NOTE: AddAssign and SubAssign require matching currencies. Currency
+// mismatch will always panic regardless of build type. For explicit error
+// handling, use `checked_add` and `checked_sub` which return `Result<Money, Error>`.
 
 impl AddAssign for Money {
     /// Adds another [`Money`] value to this one in place.
     ///
-    /// # Currency Safety
+    /// # Panics
     ///
-    /// - **Debug builds**: Panics if `rhs` has a different currency (catches bugs early)
-    /// - **Release builds**: No-op if currencies don't match (safe but silent)
-    ///
-    /// For explicit error handling, use [`Money::checked_add`] which returns `Result`.
+    /// Panics if `rhs` has a different currency. For fallible
+    /// arithmetic, use [`Money::checked_add`] which returns `Result`.
     ///
     /// # Example
     ///
@@ -627,12 +634,10 @@ impl AddAssign for Money {
 impl SubAssign for Money {
     /// Subtracts another [`Money`] value from this one in place.
     ///
-    /// # Currency Safety
+    /// # Panics
     ///
-    /// - **Debug builds**: Panics if `rhs` has a different currency (catches bugs early)
-    /// - **Release builds**: No-op if currencies don't match (safe but silent)
-    ///
-    /// For explicit error handling, use [`Money::checked_sub`] which returns `Result`.
+    /// Panics if `rhs` has a different currency. For fallible
+    /// arithmetic, use [`Money::checked_sub`] which returns `Result`.
     ///
     /// # Example
     ///
@@ -920,8 +925,9 @@ mod tests {
     fn try_new_handles_very_small_values() {
         let small = 1e-15;
         let m = Money::try_new(small, Currency::USD).expect("Small value should succeed");
-        // Value will be rounded to currency decimals (2 for USD), so it becomes 0
-        assert_eq!(m.amount(), 0.0);
+        // Without config, try_new preserves full f64 precision via Decimal::from_f64_retain.
+        // Use try_new_with_config for currency-precision rounding.
+        assert!(m.amount().abs() < 1e-14);
     }
 
     #[test]

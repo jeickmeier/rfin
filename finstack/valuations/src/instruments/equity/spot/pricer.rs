@@ -71,13 +71,7 @@ impl EquityPricer {
         as_of: Date,
         t: f64,
     ) -> Result<Money> {
-        let s0 = self.price_per_share(inst, curves, as_of)?;
-        let dy = self.dividend_yield(inst, curves)?;
-        // Use configured discount curve ID
-        let disc = curves.get_discount(inst.discount_curve_id.as_str())?;
-        let r = disc.zero(t);
-        let fwd = s0.amount() * ((r - dy) * t).exp();
-        Ok(Money::new(fwd, inst.currency))
+        inst.forward_price_per_share(curves, as_of, t)
     }
 
     /// Forward total value for the position (per-share forward × shares).
