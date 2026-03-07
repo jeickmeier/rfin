@@ -254,8 +254,12 @@ pub enum InflationLag {
 pub struct InflationIndex {
     /// Unique identifier for this index (e.g., "US-CPI-U", "UK-RPI")
     pub id: String,
-    /// Underlying time series providing interpolation and storage
+    /// Underlying time series (raw, without interpolation applied)
     series: ScalarTimeSeries,
+    /// Pre-built series with the active interpolation applied, used by `value_on`
+    /// to avoid a clone on every call. Not part of the serialized representation
+    /// (the struct uses try_from/into via RawInflationIndex).
+    series_interp: ScalarTimeSeries,
     /// Interpolation method between observations
     pub interpolation: InflationInterpolation,
     /// Lag policy for index application
@@ -292,9 +296,15 @@ impl InflationIndex {
         // Use a placeholder internal id; external id is stored separately.
         let series = ScalarTimeSeries::new("inflation-index", observations, Some(currency))?;
 
+        // Pre-build the interpolated series with the default (Step) interpolation
+        // so that value_on does not need to clone on every call.
+        let interp = SeriesInterpolation::default(); // matches InflationInterpolation::default() == Step
+        let series_interp = series.clone().with_interpolation(interp);
+
         Ok(Self {
             id: id.into(),
             series,
+            series_interp,
             interpolation: InflationInterpolation::default(),
             lag: InflationLag::default(),
             currency,
@@ -305,6 +315,11 @@ impl InflationIndex {
     /// Set the interpolation method between observations.
     pub fn with_interpolation(mut self, interpolation: InflationInterpolation) -> Self {
         self.interpolation = interpolation;
+        let interp = match interpolation {
+            InflationInterpolation::Step => SeriesInterpolation::Step,
+            InflationInterpolation::Linear => SeriesInterpolation::Linear,
+        };
+        self.series_interp = self.series.clone().with_interpolation(interp);
         self
     }
 
@@ -324,13 +339,8 @@ impl InflationIndex {
     pub fn value_on(&self, date: Date) -> Result<f64> {
         // Apply lag to get the effective date
         let effective_date = self.apply_lag(date)?;
-        // Set underlying series interpolation to match
-        let interp = match self.interpolation {
-            InflationInterpolation::Step => SeriesInterpolation::Step,
-            InflationInterpolation::Linear => SeriesInterpolation::Linear,
-        };
-        let series = self.series.clone().with_interpolation(interp);
-        let base_value = series.value_on(effective_date)?;
+        // Use the pre-built series (interpolation applied at construction/configuration time)
+        let base_value = self.series_interp.value_on(effective_date)?;
 
         // Apply seasonality if present
         let adjusted_value = self.apply_seasonality(base_value, effective_date)?;

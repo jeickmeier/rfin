@@ -24,7 +24,7 @@ mod tests {
 
         let z = vec![1.0, 0.0];
         let mut z_corr = vec![0.0; 2];
-        apply_correlation(&chol, &z, &mut z_corr);
+        apply_correlation(&chol, &z, &mut z_corr).expect("should succeed");
         assert!((z_corr[0] - 1.0).abs() < 1e-10);
     }
 

@@ -396,8 +396,9 @@ pub fn ulcer_index(drawdown: &[f64]) -> f64 {
 ///
 /// # Returns
 ///
-/// Probability of ruin in `[0, 1]`. Returns `0.0` if `vol` is zero
-/// (deterministic returns cannot ruin). Clamped to `1.0` from above.
+/// Probability of ruin in `[0, 1]`. When `vol` is zero (deterministic
+/// returns), returns `0.0` if `mean_ret > 0.0` (guaranteed no ruin) or
+/// `1.0` if `mean_ret <= 0.0` (ruin is certain). Clamped to `1.0` from above.
 ///
 /// # Examples
 ///
@@ -414,7 +415,7 @@ pub fn ulcer_index(drawdown: &[f64]) -> f64 {
 /// ```
 pub fn risk_of_ruin(mean_ret: f64, vol: f64) -> f64 {
     if vol == 0.0 {
-        return 0.0;
+        return if mean_ret > 0.0 { 0.0 } else { 1.0 };
     }
     let var = vol * vol;
     (-2.0 * mean_ret / var).exp().min(1.0)
@@ -594,14 +595,15 @@ pub fn geometric_mean(returns: &[f64]) -> f64 {
 /// under the historical distribution.
 ///
 /// Returns a **negative** number representing the loss threshold.
-/// Optionally scaled by `sqrt(ann_factor)` for horizon adjustment.
+/// The `ann_factor` parameter is not applied (see parameter docs below).
 ///
 /// # Arguments
 ///
 /// * `returns` - Slice of period simple returns.
 /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95` for 95% VaR.
-/// * `ann_factor` - If `Some(f)`, multiplies the result by `sqrt(f)` to
-///   scale to an annual horizon.
+/// * `ann_factor` - Reserved; not applied for historical (empirical) VaR
+///   because sqrt-T scaling is invalid for non-parametric quantiles. Pass
+///   `None`.
 ///
 /// # Returns
 ///
@@ -650,7 +652,9 @@ pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) 
 ///
 /// * `returns`    - Slice of period simple returns.
 /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
-/// * `ann_factor` - If `Some(f)`, multiplies the result by `sqrt(f)`.
+/// * `ann_factor` - Reserved; not applied for historical (empirical) ES
+///   because sqrt-T scaling is invalid for non-parametric tail means. Pass
+///   `None`.
 ///
 /// # Returns
 ///
@@ -676,17 +680,20 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
     if returns.is_empty() {
         return 0.0;
     }
+    let n = returns.len();
+    let p = 1.0 - confidence;
     let mut data: Vec<f64> = returns.to_vec();
-    let var_threshold = quantile(&mut data, 1.0 - confidence);
-    let tail: Vec<f64> = returns
-        .iter()
-        .filter(|&&r| r <= var_threshold)
-        .copied()
-        .collect();
-    if tail.is_empty() {
-        return var_threshold;
-    }
-    let es = mean(&tail);
+    let var_threshold = quantile(&mut data, p);
+    // After quantile(), select_nth_unstable guarantees data[0..=lo] contains
+    // all elements ≤ var_threshold — compute ES directly from the partitioned
+    // tail without a second pass over returns or a second Vec allocation.
+    let lo = ((n - 1) as f64 * p).floor() as usize;
+    let tail = &data[..=lo];
+    let es = if tail.is_empty() {
+        var_threshold
+    } else {
+        tail.iter().sum::<f64>() / tail.len() as f64
+    };
     // Historical ES is a non-parametric statistic: sqrt-time scaling is not
     // valid for empirical tail means (only for parametric methods). The
     // ann_factor parameter exists for API consistency across the risk metrics.
@@ -871,14 +878,30 @@ pub fn rolling_sharpe(
             dates: vec![],
         };
     }
+    let w = window as f64;
+    let mut sum = 0.0_f64;
+    let mut sum_sq = 0.0_f64;
+    for &r in &returns[..window] {
+        sum += r;
+        sum_sq += r * r;
+    }
+    let emit = |sum: f64, sum_sq: f64| -> f64 {
+        let ann_mean = (sum / w) * ann_factor;
+        let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
+        let ann_vol = var.sqrt() * ann_factor.sqrt();
+        sharpe(ann_mean, ann_vol, risk_free_rate)
+    };
     let mut values = Vec::with_capacity(n - window + 1);
     let mut out_dates = Vec::with_capacity(n - window + 1);
-    for i in window..=n {
-        let slice = &returns[i - window..i];
-        let m = mean_return(slice, true, ann_factor);
-        let v = volatility(slice, true, ann_factor);
-        values.push(sharpe(m, v, risk_free_rate));
-        out_dates.push(dates[i - 1]);
+    values.push(emit(sum, sum_sq));
+    out_dates.push(dates[window - 1]);
+    for i in window..n {
+        let add = returns[i];
+        let rem = returns[i - window];
+        sum += add - rem;
+        sum_sq += add * add - rem * rem;
+        values.push(emit(sum, sum_sq));
+        out_dates.push(dates[i]);
     }
     RollingSharpe {
         values,
@@ -939,12 +962,28 @@ pub fn rolling_volatility(
             dates: vec![],
         };
     }
+    let w = window as f64;
+    let mut sum = 0.0_f64;
+    let mut sum_sq = 0.0_f64;
+    for &r in &returns[..window] {
+        sum += r;
+        sum_sq += r * r;
+    }
+    let emit = |sum: f64, sum_sq: f64| -> f64 {
+        let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
+        var.sqrt() * ann_factor.sqrt()
+    };
     let mut values = Vec::with_capacity(n - window + 1);
     let mut out_dates = Vec::with_capacity(n - window + 1);
-    for i in window..=n {
-        let slice = &returns[i - window..i];
-        values.push(volatility(slice, true, ann_factor));
-        out_dates.push(dates[i - 1]);
+    values.push(emit(sum, sum_sq));
+    out_dates.push(dates[window - 1]);
+    for i in window..n {
+        let add = returns[i];
+        let rem = returns[i - window];
+        sum += add - rem;
+        sum_sq += add * add - rem * rem;
+        values.push(emit(sum, sum_sq));
+        out_dates.push(dates[i]);
     }
     RollingVolatility {
         values,
@@ -1286,12 +1325,47 @@ pub fn rolling_sortino(
             dates: vec![],
         };
     }
+    let w = window as f64;
+    let mut sum = 0.0_f64;
+    let mut sum_ds = 0.0_f64; // Σ min(r, 0)²
+    for &r in &returns[..window] {
+        sum += r;
+        if r < 0.0 {
+            sum_ds += r * r;
+        }
+    }
+    let emit = |sum: f64, sum_ds: f64| -> f64 {
+        let m = sum / w;
+        let dd = (sum_ds / w).sqrt(); // downside deviation (period)
+        if dd == 0.0 {
+            if m > 0.0 {
+                f64::INFINITY
+            } else if m < 0.0 {
+                f64::NEG_INFINITY
+            } else {
+                0.0
+            }
+        } else {
+            (m * ann_factor) / (dd * ann_factor.sqrt())
+        }
+    };
     let mut values = Vec::with_capacity(n - window + 1);
     let mut out_dates = Vec::with_capacity(n - window + 1);
-    for i in window..=n {
-        let slice = &returns[i - window..i];
-        values.push(sortino(slice, true, ann_factor));
-        out_dates.push(dates[i - 1]);
+    values.push(emit(sum, sum_ds));
+    out_dates.push(dates[window - 1]);
+    for i in window..n {
+        let add = returns[i];
+        let rem = returns[i - window];
+        sum += add - rem;
+        if add < 0.0 {
+            sum_ds += add * add;
+        }
+        if rem < 0.0 {
+            sum_ds -= rem * rem;
+        }
+        sum_ds = sum_ds.max(0.0); // guard against floating-point underflow
+        values.push(emit(sum, sum_ds));
+        out_dates.push(dates[i]);
     }
     RollingSortino {
         values,

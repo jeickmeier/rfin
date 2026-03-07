@@ -67,6 +67,7 @@ use finstack_core::math::{
 use finstack_core::money::Money;
 use finstack_core::types::Percentage;
 use finstack_core::{Error, Result};
+use tracing::warn;
 
 // Calendar imports for business day settlement
 use finstack_core::dates::CalendarRegistry;
@@ -1212,6 +1213,14 @@ impl CDSTranchePricer {
             } else {
                 match self.params.hetero_method {
                     HeteroMethod::Spa => {
+                        warn!(
+                            n_constituents = n_const,
+                            threshold = credit::SMALL_POOL_THRESHOLD,
+                            "CDS tranche using SPA approximation for heterogeneous pool \
+                             (pool size {n_const} exceeds exact-convolution threshold {}). \
+                             Results are approximate.",
+                            credit::SMALL_POOL_THRESHOLD
+                        );
                         if !(self.params.adaptive_integration_low
                             ..=self.params.adaptive_integration_high)
                             .contains(&correlation)

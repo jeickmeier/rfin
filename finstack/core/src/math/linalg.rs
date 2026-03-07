@@ -29,7 +29,7 @@
 //! // Transform independent standard normals to correlated
 //! let z = vec![1.0, 0.0]; // Independent N(0,1) shocks
 //! let mut z_corr = vec![0.0; 2];
-//! apply_correlation(&chol, &z, &mut z_corr);
+//! apply_correlation(&chol, &z, &mut z_corr).expect("dimensions match");
 //! // z_corr now contains correlated shocks with correlation 0.5
 //! ```
 //!
@@ -188,6 +188,12 @@ pub fn cholesky_decomposition(
 /// * `independent` - Independent shocks (length n)
 /// * `correlated` - Output correlated shocks (length n)
 ///
+/// # Errors
+///
+/// Returns `CholeskyError::DimensionMismatch` if:
+/// - `chol.len() != independent.len() * independent.len()` (Cholesky factor is not n x n)
+/// - `correlated.len() != independent.len()` (output buffer has wrong length)
+///
 /// # Example
 ///
 /// ```
@@ -198,12 +204,26 @@ pub fn cholesky_decomposition(
 ///
 /// let z = vec![1.0, 0.0]; // Independent shocks
 /// let mut z_corr = vec![0.0; 2];
-/// apply_correlation(&chol, &z, &mut z_corr);
+/// apply_correlation(&chol, &z, &mut z_corr).expect("dimensions match");
 /// ```
-pub fn apply_correlation(chol: &[f64], independent: &[f64], correlated: &mut [f64]) {
+pub fn apply_correlation(
+    chol: &[f64],
+    independent: &[f64],
+    correlated: &mut [f64],
+) -> std::result::Result<(), CholeskyError> {
     let n = independent.len();
-    assert_eq!(chol.len(), n * n, "Cholesky factor must be n x n");
-    assert_eq!(correlated.len(), n, "Output must have length n");
+    if chol.len() != n * n {
+        return Err(CholeskyError::DimensionMismatch {
+            expected: n * n,
+            actual: chol.len(),
+        });
+    }
+    if correlated.len() != n {
+        return Err(CholeskyError::DimensionMismatch {
+            expected: n,
+            actual: correlated.len(),
+        });
+    }
 
     for i in 0..n {
         correlated[i] = 0.0;
@@ -211,6 +231,8 @@ pub fn apply_correlation(chol: &[f64], independent: &[f64], correlated: &mut [f6
             correlated[i] += chol[i * n + j] * independent[j];
         }
     }
+
+    Ok(())
 }
 
 /// Solve linear system Ax = b using Cholesky decomposition L of A (A = L L^T).
@@ -392,7 +414,8 @@ mod tests {
 
         let z = vec![1.0, 0.0];
         let mut z_corr = vec![0.0; 2];
-        apply_correlation(&chol, &z, &mut z_corr);
+        apply_correlation(&chol, &z, &mut z_corr)
+            .expect("apply_correlation should succeed in test");
 
         assert!((z_corr[0] - 1.0).abs() < 1e-10);
         assert!((z_corr[1] - 0.5).abs() < 1e-10);
