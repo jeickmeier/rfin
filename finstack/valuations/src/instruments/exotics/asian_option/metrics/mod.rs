@@ -6,10 +6,6 @@
 // mod dv01; // removed - using GenericParallelDv01
 // mod vanna; // removed - using GenericFdVanna
 // mod volga; // removed - using GenericFdVolga
-#[cfg(feature = "mc")]
-mod rho;
-#[cfg(feature = "mc")]
-mod vega;
 
 #[cfg(feature = "mc")]
 use crate::metrics::{MetricId, MetricRegistry};
@@ -54,8 +50,8 @@ pub fn register_asian_option_metrics(registry: &mut MetricRegistry) {
             registry: registry,
             instrument: InstrumentType::AsianOption,
             metrics: [
-                (Vega, vega::VegaCalculator::default()),
-                (Rho, rho::RhoCalculator::default()),
+                (Vega, crate::metrics::GenericFdVega::<crate::instruments::AsianOption>::default()),
+                (Rho, crate::metrics::GenericRho::<crate::instruments::AsianOption>::default()),
                 (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::AsianOption,
                 >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

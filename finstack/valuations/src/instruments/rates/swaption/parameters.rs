@@ -45,7 +45,11 @@ impl SwaptionParams {
     ) -> Self {
         Self {
             notional,
-            strike: Decimal::try_from(strike).unwrap_or_default(),
+            // Safety: `Decimal::try_from(f64)` only fails for NaN/Inf, which are
+            // not valid strike values. Panicking on invalid input is intentional.
+            #[allow(clippy::expect_used)]
+            strike: Decimal::try_from(strike)
+                .expect("strike must be a finite f64 (not NaN or Inf)"),
             expiry,
             swap_start,
             swap_end,
@@ -67,7 +71,11 @@ impl SwaptionParams {
     ) -> Self {
         Self {
             notional,
-            strike: Decimal::try_from(strike.as_decimal()).unwrap_or_default(),
+            // Safety: `Rate::as_decimal()` returns an f64; `try_from` only fails for
+            // NaN/Inf, which are not valid rates. Panicking on invalid input is intentional.
+            #[allow(clippy::expect_used)]
+            strike: Decimal::try_from(strike.as_decimal())
+                .expect("strike must be a finite rate (not NaN or Inf)"),
             expiry,
             swap_start,
             swap_end,
@@ -89,7 +97,11 @@ impl SwaptionParams {
     ) -> Self {
         Self {
             notional,
-            strike: Decimal::try_from(strike).unwrap_or_default(),
+            // Safety: `Decimal::try_from(f64)` only fails for NaN/Inf, which are
+            // not valid strike values. Panicking on invalid input is intentional.
+            #[allow(clippy::expect_used)]
+            strike: Decimal::try_from(strike)
+                .expect("strike must be a finite f64 (not NaN or Inf)"),
             expiry,
             swap_start,
             swap_end,
@@ -111,7 +123,11 @@ impl SwaptionParams {
     ) -> Self {
         Self {
             notional,
-            strike: Decimal::try_from(strike.as_decimal()).unwrap_or_default(),
+            // Safety: `Rate::as_decimal()` returns an f64; `try_from` only fails for
+            // NaN/Inf, which are not valid rates. Panicking on invalid input is intentional.
+            #[allow(clippy::expect_used)]
+            strike: Decimal::try_from(strike.as_decimal())
+                .expect("strike must be a finite rate (not NaN or Inf)"),
             expiry,
             swap_start,
             swap_end,

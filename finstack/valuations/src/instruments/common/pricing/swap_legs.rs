@@ -7,7 +7,7 @@
 //! # Key Features
 //!
 //! - Numerical stability via robust relative discount factor calculation
-//! - Kahan compensated summation for long-dated swaps
+//! - Neumaier compensated summation for long-dated swaps
 #![allow(dead_code)] // Public API items may be used by external bindings
 //! - Holiday-aware payment delay handling
 //! - Compounded-in-arrears support for RFR swaps (SOFR, SONIA, etc.)

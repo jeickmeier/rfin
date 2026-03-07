@@ -7,8 +7,6 @@
 // mod volga; // removed - using GenericFdVolga
 #[cfg(feature = "mc")]
 mod rho;
-#[cfg(feature = "mc")]
-mod vega;
 
 #[cfg(feature = "mc")]
 use crate::metrics::{MetricId, MetricRegistry};
@@ -53,7 +51,7 @@ pub fn register_cliquet_option_metrics(registry: &mut MetricRegistry) {
             registry: registry,
             instrument: InstrumentType::CliquetOption,
             metrics: [
-                (Vega, vega::VegaCalculator::default()),
+                (Vega, crate::metrics::GenericFdVega::<crate::instruments::CliquetOption>::default()),
                 (Rho, rho::RhoCalculator),
                 (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::CliquetOption,
