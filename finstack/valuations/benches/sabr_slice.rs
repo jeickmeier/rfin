@@ -67,7 +67,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
         .build()
         .unwrap();
     let market = MarketContext::new()
-        .insert_discount(disc)
+        .insert(disc)
         .insert_price(
             "SPY",
             finstack_core::market_data::scalars::MarketScalar::Unitless(100.0),

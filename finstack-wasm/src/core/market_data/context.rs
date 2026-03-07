@@ -222,30 +222,27 @@ impl JsMarketContext {
 
     #[wasm_bindgen(js_name = insertDiscount)]
     pub fn insert_discount(&mut self, curve: &JsDiscountCurve) {
-        self.inner =
-            std::mem::take(&mut self.inner).insert_discount(curve.inner().as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert(curve.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertForward)]
     pub fn insert_forward(&mut self, curve: &JsForwardCurve) {
-        self.inner = std::mem::take(&mut self.inner).insert_forward(curve.inner().as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert(curve.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertHazard)]
     pub fn insert_hazard(&mut self, curve: &JsHazardCurve) {
-        self.inner = std::mem::take(&mut self.inner).insert_hazard(curve.inner().as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert(curve.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertInflation)]
     pub fn insert_inflation(&mut self, curve: &JsInflationCurve) {
-        self.inner =
-            std::mem::take(&mut self.inner).insert_inflation(curve.inner().as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert(curve.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertBaseCorrelation)]
     pub fn insert_base_correlation(&mut self, curve: &JsBaseCorrelationCurve) {
-        self.inner =
-            std::mem::take(&mut self.inner).insert_base_correlation(curve.inner().as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert(curve.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertSurface)]
@@ -333,7 +330,7 @@ impl JsMarketContext {
             JsCurveKind::Inflation => {
                 let arc = self
                     .inner
-                    .get_inflation(id)
+                    .get_inflation_curve(id)
                     .map_err(|e| js_error(e.to_string()))?;
                 Ok(JsInflationCurve::from_arc(arc).into())
             }
@@ -446,7 +443,7 @@ impl JsMarketContext {
     pub fn inflation(&self, id: &str) -> Result<JsInflationCurve, JsValue> {
         let arc = self
             .inner
-            .get_inflation(id)
+            .get_inflation_curve(id)
             .map_err(|e| js_error(e.to_string()))?;
         Ok(JsInflationCurve::from_arc(arc))
     }
@@ -477,41 +474,49 @@ impl JsMarketContext {
         Ok(JsBaseCorrelationCurve::from_arc(arc))
     }
 
-    #[wasm_bindgen(js_name = surface)]
-    pub fn surface(&self, id: &str) -> Result<JsVolSurface, JsValue> {
+    #[wasm_bindgen(js_name = getSurface)]
+    pub fn get_surface(&self, id: &str) -> Result<JsVolSurface, JsValue> {
         let arc = self
             .inner
-            .surface(id)
+            .get_surface(id)
             .map_err(|e| js_error(e.to_string()))?;
         Ok(JsVolSurface::from_arc(arc))
     }
 
-    #[wasm_bindgen(js_name = price)]
-    pub fn price(&self, id: &str) -> Result<JsMarketScalar, JsValue> {
-        let scalar = self.inner.price(id).map_err(|e| js_error(e.to_string()))?;
+    #[wasm_bindgen(js_name = getPrice)]
+    pub fn get_price(&self, id: &str) -> Result<JsMarketScalar, JsValue> {
+        let scalar = self
+            .inner
+            .get_price(id)
+            .map_err(|e| js_error(e.to_string()))?;
         Ok(JsMarketScalar::from_inner(scalar.clone()))
     }
 
-    #[wasm_bindgen(js_name = series)]
-    pub fn series(&self, id: &str) -> Result<JsScalarTimeSeries, JsValue> {
-        let series = self.inner.series(id).map_err(|e| js_error(e.to_string()))?;
+    #[wasm_bindgen(js_name = getSeries)]
+    pub fn get_series(&self, id: &str) -> Result<JsScalarTimeSeries, JsValue> {
+        let series = self
+            .inner
+            .get_series(id)
+            .map_err(|e| js_error(e.to_string()))?;
         Ok(JsScalarTimeSeries::from_arc(Arc::new(series.clone())))
     }
 
-    #[wasm_bindgen(js_name = creditIndex)]
-    pub fn credit_index(&self, id: &str) -> Result<JsCreditIndexData, JsValue> {
+    #[wasm_bindgen(js_name = getCreditIndex)]
+    pub fn get_credit_index(&self, id: &str) -> Result<JsCreditIndexData, JsValue> {
         let data = self
             .inner
-            .credit_index(id)
+            .get_credit_index(id)
             .map_err(|e| js_error(e.to_string()))?;
         Ok(JsCreditIndexData::from_arc(data))
     }
 
-    #[wasm_bindgen(js_name = dividendSchedule)]
-    pub fn dividend_schedule(&self, id: &str) -> Option<JsDividendSchedule> {
-        self.inner
-            .dividend_schedule(id)
-            .map(|schedule| JsDividendSchedule::from_arc(schedule.clone()))
+    #[wasm_bindgen(js_name = getDividendSchedule)]
+    pub fn get_dividend_schedule(&self, id: &str) -> Result<JsDividendSchedule, JsValue> {
+        let schedule = self
+            .inner
+            .get_dividend_schedule(id)
+            .map_err(|e| js_error(e.to_string()))?;
+        Ok(JsDividendSchedule::from_arc(schedule.clone()))
     }
 
     #[wasm_bindgen(js_name = curveIds)]

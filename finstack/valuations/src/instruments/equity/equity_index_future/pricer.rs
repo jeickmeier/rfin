@@ -86,7 +86,7 @@ mod tests {
 
         // Create market context with spot price
         MarketContext::new()
-            .insert_discount(discount_curve)
+            .insert(discount_curve)
             .insert_price("SPX-SPOT", MarketScalar::Unitless(4500.0))
     }
 

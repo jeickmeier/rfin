@@ -67,7 +67,7 @@ where
         )?;
         let sigma = context
             .curves
-            .surface(option.vol_surface_id.as_str())?
+            .get_surface(option.vol_surface_id.as_str())?
             .value_clamped(effective_t_fix, strike);
 
         let per_unit = f(forward, sigma, effective_t_fix);

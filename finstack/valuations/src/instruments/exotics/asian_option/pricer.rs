@@ -73,7 +73,7 @@ impl AsianOptionMcPricer {
                 }
             } else {
                 // Fallback
-                let spot_scalar = curves.price(&inst.spot_id)?;
+                let spot_scalar = curves.get_price(&inst.spot_id)?;
                 match spot_scalar {
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                     finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -101,7 +101,7 @@ impl AsianOptionMcPricer {
         };
 
         // Get spot
-        let spot_scalar = curves.price(&inst.spot_id)?;
+        let spot_scalar = curves.get_price(&inst.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -114,7 +114,7 @@ impl AsianOptionMcPricer {
         )?;
 
         // Get volatility
-        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, inst.strike);
 
         // Create GBM process
@@ -534,7 +534,7 @@ impl AsianOptionMcPricer {
                     }
                 }
             } else {
-                let spot_scalar = curves.price(&inst.spot_id)?;
+                let spot_scalar = curves.get_price(&inst.spot_id)?;
                 match spot_scalar {
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                     finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -560,7 +560,7 @@ impl AsianOptionMcPricer {
             0.0
         };
 
-        let spot_scalar = curves.price(&inst.spot_id)?;
+        let spot_scalar = curves.get_price(&inst.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -571,7 +571,7 @@ impl AsianOptionMcPricer {
             inst.div_yield_id.as_ref(),
         )?;
 
-        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, inst.strike);
 
         let gbm_params = GbmParams::new(r, q, sigma);

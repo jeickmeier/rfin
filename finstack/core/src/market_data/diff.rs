@@ -328,8 +328,8 @@ pub fn measure_inflation_curve_shift_at(
     market_t1: &MarketContext,
     tenors: &[f64],
 ) -> Result<f64> {
-    let curve_t0 = market_t0.get_inflation(&curve_id)?;
-    let curve_t1 = market_t1.get_inflation(&curve_id)?;
+    let curve_t0 = market_t0.get_inflation_curve(&curve_id)?;
+    let curve_t1 = market_t1.get_inflation_curve(&curve_id)?;
     Ok(measure_curve_diff_generic(
         curve_t0.as_ref(),
         curve_t1.as_ref(),
@@ -404,8 +404,8 @@ pub fn measure_vol_surface_shift(
     reference_expiry: Option<f64>,
     reference_strike: Option<f64>,
 ) -> Result<f64> {
-    let surface_t0 = market_t0.surface(&surface_id)?;
-    let surface_t1 = market_t1.surface(&surface_id)?;
+    let surface_t0 = market_t0.get_surface(&surface_id)?;
+    let surface_t1 = market_t1.get_surface(&surface_id)?;
 
     // If specific point requested, measure there
     if let (Some(expiry), Some(strike)) = (reference_expiry, reference_strike) {
@@ -558,8 +558,8 @@ pub fn measure_scalar_shift(
 ) -> Result<f64> {
     use crate::market_data::scalars::MarketScalar;
 
-    let scalar_t0 = market_t0.price(&scalar_id)?;
-    let scalar_t1 = market_t1.price(&scalar_id)?;
+    let scalar_t0 = market_t0.get_price(&scalar_id)?;
+    let scalar_t1 = market_t1.get_price(&scalar_id)?;
 
     // Extract numeric values from enum
     let value_t0 = match scalar_t0 {
@@ -634,8 +634,8 @@ mod tests {
             .build()
             .expect("Market diff calculation should succeed in test");
 
-        let market_t0 = MarketContext::new().insert_discount(curve_t0);
-        let market_t1 = MarketContext::new().insert_discount(curve_t1);
+        let market_t0 = MarketContext::new().insert(curve_t0);
+        let market_t1 = MarketContext::new().insert(curve_t1);
 
         let shift = measure_discount_curve_shift(
             "USD-OIS",
@@ -668,8 +668,8 @@ mod tests {
             .build()
             .expect("Market diff calculation should succeed in test");
 
-        let market_t0 = MarketContext::new().insert_hazard(curve_t0);
-        let market_t1 = MarketContext::new().insert_hazard(curve_t1);
+        let market_t0 = MarketContext::new().insert(curve_t0);
+        let market_t1 = MarketContext::new().insert(curve_t1);
 
         let shift = measure_hazard_curve_shift(
             "CORP-01",
@@ -722,8 +722,8 @@ mod tests {
             .build()
             .expect("Market diff calculation should succeed in test");
 
-        let market_t0 = MarketContext::new().insert_discount(curve_t0);
-        let market_t1 = MarketContext::new().insert_discount(curve_t1);
+        let market_t0 = MarketContext::new().insert(curve_t0);
+        let market_t1 = MarketContext::new().insert(curve_t1);
 
         let tenors = vec![1.0, 5.0, 10.0];
         let shifts = measure_bucketed_discount_shift("USD-OIS", &market_t0, &market_t1, &tenors)
@@ -748,7 +748,7 @@ mod tests {
             .build()
             .expect("Market diff calculation should succeed in test");
 
-        let market = MarketContext::new().insert_discount(curve);
+        let market = MarketContext::new().insert(curve);
 
         // Standard
         let shift_std = measure_discount_curve_shift(

@@ -151,7 +151,7 @@ fn test_missing_forward_curve() {
 
     // Only discount curve, no forward curve
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
-    let partial_market = MarketContext::new().insert_discount(disc_curve);
+    let partial_market = MarketContext::new().insert(disc_curve);
 
     let future = create_standard_future(start, end);
     let result = future.value(&partial_market, as_of);

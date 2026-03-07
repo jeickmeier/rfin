@@ -46,8 +46,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     let mut market = MarketContext::new()
-        .insert_discount(usd_curve)
-        .insert_discount(eur_curve)
+        .insert(usd_curve)
+        .insert(eur_curve)
         .insert_surface(vol_surface)
         .insert_price("SPY", MarketScalar::Price(Money::new(450.0, Currency::USD)))
         .insert_price("QQQ", MarketScalar::Price(Money::new(380.0, Currency::USD)));
@@ -63,14 +63,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!(
         "  SPY Price: ${:.2}",
-        match market.price("SPY")? {
+        match market.get_price("SPY")? {
             MarketScalar::Price(m) => m.amount(),
             _ => 0.0,
         }
     );
     println!(
         "  SPX Vol (1Y, 100 strike): {:.2}%",
-        market.surface("SPX_VOL")?.value_clamped(1.0, 100.0) * 100.0
+        market.get_surface("SPX_VOL")?.value_clamped(1.0, 100.0) * 100.0
     );
     println!();
 
@@ -157,21 +157,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!(
         "  SPY Price: ${:.2}",
-        match market.price("SPY")? {
+        match market.get_price("SPY")? {
             MarketScalar::Price(m) => m.amount(),
             _ => 0.0,
         }
     );
     println!(
         "  QQQ Price: ${:.2}",
-        match market.price("QQQ")? {
+        match market.get_price("QQQ")? {
             MarketScalar::Price(m) => m.amount(),
             _ => 0.0,
         }
     );
     println!(
         "  SPX Vol (1Y, 100 strike): {:.2}%",
-        market.surface("SPX_VOL")?.value_clamped(1.0, 100.0) * 100.0
+        market.get_surface("SPX_VOL")?.value_clamped(1.0, 100.0) * 100.0
     );
     println!();
 
@@ -186,7 +186,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Reset to fresh market for horizon analysis
     let mut market_horizon = MarketContext::new()
-        .insert_discount(
+        .insert(
             DiscountCurve::builder("USD_SOFR")
                 .base_date(base_date)
                 .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90), (10.0, 0.80)])

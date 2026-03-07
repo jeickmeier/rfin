@@ -24,7 +24,7 @@ fn test_curve_parallel_shock() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_discount(curve);
+    let mut market = MarketContext::new().insert(curve);
 
     // Setup empty model
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -116,7 +116,7 @@ fn test_equity_price_shock() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify shocked price
-    let shocked = market.price("SPY").unwrap();
+    let shocked = market.get_price("SPY").unwrap();
     match shocked {
         MarketScalar::Price(money) => {
             let expected = 450.0 * 0.9; // -10%
@@ -204,7 +204,7 @@ fn test_vol_surface_parallel_shock() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify shocked surface
-    let shocked_surface = market.surface("SPX").unwrap();
+    let shocked_surface = market.get_surface("SPX").unwrap();
     let val = shocked_surface
         .value_checked(1.0, 100.0)
         .expect("grid point lookup should succeed");
@@ -222,7 +222,7 @@ fn test_base_correlation_parallel_shock() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_base_correlation(basecorr);
+    let mut market = MarketContext::new().insert(basecorr);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {

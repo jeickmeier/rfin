@@ -16,7 +16,7 @@ impl MetricCalculator for UpfrontCalculator {
         if context
             .curves
             .as_ref()
-            .credit_index(&tranche.credit_index_id)
+            .get_credit_index(&tranche.credit_index_id)
             .is_ok()
         {
             tranche.upfront(&context.curves, context.as_of)

@@ -43,10 +43,10 @@ fn build_forward_curve(id: &str, tenor_years: f64, rate: f64) -> ForwardCurve {
 fn build_minimal_market(discount_ids: &[&str], forward_ids: &[&str]) -> MarketContext {
     let mut market = MarketContext::new();
     for &id in discount_ids {
-        market = market.insert_discount(build_discount_curve(id, 0.03));
+        market = market.insert(build_discount_curve(id, 0.03));
     }
     for &id in forward_ids {
-        market = market.insert_forward(build_forward_curve(id, 0.25, 0.035));
+        market = market.insert(build_forward_curve(id, 0.25, 0.035));
     }
     market
 }

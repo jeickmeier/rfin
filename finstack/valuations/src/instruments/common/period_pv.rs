@@ -47,7 +47,7 @@
 //!     .knots([(0.0, 1.0), (1.0, 0.95)])
 //!     .interp(finstack_core::math::interp::InterpStyle::Linear)
 //!     .build()?;
-//! let market = MarketContext::new().insert_discount(disc_curve);
+//! let market = MarketContext::new().insert(disc_curve);
 //!
 //! // Define quarterly periods
 //! let periods = vec![
@@ -323,7 +323,7 @@ mod tests {
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 
-        MarketContext::new().insert_discount(disc_curve)
+        MarketContext::new().insert(disc_curve)
     }
 
     fn create_quarters_2025() -> Vec<Period> {
@@ -442,9 +442,7 @@ mod tests {
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 
-        let market = MarketContext::new()
-            .insert_discount(disc_curve)
-            .insert_forward(fwd_curve);
+        let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
         let periods = create_quarters_2025();
 
@@ -512,9 +510,7 @@ mod tests {
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 
-        let market = MarketContext::new()
-            .insert_discount(disc_curve)
-            .insert_hazard(hazard_curve);
+        let market = MarketContext::new().insert(disc_curve).insert(hazard_curve);
 
         let periods = create_quarters_2025();
 
@@ -602,8 +598,8 @@ mod tests {
             .expect("HazardCurve builder should succeed with valid test data");
 
         let market = MarketContext::new()
-            .insert_discount(disc_curve.clone())
-            .insert_hazard(hazard_curve.clone());
+            .insert(disc_curve.clone())
+            .insert(hazard_curve.clone());
 
         let periods = create_quarters_2025();
         let hazard_id = CurveId::new("CORP-HAZARD");

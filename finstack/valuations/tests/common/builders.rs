@@ -125,7 +125,7 @@ impl TestMarketBuilder {
             .expect("vol surface should build in tests");
 
         let mut market = MarketContext::new()
-            .insert_discount(disc_curve)
+            .insert(disc_curve)
             .insert_surface(vol_surface)
             .insert_price(&self.spot_id, MarketScalar::Unitless(self.spot));
 
@@ -320,8 +320,8 @@ mod tests {
 
         // Should have discount curve and vol surface
         assert!(market.get_discount("USD-OIS").is_ok());
-        assert!(market.surface("SPOT_VOL").is_ok());
-        assert!(market.price("SPOT").is_ok());
+        assert!(market.get_surface("SPOT_VOL").is_ok());
+        assert!(market.get_price("SPOT").is_ok());
     }
 
     #[test]
@@ -329,7 +329,7 @@ mod tests {
         let as_of = date!(2024 - 01 - 01);
         let market = TestMarketBuilder::new(as_of).spot(150.0).build();
 
-        let spot = market.price("SPOT").expect("spot should exist");
+        let spot = market.get_price("SPOT").expect("spot should exist");
         let spot_value = match spot {
             MarketScalar::Unitless(v) => *v,
             MarketScalar::Price(m) => m.amount(),
@@ -344,7 +344,7 @@ mod tests {
 
         // Vol surface should exist with custom vol
         let surface = market
-            .surface("SPOT_VOL")
+            .get_surface("SPOT_VOL")
             .expect("vol surface should exist");
         let vol = surface
             .value_checked(1.0, 100.0)
@@ -369,7 +369,7 @@ mod tests {
         let market = TestMarketBuilder::new(as_of).div_yield(0.02).build();
 
         // Should have dividend yield scalar
-        assert!(market.price("SPOT_DIV").is_ok());
+        assert!(market.get_price("SPOT_DIV").is_ok());
     }
 
     #[test]
@@ -382,8 +382,8 @@ mod tests {
             .build();
 
         assert!(market.get_discount("CUSTOM-DISC").is_ok());
-        assert!(market.surface("CUSTOM-VOL").is_ok());
-        assert!(market.price("CUSTOM-SPOT").is_ok());
+        assert!(market.get_surface("CUSTOM-VOL").is_ok());
+        assert!(market.get_price("CUSTOM-SPOT").is_ok());
     }
 
     #[test]
@@ -394,8 +394,8 @@ mod tests {
             .spot_id("CUSTOM-SPOT")
             .build();
 
-        assert!(market.price("CUSTOM-SPOT_DIV").is_ok());
-        assert!(market.price("SPOT_DIV").is_err());
+        assert!(market.get_price("CUSTOM-SPOT_DIV").is_ok());
+        assert!(market.get_price("SPOT_DIV").is_err());
     }
 
     #[test]
@@ -490,11 +490,11 @@ mod tests {
 
         // Should have all required components
         assert!(market.get_discount("USD-OIS").is_ok());
-        assert!(market.surface("SPOT_VOL").is_ok());
-        assert!(market.price("SPOT").is_ok());
+        assert!(market.get_surface("SPOT_VOL").is_ok());
+        assert!(market.get_price("SPOT").is_ok());
 
         // Verify spot value
-        let spot = market.price("SPOT").unwrap();
+        let spot = market.get_price("SPOT").unwrap();
         let spot_value = match spot {
             MarketScalar::Unitless(v) => *v,
             MarketScalar::Price(m) => m.amount(),
@@ -507,7 +507,7 @@ mod tests {
         let as_of = date!(2024 - 06 - 15);
         let market = simple_option_market(as_of, 150.0, 0.35, 0.02);
 
-        let spot = market.price("SPOT").unwrap();
+        let spot = market.get_price("SPOT").unwrap();
         let spot_value = match spot {
             MarketScalar::Unitless(v) => *v,
             MarketScalar::Price(m) => m.amount(),
@@ -525,8 +525,8 @@ mod tests {
         let market = option_market_with_divs(as_of, 100.0, 0.25, 0.05, 0.02);
 
         // Should have dividend yield
-        assert!(market.price("SPOT_DIV").is_ok());
-        let div = market.price("SPOT_DIV").unwrap();
+        assert!(market.get_price("SPOT_DIV").is_ok());
+        let div = market.get_price("SPOT_DIV").unwrap();
         let div_value = match div {
             MarketScalar::Unitless(v) => *v,
             MarketScalar::Price(m) => m.amount(),
@@ -567,7 +567,7 @@ mod tests {
         let as_of = date!(2024 - 01 - 01);
         let market = test_market(as_of).spot(200.0).vol(0.40).build();
 
-        let spot = market.price("SPOT").unwrap();
+        let spot = market.get_price("SPOT").unwrap();
         let spot_value = match spot {
             MarketScalar::Unitless(v) => *v,
             MarketScalar::Price(m) => m.amount(),
@@ -593,7 +593,7 @@ mod tests {
         let as_of = date!(2024 - 01 - 01);
         // Very low vol should work
         let market = TestMarketBuilder::new(as_of).vol(0.01).build();
-        assert!(market.surface("SPOT_VOL").is_ok());
+        assert!(market.get_surface("SPOT_VOL").is_ok());
     }
 
     #[test]
@@ -601,7 +601,7 @@ mod tests {
         let as_of = date!(2024 - 01 - 01);
         // High vol (100%) should work
         let market = TestMarketBuilder::new(as_of).vol(1.0).build();
-        assert!(market.surface("SPOT_VOL").is_ok());
+        assert!(market.get_surface("SPOT_VOL").is_ok());
     }
 
     #[test]

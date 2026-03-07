@@ -222,9 +222,7 @@ mod tests {
         )
         .expect("fixing series");
 
-        MarketContext::new()
-            .insert_discount(disc)
-            .insert_series(fixings)
+        MarketContext::new().insert(disc).insert_series(fixings)
     }
 
     #[test]
@@ -287,7 +285,7 @@ mod tests {
             None,
         )
         .expect("bump");
-        let bumped_market = market.clone().insert_discount(bumped_curve);
+        let bumped_market = market.clone().insert(bumped_curve);
 
         let original = market.get_discount(&curve_id).expect("original");
         let bumped = bumped_market.get_discount(&curve_id).expect("bumped");

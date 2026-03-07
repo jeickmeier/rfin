@@ -63,9 +63,9 @@ def build_rate_market(as_of: date) -> MarketContext:
         base_date=as_of,
     )
 
-    market.insert_discount(disc)
-    market.insert_forward(sofr_3m)
-    market.insert_forward(sofr_6m)
+    market.insert(disc)
+    market.insert(sofr_3m)
+    market.insert(sofr_6m)
 
     # Simple volatility surfaces used by caps/floors and swaptions
     cap_surface = VolSurface(
@@ -112,7 +112,7 @@ def main() -> None:
         .quote_rate(0.0450)
         .build()
     )
-    registry.price(deposit, "discounting", market, as_of=as_of)
+    registry.get_price(deposit, "discounting", market, as_of=as_of)
 
     # FRA: receive fixed vs pay floating (SOFR 3M)
     fra = (
@@ -212,7 +212,7 @@ def main() -> None:
         .day_count(DayCount.ACT_360)
         .build()
     )
-    registry.price(floor, "discounting", market, as_of=as_of)
+    registry.get_price(floor, "discounting", market, as_of=as_of)
 
     # Interest-rate future (SOFR) with simple contract specs
     future = (

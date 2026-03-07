@@ -55,7 +55,7 @@ class CDSIndex:
         ...     CDSIndex
         ...     .builder("CDX-IG-5Y")
         ...     .index_name("CDX.NA.IG")
-        ...     .series(40)
+        ...     .get_series(40)
         ...     .version(1)
         ...     .money(Money(10_000_000, Currency("USD")))
         ...     .fixed_coupon_bp(100.0)

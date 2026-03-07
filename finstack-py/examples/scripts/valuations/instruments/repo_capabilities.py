@@ -26,11 +26,11 @@ def build_market(as_of: date) -> MarketContext:
             (1.0, 0.9940),
         ],
     )
-    market.insert_discount(disc)
+    market.insert(disc)
 
     market.insert_price(
         "UST-COLLATERAL",
-        MarketScalar.price(Money(1.0, USD)),
+        MarketScalar.get_price(Money(1.0, USD)),
     )
 
     return market
@@ -48,7 +48,7 @@ def build_repo(as_of: date) -> Repo:
     return (
         Repo.builder("UST-TERM-REPO")
         .cash_amount(Money(10_000_000.0, USD))
-        .collateral(collateral)
+        .get_collateral(collateral)
         .repo_rate(0.032)
         .start_date(start)
         .maturity(maturity)

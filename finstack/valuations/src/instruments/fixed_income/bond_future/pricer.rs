@@ -459,7 +459,7 @@ mod tests {
             .expect("Failed to build discount curve");
 
         // insert_discount consumes self and returns Self (builder pattern)
-        MarketContext::new().insert_discount(curve)
+        MarketContext::new().insert(curve)
     }
 
     /// Helper to create a test bond with fixed semi-annual coupons

@@ -564,10 +564,10 @@ pub fn upward_curve(curve_id: &str) -> DiscountCurve {
 /// Uses `test_date()` as the base date (2025-01-01).
 pub fn standard_market() -> MarketContext {
     MarketContext::new()
-        .insert_discount(flat_curve(0.05, "USD-OIS"))
-        .insert_discount(flat_curve(0.052, "USD-SOFR-3M"))
-        .insert_discount(flat_curve(0.03, "EUR-OIS"))
-        .insert_discount(flat_curve(0.032, "EUR-EURIBOR-6M"))
+        .insert(flat_curve(0.05, "USD-OIS"))
+        .insert(flat_curve(0.052, "USD-SOFR-3M"))
+        .insert(flat_curve(0.03, "EUR-OIS"))
+        .insert(flat_curve(0.032, "EUR-EURIBOR-6M"))
 }
 
 /// Create a USD swap market context with discount and forward curves.
@@ -582,9 +582,7 @@ pub fn usd_swap_market(base_date: Date, rate: f64) -> MarketContext {
     let disc = flat_discount_curve(rate, base_date, "USD-OIS");
     let fwd = flat_forward_curve(rate, base_date, "USD-SOFR-3M");
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+    MarketContext::new().insert(disc).insert(fwd)
 }
 
 /// Create a USD swap market context with different discount and forward rates.
@@ -600,9 +598,7 @@ pub fn usd_swap_market_split(base_date: Date, disc_rate: f64, fwd_rate: f64) -> 
     let disc = flat_discount_curve(disc_rate, base_date, "USD-OIS");
     let fwd = flat_forward_curve(fwd_rate, base_date, "USD-SOFR-3M");
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+    MarketContext::new().insert(disc).insert(fwd)
 }
 
 /// Create a credit market context with discount and hazard curves.
@@ -624,9 +620,7 @@ pub fn credit_market(
     let disc = flat_discount_curve(disc_rate, base_date, "USD_DISC");
     let hazard = flat_hazard_curve(hazard_rate, recovery, base_date, "CREDIT");
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard)
+    MarketContext::new().insert(disc).insert(hazard)
 }
 
 /// Create test money in USD

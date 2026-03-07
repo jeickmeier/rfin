@@ -246,7 +246,7 @@ mod tests {
             .knots([(0.0, 1.0), (5.0, 0.85)])
             .build()
             .expect("discount curve");
-        let market = MarketContext::new().insert_discount(disc.clone());
+        let market = MarketContext::new().insert(disc.clone());
 
         let mut loan = TermLoan::example();
         loan.coupon_type = CouponType::PIK;

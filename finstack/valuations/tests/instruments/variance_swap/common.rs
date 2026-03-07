@@ -63,7 +63,7 @@ pub fn base_context() -> MarketContext {
         .build()
         .unwrap();
     MarketContext::new()
-        .insert_discount(disc_curve)
+        .insert(disc_curve)
         .insert_price(UNDERLYING_ID, MarketScalar::Unitless(5_000.0))
 }
 

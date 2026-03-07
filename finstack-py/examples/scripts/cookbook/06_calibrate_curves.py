@@ -43,11 +43,11 @@ def main() -> None:
     # For cookbook purposes we keep this fast/deterministic by using flat curves.
     # For a full plan-driven calibration example, see:
     # `examples/scripts/valuations/calibration/discount_curve_calibration_example.py`.
-    market_ctx.insert_discount(DiscountCurve("USD-OIS", base_date, [(0.0, 1.0), (10.0, 0.65)]))
-    market_ctx.insert_hazard(HazardCurve("ACME.CDS", base_date, [(0.0, 0.02), (10.0, 0.02)], recovery_rate=0.40))
+    market_ctx.insert(DiscountCurve("USD-OIS", base_date, [(0.0, 1.0), (10.0, 0.65)]))
+    market_ctx.insert(HazardCurve("ACME.CDS", base_date, [(0.0, 0.02), (10.0, 0.02)], recovery_rate=0.40))
 
     # Retrieve calibrated curve
-    ois_curve = market_ctx.discount("USD-OIS")
+    ois_curve = market_ctx.get_discount("USD-OIS")
 
     # Display discount factors
 
@@ -57,7 +57,7 @@ def main() -> None:
         df
 
     # Retrieve hazard curve
-    hazard_curve = market_ctx.hazard("ACME.CDS")
+    hazard_curve = market_ctx.get_hazard("ACME.CDS")
 
     # Display survival probabilities and credit spreads
 

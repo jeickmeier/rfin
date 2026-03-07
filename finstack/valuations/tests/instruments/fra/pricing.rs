@@ -196,9 +196,7 @@ fn test_upward_sloping_curve() {
     let disc = build_flat_discount_curve(0.05, BASE_DATE, "USD_OIS");
     let fwd = build_upward_forward_curve(BASE_DATE, "USD_LIBOR_3M");
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let fra = create_standard_fra();
     let pv = fra.value(&market, BASE_DATE).unwrap();
@@ -211,9 +209,7 @@ fn test_inverted_curve() {
     let disc = build_flat_discount_curve(0.05, BASE_DATE, "USD_OIS");
     let fwd = build_inverted_forward_curve(BASE_DATE, "USD_LIBOR_3M");
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let fra = create_standard_fra();
     let pv = fra.value(&market, BASE_DATE).unwrap();
@@ -225,9 +221,7 @@ fn test_inverted_curve() {
 fn test_negative_rate_environment() {
     let disc = build_flat_discount_curve(-0.01, BASE_DATE, "USD_OIS");
     let fwd = build_flat_forward_curve(-0.01, BASE_DATE, "USD_LIBOR_3M");
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let fra = TestFraBuilder::new().fixed_rate(-0.01).build();
     let pv = fra.value(&market, BASE_DATE).unwrap();
@@ -244,9 +238,7 @@ fn test_high_rate_environment() {
     let disc = build_flat_discount_curve(0.15, BASE_DATE, "USD_OIS");
     let fwd = build_flat_forward_curve(0.15, BASE_DATE, "USD_LIBOR_3M");
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let fra = TestFraBuilder::new().fixed_rate(0.15).build();
     let pv = fra.value(&market, BASE_DATE).unwrap();
@@ -267,9 +259,7 @@ fn test_different_curve_base_dates() {
     let disc = build_flat_discount_curve(0.05, curve_base, "USD_OIS");
     let fwd = build_flat_forward_curve(0.05, curve_base, "USD_LIBOR_3M");
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let fra = create_standard_fra();
     let pv = fra.value(&market, BASE_DATE).unwrap();

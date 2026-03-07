@@ -20,7 +20,7 @@ fn test_extreme_low_correlation_pricing() {
     // Arrange
     let pricer = CDSTranchePricer::new();
     let base_market = standard_market_context();
-    let index_data = base_market.credit_index("CDX.NA.IG.42").unwrap();
+    let index_data = base_market.get_credit_index("CDX.NA.IG.42").unwrap();
 
     // Test with very low correlation
     let low_corr_curve =
@@ -58,7 +58,7 @@ fn test_extreme_high_correlation_pricing() {
     // Arrange
     let pricer = CDSTranchePricer::new();
     let base_market = standard_market_context();
-    let index_data = base_market.credit_index("CDX.NA.IG.42").unwrap();
+    let index_data = base_market.get_credit_index("CDX.NA.IG.42").unwrap();
 
     // Test with very high correlation
     let high_corr_curve =
@@ -100,7 +100,7 @@ fn test_pricing_with_zero_recovery_rate() {
     // Arrange
     let pricer = CDSTranchePricer::new();
     let base_market = standard_market_context();
-    let index_data = base_market.credit_index("CDX.NA.IG.42").unwrap();
+    let index_data = base_market.get_credit_index("CDX.NA.IG.42").unwrap();
 
     // Create index with zero recovery
     let zero_recovery_index =
@@ -136,7 +136,7 @@ fn test_pricing_with_high_recovery_rate() {
     // Arrange
     let pricer = CDSTranchePricer::new();
     let base_market = standard_market_context();
-    let index_data = base_market.credit_index("CDX.NA.IG.42").unwrap();
+    let index_data = base_market.get_credit_index("CDX.NA.IG.42").unwrap();
 
     // Create index with very high recovery
     let high_recovery_index =
@@ -184,7 +184,7 @@ fn test_pricing_with_near_zero_default_probability() {
             .build()
             .unwrap();
 
-    let index_data = base_market.credit_index("CDX.NA.IG.42").unwrap();
+    let index_data = base_market.get_credit_index("CDX.NA.IG.42").unwrap();
     let low_hazard_index = finstack_core::market_data::term_structures::CreditIndexData::builder()
         .num_constituents(125)
         .recovery_rate(0.40)
@@ -222,7 +222,7 @@ fn test_very_small_portfolio() {
     // Arrange
     let pricer = CDSTranchePricer::new();
     let base_market = standard_market_context();
-    let index_data = base_market.credit_index("CDX.NA.IG.42").unwrap();
+    let index_data = base_market.get_credit_index("CDX.NA.IG.42").unwrap();
 
     // Create index with only 5 constituents
     let small_index = finstack_core::market_data::term_structures::CreditIndexData::builder()
@@ -254,7 +254,7 @@ fn test_very_large_portfolio() {
     // Arrange
     let pricer = CDSTranchePricer::new();
     let base_market = standard_market_context();
-    let index_data = base_market.credit_index("CDX.NA.IG.42").unwrap();
+    let index_data = base_market.get_credit_index("CDX.NA.IG.42").unwrap();
 
     // Create index with 500 constituents
     let large_index = finstack_core::market_data::term_structures::CreditIndexData::builder()

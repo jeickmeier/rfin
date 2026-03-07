@@ -7,14 +7,16 @@
 use super::bumps::PyMarketBump;
 use super::dividends::PyDividendSchedule;
 use super::fx::PyFxMatrix;
-use super::scalars::{PyMarketScalar, PyScalarTimeSeries};
-use super::surfaces::PyVolSurface;
+use super::scalars::{PyInflationIndex, PyMarketScalar, PyScalarTimeSeries};
+use super::surfaces::{PyFxDeltaVolSurface, PyVolSurface};
 use super::term_structures::{
     PyBaseCorrelationCurve, PyCreditIndexData, PyDiscountCurve, PyForwardCurve, PyHazardCurve,
-    PyInflationCurve,
+    PyInflationCurve, PyPriceCurve, PyVolatilityIndexCurve,
 };
 use crate::errors::core_to_py;
-use finstack_core::market_data::context::{ContextStats, MarketContext};
+use finstack_core::market_data::context::{
+    ContextStats, CurveStorage, MarketContext, MarketContextState,
+};
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use pyo3::exceptions::PyTypeError;
@@ -62,6 +64,69 @@ impl PyMarketContext {
         }
         dict.set_item("curve_counts", counts)?;
         Ok(dict.into())
+    }
+
+    fn insert_curve_like(&mut self, curve: Bound<'_, PyAny>) -> PyResult<()> {
+        if let Ok(curve) = curve.extract::<PyRef<'_, PyDiscountCurve>>() {
+            self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
+            return Ok(());
+        }
+        if let Ok(curve) = curve.extract::<PyRef<'_, PyForwardCurve>>() {
+            self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
+            return Ok(());
+        }
+        if let Ok(curve) = curve.extract::<PyRef<'_, PyHazardCurve>>() {
+            self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
+            return Ok(());
+        }
+        if let Ok(curve) = curve.extract::<PyRef<'_, PyInflationCurve>>() {
+            self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
+            return Ok(());
+        }
+        if let Ok(curve) = curve.extract::<PyRef<'_, PyBaseCorrelationCurve>>() {
+            self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
+            return Ok(());
+        }
+        if let Ok(curve) = curve.extract::<PyRef<'_, PyPriceCurve>>() {
+            self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
+            return Ok(());
+        }
+        if let Ok(curve) = curve.extract::<PyRef<'_, PyVolatilityIndexCurve>>() {
+            self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
+            return Ok(());
+        }
+
+        Err(PyTypeError::new_err(
+            "insert() expects a curve type supported by MarketContext",
+        ))
+    }
+
+    fn wrap_curve_storage(py: Python<'_>, storage: &CurveStorage) -> PyResult<Py<PyAny>> {
+        match storage {
+            CurveStorage::Discount(curve) => {
+                Py::new(py, PyDiscountCurve::new_arc(curve.clone())).map(|obj| obj.into_any())
+            }
+            CurveStorage::Forward(curve) => {
+                Py::new(py, PyForwardCurve::new_arc(curve.clone())).map(|obj| obj.into_any())
+            }
+            CurveStorage::Hazard(curve) => {
+                Py::new(py, PyHazardCurve::new_arc(curve.clone())).map(|obj| obj.into_any())
+            }
+            CurveStorage::Inflation(curve) => {
+                Py::new(py, PyInflationCurve::new_arc(curve.clone())).map(|obj| obj.into_any())
+            }
+            CurveStorage::BaseCorrelation(curve) => {
+                Py::new(py, PyBaseCorrelationCurve::new_arc(curve.clone()))
+                    .map(|obj| obj.into_any())
+            }
+            CurveStorage::Price(curve) => {
+                Py::new(py, PyPriceCurve::new_arc(curve.clone())).map(|obj| obj.into_any())
+            }
+            CurveStorage::VolIndex(curve) => {
+                Py::new(py, PyVolatilityIndexCurve::new_arc(curve.clone()))
+                    .map(|obj| obj.into_any())
+            }
+        }
     }
 }
 
@@ -120,6 +185,17 @@ impl PyMarketContext {
     }
 
     #[pyo3(text_signature = "(self, curve)")]
+    /// Insert or replace a curve using the generic MarketContext insert path.
+    ///
+    /// This is a Python convenience shim over the canonical Rust `insert()`
+    /// method and accepts curve objects such as `DiscountCurve`,
+    /// `ForwardCurve`, `HazardCurve`, `InflationCurve`,
+    /// `BaseCorrelationCurve`, `PriceCurve`, and `VolatilityIndexCurve`.
+    fn insert(&mut self, curve: Bound<'_, PyAny>) -> PyResult<()> {
+        self.insert_curve_like(curve)
+    }
+
+    #[pyo3(text_signature = "(self, curve)")]
     /// Insert or replace a discount curve by id.
     ///
     /// Parameters
@@ -131,7 +207,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_discount(&mut self, curve: &PyDiscountCurve) -> PyResult<()> {
-        self.inner = std::mem::take(&mut self.inner).insert_discount(curve.inner.as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -147,7 +223,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_forward(&mut self, curve: &PyForwardCurve) -> PyResult<()> {
-        self.inner = std::mem::take(&mut self.inner).insert_forward(curve.inner.as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -163,7 +239,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_hazard(&mut self, curve: &PyHazardCurve) -> PyResult<()> {
-        self.inner = std::mem::take(&mut self.inner).insert_hazard(curve.inner.as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -179,7 +255,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_inflation(&mut self, curve: &PyInflationCurve) -> PyResult<()> {
-        self.inner = std::mem::take(&mut self.inner).insert_inflation(curve.inner.as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -195,8 +271,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_base_correlation(&mut self, curve: &PyBaseCorrelationCurve) -> PyResult<()> {
-        self.inner =
-            std::mem::take(&mut self.inner).insert_base_correlation(curve.inner.as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -283,6 +358,20 @@ impl PyMarketContext {
         Ok(())
     }
 
+    #[pyo3(text_signature = "(self, surface)")]
+    fn insert_fx_delta_vol_surface(&mut self, surface: &PyFxDeltaVolSurface) -> PyResult<()> {
+        self.inner = std::mem::take(&mut self.inner)
+            .insert_fx_delta_vol_surface(surface.inner.as_ref().clone());
+        Ok(())
+    }
+
+    #[pyo3(text_signature = "(self, id, index)")]
+    fn insert_inflation_index(&mut self, id: &str, index: &PyInflationIndex) -> PyResult<()> {
+        self.inner = std::mem::take(&mut self.inner)
+            .insert_inflation_index(id, index.inner.as_ref().clone());
+        Ok(())
+    }
+
     #[pyo3(text_signature = "(self, id, data)")]
     /// Insert aggregated credit index market data.
     ///
@@ -321,6 +410,12 @@ impl PyMarketContext {
         Ok(())
     }
 
+    #[pyo3(text_signature = "(self)")]
+    fn clear_fx(&mut self) -> PyResult<()> {
+        self.inner = std::mem::take(&mut self.inner).clear_fx();
+        Ok(())
+    }
+
     #[pyo3(text_signature = "(self, id)")]
     /// Retrieve a discount curve by id.
     ///
@@ -338,7 +433,7 @@ impl PyMarketContext {
     /// ------
     /// ValueError
     ///     If the curve is not present.
-    fn discount(&self, id: &str) -> PyResult<PyDiscountCurve> {
+    fn get_discount(&self, id: &str) -> PyResult<PyDiscountCurve> {
         let arc = self.inner.get_discount(id).map_err(core_to_py)?;
         Ok(PyDiscountCurve::new_arc(arc))
     }
@@ -360,7 +455,7 @@ impl PyMarketContext {
     /// ------
     /// ValueError
     ///     If the curve is not present.
-    fn forward(&self, id: &str) -> PyResult<PyForwardCurve> {
+    fn get_forward(&self, id: &str) -> PyResult<PyForwardCurve> {
         let arc = self.inner.get_forward(id).map_err(core_to_py)?;
         Ok(PyForwardCurve::new_arc(arc))
     }
@@ -382,7 +477,7 @@ impl PyMarketContext {
     /// ------
     /// ValueError
     ///     If the curve is not present.
-    fn hazard(&self, id: &str) -> PyResult<PyHazardCurve> {
+    fn get_hazard(&self, id: &str) -> PyResult<PyHazardCurve> {
         let arc = self.inner.get_hazard(id).map_err(core_to_py)?;
         Ok(PyHazardCurve::new_arc(arc))
     }
@@ -404,8 +499,8 @@ impl PyMarketContext {
     /// ------
     /// ValueError
     ///     If the curve is not present.
-    fn inflation(&self, id: &str) -> PyResult<PyInflationCurve> {
-        let arc = self.inner.get_inflation(id).map_err(core_to_py)?;
+    fn get_inflation_curve(&self, id: &str) -> PyResult<PyInflationCurve> {
+        let arc = self.inner.get_inflation_curve(id).map_err(core_to_py)?;
         Ok(PyInflationCurve::new_arc(arc))
     }
 
@@ -426,9 +521,21 @@ impl PyMarketContext {
     /// ------
     /// ValueError
     ///     If the curve is not present.
-    fn base_correlation(&self, id: &str) -> PyResult<PyBaseCorrelationCurve> {
+    fn get_base_correlation(&self, id: &str) -> PyResult<PyBaseCorrelationCurve> {
         let arc = self.inner.get_base_correlation(id).map_err(core_to_py)?;
         Ok(PyBaseCorrelationCurve::new_arc(arc))
+    }
+
+    #[pyo3(text_signature = "(self, id)")]
+    fn get_vol_index_curve(&self, id: &str) -> PyResult<PyVolatilityIndexCurve> {
+        let arc = self.inner.get_vol_index_curve(id).map_err(core_to_py)?;
+        Ok(PyVolatilityIndexCurve::new_arc(arc))
+    }
+
+    #[pyo3(text_signature = "(self, id)")]
+    fn get_price_curve(&self, id: &str) -> PyResult<PyPriceCurve> {
+        let arc = self.inner.get_price_curve(id).map_err(core_to_py)?;
+        Ok(PyPriceCurve::new_arc(arc))
     }
 
     #[pyo3(text_signature = "(self, id)")]
@@ -446,10 +553,10 @@ impl PyMarketContext {
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ConfigurationError
     ///     If the surface is not present.
-    fn surface(&self, id: &str) -> PyResult<PyVolSurface> {
-        let arc = self.inner.surface(id).map_err(core_to_py)?;
+    fn get_surface(&self, id: &str) -> PyResult<PyVolSurface> {
+        let arc = self.inner.get_surface(id).map_err(core_to_py)?;
         Ok(PyVolSurface::new_arc(arc))
     }
 
@@ -468,10 +575,10 @@ impl PyMarketContext {
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ConfigurationError
     ///     If the price is not present.
-    fn price(&self, id: &str) -> PyResult<PyMarketScalar> {
-        let scalar = self.inner.price(id).map_err(core_to_py)?;
+    fn get_price(&self, id: &str) -> PyResult<PyMarketScalar> {
+        let scalar = self.inner.get_price(id).map_err(core_to_py)?;
         Ok(PyMarketScalar::new(scalar.clone()))
     }
 
@@ -490,11 +597,26 @@ impl PyMarketContext {
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ConfigurationError
     ///     If the series is not present.
-    fn series(&self, id: &str) -> PyResult<PyScalarTimeSeries> {
-        let series = self.inner.series(id).map_err(core_to_py)?;
+    fn get_series(&self, id: &str) -> PyResult<PyScalarTimeSeries> {
+        let series = self.inner.get_series(id).map_err(core_to_py)?;
         Ok(PyScalarTimeSeries::new_arc(series.clone()))
+    }
+
+    #[pyo3(text_signature = "(self, id)")]
+    fn get_inflation_index(&self, id: &str) -> PyResult<PyInflationIndex> {
+        let index = self.inner.get_inflation_index(id).map_err(core_to_py)?;
+        Ok(PyInflationIndex::new_arc(index))
+    }
+
+    #[pyo3(text_signature = "(self, id)")]
+    fn get_fx_delta_vol_surface(&self, id: &str) -> PyResult<PyFxDeltaVolSurface> {
+        let surface = self
+            .inner
+            .get_fx_delta_vol_surface(id)
+            .map_err(core_to_py)?;
+        Ok(PyFxDeltaVolSurface::new_arc(surface))
     }
 
     #[pyo3(text_signature = "(self, id)")]
@@ -512,10 +634,10 @@ impl PyMarketContext {
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ConfigurationError
     ///     If the index is not present.
-    fn credit_index(&self, id: &str) -> PyResult<PyCreditIndexData> {
-        let data = self.inner.credit_index(id).map_err(core_to_py)?;
+    fn get_credit_index(&self, id: &str) -> PyResult<PyCreditIndexData> {
+        let data = self.inner.get_credit_index(id).map_err(core_to_py)?;
         Ok(PyCreditIndexData::new_arc(data))
     }
 
@@ -529,12 +651,126 @@ impl PyMarketContext {
     ///
     /// Returns
     /// -------
-    /// DividendSchedule or None
-    ///     Dividend schedule if found, otherwise ``None``.
-    fn dividend_schedule(&self, id: &str) -> Option<PyDividendSchedule> {
+    /// DividendSchedule
+    ///     Dividend schedule for ``id``.
+    ///
+    /// Raises
+    /// ------
+    /// ConfigurationError
+    ///     If the dividend schedule is not present.
+    fn get_dividend_schedule(&self, id: &str) -> PyResult<PyDividendSchedule> {
+        let schedule = self.inner.get_dividend_schedule(id).map_err(core_to_py)?;
+        Ok(PyDividendSchedule::new(schedule.as_ref().clone()))
+    }
+
+    #[pyo3(text_signature = "(self, csa_code)")]
+    fn get_collateral(&self, csa_code: &str) -> PyResult<PyDiscountCurve> {
+        let state: MarketContextState = (&self.inner).into();
+        let curve_id = state.collateral.get(csa_code).ok_or_else(|| {
+            core_to_py(
+                finstack_core::error::InputError::NotFound {
+                    id: format!("collateral:{csa_code}"),
+                }
+                .into(),
+            )
+        })?;
+        let arc = self.inner.get_discount(curve_id).map_err(core_to_py)?;
+        Ok(PyDiscountCurve::new_arc(arc))
+    }
+
+    #[pyo3(text_signature = "(self, id)")]
+    fn curve(&self, py: Python<'_>, id: &str) -> PyResult<Option<Py<PyAny>>> {
         self.inner
-            .dividend_schedule(id)
-            .map(|schedule| PyDividendSchedule::new(schedule.as_ref().clone()))
+            .curve(id)
+            .map(|storage| Self::wrap_curve_storage(py, storage))
+            .transpose()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn fx(&self) -> Option<PyFxMatrix> {
+        self.inner
+            .fx()
+            .map(|inner| PyFxMatrix::from_inner(inner.clone()))
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn surfaces_snapshot(&self) -> HashMap<String, PyVolSurface> {
+        self.inner
+            .surfaces_snapshot()
+            .into_iter()
+            .map(|(id, surface)| (id.to_string(), PyVolSurface::new_arc(surface)))
+            .collect()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn prices_snapshot(&self) -> HashMap<String, PyMarketScalar> {
+        self.inner
+            .prices_snapshot()
+            .into_iter()
+            .map(|(id, scalar)| (id.to_string(), PyMarketScalar::new(scalar)))
+            .collect()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn series_snapshot(&self) -> HashMap<String, PyScalarTimeSeries> {
+        self.inner
+            .series_snapshot()
+            .into_iter()
+            .map(|(id, series)| (id.to_string(), PyScalarTimeSeries::new_arc(series)))
+            .collect()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn prices_iter(&self) -> Vec<(String, PyMarketScalar)> {
+        self.inner
+            .prices_iter()
+            .map(|(id, scalar)| (id.to_string(), PyMarketScalar::new(scalar.clone())))
+            .collect()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn series_iter(&self) -> Vec<(String, PyScalarTimeSeries)> {
+        self.inner
+            .series_iter()
+            .map(|(id, series)| (id.to_string(), PyScalarTimeSeries::new_arc(series.clone())))
+            .collect()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn inflation_indices_iter(&self) -> Vec<(String, PyInflationIndex)> {
+        self.inner
+            .inflation_indices_iter()
+            .map(|(id, index)| (id.to_string(), PyInflationIndex::new_arc(index.clone())))
+            .collect()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn dividends_iter(&self) -> Vec<(String, PyDividendSchedule)> {
+        self.inner
+            .dividends_iter()
+            .map(|(id, schedule)| {
+                (
+                    id.to_string(),
+                    PyDividendSchedule::new(schedule.as_ref().clone()),
+                )
+            })
+            .collect()
+    }
+
+    #[pyo3(text_signature = "(self, days)")]
+    fn roll_forward(&self, days: i64) -> PyResult<Self> {
+        let rolled = self.inner.roll_forward(days).map_err(core_to_py)?;
+        Ok(Self { inner: rolled })
+    }
+
+    #[pyo3(text_signature = "(self, id, new_curve)")]
+    fn update_base_correlation_curve(
+        &mut self,
+        id: &str,
+        new_curve: &PyBaseCorrelationCurve,
+    ) -> bool {
+        self.inner
+            .update_base_correlation_curve(id, new_curve.inner.clone())
     }
 
     /// All curve identifiers stored in the context.
@@ -563,6 +799,18 @@ impl PyMarketContext {
         self.inner
             .curves_of_type(curve_type)
             .map(|(id, _)| id.to_string())
+            .collect()
+    }
+
+    #[pyo3(text_signature = "(self, curve_type)")]
+    fn curves_of_type(
+        &self,
+        py: Python<'_>,
+        curve_type: &str,
+    ) -> PyResult<Vec<(String, Py<PyAny>)>> {
+        self.inner
+            .curves_of_type(curve_type)
+            .map(|(id, storage)| Ok((id.to_string(), Self::wrap_curve_storage(py, storage)?)))
             .collect()
     }
 
@@ -609,6 +857,20 @@ impl PyMarketContext {
     ///     Total population of the context.
     fn total_objects(&self) -> usize {
         self.inner.total_objects()
+    }
+
+    #[pyo3(text_signature = "(self, surfaces)")]
+    fn replace_surfaces_mut(&mut self, surfaces: Bound<'_, PyAny>) -> PyResult<()> {
+        let iter = PyIterator::from_object(&surfaces)?;
+        let mut items = Vec::new();
+        for item in iter {
+            let tuple = item?;
+            let (id, surface): (String, Py<PyVolSurface>) = tuple.extract()?;
+            let surface_ref = surface.bind(tuple.py()).borrow();
+            items.push((CurveId::new(id), surface_ref.inner.clone()));
+        }
+        self.inner.replace_surfaces_mut(items);
+        Ok(())
     }
 
     /// ``True`` if an FX matrix has been configured.
@@ -667,7 +929,7 @@ impl PyMarketContext {
     ///     ``True`` if a curve or surface with the given id is registered.
     fn __contains__(&self, id: &str) -> bool {
         // Check curves first, then surfaces
-        self.inner.curve(id).is_some() || self.inner.surface(id).is_ok()
+        self.inner.curve(id).is_some() || self.inner.get_surface(id).is_ok()
     }
 
     fn __repr__(&self) -> String {

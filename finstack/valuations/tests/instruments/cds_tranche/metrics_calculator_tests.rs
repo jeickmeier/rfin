@@ -310,8 +310,8 @@ fn test_metrics_with_missing_credit_index() {
     let tranche = mezzanine_tranche();
 
     // Create market without credit index
-    let market = finstack_core::market_data::context::MarketContext::new()
-        .insert_discount(standard_discount_curve());
+    let market =
+        finstack_core::market_data::context::MarketContext::new().insert(standard_discount_curve());
 
     let as_of = base_date();
 

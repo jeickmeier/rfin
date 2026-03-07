@@ -88,8 +88,8 @@ fn test_cap_dv01_signed_negative() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let result = cap
@@ -143,8 +143,8 @@ fn test_floor_dv01_signed_negative() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let result = floor
@@ -169,8 +169,8 @@ fn test_dv01_scales_with_maturity() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let short_dv01 = *short_cap
@@ -210,8 +210,8 @@ fn test_dv01_scales_with_notional() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let small_dv01 = *small_cap

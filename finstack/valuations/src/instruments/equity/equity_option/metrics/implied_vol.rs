@@ -19,7 +19,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         let market_price: f64 = if let Some(p) = option.attributes.get_meta("market_price") {
             p.parse().unwrap_or(0.0)
         } else if let Some(price_id) = option.attributes.get_meta("market_price_id") {
-            match context.curves.price(price_id) {
+            match context.curves.get_price(price_id) {
                 Ok(ms) => match ms {
                     finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
                     finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),

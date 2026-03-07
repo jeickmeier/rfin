@@ -97,7 +97,7 @@ impl BarrierOptionMcPricer {
         };
 
         // Get spot
-        let spot_scalar = curves.price(&inst.spot_id)?;
+        let spot_scalar = curves.get_price(&inst.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -110,7 +110,7 @@ impl BarrierOptionMcPricer {
         )?;
 
         // Get volatility using vol surface time basis
-        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t_vol, inst.strike);
 
         // Create GBM process
@@ -215,7 +215,7 @@ impl BarrierOptionMcPricer {
         };
 
         // Spot and dividend yield
-        let spot_scalar = curves.price(&inst.spot_id)?;
+        let spot_scalar = curves.get_price(&inst.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -226,7 +226,7 @@ impl BarrierOptionMcPricer {
         )?;
 
         // Volatility and process (using vol surface time basis)
-        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t_vol, inst.strike);
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
@@ -363,7 +363,7 @@ fn price_expired_barrier(
 ) -> finstack_core::Result<Money> {
     use crate::instruments::exotics::barrier_option::types::BarrierType;
 
-    let spot_scalar = curves.price(&inst.spot_id)?;
+    let spot_scalar = curves.get_price(&inst.spot_id)?;
     let spot = match spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),

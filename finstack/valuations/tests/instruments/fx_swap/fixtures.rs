@@ -109,8 +109,8 @@ pub fn setup_standard_market(as_of: Date) -> MarketContext {
     let fx_matrix = FxMatrix::new(Arc::new(provider));
 
     MarketContext::new()
-        .insert_discount(usd_curve)
-        .insert_discount(eur_curve)
+        .insert(usd_curve)
+        .insert(eur_curve)
         .insert_fx(fx_matrix)
 }
 
@@ -141,8 +141,8 @@ pub fn setup_steep_curve_market(as_of: Date) -> MarketContext {
     let fx_matrix = FxMatrix::new(Arc::new(provider));
 
     MarketContext::new()
-        .insert_discount(usd_curve)
-        .insert_discount(eur_curve)
+        .insert(usd_curve)
+        .insert(eur_curve)
         .insert_fx(fx_matrix)
 }
 
@@ -169,8 +169,8 @@ pub fn setup_inverted_curve_market(as_of: Date) -> MarketContext {
     let fx_matrix = FxMatrix::new(Arc::new(provider));
 
     MarketContext::new()
-        .insert_discount(usd_curve)
-        .insert_discount(eur_curve)
+        .insert(usd_curve)
+        .insert(eur_curve)
         .insert_fx(fx_matrix)
 }
 

@@ -88,8 +88,8 @@ fn test_cap_gamma_positive() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let result = cap
@@ -136,8 +136,8 @@ fn test_floor_gamma_positive() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let result = floor
@@ -168,8 +168,8 @@ fn test_atm_gamma_highest() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let otm_gamma = *otm_cap
@@ -220,8 +220,8 @@ fn test_gamma_finite_and_reasonable() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let result = cap

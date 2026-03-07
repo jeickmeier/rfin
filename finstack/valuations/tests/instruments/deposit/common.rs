@@ -47,7 +47,7 @@ pub fn ctx_with_flat_rate(base: Date, id: &str, rate: f64) -> MarketContext {
         ])
         .build()
         .unwrap();
-    MarketContext::new().insert_discount(disc)
+    MarketContext::new().insert(disc)
 }
 
 /// Creates a market context with a standard discount curve for testing.
@@ -62,7 +62,7 @@ pub fn ctx_with_standard_disc(base: Date, id: &str) -> MarketContext {
         .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.96)])
         .build()
         .unwrap();
-    MarketContext::new().insert_discount(disc)
+    MarketContext::new().insert(disc)
 }
 
 /// Creates a market context with a steep discount curve for sensitivity testing.
@@ -72,7 +72,7 @@ pub fn ctx_with_steep_curve(base: Date, id: &str) -> MarketContext {
         .knots([(0.0, 1.0), (0.5, 0.95), (1.0, 0.90), (2.0, 0.80)])
         .build()
         .unwrap();
-    MarketContext::new().insert_discount(disc)
+    MarketContext::new().insert(disc)
 }
 
 /// Creates a standard 6-month USD deposit for testing.

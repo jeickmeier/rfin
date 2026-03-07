@@ -28,8 +28,8 @@ fn test_smile_surface_pricing() {
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
 
     let market = finstack_core::market_data::context::MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(smile_surface);
 
     // Test different strikes pick up smile
@@ -65,8 +65,8 @@ fn test_surface_interpolation() {
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
 
     let market = finstack_core::market_data::context::MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(surface);
 
     let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
@@ -97,8 +97,8 @@ fn test_extrapolation_stability() {
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
 
     let market = finstack_core::market_data::context::MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(surface);
 
     // Test strike outside surface range

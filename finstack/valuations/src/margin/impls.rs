@@ -386,7 +386,7 @@ impl Marginable for FIIndexTotalReturnSwap {
             .duration_id
             .as_ref()
             .and_then(|id| {
-                market.price(id.as_str()).ok().and_then(|s| match s {
+                market.get_price(id.as_str()).ok().and_then(|s| match s {
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
                     finstack_core::market_data::scalars::MarketScalar::Price(_) => None,
                 })

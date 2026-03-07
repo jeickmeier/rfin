@@ -344,7 +344,7 @@ fn test_equity_trs_sensitivity_to_interest_rates() {
             .interp(finstack_core::math::interp::InterpStyle::LogLinear)
             .build()
             .unwrap();
-    market_shifted = market_shifted.insert_discount(disc_shifted);
+    market_shifted = market_shifted.insert(disc_shifted);
 
     let fwd_shifted =
         finstack_core::market_data::term_structures::ForwardCurve::builder("USD-SOFR-3M", 0.25)
@@ -359,7 +359,7 @@ fn test_equity_trs_sensitivity_to_interest_rates() {
             .interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .unwrap();
-    market_shifted = market_shifted.insert_forward(fwd_shifted);
+    market_shifted = market_shifted.insert(fwd_shifted);
     market_shifted = market_shifted.insert_price("SPX-SPOT", MarketScalar::Unitless(5000.0));
     market_shifted = market_shifted.insert_price("SPX-DIV-YIELD", MarketScalar::Unitless(0.015));
 

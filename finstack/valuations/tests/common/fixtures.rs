@@ -149,13 +149,13 @@ pub fn usd_discount_curve_monotone_convex(base_date: Date, curve_id: &str) -> Di
 /// Creates a market context with a standard USD-OIS discount curve.
 pub fn market_context_with_usd_discount(base_date: Date) -> MarketContext {
     let curve = usd_discount_curve(base_date, "USD-OIS");
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 /// Creates a market context with a minimal USD-OIS discount curve.
 pub fn market_context_with_minimal_discount(base_date: Date) -> MarketContext {
     let curve = usd_discount_curve_minimal(base_date, "USD-OIS");
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 // =============================================================================

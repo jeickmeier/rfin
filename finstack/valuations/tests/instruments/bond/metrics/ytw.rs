@@ -30,7 +30,7 @@ fn test_ytw_equals_ytm_for_non_callable_bond_from_price() {
         .knots([(0.0, 1.0), (5.0, 0.80)])
         .build()
         .unwrap();
-    let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     // Request both YTM and YTW so they are computed off the same quoted price
     let result = bond
@@ -67,7 +67,7 @@ fn test_ytw_tracks_quoted_price_not_model_pv() {
         .knots([(0.0, 1.0), (5.0, 0.90)]) // deliberately simple curve
         .build()
         .unwrap();
-    let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     // Compute model PV for reference (should differ from at least one of the quoted prices)
     let pv = bond.value(&market, as_of).unwrap().amount();
@@ -136,9 +136,7 @@ fn test_ytw_floating_bond_matches_ytm_from_price() {
         .knots([(0.0, 0.03), (2.0, 0.035)])
         .build()
         .unwrap();
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let mut bond = Bond::floating(
         "YTW-FRN",
@@ -211,7 +209,7 @@ fn test_ytw_amortizing_bond_matches_ytm_from_price() {
         .interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    let market = MarketContext::new().insert_discount(disc);
+    let market = MarketContext::new().insert(disc);
 
     let step_date = date!(2026 - 01 - 01);
     let amort_spec = AmortizationSpec::StepRemaining {

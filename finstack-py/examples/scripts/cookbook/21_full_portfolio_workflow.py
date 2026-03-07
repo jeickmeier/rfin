@@ -46,8 +46,8 @@ from finstack.valuations.pricer import create_standard_registry
 def step1_build_market_data(as_of: date) -> MarketContext:
     """Step 1: Create a small market context (curves only)."""
     market = MarketContext()
-    market.insert_discount(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
-    market.insert_hazard(HazardCurve("CORP.A", as_of, [(0.0, 0.02), (10.0, 0.02)], recovery_rate=0.40))
+    market.insert(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
+    market.insert(HazardCurve("CORP.A", as_of, [(0.0, 0.02), (10.0, 0.02)], recovery_rate=0.40))
     return market
 
 

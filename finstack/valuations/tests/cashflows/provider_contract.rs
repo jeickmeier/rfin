@@ -117,9 +117,7 @@ fn minimal_market() -> MarketContext {
         .build()
         .expect("valid forward curve");
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+    MarketContext::new().insert(disc).insert(fwd)
 }
 
 // =============================================================================

@@ -249,9 +249,9 @@ impl JsInflationSwap {
 
         // Very simple forward projection: use inflation index if present, otherwise assume index_ratio=1.
         let mut index_ratio = 1.0;
-        if let Some(index) = market
+        if let Ok(index) = market
             .inner()
-            .inflation_index(self.inner.inflation_index_id.as_str())
+            .get_inflation_index(self.inner.inflation_index_id.as_str())
         {
             let start_v = index.value_on(self.inner.start_date).unwrap_or(1.0);
             let end_v = index.value_on(self.inner.maturity).unwrap_or(start_v);

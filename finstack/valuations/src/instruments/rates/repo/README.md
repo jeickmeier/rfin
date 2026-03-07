@@ -23,7 +23,7 @@ use time::Month;
 let repo = Repo::builder()
     .id("REPO-1")
     .repo_type(RepoType::Term)
-    .collateral(CollateralSpec::general())
+    .get_collateral(CollateralSpec::general())
     .cash_amount(Money::new(10_000_000.0, Currency::USD))
     .start(Date::from_calendar_date(2024, Month::January, 3)?)
     .maturity(Date::from_calendar_date(2024, Month::February, 3)?)

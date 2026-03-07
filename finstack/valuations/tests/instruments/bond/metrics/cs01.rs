@@ -40,8 +40,8 @@ fn test_cs01_positive() {
         .unwrap();
 
     let market = finstack_core::market_data::context::MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+        .insert(disc)
+        .insert(hazard);
 
     let result = bond
         .price_with_metrics(&market, as_of, &[MetricId::Cs01])

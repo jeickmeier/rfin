@@ -455,7 +455,7 @@ fn do_price(
 ///     >>> pricer = LsmcPricer(config)
 ///     >>> put = AmericanPut(strike=100.0)
 ///     >>> basis = LaguerreBasis(degree=3, strike=100.0)
-///     >>> result = pricer.price(
+///     >>> result = pricer.get_price(
 ///     ...     initial_spot=100.0,
 ///     ...     r=0.05, q=0.0, sigma=0.20,
 ///     ...     time_to_maturity=1.0,

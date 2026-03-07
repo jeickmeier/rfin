@@ -154,7 +154,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .interp(InterpStyle::Linear)
         .build()?;
 
-    let market_ctx = MarketContext::new().insert_discount(usd_curve);
+    let market_ctx = MarketContext::new().insert(usd_curve);
 
     println!("  USD-OIS curve: 7 knots from 0Y to 5Y");
     println!("  Approx rate: ~5.0% flat\n");

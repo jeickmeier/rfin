@@ -76,7 +76,7 @@ fn get_constituent_price_money(
             Ok(price)
         }
         ConstituentReference::MarketData { price_id, .. } => {
-            let scalar = context.curves.price(price_id.as_ref())?;
+            let scalar = context.curves.get_price(price_id.as_ref())?;
             match scalar {
                 finstack_core::market_data::scalars::MarketScalar::Price(money) => Ok(*money),
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
@@ -119,7 +119,7 @@ fn bump_and_measure_delta(
         ConstituentReference::MarketData { price_id, .. } => {
             let current_price = get_constituent_price_money(basket, constituent, context, as_of)?;
             let bumped_price = current_price.amount() * (1.0 + PRICE_BUMP_PCT);
-            let current_scalar = bumped_ctx.price(price_id.as_ref())?;
+            let current_scalar = bumped_ctx.get_price(price_id.as_ref())?;
             let new_scalar = match current_scalar {
                 finstack_core::market_data::scalars::MarketScalar::Price(m) => {
                     finstack_core::market_data::scalars::MarketScalar::Price(
@@ -241,7 +241,7 @@ mod tests {
     fn test_constituent_delta_mixed_references() {
         let as_of = test_utils::date(2024, 1, 2);
         let market = MarketContext::new()
-            .insert_discount(flat_discount("USD-OIS", as_of, 0.02))
+            .insert(flat_discount("USD-OIS", as_of, 0.02))
             .insert_price(
                 "AAPL-SPOT",
                 MarketScalar::Price(Money::new(150.0, Currency::USD)),

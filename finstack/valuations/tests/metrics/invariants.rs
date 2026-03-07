@@ -74,7 +74,7 @@ proptest! {
 
         // Build market
         let disc = build_discount_curve(flat_rate);
-        let market = MarketContext::new().insert_discount(disc);
+        let market = MarketContext::new().insert(disc);
 
         // Compute metrics
         let metrics = vec![MetricId::Dv01, MetricId::BucketedDv01];
@@ -149,7 +149,7 @@ proptest! {
             .expect("Bond construction should succeed");
 
         let disc = build_discount_curve(flat_rate);
-        let market = MarketContext::new().insert_discount(disc);
+        let market = MarketContext::new().insert(disc);
 
         let metrics = vec![MetricId::Dv01];
         let registry = standard_registry();
@@ -218,7 +218,7 @@ mod mc_invariants {
             .unwrap();
 
         MarketContext::new()
-            .insert_discount(disc)
+            .insert(disc)
             .insert_surface(vol_surface)
             .insert_price("SPOT", MarketScalar::Unitless(spot))
     }
@@ -423,8 +423,8 @@ mod cds_invariants {
             cds_with_recovery.protection.recovery_rate = recovery;
 
             let market = MarketContext::new()
-                .insert_discount(disc)
-                .insert_hazard(hazard);
+                .insert(disc)
+                .insert(hazard);
             let ps = metric_value(&cds_with_recovery, &market, as_of, MetricId::ParSpread);
             prop_assert!(
                 ps > 0.0,
@@ -465,8 +465,8 @@ mod cds_invariants {
 
             let (disc, hazard) = build_test_curves(0.04, hazard_rate);
             let market = MarketContext::new()
-                .insert_discount(disc)
-                .insert_hazard(hazard);
+                .insert(disc)
+                .insert(hazard);
             let prot_low = metric_value(&cds_low, &market, as_of, MetricId::ProtectionLegPv);
             let prot_high =
                 metric_value(&cds_high_recovery, &market, as_of, MetricId::ProtectionLegPv);
@@ -524,9 +524,7 @@ mod cs01_invariants {
             .build()
             .unwrap();
 
-        MarketContext::new()
-            .insert_discount(disc)
-            .insert_hazard(hazard)
+        MarketContext::new().insert(disc).insert(hazard)
     }
 
     proptest! {
@@ -625,9 +623,7 @@ mod bucketed_cs01_invariants {
             .build()
             .unwrap();
 
-        MarketContext::new()
-            .insert_discount(disc)
-            .insert_hazard(hazard)
+        MarketContext::new().insert(disc).insert(hazard)
     }
 
     /// Test that bucketed CS01 values are consistent with parallel CS01.
@@ -712,7 +708,7 @@ mod additional_invariants {
     fn test_dv01_sum_invariant_across_maturities() {
         let as_of = date!(2025 - 01 - 01);
         let disc = build_discount_curve(0.04);
-        let market = MarketContext::new().insert_discount(disc);
+        let market = MarketContext::new().insert(disc);
         let registry = standard_registry();
 
         for years in [2, 5, 10, 15, 20] {

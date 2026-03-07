@@ -121,7 +121,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .interp(InterpStyle::Linear)
         .build()?;
 
-    let market_ctx = MarketContext::new().insert_discount(discount_curve);
+    let market_ctx = MarketContext::new().insert(discount_curve);
     println!("   ✓ Market context created with discount curve: USD-OIS");
 
     // Example 4: Evaluate model with automatic cashflow computation

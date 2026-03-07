@@ -40,10 +40,10 @@ def create_market_data():
     as_of = date(2024, 1, 15)
 
     # Discount curve
-    market.insert_discount(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
+    market.insert(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
 
     # Hazard curve for CDS
-    market.insert_hazard(HazardCurve("CORP.CDS", as_of, [(0.0, 0.02), (10.0, 0.02)], recovery_rate=0.40))
+    market.insert(HazardCurve("CORP.CDS", as_of, [(0.0, 0.02), (10.0, 0.02)], recovery_rate=0.40))
 
     # FX
     fx = FxMatrix()

@@ -472,7 +472,7 @@ mod tests {
             .build()
             .expect("discount curve");
 
-        let ctx = MarketContext::new().insert_discount(disc.clone());
+        let ctx = MarketContext::new().insert(disc.clone());
         let params = TotalReturnLegParams {
             schedule: &schedule,
             notional: Money::new(1_000_000.0, Currency::USD),
@@ -547,8 +547,8 @@ mod tests {
             .expect("forward curve");
 
         let ctx = MarketContext::new()
-            .insert_discount(disc.clone())
-            .insert_forward(fwd.clone());
+            .insert(disc.clone())
+            .insert(fwd.clone());
 
         let financing = FinancingLegSpec {
             discount_curve_id: CurveId::new("DISC"),

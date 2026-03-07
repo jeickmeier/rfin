@@ -894,7 +894,7 @@ fn create_market_context() -> MarketContext {
         .build()
         .expect("Failed to build curve");
 
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 ```
 

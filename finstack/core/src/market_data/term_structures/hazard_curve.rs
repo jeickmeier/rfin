@@ -111,7 +111,7 @@ use crate::{
 pub struct HazardCurve {
     id: CurveId,
     base: Date,
-    /// Time grid in years from base date; strictly increasing and strictly positive.
+    /// Time grid in years from base date; strictly increasing and non-negative.
     knots: Box<[f64]>,
     /// Piecewise-constant hazard rates λ ≥ 0; same length as `knots`.
     lambdas: Box<[f64]>,
@@ -744,7 +744,8 @@ impl HazardCurveBuilder {
         }
 
         // Validate knot times and hazard rates: times must be finite/non-negative;
-        // a zero-time anchor is allowed, but all subsequent knots must increase strictly.
+        // rates non-negative and finite; a zero-time anchor is allowed, but all
+        // subsequent knots must increase strictly.
         for &(t, lambda) in &self.points {
             if !t.is_finite() || t < 0.0 {
                 return Err(InputError::Invalid.into());
@@ -928,14 +929,14 @@ mod tests {
     }
 
     #[test]
-    fn builder_rejects_explicit_zero_time_knot() {
+    fn builder_allows_explicit_zero_time_knot() {
         let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let result = HazardCurve::builder("USD-CREDIT")
             .base_date(base)
             .knots([(0.0, 0.01), (5.0, 0.02)])
             .build();
 
-        assert!(result.is_err(), "t=0 hazard knots should be rejected");
+        assert!(result.is_ok(), "t=0 hazard knots should be accepted");
     }
 }
 

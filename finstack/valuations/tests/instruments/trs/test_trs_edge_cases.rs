@@ -65,7 +65,7 @@ fn test_equity_trs_missing_spot_price() {
         .interp(finstack_core::math::interp::InterpStyle::LogLinear)
         .build()
         .unwrap();
-    market = market.insert_discount(disc);
+    market = market.insert(disc);
 
     let fwd =
         finstack_core::market_data::term_structures::ForwardCurve::builder("USD-SOFR-3M", 0.25)
@@ -74,7 +74,7 @@ fn test_equity_trs_missing_spot_price() {
             .interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .unwrap();
-    market = market.insert_forward(fwd);
+    market = market.insert(fwd);
 
     let trs = TestEquityTrsBuilder::new().build();
 
@@ -115,7 +115,7 @@ fn test_equity_trs_missing_forward_curve() {
         .interp(finstack_core::math::interp::InterpStyle::LogLinear)
         .build()
         .unwrap();
-    market = market.insert_discount(disc);
+    market = market.insert(disc);
 
     let trs = TestEquityTrsBuilder::new().build();
 

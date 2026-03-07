@@ -88,12 +88,10 @@ fn test_valuation_with_negative_rates() {
         .interp(finstack_core::math::interp::InterpStyle::Linear) // MonotoneConvex doesn't work for increasing DFs
         .build()
         .unwrap();
-    let ctx = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_price(
-            UNDERLYING_ID,
-            finstack_core::market_data::scalars::MarketScalar::Unitless(5_000.0),
-        );
+    let ctx = MarketContext::new().insert(disc_curve).insert_price(
+        UNDERLYING_ID,
+        finstack_core::market_data::scalars::MarketScalar::Unitless(5_000.0),
+    );
     let as_of = curve_base;
 
     // Act

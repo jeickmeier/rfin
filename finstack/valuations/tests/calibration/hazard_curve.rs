@@ -60,7 +60,7 @@ fn hazard_calibration_positive_rates() {
     let currency = Currency::USD;
 
     let disc = create_test_discount_curve(base);
-    let initial_market = MarketContext::new().insert_discount(disc);
+    let initial_market = MarketContext::new().insert(disc);
 
     let quotes = vec![
         MarketQuote::Cds(CdsQuote::CdsParSpread {
@@ -160,7 +160,7 @@ fn hazard_calibration_rejects_zero_spread() {
     let currency = Currency::USD;
 
     let disc = create_test_discount_curve(base);
-    let initial_market = MarketContext::new().insert_discount(disc);
+    let initial_market = MarketContext::new().insert(disc);
 
     let quotes = vec![MarketQuote::Cds(CdsQuote::CdsParSpread {
         id: QuoteId::new(format!(
@@ -226,7 +226,7 @@ fn hazard_calibration_rejects_negative_spread() {
     let currency = Currency::USD;
 
     let disc = create_test_discount_curve(base);
-    let initial_market = MarketContext::new().insert_discount(disc);
+    let initial_market = MarketContext::new().insert(disc);
 
     let quotes = vec![MarketQuote::Cds(CdsQuote::CdsParSpread {
         id: QuoteId::new(format!(
@@ -294,7 +294,7 @@ fn hazard_calibration_handles_extreme_high_spread() {
     let currency = Currency::USD;
 
     let disc = create_test_discount_curve(base);
-    let initial_market = MarketContext::new().insert_discount(disc);
+    let initial_market = MarketContext::new().insert(disc);
 
     let quotes = vec![
         MarketQuote::Cds(CdsQuote::CdsParSpread {
@@ -398,7 +398,7 @@ fn hazard_calibration_global_solve_sqrt_time_is_not_rougher_than_bootstrap() {
     let currency = Currency::USD;
 
     let disc = create_test_discount_curve(base);
-    let initial_market = MarketContext::new().insert_discount(disc);
+    let initial_market = MarketContext::new().insert(disc);
 
     let quotes = vec![
         MarketQuote::Cds(CdsQuote::CdsParSpread {
@@ -589,7 +589,7 @@ fn hazard_calibration_reprices_par_spread() {
     let maturity = Date::from_calendar_date(2026, Month::March, 20).unwrap();
 
     let disc = create_test_discount_curve(base);
-    let initial_market = MarketContext::new().insert_discount(disc);
+    let initial_market = MarketContext::new().insert(disc);
 
     let cds_quote = CdsQuote::CdsParSpread {
         id: QuoteId::new("CDS-1Y"),

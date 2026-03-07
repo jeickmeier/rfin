@@ -57,7 +57,7 @@ fn test_asw_market_requires_accrued_when_clean_price_present() {
 
     // Market with a simple discount curve
     let disc = simple_discount_curve("USD-OIS", as_of);
-    let market = MarketContext::new().insert_discount(disc);
+    let market = MarketContext::new().insert(disc);
 
     // Metric context with quoted clean price but without Accrued metric
     let mut ctx = MetricContext::new(
@@ -93,7 +93,7 @@ fn test_asw_par_with_config_uses_fixed_leg_conventions() {
     let bond = simple_fixed_bond(as_of);
 
     let disc = simple_discount_curve("USD-OIS", as_of);
-    let market = MarketContext::new().insert_discount(disc);
+    let market = MarketContext::new().insert(disc);
 
     let mut ctx_default = MetricContext::new(
         Arc::new(bond.clone()),
@@ -142,7 +142,7 @@ fn test_asw_par_tracks_coupon_minus_par_rate() {
     let bond = simple_fixed_bond(as_of);
 
     let disc = simple_discount_curve("USD-OIS", as_of);
-    let market = MarketContext::new().insert_discount(disc.clone());
+    let market = MarketContext::new().insert(disc.clone());
 
     let registry = standard_registry();
     let mut ctx = MetricContext::new(
@@ -223,7 +223,7 @@ fn test_asw_market_tightens_when_price_rises() {
     cheap_bond.pricing_overrides = PricingOverrides::default().with_clean_price(99.0);
 
     let disc = simple_discount_curve("USD-OIS", as_of);
-    let market = MarketContext::new().insert_discount(disc);
+    let market = MarketContext::new().insert(disc);
 
     let registry = standard_registry();
 
@@ -278,7 +278,7 @@ fn test_asw_par_metric_rejects_matured_schedule() {
     .expect("bond");
 
     let disc = simple_discount_curve("USD-OIS", issue);
-    let market = MarketContext::new().insert_discount(disc);
+    let market = MarketContext::new().insert(disc);
     let registry = standard_registry();
 
     let mut ctx = MetricContext::new(
@@ -316,7 +316,7 @@ fn test_asw_market_metric_rejects_matured_schedule() {
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(100.0);
 
     let disc = simple_discount_curve("USD-OIS", issue);
-    let market = MarketContext::new().insert_discount(disc);
+    let market = MarketContext::new().insert(disc);
     let registry = standard_registry();
 
     let mut ctx = MetricContext::new(
@@ -342,9 +342,7 @@ fn test_asw_par_with_forward_day_count_override_changes_result() {
     let bond = simple_fixed_bond(as_of);
     let disc = simple_discount_curve("USD-OIS", as_of);
     let fwd = simple_forward_curve("USD-SOFR-3M", as_of);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let par_default = finstack_valuations::instruments::fixed_income::bond::asw_par_with_forward(
         &bond,
@@ -382,9 +380,7 @@ fn test_asw_market_with_forward_requires_dirty_price() {
     let bond = simple_fixed_bond(as_of);
     let disc = simple_discount_curve("USD-OIS", as_of);
     let fwd = simple_forward_curve("USD-SOFR-3M", as_of);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let err = finstack_valuations::instruments::fixed_income::bond::asw_market_with_forward_config(
         &bond,
@@ -410,9 +406,7 @@ fn test_asw_market_with_forward_moves_with_dirty_price() {
     let bond = simple_fixed_bond(as_of);
     let disc = simple_discount_curve("USD-OIS", as_of);
     let fwd = simple_forward_curve("USD-SOFR-3M", as_of);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let par_asw = finstack_valuations::instruments::fixed_income::bond::asw_par_with_forward(
         &bond,
@@ -465,9 +459,7 @@ fn test_asw_par_forward_returns_zero_for_zero_notional() {
 
     let disc = simple_discount_curve("USD-OIS", as_of);
     let fwd = simple_forward_curve("USD-SOFR-3M", as_of);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let asw = finstack_valuations::instruments::fixed_income::bond::asw_par_with_forward(
         &bond,
@@ -499,9 +491,7 @@ fn test_asw_par_forward_rejects_matured_schedule() {
 
     let disc = simple_discount_curve("USD-OIS", issue);
     let fwd = simple_forward_curve("USD-SOFR-3M", issue);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let err = finstack_valuations::instruments::fixed_income::bond::asw_par_with_forward(
         &bond,
@@ -536,9 +526,7 @@ fn test_asw_market_forward_rejects_matured_schedule() {
 
     let disc = simple_discount_curve("USD-OIS", issue);
     let fwd = simple_forward_curve("USD-SOFR-3M", issue);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let err = finstack_valuations::instruments::fixed_income::bond::asw_market_with_forward(
         &bond,

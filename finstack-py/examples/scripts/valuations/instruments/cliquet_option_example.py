@@ -26,7 +26,7 @@ def create_market_data(val_date: date) -> MarketContext:
         val_date,
         [(0.0, 1.0), (1.0, 0.95), (2.0, 0.90), (3.0, 0.85)],
     )
-    market.insert_discount(disc_curve)
+    market.insert(disc_curve)
 
     # Volatility surface (expiries in years)
     vol_surface = VolSurface(
@@ -42,7 +42,7 @@ def create_market_data(val_date: date) -> MarketContext:
     market.insert_surface(vol_surface)
 
     # Prices
-    market.insert_price("NVDA", MarketScalar.price(Money(1200.0, USD)))
+    market.insert_price("NVDA", MarketScalar.get_price(Money(1200.0, USD)))
     market.insert_price("NVDA.DIV", MarketScalar.unitless(0.002))
 
     return market
@@ -78,7 +78,7 @@ def example_quarterly_cliquet():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
 
     return cliquet, result
 
@@ -111,7 +111,7 @@ def example_annual_cliquet():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
 
     return cliquet, result
 
@@ -147,7 +147,7 @@ def example_monthly_cliquet():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
 
     return cliquet, result
 

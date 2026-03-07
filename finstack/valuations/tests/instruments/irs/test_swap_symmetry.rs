@@ -42,9 +42,7 @@ fn create_test_market(base_date: Date, short_rate: f64, long_rate: f64) -> Marke
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+    MarketContext::new().insert(disc).insert(fwd)
 }
 
 proptest! {

@@ -533,7 +533,7 @@ fn roll(
 
 ```rust
 fn insert_price_curve(&mut self, curve: &PyPriceCurve) {
-    self.inner.insert_price_curve((*curve.inner).clone());
+    self.inner.insert((*curve.inner).clone());
 }
 
 fn get_price_curve(&self, id: &str) -> PyResult<Option<PyPriceCurve>> {

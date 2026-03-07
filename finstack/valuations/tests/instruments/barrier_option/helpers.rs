@@ -117,7 +117,7 @@ pub fn build_market_with_dc(
     let vol_surface = build_flat_vol_surface(vol, as_of, VOL_ID);
 
     MarketContext::new()
-        .insert_discount(disc_curve)
+        .insert(disc_curve)
         .insert_surface(vol_surface)
         .insert_price(
             SPOT_ID,

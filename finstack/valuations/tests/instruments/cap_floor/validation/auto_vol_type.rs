@@ -90,8 +90,8 @@ fn make_caplet(
 
 fn context_from(as_of: Date, fwd_rate: f64, sigma: f64) -> MarketContext {
     MarketContext::new()
-        .insert_discount(flat_disc(fwd_rate.max(0.001), as_of, "DISC"))
-        .insert_forward(flat_fwd(fwd_rate, as_of, "FWD"))
+        .insert(flat_disc(fwd_rate.max(0.001), as_of, "DISC"))
+        .insert(flat_fwd(fwd_rate, as_of, "FWD"))
         .insert_surface(flat_vol_surface(sigma, "VOL"))
 }
 

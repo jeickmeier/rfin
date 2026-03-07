@@ -348,7 +348,7 @@ impl CDSIndexPricer {
         };
 
         let bumped_up = bump_hazard_for(bump_bp)?;
-        let ctx_up = curves.clone().insert_hazard(bumped_up);
+        let ctx_up = curves.clone().insert(bumped_up);
         let disc_up = ctx_up.get_discount(discount_id)?;
         let surv_up = ctx_up.get_hazard(credit_id)?;
         let pv_up = pricer
@@ -356,7 +356,7 @@ impl CDSIndexPricer {
             .amount();
 
         let bumped_down = bump_hazard_for(-bump_bp)?;
-        let ctx_down = curves.clone().insert_hazard(bumped_down);
+        let ctx_down = curves.clone().insert(bumped_down);
         let disc_down = ctx_down.get_discount(discount_id)?;
         let surv_down = ctx_down.get_hazard(credit_id)?;
         let pv_down = pricer
@@ -647,8 +647,8 @@ mod tests {
             .expect("hazard curve should build");
 
         MarketContext::new()
-            .insert_discount(flat_discount_with_tenor("USD-OIS", as_of, 0.03, 5.0))
-            .insert_hazard(hazard)
+            .insert(flat_discount_with_tenor("USD-OIS", as_of, 0.03, 5.0))
+            .insert(hazard)
     }
 
     #[test]

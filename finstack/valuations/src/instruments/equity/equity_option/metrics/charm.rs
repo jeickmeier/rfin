@@ -33,7 +33,7 @@ impl MetricCalculator for CharmCalculator {
         }
 
         // Get current spot
-        let spot_scalar = context.curves.price(&option.spot_id)?;
+        let spot_scalar = context.curves.get_price(&option.spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),

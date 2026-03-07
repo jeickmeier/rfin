@@ -53,7 +53,7 @@ fn test_revolving_credit_basic_pricing() {
         .unwrap();
 
     let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv = facility.value(&market, val_date).unwrap();
 
@@ -108,7 +108,7 @@ fn test_revolving_credit_with_draws_and_repayments() {
         .unwrap();
 
     let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv = facility.value(&market, val_date).unwrap();
 
@@ -144,7 +144,7 @@ fn test_revolving_credit_utilization_metrics() {
         .unwrap();
 
     let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Test utilization rate metric
     let result = facility
@@ -217,9 +217,7 @@ fn test_revolving_credit_standard_metrics() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_hazard(hazard_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(hazard_curve);
 
     // Test standard metrics
     let result = facility
@@ -303,7 +301,7 @@ fn test_revolving_credit_bucketed_dv01() {
         .unwrap();
 
     let disc_curve = build_flat_discount_curve(0.04, val_date, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Test bucketed DV01
     let result = facility
@@ -371,9 +369,7 @@ fn test_term_forward_with_floor() {
 
     let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     // Facility with floor at 0 bps
     let facility_with_floor = RevolvingCredit::builder()
@@ -467,7 +463,7 @@ fn test_overdraw_validation() {
     let maturity_date = date!(2026 - 01 - 01);
 
     let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Create a facility with a draw that would exceed commitment
     let facility = RevolvingCredit::builder()
@@ -564,8 +560,8 @@ fn test_deterministic_with_credit_risk() {
         .unwrap();
 
     let mut market = MarketContext::new();
-    market = market.insert_discount(disc_curve);
-    market = market.insert_hazard(hazard_curve);
+    market = market.insert(disc_curve);
+    market = market.insert(hazard_curve);
 
     // Price both facilities
     let npv_risky = facility_risky.value(&market, val_date).unwrap();
@@ -688,8 +684,8 @@ fn test_deterministic_stochastic_convergence_with_credit_risk() {
         .unwrap();
 
     let mut market = MarketContext::new();
-    market = market.insert_discount(disc_curve);
-    market = market.insert_hazard(hazard_curve);
+    market = market.insert(disc_curve);
+    market = market.insert(hazard_curve);
 
     // Price both facilities
     let npv_det = facility_det.value(&market, val_date).unwrap();

@@ -561,7 +561,7 @@ fn historical_cap_floor_fixing(
     fixing_date: finstack_core::dates::Date,
 ) -> finstack_core::Result<f64> {
     let fixings_id = cap_floor_fixing_series_id(forward_curve_id);
-    let series = curves.series(&fixings_id).map_err(|_| {
+    let series = curves.get_series(&fixings_id).map_err(|_| {
         finstack_core::Error::Validation(format!(
             "Seasoned cap/floor requires historical fixing series '{}' for fixing date {}. \
              Fixed-but-unpaid coupons must be valued off observed fixings, not the live forward curve.",
@@ -589,7 +589,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
         // Get market curves
         let disc_curve = curves.get_discount(self.discount_curve_id.as_ref())?;
         let fwd_curve = curves.get_forward(self.forward_curve_id.as_ref())?;
-        let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(self.vol_surface_id.as_str())?;
         let strike = self.strike_f64()?;
 
         let mut total_pv = finstack_core::money::Money::new(0.0, self.notional.currency());
@@ -770,8 +770,8 @@ mod tests {
             .expect("vol surface should build");
 
         MarketContext::new()
-            .insert_discount(disc)
-            .insert_forward(fwd)
+            .insert(disc)
+            .insert(fwd)
             .insert_surface(vol_surface)
     }
 
@@ -970,7 +970,7 @@ mod tests {
             ])
             .build()
             .expect("negative forward curve should build");
-        ctx = ctx.insert_forward(neg_fwd);
+        ctx = ctx.insert(neg_fwd);
 
         // Build a flat vol surface at 50bp normal vol for the normal model test
         let normal_vol = 0.005;

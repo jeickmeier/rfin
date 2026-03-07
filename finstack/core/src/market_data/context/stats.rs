@@ -44,7 +44,7 @@ impl MarketContext {
     /// #     .knots([(0.0, 1.0), (1.0, 0.99)])
     /// #     .build()
     /// #     .expect("... builder should succeed");
-    /// # let ctx = MarketContext::new().insert_discount(curve);
+    /// # let ctx = MarketContext::new().insert(curve);
     /// let mut iter = ctx.curves_of_type("Discount");
     /// assert!(iter.next().is_some());
     /// ```
@@ -70,7 +70,7 @@ impl MarketContext {
     /// #     .knots([(0.0, 1.0), (1.0, 0.99)])
     /// #     .build()
     /// #     .expect("... builder should succeed");
-    /// # let ctx = MarketContext::new().insert_discount(curve);
+    /// # let ctx = MarketContext::new().insert(curve);
     /// let counts = ctx.count_by_type();
     /// assert_eq!(counts.get("Discount"), Some(&1));
     /// ```

@@ -8,8 +8,8 @@ ranging from investment-grade to deeply stressed.
 Barriers are calibrated from historical annual PDs via
 ``MertonModel.from_target_pd``.  The pricer registry is used for both:
 
-- **Merton MC** pricing (``registry.price(bond, "merton_mc", market)``)
-- **Hazard-rate** pricing (``registry.price(bond, "hazard_rate", market)``)
+- **Merton MC** pricing (``registry.get_price(bond, "merton_mc", market)``)
+- **Hazard-rate** pricing (``registry.get_price(bond, "hazard_rate", market)``)
 
 Usage:
     python pik_structural_credit_analysis.py
@@ -127,7 +127,7 @@ else:
 def build_market() -> MarketContext:
     """Build a MarketContext with a flat discount curve."""
     market = MarketContext()
-    market.insert_discount(DiscountCurve(
+    market.insert(DiscountCurve(
         "USD-OIS", AS_OF,
         [(t, math.exp(-RISK_FREE_RATE * t))
          for t in [0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0]],
@@ -218,7 +218,7 @@ def mc_price(bond: Bond, market: MarketContext) -> dict:
     The pricer computes cash-equivalent Z-spread and YTM internally,
     so result.measures already contains 'z_spread' and 'ytm' (decimal).
     """
-    result = REGISTRY.price(bond, "merton_mc", market, as_of=AS_OF)
+    result = REGISTRY.get_price(bond, "merton_mc", market, as_of=AS_OF)
     pv = result.value.amount
     m = result.measures
     return {
@@ -236,11 +236,11 @@ def mc_price(bond: Bond, market: MarketContext) -> dict:
 def hr_price_bond(bond: Bond, hazard: float, recovery: float) -> float:
     """Price a bond using the library's hazard-rate engine."""
     market = build_market()
-    market.insert_hazard(HazardCurve(
+    market.insert(HazardCurve(
         "CREDIT", AS_OF, [(0.0, hazard), (10.0, hazard)],
         recovery_rate=recovery,
     ))
-    return REGISTRY.price(bond, "hazard_rate", market, as_of=AS_OF).value.amount
+    return REGISTRY.get_price(bond, "hazard_rate", market, as_of=AS_OF).value.amount
 
 
 def hr_find_implied_hazard(bond: Bond, target_pv: float, recovery: float) -> float:
@@ -400,7 +400,7 @@ def main() -> None:
 
     demo_profile = ISSUER_PROFILES[3]  # B- (Stressed)
     demo_market = build_market()
-    demo_market.insert_hazard(HazardCurve(
+    demo_market.insert(HazardCurve(
         "CREDIT", AS_OF,
         [(0.0, demo_profile["base_hazard"]), (10.0, demo_profile["base_hazard"])],
         recovery_rate=demo_profile["base_recovery"],

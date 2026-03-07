@@ -204,10 +204,7 @@ fn create_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
-        .insert_forward(fwd_1m)
+    MarketContext::new().insert(disc).insert(fwd).insert(fwd_1m)
 }
 
 fn bench_swap_pv(c: &mut Criterion) {

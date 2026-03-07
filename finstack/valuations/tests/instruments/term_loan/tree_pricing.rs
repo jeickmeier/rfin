@@ -57,7 +57,7 @@ fn build_callable_loan(as_of: Date) -> TermLoan {
 
 fn base_market(as_of: Date) -> MarketContext {
     let disc = flat_discount_curve(0.05, as_of, "USD-OIS");
-    MarketContext::new().insert_discount(disc)
+    MarketContext::new().insert(disc)
 }
 
 #[test]
@@ -215,12 +215,8 @@ fn credit_tree_higher_hazard_lowers_price() {
     let pricer =
         finstack_valuations::instruments::fixed_income::term_loan::TermLoanTreePricer::new();
 
-    let market_low = MarketContext::new()
-        .insert_discount(disc.clone())
-        .insert_hazard(low_hazard);
-    let market_high = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(high_hazard);
+    let market_low = MarketContext::new().insert(disc.clone()).insert(low_hazard);
+    let market_high = MarketContext::new().insert(disc).insert(high_hazard);
 
     let pv_low = pricer
         .price_callable(&loan, &market_low, as_of)

@@ -76,9 +76,7 @@ fn create_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard)
+    MarketContext::new().insert(disc).insert(hazard)
 }
 
 fn bench_cds_pv(c: &mut Criterion) {

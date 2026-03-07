@@ -51,10 +51,10 @@ pub fn market_with_fx() -> MarketContext {
     let fx = FxMatrix::new(provider);
 
     MarketContext::new()
-        .insert_discount(usd_disc)
-        .insert_discount(eur_disc)
-        .insert_forward(usd_fwd)
-        .insert_forward(eur_fwd)
+        .insert(usd_disc)
+        .insert(eur_disc)
+        .insert(usd_fwd)
+        .insert(eur_fwd)
         .insert_fx(fx)
 }
 
@@ -88,10 +88,10 @@ pub fn market_without_fx() -> MarketContext {
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(usd_disc)
-        .insert_discount(eur_disc)
-        .insert_forward(usd_fwd)
-        .insert_forward(eur_fwd)
+        .insert(usd_disc)
+        .insert(eur_disc)
+        .insert(usd_fwd)
+        .insert(eur_fwd)
 }
 
 pub fn leg_usd_receive(
@@ -198,9 +198,9 @@ pub fn market_with_extended_curves() -> MarketContext {
     let fx = FxMatrix::new(provider);
 
     MarketContext::new()
-        .insert_discount(usd_disc)
-        .insert_discount(eur_disc)
-        .insert_forward(usd_fwd)
-        .insert_forward(eur_fwd)
+        .insert(usd_disc)
+        .insert(eur_disc)
+        .insert(usd_fwd)
+        .insert(eur_fwd)
         .insert_fx(fx)
 }

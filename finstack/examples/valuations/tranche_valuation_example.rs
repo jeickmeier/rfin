@@ -291,9 +291,7 @@ fn create_market_context(as_of: Date) -> Result<MarketContext, Box<dyn Error>> {
         .build()?;
 
     // Create market context and add curves
-    let context = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(sofr_curve);
+    let context = MarketContext::new().insert(disc_curve).insert(sofr_curve);
 
     Ok(context)
 }

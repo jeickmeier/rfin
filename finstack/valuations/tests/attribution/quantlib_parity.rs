@@ -113,9 +113,9 @@ fn compute_bumped_sensitivities(
     let curve_up = build_flat_curve(curve_id, as_of, base_rate + bump);
     let curve_down = build_flat_curve(curve_id, as_of, base_rate - bump);
 
-    let market_base = MarketContext::new().insert_discount(curve_base);
-    let market_up = MarketContext::new().insert_discount(curve_up);
-    let market_down = MarketContext::new().insert_discount(curve_down);
+    let market_base = MarketContext::new().insert(curve_base);
+    let market_up = MarketContext::new().insert(curve_up);
+    let market_down = MarketContext::new().insert(curve_down);
 
     let price_base = instrument.value(&market_base, as_of).unwrap().amount();
     let price_up = instrument.value(&market_up, as_of).unwrap().amount();
@@ -161,8 +161,8 @@ fn run_analytical_parity_test(tc: &AnalyticalParityTestCase) {
     let curve_t0 = build_flat_curve("USD-OIS", as_of_t0, tc.rate_t0);
     let curve_t1 = build_flat_curve("USD-OIS", as_of_t1, tc.rate_t1);
 
-    let market_t0 = MarketContext::new().insert_discount(curve_t0);
-    let market_t1 = MarketContext::new().insert_discount(curve_t1);
+    let market_t0 = MarketContext::new().insert(curve_t0);
+    let market_t1 = MarketContext::new().insert(curve_t1);
 
     let config = FinstackConfig::default();
 
@@ -274,7 +274,7 @@ fn test_attribution_method_metadata() {
     .unwrap();
 
     let curve = build_flat_curve("USD-OIS", as_of_t0, 0.04);
-    let market = MarketContext::new().insert_discount(curve);
+    let market = MarketContext::new().insert(curve);
 
     let config = FinstackConfig::default();
     let bond_instrument: Arc<dyn Instrument> = Arc::new(bond);
@@ -329,9 +329,9 @@ fn test_convexity_benefit_symmetric_moves() {
     let curve_up = build_flat_curve("USD-OIS", as_of_t1, rate_base + rate_shift);
     let curve_down = build_flat_curve("USD-OIS", as_of_t1, rate_base - rate_shift);
 
-    let market_base = MarketContext::new().insert_discount(curve_base);
-    let market_up = MarketContext::new().insert_discount(curve_up);
-    let market_down = MarketContext::new().insert_discount(curve_down);
+    let market_base = MarketContext::new().insert(curve_base);
+    let market_up = MarketContext::new().insert(curve_up);
+    let market_down = MarketContext::new().insert(curve_down);
 
     let config = FinstackConfig::default();
     let bond_instrument: Arc<dyn Instrument> = Arc::new(bond);

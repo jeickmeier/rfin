@@ -173,7 +173,7 @@ fn bump_key_rate(
         .interp(finstack_core::math::interp::InterpStyle::Linear)
         .build()?;
 
-    Ok(market.clone().insert_discount(bumped_curve))
+    Ok(market.clone().insert(bumped_curve))
 }
 
 /// Calculate triangular weight for key rate bump.
@@ -255,7 +255,7 @@ mod tests {
             .build()
             .expect("valid curve");
 
-        MarketContext::new().insert_discount(disc)
+        MarketContext::new().insert(disc)
     }
 
     #[test]

@@ -394,7 +394,7 @@ impl BasisSwap {
         );
 
         let fixings_id = format!("FIXING:{}", leg.forward_curve_id.as_str());
-        let fixings = context.series(&fixings_id).ok();
+        let fixings = context.get_series(&fixings_id).ok();
 
         let pv = crate::instruments::common_impl::pricing::swap_legs::pv_floating_leg(
             leg_periods.into_iter(),
@@ -571,9 +571,9 @@ mod tests {
 
         // Create context
         let context = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_3m)
-            .insert_forward(forward_6m);
+            .insert(discount_curve)
+            .insert(forward_3m)
+            .insert(forward_6m);
 
         // Create basis swap: 3M receives 6M + 5bp
         let primary_leg = BasisSwapLeg {
@@ -652,9 +652,9 @@ mod tests {
             .expect("should succeed");
 
         let context = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_3m)
-            .insert_forward(forward_6m);
+            .insert(discount_curve)
+            .insert(forward_3m)
+            .insert(forward_6m);
 
         let primary_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("3M-SOFR"),
@@ -725,9 +725,9 @@ mod tests {
             .expect("should succeed");
 
         let context = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_3m)
-            .insert_forward(forward_6m);
+            .insert(discount_curve)
+            .insert(forward_3m)
+            .insert(forward_6m);
 
         let primary_leg_no_lag = BasisSwapLeg {
             forward_curve_id: CurveId::new("3M-SOFR"),
@@ -905,9 +905,7 @@ mod tests {
             .build()
             .expect("should succeed");
 
-        let context = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward);
+        let context = MarketContext::new().insert(discount_curve).insert(forward);
 
         let leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("SOFR"),
@@ -977,9 +975,9 @@ mod tests {
             .expect("should succeed");
 
         let context = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_3m)
-            .insert_forward(forward_6m);
+            .insert(discount_curve)
+            .insert(forward_3m)
+            .insert(forward_6m);
 
         // Create swap with zero spread initially
         let primary_leg = BasisSwapLeg {

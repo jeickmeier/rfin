@@ -29,7 +29,7 @@ def build_market(as_of: date) -> MarketContext:
             (3.0, 0.9820),
         ],
     )
-    market.insert_discount(discount_curve)
+    market.insert(discount_curve)
 
     observations = [
         (date(2023, 9, 29), 4200.0),
@@ -44,7 +44,7 @@ def build_market(as_of: date) -> MarketContext:
         interpolation=SeriesInterpolation.LINEAR,
     )
     market.insert_series(series)
-    market.insert_price("SPX", MarketScalar.price(Money(observations[-1][1], USD)))
+    market.insert_price("SPX", MarketScalar.get_price(Money(observations[-1][1], USD)))
 
     vol_surface = VolSurface(
         "SPX-VOL",

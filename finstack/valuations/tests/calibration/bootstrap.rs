@@ -150,8 +150,7 @@ fn run_hazard_plan(
     let mut quote_sets = finstack_core::HashMap::default();
     quote_sets.insert("credit".to_string(), quotes);
 
-    let initial_market =
-        MarketContext::new().insert_discount(create_test_discount_curve(base_date));
+    let initial_market = MarketContext::new().insert(create_test_discount_curve(base_date));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),

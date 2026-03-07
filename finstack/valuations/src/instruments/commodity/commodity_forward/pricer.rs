@@ -118,8 +118,8 @@ mod tests {
             .expect("should succeed");
 
         MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_price_curve(price_curve)
+            .insert(discount_curve)
+            .insert(price_curve)
     }
 
     #[test]

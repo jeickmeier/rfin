@@ -78,8 +78,8 @@ fn create_test_market() -> MarketContext {
         .expect("Failed to create forward curve");
 
     MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_forward(forward_curve)
+        .insert(discount_curve)
+        .insert(forward_curve)
 }
 
 // ============================================================================

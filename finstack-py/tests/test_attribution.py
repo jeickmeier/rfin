@@ -61,13 +61,13 @@ def test_bond_attribution_parallel() -> None:
     curve_t0 = DiscountCurve("USD-OIS", date(2025, 1, 15), [(0.0, 1.0), (5.0, 0.82)])
 
     market_t0 = MarketContext()
-    market_t0.insert_discount(curve_t0)
+    market_t0.insert(curve_t0)
 
     # Create discount curve at T₁ (rates increased)
     curve_t1 = DiscountCurve("USD-OIS", date(2025, 1, 16), [(0.0, 1.0), (5.0, 0.78)])
 
     market_t1 = MarketContext()
-    market_t1.insert_discount(curve_t1)
+    market_t1.insert(curve_t1)
 
     # Run attribution
     attr = attribute_pnl(bond, market_t0, market_t1, date(2025, 1, 15), date(2025, 1, 16))
@@ -106,7 +106,7 @@ def test_bond_attribution_waterfall() -> None:
     curve = DiscountCurve("USD-OIS", date(2025, 1, 15), [(0.0, 1.0), (5.0, 0.82)])
 
     market = MarketContext()
-    market.insert_discount(curve)
+    market.insert(curve)
 
     # Waterfall attribution
     method = AttributionMethod.waterfall(["carry", "rates_curves", "fx"])
@@ -140,7 +140,7 @@ def test_attribution_exports() -> None:
     curve = DiscountCurve("USD-OIS", date(2025, 1, 15), [(0.0, 1.0), (5.0, 0.82)])
 
     market = MarketContext()
-    market.insert_discount(curve)
+    market.insert(curve)
 
     attr = attribute_pnl(bond, market, market, date(2025, 1, 15), date(2025, 1, 16))
 
@@ -172,7 +172,7 @@ def test_attribution_tolerance_check() -> None:
     curve = DiscountCurve("USD-OIS", date(2025, 1, 15), [(0.0, 1.0), (5.0, 0.82)])
 
     market = MarketContext()
-    market.insert_discount(curve)
+    market.insert(curve)
 
     attr = attribute_pnl(bond, market, market, date(2025, 1, 15), date(2025, 1, 16))
 
@@ -197,7 +197,7 @@ def test_attribution_detail_access() -> None:
     curve = DiscountCurve("USD-OIS", date(2025, 1, 15), [(0.0, 1.0), (5.0, 0.82)])
 
     market = MarketContext()
-    market.insert_discount(curve)
+    market.insert(curve)
 
     attr = attribute_pnl(bond, market, market, date(2025, 1, 15), date(2025, 1, 16))
 

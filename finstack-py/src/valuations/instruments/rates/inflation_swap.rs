@@ -35,7 +35,7 @@ fn parse_side(label: Option<&str>) -> PyResult<PayReceive> {
 ///     ...     .start_date(date(2024, 1, 1))
 ///     ...     .maturity(date(2034, 1, 1))
 ///     ...     .discount_curve("usd_discount")
-///     ...     .inflation_index("us_cpi")
+///     ...     .get_inflation_index("us_cpi")
 ///     ...     .build()
 ///     ... )
 ///     >>> swap.fixed_rate

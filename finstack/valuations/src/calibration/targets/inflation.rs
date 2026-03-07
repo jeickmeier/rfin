@@ -119,12 +119,12 @@ impl InflationBootstrapper {
         let base_date = self.params.base_date;
         let has_index_fixings = self
             .base_context
-            .inflation_index(self.params.curve_id.as_str())
-            .is_some();
+            .get_inflation_index(self.params.curve_id.as_str())
+            .is_ok();
 
-        let (lag, base_cpi) = if let Some(index) = self
+        let (lag, base_cpi) = if let Ok(index) = self
             .base_context
-            .inflation_index(self.params.curve_id.as_str())
+            .get_inflation_index(self.params.curve_id.as_str())
         {
             let base_cpi = index.value_on(base_date).map_err(|e| {
                 finstack_core::Error::Validation(format!(
@@ -248,9 +248,9 @@ impl InflationBootstrapper {
 
     /// Resolve the effective base CPI level (from index or params).
     fn effective_base_cpi(&self) -> Result<f64> {
-        if let Some(index) = self
+        if let Ok(index) = self
             .base_context
-            .inflation_index(self.params.curve_id.as_str())
+            .get_inflation_index(self.params.curve_id.as_str())
         {
             return index.value_on(self.params.base_date).map_err(|e| {
                 finstack_core::Error::Validation(format!(
@@ -269,11 +269,11 @@ impl InflationBootstrapper {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            *ctx = std::mem::take(&mut *ctx).insert_inflation(curve.clone());
+            *ctx = std::mem::take(&mut *ctx).insert(curve.clone());
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context = temp_context.insert_inflation(curve.clone());
+            temp_context = temp_context.insert(curve.clone());
             op(&temp_context)
         }
     }
@@ -328,7 +328,7 @@ impl InflationBootstrapper {
             .metadata
             .insert("index".to_string(), params.index.clone());
 
-        let new_context = context.clone().insert_inflation(curve);
+        let new_context = context.clone().insert(curve);
         Ok((new_context, report))
     }
 

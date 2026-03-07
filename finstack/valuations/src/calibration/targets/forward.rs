@@ -104,11 +104,11 @@ impl ForwardCurveTarget {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            *ctx = std::mem::take(&mut *ctx).insert_forward(curve.clone());
+            *ctx = std::mem::take(&mut *ctx).insert(curve.clone());
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context = temp_context.insert_forward(curve.clone());
+            temp_context = temp_context.insert(curve.clone());
             op(&temp_context)
         }
     }
@@ -187,7 +187,7 @@ impl ForwardCurveTarget {
 
         report.update_solver_config(config.solver.clone());
 
-        let new_context = context.clone().insert_forward(curve);
+        let new_context = context.clone().insert(curve);
         Ok((new_context, report))
     }
 }

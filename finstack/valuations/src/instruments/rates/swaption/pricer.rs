@@ -105,15 +105,14 @@ impl Pricer for SimpleSwaptionBlackPricer {
                             )
                         })?;
 
-                    let vol_surface =
-                        market
-                            .surface(swaption.vol_surface_id.as_str())
-                            .map_err(|e| {
-                                PricingError::missing_market_data_with_context(
-                                    e.to_string(),
-                                    PricingErrorContext::default(),
-                                )
-                            })?;
+                    let vol_surface = market
+                        .get_surface(swaption.vol_surface_id.as_str())
+                        .map_err(|e| {
+                            PricingError::missing_market_data_with_context(
+                                e.to_string(),
+                                PricingErrorContext::default(),
+                            )
+                        })?;
 
                     let vol = if let Some(impl_vol) =
                         swaption.pricing_overrides.market_quotes.implied_volatility

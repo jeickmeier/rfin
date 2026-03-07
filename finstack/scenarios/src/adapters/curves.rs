@@ -274,11 +274,12 @@ impl ScenarioAdapter for CurveAdapter {
                         }]))
                     }
                     CurveKind::Inflation => {
-                        let base_curve = ctx.market.get_inflation(curve_id).map_err(|_| {
-                            Error::MarketDataNotFound {
-                                id: curve_id.to_string(),
-                            }
-                        })?;
+                        let base_curve =
+                            ctx.market.get_inflation_curve(curve_id).map_err(|_| {
+                                Error::MarketDataNotFound {
+                                    id: curve_id.to_string(),
+                                }
+                            })?;
 
                         let discount_id = resolve_discount_curve_id(ctx.market, Some(curve_id))
                             .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
@@ -331,11 +332,12 @@ impl ScenarioAdapter for CurveAdapter {
                         //
                         // For node-specific bumps, see `CurveNodeBp` handling below which documents the
                         // explicit bp/100 scaling used there.
-                        let base_curve = ctx.market.get_vol_index(curve_id).map_err(|_| {
-                            Error::MarketDataNotFound {
-                                id: curve_id.to_string(),
-                            }
-                        })?;
+                        let base_curve =
+                            ctx.market.get_vol_index_curve(curve_id).map_err(|_| {
+                                Error::MarketDataNotFound {
+                                    id: curve_id.to_string(),
+                                }
+                            })?;
 
                         let spec = BumpSpec::parallel_bp(*bp);
                         let new_curve = base_curve.apply_bump(spec).map_err(|e| {
@@ -498,11 +500,12 @@ impl ScenarioAdapter for CurveAdapter {
                         Ok(Some(effects))
                     }
                     CurveKind::Inflation => {
-                        let base_curve = ctx.market.get_inflation(curve_id).map_err(|_| {
-                            Error::MarketDataNotFound {
-                                id: curve_id.to_string(),
-                            }
-                        })?;
+                        let base_curve =
+                            ctx.market.get_inflation_curve(curve_id).map_err(|_| {
+                                Error::MarketDataNotFound {
+                                    id: curve_id.to_string(),
+                                }
+                            })?;
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
 
@@ -618,11 +621,12 @@ impl ScenarioAdapter for CurveAdapter {
                         //
                         // This differs from rate curves where bp represents basis points (1bp = 0.01%).
                         // The division by 100 converts the input to a direct index level change.
-                        let base_curve = ctx.market.get_vol_index(curve_id).map_err(|_| {
-                            Error::MarketDataNotFound {
-                                id: curve_id.to_string(),
-                            }
-                        })?;
+                        let base_curve =
+                            ctx.market.get_vol_index_curve(curve_id).map_err(|_| {
+                                Error::MarketDataNotFound {
+                                    id: curve_id.to_string(),
+                                }
+                            })?;
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
                         let result = resolve_bump_targets(

@@ -80,7 +80,7 @@ pub(crate) fn compute_pv(
     let sigma = if let Some(impl_vol) = inst.pricing_overrides.market_quotes.implied_volatility {
         impl_vol
     } else {
-        let vol_surface = market.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = market.get_surface(inst.vol_surface_id.as_str())?;
         vol_surface.value_clamped(t, inst.strike)
     };
 
@@ -471,8 +471,8 @@ mod tests {
             .expect("price curve");
 
         MarketContext::new()
-            .insert_discount(disc)
-            .insert_price_curve(price_curve)
+            .insert(disc)
+            .insert(price_curve)
             .insert_surface(flat_vol_surface("CL-VOL", &expiries, &strikes, vol))
     }
 
@@ -500,8 +500,8 @@ mod tests {
             .expect("price curve");
 
         MarketContext::new()
-            .insert_discount(disc)
-            .insert_price_curve(price_curve)
+            .insert(disc)
+            .insert(price_curve)
             .insert_surface(flat_vol_surface("CL-VOL", &expiries, &strikes, vol))
     }
 

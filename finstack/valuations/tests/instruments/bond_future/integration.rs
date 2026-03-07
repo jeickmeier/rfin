@@ -69,7 +69,7 @@ fn create_realistic_market() -> MarketContext {
         .build()
         .expect("Failed to build realistic discount curve");
 
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 /// Create a test bond with realistic UST parameters.

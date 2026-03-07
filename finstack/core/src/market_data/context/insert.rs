@@ -11,10 +11,7 @@ use crate::market_data::{
     scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
     surfaces::{FxDeltaVolSurface, VolSurface},
-    term_structures::{
-        BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve,
-        InflationCurve, PriceCurve, VolatilityIndexCurve,
-    },
+    term_structures::CreditIndexData,
 };
 
 impl MarketContext {
@@ -37,31 +34,6 @@ impl MarketContext {
         self
     }
 
-    /// Insert a discount curve.
-    pub fn insert_discount(self, curve: DiscountCurve) -> Self {
-        self.insert(curve)
-    }
-
-    /// Insert a forward curve.
-    pub fn insert_forward(self, curve: ForwardCurve) -> Self {
-        self.insert(curve)
-    }
-
-    /// Insert a hazard curve.
-    pub fn insert_hazard(self, curve: HazardCurve) -> Self {
-        self.insert(curve)
-    }
-
-    /// Insert an inflation curve.
-    pub fn insert_inflation(self, curve: InflationCurve) -> Self {
-        self.insert(curve)
-    }
-
-    /// Insert a base correlation curve.
-    pub fn insert_base_correlation(self, curve: BaseCorrelationCurve) -> Self {
-        self.insert(curve)
-    }
-
     /// Insert a volatility index curve.
     ///
     /// # Parameters
@@ -80,13 +52,9 @@ impl MarketContext {
     ///     .knots([(0.0, 18.5), (0.5, 20.0)])
     ///     .build()
     ///     .expect("VolatilityIndexCurve builder should succeed");
-    /// let ctx = MarketContext::new().insert_vol_index(curve);
-    /// assert!(ctx.get_vol_index("VIX").is_ok());
+    /// let ctx = MarketContext::new().insert(curve);
+    /// assert!(ctx.get_vol_index_curve("VIX").is_ok());
     /// ```
-    pub fn insert_vol_index(self, curve: VolatilityIndexCurve) -> Self {
-        self.insert(curve)
-    }
-
     /// Insert a price curve (forward prices for commodities/indices).
     ///
     /// # Parameters
@@ -105,13 +73,9 @@ impl MarketContext {
     ///     .knots([(0.0, 75.0), (0.5, 77.0)])
     ///     .build()
     ///     .expect("PriceCurve builder should succeed");
-    /// let ctx = MarketContext::new().insert_price_curve(curve);
+    /// let ctx = MarketContext::new().insert(curve);
     /// assert!(ctx.get_price_curve("WTI-FORWARD").is_ok());
     /// ```
-    pub fn insert_price_curve(self, curve: PriceCurve) -> Self {
-        self.insert(curve)
-    }
-
     /// Insert a volatility surface.
     ///
     /// Accepts either an owned [`VolSurface`] or an `Arc<VolSurface>`.
@@ -176,7 +140,7 @@ impl MarketContext {
     ///     vec![0.005, 0.006, 0.007],
     /// ).expect("surface should build");
     /// let ctx = MarketContext::new().insert_fx_delta_vol_surface(surface);
-    /// assert!(ctx.fx_delta_vol_surface("EURUSD-DELTA-VOL").is_some());
+    /// assert!(ctx.get_fx_delta_vol_surface("EURUSD-DELTA-VOL").is_ok());
     /// ```
     pub fn insert_fx_delta_vol_surface(
         mut self,
@@ -250,7 +214,7 @@ impl MarketContext {
     ///     .expect("InflationIndex creation should succeed")
     ///     .with_interpolation(InflationInterpolation::Linear);
     /// let ctx = MarketContext::new().insert_inflation_index("US-CPI", index);
-    /// assert!(ctx.inflation_index("US-CPI").is_some());
+    /// assert!(ctx.get_inflation_index("US-CPI").is_ok());
     ///
     /// // With Arc for sharing
     /// # let observations2 = vec![
@@ -303,7 +267,7 @@ impl MarketContext {
     ///     .build()
     ///     .expect("CreditIndexData builder should succeed");
     /// let ctx = MarketContext::new().insert_credit_index("CDX-IG", data);
-    /// assert!(ctx.credit_index("CDX-IG").is_ok());
+    /// assert!(ctx.get_credit_index("CDX-IG").is_ok());
     /// ```
     pub fn insert_credit_index(mut self, id: impl AsRef<str>, data: CreditIndexData) -> Self {
         self.credit_indices
@@ -409,9 +373,9 @@ impl MarketContext {
     ///     .build()
     ///     .expect("... builder should succeed");
     /// let ctx = MarketContext::new()
-    ///     .insert_discount(curve)
+    ///     .insert(curve)
     ///     .map_collateral("USD-CSA", CurveId::from("USD-OIS"));
-    /// assert!(ctx.collateral("USD-CSA").is_ok());
+    /// assert!(ctx.get_collateral("USD-CSA").is_ok());
     /// ```
     pub fn map_collateral(mut self, csa_code: impl Into<String>, discount_id: CurveId) -> Self {
         self.collateral.insert(csa_code.into(), discount_id);

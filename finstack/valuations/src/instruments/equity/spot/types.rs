@@ -245,7 +245,7 @@ impl Equity {
 
         let candidates = self.price_id_candidates();
         for key in &candidates {
-            match curves.price(key) {
+            match curves.get_price(key) {
                 Ok(scalar) => {
                     return self.money_from_scalar(scalar, curves, as_of);
                 }
@@ -268,7 +268,7 @@ impl Equity {
     pub fn dividend_yield(&self, curves: &MarketContext) -> finstack_core::Result<f64> {
         let candidates = self.dividend_yield_id_candidates();
         for key in &candidates {
-            match curves.price(key) {
+            match curves.get_price(key) {
                 Ok(MarketScalar::Unitless(v)) => return Ok(*v),
                 Ok(MarketScalar::Price(_)) => continue,
                 Err(err) => match err {

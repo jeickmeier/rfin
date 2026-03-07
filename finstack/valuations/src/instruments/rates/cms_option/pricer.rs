@@ -77,7 +77,7 @@ impl CmsOptionPricer {
         let strike = inst.strike_f64()?;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
 
-        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
 
         for (i, &fixing_date) in inst.fixing_dates.iter().enumerate() {
             let payment_date = inst.payment_dates.get(i).copied().unwrap_or(fixing_date);

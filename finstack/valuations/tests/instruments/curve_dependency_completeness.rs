@@ -54,11 +54,11 @@ fn build_minimal_market(disc_ids: &[&str], hazard_ids: &[&str]) -> MarketContext
     let mut market = MarketContext::new();
 
     for &id in disc_ids {
-        market = market.insert_discount(build_discount_curve(id, 0.04));
+        market = market.insert(build_discount_curve(id, 0.04));
     }
 
     for &id in hazard_ids {
-        market = market.insert_hazard(build_hazard_curve(id, 0.02));
+        market = market.insert(build_hazard_curve(id, 0.02));
     }
 
     market

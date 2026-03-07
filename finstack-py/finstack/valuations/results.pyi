@@ -153,7 +153,7 @@ class ResultsMeta:
         >>> def _meta_example():
         ...     registry = create_standard_registry()
         ...     ctx = MarketContext()
-        ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.95)]))
+        ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.95)]))
         ...     bond = (
         ...         Bond
         ...         .builder("BOND-META")
@@ -273,7 +273,7 @@ class ValuationResult:
         >>> from finstack.valuations.instruments import Bond
         >>> registry = create_standard_registry()
         >>> market_ctx = MarketContext()
-        >>> market_ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        >>> market_ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         >>> bond = (
         ...     Bond
         ...     .builder("BOND-EXAMPLE")
@@ -299,7 +299,7 @@ class ValuationResult:
         >>> from finstack.valuations.instruments import Bond
         >>> registry = create_standard_registry()
         >>> market_ctx = MarketContext()
-        >>> market_ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        >>> market_ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         >>> bond = (
         ...     Bond
         ...     .builder("BOND-EXAMPLE")
@@ -326,7 +326,7 @@ class ValuationResult:
         >>> def _example_result():
         ...     registry = create_standard_registry()
         ...     ctx = MarketContext()
-        ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         ...     bond = (
         ...         Bond
         ...         .builder("BOND-003")
@@ -354,7 +354,7 @@ class ValuationResult:
         >>> def _example_result():
         ...     registry = create_standard_registry()
         ...     ctx = MarketContext()
-        ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         ...     bond = (
         ...         Bond
         ...         .builder("BOND-004")
@@ -384,7 +384,7 @@ class ValuationResult:
         >>> def _example_result():
         ...     registry = create_standard_registry()
         ...     ctx = MarketContext()
-        ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         ...     bond = (
         ...         Bond
         ...         .builder("BOND-005")
@@ -438,7 +438,7 @@ class ValuationResult:
             >>> def _example_result():
             ...     registry = create_standard_registry()
             ...     ctx = MarketContext()
-            ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+            ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (
             ...         Bond
             ...         .builder("BOND-001")
@@ -478,7 +478,7 @@ class ValuationResult:
             >>> def _example_result():
             ...     registry = create_standard_registry()
             ...     ctx = MarketContext()
-            ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+            ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (
             ...         Bond
             ...         .builder("BOND-001")
@@ -520,7 +520,7 @@ class ValuationResult:
             >>> def _example_result():
             ...     registry = create_standard_registry()
             ...     ctx = MarketContext()
-            ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+            ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (
             ...         Bond
             ...         .builder("BOND-001")
@@ -581,7 +581,7 @@ class ValuationResult:
             >>> def _metrics_result():
             ...     registry = create_standard_registry()
             ...     ctx = MarketContext()
-            ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+            ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (
             ...         Bond
             ...         .builder("BOND-002")

@@ -41,7 +41,7 @@ fn test_inflation01_finite_difference_validation() {
     let pv0 = swap.value(&ctx, as_of).unwrap().amount();
 
     // Bump inflation curve by 1bp (multiply CPI levels by 1.0001)
-    let infl_base = ctx.get_inflation("US-CPI-U").unwrap();
+    let infl_base = ctx.get_inflation_curve("US-CPI-U").unwrap();
     let mut bumped_knots: Vec<(f64, f64)> = Vec::new();
     for (&t, &cpi) in infl_base.knots().iter().zip(infl_base.cpi_levels().iter()) {
         bumped_knots.push((t, cpi * 1.0001));
@@ -53,7 +53,7 @@ fn test_inflation01_finite_difference_validation() {
         .build()
         .unwrap();
 
-    let ctx_bumped = ctx.clone().insert_inflation(bumped_infl);
+    let ctx_bumped = ctx.clone().insert(bumped_infl);
     let pv1 = swap.value(&ctx_bumped, as_of).unwrap().amount();
 
     let infl01_fd = pv1 - pv0;

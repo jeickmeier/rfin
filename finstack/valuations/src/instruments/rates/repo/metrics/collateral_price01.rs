@@ -33,7 +33,7 @@ impl MetricCalculator for CollateralPrice01Calculator {
 
         // Get current collateral price
         let market_value_id = &repo.collateral.market_value_id;
-        let current_scalar = context.curves.price(market_value_id)?;
+        let current_scalar = context.curves.get_price(market_value_id)?;
         let current_price = match current_scalar {
             MarketScalar::Price(money) => money.amount(),
             MarketScalar::Unitless(v) => *v,

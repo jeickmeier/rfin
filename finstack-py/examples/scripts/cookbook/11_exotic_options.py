@@ -40,7 +40,7 @@ def create_market_data(val_date: date) -> MarketContext:
     """Create a simple equity market for exotic option examples."""
     market = MarketContext()
 
-    market.insert_discount(DiscountCurve("USD.SOFR", val_date, [(0.0, 1.0), (1.0, 0.95), (2.0, 0.90)]))
+    market.insert(DiscountCurve("USD.SOFR", val_date, [(0.0, 1.0), (1.0, 0.95), (2.0, 0.90)]))
 
     market.insert_surface(
         VolSurface(
@@ -54,7 +54,7 @@ def create_market_data(val_date: date) -> MarketContext:
         )
     )
 
-    market.insert_price("SPY", MarketScalar.price(Money(480.0, USD)))
+    market.insert_price("SPY", MarketScalar.get_price(Money(480.0, USD)))
     market.insert_price("SPY.DIV", MarketScalar.unitless(0.015))
 
     return market
@@ -83,7 +83,7 @@ def main() -> None:
     )
 
     # Price with Monte Carlo (kept small and fast by the engine defaults).
-    registry.price(barrier_call, "monte_carlo_gbm", market, as_of=val_date)
+    registry.get_price(barrier_call, "monte_carlo_gbm", market, as_of=val_date)
 
 
 if __name__ == "__main__":

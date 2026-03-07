@@ -43,7 +43,7 @@ fn test_theta_reflects_time_decay() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let result = loan.price_with_metrics(&market, as_of, &[MetricId::Theta]);

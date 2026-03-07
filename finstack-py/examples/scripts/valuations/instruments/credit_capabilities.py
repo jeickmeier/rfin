@@ -28,7 +28,7 @@ def build_credit_market(as_of: date) -> MarketContext:
             (5.0, 0.9600),
         ],
     )
-    market.insert_discount(discount_curve)
+    market.insert(discount_curve)
 
     single_name_curve = HazardCurve(
         "ACME-HZD",
@@ -51,8 +51,8 @@ def build_credit_market(as_of: date) -> MarketContext:
         ],
         recovery_rate=0.40,
     )
-    market.insert_hazard(single_name_curve)
-    market.insert_hazard(index_curve)
+    market.insert(single_name_curve)
+    market.insert(index_curve)
 
     base_corr = BaseCorrelationCurve(
         "CDX-IG-BC",
@@ -118,7 +118,7 @@ def main() -> None:
     index = (
         CDSIndex.builder("CDX-TRAD")
         .index_name("CDX.NA.IG")
-        .series(42)
+        .get_series(42)
         .version(1)
         .notional(Money(25_000_000, USD))
         .fixed_coupon_bp(100.0)
@@ -159,7 +159,7 @@ def main() -> None:
     tranche = (
         CDSTranche.builder("CDX-MEZ-TRANCHE")
         .index_name("CDX.NA.IG")
-        .series(42)
+        .get_series(42)
         .attach_pct(3.0)
         .detach_pct(7.0)
         .notional(Money(10_000_000, USD))

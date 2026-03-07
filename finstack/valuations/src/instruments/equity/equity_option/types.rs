@@ -505,7 +505,7 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for EquityOpti
         // Match the public metric test/reference conventions:
         // - Spot bump: ±1% (relative, on the spot scalar)
         // - Vol bump: ±1 vol point (absolute, parallel surface bump)
-        let spot_scalar = market.price(&self.spot_id)?;
+        let spot_scalar = market.get_price(&self.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -695,7 +695,7 @@ mod tests {
         let expiries = [0.25, 0.5, 1.0, 2.0];
         let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
         MarketContext::new()
-            .insert_discount(flat_discount_with_tenor(DISC_ID, as_of, rate, 5.0))
+            .insert(flat_discount_with_tenor(DISC_ID, as_of, rate, 5.0))
             .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, vol))
             .insert_price(SPOT_ID, MarketScalar::Unitless(spot))
             .insert_price(DIV_ID, MarketScalar::Unitless(div_yield))
@@ -904,7 +904,7 @@ mod tests {
         let expiries = [0.25, 0.5, 1.0, 2.0];
         let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
         let curves = MarketContext::new()
-            .insert_discount(act360_curve)
+            .insert(act360_curve)
             .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, 0.20))
             .insert_price(SPOT_ID, MarketScalar::Unitless(100.0))
             .insert_price(DIV_ID, MarketScalar::Unitless(0.02));
@@ -987,7 +987,7 @@ mod tests {
         let expiries = [0.25, 0.5, 1.0, 2.0];
         let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
         let curves = MarketContext::new()
-            .insert_discount(flat_discount_with_tenor(DISC_ID, as_of, 0.03, 5.0))
+            .insert(flat_discount_with_tenor(DISC_ID, as_of, 0.03, 5.0))
             .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, 0.25))
             .insert_price(SPOT_ID, MarketScalar::Unitless(100.0));
         // Note: NOT inserting dividend yield
@@ -1022,7 +1022,7 @@ mod tests {
         let expiries = [0.25, 0.5, 1.0, 2.0];
         let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
         let curves = MarketContext::new()
-            .insert_discount(flat_discount_with_tenor(DISC_ID, as_of, 0.03, 5.0))
+            .insert(flat_discount_with_tenor(DISC_ID, as_of, 0.03, 5.0))
             .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, 0.25))
             .insert_price(SPOT_ID, MarketScalar::Unitless(100.0))
             // Wrong type: Price instead of Unitless

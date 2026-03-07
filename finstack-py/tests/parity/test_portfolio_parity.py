@@ -274,7 +274,7 @@ class TestPortfolioValuationParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         # Value portfolio
         valuation = value_portfolio(portfolio, market)
@@ -327,7 +327,7 @@ class TestPortfolioValuationParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         valuation = value_portfolio(portfolio, market)
 
@@ -405,7 +405,7 @@ class TestPortfolioValuationParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(usd_discount)
+        market.insert(usd_discount)
 
         eur_discount = DiscountCurve(
             "EUR-OIS",
@@ -413,7 +413,7 @@ class TestPortfolioValuationParity:
             [(0.0, 1.0), (1.0, 0.96), (5.0, 0.78)],
             day_count="act_365f",
         )
-        market.insert_discount(eur_discount)
+        market.insert(eur_discount)
 
         # Add FX rate
         fx = FxMatrix()
@@ -479,7 +479,7 @@ class TestPortfolioAggregationParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         valuation = value_portfolio(portfolio, market)
 
@@ -532,7 +532,7 @@ class TestPortfolioAggregationParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         valuation = value_portfolio(portfolio, market)
 
@@ -665,7 +665,7 @@ class TestScenarioParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         # Build a simple scenario (no operations)
         scenario = ScenarioSpec("test_shift", [])
@@ -713,7 +713,7 @@ class TestScenarioParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         scenario = ScenarioSpec("test_shift", [])
         result = apply_and_revalue(portfolio, scenario, market)
@@ -755,7 +755,7 @@ class TestPositionValueParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         valuation = value_portfolio(portfolio, market)
         pv = valuation.get_position_value("P1")

@@ -314,8 +314,8 @@ fn test_quantlib_parity_vol_smile() {
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
 
     let market = finstack_core::market_data::context::MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(smile_surface);
 
     // Test different strikes pick up smile

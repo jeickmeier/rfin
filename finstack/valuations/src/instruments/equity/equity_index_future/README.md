@@ -124,7 +124,7 @@ let discount_curve = DiscountCurve::builder("USD-OIS")
     .unwrap();
 
 let market = MarketContext::new()
-    .insert_discount(discount_curve)
+    .insert(discount_curve)
     .insert_price("SPX-SPOT", MarketScalar::Unitless(4500.0));
 
 // Price the future

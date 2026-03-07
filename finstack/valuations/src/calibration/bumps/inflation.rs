@@ -125,7 +125,7 @@ pub fn bump_inflation_rates(
     let (ctx, _report) =
         step_runtime::execute_params_and_apply(&step, &market_quotes, context, &cfg)?;
     Ok(ctx
-        .get_inflation(params.curve_id.as_str())?
+        .get_inflation_curve(params.curve_id.as_str())?
         .as_ref()
         .clone())
 }

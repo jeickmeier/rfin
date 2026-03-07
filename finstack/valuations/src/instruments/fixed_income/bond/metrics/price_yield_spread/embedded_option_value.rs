@@ -295,7 +295,7 @@ mod tests {
             .interp(InterpStyle::LogLinear)
             .build()
             .expect("Valid curve");
-        MarketContext::new().insert_discount(discount_curve)
+        MarketContext::new().insert(discount_curve)
     }
 
     #[cfg(feature = "slow")]

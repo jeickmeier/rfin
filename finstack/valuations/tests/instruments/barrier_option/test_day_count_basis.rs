@@ -172,7 +172,7 @@ fn test_vol_lookup_uses_correct_time_basis() {
     let disc_curve = build_discount_curve_with_dc(rate, as_of, DISC_ID, DayCount::Act360);
 
     let market = finstack_core::market_data::context::MarketContext::new()
-        .insert_discount(disc_curve)
+        .insert(disc_curve)
         .insert_surface(vol_surface)
         .insert_price(
             SPOT_ID,
@@ -192,7 +192,7 @@ fn test_vol_lookup_uses_correct_time_basis() {
     // Now create market with ACT/365F discount curve for comparison
     let disc_curve_365 = build_discount_curve_with_dc(rate, as_of, DISC_ID, DayCount::Act365F);
     let market_365 = finstack_core::market_data::context::MarketContext::new()
-        .insert_discount(disc_curve_365)
+        .insert(disc_curve_365)
         .insert_surface(
             VolSurface::builder(VOL_ID)
                 .expiries(&[0.25, 0.5, 0.505, 0.51, 1.0])

@@ -52,9 +52,7 @@ fn flat_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(discount)
-        .insert_forward(forward)
+    MarketContext::new().insert(discount).insert(forward)
 }
 
 fn build_pool(n_assets: usize, balance_each: f64) -> Pool {

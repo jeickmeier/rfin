@@ -140,7 +140,7 @@ class TestScenarioEngineParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         # Create scenario
         spec = ScenarioSpec(
@@ -177,7 +177,7 @@ class TestScenarioEngineParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         # Create scenario with multiple operations
         spec = ScenarioSpec(
@@ -407,7 +407,7 @@ class TestEdgeCases:
             [(0.0, 1.0), (1.0, 0.95)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         engine = ScenarioEngine()
         builder = ModelBuilder.new("m")

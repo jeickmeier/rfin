@@ -37,7 +37,7 @@ class ExecutionContext:
         >>> from finstack.statements.types import FinancialModelSpec
         >>> from finstack.scenarios import ExecutionContext
         >>> market = MarketContext()
-        >>> market.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        >>> market.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         >>> model = FinancialModelSpec("demo_model", [])
         >>> ctx = ExecutionContext(market, model, date(2025, 1, 1))
         >>> ctx.as_of
@@ -174,7 +174,7 @@ class ScenarioEngine:
         >>> from finstack.scenarios import ScenarioEngine, ScenarioSpec, OperationSpec, CurveKind, ExecutionContext
         >>> # Minimal market context with one curve
         >>> market_ctx = MarketContext()
-        >>> market_ctx.insert_discount(DiscountCurve("USD-SOFR", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        >>> market_ctx.insert(DiscountCurve("USD-SOFR", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         >>> model = FinancialModelSpec("demo", [])
         >>> ctx = ExecutionContext(market_ctx, model, date(2025, 1, 1))
         >>> ops = [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-SOFR", 50.0)]

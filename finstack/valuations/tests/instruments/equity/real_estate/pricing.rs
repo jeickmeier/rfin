@@ -183,7 +183,7 @@ fn test_real_estate_dcf_prefers_market_discount_curve_over_flat_discount_rate() 
 
     let curve_rate = 0.05;
     let disc = build_flat_discount_curve("USD-OIS", valuation_date, curve_rate);
-    let ctx = MarketContext::new().insert_discount(disc);
+    let ctx = MarketContext::new().insert(disc);
 
     let pv = asset.value(&ctx, valuation_date).expect("npv");
 
@@ -508,9 +508,7 @@ fn test_levered_real_estate_equity_value_is_asset_minus_debt() {
 
     let disc_ois = build_flat_discount_curve("USD-OIS", as_of, 0.05);
     let disc_tsy = build_flat_discount_curve("USD-TREASURY", as_of, 0.05);
-    let market = MarketContext::new()
-        .insert_discount(disc_ois)
-        .insert_discount(disc_tsy);
+    let market = MarketContext::new().insert(disc_ois).insert(disc_tsy);
 
     let pv_asset = asset.value(&market, as_of).expect("asset pv").amount();
     let pv_fin = loan.value(&market, as_of).expect("loan pv").amount()
@@ -582,8 +580,7 @@ fn test_levered_real_estate_equity_custom_metrics_compute() {
         .build()
         .expect("levered build");
 
-    let market =
-        MarketContext::new().insert_discount(build_flat_discount_curve("USD-OIS", as_of, 0.05));
+    let market = MarketContext::new().insert(build_flat_discount_curve("USD-OIS", as_of, 0.05));
 
     let metrics = [
         MetricId::custom("real_estate::levered_irr"),
@@ -665,8 +662,7 @@ fn test_levered_real_estate_sensitivities_metrics_compute() {
         .expect("levered build");
 
     // Provide USD-OIS for financing PV, but keep the asset curve absent (USD-RE-DISC not in market).
-    let market =
-        MarketContext::new().insert_discount(build_flat_discount_curve("USD-OIS", as_of, 0.05));
+    let market = MarketContext::new().insert(build_flat_discount_curve("USD-OIS", as_of, 0.05));
 
     let metrics = [
         MetricId::custom("real_estate::cap_rate_sensitivity"),

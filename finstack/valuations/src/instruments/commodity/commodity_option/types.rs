@@ -231,7 +231,7 @@ impl CommodityOption {
         {
             impl_vol
         } else {
-            let surface = market.surface(self.vol_surface_id.as_str())?;
+            let surface = market.get_surface(self.vol_surface_id.as_str())?;
             surface.value_clamped(t, self.strike)
         };
 
@@ -260,7 +260,7 @@ impl CommodityOption {
         let Some(spot_id) = &self.spot_id else {
             return Ok(None);
         };
-        let scalar = market.price(spot_id)?;
+        let scalar = market.get_price(spot_id)?;
         let spot = match scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -697,7 +697,7 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for CommodityO
         {
             impl_vol
         } else {
-            let surface = market.surface(self.vol_surface_id.as_str())?;
+            let surface = market.get_surface(self.vol_surface_id.as_str())?;
             surface.value_clamped(t, self.strike)
         };
         if sigma <= 0.0 {
@@ -735,7 +735,7 @@ impl crate::instruments::common_impl::traits::OptionVegaProvider for CommodityOp
         {
             impl_vol
         } else {
-            let surface = market.surface(self.vol_surface_id.as_str())?;
+            let surface = market.get_surface(self.vol_surface_id.as_str())?;
             surface.value_clamped(t, self.strike)
         };
         if sigma <= 0.0 {
@@ -988,14 +988,14 @@ mod tests {
         option.exercise_style = ExerciseStyle::Bermudan;
         let as_of = Date::from_calendar_date(2025, time::Month::January, 15).expect("valid");
         let market = finstack_core::market_data::context::MarketContext::new()
-            .insert_discount(
+            .insert(
                 DiscountCurve::builder("USD-OIS")
                     .base_date(as_of)
                     .knots([(0.0, 1.0), (1.0, 0.97)])
                     .build()
                     .expect("discount curve"),
             )
-            .insert_price_curve(
+            .insert(
                 PriceCurve::builder("WTI-FORWARD")
                     .base_date(as_of)
                     .spot_price(75.0)

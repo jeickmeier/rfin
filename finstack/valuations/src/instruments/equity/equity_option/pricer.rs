@@ -182,7 +182,7 @@ pub fn collect_inputs_extended(
     let r = if t_vol > 0.0 { -df.ln() / t_vol } else { 0.0 };
 
     // Spot from scalar id (unitless or price)
-    let spot_scalar = curves.price(&inst.spot_id)?;
+    let spot_scalar = curves.get_price(&inst.spot_id)?;
     let raw_spot = match spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -217,7 +217,7 @@ pub fn collect_inputs_extended(
         // and return a unitless scalar. Silent fallback to 0.0 would mask market data
         // configuration errors.
         let q = if let Some(div_id) = &inst.div_yield_id {
-            let ms = curves.price(div_id.as_str()).map_err(|e| {
+            let ms = curves.get_price(div_id.as_str()).map_err(|e| {
                 finstack_core::Error::Validation(format!(
                     "Failed to fetch dividend yield '{}': {}",
                     div_id, e
@@ -243,7 +243,7 @@ pub fn collect_inputs_extended(
     let sigma = if let Some(impl_vol) = inst.pricing_overrides.market_quotes.implied_volatility {
         impl_vol
     } else {
-        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
         vol_surface.value_clamped(t_vol, inst.strike)
     };
 
@@ -782,7 +782,7 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
         // Fetch Heston parameters from market data or use defaults
         // Priority: instrument overrides > market scalars > defaults
         let kappa = market
-            .price("HESTON_KAPPA")
+            .get_price("HESTON_KAPPA")
             .ok()
             .and_then(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
@@ -791,7 +791,7 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
             .unwrap_or(2.0);
 
         let theta = market
-            .price("HESTON_THETA")
+            .get_price("HESTON_THETA")
             .ok()
             .and_then(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
@@ -800,7 +800,7 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
             .unwrap_or(0.04);
 
         let sigma_v = market
-            .price("HESTON_SIGMA_V")
+            .get_price("HESTON_SIGMA_V")
             .ok()
             .and_then(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
@@ -809,7 +809,7 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
             .unwrap_or(0.3);
 
         let rho = market
-            .price("HESTON_RHO")
+            .get_price("HESTON_RHO")
             .ok()
             .and_then(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
@@ -818,7 +818,7 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
             .unwrap_or(-0.7);
 
         let v0 = market
-            .price("HESTON_V0")
+            .get_price("HESTON_V0")
             .ok()
             .and_then(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),

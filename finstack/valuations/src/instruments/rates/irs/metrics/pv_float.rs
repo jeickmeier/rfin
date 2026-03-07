@@ -53,7 +53,7 @@ impl MetricCalculator for FloatLegPvCalculator {
 
         // Look up historical fixings for seasoned swaps
         let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
-        let fixings = context.curves.series(&fixings_id).ok();
+        let fixings = context.curves.get_series(&fixings_id).ok();
 
         let pv_money = match irs.float.compounding {
             FloatingLegCompounding::Simple => {

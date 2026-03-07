@@ -29,7 +29,7 @@ fn build_mock_market() -> finstack_core::market_data::context::MarketContext {
         .expect("Curve build failed");
 
     let mut market = MarketContext::new();
-    market = market.insert_discount(flat_curve);
+    market = market.insert(flat_curve);
     market
 }
 

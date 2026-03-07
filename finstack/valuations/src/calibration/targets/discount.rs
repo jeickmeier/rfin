@@ -281,11 +281,11 @@ impl DiscountCurveTarget {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            *ctx = std::mem::take(&mut *ctx).insert_discount(curve.clone());
+            *ctx = std::mem::take(&mut *ctx).insert(curve.clone());
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context = temp_context.insert_discount(curve.clone());
+            temp_context = temp_context.insert(curve.clone());
             op(&temp_context)
         }
     }
@@ -487,7 +487,7 @@ Global solve requires strictly increasing times.",
             }
         }
 
-        let new_context = context.clone().insert_discount(curve);
+        let new_context = context.clone().insert(curve);
 
         // Track solver configuration used and any seed diagnostics for transparency.
         report.update_solver_config(config.solver.clone());
@@ -1002,7 +1002,7 @@ Ensure quotes map to strictly increasing year fractions.",
             // +h evaluation
             params_bumped[j] = p_orig + h;
             let curve_plus = self.build_curve_for_solver_from_params(times, &params_bumped)?;
-            temp_context = temp_context.insert_discount(curve_plus);
+            temp_context = temp_context.insert(curve_plus);
             let ctx_plus = &temp_context;
 
             let mut vals_plus = vec![0.0_f64; quotes.len()];
@@ -1020,7 +1020,7 @@ Ensure quotes map to strictly increasing year fractions.",
             // -h evaluation
             params_bumped[j] = p_orig - h;
             let curve_minus = self.build_curve_for_solver_from_params(times, &params_bumped)?;
-            temp_context = temp_context.insert_discount(curve_minus);
+            temp_context = temp_context.insert(curve_minus);
             let ctx_minus = &temp_context;
 
             for (i, quote) in quotes.iter().enumerate() {

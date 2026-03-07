@@ -47,8 +47,8 @@ fn build_test_hazard(hz: f64, rec: f64, base: Date, id: &str) -> HazardCurve {
 
 fn create_test_market(as_of: Date) -> MarketContext {
     MarketContext::new()
-        .insert_discount(build_test_discount(0.05, as_of, "USD_OIS"))
-        .insert_hazard(build_test_hazard(0.015, 0.40, as_of, "CORP"))
+        .insert(build_test_discount(0.05, as_of, "USD_OIS"))
+        .insert(build_test_hazard(0.015, 0.40, as_of, "CORP"))
 }
 
 fn create_test_cds(as_of: Date, maturity: Date) -> CreditDefaultSwap {
@@ -107,7 +107,7 @@ fn test_cs01_hazard_vs_risky_pv01_consistency() {
             .knots([(0.0, 0.01), (5.0, 0.012), (10.0, 0.013)])
             .build()
             .unwrap();
-        ctx = ctx.insert_discount(disc).insert_hazard(hazard);
+        ctx = ctx.insert(disc).insert(hazard);
         ctx
     };
 
@@ -121,10 +121,10 @@ fn test_cs01_hazard_vs_risky_pv01_consistency() {
     let bumped_up = bump_hazard_shift(hazard.as_ref(), &BumpRequest::Parallel(1.0)).unwrap();
     let bumped_down = bump_hazard_shift(hazard.as_ref(), &BumpRequest::Parallel(-1.0)).unwrap();
     let pv_up = cds
-        .value_raw(&market.clone().insert_hazard(bumped_up), as_of)
+        .value_raw(&market.clone().insert(bumped_up), as_of)
         .unwrap();
     let pv_down = cds
-        .value_raw(&market.clone().insert_hazard(bumped_down), as_of)
+        .value_raw(&market.clone().insert(bumped_down), as_of)
         .unwrap();
     let expected_cs01 = (pv_up - pv_down) / 2.0; // per 1bp central difference
 
@@ -269,8 +269,8 @@ fn test_expected_loss_formula() {
     cds.protection.recovery_rate = recovery;
 
     let market = MarketContext::new()
-        .insert_discount(build_test_discount(0.05, as_of, "USD_OIS"))
-        .insert_hazard(build_test_hazard(hazard_rate, recovery, as_of, "CORP"));
+        .insert(build_test_discount(0.05, as_of, "USD_OIS"))
+        .insert(build_test_hazard(hazard_rate, recovery, as_of, "CORP"));
 
     let result = cds
         .price_with_metrics(&market, as_of, &[MetricId::ExpectedLoss])
@@ -304,8 +304,8 @@ fn test_expected_loss_conditions_on_as_of() {
 
     // Curves can be based at `base` (safer for df_on_date_curve on older dates).
     let market = MarketContext::new()
-        .insert_discount(build_test_discount(0.05, base, "USD_OIS"))
-        .insert_hazard(build_test_hazard(hazard_rate, recovery, base, "CORP"));
+        .insert(build_test_discount(0.05, base, "USD_OIS"))
+        .insert(build_test_hazard(hazard_rate, recovery, base, "CORP"));
 
     let result = cds
         .price_with_metrics(&market, as_of, &[MetricId::ExpectedLoss])

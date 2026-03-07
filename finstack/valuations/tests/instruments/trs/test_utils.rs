@@ -58,7 +58,7 @@ pub fn create_market_context() -> MarketContext {
         .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
-    context = context.insert_discount(disc_curve);
+    context = context.insert(disc_curve);
 
     // USD forward curve (SOFR 3M)
     let fwd_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
@@ -74,7 +74,7 @@ pub fn create_market_context() -> MarketContext {
         .interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    context = context.insert_forward(fwd_curve);
+    context = context.insert(fwd_curve);
 
     // EUR curves for multi-currency testing
     let eur_disc = DiscountCurve::builder("EUR-ESTR")
@@ -89,7 +89,7 @@ pub fn create_market_context() -> MarketContext {
         .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
-    context = context.insert_discount(eur_disc);
+    context = context.insert(eur_disc);
 
     let eur_fwd = ForwardCurve::builder("EUR-EURIBOR-3M", 0.25)
         .base_date(as_of_date())
@@ -102,7 +102,7 @@ pub fn create_market_context() -> MarketContext {
         .interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    context = context.insert_forward(eur_fwd);
+    context = context.insert(eur_fwd);
 
     // Equity market data
     context = context.insert_price("SPX-SPOT", MarketScalar::Unitless(5000.0));

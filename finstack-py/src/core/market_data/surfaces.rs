@@ -5,7 +5,7 @@
 //! checked values (error on out-of-bounds), or clamped values. Use this when
 //! pricing options or any model requiring a volatility surface.
 use crate::errors::core_to_py;
-use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::surfaces::{FxDeltaVolSurface, VolSurface};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -41,6 +41,22 @@ pub struct PyVolSurface {
 
 impl PyVolSurface {
     pub(crate) fn new_arc(inner: Arc<VolSurface>) -> Self {
+        Self { inner }
+    }
+}
+
+#[pyclass(
+    module = "finstack.core.market_data.surfaces",
+    name = "FxDeltaVolSurface",
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyFxDeltaVolSurface {
+    pub(crate) inner: Arc<FxDeltaVolSurface>,
+}
+
+impl PyFxDeltaVolSurface {
+    pub(crate) fn new_arc(inner: Arc<FxDeltaVolSurface>) -> Self {
         Self { inner }
     }
 }
@@ -225,6 +241,70 @@ impl PyVolSurface {
     }
 }
 
+#[pymethods]
+impl PyFxDeltaVolSurface {
+    #[new]
+    #[pyo3(text_signature = "(id, expiries, atm_vols, rr_25d, bf_25d)")]
+    fn ctor(
+        id: &str,
+        expiries: Vec<f64>,
+        atm_vols: Vec<f64>,
+        rr_25d: Vec<f64>,
+        bf_25d: Vec<f64>,
+    ) -> PyResult<Self> {
+        let surface =
+            FxDeltaVolSurface::new(id, expiries, atm_vols, rr_25d, bf_25d).map_err(core_to_py)?;
+        Ok(Self::new_arc(Arc::new(surface)))
+    }
+
+    #[getter]
+    fn id(&self) -> String {
+        self.inner.id().to_string()
+    }
+
+    #[getter]
+    fn expiries(&self) -> Vec<f64> {
+        self.inner.expiries().to_vec()
+    }
+
+    #[getter]
+    fn num_expiries(&self) -> usize {
+        self.inner.num_expiries()
+    }
+
+    #[pyo3(text_signature = "(self, expiry_idx)")]
+    fn pillar_vols(&self, expiry_idx: usize) -> (f64, f64, f64) {
+        self.inner.pillar_vols(expiry_idx)
+    }
+
+    #[pyo3(text_signature = "(self, expiry, strike, forward, r_d, r_f)")]
+    fn implied_vol(
+        &self,
+        expiry: f64,
+        strike: f64,
+        forward: f64,
+        r_d: f64,
+        r_f: f64,
+    ) -> PyResult<f64> {
+        self.inner
+            .implied_vol(expiry, strike, forward, r_d, r_f)
+            .map_err(core_to_py)
+    }
+
+    #[pyo3(text_signature = "(self, spot, r_d, r_f)")]
+    fn to_vol_surface(&self, spot: f64, r_d: f64, r_f: f64) -> PyResult<PyVolSurface> {
+        let surface = self
+            .inner
+            .to_vol_surface(spot, r_d, r_f)
+            .map_err(core_to_py)?;
+        Ok(PyVolSurface::new_arc(Arc::new(surface)))
+    }
+
+    fn __repr__(&self) -> String {
+        format!("FxDeltaVolSurface(id='{}')", self.inner.id())
+    }
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -235,7 +315,8 @@ pub(crate) fn register<'py>(
         "Two-dimensional market surfaces (e.g. implied volatility grids).",
     )?;
     module.add_class::<PyVolSurface>()?;
-    let exports = ["VolSurface"];
+    module.add_class::<PyFxDeltaVolSurface>()?;
+    let exports = ["VolSurface", "FxDeltaVolSurface"];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

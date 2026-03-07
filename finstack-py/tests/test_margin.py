@@ -54,7 +54,7 @@ def market_context(usd: Currency, as_of: date) -> MarketContext:
     tenors = ["1D", "1M", "3M", "6M", "1Y", "2Y", "5Y", "10Y"]
     rates = [0.0520, 0.0525, 0.0530, 0.0535, 0.0545, 0.0565, 0.0615, 0.0655]
     discount_curve = DiscountCurve.from_par_rates("USD.OIS", as_of, tenors, rates, usd, "Act360", "Linear")
-    market.insert_discount(discount_curve)
+    market.insert(discount_curve)
 
     # Create a hazard curve for CDS
     cds_tenors = ["6M", "1Y", "2Y", "3Y", "5Y"]
@@ -69,7 +69,7 @@ def market_context(usd: Currency, as_of: date) -> MarketContext:
         "USD.OIS",
         "Act360",
     )
-    market.insert_hazard(hazard_curve)
+    market.insert(hazard_curve)
 
     return market
 

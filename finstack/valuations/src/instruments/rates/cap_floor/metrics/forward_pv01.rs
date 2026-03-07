@@ -41,7 +41,7 @@ impl MetricCalculator for ForwardPv01Calculator {
                 .build()?;
 
         // Create new context with bumped curve (replaces original with same ID)
-        let bumped_ctx = context.curves.as_ref().clone().insert_forward(bumped_fwd);
+        let bumped_ctx = context.curves.as_ref().clone().insert(bumped_fwd);
 
         // Reprice with bumped forward curve
         let bumped = option.value(&bumped_ctx, context.as_of)?;

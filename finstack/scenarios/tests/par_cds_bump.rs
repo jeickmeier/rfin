@@ -32,9 +32,7 @@ fn test_par_cds_bump_integration() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new()
-        .insert_discount(discount)
-        .insert_hazard(hazard);
+    let mut market = MarketContext::new().insert(discount).insert(hazard);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     // Apply 10bp Par CDS bump at 5Y

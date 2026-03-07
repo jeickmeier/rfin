@@ -48,9 +48,7 @@ fn test_upfront_payment_buyer_payfast() {
 
     let disc = build_discount_curve(0.05, as_of, "USD_OIS");
     let hazard = build_hazard_curve(0.02, 0.40, as_of, "CORP");
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     // Creates a CDS (Buy Protection)
     let mut cds = crate::finstack_test_utils::cds_buy_protection(
@@ -91,9 +89,7 @@ fn test_upfront_payment_seller_receivefast() {
 
     let disc = build_discount_curve(0.05, as_of, "USD_OIS");
     let hazard = build_hazard_curve(0.02, 0.40, as_of, "CORP");
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     // Creates a CDS (Sell Protection)
     let mut cds = crate::finstack_test_utils::cds_sell_protection(
@@ -137,9 +133,7 @@ fn test_upfront_payment_discounted() {
     let rate = 0.05;
     let disc = build_discount_curve(rate, as_of, "USD_OIS");
     let hazard = build_hazard_curve(0.02, 0.40, as_of, "CORP");
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "UPFRONT_DISCOUNTED",
@@ -183,9 +177,7 @@ fn test_upfront_payment_past_is_ignored() {
 
     let disc = build_discount_curve(0.05, as_of, "USD_OIS");
     let hazard = build_hazard_curve(0.02, 0.40, as_of, "CORP");
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "UPFRONT_PAST",

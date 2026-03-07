@@ -298,7 +298,7 @@ impl CommodityForward {
         // Fallback: if we have a spot price and discount curve, use cost-of-carry model
         // F = S × exp(r × T) where r is the implied carry rate
         if let Some(spot_id) = &self.spot_id {
-            if let Ok(spot_scalar) = market.price(spot_id) {
+            if let Ok(spot_scalar) = market.get_price(spot_id) {
                 let spot = match spot_scalar {
                     finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
@@ -327,7 +327,7 @@ impl CommodityForward {
             finstack_core::error::InputError::NotFound {
                 id: format!(
                     "PriceCurve '{}' not found. \
-                     Use MarketContext::insert_price_curve() to add a commodity forward price curve.",
+                     Use MarketContext::insert() to add a commodity forward price curve.",
                     self.forward_curve_id
                 ),
             },
@@ -504,9 +504,7 @@ mod tests {
             .build()
             .expect("Valid discount curve");
 
-        MarketContext::new()
-            .insert_price_curve(price_curve)
-            .insert_discount(disc)
+        MarketContext::new().insert(price_curve).insert(disc)
     }
 
     #[test]

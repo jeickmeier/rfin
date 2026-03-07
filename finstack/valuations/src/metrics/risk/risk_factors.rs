@@ -229,7 +229,7 @@ where
         .downcast_ref::<crate::instruments::equity::Equity>()
     {
         let price_id = eq.price_id.as_deref().unwrap_or(eq.ticker.as_str());
-        if market.price(price_id).is_ok() {
+        if market.get_price(price_id).is_ok() {
             push_factor(
                 factors,
                 seen,
@@ -246,7 +246,7 @@ where
         .downcast_ref::<crate::instruments::fixed_income::convertible::ConvertibleBond>(
     ) {
         if let Some(ticker) = conv.underlying_equity_id.as_ref() {
-            if market.price(ticker).is_ok() {
+            if market.get_price(ticker).is_ok() {
                 push_factor(
                     factors,
                     seen,
@@ -263,7 +263,7 @@ where
         .as_any()
         .downcast_ref::<crate::instruments::equity::equity_option::EquityOption>()
     {
-        if market.price(&opt.spot_id).is_ok() {
+        if market.get_price(&opt.spot_id).is_ok() {
             push_factor(
                 factors,
                 seen,
@@ -273,7 +273,7 @@ where
             );
         }
 
-        if market.surface(opt.vol_surface_id.as_str()).is_ok() {
+        if market.get_surface(opt.vol_surface_id.as_str()).is_ok() {
             push_factor(
                 factors,
                 seen,
@@ -344,7 +344,7 @@ mod tests {
             .knots(vec![(0.0, 1.0), (1.0, 0.96), (5.0, 0.85), (10.0, 0.70)])
             .build()?;
 
-        let market = MarketContext::new().insert_discount(curve);
+        let market = MarketContext::new().insert(curve);
 
         // Extract risk factors
         let factors = extract_risk_factors(&bond, &market)?;
@@ -445,7 +445,7 @@ mod tests {
             .build()?;
 
         let market = MarketContext::new()
-            .insert_discount(curve)
+            .insert(curve)
             .insert_price(&option.spot_id, MarketScalar::Unitless(150.0))
             .insert_surface(
                 finstack_core::market_data::surfaces::VolSurface::builder(

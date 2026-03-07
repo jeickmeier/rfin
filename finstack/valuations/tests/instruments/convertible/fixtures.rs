@@ -110,7 +110,7 @@ pub fn create_market_context_with_params(spot: f64, vol: f64, div_yield: f64) ->
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(discount_curve)
+        .insert(discount_curve)
         .insert_price("AAPL", MarketScalar::Unitless(spot))
         .insert_price("AAPL-VOL", MarketScalar::Unitless(vol))
         .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(div_yield))
@@ -129,7 +129,7 @@ pub fn create_market_context_with_rate(rate: f64) -> MarketContext {
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(discount_curve)
+        .insert(discount_curve)
         .insert_price("AAPL", MarketScalar::Unitless(market_params::SPOT_PRICE))
         .insert_price(
             "AAPL-VOL",
@@ -441,8 +441,8 @@ pub fn create_market_context_with_credit(credit_spread_bps: f64) -> MarketContex
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(rf_curve)
-        .insert_discount(credit_curve)
+        .insert(rf_curve)
+        .insert(credit_curve)
         .insert_price("AAPL", MarketScalar::Unitless(market_params::SPOT_PRICE))
         .insert_price(
             "AAPL-VOL",

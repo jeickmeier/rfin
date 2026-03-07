@@ -86,7 +86,7 @@ fn test_structured_credit_value_computation() {
     )
     .with_payment_calendar("nyse");
 
-    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     // Act
     let result = sc.value(&market, test_date());
@@ -110,7 +110,7 @@ fn test_structured_credit_dirty_price() {
     )
     .with_payment_calendar("nyse");
 
-    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     // Act
     let result = sc.price_with_metrics(&market, test_date(), &[MetricId::DirtyPrice]);
@@ -140,7 +140,7 @@ fn test_structured_credit_clean_price() {
     )
     .with_payment_calendar("nyse");
 
-    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     // Act
     let result = sc.price_with_metrics(
@@ -181,7 +181,7 @@ fn test_structured_credit_tranche_cashflows_generated() {
     )
     .with_payment_calendar("nyse");
 
-    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     let cashflows = sc
         .get_tranche_cashflows("SENIOR", &market, test_date())
@@ -202,7 +202,7 @@ fn test_structured_credit_tranche_value_computation() {
     )
     .with_payment_calendar("nyse");
 
-    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     let pv = sc
         .value_tranche("SENIOR", &market, test_date())
@@ -228,7 +228,7 @@ fn test_structured_credit_full_metric_suite() {
     )
     .with_payment_calendar("nyse");
 
-    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     // Act: Request comprehensive metrics
     let result = sc.price_with_metrics(
@@ -280,7 +280,7 @@ fn test_structured_credit_empty_metrics_request() {
     )
     .with_payment_calendar("nyse");
 
-    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     // Act: Request NO metrics
     let result = sc.price_with_metrics(&market, test_date(), &[]);
@@ -304,7 +304,7 @@ fn test_structured_credit_metric_dependency_resolution() {
     )
     .with_payment_calendar("nyse");
 
-    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     // Act: Request only CleanPrice (dependencies should auto-compute)
     let result = sc.price_with_metrics(&market, test_date(), &[MetricId::CleanPrice]);
@@ -342,7 +342,7 @@ fn test_structured_credit_pool_balance_cleanup() {
     )
     .with_payment_calendar("nyse");
 
-    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     // Act
     let result = sc.build_dated_flows(&market, test_date());

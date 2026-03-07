@@ -25,7 +25,7 @@ def create_market_data(val_date: date) -> MarketContext:
         val_date,
         [(0.0, 1.0), (1.0, 0.95), (2.0, 0.90), (5.0, 0.80), (10.0, 0.65)],
     )
-    market.insert_discount(disc_curve)
+    market.insert(disc_curve)
 
     # Swaption volatility surface (toy)
     vol_surface = VolSurface(
@@ -77,7 +77,7 @@ def example_cms_cap():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(cms_cap, "monte_carlo_hull_white_1f", market, as_of=val_date)
+    result = registry.get_price(cms_cap, "monte_carlo_hull_white_1f", market, as_of=val_date)
 
     return cms_cap, result
 
@@ -118,7 +118,7 @@ def example_cms_floor():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(cms_floor, "monte_carlo_hull_white_1f", market, as_of=val_date)
+    result = registry.get_price(cms_floor, "monte_carlo_hull_white_1f", market, as_of=val_date)
 
     return cms_floor, result
 
@@ -167,8 +167,8 @@ def example_cms_spread_option():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result_long = registry.price(cms_long, "monte_carlo_hull_white_1f", market, as_of=val_date)
-    result_short = registry.price(cms_short, "monte_carlo_hull_white_1f", market, as_of=val_date)
+    result_long = registry.get_price(cms_long, "monte_carlo_hull_white_1f", market, as_of=val_date)
+    result_short = registry.get_price(cms_short, "monte_carlo_hull_white_1f", market, as_of=val_date)
 
     return (cms_long, cms_short), (result_long, result_short)
 

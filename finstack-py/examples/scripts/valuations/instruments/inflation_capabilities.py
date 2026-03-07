@@ -26,7 +26,7 @@ def build_market(as_of: date) -> MarketContext:
             (5.0, 0.9600),
         ],
     )
-    market.insert_discount(disc)
+    market.insert(disc)
 
     inflation_curve = InflationCurve(
         "US-CPI",
@@ -39,7 +39,7 @@ def build_market(as_of: date) -> MarketContext:
             (10.0, 345.0),
         ],
     )
-    market.insert_inflation(inflation_curve)
+    market.insert(inflation_curve)
 
     return market
 

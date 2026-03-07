@@ -34,7 +34,7 @@ def main() -> None:
     as_of = date(2024, 1, 15)
 
     market = MarketContext()
-    market.insert_discount(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
+    market.insert(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
 
     fund = Entity("FUND-OPT-001").with_name("Optimization Demo Fund")
 

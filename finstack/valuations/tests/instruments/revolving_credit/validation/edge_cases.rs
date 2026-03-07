@@ -32,7 +32,7 @@ fn test_zero_utilization() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.04, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = facility.value(&market, as_of);
@@ -61,7 +61,7 @@ fn test_full_utilization() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.04, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = facility.value(&market, as_of);
@@ -90,7 +90,7 @@ fn test_very_short_commitment_period() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.04, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = facility.value(&market, as_of);
@@ -119,7 +119,7 @@ fn test_very_long_commitment_period() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.04, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = facility.value(&market, as_of);

@@ -62,8 +62,8 @@ fn flat_hazard_curve(as_of: Date, hazard_rate: f64) -> HazardCurve {
 
 fn test_market(as_of: Date) -> MarketContext {
     MarketContext::new()
-        .insert_discount(flat_discount_curve(as_of, 0.02))
-        .insert_hazard(flat_hazard_curve(as_of, HAZARD_RATE))
+        .insert(flat_discount_curve(as_of, 0.02))
+        .insert(flat_hazard_curve(as_of, HAZARD_RATE))
 }
 
 /// Create a 5Y CDS (buy protection).

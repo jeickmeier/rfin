@@ -62,7 +62,7 @@ impl MetricCalculator for ImpliedVolCalculator {
             } else {
                 context
                     .curves
-                    .surface(option.vol_surface_id.as_str())
+                    .get_surface(option.vol_surface_id.as_str())
                     .and_then(|s| {
                         s.require_secondary_axis(VolSurfaceAxis::Strike)?;
                         match option

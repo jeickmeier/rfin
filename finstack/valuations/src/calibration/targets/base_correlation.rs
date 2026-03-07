@@ -372,8 +372,8 @@ impl BaseCorrelationBootstrapper {
 
         report.update_solver_config(global_config.solver.clone());
 
-        let mut new_context = context.clone().insert_base_correlation(curve.clone());
-        if let Ok(idx) = new_context.credit_index(params.index_id.as_str()) {
+        let mut new_context = context.clone().insert(curve.clone());
+        if let Ok(idx) = new_context.get_credit_index(params.index_id.as_str()) {
             let mut updated = idx.as_ref().clone();
             updated.base_correlation_curve = Arc::new(curve.clone());
             new_context = new_context.insert_credit_index(params.index_id.as_str(), updated);
@@ -457,11 +457,8 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
             }
         };
 
-        let mut temp_context = self
-            .base_context
-            .clone()
-            .insert_base_correlation(curve.clone());
-        if let Ok(idx) = temp_context.credit_index(self.params.index_id.as_str()) {
+        let mut temp_context = self.base_context.clone().insert(curve.clone());
+        if let Ok(idx) = temp_context.get_credit_index(self.params.index_id.as_str()) {
             let mut updated = idx.as_ref().clone();
             updated.base_correlation_curve = Arc::new(curve.clone());
             temp_context = temp_context.insert_credit_index(self.params.index_id.as_str(), updated);

@@ -1137,7 +1137,7 @@ impl Swaption {
         }
 
         // 3. Volatility surface
-        let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(self.vol_surface_id.as_str())?;
         vol_surface.require_secondary_axis(VolSurfaceAxis::Strike)?;
         let strike = self.strike_f64()?;
         match self
@@ -1223,7 +1223,7 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
         }
 
         let time_to_expiry = year_fraction(self.day_count, as_of, self.expiry)?;
-        let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(self.vol_surface_id.as_str())?;
         vol_surface.require_secondary_axis(VolSurfaceAxis::Strike)?;
         let strike = self.strike_f64()?;
         let vol = if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility {

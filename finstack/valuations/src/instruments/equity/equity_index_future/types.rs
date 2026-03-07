@@ -460,7 +460,7 @@ impl EquityIndexFuture {
         use finstack_core::market_data::scalars::MarketScalar;
 
         if let Some(ref div_id) = self.div_yield_id {
-            let ms = context.price(div_id.as_str()).map_err(|e| {
+            let ms = context.get_price(div_id.as_str()).map_err(|e| {
                 finstack_core::Error::Validation(format!(
                     "Dividend yield lookup failed for '{}': {}. \
                      If dividend yield is not needed, set div_yield_id to None.",
@@ -491,7 +491,7 @@ impl EquityIndexFuture {
         use finstack_core::market_data::scalars::MarketScalar;
 
         // Get spot level
-        let spot = match context.price(&self.spot_id)? {
+        let spot = match context.get_price(&self.spot_id)? {
             MarketScalar::Unitless(v) => *v,
             MarketScalar::Price(m) => m.amount(),
         };

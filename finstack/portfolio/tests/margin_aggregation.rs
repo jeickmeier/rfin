@@ -131,7 +131,7 @@ fn test_add_netting_set_with_fx_converts_correctly() {
     // Verify conversion: 1M EUR * 1.10 = 1.1M USD
     assert_eq!(result.total_initial_margin.amount(), 1_100_000.0);
     // VM: 200k EUR * 1.10 = 220k USD
-    assert_eq!(result.total_variation_margin.amount(), 220_000.0);
+    assert!((result.total_variation_margin.amount() - 220_000.0).abs() < 1e-9);
     assert_eq!(result.total_positions, 5);
     assert_eq!(result.netting_set_count(), 1);
 }

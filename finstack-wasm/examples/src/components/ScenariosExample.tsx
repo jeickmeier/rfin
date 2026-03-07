@@ -142,7 +142,7 @@ export default function ScenariosExample() {
 
       // Add equity price
       const usd = new Currency('USD');
-      const spyPrice = MarketScalar.price(new Money(450.0, usd));
+      const spyPrice = MarketScalar.get_price(new Money(450.0, usd));
       market.insertPrice('SPY', spyPrice);
       log.push('✓ Inserted SPY price: $450');
 
@@ -204,13 +204,13 @@ export default function ScenariosExample() {
       log.push(`✓ Applied ${report.operationsApplied} operations`);
 
       // Verify results
-      const shockedPrice = market.price('SPY');
+      const shockedPrice = market.getPrice('SPY');
       if (shockedPrice?.isPrice) {
         // Price was shocked
         log.push(`  - SPY price shocked (from $450)`);
       }
 
-      const shockedSurface = market.surface('SPX_VOL');
+      const shockedSurface = market.getSurface('SPX_VOL');
       if (shockedSurface) {
         const atm1Y = shockedSurface.value(1.0, 100.0);
         log.push(`  - SPX 1Y ATM vol: ${(atm1Y * 100).toFixed(2)}% (shocked from 20%)`);
@@ -425,7 +425,7 @@ export default function ScenariosExample() {
       market.insertDiscount(curve);
 
       const usd = new Currency('USD');
-      market.insertPrice('SPY', MarketScalar.price(new Money(450.0, usd)));
+      market.insertPrice('SPY', MarketScalar.get_price(new Money(450.0, usd)));
 
       const builder = new ModelBuilder('composed_model');
       const model = builder.periods('2025Q1..Q4', null)?.build();
@@ -510,8 +510,8 @@ export default function ScenariosExample() {
 
       // Equity price
       const usd = new Currency('USD');
-      market.insertPrice('SPY', MarketScalar.price(new Money(450.0, usd)));
-      market.insertPrice('QQQ', MarketScalar.price(new Money(380.0, usd)));
+      market.insertPrice('SPY', MarketScalar.get_price(new Money(450.0, usd)));
+      market.insertPrice('QQQ', MarketScalar.get_price(new Money(380.0, usd)));
 
       // Vol surface
       const volSurface = new VolSurface(
@@ -592,17 +592,17 @@ export default function ScenariosExample() {
       log.push(`✓ Applied ${report.operationsApplied} operations`);
 
       // Check results
-      const spyPrice = market.price('SPY');
+      const spyPrice = market.getPrice('SPY');
       if (spyPrice?.isPrice) {
         log.push(`\nSPY: Price shocked (original: $450)`);
       }
 
-      const qqqPrice = market.price('QQQ');
+      const qqqPrice = market.getPrice('QQQ');
       if (qqqPrice?.isPrice) {
         log.push(`QQQ: Price shocked (original: $380)`);
       }
 
-      const volSurf = market.surface('SPX_VOL');
+      const volSurf = market.getSurface('SPX_VOL');
       if (volSurf) {
         const atm1Y = volSurf.value(1.0, 100.0);
         log.push(`\nSPX 1Y ATM Vol: ${(atm1Y * 100).toFixed(2)}%`);

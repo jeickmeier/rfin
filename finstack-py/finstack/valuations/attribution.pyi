@@ -429,8 +429,8 @@ def attribute_pnl(
         >>> market_t1 = MarketContext()
         >>> curve_t0 = DiscountCurve("USD-OIS", date(2025, 1, 1), [(0.0, 1.0), (1.0, 0.99)])
         >>> curve_t1 = DiscountCurve("USD-OIS", date(2025, 1, 1), [(0.0, 1.0), (1.0, 0.9895)])
-        >>> market_t0.insert_discount(curve_t0)
-        >>> market_t1.insert_discount(curve_t1)
+        >>> market_t0.insert(curve_t0)
+        >>> market_t1.insert(curve_t1)
         >>> attr = attribute_pnl(
         ...     bond,
         ...     market_t0,

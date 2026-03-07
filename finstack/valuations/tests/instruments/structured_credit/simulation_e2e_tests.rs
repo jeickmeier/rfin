@@ -58,9 +58,7 @@ fn flat_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(discount)
-        .insert_forward(forward)
+    MarketContext::new().insert(discount).insert(forward)
 }
 
 /// Create a single-asset pool (bullet loan, no amortization).

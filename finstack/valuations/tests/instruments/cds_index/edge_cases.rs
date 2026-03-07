@@ -155,7 +155,7 @@ fn test_missing_hazard_curve() {
 
     // Context with only discount curve
     let disc = flat_discount_curve("USD-OIS", as_of, 0.03);
-    let ctx = MarketContext::new().insert_discount(disc);
+    let ctx = MarketContext::new().insert(disc);
 
     let result = idx.value(&ctx, as_of);
     assert!(result.is_err(), "Should error with missing hazard curve");
@@ -455,7 +455,7 @@ fn test_extremely_high_hazard_rate() {
     // Create context with very high hazard rate
     let disc = flat_discount_curve("USD-OIS", as_of, 0.03);
     let hz = flat_hazard_curve("HZ-INDEX", as_of, 0.40, 0.50); // 50% hazard rate
-    let ctx = MarketContext::new().insert_discount(disc).insert_hazard(hz);
+    let ctx = MarketContext::new().insert(disc).insert(hz);
 
     let result = idx.value(&ctx, as_of);
     assert!(result.is_ok(), "High hazard rate should be handled");
@@ -473,7 +473,7 @@ fn test_zero_hazard_rate() {
     // Create context with zero hazard rate
     let disc = flat_discount_curve("USD-OIS", as_of, 0.03);
     let hz = flat_hazard_curve("HZ-INDEX", as_of, 0.40, 0.0); // Zero hazard
-    let ctx = MarketContext::new().insert_discount(disc).insert_hazard(hz);
+    let ctx = MarketContext::new().insert(disc).insert(hz);
 
     let result = idx.value(&ctx, as_of);
     assert!(result.is_ok(), "Zero hazard rate should be handled");

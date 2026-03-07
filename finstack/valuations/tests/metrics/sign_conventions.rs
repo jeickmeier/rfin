@@ -56,7 +56,7 @@ fn create_option_market(
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(disc_curve)
+        .insert(disc_curve)
         .insert_surface(vol_surface)
         .insert_price("AAPL", MarketScalar::Price(Money::new(spot, Currency::USD)))
         .insert_price("AAPL_DIV", MarketScalar::Unitless(div_yield))
@@ -228,7 +228,7 @@ fn test_bond_dv01_negative() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
     let registry = standard_registry();
     let pv = bond.value(&market, as_of).unwrap();
     let mut context = MetricContext::new(
@@ -488,9 +488,7 @@ fn test_cds_cs01_protection_buyer_positive() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_hazard(hazard_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(hazard_curve);
 
     let registry = standard_registry();
     let pv = cds.value(&market, as_of).unwrap();
@@ -562,9 +560,7 @@ fn test_cds_cs01_protection_seller_negative() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_hazard(hazard_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(hazard_curve);
 
     let registry = standard_registry();
     let pv = cds.value(&market, as_of).unwrap();
@@ -646,9 +642,7 @@ fn test_cds_cs01_opposite_signs() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_hazard(hazard_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(hazard_curve);
 
     let registry = standard_registry();
 

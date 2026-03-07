@@ -26,7 +26,7 @@ fn test_oas_behavior_without_quoted_price() {
         .knots([(0.0, 1.0), (5.0, 0.80)])
         .build()
         .unwrap();
-    let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     // OAS calculation without quoted price - verify behavior
     let result = bond.price_with_metrics(&market, as_of, &[MetricId::Oas]);
@@ -61,7 +61,7 @@ fn test_oas_with_quoted_price() {
         .knots([(0.0, 1.0), (5.0, 0.80)])
         .build()
         .unwrap();
-    let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let result = bond
         .price_with_metrics(&market, as_of, &[MetricId::Oas])

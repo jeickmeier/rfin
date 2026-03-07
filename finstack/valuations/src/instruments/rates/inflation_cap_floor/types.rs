@@ -189,7 +189,7 @@ impl InflationCapFloor {
         if let Some(lag) = self.lag_override {
             return lag;
         }
-        if let Some(index) = curves.inflation_index(self.inflation_index_id.as_str()) {
+        if let Ok(index) = curves.get_inflation_index(self.inflation_index_id.as_str()) {
             return index.lag();
         }
         InflationLag::None
@@ -237,7 +237,7 @@ impl InflationCapFloor {
         date: Date,
     ) -> finstack_core::Result<f64> {
         // First try to get historical fixing from the index
-        if let Some(index) = curves.inflation_index(self.inflation_index_id.as_str()) {
+        if let Ok(index) = curves.get_inflation_index(self.inflation_index_id.as_str()) {
             if let Ok(value) = index.value_on(date) {
                 return Self::validate_cpi_value(value, date);
             }
@@ -245,7 +245,7 @@ impl InflationCapFloor {
 
         // Fall back to curve projection with lag adjustment
         let lagged_date = self.lagged_fixing_date(curves, date);
-        let curve = curves.get_inflation(self.inflation_index_id.as_str())?;
+        let curve = curves.get_inflation_curve(self.inflation_index_id.as_str())?;
         let t = Self::signed_year_fraction(as_of, lagged_date);
         let value = curve.cpi(t);
         Self::validate_cpi_value(value, date)
@@ -342,7 +342,7 @@ impl InflationCapFloor {
             .implied_volatility
             .is_none()
         {
-            Some(curves.surface(self.vol_surface_id.as_str())?)
+            Some(curves.get_surface(self.vol_surface_id.as_str())?)
         } else {
             None
         };
