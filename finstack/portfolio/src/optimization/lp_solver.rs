@@ -73,44 +73,16 @@ struct LpConstraint {
     name: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct WeightVarSpec {
+    var: good_lp::Variable,
+    offset: f64,
+    min_weight: f64,
+    max_weight: f64,
+}
+
 impl DefaultLpOptimizer {
-    fn expr_uses_pv_native(expr: &MetricExpr) -> bool {
-        matches!(
-            expr,
-            MetricExpr::WeightedSum {
-                metric: PerPositionMetric::PvNative,
-            } | MetricExpr::ValueWeightedAverage {
-                metric: PerPositionMetric::PvNative,
-            }
-        )
-    }
-
-    fn validate_supported_problem(problem: &PortfolioOptimizationProblem) -> Result<()> {
-        if problem.trade_universe.allow_short_candidates {
-            return Err(Error::invalid_input(
-                "allow_short_candidates is not supported by the LP optimizer yet",
-            ));
-        }
-
-        let objective_uses_pv_native = match &problem.objective {
-            super::types::Objective::Maximize(expr) | super::types::Objective::Minimize(expr) => {
-                Self::expr_uses_pv_native(expr)
-            }
-        };
-
-        let constraint_uses_pv_native = problem.constraints.iter().any(|constraint| {
-            matches!(
-                constraint,
-                Constraint::MetricBound { metric, .. } if Self::expr_uses_pv_native(metric)
-            )
-        });
-
-        if objective_uses_pv_native || constraint_uses_pv_native {
-            return Err(Error::invalid_input(
-                "PerPositionMetric::PvNative is not supported until native-currency optimization semantics are implemented",
-            ));
-        }
-
+    fn validate_supported_problem(_problem: &PortfolioOptimizationProblem) -> Result<()> {
         Ok(())
     }
 
@@ -580,8 +552,25 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
             } else {
                 (feat.min_weight, feat.max_weight)
             };
+            if max_w < min_w {
+                return Err(Error::invalid_input(format!(
+                    "inconsistent weight bounds for '{}': min {} > max {}",
+                    item.position_id, min_w, max_w
+                )));
+            }
 
-            w_vars.push(vars.add(variable().min(min_w).max(max_w)));
+            let (var_min, var_max, offset) = if min_w < 0.0 {
+                (0.0, max_w - min_w, min_w)
+            } else {
+                (min_w, max_w, 0.0)
+            };
+
+            w_vars.push(WeightVarSpec {
+                var: vars.add(variable().min(var_min).max(var_max)),
+                offset,
+                min_weight: min_w,
+                max_weight: max_w,
+            });
         }
 
         // Auxiliary variables for turnover t_i (|w_i - w0_i|) if needed.
@@ -601,7 +590,10 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         // Objective
         let mut objective_expr: Expression = 0.0.into();
         for (var, coef) in w_vars.iter().zip(&coeffs_objective) {
-            objective_expr += (*coef) * *var;
+            objective_expr += (*coef) * var.var;
+            if var.offset != 0.0 {
+                objective_expr += (*coef) * var.offset;
+            }
         }
 
         let mut problem_model = if maximise {
@@ -610,6 +602,18 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
             vars.minimise(objective_expr)
         }
         .using(default_solver);
+
+        // Add explicit effective-weight bounds so signed candidate limits are
+        // enforced even when the backend internally re-parameterizes variables.
+        for w_var in &w_vars {
+            let mut effective_weight: Expression = w_var.var.into();
+            if w_var.offset != 0.0 {
+                effective_weight += w_var.offset;
+            }
+            problem_model =
+                problem_model.with(constraint!(effective_weight.clone() >= w_var.min_weight));
+            problem_model = problem_model.with(constraint!(effective_weight <= w_var.max_weight));
+        }
 
         // Add primary constraints
         for lc in &lp_constraints {
@@ -621,7 +625,10 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
 
             let mut lhs: Expression = 0.0.into();
             for (var, coef) in w_vars.iter().zip(&lc.coefficients) {
-                lhs += (*coef) * *var;
+                lhs += (*coef) * var.var;
+                if var.offset != 0.0 {
+                    lhs += (*coef) * var.offset;
+                }
             }
 
             problem_model = match lc.relation {
@@ -649,12 +656,12 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
                     .unwrap_or(0.0);
 
                 // t_i >= w_i - w0  ->  t_i - w_i >= -w0
-                let lhs1: Expression = t_var - *w_var;
-                problem_model = problem_model.with(constraint!(lhs1 >= -w0));
+                let lhs1: Expression = t_var - w_var.var;
+                problem_model = problem_model.with(constraint!(lhs1 >= w_var.offset - w0));
 
                 // t_i >= w0 - w_i  ->  t_i + w_i >= w0
-                let lhs2: Expression = t_var + *w_var;
-                problem_model = problem_model.with(constraint!(lhs2 >= w0));
+                let lhs2: Expression = t_var + w_var.var;
+                problem_model = problem_model.with(constraint!(lhs2 >= w0 - w_var.offset));
             }
 
             // Sum t_i <= max_turnover
@@ -675,7 +682,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         let mut weight_deltas: IndexMap<PositionId, f64> = IndexMap::new();
 
         for (item, w_var) in decision_items.iter().zip(&w_vars) {
-            let w_star = solution.value(*w_var);
+            let w_star = solution.value(w_var.var) + w_var.offset;
             let w0 = current_weights
                 .get(&item.position_id)
                 .copied()
@@ -717,7 +724,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         // Objective value at solution: a · w*
         let mut objective_value = 0.0_f64;
         for (coef, w_var) in coeffs_objective.iter().zip(&w_vars) {
-            let w_star = solution.value(*w_var);
+            let w_star = solution.value(w_var.var) + w_var.offset;
             objective_value = neumaier_sum([objective_value, *coef * w_star].into_iter());
         }
 
@@ -731,7 +738,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
             if let Some(name) = &lc.name {
                 let mut lhs_val = 0.0;
                 for (var, coef) in w_vars.iter().zip(&lc.coefficients) {
-                    lhs_val += *coef * solution.value(*var);
+                    lhs_val += *coef * (solution.value(var.var) + var.offset);
                 }
 
                 let slack = match lc.relation {

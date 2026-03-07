@@ -248,12 +248,20 @@ pub(crate) fn build_decision_space(
             current_quantity: 0.0,
         });
 
+        let candidate_min_weight = if problem.trade_universe.allow_short_candidates
+            && candidate.min_weight.abs() < 1e-12
+        {
+            -candidate.max_weight
+        } else {
+            candidate.min_weight
+        };
+
         features.push(DecisionFeatures {
             pv_base: 0.0, // Currently held value is 0
             pv_per_unit: pv_unit,
             measures,
             tags: candidate.tags.clone(),
-            min_weight: candidate.min_weight,
+            min_weight: candidate_min_weight,
             max_weight: candidate.max_weight, // Respect candidate constraints
         });
     }
