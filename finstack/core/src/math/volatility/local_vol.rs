@@ -164,32 +164,6 @@ impl LocalVolSurface {
                     }
                 };
 
-                // Add rK × ∂C/∂K term (rate correction)
-                // ∂C/∂K via central differences where possible
-                let dc_dk = if si == 0 {
-                    let dk = strikes[1] - strikes[0];
-                    if dk.abs() < 1e-14 {
-                        0.0
-                    } else {
-                        (call_prices[ei * n_str + 1] - call_prices[ei * n_str]) / dk
-                    }
-                } else if si == n_str - 1 {
-                    let dk = strikes[n_str - 1] - strikes[n_str - 2];
-                    if dk.abs() < 1e-14 {
-                        0.0
-                    } else {
-                        (call_prices[ei * n_str + n_str - 1] - call_prices[ei * n_str + n_str - 2])
-                            / dk
-                    }
-                } else {
-                    let dk = strikes[si + 1] - strikes[si - 1];
-                    if dk.abs() < 1e-14 {
-                        0.0
-                    } else {
-                        (call_prices[ei * n_str + si + 1] - call_prices[ei * n_str + si - 1]) / dk
-                    }
-                };
-
                 // ∂²C/∂K² via second-order central differences
                 let d2c_dk2 = if si == 0 || si == n_str - 1 {
                     // At boundaries, use one-sided second difference if possible
@@ -235,8 +209,11 @@ impl LocalVolSurface {
                     }
                 };
 
-                // Numerator: ∂C/∂T + r*K*∂C/∂K
-                let numerator = dc_dt + rate * k * dc_dk;
+                // Dupire formula (Black-76 / forward measure):
+                // σ²_local = ∂C/∂T / (½K²∂²C/∂K²)
+                // When using Black-76 with forward prices, the (r-q)K∂C/∂K and qC
+                // terms from the spot-based Dupire formula cancel in the forward measure.
+                let numerator = dc_dt;
 
                 // Denominator: (1/2) × K² × ∂²C/∂K²
                 let denominator = 0.5 * k * k * d2c_dk2;
@@ -369,12 +346,11 @@ fn find_segment(arr: &[f64], x: f64) -> usize {
         return 0;
     }
     if x >= arr[arr.len() - 1] {
-        return arr.len() - 1;
+        return arr.len() - 2;
     }
-    // Simple linear scan (grids are typically small)
-    arr.windows(2)
-        .position(|w| x >= w[0] && x <= w[1])
-        .unwrap_or(arr.len() - 2)
+    // Binary search: find largest i such that arr[i] <= x
+    let pos = arr.partition_point(|&v| v <= x);
+    pos.saturating_sub(1).min(arr.len() - 2)
 }
 
 // =============================================================================

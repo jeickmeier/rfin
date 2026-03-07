@@ -14,6 +14,10 @@ use super::super::specs::{FeeAccrualBasis, FeeBase};
 /// Conversion factor from basis points to rate (1 bp = 0.0001).
 const BP_TO_RATE: Decimal = Decimal::from_parts(1, 0, 0, false, 4); // 0.0001
 
+// Shared f64 ↔ Decimal conversion helpers from the parent `emission` module.
+// These propagate errors on NaN/Inf instead of silently collapsing to zero.
+use super::{decimal_to_f64, f64_to_decimal};
+
 /// Internal generic helper for fee emission.
 ///
 /// Creates a single fee cashflow with the specified kind if the computed fee amount
@@ -21,6 +25,11 @@ const BP_TO_RATE: Decimal = Decimal::from_parts(1, 0, 0, false, 4); // 0.0001
 ///
 /// Uses `Decimal` arithmetic throughout for consistency with the periodic fee
 /// emission path, avoiding f64 precision differences for large notionals.
+///
+/// # Panics (debug builds only)
+///
+/// Asserts that all f64 inputs are finite. In release builds, non-finite inputs
+/// produce no cashflow (returns `vec![]`) rather than silently producing zero fees.
 fn emit_fee_generic(
     d: Date,
     base_amount: f64,
@@ -29,6 +38,25 @@ fn emit_fee_generic(
     ccy: Currency,
     kind: CFKind,
 ) -> Vec<CashFlow> {
+    // Catch non-finite inputs in debug builds so tests surface the problem.
+    debug_assert!(
+        base_amount.is_finite(),
+        "emit_fee_generic: base_amount is not finite ({base_amount})"
+    );
+    debug_assert!(
+        fee_bp.is_finite(),
+        "emit_fee_generic: fee_bp is not finite ({fee_bp})"
+    );
+    debug_assert!(
+        year_fraction.is_finite(),
+        "emit_fee_generic: year_fraction is not finite ({year_fraction})"
+    );
+
+    // Guard: non-finite inputs produce no cashflow rather than a silent zero fee.
+    if !base_amount.is_finite() || !fee_bp.is_finite() || !year_fraction.is_finite() {
+        return vec![];
+    }
+
     // Use Decimal for consistent precision with emit_fees_on
     let base_dec = Decimal::try_from(base_amount).unwrap_or(Decimal::ZERO);
     let fee_bp_dec = Decimal::try_from(fee_bp).unwrap_or(Decimal::ZERO);
@@ -292,15 +320,17 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
                 }
             };
 
-            // Use Decimal for fee calculation
-            let base_amt_dec = Decimal::try_from(base_amt).unwrap_or(Decimal::ZERO);
-            let yf_dec = Decimal::try_from(yf).unwrap_or(Decimal::ZERO);
+            // Use Decimal for fee calculation.
+            // Propagate errors on NaN/Inf inputs rather than silently producing
+            // zero fees, which would create plausible-looking but incorrect valuations.
+            let base_amt_dec = f64_to_decimal(base_amt, "fee base amount")?;
+            let yf_dec = f64_to_decimal(yf, "fee year fraction")?;
             let fee_amt_dec = base_amt_dec * pf.bps * bp_to_rate * yf_dec;
-            let fee_amt = fee_amt_dec.to_f64().unwrap_or(0.0);
+            let fee_amt = decimal_to_f64(fee_amt_dec, "fee amount")?;
 
             // Convert rate from bps to decimal for storage
             let rate_dec = pf.bps * bp_to_rate;
-            let rate = rate_dec.to_f64().unwrap_or(0.0);
+            let rate = decimal_to_f64(rate_dec, "fee rate")?;
 
             if fee_amt > 0.0 {
                 new_flows.push(CashFlow {

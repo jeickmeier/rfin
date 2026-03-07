@@ -224,7 +224,8 @@ impl Payoff for AutocallablePayoff {
                 floor.max(participation_term)
             }
             FinalPayoffType::Participation { rate } => {
-                1.0 + rate * ((self.final_spot / self.initial_spot - 1.0).max(0.0))
+                let capped_ratio = (self.final_spot / self.initial_spot).min(self.cap_level);
+                1.0 + rate * ((capped_ratio - 1.0).max(0.0))
             }
             FinalPayoffType::KnockInPut { strike } => {
                 let barrier_level = self.initial_spot * self.final_barrier;
@@ -408,6 +409,35 @@ mod tests {
         assert!(
             (value.amount() - 45.0).abs() < 1e-10,
             "A 60% final barrier should knock in when spot hits 55 on a 100 initial spot; got {}",
+            value.amount()
+        );
+    }
+
+    #[test]
+    fn test_participation_payoff_respects_cap_level() {
+        let mut payoff = AutocallablePayoff::new(
+            vec![1.0],
+            vec![2.0],
+            vec![0.0],
+            0.6,
+            FinalPayoffType::Participation { rate: 1.0 },
+            1.0,
+            1.2,
+            100_000.0,
+            Currency::USD,
+            100.0,
+            vec![1.0],
+        );
+
+        let mut state = PathState::new(100, 1.0);
+        state.set(state_keys::SPOT, 150.0);
+        payoff.on_event(&mut state);
+
+        let value = payoff.value(Currency::USD);
+        let expected = 1.2 * 100_000.0;
+        assert!(
+            (value.amount() - expected).abs() < 1e-6,
+            "Participation payoff should cap at 120% of notional: expected {expected}, got {}",
             value.amount()
         );
     }

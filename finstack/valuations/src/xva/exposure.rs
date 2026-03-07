@@ -36,8 +36,12 @@
 
 use std::sync::Arc;
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, CALENDAR_DAYS_PER_YEAR};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::fx::FxConversionPolicy;
+use finstack_core::money::fx::FxQuery;
+use finstack_core::money::Money;
 
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::rng::philox::PhiloxRng;
@@ -55,6 +59,66 @@ use super::types::{StochasticExposureConfig, StochasticExposureProfile};
 #[inline]
 fn years_to_days_act_365f(years: f64) -> i64 {
     (years * CALENDAR_DAYS_PER_YEAR).round() as i64
+}
+
+fn resolve_reporting_currency(
+    instruments: &[Arc<dyn Instrument>],
+    market: &MarketContext,
+    as_of: Date,
+    netting_set: &NettingSet,
+) -> finstack_core::Result<Currency> {
+    if let Some(currency) = netting_set.reporting_currency {
+        return Ok(currency);
+    }
+
+    let mut observed: Option<Currency> = None;
+    for inst in instruments {
+        let currency = inst.value(market, as_of)?.currency();
+        match observed {
+            None => observed = Some(currency),
+            Some(existing) if existing == currency => {}
+            Some(_) => {
+                return Err(finstack_core::Error::Validation(
+                    "XVA exposure requires an explicit reporting currency for mixed-currency portfolios"
+                        .to_string(),
+                ))
+            }
+        }
+    }
+
+    observed.ok_or_else(|| {
+        finstack_core::Error::Validation(
+            "XVA exposure requires at least one instrument to infer reporting currency".to_string(),
+        )
+    })
+}
+
+fn convert_to_reporting(
+    value: Money,
+    reporting_currency: Currency,
+    market: &MarketContext,
+    on: Date,
+) -> finstack_core::Result<f64> {
+    if value.currency() == reporting_currency {
+        return Ok(value.amount());
+    }
+
+    let fx = market.fx().ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "XVA exposure requires FX data to convert {} into reporting currency {}",
+            value.currency(),
+            reporting_currency
+        ))
+    })?;
+    let rate = fx
+        .rate(FxQuery::with_policy(
+            value.currency(),
+            reporting_currency,
+            on,
+            FxConversionPolicy::CashflowDate,
+        ))?
+        .rate;
+    Ok(value.amount() * rate)
 }
 
 #[cfg(feature = "mc")]
@@ -122,6 +186,7 @@ pub fn compute_exposure_profile(
     netting_set: &NettingSet,
 ) -> finstack_core::Result<ExposureProfile> {
     config.validate()?;
+    let reporting_currency = resolve_reporting_currency(instruments, market, as_of, netting_set)?;
 
     let n = config.time_grid.len();
     let mut times = Vec::with_capacity(n);
@@ -155,7 +220,9 @@ pub fn compute_exposure_profile(
         // Value each instrument at the future date
         let mut values = Vec::with_capacity(instruments.len());
         for inst in instruments {
-            match inst.value_raw(&rolled_market, future_date) {
+            match inst.value(&rolled_market, future_date).and_then(|value| {
+                convert_to_reporting(value, reporting_currency, &rolled_market, future_date)
+            }) {
                 Ok(v) => values.push(v),
                 Err(_) => {
                     // Instrument may have expired or be unvaluable at this horizon.
@@ -320,8 +387,11 @@ mod tests {
     use crate::xva::types::CsaTerms;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+    use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
     use finstack_core::money::Money;
+    use std::sync::Arc;
     use time::Month;
 
     // Note: Full integration tests require constructing instrument and market mocks.
@@ -374,6 +444,53 @@ mod tests {
         }
 
         fn value_raw(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<f64> {
+            Ok(self.pv)
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    struct MultiCurrencyStaticInstrument {
+        id: String,
+        attributes: Attributes,
+        pv: Money,
+    }
+
+    impl MultiCurrencyStaticInstrument {
+        fn new(id: &str, amount: f64, currency: Currency) -> Self {
+            Self {
+                id: id.to_string(),
+                attributes: Attributes::new(),
+                pv: Money::new(amount, currency),
+            }
+        }
+    }
+
+    impl Instrument for MultiCurrencyStaticInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> crate::pricer::InstrumentType {
+            crate::pricer::InstrumentType::Bond
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attributes
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attributes
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
             Ok(self.pv)
         }
     }
@@ -633,6 +750,7 @@ mod tests {
             id: "CSA-NEG".into(),
             counterparty_id: "CP".into(),
             csa: Some(csa.clone()),
+            reporting_currency: None,
         };
 
         let profile = compute_exposure_profile(&instruments, &market, as_of, &config, &netting_set)
@@ -645,6 +763,92 @@ mod tests {
             profile.ene[0],
             expected_ene
         );
+    }
+
+    #[test]
+    fn mixed_currency_profile_requires_explicit_reporting_currency() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+        let instruments: Vec<Arc<dyn Instrument>> = vec![
+            Arc::new(MultiCurrencyStaticInstrument::new(
+                "USD-PV",
+                100.0,
+                Currency::USD,
+            )),
+            Arc::new(MultiCurrencyStaticInstrument::new(
+                "EUR-PV",
+                100.0,
+                Currency::EUR,
+            )),
+        ];
+
+        let provider = SimpleFxProvider::new();
+        provider.set_quote(Currency::EUR, Currency::USD, 2.0);
+        let fx = FxMatrix::new(Arc::new(provider));
+
+        let market = MarketContext::new().insert_fx(fx);
+        let config = XvaConfig {
+            time_grid: vec![0.25],
+            recovery_rate: 0.40,
+            include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
+        };
+        let netting_set = NettingSet {
+            id: "MIXED-CCY".into(),
+            counterparty_id: "CP".into(),
+            csa: None,
+            reporting_currency: None,
+        };
+
+        let err = compute_exposure_profile(&instruments, &market, as_of, &config, &netting_set)
+            .expect_err(
+            "mixed-currency portfolios must not aggregate without an explicit reporting currency",
+        );
+        assert!(
+            err.to_string().contains("reporting currency"),
+            "expected reporting currency validation error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn mixed_currency_profile_converts_into_reporting_currency() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+        let instruments: Vec<Arc<dyn Instrument>> = vec![
+            Arc::new(MultiCurrencyStaticInstrument::new(
+                "USD-PV",
+                100.0,
+                Currency::USD,
+            )),
+            Arc::new(MultiCurrencyStaticInstrument::new(
+                "EUR-PV",
+                100.0,
+                Currency::EUR,
+            )),
+        ];
+
+        let provider = SimpleFxProvider::new();
+        provider.set_quote(Currency::EUR, Currency::USD, 2.0);
+        let fx = FxMatrix::new(Arc::new(provider));
+
+        let market = MarketContext::new().insert_fx(fx);
+        let config = XvaConfig {
+            time_grid: vec![0.25],
+            recovery_rate: 0.40,
+            include_wrong_way_risk: false,
+            own_recovery_rate: None,
+            funding: None,
+        };
+        let netting_set = NettingSet {
+            id: "MIXED-CCY".into(),
+            counterparty_id: "CP".into(),
+            csa: None,
+            reporting_currency: Some(Currency::USD),
+        };
+
+        let profile = compute_exposure_profile(&instruments, &market, as_of, &config, &netting_set)
+            .expect("mixed-currency profile should compute with explicit reporting currency");
+        assert!((profile.mtm_values[0] - 300.0).abs() < 1e-12);
+        assert!((profile.epe[0] - 300.0).abs() < 1e-12);
     }
 
     #[cfg(feature = "mc")]

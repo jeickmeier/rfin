@@ -243,6 +243,34 @@ fn test_clo_schedule_avoids_us_holidays() {
 }
 
 #[test]
+fn test_seasoned_clo_keeps_contractual_coupon_grid() {
+    let mut clo = StructuredCredit::new_clo(
+        "SEASONED_CLO",
+        create_test_pool(),
+        create_test_tranches(),
+        closing_date(),
+        maturity_date(),
+        "USD_OIS",
+    )
+    .with_payment_calendar("nyse");
+
+    clo.first_payment_date = Date::from_calendar_date(2024, Month::April, 1).unwrap();
+
+    let market = create_test_market();
+    let as_of = Date::from_calendar_date(2025, Month::February, 15).unwrap();
+    let flows = clo
+        .build_dated_flows(&market, as_of)
+        .expect("seasoned CLO flows");
+
+    let first_future_flow = flows.first().expect("future flow").0;
+    assert_eq!(
+        first_future_flow,
+        Date::from_calendar_date(2025, Month::April, 1).unwrap(),
+        "future schedule should stay on the contractual grid rather than re-anchor from as_of"
+    );
+}
+
+#[test]
 fn test_payment_schedule_is_deterministic_with_calendar() {
     // Arrange: Create two identical CLOs with same calendar
     let clo1 = StructuredCredit::new_clo(

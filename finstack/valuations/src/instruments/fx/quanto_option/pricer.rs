@@ -64,6 +64,36 @@ fn collect_quanto_inputs(
     Ok((spot, r_dom, r_for, q, sigma_equity, sigma_fx, t))
 }
 
+fn payoff_scale(inst: &QuantoOption) -> finstack_core::Result<f64> {
+    let quantity = inst.underlying_quantity.ok_or_else(|| {
+        finstack_core::Error::Validation(
+            "QuantoOption requires `underlying_quantity`; domestic notional alone is ambiguous"
+                .to_string(),
+        )
+    })?;
+    let fx_rate = inst.payoff_fx_rate.ok_or_else(|| {
+        finstack_core::Error::Validation(
+            "QuantoOption requires `payoff_fx_rate`; domestic notional alone is ambiguous"
+                .to_string(),
+        )
+    })?;
+
+    if !quantity.is_finite() || quantity <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "QuantoOption underlying_quantity must be positive and finite; got {}",
+            quantity
+        )));
+    }
+    if !fx_rate.is_finite() || fx_rate <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "QuantoOption payoff_fx_rate must be positive and finite; got {}",
+            fx_rate
+        )));
+    }
+
+    Ok(quantity * fx_rate)
+}
+
 /// Quanto option analytical pricer.
 pub struct QuantoOptionAnalyticalPricer;
 
@@ -139,7 +169,10 @@ impl Pricer for QuantoOptionAnalyticalPricer {
             ),
         };
 
-        let pv = Money::new(price * quanto.notional.amount(), quanto.quote_currency);
+        let scale = payoff_scale(quanto).map_err(|e| {
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+        })?;
+        let pv = Money::new(price * scale, quanto.quote_currency);
         Ok(ValuationResult::stamped(quanto.id(), as_of, pv))
     }
 }

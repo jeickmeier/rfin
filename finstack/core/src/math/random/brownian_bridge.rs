@@ -117,7 +117,13 @@ impl BrownianBridge {
     /// `w_out[i] = cumulative Brownian motion at step i`
     pub fn construct_path(&self, z: &[f64], w_out: &mut [f64], dt: f64) {
         let num_steps = z.len();
-        assert_eq!(w_out.len(), num_steps + 1);
+        debug_assert_eq!(
+            w_out.len(),
+            num_steps + 1,
+            "construct_path: w_out.len()={} != z.len()+1={}",
+            w_out.len(),
+            num_steps + 1
+        );
 
         // Initialize
         w_out[0] = 0.0;
@@ -152,7 +158,7 @@ impl BrownianBridge {
         // Find the closest populated points to the left and right
         let mut left = 0;
         for i in (0..idx).rev() {
-            if !w[i].is_nan() && w[i].is_finite() {
+            if w[i].is_finite() {
                 left = i;
                 break;
             }
@@ -160,7 +166,7 @@ impl BrownianBridge {
 
         let mut right = w.len() - 1;
         for (i, &val) in w.iter().enumerate().skip(idx + 1) {
-            if !val.is_nan() && val.is_finite() {
+            if val.is_finite() {
                 right = i;
                 break;
             }

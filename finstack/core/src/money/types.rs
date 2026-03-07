@@ -92,6 +92,9 @@ impl Money {
 
     /// Format the amount with custom decimals and optional currency symbol.
     ///
+    /// Uses Bankers rounding (IEEE 754 round-half-to-even). For other rounding
+    /// modes, use [`format_with_config`].
+    ///
     /// # Arguments
     ///
     /// * `decimals` - Number of decimal places to display
@@ -124,6 +127,8 @@ impl Money {
     }
 
     /// Format with thousands separators and currency.
+    ///
+    /// Uses Bankers rounding. For custom rounding, use [`format_with_config`].
     ///
     /// # Example
     ///
@@ -488,8 +493,13 @@ impl Money {
             .into());
         }
         let new_amount = super::rounding::try_repr_mul_f64(self.amount, rate)?;
+        let rounded = super::rounding::round_decimal(
+            new_amount,
+            to.decimals() as i32,
+            crate::config::RoundingMode::Bankers,
+        );
         Ok(Self {
-            amount: new_amount,
+            amount: rounded,
             currency: to,
         })
     }
@@ -596,20 +606,17 @@ macro_rules! money {
 // -------------------------------------------------------------------------
 // Unchecked arithmetic – currency must match or panic
 // -------------------------------------------------------------------------
-// NOTE: AddAssign and SubAssign require matching currencies. In debug builds,
-// currency mismatch will panic to catch bugs early. In release builds, the
-// operation is a no-op on mismatch to avoid panics. For explicit error handling,
-// use `checked_add` and `checked_sub` which return `Result<Money, Error>`.
+// NOTE: AddAssign and SubAssign require matching currencies. Currency
+// mismatch will always panic regardless of build type. For explicit error
+// handling, use `checked_add` and `checked_sub` which return `Result<Money, Error>`.
 
 impl AddAssign for Money {
     /// Adds another [`Money`] value to this one in place.
     ///
-    /// # Currency Safety
+    /// # Panics
     ///
-    /// - **Debug builds**: Panics if `rhs` has a different currency (catches bugs early)
-    /// - **Release builds**: No-op if currencies don't match (safe but silent)
-    ///
-    /// For explicit error handling, use [`Money::checked_add`] which returns `Result`.
+    /// Panics if `rhs` has a different currency. For fallible
+    /// arithmetic, use [`Money::checked_add`] which returns `Result`.
     ///
     /// # Example
     ///
@@ -637,12 +644,10 @@ impl AddAssign for Money {
 impl SubAssign for Money {
     /// Subtracts another [`Money`] value from this one in place.
     ///
-    /// # Currency Safety
+    /// # Panics
     ///
-    /// - **Debug builds**: Panics if `rhs` has a different currency (catches bugs early)
-    /// - **Release builds**: No-op if currencies don't match (safe but silent)
-    ///
-    /// For explicit error handling, use [`Money::checked_sub`] which returns `Result`.
+    /// Panics if `rhs` has a different currency. For fallible
+    /// arithmetic, use [`Money::checked_sub`] which returns `Result`.
     ///
     /// # Example
     ///
@@ -930,8 +935,9 @@ mod tests {
     fn try_new_handles_very_small_values() {
         let small = 1e-15;
         let m = Money::try_new(small, Currency::USD).expect("Small value should succeed");
-        // Value will be rounded to currency decimals (2 for USD), so it becomes 0
-        assert_eq!(m.amount(), 0.0);
+        // Without config, try_new preserves full f64 precision via Decimal::from_f64_retain.
+        // Use try_new_with_config for currency-precision rounding.
+        assert!(m.amount().abs() < 1e-14);
     }
 
     #[test]

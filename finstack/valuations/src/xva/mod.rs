@@ -59,6 +59,7 @@
 //!     id: "NS-001".into(),
 //!     counterparty_id: "COUNTERPARTY-CREDIT".into(),
 //!     csa: None, // uncollateralized
+//!     reporting_currency: None,
 //! };
 //!
 //! // 3. Compute exposure profile

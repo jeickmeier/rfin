@@ -68,6 +68,14 @@ pub struct BarrierOption {
     pub barrier_type: BarrierType,
     /// Option expiry date
     pub expiry: Date,
+    /// Observed barrier state for expired options.
+    ///
+    /// Historical barrier monitoring must be supplied explicitly for expired
+    /// options because terminal spot alone does not reveal whether the barrier
+    /// was breached intralife and then reversed.
+    #[builder(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_barrier_breached: Option<bool>,
     /// Notional amount
     pub notional: Money,
     /// Day count convention
@@ -136,6 +144,7 @@ impl BarrierOption {
             .option_type(crate::instruments::OptionType::Call)
             .barrier_type(BarrierType::UpAndOut)
             .expiry(date!(2024 - 12 - 20))
+            .observed_barrier_breached_opt(None)
             .notional(Money::new(100_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
             .use_gobet_miri(true) // Enable discrete monitoring correction (recommended)
@@ -235,6 +244,13 @@ impl crate::instruments::common_impl::traits::Instrument for BarrierOption {
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::surfaces::VolSurface;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::Money;
+
     #[cfg(not(feature = "mc"))]
     #[test]
     fn value_rejects_discrete_mode_when_mc_disabled() {
@@ -247,6 +263,46 @@ mod tests {
         assert!(
             format!("{err}").contains("use_gobet_miri=true"),
             "Error should explain explicit discrete-mode requirement"
+        );
+    }
+
+    #[test]
+    fn expired_barrier_requires_observed_state() {
+        let mut option = super::BarrierOption::example();
+        option.use_gobet_miri = false;
+        option.observed_barrier_breached = None;
+        let market = MarketContext::new()
+            .insert_discount(
+                DiscountCurve::builder("USD-OIS")
+                    .base_date(option.expiry)
+                    .knots([(0.0, 1.0), (1.0, 1.0)])
+                    .build()
+                    .expect("discount curve"),
+            )
+            .insert_surface(
+                VolSurface::from_grid(
+                    "SPX-VOL",
+                    &[0.0, 1.0],
+                    &[4000.0, 6000.0],
+                    &[0.2, 0.2, 0.2, 0.2],
+                )
+                .expect("surface"),
+            )
+            .insert_price("SPX-DIV", MarketScalar::Unitless(0.0))
+            .insert_price(
+                "SPX-SPOT",
+                MarketScalar::Price(Money::new(5100.0, Currency::USD)),
+            );
+
+        let err = crate::instruments::common_impl::traits::Instrument::value(
+            &option,
+            &market,
+            option.expiry,
+        )
+        .expect_err("expired barrier should require observed barrier state");
+        assert!(
+            format!("{err}").contains("observed_barrier_breached"),
+            "unexpected error: {err}"
         );
     }
 }

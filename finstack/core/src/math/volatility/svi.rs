@@ -114,6 +114,25 @@ impl SviParams {
         (w / t).sqrt()
     }
 
+    /// Fallible version of [`implied_vol`](Self::implied_vol) with descriptive errors.
+    ///
+    /// Prefer this when diagnostics are needed; use `implied_vol` on hot paths
+    /// where NaN propagation is acceptable.
+    pub fn try_implied_vol(&self, k: f64, t: f64) -> crate::Result<f64> {
+        if t <= 0.0 {
+            return Err(crate::Error::Validation(
+                "SVI implied vol: time-to-expiry must be positive".into(),
+            ));
+        }
+        let w = self.total_variance(k);
+        if w < 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "SVI negative total variance w={w:.6} at k={k:.4}"
+            )));
+        }
+        Ok((w / t).sqrt())
+    }
+
     /// Validate SVI parameters against no-arbitrage constraints.
     ///
     /// # Conditions Checked
@@ -161,6 +180,17 @@ impl SviParams {
         if min_var < -1e-14 {
             return Err(crate::Error::Validation(format!(
                 "SVI no-arbitrage violated: a + b*sigma*sqrt(1-rho^2) = {min_var:.6e} < 0"
+            )));
+        }
+        // Roger Lee moment bounds: the total variance slope in either wing is
+        // b(1 ± ρ), and Lee (2004) shows the maximum slope must not exceed 2
+        // to prevent butterfly arbitrage at extreme strikes.
+        // Reference: Lee, R. (2004). "The Moment Formula for Implied Volatility
+        // at Extreme Strikes." Mathematical Finance, 14(3), 469-480.
+        let lee_bound = self.b * (1.0 + self.rho.abs());
+        if lee_bound > 2.0 + 1e-12 {
+            return Err(crate::Error::Validation(format!(
+                "SVI Roger Lee moment bound violated: b*(1+|rho|) = {lee_bound:.6} > 2"
             )));
         }
         Ok(())

@@ -9,7 +9,7 @@ use crate::pricer::{
 };
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::surfaces::VolSurfaceAxis;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use std::sync::Arc;
@@ -230,6 +230,14 @@ impl Pricer for SimpleSwaptionBlackPricer {
                     {
                         impl_vol
                     } else {
+                        vol_surface
+                            .require_secondary_axis(VolSurfaceAxis::Strike)
+                            .map_err(|e| {
+                                PricingError::missing_market_data_with_context(
+                                    e.to_string(),
+                                    PricingErrorContext::default(),
+                                )
+                            })?;
                         match swaption
                             .pricing_overrides
                             .model_config

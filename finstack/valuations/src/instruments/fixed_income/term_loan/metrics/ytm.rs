@@ -9,6 +9,8 @@ use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::Money;
 
+use super::irr_helpers::target_price_from_quote_or_model;
+
 /// Yield-to-maturity calculator for term loans.
 ///
 /// Solves for the IRR using holder-view flows (coupons, amortization, redemptions only)
@@ -31,10 +33,10 @@ impl MetricCalculator for YtmCalculator {
             Vec::with_capacity(holder_flows.len() + 1);
 
         // Add initial price leg at settlement_date (negative = outflow for purchase)
-        let base_pv = context.base_value;
+        let target_price = target_price_from_quote_or_model(loan, context.base_value);
         flows.push((
             settlement_date,
-            Money::new(-base_pv.amount(), base_pv.currency()),
+            Money::new(-target_price.amount(), target_price.currency()),
         ));
 
         // Add holder-view flows after settlement_date

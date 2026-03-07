@@ -25,13 +25,14 @@ pub fn poisson_inverse_cdf(lambda: f64, u: f64) -> usize {
         return 0;
     }
 
-    // For small lambda, use inverse CDF directly
-    if lambda < 10.0 {
+    // Threshold 30.0: normal approximation skewness = 1/√λ < 0.18
+    if lambda < 30.0 {
         let mut p = (-lambda).exp(); // P(N = 0)
         let mut cdf = p;
         let mut k = 0;
 
-        while cdf < u && k < 100 {
+        // Cap at 200 to prevent infinite loops for extreme u values
+        while cdf < u && k < 200 {
             k += 1;
             p *= lambda / k as f64;
             cdf += p;

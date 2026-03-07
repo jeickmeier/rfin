@@ -109,19 +109,14 @@ pub fn convert_atm_volatility(
     validate_forward_for_convention(forward_rate, to_convention)?;
 
     // Early returns for identical convention (including same shift)
-    if std::mem::discriminant(&from_convention) == std::mem::discriminant(&to_convention) {
-        // If both are shifted, check shift equality
-        if let (
+    match (from_convention, to_convention) {
+        (VolatilityConvention::Lognormal, VolatilityConvention::Lognormal)
+        | (VolatilityConvention::Normal, VolatilityConvention::Normal) => return Ok(vol),
+        (
             VolatilityConvention::ShiftedLognormal { shift: s1 },
             VolatilityConvention::ShiftedLognormal { shift: s2 },
-        ) = (from_convention, to_convention)
-        {
-            if (s1 - s2).abs() < 1e-12 {
-                return Ok(vol);
-            }
-        } else {
-            return Ok(vol);
-        }
+        ) if (s1 - s2).abs() < 1e-12 => return Ok(vol),
+        _ => {}
     }
 
     // Price matching with numerical solver

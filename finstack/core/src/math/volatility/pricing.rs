@@ -453,6 +453,10 @@ pub fn black_shifted_vega(forward: f64, strike: f64, sigma: f64, t: f64, shift: 
 /// - Corrado, C. J., & Miller, T. W. (1996). "A Note on a Simple, Accurate
 ///   Formula to Compute Implied Standard Deviations." *Journal of Banking &
 ///   Finance*, 20(3), 595-603.
+///
+/// **Note**: This is an ATM-only approximation. The `strike` parameter is
+/// accepted for API consistency but does not enter the core formula --
+/// for non-ATM options, use a full implied vol solver instead.
 #[inline]
 pub fn brenner_subrahmanyam_approx(forward: f64, strike: f64, option_price: f64, t: f64) -> f64 {
     const TWO_PI: f64 = 2.0 * std::f64::consts::PI;

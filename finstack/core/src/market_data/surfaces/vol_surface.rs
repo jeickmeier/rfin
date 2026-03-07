@@ -68,6 +68,36 @@ use crate::{
     Error,
 };
 
+/// Semantic meaning of the secondary axis on a [`VolSurface`].
+///
+/// Most option surfaces are defined on `expiry × strike`, but some calibration
+/// workflows materialize ATM matrices on `expiry × tenor`. Keeping the axis type
+/// explicit prevents consumers from accidentally interpreting tenor buckets as
+/// strikes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VolSurfaceAxis {
+    /// The secondary axis is strike/moneyness.
+    Strike,
+    /// The secondary axis is swap tenor or another maturity-style bucket.
+    Tenor,
+}
+
+impl Default for VolSurfaceAxis {
+    fn default() -> Self {
+        Self::Strike
+    }
+}
+
+impl std::fmt::Display for VolSurfaceAxis {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Strike => write!(f, "strike"),
+            Self::Tenor => write!(f, "tenor"),
+        }
+    }
+}
+
 /// Volatility surface defined on expiry × strike grid.
 ///
 /// Internally stores volatilities in row-major order as `Vec<f64>`.
@@ -77,6 +107,7 @@ pub struct VolSurface {
     id: CurveId,
     expiries: Box<[f64]>,
     strikes: Box<[f64]>,
+    secondary_axis: VolSurfaceAxis,
     /// Row-major storage: vols[expiry_idx * n_strikes + strike_idx]
     vols: Vec<f64>,
 }
@@ -91,6 +122,9 @@ struct RawVolSurface {
     pub expiries: Vec<f64>,
     /// Strike prices
     pub strikes: Vec<f64>,
+    /// Semantic meaning of the secondary axis. Defaults to strike for older payloads.
+    #[serde(default)]
+    pub secondary_axis: VolSurfaceAxis,
     /// Volatility values in row-major order
     pub vols_row_major: Vec<f64>,
 }
@@ -101,6 +135,7 @@ impl From<VolSurface> for RawVolSurface {
             id: surface.id.to_string(),
             expiries: surface.expiries.to_vec(),
             strikes: surface.strikes.to_vec(),
+            secondary_axis: surface.secondary_axis,
             vols_row_major: surface.vols,
         }
     }
@@ -110,12 +145,13 @@ impl TryFrom<RawVolSurface> for VolSurface {
     type Error = crate::Error;
 
     fn try_from(state: RawVolSurface) -> crate::Result<Self> {
-        Self::from_grid(
+        Ok(Self::from_grid(
             &state.id,
             &state.expiries,
             &state.strikes,
             &state.vols_row_major,
-        )
+        )?
+        .with_secondary_axis(state.secondary_axis))
     }
 }
 
@@ -144,6 +180,7 @@ impl VolSurface {
             id: id.into(),
             expiries: Vec::new(),
             strikes: Vec::new(),
+            secondary_axis: VolSurfaceAxis::Strike,
             vols: Vec::new(),
         }
     }
@@ -246,6 +283,30 @@ impl VolSurface {
         &self.strikes
     }
 
+    /// Semantic meaning of the secondary axis.
+    pub fn secondary_axis(&self) -> VolSurfaceAxis {
+        self.secondary_axis
+    }
+
+    /// Return a copy of this surface with an explicit secondary-axis contract.
+    #[must_use]
+    pub fn with_secondary_axis(mut self, secondary_axis: VolSurfaceAxis) -> Self {
+        self.secondary_axis = secondary_axis;
+        self
+    }
+
+    /// Require the semantic axis before a caller uses the surface.
+    pub fn require_secondary_axis(&self, expected: VolSurfaceAxis) -> crate::Result<()> {
+        if self.secondary_axis == expected {
+            return Ok(());
+        }
+
+        Err(Error::Validation(format!(
+            "Vol surface '{}' uses secondary axis '{}' but caller expected '{}'",
+            self.id, self.secondary_axis, expected
+        )))
+    }
+
     /// Grid shape as (n_expiries, n_strikes).
     pub fn grid_shape(&self) -> (usize, usize) {
         (self.expiries.len(), self.strikes.len())
@@ -341,6 +402,7 @@ impl VolSurface {
                 id: self.id.clone(),
                 expiries: self.expiries.clone(),
                 strikes: self.strikes.clone(),
+                secondary_axis: self.secondary_axis,
                 vols: self.vols.clone(),
             };
         }
@@ -352,6 +414,7 @@ impl VolSurface {
             id: self.id.clone(),
             expiries: self.expiries.clone(),
             strikes: self.strikes.clone(),
+            secondary_axis: self.secondary_axis,
             vols: scaled_vols,
         }
     }
@@ -393,6 +456,7 @@ impl Bumpable for VolSurface {
             id: self.id.clone(),
             expiries: self.expiries.clone(),
             strikes: self.strikes.clone(),
+            secondary_axis: self.secondary_axis,
             vols: bumped_vols,
         })
     }
@@ -593,6 +657,7 @@ pub struct VolSurfaceBuilder {
     id: CurveId,
     expiries: Vec<f64>,
     strikes: Vec<f64>,
+    secondary_axis: VolSurfaceAxis,
     vols: Vec<Vec<f64>>, // row-major expiries
 }
 
@@ -605,6 +670,12 @@ impl VolSurfaceBuilder {
     /// Set the vector of option **strikes**.
     pub fn strikes(mut self, ks: &[f64]) -> Self {
         self.strikes.extend_from_slice(ks);
+        self
+    }
+
+    /// Set the semantic meaning of the secondary axis.
+    pub fn secondary_axis(mut self, axis: VolSurfaceAxis) -> Self {
+        self.secondary_axis = axis;
         self
     }
 
@@ -645,6 +716,7 @@ impl VolSurfaceBuilder {
             id: self.id,
             expiries: self.expiries.into_boxed_slice(),
             strikes: self.strikes.into_boxed_slice(),
+            secondary_axis: self.secondary_axis,
             vols: flat,
         })
     }
@@ -657,6 +729,24 @@ impl VolSurface {
         expiries: &[f64],
         strikes: &[f64],
         vols_row_major: &[f64],
+    ) -> crate::Result<Self> {
+        Self::from_grid_with_axis(
+            id,
+            expiries,
+            strikes,
+            vols_row_major,
+            VolSurfaceAxis::Strike,
+        )
+    }
+
+    /// Construct directly from axes and a row-major flat values array with an
+    /// explicit secondary-axis contract.
+    pub fn from_grid_with_axis(
+        id: impl AsRef<str>,
+        expiries: &[f64],
+        strikes: &[f64],
+        vols_row_major: &[f64],
+        secondary_axis: VolSurfaceAxis,
     ) -> crate::Result<Self> {
         if expiries.is_empty() || strikes.is_empty() {
             return Err(InputError::TooFewPoints.into());
@@ -679,6 +769,7 @@ impl VolSurface {
             id: CurveId::new(id.as_ref()),
             expiries: expiries.to_vec().into_boxed_slice(),
             strikes: strikes.to_vec().into_boxed_slice(),
+            secondary_axis,
             vols: vols_row_major.to_vec(),
         })
     }

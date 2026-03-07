@@ -1079,7 +1079,7 @@ fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
 
     let actual_days = (end - start).whole_days() as f64;
 
-    // Check if Feb 29 falls between start (exclusive) and end (inclusive)
+    // Check if Feb 29 falls in the half-open interval [start, end)
     let denominator = if contains_feb_29(start, end) {
         366.0
     } else {
@@ -1089,7 +1089,10 @@ fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
     actual_days / denominator
 }
 
-/// Check if February 29 falls between start (exclusive) and end (inclusive).
+/// Check if February 29 falls in the half-open interval `[start, end)`.
+///
+/// Consistent with the library's `[start, end)` accrual convention:
+/// start date is included, end date is excluded.
 fn contains_feb_29(start: Date, end: Date) -> bool {
     let start_year = start.year();
     let end_year = end.year();
@@ -1099,8 +1102,8 @@ fn contains_feb_29(start: Date, end: Date) -> bool {
         if time::util::is_leap_year(year) {
             // Try to create Feb 29 for this year
             if let Ok(feb_29) = Date::from_calendar_date(year, Month::February, 29) {
-                // Check if Feb 29 is in the interval [start, end]
-                if feb_29 >= start && feb_29 <= end {
+                // Half-open interval [start, end): start-inclusive, end-exclusive
+                if feb_29 >= start && feb_29 < end {
                     return true;
                 }
             }

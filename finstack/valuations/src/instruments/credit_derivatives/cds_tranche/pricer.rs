@@ -2001,6 +2001,30 @@ impl CDSTranchePricer {
         Ok(payment_dates)
     }
 
+    fn infer_accrual_anchor(&self, tranche: &CDSTranche, as_of: Date) -> Date {
+        if let Some(effective_date) = tranche.effective_date {
+            return effective_date;
+        }
+
+        if self.params.use_isda_coupon_dates || tranche.standard_imm_dates {
+            let mut current = as_of;
+            while !finstack_core::dates::is_cds_date(current) {
+                current -= time::Duration::days(1);
+            }
+            return current;
+        }
+
+        if let Some(months) = tranche.frequency.months() {
+            let mut current = tranche.maturity;
+            while current > as_of {
+                current = current.add_months(-(months as i32));
+            }
+            return current;
+        }
+
+        as_of
+    }
+
     /// Calculate upfront amount for the tranche.
     ///
     /// This is the net present value at inception, representing the
@@ -2059,10 +2083,7 @@ impl CDSTranchePricer {
         as_of: Date,
     ) -> Result<f64> {
         let discount_curve = market_ctx.get_discount(&tranche.discount_curve_id)?;
-        let index_data = match market_ctx.credit_index(&tranche.credit_index_id) {
-            Ok(data) => data,
-            Err(_) => return Ok(0.0),
-        };
+        let index_data = market_ctx.credit_index(&tranche.credit_index_id)?;
 
         // Use factored-out settlement date calculation
         let valuation_date = self.calculate_settlement_date(tranche, market_ctx, as_of)?;
@@ -2389,7 +2410,7 @@ impl CDSTranchePricer {
         };
 
         // Generate the payment schedule
-        let start_date = tranche.effective_date.unwrap_or(as_of);
+        let start_date = self.infer_accrual_anchor(tranche, as_of);
         let payment_dates = self.generate_payment_schedule(tranche, start_date)?;
 
         // Find the last payment date on or before as_of
@@ -3691,7 +3712,32 @@ mod tests {
         let accrued_mid = model.calculate_accrued_premium(&tranche, &market_ctx, mid_quarter);
         assert!(accrued_mid.is_ok());
         let accrued = accrued_mid.expect("Accrued premium should be Ok");
-        assert!(accrued >= 0.0, "Accrued premium should be non-negative");
+        assert!(
+            accrued > 0.0,
+            "Accrued premium should be positive mid-period"
+        );
+    }
+
+    #[test]
+    fn test_par_spread_missing_credit_index_errors() {
+        let model = CDSTranchePricer::new();
+        let tranche = sample_tranche();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let market_ctx = MarketContext::new().insert_discount(
+            sample_market_context()
+                .get_discount("USD-OIS")
+                .expect("sample discount curve")
+                .as_ref()
+                .clone(),
+        );
+
+        let err = model
+            .calculate_par_spread(&tranche, &market_ctx, as_of)
+            .expect_err("missing credit index must surface as an error");
+        assert!(
+            err.to_string().contains("CDX.NA.IG.42"),
+            "expected missing credit index context, got: {err}"
+        );
     }
 
     #[test]

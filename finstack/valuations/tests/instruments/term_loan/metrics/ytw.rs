@@ -9,7 +9,7 @@ use finstack_valuations::cashflow::builder::specs::CouponType;
 use finstack_valuations::instruments::fixed_income::term_loan::{
     AmortizationSpec, LoanCall, LoanCallSchedule, LoanCallType, RateSpec, TermLoan,
 };
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::{Instrument, PricingOverrides};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -148,5 +148,59 @@ fn test_ytw_callable_amortizing_loan_coupon_on_call_date() {
     assert!(
         (ytw - expected_min).abs() < 1e-6,
         "YTW ({ytw}) should approximately equal min(YTM, YTC) = {expected_min}"
+    );
+}
+
+#[test]
+fn test_ytw_uses_quoted_clean_price_when_present() {
+    let as_of = date!(2025 - 01 - 01);
+    let mut loan = TermLoan::builder()
+        .id("TL-YTW-QUOTE".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(10_000_000.0, Currency::USD))
+        .issue_date(as_of)
+        .maturity(date!(2029 - 01 - 01))
+        .rate(RateSpec::Fixed { rate_bp: 600 })
+        .frequency(Tenor::semi_annual())
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .amortization(AmortizationSpec::None)
+        .coupon_type(CouponType::Cash)
+        .upfront_fee_opt(None)
+        .ddtl_opt(None)
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .attributes(Default::default())
+        .build()
+        .unwrap();
+
+    loan.call_schedule = Some(LoanCallSchedule {
+        calls: vec![LoanCall {
+            date: date!(2027 - 01 - 01),
+            price_pct_of_par: 101.0,
+            call_type: LoanCallType::Hard,
+        }],
+    });
+
+    let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
+    let market = MarketContext::new().insert_discount(disc_curve);
+
+    let base = loan
+        .price_with_metrics(&market, as_of, &[MetricId::Ytw])
+        .unwrap();
+    let ytw_base = *base.measures.get("ytw").unwrap();
+
+    loan.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
+    let quoted = loan
+        .price_with_metrics(&market, as_of, &[MetricId::Ytw])
+        .unwrap();
+    let ytw_quoted = *quoted.measures.get("ytw").unwrap();
+
+    assert!(
+        ytw_quoted > ytw_base,
+        "Lower quoted clean price should increase YTW: base={ytw_base}, quoted={ytw_quoted}"
     );
 }

@@ -6,6 +6,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::stats::{realized_variance, RealizedVarMethod};
 use finstack_valuations::instruments::equity::variance_swap::PayReceive;
 use finstack_valuations::instruments::Instrument;
+use time::macros::date;
 
 // ============================================================================
 // Pre-Start Valuation Tests
@@ -184,6 +185,23 @@ fn test_npv_mid_period_with_different_frequencies() {
         assert!(pv.is_ok());
         assert!(pv.unwrap().amount().is_finite());
     }
+}
+
+#[test]
+fn test_daily_observation_dates_skip_weekends() {
+    let mut swap = sample_swap(PayReceive::Receive);
+    swap.start_date = date!(2025 - 01 - 03); // Friday
+    swap.maturity = date!(2025 - 01 - 08); // Wednesday
+    swap.observation_freq = Tenor::daily();
+
+    let dates = swap.observation_dates();
+    assert!(
+        dates
+            .iter()
+            .all(|d| !matches!(d.weekday(), time::Weekday::Saturday | time::Weekday::Sunday)),
+        "Daily equity variance swap observations should skip weekends: {:?}",
+        dates
+    );
 }
 
 // ============================================================================

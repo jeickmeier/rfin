@@ -376,7 +376,7 @@ pub fn implied_vol_bachelier(
         } else {
             sigma - newton_step
         };
-        sigma = sigma.max(VOL_FLOOR);
+        sigma = sigma.clamp(VOL_FLOOR, VOL_CEIL_BACH);
     }
 
     // ── 6. Final convergence verification ────────────────────────────────
@@ -551,7 +551,7 @@ fn check_residual(sigma: f64, model: f64, target: f64, scale: f64) -> crate::Res
 
     if residual > tol {
         return Err(InputError::VolatilityConversionFailed {
-            tolerance: STEP_TOL,
+            tolerance: tol,
             residual,
         }
         .into());

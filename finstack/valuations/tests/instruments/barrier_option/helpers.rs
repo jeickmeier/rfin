@@ -87,6 +87,7 @@ pub fn create_down_and_out_call(
         option_type: OptionType::Call,
         barrier_type: BarrierType::DownAndOut,
         expiry,
+        observed_barrier_breached: None,
         notional: Money::new(1.0, Currency::USD),
         day_count,
         use_gobet_miri: false,

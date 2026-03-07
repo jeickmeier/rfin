@@ -162,7 +162,12 @@ pub fn calibrate_hull_white_to_swaptions(
     df: &dyn Fn(f64) -> f64,
     quotes: &[SwaptionQuote],
 ) -> finstack_core::Result<(HullWhiteParams, CalibrationReport)> {
-    calibrate_hull_white_to_swaptions_with_frequency(df, quotes, SwapFrequency::default())
+    calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
+        df,
+        quotes,
+        SwapFrequency::default(),
+        None,
+    )
 }
 
 /// Calibrate Hull-White 1-factor parameters to European swaption market data.
@@ -220,6 +225,16 @@ pub fn calibrate_hull_white_to_swaptions_with_frequency(
     quotes: &[SwaptionQuote],
     frequency: SwapFrequency,
 ) -> finstack_core::Result<(HullWhiteParams, CalibrationReport)> {
+    calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(df, quotes, frequency, None)
+}
+
+/// Variant of Hull-White calibration that accepts optional initial guesses.
+pub fn calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
+    df: &dyn Fn(f64) -> f64,
+    quotes: &[SwaptionQuote],
+    frequency: SwapFrequency,
+    initial_guess: Option<HullWhiteParams>,
+) -> finstack_core::Result<(HullWhiteParams, CalibrationReport)> {
     if quotes.len() < 2 {
         return Err(finstack_core::Error::Validation(format!(
             "Need at least 2 swaption quotes for HW1F calibration (2 free parameters), got {}",
@@ -256,8 +271,8 @@ pub fn calibrate_hull_white_to_swaptions_with_frequency(
         fwd_swap_rates.push(fwd_rate);
     }
 
-    let kappa_init: f64 = 0.05;
-    let sigma_init: f64 = 0.01;
+    let kappa_init: f64 = initial_guess.map(|p| p.kappa).unwrap_or(0.05);
+    let sigma_init: f64 = initial_guess.map(|p| p.sigma).unwrap_or(0.01);
     let x0 = [kappa_init.ln(), sigma_init.ln()];
 
     let residuals = |x: &[f64], resid: &mut [f64]| {
@@ -316,6 +331,8 @@ pub fn calibrate_hull_white_to_swaptions_with_frequency(
     .with_model_version("Hull-White 1F (Jamshidian decomposition)")
     .with_metadata("kappa", format!("{kappa:.6}"))
     .with_metadata("sigma", format!("{sigma:.6}"))
+    .with_metadata("initial_kappa", format!("{kappa_init:.6}"))
+    .with_metadata("initial_sigma", format!("{sigma_init:.6}"))
     .with_metadata("swap_frequency", format!("{frequency:?}"));
 
     let params = HullWhiteParams::new(kappa, sigma)?;

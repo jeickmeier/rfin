@@ -66,7 +66,7 @@ use serde::{Deserialize, Serialize};
 /// assert!(CreditRating::A.is_investment_grade());
 /// assert!(!CreditRating::BB.is_investment_grade());
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CreditRating {
     /// AAA - Highest quality, minimal credit risk
     AAA,
@@ -90,6 +90,38 @@ pub enum CreditRating {
     D,
     /// NR - Not rated
     NR,
+}
+
+impl CreditRating {
+    /// Numeric ordinal for ordering. Lower values indicate higher credit quality.
+    /// NR (Not Rated) is placed between C and D in the ordering.
+    fn ordinal(&self) -> u8 {
+        match self {
+            CreditRating::AAA => 0,
+            CreditRating::AA => 1,
+            CreditRating::A => 2,
+            CreditRating::BBB => 3,
+            CreditRating::BB => 4,
+            CreditRating::B => 5,
+            CreditRating::CCC => 6,
+            CreditRating::CC => 7,
+            CreditRating::C => 8,
+            CreditRating::NR => 9,
+            CreditRating::D => 10,
+        }
+    }
+}
+
+impl PartialOrd for CreditRating {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CreditRating {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.ordinal().cmp(&other.ordinal())
+    }
 }
 
 impl CreditRating {

@@ -26,6 +26,12 @@ pub enum XccyQuote {
         far_pillar: Pillar,
         /// Basis spread in basis points applied to the quote-currency leg.
         basis_spread_bp: f64,
+        /// Optional spot FX quote (quote currency per 1 unit of base currency).
+        ///
+        /// Used to derive FX-equivalent leg notionals when the build context
+        /// provides only a single standard notional.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        spot_fx: Option<f64>,
     },
 }
 
@@ -54,11 +60,13 @@ impl XccyQuote {
                 convention,
                 far_pillar,
                 basis_spread_bp,
+                spot_fx,
             } => XccyQuote::BasisSwap {
                 id: id.clone(),
                 convention: convention.clone(),
                 far_pillar: far_pillar.clone(),
                 basis_spread_bp: basis_spread_bp + bump_bp,
+                spot_fx: *spot_fx,
             },
         }
     }

@@ -128,7 +128,7 @@ pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 ///
 /// # Returns
 ///
-/// Population standard deviation of `returns`, annualized if requested.
+/// Sample standard deviation of `returns` (n-1 denominator), annualized if requested.
 /// Returns `0.0` for an empty slice.
 ///
 /// # Examples
@@ -626,6 +626,10 @@ pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) 
     }
     let mut data: Vec<f64> = returns.to_vec();
     let var = quantile(&mut data, 1.0 - confidence);
+    // Historical VaR is a non-parametric statistic: sqrt-time scaling is not
+    // valid for empirical quantiles (only for parametric methods like
+    // parametric_var / cornish_fisher_var). The ann_factor parameter exists
+    // for API consistency across the VaR function family.
     let _ = ann_factor;
     var
 }
@@ -683,6 +687,9 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
         return var_threshold;
     }
     let es = mean(&tail);
+    // Historical ES is a non-parametric statistic: sqrt-time scaling is not
+    // valid for empirical tail means (only for parametric methods). The
+    // ann_factor parameter exists for API consistency across the risk metrics.
     let _ = ann_factor;
     es
 }
