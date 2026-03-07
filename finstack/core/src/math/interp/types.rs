@@ -163,6 +163,18 @@ impl Interp {
 }
 
 impl InterpStyle {
+    /// Return the effective validation policy for this style.
+    ///
+    /// LogLinear and MonotoneConvex always require strict (positive) values
+    /// for mathematical reasons, regardless of what the caller requested.
+    #[inline]
+    fn effective_validation(self, validation: ValidationPolicy) -> ValidationPolicy {
+        match self {
+            InterpStyle::LogLinear | InterpStyle::MonotoneConvex => ValidationPolicy::Strict,
+            _ => validation,
+        }
+    }
+
     /// Build a boxed interpolator implementing [`InterpFn`].
     ///
     /// # Performance Note
@@ -198,12 +210,7 @@ impl InterpStyle {
         extrapolation: ExtrapolationPolicy,
         validation: ValidationPolicy,
     ) -> crate::Result<Box<dyn InterpFn>> {
-        // LogLinear and MonotoneConvex require positive values for mathematical reasons
-        let effective_validation = match self {
-            InterpStyle::LogLinear | InterpStyle::MonotoneConvex => ValidationPolicy::Strict,
-            _ => validation,
-        };
-
+        let effective_validation = self.effective_validation(validation);
         match self {
             InterpStyle::Linear => Ok(Box::new(LinearDf::new(
                 knots,
@@ -257,12 +264,7 @@ impl InterpStyle {
         extrapolation: ExtrapolationPolicy,
         validation: ValidationPolicy,
     ) -> crate::Result<Interp> {
-        // LogLinear and MonotoneConvex require positive values for mathematical reasons
-        let effective_validation = match self {
-            InterpStyle::LogLinear | InterpStyle::MonotoneConvex => ValidationPolicy::Strict,
-            _ => validation,
-        };
-
+        let effective_validation = self.effective_validation(validation);
         let interp = match self {
             InterpStyle::Linear => Interp::Linear(LinearDf::new(
                 knots,
