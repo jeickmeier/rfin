@@ -162,63 +162,30 @@ pub fn assert_expected_f64(
     actual: f64,
     expected: &Expectation,
 ) -> Result<(), Error> {
-    match expected {
+    if expected.is_satisfied(actual) {
+        return Ok(());
+    }
+    let msg = match expected {
         Expectation::Exact {
             value, tolerance, ..
         } => {
-            if let Some(tol) = tolerance {
-                if tol.is_within(actual, *value) {
-                    Ok(())
-                } else {
-                    let result = ComparisonResult::fail(
-                        suite_id,
-                        case_id,
-                        metric,
-                        actual,
-                        *value,
-                        Some(*tol),
-                        "value outside tolerance".to_string(),
-                    );
-                    Err(Error::Validation(result.format_error()))
-                }
-            } else {
-                // No tolerance specified, use exact equality with epsilon
-                if (actual - value).abs() < 1e-15 {
-                    Ok(())
-                } else {
-                    let result = ComparisonResult::fail(
-                        suite_id,
-                        case_id,
-                        metric,
-                        actual,
-                        *value,
-                        None,
-                        "values not equal".to_string(),
-                    );
-                    Err(Error::Validation(result.format_error()))
-                }
-            }
+            let tol_str = tolerance.map_or(String::new(), |t| {
+                format!(
+                    ", tolerance={t:?}, error={:.6e}",
+                    t.compute_error(actual, *value)
+                )
+            });
+            format!(
+                "[{suite_id}/{case_id}] {metric} failed: actual={actual}, expected={value}{tol_str} - value outside tolerance"
+            )
         }
         Expectation::Range { min, max, .. } => {
-            let above_min = min.is_none_or(|m| actual >= m);
-            let below_max = max.is_none_or(|m| actual <= m);
-
-            if above_min && below_max {
-                Ok(())
-            } else {
-                let result = ComparisonResult::fail_range(
-                    suite_id,
-                    case_id,
-                    metric,
-                    actual,
-                    *min,
-                    *max,
-                    "value outside range".to_string(),
-                );
-                Err(Error::Validation(result.format_error()))
-            }
+            format!(
+                "[{suite_id}/{case_id}] {metric} failed: actual={actual}, range=[{min:?}, {max:?}] - value outside range"
+            )
         }
-    }
+    };
+    Err(Error::Validation(msg))
 }
 
 /// Assert using ExpectedValue structure (convenience for existing code).
@@ -242,12 +209,17 @@ pub fn assert_within_tolerance(
     expected: f64,
     tolerance: Tolerance,
 ) -> Result<(), Error> {
-    let expectation = Expectation::Exact {
-        value: expected,
-        tolerance: Some(tolerance),
-        notes: None,
-    };
-    assert_expected_f64(suite_id, case_id, metric, actual, &expectation)
+    assert_expected_f64(
+        suite_id,
+        case_id,
+        metric,
+        actual,
+        &Expectation::Exact {
+            value: expected,
+            tolerance: Some(tolerance),
+            notes: None,
+        },
+    )
 }
 
 /// Assert with absolute tolerance (convenience function).
