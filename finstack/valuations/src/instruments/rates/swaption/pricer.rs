@@ -9,9 +9,120 @@ use crate::pricer::{
 };
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use std::sync::Arc;
+
+// ========================= VOL SURFACE EXTRAPOLATION =========================
+
+/// Extrapolate implied volatility linearly in total variance space.
+///
+/// Standard bilinear interpolation clamps the vol to the grid boundary for
+/// out-of-grid strikes, producing a flat (constant) extrapolation. For
+/// swaptions with strikes well above or below the grid range (e.g., deep OTM
+/// tails or long-tenor forward-starting swaptions), flat extrapolation can
+/// significantly misprice vega sensitivities.
+///
+/// This function extrapolates linearly in *total variance* `w(K) = σ²(K,T) × T`:
+///
+/// ```text
+/// w(K) = w(K_boundary) + slope × (K − K_boundary)
+/// slope = [w(K_boundary) − w(K_adjacent)] / [K_boundary − K_adjacent]
+/// σ_extrap(K,T) = sqrt(max(w(K), 0) / T)
+/// ```
+///
+/// - **Left extrapolation** (K < K_min): uses the first two grid strikes.
+/// - **Right extrapolation** (K > K_max): uses the last two grid strikes.
+/// - **In-range strike**: falls through to standard bilinear interpolation.
+/// - **Expiry dimension**: always uses flat (clamped) extrapolation; the
+///   LinearInVariance method only applies to the *strike* axis.
+/// - **Guard**: if the extrapolated variance is negative (downward slope
+///   pushes into negative territory), falls back to the boundary vol.
+///
+/// # References
+///
+/// - Derman, E., & Kani, I. (1994). "Riding on a Smile." *RISK*, February.
+/// - Gatheral, J. (2006). *The Volatility Surface*. Wiley. Chapter 1.
+fn linear_in_variance_vol(vol_surface: &VolSurface, expiry: f64, strike: f64) -> f64 {
+    let strikes = vol_surface.strikes();
+    let expiries = vol_surface.expiries();
+
+    // Degenerate surface: fall back to clamped
+    if strikes.len() < 2 || expiries.is_empty() {
+        return vol_surface.value_clamped(expiry, strike);
+    }
+
+    // Clamp the expiry dimension (flat extrapolation in T).
+    // Safety: both slices are non-empty / len >= 2, checked above.
+    let t = expiry.clamp(expiries[0], expiries[expiries.len() - 1]);
+
+    let k_min = strikes[0];
+    let k_max = strikes[strikes.len() - 1];
+
+    // In-range: standard bilinear interpolation
+    if strike >= k_min && strike <= k_max {
+        return vol_surface
+            .value_checked(t, strike)
+            .unwrap_or_else(|_| vol_surface.value_clamped(t, strike));
+    }
+
+    if t <= 0.0 {
+        // Zero-time surface — variance is zero regardless; return boundary vol
+        return vol_surface.value_clamped(t, strike);
+    }
+
+    if strike < k_min {
+        // ── Left extrapolation ──────────────────────────────────────────────
+        // Use the first two strikes to estimate the variance slope.
+        let k0 = k_min;
+        let k1 = strikes[1]; // second-lowest strike
+
+        let v0 = vol_surface.value_clamped(t, k0);
+        let v1 = vol_surface.value_clamped(t, k1);
+
+        // Total variance at each anchor strike
+        let w0 = v0 * v0 * t;
+        let w1 = v1 * v1 * t;
+
+        // Linear slope in (K, w) space
+        let dk = k0 - k1; // > 0 since k0 > k1
+        let slope = (w0 - w1) / dk;
+
+        // Extrapolated total variance
+        let w_extrap = w0 + slope * (strike - k0);
+
+        if w_extrap > 0.0 {
+            (w_extrap / t).sqrt()
+        } else {
+            // Slope would imply negative variance — fall back to boundary vol
+            v0
+        }
+    } else {
+        // ── Right extrapolation ─────────────────────────────────────────────
+        // Use the last two strikes to estimate the variance slope.
+        let n = strikes.len();
+        let k0 = k_max;
+        let k1 = strikes[n - 2]; // second-highest strike
+
+        let v0 = vol_surface.value_clamped(t, k0);
+        let v1 = vol_surface.value_clamped(t, k1);
+
+        let w0 = v0 * v0 * t;
+        let w1 = v1 * v1 * t;
+
+        let dk = k0 - k1; // > 0
+        let slope = (w0 - w1) / dk;
+
+        let w_extrap = w0 + slope * (strike - k0);
+
+        if w_extrap > 0.0 {
+            (w_extrap / t).sqrt()
+        } else {
+            v0
+        }
+    }
+}
 
 // LSMC imports (gated by feature)
 #[cfg(feature = "mc")]
@@ -124,10 +235,16 @@ impl Pricer for SimpleSwaptionBlackPricer {
                             .model_config
                             .vol_surface_extrapolation
                         {
-                            VolSurfaceExtrapolation::Clamp
-                            | VolSurfaceExtrapolation::LinearInVariance => {
-                                // LinearInVariance falls back to Clamp until surface impl is ready
+                            VolSurfaceExtrapolation::Clamp => {
                                 vol_surface.value_clamped(time_to_expiry, strike)
+                            }
+                            VolSurfaceExtrapolation::LinearInVariance => {
+                                // Linear extrapolation in total-variance space (w = σ²·T).
+                                // For strikes inside the grid this reduces to standard
+                                // bilinear interpolation; for out-of-grid strikes it
+                                // extrapolates the variance slope from the two nearest
+                                // boundary strikes, avoiding the kink at the grid edge.
+                                linear_in_variance_vol(&vol_surface, time_to_expiry, strike)
                             }
                             VolSurfaceExtrapolation::Error => vol_surface
                                 .value_checked(time_to_expiry, strike)

@@ -458,6 +458,12 @@ pub enum ModelKey {
     ///
     /// Used for: commodity options requiring mean-reverting short-term dynamics.
     MonteCarloSchwartzSmith = 31,
+    /// Static replication via a portfolio of vanilla options.
+    ///
+    /// Used for: CMS options (replicates the payoff with a smile-consistent
+    /// swaption portfolio, capturing all convexity orders beyond Hagan's
+    /// first-order approximation).
+    StaticReplication = 32,
 }
 
 impl std::fmt::Display for ModelKey {
@@ -481,6 +487,7 @@ impl std::fmt::Display for ModelKey {
             ModelKey::HestonFourier => "heston_fourier",
             ModelKey::MertonMc => "merton_mc",
             ModelKey::MonteCarloSchwartzSmith => "monte_carlo_schwartz_smith",
+            ModelKey::StaticReplication => "static_replication",
         };
         write!(f, "{}", label)
     }
@@ -528,6 +535,7 @@ impl std::str::FromStr for ModelKey {
             "monte_carlo_schwartz_smith" | "mc_schwartz_smith" | "schwartz_smith_mc" => {
                 Ok(ModelKey::MonteCarloSchwartzSmith)
             }
+            "static_replication" | "static_rep" | "replication" => Ok(ModelKey::StaticReplication),
             other => Err(format!("Unknown model key: {}", other)),
         }
     }
@@ -2147,7 +2155,23 @@ pub fn register_exotic_pricers(registry: &mut PricerRegistry) {
         crate::instruments::equity::autocallable::pricer::AutocallableMcPricer::default()
     );
 
-    // CMS Option
+    // CMS Option — Black-76 with first-order Hagan convexity adjustment
+    register_pricer!(
+        registry,
+        CmsOption,
+        Black76,
+        crate::instruments::rates::cms_option::pricer::CmsOptionPricer::new()
+    );
+
+    // CMS Option — Static replication (Andersen-Piterbarg §16.2, exact under lognormal smile)
+    register_pricer!(
+        registry,
+        CmsOption,
+        StaticReplication,
+        crate::instruments::rates::cms_option::replication_pricer::CmsReplicationPricer::new()
+    );
+
+    // CMS Option — Monte Carlo Hull-White (legacy, requires mc feature)
     #[cfg(feature = "mc")]
     register_pricer!(
         registry,
