@@ -43,10 +43,54 @@ use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 
 use crate::instruments::rates::irs::FloatingLegCompounding;
+use finstack_core::currency::Currency;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{DateExt, DayCountCtx};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
+
+/// Map a currency to its conventional RFR fixing calendar identifier.
+///
+/// Returns the canonical calendar name used in [`CalendarRegistry`] for the
+/// central-bank overnight rate of each major currency. Used as a graceful
+/// default when `fixing_calendar_id` is not explicitly specified on a
+/// compounded floating leg.
+///
+/// If the returned calendar ID is not found in the registry (e.g., calendars
+/// are not loaded in the current environment), the caller falls back to
+/// weekday-only stepping.
+///
+/// # Currency → Calendar mapping
+///
+/// | Currency | Calendar | Overnight rate |
+/// |----------|----------|----------------|
+/// | USD      | nyse     | SOFR           |
+/// | EUR      | target   | €STR           |
+/// | GBP      | london   | SONIA          |
+/// | JPY      | tokyo    | TONA           |
+/// | AUD      | sydney   | AONIA          |
+/// | CAD      | toronto  | CORRA          |
+/// | CHF      | zurich   | SARON          |
+/// | SEK      | stockholm| SWESTR         |
+/// | NOK      | oslo     | NOWA           |
+/// | DKK      | copenhagen | DESTR        |
+/// | NZD      | wellington | NZONIA       |
+fn default_rfr_calendar(currency: Currency) -> Option<&'static str> {
+    match currency {
+        Currency::USD => Some("nyse"),
+        Currency::EUR => Some("target"),
+        Currency::GBP => Some("london"),
+        Currency::JPY => Some("tokyo"),
+        Currency::AUD => Some("sydney"),
+        Currency::CAD => Some("toronto"),
+        Currency::CHF => Some("zurich"),
+        Currency::SEK => Some("stockholm"),
+        Currency::NOK => Some("oslo"),
+        Currency::DKK => Some("copenhagen"),
+        Currency::NZD => Some("wellington"),
+        _ => None,
+    }
+}
 
 /// Convert Decimal to f64 with proper error handling.
 ///
@@ -152,10 +196,17 @@ impl InterestRateSwap {
 
         // Resolve fixing calendar for daily stepping.
         //
+        // Priority order:
+        //  1. Explicitly provided `fixing_calendar_id` on the leg (required to resolve).
+        //  2. Currency-based default from `default_rfr_calendar` (optional, silently
+        //     skipped if the calendar is not loaded — avoids breaking environments
+        //     that do not install full holiday calendars).
+        //  3. Weekday-only stepping (the original behaviour).
+        //
         // When a calendar ID is explicitly provided, we require it to resolve successfully.
         // Silent fallback to weekday-only stepping would produce incorrect RFR accrual weights
         // (SOFR, ESTR) and mask configuration errors. If no calendar is specified, weekday
-        // stepping is intentional and allowed.
+        // stepping is intentional for simple test fixtures and non-RFR instruments.
         let cal = if let Some(id) = fixing_calendar_id {
             Some(CalendarRegistry::global().resolve_str(id).ok_or_else(|| {
                 finstack_core::Error::Validation(format!(
@@ -166,8 +217,12 @@ impl InterestRateSwap {
                 ))
             })?)
         } else {
-            // No calendar specified - weekday stepping is intentional
-            None
+            // No explicit calendar: attempt currency-based RFR default.
+            // Graceful degradation — if the calendar is not registered (e.g., in
+            // test environments that only load a subset of calendars), fall through
+            // to weekday stepping rather than returning an error.
+            default_rfr_calendar(self.notional.currency())
+                .and_then(|id| CalendarRegistry::global().resolve_str(id))
         };
 
         let total_shift = self.compounded_total_shift_days();
@@ -666,9 +721,13 @@ mod tests {
     fn compounded_ois_seasoned_uses_fixings_and_projection() {
         use finstack_core::dates::{BusinessDayConvention, DateExt, DayCount, Tenor};
 
-        let as_of = date(2024, 1, 10);
-        let start = date(2024, 1, 2);
-        let end = date(2024, 2, 2);
+        // Use August 2024 dates: no NYSE holidays between Aug 1 and Aug 30, so
+        // weekday stepping (used by the hand-computed expected value) and NYSE
+        // business-day stepping (used by the pricer after M-10 calendar defaulting)
+        // produce identical daily schedules and the two valuations agree.
+        let as_of = date(2024, 8, 14);
+        let start = date(2024, 8, 1);
+        let end = date(2024, 8, 30);
 
         let disc_id = CurveId::new("USD-OIS");
         let fwd_id = CurveId::new("USD-OIS-FWD");

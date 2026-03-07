@@ -470,6 +470,12 @@ pub enum ModelKey {
     ///
     /// Used for: commodity options requiring mean-reverting short-term dynamics.
     MonteCarloSchwartzSmith = 31,
+    /// Static replication via a portfolio of vanilla options.
+    ///
+    /// Used for: CMS options (replicates the payoff with a smile-consistent
+    /// swaption portfolio, capturing all convexity orders beyond Hagan's
+    /// first-order approximation).
+    StaticReplication = 32,
 }
 
 impl std::fmt::Display for ModelKey {
@@ -493,6 +499,7 @@ impl std::fmt::Display for ModelKey {
             ModelKey::HestonFourier => "heston_fourier",
             ModelKey::MertonMc => "merton_mc",
             ModelKey::MonteCarloSchwartzSmith => "monte_carlo_schwartz_smith",
+            ModelKey::StaticReplication => "static_replication",
         };
         write!(f, "{}", label)
     }
@@ -540,6 +547,7 @@ impl std::str::FromStr for ModelKey {
             "monte_carlo_schwartz_smith" | "mc_schwartz_smith" | "schwartz_smith_mc" => {
                 Ok(ModelKey::MonteCarloSchwartzSmith)
             }
+            "static_replication" | "static_rep" | "replication" => Ok(ModelKey::StaticReplication),
             other => Err(format!("Unknown model key: {}", other)),
         }
     }
@@ -1579,6 +1587,143 @@ pub fn register_inflation_pricers(registry: &mut PricerRegistry) {
 /// Register pricers for exotic instruments (barriers, lookbacks, Asians,
 /// autocallables, quantos, cliquets, range accruals, Bermudan swaptions).
 pub fn register_exotic_pricers(registry: &mut PricerRegistry) {
+    // Basket
+    register_pricer!(
+        registry,
+        Basket,
+        Discounting,
+        crate::instruments::exotics::basket::SimpleBasketDiscountingPricer::default()
+    );
+
+    // Asian Option
+    #[cfg(feature = "mc")]
+    register_pricer!(
+        registry,
+        AsianOption,
+        MonteCarloGBM,
+        crate::instruments::exotics::asian_option::pricer::AsianOptionMcPricer::default()
+    );
+    register_pricer!(
+        registry,
+        AsianOption,
+        AsianGeometricBS,
+        crate::instruments::exotics::asian_option::pricer::AsianOptionAnalyticalGeometricPricer
+    );
+    register_pricer!(
+        registry,
+        AsianOption,
+        AsianTurnbullWakeman,
+        crate::instruments::exotics::asian_option::pricer::AsianOptionSemiAnalyticalTwPricer
+    );
+
+    // Barrier Option
+    #[cfg(feature = "mc")]
+    register_pricer!(
+        registry,
+        BarrierOption,
+        MonteCarloGBM,
+        crate::instruments::exotics::barrier_option::pricer::BarrierOptionMcPricer::default()
+    );
+    register_pricer!(
+        registry,
+        BarrierOption,
+        BarrierBSContinuous,
+        crate::instruments::exotics::barrier_option::pricer::BarrierOptionAnalyticalPricer
+    );
+
+    // Lookback Option
+    #[cfg(feature = "mc")]
+    register_pricer!(
+        registry,
+        LookbackOption,
+        MonteCarloGBM,
+        crate::instruments::exotics::lookback_option::pricer::LookbackOptionMcPricer::default()
+    );
+    register_pricer!(
+        registry,
+        LookbackOption,
+        LookbackBSContinuous,
+        crate::instruments::exotics::lookback_option::pricer::LookbackOptionAnalyticalPricer
+    );
+
+    // Quanto Option
+    register_pricer!(
+        registry,
+        QuantoOption,
+        QuantoBS,
+        crate::instruments::fx::quanto_option::pricer::QuantoOptionAnalyticalPricer
+    );
+
+    // Autocallable
+    #[cfg(feature = "mc")]
+    register_pricer!(
+        registry,
+        Autocallable,
+        MonteCarloGBM,
+        crate::instruments::equity::autocallable::pricer::AutocallableMcPricer::default()
+    );
+
+    // CMS Option — Black-76 with first-order Hagan convexity adjustment
+    register_pricer!(
+        registry,
+        CmsOption,
+        Black76,
+        crate::instruments::rates::cms_option::pricer::CmsOptionPricer::new()
+    );
+
+    // CMS Option — Static replication (Andersen-Piterbarg §16.2, exact under lognormal smile)
+    register_pricer!(
+        registry,
+        CmsOption,
+        StaticReplication,
+        crate::instruments::rates::cms_option::replication_pricer::CmsReplicationPricer::new()
+    );
+
+    // CMS Option — Monte Carlo Hull-White (legacy, requires mc feature)
+    #[cfg(feature = "mc")]
+    register_pricer!(
+        registry,
+        CmsOption,
+        MonteCarloHullWhite1F,
+        crate::instruments::rates::cms_option::pricer::CmsOptionPricer::new()
+    );
+
+    // CMS Swap
+    register_pricer!(
+        registry,
+        CmsSwap,
+        Black76,
+        crate::instruments::rates::cms_swap::pricer::CmsSwapPricer::new()
+    );
+
+    // Cliquet Option
+    #[cfg(feature = "mc")]
+    register_pricer!(
+        registry,
+        CliquetOption,
+        MonteCarloGBM,
+        crate::instruments::equity::cliquet_option::pricer::CliquetOptionMcPricer::default()
+    );
+
+    // Range Accrual
+    #[cfg(feature = "mc")]
+    register_pricer!(
+        registry,
+        RangeAccrual,
+        MonteCarloGBM,
+        crate::instruments::rates::range_accrual::pricer::RangeAccrualMcPricer::default()
+    );
+
+    // Bermudan Swaption LSMC (Hull-White 1F Monte Carlo)
+    #[cfg(feature = "mc")]
+    register_pricer!(
+        registry,
+        BermudanSwaption,
+        MonteCarloHullWhite1F,
+        crate::instruments::rates::swaption::pricer::BermudanSwaptionPricer::lsmc_pricer(
+            crate::instruments::rates::swaption::pricer::HullWhiteParams::default()
+        )
+    );
     exotics::register_exotic_pricers(registry);
 }
 
