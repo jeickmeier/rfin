@@ -9,9 +9,12 @@ use crate::metrics::core::registry::StrictMode;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::sensitivities::config::format_bucket_label;
 use crate::metrics::{standard_registry, MetricContext, MetricId};
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::money::fx::FxConversionPolicy;
+use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
 use finstack_core::Result;
@@ -46,6 +49,12 @@ pub struct VarConfig {
 
     /// VaR calculation method
     pub method: VarMethod,
+
+    /// Optional reporting currency for portfolio aggregation.
+    ///
+    /// When omitted, same-currency portfolios use their natural currency.
+    /// Mixed-currency portfolios must set this explicitly.
+    pub reporting_currency: Option<Currency>,
 }
 
 impl VarConfig {
@@ -58,6 +67,7 @@ impl VarConfig {
         Self {
             confidence_level,
             method: VarMethod::FullRevaluation,
+            reporting_currency: None,
         }
     }
 
@@ -74,6 +84,12 @@ impl VarConfig {
     /// Set the calculation method.
     pub fn with_method(mut self, method: VarMethod) -> Self {
         self.method = method;
+        self
+    }
+
+    /// Set the reporting currency for portfolio aggregation.
+    pub fn with_reporting_currency(mut self, currency: Currency) -> Self {
+        self.reporting_currency = Some(currency);
         self
     }
 }
@@ -283,15 +299,38 @@ where
     I: Instrument + ?Sized,
 {
     let instrument_refs: Vec<&I> = instruments.to_vec();
-    let base_values: Vec<f64> = instrument_refs
+    let base_values_money: Vec<Money> = instrument_refs
         .iter()
-        .map(|inst| inst.value(base_market, as_of).map(|m| m.amount()))
+        .map(|inst| inst.value(base_market, as_of))
+        .collect::<Result<_>>()?;
+    let reporting_currency = resolve_reporting_currency_from_values(
+        &base_values_money,
+        config.reporting_currency,
+        "Historical VaR",
+    )?;
+    let base_values: Vec<f64> = base_values_money
+        .iter()
+        .map(|value| {
+            convert_money_to_reporting(
+                *value,
+                reporting_currency,
+                base_market,
+                as_of,
+                "Historical VaR",
+            )
+        })
         .collect::<Result<_>>()?;
 
     let pnls = aggregate_scenario_pnls(history, base_market, move |scenario_market| {
         let mut total = 0.0;
         for (inst, base_amount) in instrument_refs.iter().zip(base_values.iter()) {
-            let scenario_amount = inst.value(scenario_market, as_of)?.amount();
+            let scenario_amount = convert_money_to_reporting(
+                inst.value(scenario_market, as_of)?,
+                reporting_currency,
+                scenario_market,
+                as_of,
+                "Historical VaR",
+            )?;
             total += scenario_amount - base_amount;
         }
         Ok(total)
@@ -343,8 +382,8 @@ impl BucketedSeries {
     }
 }
 
-#[derive(Default)]
 struct TaylorSensitivities {
+    currency: Currency,
     dv01: BucketedSeries,
     cs01: BucketedSeries,
     parallel_dv01: f64,
@@ -355,6 +394,80 @@ struct TaylorSensitivities {
     vega_rel: f64,
 }
 
+impl Default for TaylorSensitivities {
+    fn default() -> Self {
+        Self {
+            currency: Currency::USD,
+            dv01: BucketedSeries::default(),
+            cs01: BucketedSeries::default(),
+            parallel_dv01: 0.0,
+            parallel_cs01: 0.0,
+            ir_convexity: 0.0,
+            equity_delta: 0.0,
+            equity_gamma: 0.0,
+            vega_rel: 0.0,
+        }
+    }
+}
+
+fn resolve_reporting_currency_from_values(
+    values: &[Money],
+    requested: Option<Currency>,
+    context_name: &str,
+) -> Result<Currency> {
+    if let Some(currency) = requested {
+        return Ok(currency);
+    }
+
+    let mut observed: Option<Currency> = None;
+    for value in values {
+        match observed {
+            None => observed = Some(value.currency()),
+            Some(existing) if existing == value.currency() => {}
+            Some(_) => {
+                return Err(finstack_core::Error::Validation(format!(
+                    "{context_name} requires an explicit reporting currency for mixed-currency portfolios"
+                )))
+            }
+        }
+    }
+
+    observed.ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "{context_name} requires at least one instrument to infer reporting currency"
+        ))
+    })
+}
+
+fn convert_money_to_reporting(
+    value: Money,
+    reporting_currency: Currency,
+    market: &MarketContext,
+    on: Date,
+    context_name: &str,
+) -> Result<f64> {
+    if value.currency() == reporting_currency {
+        return Ok(value.amount());
+    }
+
+    let fx = market.fx().ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "{context_name} requires FX data to convert {} into reporting currency {}",
+            value.currency(),
+            reporting_currency
+        ))
+    })?;
+    let rate = fx
+        .rate(FxQuery::with_policy(
+            value.currency(),
+            reporting_currency,
+            on,
+            FxConversionPolicy::CashflowDate,
+        ))?
+        .rate;
+    Ok(value.amount() * rate)
+}
+
 fn calculate_var_taylor_approximation(
     instrument: &dyn Instrument,
     base_market: &MarketContext,
@@ -363,6 +476,11 @@ fn calculate_var_taylor_approximation(
     config: &VarConfig,
 ) -> Result<VarResult> {
     let base_value = instrument.value(base_market, as_of)?;
+    let reporting_currency = resolve_reporting_currency_from_values(
+        &[base_value],
+        config.reporting_currency,
+        "Historical VaR",
+    )?;
     let sensitivities = compute_taylor_sensitivities(instrument, base_market, as_of, base_value)?;
 
     let mut spot_cache: HashMap<String, f64> = HashMap::default();
@@ -370,14 +488,20 @@ fn calculate_var_taylor_approximation(
     let mut pnls = Vec::with_capacity(history.len());
 
     for scenario in history.iter() {
-        let pnl = taylor_pnl_for_scenario(
+        let pnl_local = taylor_pnl_for_scenario(
             &sensitivities,
             base_market,
             scenario,
             &mut spot_cache,
             &mut vol_cache,
         );
-        pnls.push(pnl);
+        pnls.push(convert_money_to_reporting(
+            Money::new(pnl_local, sensitivities.currency),
+            reporting_currency,
+            base_market,
+            as_of,
+            "Historical VaR",
+        )?);
     }
 
     VarResult::from_distribution(pnls, config.confidence_level)
@@ -455,6 +579,7 @@ fn compute_taylor_sensitivities(
     };
 
     Ok(TaylorSensitivities {
+        currency: base_value.currency(),
         dv01,
         cs01,
         parallel_dv01,
@@ -603,8 +728,10 @@ fn calculate_portfolio_var_taylor(
     }
 
     let mut sensitivities: Vec<TaylorSensitivities> = Vec::with_capacity(instruments.len());
+    let mut base_values: Vec<Money> = Vec::with_capacity(instruments.len());
     for instrument in instruments {
         let base_value = instrument.value(base_market, as_of)?;
+        base_values.push(base_value);
         sensitivities.push(compute_taylor_sensitivities(
             *instrument,
             base_market,
@@ -612,6 +739,11 @@ fn calculate_portfolio_var_taylor(
             base_value,
         )?);
     }
+    let reporting_currency = resolve_reporting_currency_from_values(
+        &base_values,
+        config.reporting_currency,
+        "Historical VaR",
+    )?;
 
     let mut spot_cache: HashMap<String, f64> = HashMap::default();
     let mut vol_cache: HashMap<String, f64> = HashMap::default();
@@ -620,13 +752,20 @@ fn calculate_portfolio_var_taylor(
     for scenario in history.iter() {
         let mut total = 0.0;
         for sens in &sensitivities {
-            total += taylor_pnl_for_scenario(
+            let pnl_local = taylor_pnl_for_scenario(
                 sens,
                 base_market,
                 scenario,
                 &mut spot_cache,
                 &mut vol_cache,
             );
+            total += convert_money_to_reporting(
+                Money::new(pnl_local, sens.currency),
+                reporting_currency,
+                base_market,
+                as_of,
+                "Historical VaR",
+            )?;
         }
         pnls.push(total);
     }
@@ -647,8 +786,13 @@ mod tests {
 
     use super::*;
     use crate::instruments::common_impl::traits::Instrument;
+    use crate::instruments::Attributes;
     use crate::metrics::risk::{MarketScenario, RiskFactorShift, RiskFactorType};
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::surfaces::VolSurface;
+    use finstack_core::money::Money;
     use finstack_core::types::CurveId;
     use std::sync::Arc;
     use test_utils::{
@@ -656,6 +800,58 @@ mod tests {
         usd_ois_market,
     };
     use time::macros::date;
+
+    #[derive(Clone, Debug)]
+    struct CurrencyScalarInstrument {
+        id: String,
+        price_id: String,
+        currency: Currency,
+        attributes: Attributes,
+    }
+
+    impl CurrencyScalarInstrument {
+        fn new(id: &str, price_id: &str, currency: Currency) -> Self {
+            Self {
+                id: id.to_string(),
+                price_id: price_id.to_string(),
+                currency,
+                attributes: Attributes::new(),
+            }
+        }
+    }
+
+    impl Instrument for CurrencyScalarInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> crate::pricer::InstrumentType {
+            crate::pricer::InstrumentType::Equity
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attributes
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attributes
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
+            match market.price(&self.price_id)? {
+                MarketScalar::Price(m) => Ok(*m),
+                MarketScalar::Unitless(v) => Ok(Money::new(*v, self.currency)),
+            }
+        }
+    }
 
     #[test]
     fn test_var_config_creation() {
@@ -666,6 +862,108 @@ mod tests {
         let config = VarConfig::var_99().with_method(VarMethod::TaylorApproximation);
         assert_eq!(config.confidence_level, 0.99);
         assert_eq!(config.method, VarMethod::TaylorApproximation);
+    }
+
+    #[test]
+    fn mixed_currency_var_requires_explicit_reporting_currency() {
+        let as_of = sample_as_of();
+        let usd = CurrencyScalarInstrument::new("USD-INST", "USD-INST", Currency::USD);
+        let eur = CurrencyScalarInstrument::new("EUR-INST", "EUR-INST", Currency::EUR);
+
+        let base_market = MarketContext::new()
+            .insert_price(
+                "USD-INST",
+                MarketScalar::Price(Money::new(100.0, Currency::USD)),
+            )
+            .insert_price(
+                "EUR-INST",
+                MarketScalar::Price(Money::new(100.0, Currency::EUR)),
+            );
+
+        let scenario = MarketScenario::new(
+            as_of,
+            vec![
+                RiskFactorShift {
+                    factor: RiskFactorType::EquitySpot {
+                        ticker: "USD-INST".to_string(),
+                    },
+                    shift: 0.10,
+                },
+                RiskFactorShift {
+                    factor: RiskFactorType::EquitySpot {
+                        ticker: "EUR-INST".to_string(),
+                    },
+                    shift: 0.10,
+                },
+            ],
+        );
+        let history = MarketHistory::new(as_of, 1, vec![scenario]);
+
+        let err = calculate_var(
+            &[&usd as &dyn Instrument, &eur as &dyn Instrument],
+            &base_market,
+            &history,
+            as_of,
+            &VarConfig::var_95(),
+        )
+        .expect_err(
+            "mixed-currency VaR must not aggregate native-currency P&L without a reporting currency",
+        );
+        assert!(
+            err.to_string().contains("reporting currency"),
+            "expected reporting currency validation error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn mixed_currency_var_converts_pnl_into_reporting_currency() -> Result<()> {
+        let as_of = sample_as_of();
+        let usd = CurrencyScalarInstrument::new("USD-INST", "USD-INST", Currency::USD);
+        let eur = CurrencyScalarInstrument::new("EUR-INST", "EUR-INST", Currency::EUR);
+
+        let provider = finstack_core::money::fx::SimpleFxProvider::new();
+        provider.set_quote(Currency::EUR, Currency::USD, 2.0);
+        let fx = finstack_core::money::fx::FxMatrix::new(Arc::new(provider));
+
+        let base_market = MarketContext::new()
+            .insert_price(
+                "USD-INST",
+                MarketScalar::Price(Money::new(100.0, Currency::USD)),
+            )
+            .insert_price(
+                "EUR-INST",
+                MarketScalar::Price(Money::new(100.0, Currency::EUR)),
+            )
+            .insert_fx(fx);
+
+        let scenario = MarketScenario::new(
+            as_of,
+            vec![
+                RiskFactorShift {
+                    factor: RiskFactorType::EquitySpot {
+                        ticker: "USD-INST".to_string(),
+                    },
+                    shift: 0.10,
+                },
+                RiskFactorShift {
+                    factor: RiskFactorType::EquitySpot {
+                        ticker: "EUR-INST".to_string(),
+                    },
+                    shift: 0.10,
+                },
+            ],
+        );
+        let history = MarketHistory::new(as_of, 1, vec![scenario]);
+
+        let result = calculate_var(
+            &[&usd as &dyn Instrument, &eur as &dyn Instrument],
+            &base_market,
+            &history,
+            as_of,
+            &VarConfig::var_95().with_reporting_currency(Currency::USD),
+        )?;
+        assert!((result.pnl_distribution[0] - 30.0).abs() < 1e-12);
+        Ok(())
     }
 
     #[test]

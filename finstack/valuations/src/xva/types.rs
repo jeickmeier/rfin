@@ -479,6 +479,13 @@ pub struct NettingSet {
     ///
     /// `None` means uncollateralized — full exposure is at risk.
     pub csa: Option<CsaTerms>,
+
+    /// Optional reporting currency for netting, collateral, and exposure profiles.
+    ///
+    /// When omitted, single-currency portfolios use their natural currency.
+    /// Mixed-currency portfolios must set this explicitly.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reporting_currency: Option<finstack_core::currency::Currency>,
 }
 
 /// Credit Support Annex terms for collateralization.

@@ -69,13 +69,8 @@ impl AutocallableMcPricer {
 
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
 
-        // Get time to final observation date using the discount curve's basis to
-        // align DF/zero calculations with the time grid.
-        let final_date = inst
-            .observation_dates
-            .last()
-            .copied()
-            .unwrap_or(inst.observation_dates[0]);
+        // Use explicit expiry as the contractual settlement/maturity date.
+        let final_date = inst.expiry;
         let disc_dc = disc_curve.day_count();
         let t = disc_dc.year_fraction(as_of, final_date, DayCountCtx::default())?;
         if t <= 0.0 {

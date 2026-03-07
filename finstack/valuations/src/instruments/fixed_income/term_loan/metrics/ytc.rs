@@ -8,7 +8,9 @@ use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::Money;
 
-use super::irr_helpers::{outstanding_before, solve_irr_to_exercise};
+use super::irr_helpers::{
+    outstanding_before, solve_irr_to_exercise, target_price_from_quote_or_model,
+};
 
 /// Yield-to-call calculator for callable term loans.
 ///
@@ -67,7 +69,7 @@ impl MetricCalculator for YtcCalculator {
             loan,
             &schedule,
             as_of,
-            context.base_value,
+            target_price_from_quote_or_model(loan, context.base_value),
             call.date,
             redemption,
         )

@@ -184,6 +184,7 @@ impl PyNettingSet {
                 id,
                 counterparty_id,
                 csa: csa.map(|c| c.inner),
+                reporting_currency: None,
             },
         }
     }

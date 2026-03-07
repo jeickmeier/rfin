@@ -18,6 +18,7 @@ use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::surfaces::VolSurfaceAxis;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use finstack_core::types::{CalendarId, CurveId, InstrumentId};
@@ -1137,6 +1138,7 @@ impl Swaption {
 
         // 3. Volatility surface
         let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
+        vol_surface.require_secondary_axis(VolSurfaceAxis::Strike)?;
         let strike = self.strike_f64()?;
         match self
             .pricing_overrides
@@ -1222,6 +1224,7 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
 
         let time_to_expiry = year_fraction(self.day_count, as_of, self.expiry)?;
         let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
+        vol_surface.require_secondary_axis(VolSurfaceAxis::Strike)?;
         let strike = self.strike_f64()?;
         let vol = if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility {
             impl_vol

@@ -9,6 +9,7 @@ use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::instruments::rates::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::market_data::surfaces::VolSurfaceAxis;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 
@@ -63,6 +64,7 @@ impl MetricCalculator for ImpliedVolCalculator {
                     .curves
                     .surface(option.vol_surface_id.as_str())
                     .and_then(|s| {
+                        s.require_secondary_axis(VolSurfaceAxis::Strike)?;
                         match option
                             .pricing_overrides
                             .model_config

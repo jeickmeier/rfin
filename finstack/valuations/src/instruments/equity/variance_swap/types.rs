@@ -243,7 +243,12 @@ impl VarianceSwap {
         } else if let Some(days_step) = self.observation_freq.days() {
             // Day-based frequency
             while current <= self.maturity {
-                dates.push(current);
+                if !matches!(
+                    current.weekday(),
+                    time::Weekday::Saturday | time::Weekday::Sunday
+                ) {
+                    dates.push(current);
+                }
                 current += time::Duration::days(days_step as i64);
 
                 if current > self.maturity {

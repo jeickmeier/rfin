@@ -92,12 +92,7 @@ impl AsianOptionMcPricer {
 
         // Get discount curve
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
-        let maturity_date = inst
-            .fixing_dates
-            .last()
-            .copied()
-            .unwrap_or(inst.fixing_dates[0]);
-        let discount_factor = disc_curve.df_between_dates(as_of, maturity_date)?;
+        let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
         // Keep drift consistent with date-based discounting: exp(-r * t) == DF(as_of, maturity).
         let r = if t > 0.0 && discount_factor > 0.0 {
             -discount_factor.ln() / t
@@ -557,12 +552,7 @@ impl AsianOptionMcPricer {
         }
 
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
-        let maturity_date = inst
-            .fixing_dates
-            .last()
-            .copied()
-            .unwrap_or(inst.fixing_dates[0]);
-        let discount_factor = disc_curve.df_between_dates(as_of, maturity_date)?;
+        let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
         // Keep drift consistent with date-based discounting: exp(-r * t) == DF(as_of, maturity).
         let r = if t > 0.0 && discount_factor > 0.0 {
             -discount_factor.ln() / t

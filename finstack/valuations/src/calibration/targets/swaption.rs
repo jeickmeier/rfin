@@ -12,7 +12,7 @@ use finstack_core::dates::{
     BusinessDayConvention, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::surfaces::{VolSurface, VolSurfaceAxis};
 use finstack_core::Result;
 use std::collections::BTreeMap;
 
@@ -386,8 +386,13 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
             }
         }
 
-        let surface =
-            VolSurface::from_grid(&params.surface_id, &target_expiries, &target_tenors, &grid)?;
+        let surface = VolSurface::from_grid_with_axis(
+            &params.surface_id,
+            &target_expiries,
+            &target_tenors,
+            &grid,
+            VolSurfaceAxis::Tenor,
+        )?;
 
         let vol_tolerance = vol_fit_tolerance;
 

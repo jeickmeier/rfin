@@ -16,6 +16,18 @@ use finstack_core::cashflow::{CFKind, InternalRateOfReturn};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
+/// Resolve the target purchase price for quote-derived term-loan yield metrics.
+///
+/// Uses quoted clean price first when present; otherwise falls back to the
+/// model dirty PV already computed in `context.base_value`.
+pub(super) fn target_price_from_quote_or_model(loan: &TermLoan, base_value: Money) -> Money {
+    if let Some(px) = loan.pricing_overrides.market_quotes.quoted_clean_price {
+        Money::new(px * loan.notional_limit.amount() / 100.0, loan.currency)
+    } else {
+        base_value
+    }
+}
+
 /// Solve IRR to an exercise date using kind-aware cashflow filtering.
 ///
 /// This is the core IRR solver used by YTC and YTW metrics.

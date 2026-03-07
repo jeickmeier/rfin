@@ -64,7 +64,7 @@ pub fn apply_netting(instrument_values: &[f64]) -> f64 {
 ///
 /// ```text
 /// over_threshold = max(exposure - threshold, 0)
-/// collateral_call = max(over_threshold - MTA, 0)
+/// collateral_call = if over_threshold > MTA { over_threshold } else { 0 }
 /// net_exposure = max(exposure - collateral_call - IA, 0)
 /// ```
 ///
@@ -97,13 +97,17 @@ pub fn apply_netting(instrument_values: &[f64]) -> f64 {
 /// // Exposure below threshold: no collateral called
 /// assert!((apply_collateral(8.0, &csa) - 8.0).abs() < 1e-12);
 ///
-/// // Exposure above threshold + MTA: collateral reduces exposure
-/// assert!((apply_collateral(20.0, &csa) - 11.0).abs() < 1e-12);
+/// // Exposure above threshold + MTA: the call returns exposure to threshold
+/// assert!((apply_collateral(20.0, &csa) - 10.0).abs() < 1e-12);
 /// ```
 #[inline]
 pub fn apply_collateral(gross_exposure: f64, csa: &CsaTerms) -> f64 {
     let over_threshold = (gross_exposure - csa.threshold).max(0.0);
-    let collateral = (over_threshold - csa.mta).max(0.0);
+    let collateral = if over_threshold > csa.mta {
+        over_threshold
+    } else {
+        0.0
+    };
     (gross_exposure - collateral - csa.independent_amount).max(0.0)
 }
 
@@ -182,28 +186,27 @@ mod tests {
     #[test]
     fn collateral_above_threshold_plus_mta() {
         // Exposure = 20, threshold = 10, MTA = 1
-        // over_threshold = 10, collateral = 10 - 1 = 9
-        // net = 20 - 9 = 11
+        // over_threshold = 10 > MTA, so full 10 is called
+        // net = 20 - 10 = 10
         let csa = make_csa(10.0, 1.0, 0.0);
-        assert!((apply_collateral(20.0, &csa) - 11.0).abs() < 1e-12);
+        assert!((apply_collateral(20.0, &csa) - 10.0).abs() < 1e-12);
     }
 
     #[test]
     fn collateral_with_independent_amount() {
         // IA reduces the net exposure (additional collateral posted by counterparty)
         let csa = make_csa(10.0, 1.0, 5.0);
-        // Exposure = 20, over_threshold = 10, collateral = 9
-        // net = max(20 - 9 - 5, 0) = 6
-        assert!((apply_collateral(20.0, &csa) - 6.0).abs() < 1e-12);
+        // Exposure = 20, over_threshold = 10, collateral = 10
+        // net = max(20 - 10 - 5, 0) = 5
+        assert!((apply_collateral(20.0, &csa) - 5.0).abs() < 1e-12);
     }
 
     #[test]
     fn collateral_zero_threshold() {
         // Zero threshold CSA (bilateral VM): all exposure is collateralized above MTA
         let csa = make_csa(0.0, 0.5, 0.0);
-        // Exposure = 100, over_threshold = 100, collateral = 99.5
-        // net = 100 - 99.5 = 0.5
-        assert!((apply_collateral(100.0, &csa) - 0.5).abs() < 1e-12);
+        // Exposure = 100, over_threshold = 100 > MTA, so full 100 is called
+        assert!(apply_collateral(100.0, &csa).abs() < 1e-12);
     }
 
     #[test]

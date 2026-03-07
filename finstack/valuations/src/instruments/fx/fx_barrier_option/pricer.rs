@@ -73,7 +73,7 @@ impl FxBarrierOptionMcPricer {
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
         if t <= 0.0 {
-            let per_unit = expired_barrier_value_per_unit(inst, fx_spot);
+            let per_unit = expired_barrier_value_per_unit(inst, fx_spot)?;
             return Ok(finstack_core::money::Money::new(
                 per_unit * inst.notional.amount(),
                 inst.quote_currency,
@@ -238,23 +238,14 @@ fn barrier_is_knock_in(
     )
 }
 
-#[inline]
-fn spot_implies_barrier_hit(
-    bt: crate::instruments::exotics::barrier_option::types::BarrierType,
-    spot: f64,
-    barrier: f64,
-) -> bool {
-    use crate::instruments::exotics::barrier_option::types::BarrierType;
-    match bt {
-        BarrierType::UpAndIn | BarrierType::UpAndOut => spot >= barrier,
-        BarrierType::DownAndIn | BarrierType::DownAndOut => spot <= barrier,
-    }
-}
-
-fn expired_barrier_value_per_unit(inst: &FxBarrierOption, spot: f64) -> f64 {
+fn expired_barrier_value_per_unit(inst: &FxBarrierOption, spot: f64) -> finstack_core::Result<f64> {
     let strike = inst.strike;
-    let barrier = inst.barrier;
-    let barrier_hit = spot_implies_barrier_hit(inst.barrier_type, spot, barrier);
+    let barrier_hit = inst.observed_barrier_breached.ok_or_else(|| {
+        finstack_core::Error::Validation(
+            "Expired FX barrier option requires `observed_barrier_breached` to determine realized payoff"
+                .to_string(),
+        )
+    })?;
     let activated = if barrier_is_knock_in(inst.barrier_type) {
         barrier_hit
     } else {
@@ -276,7 +267,7 @@ fn expired_barrier_value_per_unit(inst: &FxBarrierOption, spot: f64) -> f64 {
         0.0
     };
 
-    intrinsic + rebate
+    Ok(intrinsic + rebate)
 }
 
 /// Validate currency semantics and numeric bounds for FX barrier option.
@@ -528,7 +519,12 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
             })?;
 
         if t <= 0.0 {
-            let per_unit = expired_barrier_value_per_unit(fx_barrier, fx_spot);
+            let per_unit = expired_barrier_value_per_unit(fx_barrier, fx_spot).map_err(|e| {
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
+            })?;
             return Ok(ValuationResult::stamped(
                 fx_barrier.id(),
                 as_of,
@@ -605,7 +601,12 @@ impl FxBarrierOptionVannaVolgaPricer {
             })?;
 
         if t <= 0.0 {
-            let per_unit = expired_barrier_value_per_unit(fx_barrier, fx_spot);
+            let per_unit = expired_barrier_value_per_unit(fx_barrier, fx_spot).map_err(|e| {
+                PricingError::model_failure_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
+            })?;
             return Ok(Money::new(
                 per_unit * fx_barrier.notional.amount(),
                 fx_barrier.quote_currency,
@@ -662,8 +663,9 @@ mod tests {
         inst.strike = 1.10;
         inst.barrier = 1.20;
         inst.rebate = None;
+        inst.observed_barrier_breached = Some(true);
 
-        let per_unit = expired_barrier_value_per_unit(&inst, 1.25);
+        let per_unit = expired_barrier_value_per_unit(&inst, 1.25).expect("expired value");
         assert!((per_unit - 0.15).abs() < 1e-12);
     }
 
@@ -675,9 +677,10 @@ mod tests {
         inst.strike = 1.10;
         inst.barrier = 0.90;
         inst.rebate = None;
+        inst.observed_barrier_breached = Some(false);
 
         // Barrier not hit at expiry => down-and-out stays active => intrinsic applies.
-        let per_unit = expired_barrier_value_per_unit(&inst, 1.00);
+        let per_unit = expired_barrier_value_per_unit(&inst, 1.00).expect("expired value");
         assert!((per_unit - 0.10).abs() < 1e-12);
     }
 
@@ -689,10 +692,23 @@ mod tests {
         inst.strike = 1.10;
         inst.barrier = 1.20;
         inst.rebate = Some(0.02);
+        inst.observed_barrier_breached = Some(true);
 
         // Barrier hit at expiry => knocked out. With rebate, no intrinsic and rebate paid.
-        let per_unit = expired_barrier_value_per_unit(&inst, 1.25);
+        let per_unit = expired_barrier_value_per_unit(&inst, 1.25).expect("expired value");
         assert!((per_unit - 0.02).abs() < 1e-12);
+    }
+
+    #[test]
+    fn expired_fx_barrier_requires_observed_state() {
+        let mut inst = FxBarrierOption::example();
+        inst.observed_barrier_breached = None;
+
+        let err = expired_barrier_value_per_unit(&inst, 1.25).expect_err("missing observed state");
+        assert!(
+            err.to_string().contains("observed_barrier_breached"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]

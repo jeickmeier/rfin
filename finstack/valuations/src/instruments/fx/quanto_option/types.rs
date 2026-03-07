@@ -30,6 +30,20 @@ pub struct QuantoOption {
     pub expiry: Date,
     /// Notional amount (in domestic currency)
     pub notional: Money,
+    /// Number of underlying units covered by the option payoff.
+    ///
+    /// Quanto pricing is performed per unit of the underlying in the base currency.
+    /// This quantity converts the per-unit price into contract-level exposure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[builder(default)]
+    pub underlying_quantity: Option<f64>,
+    /// Fixed payoff FX conversion rate from base-currency payoff into quote currency.
+    ///
+    /// Example: for a JPY-underlying option settled in USD at a fixed 140 JPY/USD
+    /// conversion, `payoff_fx_rate` is `1.0 / 140.0` USD per JPY.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[builder(default)]
+    pub payoff_fx_rate: Option<f64>,
     /// Base currency (equity denomination)
     pub base_currency: Currency,
     /// Quote currency (payment/settlement currency)
@@ -85,6 +99,8 @@ impl QuantoOption {
                 Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"),
             )
             .notional(Money::new(1_000_000.0, Currency::USD))
+            .underlying_quantity_opt(Some(100.0))
+            .payoff_fx_rate_opt(Some(1.0 / 140.0))
             .base_currency(Currency::JPY)
             .quote_currency(Currency::USD)
             .correlation(-0.2)
@@ -474,6 +490,8 @@ mod tests {
         assert_eq!(option.id.as_str(), "QUANTO-NKY-USD-CALL");
         assert_eq!(option.quote_currency, Currency::USD);
         assert_eq!(option.base_currency, Currency::JPY);
+        assert_eq!(option.underlying_quantity, Some(100.0));
+        assert!(option.payoff_fx_rate.is_some());
         assert!(option.correlation < 0.0); // Negative correlation in example
     }
 

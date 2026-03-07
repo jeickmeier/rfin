@@ -26,6 +26,7 @@ fn test_build_xccy_basis_swap() {
         convention: XccyConventionId::new("EUR/USD-XCCY"),
         far_pillar: Pillar::Tenor("5Y".parse().unwrap()),
         basis_spread_bp: -15.0,
+        spot_fx: Some(1.10),
     };
 
     let instrument = build_xccy_instrument(&quote, &ctx).expect("build xccy swap");
@@ -38,5 +39,11 @@ fn test_build_xccy_basis_swap() {
     assert_eq!(swap.leg1.currency, Currency::EUR);
     assert_eq!(swap.leg2.currency, Currency::USD);
     assert_eq!(swap.reporting_currency, Currency::USD);
+    assert!((swap.leg2.notional.amount() - 10_000_000.0).abs() < 1e-8);
+    assert!((swap.leg1.notional.amount() - (10_000_000.0 / 1.10)).abs() < 1e-8);
+    assert_eq!(swap.leg1.payment_lag_days, 2);
+    assert_eq!(swap.leg2.payment_lag_days, 2);
+    assert_eq!(swap.leg1.reset_lag_days, Some(0));
+    assert_eq!(swap.leg2.reset_lag_days, Some(0));
     assert!(swap.leg2.end > swap.leg2.start);
 }

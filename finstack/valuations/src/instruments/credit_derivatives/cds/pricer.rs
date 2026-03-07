@@ -482,9 +482,17 @@ struct AodInputs<'a> {
     spread: f64,
     start_date: Date,
     end_date: Date,
+    payment_date: Date,
     as_of: Date,
     disc: &'a DiscountCurve,
     surv: &'a HazardCurve,
+}
+
+#[derive(Clone, Copy)]
+struct CouponPeriod {
+    accrual_start: Date,
+    accrual_end: Date,
+    payment_date: Date,
 }
 
 impl Default for CDSPricer {
@@ -753,7 +761,7 @@ impl CDSPricer {
         surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
-        let schedule = self.generate_schedule(cds, as_of)?;
+        let periods = self.coupon_periods(cds, as_of)?;
 
         let mut premium_pv = 0.0;
         let spread = cds.premium.spread_bp.to_f64().ok_or_else(|| {
@@ -763,9 +771,10 @@ impl CDSPricer {
             ))
         })? * ONE_BASIS_POINT;
 
-        for i in 0..schedule.len() - 1 {
-            let start_date = schedule[i];
-            let end_date = schedule[i + 1];
+        for period in periods {
+            let start_date = period.accrual_start;
+            let end_date = period.accrual_end;
+            let payment_date = period.payment_date;
 
             // Skip periods that have already ended before as_of
             if end_date <= as_of {
@@ -776,7 +785,7 @@ impl CDSPricer {
             let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
-            let df = df_asof_to(disc, as_of, end_date)?;
+            let df = df_asof_to(disc, as_of, payment_date)?;
 
             // Survival uses hazard curve's day-count and conditional probability
             let sp = sp_cond_to(surv, as_of, end_date)?;
@@ -790,6 +799,7 @@ impl CDSPricer {
                     spread,
                     start_date: start_date.max(as_of),
                     end_date,
+                    payment_date,
                     as_of,
                     disc,
                     surv,
@@ -825,8 +835,8 @@ impl CDSPricer {
         let sp_end = sp_cond_to(inp.surv, inp.as_of, inp.end_date)?;
         let default_prob = (sp_start - sp_end).max(0.0);
 
-        // Discount to the *premium payment date* (end_date) from as_of.
-        let df = df_asof_to(inp.disc, inp.as_of, inp.end_date)?;
+        // Discount to the premium payment date from as_of.
+        let df = df_asof_to(inp.disc, inp.as_of, inp.payment_date)?;
 
         Ok(inp.spread * 0.5 * tau_remaining * default_prob * df)
     }
@@ -1758,6 +1768,61 @@ impl CDSPricer {
         Ok(schedule)
     }
 
+    fn coupon_periods(&self, cds: &CreditDefaultSwap, as_of: Date) -> Result<Vec<CouponPeriod>> {
+        if self.config.use_isda_coupon_dates {
+            self.generate_isda_coupon_periods(cds, as_of)
+        } else {
+            let schedule = self.generate_schedule(cds, as_of)?;
+            Ok(schedule
+                .windows(2)
+                .map(|w| CouponPeriod {
+                    accrual_start: w[0],
+                    accrual_end: w[1],
+                    payment_date: w[1],
+                })
+                .collect())
+        }
+    }
+
+    fn generate_isda_coupon_periods(
+        &self,
+        cds: &CreditDefaultSwap,
+        _as_of: Date,
+    ) -> Result<Vec<CouponPeriod>> {
+        let mut accrual_dates = vec![cds.premium.start];
+        let mut current = cds.premium.start;
+        let calendar = cds
+            .premium
+            .calendar_id
+            .as_deref()
+            .and_then(finstack_core::dates::calendar::calendar_by_id);
+
+        while current < cds.premium.end {
+            current = next_cds_date(current);
+            if current <= cds.premium.end {
+                accrual_dates.push(current);
+            }
+        }
+        if accrual_dates.last() != Some(&cds.premium.end) {
+            accrual_dates.push(cds.premium.end);
+        }
+
+        let mut periods = Vec::with_capacity(accrual_dates.len().saturating_sub(1));
+        for window in accrual_dates.windows(2) {
+            let payment_date = if let Some(cal) = calendar {
+                adjust(window[1], cds.premium.bdc, cal).unwrap_or(window[1])
+            } else {
+                window[1]
+            };
+            periods.push(CouponPeriod {
+                accrual_start: window[0],
+                accrual_end: window[1],
+                payment_date,
+            });
+        }
+        Ok(periods)
+    }
+
     /// Calculate par spread (bps) that sets NPV to zero.
     ///
     /// # ISDA Standard Par Spread Definition
@@ -1796,11 +1861,12 @@ impl CDSPricer {
         // This excludes accrual-on-default from the denominator per ISDA convention.
         let denom = if self.config.par_spread_uses_full_premium {
             // Opt-in: Compute full premium PV per 1bp including AoD
-            let schedule = self.generate_schedule(cds, as_of)?;
+            let periods = self.coupon_periods(cds, as_of)?;
             let mut ann = 0.0;
-            for i in 0..schedule.len() - 1 {
-                let start_date = schedule[i];
-                let end_date = schedule[i + 1];
+            for period in periods {
+                let start_date = period.accrual_start;
+                let end_date = period.accrual_end;
+                let payment_date = period.payment_date;
 
                 // Skip periods that have already ended before as_of
                 if end_date <= as_of {
@@ -1811,7 +1877,7 @@ impl CDSPricer {
                 let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
 
                 // Discounting uses discount curve's day-count and relative DF from as_of
-                let df = df_asof_to(disc, as_of, end_date)?;
+                let df = df_asof_to(disc, as_of, payment_date)?;
 
                 // Survival uses hazard curve's day-count and conditional probability
                 let sp = sp_cond_to(surv, as_of, end_date)?;
@@ -1826,6 +1892,7 @@ impl CDSPricer {
                     spread: unit_spread,
                     start_date: start_date.max(as_of),
                     end_date,
+                    payment_date,
                     as_of,
                     disc,
                     surv,
@@ -1860,11 +1927,12 @@ impl CDSPricer {
         surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
-        let schedule = self.generate_schedule(cds, as_of)?;
+        let periods = self.coupon_periods(cds, as_of)?;
         let mut per_bp_pv = 0.0;
-        for i in 0..schedule.len() - 1 {
-            let start_date = schedule[i];
-            let end_date = schedule[i + 1];
+        for period in periods {
+            let start_date = period.accrual_start;
+            let end_date = period.accrual_end;
+            let payment_date = period.payment_date;
 
             // Skip periods that have already ended before as_of
             if end_date <= as_of {
@@ -1875,7 +1943,7 @@ impl CDSPricer {
             let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
-            let df = df_asof_to(disc, as_of, end_date)?;
+            let df = df_asof_to(disc, as_of, payment_date)?;
 
             // Survival uses hazard curve's day-count and conditional probability
             let sp = sp_cond_to(surv, as_of, end_date)?;
@@ -1888,6 +1956,7 @@ impl CDSPricer {
                     spread: ONE_BASIS_POINT,
                     start_date: start_date.max(as_of),
                     end_date,
+                    payment_date,
                     as_of,
                     disc,
                     surv,
@@ -1911,11 +1980,12 @@ impl CDSPricer {
         surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
-        let schedule = self.generate_schedule(cds, as_of)?;
+        let periods = self.coupon_periods(cds, as_of)?;
         let mut annuity = 0.0;
-        for i in 0..schedule.len() - 1 {
-            let start_date = schedule[i];
-            let end_date = schedule[i + 1];
+        for period in periods {
+            let start_date = period.accrual_start;
+            let end_date = period.accrual_end;
+            let payment_date = period.payment_date;
 
             // Skip periods that have already ended before as_of
             if end_date <= as_of {
@@ -1926,7 +1996,7 @@ impl CDSPricer {
             let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
-            let df = df_asof_to(disc, as_of, end_date)?;
+            let df = df_asof_to(disc, as_of, payment_date)?;
 
             // Survival uses hazard curve's day-count and conditional probability
             let sp = sp_cond_to(surv, as_of, end_date)?;

@@ -36,11 +36,7 @@ impl HasPricingOverrides for Autocallable {
 #[cfg(feature = "mc")]
 impl HasExpiry for Autocallable {
     fn expiry(&self) -> finstack_core::dates::Date {
-        // Autocallable uses final observation date as expiry
-        self.observation_dates
-            .last()
-            .copied()
-            .unwrap_or(self.observation_dates[0])
+        self.expiry
     }
 }
 

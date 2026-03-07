@@ -106,6 +106,23 @@ impl IrFutureOption {
         }
     }
 
+    /// Currency PV per 1.0 futures price point for one contract.
+    fn contract_point_value(&self) -> finstack_core::Result<f64> {
+        if !self.tick_size.is_finite() || self.tick_size <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "IR future option tick_size must be positive and finite; got {}",
+                self.tick_size
+            )));
+        }
+        if !self.tick_value.is_finite() || self.tick_value <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "IR future option tick_value must be positive and finite; got {}",
+                self.tick_value
+            )));
+        }
+        Ok(self.tick_value / self.tick_size)
+    }
+
     /// Black-76 option premium (undiscounted) and the discount factor.
     ///
     /// Returns `(undiscounted_premium, discount_factor, time_to_expiry)`.
@@ -154,7 +171,7 @@ impl IrFutureOption {
     /// Present value of the option.
     pub fn npv(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         let (premium, df, _t) = self.black76_components(context, as_of)?;
-        let pv = df * premium * self.notional.amount();
+        let pv = df * premium * self.contract_point_value()?;
         if !pv.is_finite() {
             return Err(finstack_core::Error::Validation(format!(
                 "IR future option produced non-finite PV: F={}, K={}, σ={}, id={}",
@@ -316,25 +333,25 @@ impl CashflowProvider for IrFutureOption {
 
 impl crate::instruments::common_impl::traits::OptionDeltaProvider for IrFutureOption {
     fn option_delta(&self, _market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        Ok(self.delta(as_of) * self.notional.amount())
+        Ok(self.delta(as_of) * self.contract_point_value()?)
     }
 }
 
 impl crate::instruments::common_impl::traits::OptionGammaProvider for IrFutureOption {
     fn option_gamma(&self, _market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        Ok(self.gamma(as_of) * self.notional.amount())
+        Ok(self.gamma(as_of) * self.contract_point_value()?)
     }
 }
 
 impl crate::instruments::common_impl::traits::OptionVegaProvider for IrFutureOption {
     fn option_vega(&self, _market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        Ok(self.vega_per_pct(as_of) * self.notional.amount())
+        Ok(self.vega_per_pct(as_of) * self.contract_point_value()?)
     }
 }
 
 impl crate::instruments::common_impl::traits::OptionThetaProvider for IrFutureOption {
     fn option_theta(&self, _market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        Ok(self.theta_daily(as_of) * self.notional.amount())
+        Ok(self.theta_daily(as_of) * self.contract_point_value()?)
     }
 }
 
@@ -443,5 +460,40 @@ mod tests {
         // as_of is after expiry
         let delta = opt.delta(date!(2025 - 03 - 01));
         assert_eq!(delta, 1.0, "Expired ITM call delta should be 1.0");
+    }
+
+    #[test]
+    fn npv_uses_contract_tick_economics_not_notional_amount() {
+        let as_of = date!(2025 - 01 - 15);
+        let expiry = date!(2025 - 06 - 16);
+        let market = MarketContext::new().insert_discount(
+            finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
+                .base_date(as_of)
+                .day_count(DayCount::Act365F)
+                .knots([(0.0, 1.0), (1.0, 1.0)])
+                .build()
+                .expect("flat zero-rate curve"),
+        );
+
+        let opt = IrFutureOption::builder()
+            .id(InstrumentId::new("IRFO-CONTRACT-SCALE"))
+            .futures_price(96.0)
+            .strike(95.0)
+            .expiry(expiry)
+            .option_type(OptionType::Call)
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .tick_size(0.0025)
+            .tick_value(6.25)
+            .volatility(0.0)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("build");
+
+        let pv = opt.npv(&market, as_of).expect("pv");
+        let expected = (96.0 - 95.0) * (6.25 / 0.0025);
+        assert!(
+            (pv - expected).abs() < 1e-9,
+            "PV must be scaled by tick economics: expected {expected}, got {pv}"
+        );
     }
 }

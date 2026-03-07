@@ -33,4 +33,4 @@ mod vol_surface;
 // Re-export for ergonomic access (curated list)
 pub use delta_vol_surface::FxDeltaVolSurfaceBuilder;
 pub use fx_delta_vol_surface::FxDeltaVolSurface;
-pub use vol_surface::{VolSurface, VolSurfaceBuilder};
+pub use vol_surface::{VolSurface, VolSurfaceAxis, VolSurfaceBuilder};
