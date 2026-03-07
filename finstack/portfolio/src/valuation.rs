@@ -30,6 +30,20 @@ pub struct PositionValue {
     /// Value converted to portfolio base currency
     pub value_base: Money,
 
+    /// Linear scaling factor to apply to summable risk measures.
+    ///
+    /// This mirrors the economic position size and sign used for PV scaling,
+    /// but is kept separate so non-summable metrics such as YTM remain
+    /// unscaled at the position drill-down level.
+    pub metric_scale: f64,
+
+    /// Whether all requested risk metrics were computed successfully.
+    pub risk_metrics_complete: bool,
+
+    /// Original metrics failure message when the valuation fell back to PV-only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub risk_error: Option<String>,
+
     /// Full valuation result with metrics
     #[serde(skip)]
     pub valuation_result: Option<ValuationResult>,
@@ -48,6 +62,11 @@ pub struct PortfolioValuation {
 
     /// Aggregated values by entity
     pub by_entity: IndexMap<EntityId, Money>,
+
+    /// Positions whose valuation fell back to PV-only because requested risk
+    /// metrics could not be computed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub degraded_positions: Vec<PositionId>,
 }
 
 impl PortfolioValuation {
@@ -67,6 +86,16 @@ impl PortfolioValuation {
     /// * `entity_id` - Entity identifier to query (accepts &str or &EntityId).
     pub fn get_entity_value(&self, entity_id: &str) -> Option<&Money> {
         self.by_entity.get(entity_id)
+    }
+
+    /// Returns true when any position is missing requested risk metrics.
+    pub fn has_degraded_risk(&self) -> bool {
+        !self.degraded_positions.is_empty()
+    }
+
+    /// Position IDs whose valuation fell back to PV-only.
+    pub fn degraded_positions(&self) -> &[PositionId] {
+        &self.degraded_positions
     }
 }
 
@@ -245,11 +274,17 @@ fn value_portfolio_serial(
     let entity_amounts: Vec<f64> = by_entity.values().map(|v| v.amount()).collect();
     let total_amount = neumaier_sum(entity_amounts);
     let total_base_ccy = Money::new(total_amount, portfolio.base_ccy);
+    let degraded_positions = position_values
+        .values()
+        .filter(|pv| !pv.risk_metrics_complete)
+        .map(|pv| pv.position_id.clone())
+        .collect();
 
     Ok(PortfolioValuation {
         position_values,
         total_base_ccy,
         by_entity,
+        degraded_positions,
     })
 }
 
@@ -323,12 +358,25 @@ fn value_portfolio_parallel(
     let entity_amounts_for_total: Vec<f64> = by_entity.values().map(|v| v.amount()).collect();
     let total_amount = neumaier_sum(entity_amounts_for_total);
     let total_base_ccy = Money::new(total_amount, portfolio.base_ccy);
+    let degraded_positions = position_values
+        .values()
+        .filter(|pv| !pv.risk_metrics_complete)
+        .map(|pv| pv.position_id.clone())
+        .collect();
 
     Ok(PortfolioValuation {
         position_values,
         total_base_ccy,
         by_entity,
+        degraded_positions,
     })
+}
+
+fn metric_scale_factor(position: &crate::position::Position) -> f64 {
+    match position.unit {
+        crate::position::PositionUnit::Percentage => position.quantity / 100.0,
+        _ => position.quantity,
+    }
 }
 
 /// Value a single position with metrics and FX conversion.
@@ -346,31 +394,38 @@ fn value_single_position(
     // When `strict_risk` is `false`, metric failures fall back to PV-only
     // valuation for the position. When `true`, any metric failure bubbles up
     // as a portfolio error.
-    let valuation_result = if strict_risk {
-        position
-            .instrument
-            .price_with_metrics(market, portfolio.as_of, metrics)
-            .map_err(|e: finstack_core::Error| Error::ValuationError {
-                position_id: position.position_id.clone(),
-                message: e.to_string(),
-            })?
+    let (valuation_result, risk_metrics_complete, risk_error) = if strict_risk {
+        (
+            position
+                .instrument
+                .price_with_metrics(market, portfolio.as_of, metrics)
+                .map_err(|e: finstack_core::Error| Error::ValuationError {
+                    position_id: position.position_id.clone(),
+                    message: e.to_string(),
+                })?,
+            true,
+            None,
+        )
     } else {
-        position
+        match position
             .instrument
             .price_with_metrics(market, portfolio.as_of, metrics)
-            .or_else(|_: finstack_core::Error| {
-                // If metrics fail, just get base value
-                let value = position.instrument.value(market, portfolio.as_of)?;
-                Ok(ValuationResult::stamped(
-                    position.instrument.id(),
-                    portfolio.as_of,
-                    value,
-                ))
-            })
-            .map_err(|e: finstack_core::Error| Error::ValuationError {
-                position_id: position.position_id.clone(),
-                message: e.to_string(),
-            })?
+        {
+            Ok(result) => (result, true, None),
+            Err(metric_error) => {
+                let value = position.instrument.value(market, portfolio.as_of).map_err(
+                    |e: finstack_core::Error| Error::ValuationError {
+                        position_id: position.position_id.clone(),
+                        message: e.to_string(),
+                    },
+                )?;
+                (
+                    ValuationResult::stamped(position.instrument.id(), portfolio.as_of, value),
+                    false,
+                    Some(metric_error.to_string()),
+                )
+            }
+        }
     };
 
     let value_native = valuation_result.value;
@@ -411,6 +466,9 @@ fn value_single_position(
         entity_id: position.entity_id.clone(),
         value_native: scaled_native,
         value_base,
+        metric_scale: metric_scale_factor(position),
+        risk_metrics_complete,
+        risk_error,
         valuation_result: Some(valuation_result),
     })
 }

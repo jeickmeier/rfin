@@ -339,7 +339,19 @@ impl Position {
     /// - The quantity is invalid (NaN/Inf)
     /// - The instrument specification cannot be converted to an instrument
     pub fn from_spec(spec: PositionSpec) -> Result<Self> {
-        let instrument = if let Some(instr_json) = spec.instrument_spec {
+        let PositionSpec {
+            position_id,
+            entity_id,
+            instrument_id,
+            instrument_spec,
+            quantity,
+            unit,
+            book_id,
+            tags,
+            meta,
+        } = spec;
+
+        let instrument = if let Some(instr_json) = instrument_spec {
             Arc::from(instr_json.into_boxed().map_err(|e| {
                 Error::invalid_input(format!("Failed to convert instrument JSON: {}", e))
             })?)
@@ -349,14 +361,18 @@ impl Position {
             ));
         };
 
-        Self::new(
-            spec.position_id,
-            spec.entity_id,
-            spec.instrument_id,
+        let mut position = Self::new(
+            position_id,
+            entity_id,
+            instrument_id,
             instrument,
-            spec.quantity,
-            spec.unit,
-        )
+            quantity,
+            unit,
+        )?;
+        position.book_id = book_id;
+        position.tags = tags;
+        position.meta = meta;
+        Ok(position)
     }
 }
 

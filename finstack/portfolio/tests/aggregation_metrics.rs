@@ -3,12 +3,79 @@ mod common;
 use common::*;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::rates::deposit::Deposit;
+use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::metrics::MetricId;
+use finstack_valuations::pricer::InstrumentType;
+use finstack_valuations::results::ValuationResult;
+use indexmap::IndexMap;
+use std::any::Any;
 use std::sync::Arc;
 use time::Duration;
+
+#[derive(Clone)]
+struct FixedMetricInstrument {
+    id: String,
+    value: Money,
+    measures: IndexMap<MetricId, f64>,
+    attributes: Attributes,
+}
+
+impl FixedMetricInstrument {
+    fn new(id: &str, value: Money, measures: IndexMap<MetricId, f64>) -> Self {
+        Self {
+            id: id.to_string(),
+            value,
+            measures,
+            attributes: Attributes::new(),
+        }
+    }
+}
+
+impl Instrument for FixedMetricInstrument {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn key(&self) -> InstrumentType {
+        InstrumentType::Basket
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn value(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+        Ok(self.value)
+    }
+
+    fn price_with_metrics(
+        &self,
+        _curves: &MarketContext,
+        as_of: Date,
+        _metrics: &[MetricId],
+    ) -> finstack_core::Result<ValuationResult> {
+        Ok(ValuationResult::stamped(self.id(), as_of, self.value)
+            .with_measures(self.measures.clone()))
+    }
+}
 
 #[test]
 fn summable_vs_non_summable_metrics() {
@@ -61,4 +128,61 @@ fn summable_vs_non_summable_metrics() {
     if let Some(total) = metrics.get_total("dv01") {
         let _ = total; // present and numeric
     }
+}
+
+#[test]
+fn summable_metrics_scale_with_quantity_and_short_sign() {
+    let as_of = base_date();
+    let mut measures = IndexMap::new();
+    measures.insert(MetricId::Dv01, 2.5);
+    measures.insert(MetricId::Ytm, 0.05);
+
+    let instrument = Arc::new(FixedMetricInstrument::new(
+        "RISKY",
+        Money::new(100.0, Currency::USD),
+        measures,
+    ));
+
+    let long = Position::new(
+        "LONG",
+        "E1",
+        "RISKY",
+        instrument.clone(),
+        2.0,
+        PositionUnit::Units,
+    )
+    .unwrap();
+    let short = Position::new(
+        "SHORT",
+        "E1",
+        "RISKY",
+        instrument,
+        -3.0,
+        PositionUnit::Units,
+    )
+    .unwrap();
+
+    let portfolio = PortfolioBuilder::new("P")
+        .base_ccy(Currency::USD)
+        .as_of(as_of)
+        .entity(Entity::new("E1"))
+        .position(long)
+        .position(short)
+        .build()
+        .unwrap();
+
+    let market = market_with_usd();
+    let config = FinstackConfig::default();
+    let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
+    let metrics =
+        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market).unwrap();
+
+    let long_metrics = metrics.get_position_metrics("LONG").unwrap();
+    let short_metrics = metrics.get_position_metrics("SHORT").unwrap();
+
+    assert_eq!(long_metrics.get("ytm"), Some(&0.05));
+    assert_eq!(short_metrics.get("ytm"), Some(&0.05));
+    assert_eq!(long_metrics.get("dv01"), Some(&5.0));
+    assert_eq!(short_metrics.get("dv01"), Some(&-7.5));
+    assert_eq!(metrics.get_total("dv01"), Some(-2.5));
 }

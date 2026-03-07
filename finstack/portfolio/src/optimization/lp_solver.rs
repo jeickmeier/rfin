@@ -1,5 +1,7 @@
 use super::constraints::{Constraint, Inequality};
-use super::decision::{build_decision_space, DecisionFeatures, DecisionItem};
+use super::decision::{
+    build_decision_space, DecisionFeatures, DecisionItem, OptimizationDenominators,
+};
 use super::problem::PortfolioOptimizationProblem;
 use super::result::{OptimizationStatus, PortfolioOptimizationResult};
 use super::types::{MetricExpr, MissingMetricPolicy, PerPositionMetric, WeightingScheme};
@@ -71,7 +73,30 @@ struct LpConstraint {
     name: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct WeightVarSpec {
+    var: good_lp::Variable,
+    offset: f64,
+    min_weight: f64,
+    max_weight: f64,
+}
+
 impl DefaultLpOptimizer {
+    fn validate_supported_problem(_problem: &PortfolioOptimizationProblem) -> Result<()> {
+        Ok(())
+    }
+
+    fn reconstruction_denominator(
+        weighting: WeightingScheme,
+        denominators: OptimizationDenominators,
+    ) -> f64 {
+        match weighting {
+            WeightingScheme::ValueWeight => denominators.gross_pv_base,
+            WeightingScheme::NotionalWeight => denominators.gross_notional,
+            WeightingScheme::UnitScaling => 1.0,
+        }
+    }
+
     /// Collect all `MetricId`s required by the problem's `PerPositionMetric`s.
     fn required_metrics(problem: &PortfolioOptimizationProblem) -> Vec<MetricId> {
         let mut metrics = Vec::new();
@@ -164,6 +189,19 @@ impl DefaultLpOptimizer {
         }
     }
 
+    fn matches_candidate_filter(
+        candidate: &super::universe::CandidatePosition,
+        filter: &PositionFilter,
+    ) -> bool {
+        match filter {
+            PositionFilter::All => true,
+            PositionFilter::ByEntityId(id) => candidate.entity_id == *id,
+            PositionFilter::ByTag { key, value } => candidate.tags.get(key) == Some(value),
+            PositionFilter::ByPositionIds(ids) => ids.contains(&candidate.id),
+            PositionFilter::Not(inner) => !Self::matches_candidate_filter(candidate, inner),
+        }
+    }
+
     /// Lower a `PerPositionMetric` to a per‑decision value `m_i`.
     fn per_position_metric_value(
         ppm: &PerPositionMetric,
@@ -245,6 +283,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
     ) -> Result<PortfolioOptimizationResult> {
         // Step 0: Validate portfolio and problem basics.
         problem.portfolio.validate()?;
+        Self::validate_supported_problem(problem)?;
 
         match problem.weighting {
             WeightingScheme::ValueWeight
@@ -278,7 +317,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         )?;
 
         // Step 2: Build decision space.
-        let (decision_items, mut decision_features, current_weights, total_pv) =
+        let (decision_items, mut decision_features, current_weights, denominators) =
             build_decision_space(problem, &valuation, &required_metrics, market, config)?;
 
         // If the problem optimizes on price-based yield/spread metrics, require that all
@@ -295,36 +334,63 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
 
         let n_vars = decision_items.len();
 
-        // Step 3: Apply weight bounds from WeightBounds constraints.
+        // Step 3: Apply weight bounds from WeightBounds / MaxPositionDelta constraints.
         for constraint in &problem.constraints {
-            if let Constraint::WeightBounds {
-                filter, min, max, ..
-            } = constraint
-            {
-                for (item, feat) in decision_items.iter().zip(decision_features.iter_mut()) {
-                    // Reuse matches_filter logic.
-                    let is_match = if item.is_existing {
-                        if let Some(position) =
-                            problem.portfolio.get_position(item.position_id.as_str())
-                        {
-                            Self::matches_filter(position, filter)
+            match constraint {
+                Constraint::WeightBounds {
+                    filter, min, max, ..
+                } => {
+                    for (item, feat) in decision_items.iter().zip(decision_features.iter_mut()) {
+                        // Reuse matches_filter logic.
+                        let is_match = if item.is_existing {
+                            if let Some(position) =
+                                problem.portfolio.get_position(item.position_id.as_str())
+                            {
+                                Self::matches_filter(position, filter)
+                            } else {
+                                false
+                            }
                         } else {
-                            false
-                        }
-                    } else {
-                        // Candidate: match via candidate tags / ids
-                        problem
-                            .trade_universe
-                            .candidates
-                            .iter()
-                            .any(|c| c.id == item.position_id)
-                    };
+                            problem
+                                .trade_universe
+                                .candidates
+                                .iter()
+                                .find(|candidate| candidate.id == item.position_id)
+                                .is_some_and(|candidate| {
+                                    Self::matches_candidate_filter(candidate, filter)
+                                })
+                        };
 
-                    if is_match {
-                        feat.min_weight = feat.min_weight.max(*min);
-                        feat.max_weight = feat.max_weight.min(*max);
+                        if is_match {
+                            feat.min_weight = feat.min_weight.max(*min);
+                            feat.max_weight = feat.max_weight.min(*max);
+                        }
                     }
                 }
+                Constraint::MaxPositionDelta {
+                    filter, max_delta, ..
+                } => {
+                    for (item, feat) in decision_items.iter().zip(decision_features.iter_mut()) {
+                        if !item.is_existing {
+                            continue;
+                        }
+                        let Some(position) =
+                            problem.portfolio.get_position(item.position_id.as_str())
+                        else {
+                            continue;
+                        };
+                        if !Self::matches_filter(position, filter) {
+                            continue;
+                        }
+                        let current_weight = current_weights
+                            .get(&item.position_id)
+                            .copied()
+                            .unwrap_or(0.0);
+                        feat.min_weight = feat.min_weight.max(current_weight - *max_delta);
+                        feat.max_weight = feat.max_weight.min(current_weight + *max_delta);
+                    }
+                }
+                _ => {}
             }
         }
 
@@ -486,8 +552,25 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
             } else {
                 (feat.min_weight, feat.max_weight)
             };
+            if max_w < min_w {
+                return Err(Error::invalid_input(format!(
+                    "inconsistent weight bounds for '{}': min {} > max {}",
+                    item.position_id, min_w, max_w
+                )));
+            }
 
-            w_vars.push(vars.add(variable().min(min_w).max(max_w)));
+            let (var_min, var_max, offset) = if min_w < 0.0 {
+                (0.0, max_w - min_w, min_w)
+            } else {
+                (min_w, max_w, 0.0)
+            };
+
+            w_vars.push(WeightVarSpec {
+                var: vars.add(variable().min(var_min).max(var_max)),
+                offset,
+                min_weight: min_w,
+                max_weight: max_w,
+            });
         }
 
         // Auxiliary variables for turnover t_i (|w_i - w0_i|) if needed.
@@ -507,7 +590,10 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         // Objective
         let mut objective_expr: Expression = 0.0.into();
         for (var, coef) in w_vars.iter().zip(&coeffs_objective) {
-            objective_expr += (*coef) * *var;
+            objective_expr += (*coef) * var.var;
+            if var.offset != 0.0 {
+                objective_expr += (*coef) * var.offset;
+            }
         }
 
         let mut problem_model = if maximise {
@@ -516,6 +602,18 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
             vars.minimise(objective_expr)
         }
         .using(default_solver);
+
+        // Add explicit effective-weight bounds so signed candidate limits are
+        // enforced even when the backend internally re-parameterizes variables.
+        for w_var in &w_vars {
+            let mut effective_weight: Expression = w_var.var.into();
+            if w_var.offset != 0.0 {
+                effective_weight += w_var.offset;
+            }
+            problem_model =
+                problem_model.with(constraint!(effective_weight.clone() >= w_var.min_weight));
+            problem_model = problem_model.with(constraint!(effective_weight <= w_var.max_weight));
+        }
 
         // Add primary constraints
         for lc in &lp_constraints {
@@ -527,7 +625,10 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
 
             let mut lhs: Expression = 0.0.into();
             for (var, coef) in w_vars.iter().zip(&lc.coefficients) {
-                lhs += (*coef) * *var;
+                lhs += (*coef) * var.var;
+                if var.offset != 0.0 {
+                    lhs += (*coef) * var.offset;
+                }
             }
 
             problem_model = match lc.relation {
@@ -555,12 +656,12 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
                     .unwrap_or(0.0);
 
                 // t_i >= w_i - w0  ->  t_i - w_i >= -w0
-                let lhs1: Expression = t_var - *w_var;
-                problem_model = problem_model.with(constraint!(lhs1 >= -w0));
+                let lhs1: Expression = t_var - w_var.var;
+                problem_model = problem_model.with(constraint!(lhs1 >= w_var.offset - w0));
 
                 // t_i >= w0 - w_i  ->  t_i + w_i >= w0
-                let lhs2: Expression = t_var + *w_var;
-                problem_model = problem_model.with(constraint!(lhs2 >= w0));
+                let lhs2: Expression = t_var + w_var.var;
+                problem_model = problem_model.with(constraint!(lhs2 >= w0 - w_var.offset));
             }
 
             // Sum t_i <= max_turnover
@@ -581,7 +682,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         let mut weight_deltas: IndexMap<PositionId, f64> = IndexMap::new();
 
         for (item, w_var) in decision_items.iter().zip(&w_vars) {
-            let w_star = solution.value(*w_var);
+            let w_star = solution.value(w_var.var) + w_var.offset;
             let w0 = current_weights
                 .get(&item.position_id)
                 .copied()
@@ -592,34 +693,29 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
 
         // Implied quantities
         let mut implied_quantities: IndexMap<PositionId, f64> = IndexMap::new();
+        let reconstruction_denominator =
+            Self::reconstruction_denominator(problem.weighting, denominators);
         for (item, feat) in decision_items.iter().zip(&decision_features) {
             let w_star = optimal_weights
                 .get(&item.position_id)
                 .copied()
                 .unwrap_or(0.0);
-
-            let refined_basis_per_unit = if feat.pv_per_unit.abs() > 1e-12 {
-                if matches!(problem.weighting, WeightingScheme::NotionalWeight) {
-                    // Logic for FX conversion if needed
-                    // For simplicity here we assume pv_per_unit unless notional logic needed and available
-                    // Copied simple logic from original
-                    feat.pv_per_unit
-                } else {
-                    feat.pv_per_unit
+            let qty = match problem.weighting {
+                WeightingScheme::NotionalWeight => w_star * reconstruction_denominator,
+                WeightingScheme::ValueWeight => {
+                    if feat.pv_per_unit.abs() > 1e-12 {
+                        (w_star * reconstruction_denominator) / feat.pv_per_unit
+                    } else {
+                        0.0
+                    }
                 }
-            } else {
-                // If pv_per_unit is zero and we are in ValueWeight, we can't infer quantity from weight.
-                if matches!(problem.weighting, WeightingScheme::NotionalWeight) {
-                    1.0
-                } else {
-                    0.0
+                WeightingScheme::UnitScaling => {
+                    if item.is_existing {
+                        item.current_quantity * w_star
+                    } else {
+                        w_star
+                    }
                 }
-            };
-
-            let qty = if refined_basis_per_unit.abs() > 1e-12 {
-                (w_star * total_pv) / refined_basis_per_unit
-            } else {
-                0.0
             };
 
             implied_quantities.insert(item.position_id.clone(), qty);
@@ -628,7 +724,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         // Objective value at solution: a · w*
         let mut objective_value = 0.0_f64;
         for (coef, w_var) in coeffs_objective.iter().zip(&w_vars) {
-            let w_star = solution.value(*w_var);
+            let w_star = solution.value(w_var.var) + w_var.offset;
             objective_value = neumaier_sum([objective_value, *coef * w_star].into_iter());
         }
 
@@ -642,7 +738,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
             if let Some(name) = &lc.name {
                 let mut lhs_val = 0.0;
                 for (var, coef) in w_vars.iter().zip(&lc.coefficients) {
-                    lhs_val += *coef * solution.value(*var);
+                    lhs_val += *coef * (solution.value(var.var) + var.offset);
                 }
 
                 let slack = match lc.relation {
