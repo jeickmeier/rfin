@@ -103,7 +103,7 @@ Step 2: Create Market Data
 
    # Create market context
    market = MarketContext()
-   market.insert_discount(curve)
+   market.insert(curve)
 
 Step 3: Price the Bond
 ~~~~~~~~~~~~~~~~~~~~~~~

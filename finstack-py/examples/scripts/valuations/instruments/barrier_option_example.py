@@ -26,7 +26,7 @@ def create_market_data(val_date: date) -> MarketContext:
         val_date,
         [(0.0, 1.0), (0.5, 0.975), (1.0, 0.95)],
     )
-    market.insert_discount(disc_curve)
+    market.insert(disc_curve)
 
     # Volatility surface (expiries in years)
     vol_surface = VolSurface(
@@ -41,7 +41,7 @@ def create_market_data(val_date: date) -> MarketContext:
     market.insert_surface(vol_surface)
 
     # Spot and dividend
-    market.insert_price("MSFT", MarketScalar.price(Money(450.0, USD)))
+    market.insert_price("MSFT", MarketScalar.get_price(Money(450.0, USD)))
     market.insert_price("MSFT.DIV", MarketScalar.unitless(0.008))
 
     return market
@@ -71,7 +71,7 @@ def example_up_and_out_call():
     # Price the option
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
 
@@ -100,7 +100,7 @@ def example_down_and_in_put():
     # Price the option
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
 
@@ -129,7 +129,7 @@ def example_down_and_out_put():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
 
@@ -158,7 +158,7 @@ def example_up_and_in_call():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
 

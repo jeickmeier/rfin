@@ -57,7 +57,7 @@ fn test_ir01_finite_difference_validation() {
         .build()
         .unwrap();
 
-    let ctx_bumped = ctx.clone().insert_discount(bumped_disc);
+    let ctx_bumped = ctx.clone().insert(bumped_disc);
     let pv1 = swap.value(&ctx_bumped, as_of).unwrap().amount();
 
     let dv01_fd = pv1 - pv0;

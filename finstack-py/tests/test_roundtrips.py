@@ -86,9 +86,9 @@ class TestMarketDataRoundtrips:
 
         # Store in market context and retrieve
         market = MarketContext()
-        market.insert_discount(curve)
+        market.insert(curve)
 
-        retrieved = market.discount(curve_id)
+        retrieved = market.get_discount(curve_id)
 
         # Verify roundtrip
         assert retrieved.id == curve_id
@@ -110,11 +110,11 @@ class TestMarketDataRoundtrips:
 
         market = MarketContext()
         for curve in curves.values():
-            market.insert_discount(curve)
+            market.insert(curve)
 
         # Retrieve and verify
         for curve_id in curves:
-            retrieved = market.discount(curve_id)
+            retrieved = market.get_discount(curve_id)
             assert retrieved.id == curve_id
 
 
@@ -260,7 +260,7 @@ class TestCalibrationRoundtrips:
         )
 
         assert report.success
-        retrieved = market.discount("USD-OIS")
+        retrieved = market.get_discount("USD-OIS")
         assert retrieved.id == "USD-OIS"
 
 
@@ -271,7 +271,7 @@ class TestPricingRoundtrips:
         """Bond should price and return accessible results."""
         # Setup market
         market = MarketContext()
-        market.insert_discount(
+        market.insert(
             DiscountCurve(
                 "USD-OIS",
                 dt.date(2024, 1, 2),
@@ -295,7 +295,7 @@ class TestPricingRoundtrips:
 
         # Price
         registry = create_standard_registry()
-        result = registry.price(bond, "discounting", market, as_of=dt.date(2024, 1, 2))
+        result = registry.get_price(bond, "discounting", market, as_of=dt.date(2024, 1, 2))
 
         # Verify result is accessible
         assert result.value is not None

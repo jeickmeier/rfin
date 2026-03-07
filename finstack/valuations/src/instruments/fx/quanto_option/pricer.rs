@@ -35,7 +35,7 @@ fn collect_quanto_inputs(
     let for_curve = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
     let r_for = for_curve.zero(t);
 
-    let spot_scalar = curves.price(&inst.spot_id)?;
+    let spot_scalar = curves.get_price(&inst.spot_id)?;
     let spot = match spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -46,12 +46,12 @@ fn collect_quanto_inputs(
         inst.div_yield_id.as_ref(),
     )?;
 
-    let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+    let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
     let sigma_equity = vol_surface.value_clamped(t, inst.equity_strike.amount());
 
     // Get FX volatility
     let sigma_fx = if let Some(fx_vol_id) = &inst.fx_vol_id {
-        let fx_vol_surface = curves.surface(fx_vol_id.as_str())?;
+        let fx_vol_surface = curves.get_surface(fx_vol_id.as_str())?;
         fx_vol_surface.value_clamped(t, 1.0)
     } else {
         return Err(finstack_core::Error::from(

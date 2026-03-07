@@ -23,7 +23,7 @@ fn extract_underlying_data(
     trs: &EquityTotalReturnSwap,
     context: &MarketContext,
 ) -> Result<(f64, f64)> {
-    let spot = match context.price(&trs.underlying.spot_id)? {
+    let spot = match context.get_price(&trs.underlying.spot_id)? {
         MarketScalar::Unitless(v) => *v,
         MarketScalar::Price(p) => p.amount(),
     };
@@ -32,7 +32,7 @@ fn extract_underlying_data(
     // and return a unitless scalar. Silent fallback to 0.0 would mask market data
     // configuration errors.
     let div_yield = if let Some(ref div_id) = trs.underlying.div_yield_id {
-        let ms = context.price(div_id.as_str()).map_err(|e| {
+        let ms = context.get_price(div_id.as_str()).map_err(|e| {
             finstack_core::Error::Validation(format!(
                 "Failed to fetch dividend yield '{}': {}",
                 div_id, e

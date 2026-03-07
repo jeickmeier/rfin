@@ -15,13 +15,13 @@ pub use dividends::{PyDividendEvent, PyDividendSchedule, PyDividendScheduleBuild
 #[allow(unused_imports)]
 pub use fx::{PyFxConfig, PyFxConversionPolicy, PyFxMatrix, PyFxRateResult};
 #[allow(unused_imports)]
-pub use scalars::{PyMarketScalar, PyScalarTimeSeries, PySeriesInterpolation};
+pub use scalars::{PyInflationIndex, PyMarketScalar, PyScalarTimeSeries, PySeriesInterpolation};
 #[allow(unused_imports)]
-pub use surfaces::PyVolSurface;
+pub use surfaces::{PyFxDeltaVolSurface, PyVolSurface};
 #[allow(unused_imports)]
 pub use term_structures::{
     PyBaseCorrelationCurve, PyCreditIndexData, PyDiscountCurve, PyForwardCurve, PyHazardCurve,
-    PyInflationCurve,
+    PyInflationCurve, PyPriceCurve, PyVolatilityIndexCurve,
 };
 
 use super::common::reexport::promote_exports;

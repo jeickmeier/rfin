@@ -65,7 +65,8 @@ impl MetricCalculator for ImpliedVolCalculator {
         let vol_id = vol_candidates
             .iter()
             .find(|id| {
-                context.curves.price(id.as_str()).is_ok() || context.curves.surface(id).is_ok()
+                context.curves.get_price(id.as_str()).is_ok()
+                    || context.curves.get_surface(id).is_ok()
             })
             .cloned()
             .unwrap_or_else(|| format!("{}-VOL", underlying_id));

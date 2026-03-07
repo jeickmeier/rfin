@@ -36,13 +36,13 @@ def create_market_data(as_of: date) -> MarketContext:
     market = MarketContext()
 
     # USD OIS discount curve (flat for simplicity)
-    market.insert_discount(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
+    market.insert(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
 
     # EUR OIS discount curve
-    market.insert_discount(DiscountCurve("EUR-OIS", as_of, [(0.0, 1.0), (10.0, 0.72)]))
+    market.insert(DiscountCurve("EUR-OIS", as_of, [(0.0, 1.0), (10.0, 0.72)]))
 
     # GBP OIS discount curve
-    market.insert_discount(DiscountCurve("GBP-OIS", as_of, [(0.0, 1.0), (10.0, 0.68)]))
+    market.insert(DiscountCurve("GBP-OIS", as_of, [(0.0, 1.0), (10.0, 0.68)]))
 
     # FX rates (vs USD)
     fx = FxMatrix()

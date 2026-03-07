@@ -193,8 +193,8 @@ fn test_metrics_based_convexity_reduces_residual() {
 
     let curve_t0 = build_flat_curve("USD-OIS", as_of_t0, 0.04);
     let curve_t1 = build_flat_curve("USD-OIS", as_of_t1, 0.05); // ~100bp shift
-    let market_t0 = MarketContext::new().insert_discount(curve_t0);
-    let market_t1 = MarketContext::new().insert_discount(curve_t1);
+    let market_t0 = MarketContext::new().insert(curve_t0);
+    let market_t1 = MarketContext::new().insert(curve_t1);
 
     // Measure the actual shift from the curves (may differ slightly from 100bp
     // due to interpolation artifacts and tenor sampling)

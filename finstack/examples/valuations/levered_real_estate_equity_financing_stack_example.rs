@@ -94,8 +94,8 @@ fn main() -> finstack_core::Result<()> {
         .build()?;
 
     let market = MarketContext::new()
-        .insert_discount(flat_discount_curve("USD-OIS", as_of, 0.05))
-        .insert_discount(flat_discount_curve("USD-TREASURY", as_of, 0.05));
+        .insert(flat_discount_curve("USD-OIS", as_of, 0.05))
+        .insert(flat_discount_curve("USD-TREASURY", as_of, 0.05));
 
     let pv_asset = asset.value(&market, as_of)?;
     let pv_financing = loan.value(&market, as_of)?.amount() + bond.value(&market, as_of)?.amount();

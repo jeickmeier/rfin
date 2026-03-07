@@ -314,6 +314,9 @@ pub fn sifma_settlement_date_for_class(
             return Date::from_calendar_date(year, month, day).ok();
         }
     }
+    if matches!(class, SifmaSettlementClass::B) {
+        return Some(third_wednesday(month, year));
+    }
     None
 }
 
@@ -583,9 +586,9 @@ mod tests {
     }
 
     #[test]
-    fn sifma_returns_none_for_uncovered_year() {
+    fn sifma_falls_back_to_third_wednesday_for_uncovered_class_b_year() {
         let d = sifma_settlement_date_for_class(Month::March, 2024, SifmaSettlementClass::B);
-        assert_eq!(d, None);
+        assert_eq!(d, Some(third_wednesday(Month::March, 2024)));
     }
 
     #[test]

@@ -37,8 +37,8 @@ fn test_fx_barrier_rebate_added_to_closed_form_price() {
     let vol_surface = flat_vol_surface("EURUSD-VOL", &expiries, &strikes, 0.15);
 
     let market = MarketContext::new()
-        .insert_discount(dom_curve)
-        .insert_discount(for_curve)
+        .insert(dom_curve)
+        .insert(for_curve)
         .insert_surface(vol_surface)
         .insert_price("EURUSD-SPOT", MarketScalar::Unitless(spot));
 
@@ -75,7 +75,7 @@ fn test_fx_barrier_rebate_added_to_closed_form_price() {
     let r_dom = market.get_discount("USD-OIS").expect("USD curve").zero(t);
     let r_for = market.get_discount("EUR-OIS").expect("EUR curve").zero(t);
     let sigma = market
-        .surface("EURUSD-VOL")
+        .get_surface("EURUSD-VOL")
         .expect("FX vol")
         .value_clamped(t, strike);
 

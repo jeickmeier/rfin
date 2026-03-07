@@ -314,7 +314,7 @@ impl CDSOption {
             v
         } else {
             curves
-                .surface(self.vol_surface_id.as_str())?
+                .get_surface(self.vol_surface_id.as_str())?
                 .value_clamped(t, self.strike.to_f64().unwrap_or(0.0))
         };
 

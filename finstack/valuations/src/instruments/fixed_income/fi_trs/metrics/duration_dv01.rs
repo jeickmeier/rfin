@@ -41,7 +41,7 @@ impl MetricCalculator for DurationDv01Calculator {
         // If duration_id is None, default to 5.0 years (broad index assumption).
         let duration = match &trs.underlying.duration_id {
             Some(id) => {
-                let scalar = context.curves.price(id.as_str()).map_err(|_| {
+                let scalar = context.curves.get_price(id.as_str()).map_err(|_| {
                     finstack_core::Error::Validation(format!(
                         "Index duration data '{}' is configured but not found in market context. \
                          Provide the duration scalar or remove duration_id to use 5.0Y default.",

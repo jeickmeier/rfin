@@ -62,7 +62,7 @@ fn test_mc_pricer_stochastic_utilization() {
     let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
 
     // Build market context
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Price using MC
     let pv = facility.value(&market, val_date).unwrap();
@@ -106,9 +106,7 @@ fn test_mc_pricer_market_anchored_zero_vol_and_vol_sensitivity() {
         .unwrap();
 
     // Build market context with discount + hazard
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc_curve).insert(hazard);
 
     // Zero vol (should collapse toward deterministic behavior wrt default randomness off)
     let facility_zero_vol = RevolvingCredit::builder()
@@ -235,7 +233,7 @@ fn test_mc_pricer_deterministic_reproducibility() {
         .unwrap();
 
     let disc_curve = build_flat_discount_curve(0.02, val_date, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Price twice with same seed
     let pv1 = facility.value(&market, val_date).unwrap();
@@ -257,7 +255,7 @@ fn test_mc_pricer_convergence() {
     let maturity_date = date!(2026 - 01 - 01);
 
     let disc_curve = build_flat_discount_curve(0.04, val_date, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Test with different number of paths
     let num_paths_list = vec![100, 1000, 5000];
@@ -347,7 +345,7 @@ fn test_mc_utilization_mean_reversion() {
         .unwrap();
 
     let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv = facility.value(&market, val_date).unwrap();
 
@@ -427,9 +425,7 @@ fn test_mc_stochastic_floating_rate_index_cap() {
 
     let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     // Helper to build a floating rate spec with optional index cap
     let make_float_spec = |cap_bp: Option<Decimal>| -> FloatingRateSpec {

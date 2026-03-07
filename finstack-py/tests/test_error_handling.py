@@ -105,7 +105,7 @@ class TestMarketDataErrors:
         market = MarketContext()
 
         with pytest.raises(finstack.ConfigurationError, match="NONEXISTENT_CURVE_ID"):
-            market.discount("NONEXISTENT_CURVE_ID")
+            market.get_discount("NONEXISTENT_CURVE_ID")
 
     def test_missing_fx_rate_error(self) -> None:
         """Accessing non-existent FX rate should raise MissingFxRateError."""
@@ -163,7 +163,7 @@ class TestCalibrationErrors:
         # Quotes may be internally sorted/validated. Accept either outcome.
         try:
             market, report, _ = cal.execute_calibration("plan_non_monotonic", quote_sets, steps)
-            assert market.discount("USD-OIS") is not None
+            assert market.get_discount("USD-OIS") is not None
             assert report is not None
         except (
             finstack.ParameterError,
@@ -211,7 +211,7 @@ class TestPricingErrors:
         market = MarketContext()
 
         # Add minimal market data
-        market.insert_discount(
+        market.insert(
             DiscountCurve(
                 "USD-OIS", dt.date(2024, 1, 2), [(0.0, 1.0), (1.0, 0.97), (5.0, 0.85)], day_count=DayCount.ACT_365F
             )
@@ -233,7 +233,7 @@ class TestPricingErrors:
         with pytest.raises(
             (finstack.PricingError, KeyError, ValueError, finstack.FinstackError), match=r"Unknown model|invalid"
         ):
-            registry.price(bond, "INVALID_MODEL_THAT_DOESNT_EXIST", market)
+            registry.get_price(bond, "INVALID_MODEL_THAT_DOESNT_EXIST", market)
 
 
 class TestErrorMessageQuality:
@@ -249,7 +249,7 @@ class TestErrorMessageQuality:
         market = MarketContext()
 
         with pytest.raises(finstack.ConfigurationError, match="MY_MISSING_CURVE"):
-            market.discount("MY_MISSING_CURVE")
+            market.get_discount("MY_MISSING_CURVE")
 
     def test_parameter_errors_are_descriptive(self) -> None:
         """Parameter errors should describe what's wrong."""

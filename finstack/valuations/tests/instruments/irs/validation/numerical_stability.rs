@@ -176,9 +176,7 @@ fn test_30y_swap_numerical_stability() {
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let swap = test_utils::usd_irs_swap(
         InstrumentId::new("SWAP_30Y"),
@@ -234,9 +232,7 @@ fn test_annuity_deterministic_across_runs() {
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let swap = test_utils::usd_irs_swap(
         InstrumentId::new("DETERMINISM_TEST"),
@@ -283,9 +279,7 @@ fn test_expired_swap_handling() {
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let swap = InterestRateSwap {
         id: InstrumentId::new("EXPIRED_SWAP"),
@@ -358,9 +352,7 @@ fn test_very_short_swap_1_month() {
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     // Use manual construction for very short swap since quarterly freq won't work
     let swap = InterestRateSwap {
@@ -419,9 +411,7 @@ fn test_extreme_rate_environment_stress() {
     let disc_high = build_flat_discount_curve(0.15, as_of, "USD-OIS");
     let fwd_high = build_flat_forward_curve(0.15, as_of, "USD-SOFR-3M");
 
-    let market_high = MarketContext::new()
-        .insert_discount(disc_high)
-        .insert_forward(fwd_high);
+    let market_high = MarketContext::new().insert(disc_high).insert(fwd_high);
 
     let swap = test_utils::usd_irs_swap(
         InstrumentId::new("STRESS_HIGH"),
@@ -444,9 +434,7 @@ fn test_extreme_rate_environment_stress() {
     let disc_low = build_flat_discount_curve(0.001, as_of, "USD-OIS");
     let fwd_low = build_flat_forward_curve(0.001, as_of, "USD-SOFR-3M");
 
-    let market_low = MarketContext::new()
-        .insert_discount(disc_low)
-        .insert_forward(fwd_low);
+    let market_low = MarketContext::new().insert(disc_low).insert(fwd_low);
 
     let npv_low = swap.value(&market_low, as_of);
     assert!(
@@ -480,9 +468,7 @@ fn test_golden_5y_usd_swap_par_npv() {
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     // First compute actual par rate for this swap
     let temp_swap = test_utils::usd_irs_swap(
@@ -535,9 +521,7 @@ fn test_golden_annuity_5y_at_5pct() {
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let swap = test_utils::usd_irs_swap(
         InstrumentId::new("GOLDEN_ANNUITY"),
@@ -574,9 +558,7 @@ fn test_golden_dv01_approximation() {
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let swap = test_utils::usd_irs_swap(
         InstrumentId::new("GOLDEN_DV01"),
@@ -616,7 +598,7 @@ fn test_missing_curve_produces_clear_error() {
 
     // Create market with only discount curve (no forward curve)
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
     // Note: No forward curve added
 
     let swap = test_utils::usd_irs_swap(

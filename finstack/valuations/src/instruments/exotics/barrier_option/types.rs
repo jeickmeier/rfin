@@ -272,7 +272,7 @@ mod tests {
         option.use_gobet_miri = false;
         option.observed_barrier_breached = None;
         let market = MarketContext::new()
-            .insert_discount(
+            .insert(
                 DiscountCurve::builder("USD-OIS")
                     .base_date(option.expiry)
                     .knots([(0.0, 1.0), (1.0, 1.0)])

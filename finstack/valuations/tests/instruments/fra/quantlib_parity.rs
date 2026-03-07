@@ -79,9 +79,7 @@ fn create_flat_forward_curve(
 fn create_flat_market(base_date: Date, rate: f64) -> MarketContext {
     let disc = create_flat_discount_curve(base_date, rate, "USD_OIS");
     let fwd = create_flat_forward_curve(base_date, rate, "USD_LIBOR_3M", 0.25);
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+    MarketContext::new().insert(disc).insert(fwd)
 }
 
 fn dec(value: f64) -> Decimal {

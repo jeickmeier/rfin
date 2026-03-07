@@ -165,7 +165,7 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for FxBarrierO
                     .to_string(),
             )
         })?;
-        let spot_scalar = market.price(spot_id)?;
+        let spot_scalar = market.get_price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -211,7 +211,7 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for FxBarrierO
                     .to_string(),
             )
         })?;
-        let spot_scalar = market.price(spot_id)?;
+        let spot_scalar = market.get_price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -312,7 +312,7 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for FxBarrierO
                     .to_string(),
             )
         })?;
-        let spot_scalar = market.price(spot_id)?;
+        let spot_scalar = market.get_price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),

@@ -47,8 +47,8 @@ fn flat_forward(id: &str, as_of: Date, rate: f64) -> ForwardCurve {
 
 fn test_market(as_of: Date, rate: f64) -> MarketContext {
     MarketContext::new()
-        .insert_discount(flat_curve("USD-OIS", as_of, rate))
-        .insert_forward(flat_forward("USD-SOFR-3M", as_of, rate))
+        .insert(flat_curve("USD-OIS", as_of, rate))
+        .insert(flat_forward("USD-SOFR-3M", as_of, rate))
 }
 
 /// Create a 5Y USD IRS.

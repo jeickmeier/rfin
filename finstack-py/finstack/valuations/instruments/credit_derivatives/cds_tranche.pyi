@@ -60,7 +60,7 @@ class CDSTranche:
         ...     CDSTranche
         ...     .builder("CDX-IG-0-3")
         ...     .index_name("CDX.NA.IG")
-        ...     .series(40)
+        ...     .get_series(40)
         ...     .attach_pct(0.0)
         ...     .detach_pct(3.0)
         ...     .notional(Money(10_000_000, Currency("USD")))

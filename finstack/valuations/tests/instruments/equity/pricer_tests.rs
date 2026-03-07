@@ -137,7 +137,7 @@ fn test_equity_forward_price() {
     let curve = build_flat_curve(0.05, base_date, "USD");
 
     let market = MarketContext::new()
-        .insert_discount(curve)
+        .insert(curve)
         .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02));
 
     let pricer = EquityPricer;
@@ -158,7 +158,7 @@ fn test_equity_forward_value() {
 
     let base_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
     let curve = build_flat_curve(0.04, base_date, "USD");
-    let market = MarketContext::new().insert_discount(curve);
+    let market = MarketContext::new().insert(curve);
 
     let pricer = EquityPricer;
 
@@ -187,7 +187,7 @@ fn test_simple_equity_pricer_price_dyn() {
 
     let base_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
     let curve = build_flat_curve(0.05, base_date, "USD");
-    let market = MarketContext::new().insert_discount(curve);
+    let market = MarketContext::new().insert(curve);
 
     let pricer = SimpleEquityDiscountingPricer::new();
     let instrument: &dyn Instrument = &equity;
@@ -301,7 +301,7 @@ fn test_equity_forward_price_zero_rates() {
 
     let base_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
     let curve = build_flat_curve(0.0, base_date, "USD");
-    let market = MarketContext::new().insert_discount(curve);
+    let market = MarketContext::new().insert(curve);
 
     let pricer = EquityPricer;
 
@@ -321,7 +321,7 @@ fn test_equity_forward_price_high_dividend() {
 
     // High dividend yield (10%) exceeds risk-free rate
     let market = MarketContext::new()
-        .insert_discount(curve)
+        .insert(curve)
         .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.10));
 
     let pricer = EquityPricer;
@@ -346,7 +346,7 @@ fn test_equity_forward_price_with_discrete_dividend() {
     )];
 
     let curve = build_flat_curve(0.05, base_date, "USD");
-    let market = MarketContext::new().insert_discount(curve);
+    let market = MarketContext::new().insert(curve);
     let pricer = EquityPricer;
 
     let forward_price = pricer

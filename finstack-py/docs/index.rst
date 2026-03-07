@@ -87,7 +87,7 @@ Quick Example
    # Create market data
    curve = DiscountCurve(...)
    market = MarketContext()
-   market.insert_discount(curve)
+   market.insert(curve)
 
    # Price the bond
    from finstack.valuations.pricer import create_standard_registry

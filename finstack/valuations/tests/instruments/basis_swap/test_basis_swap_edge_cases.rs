@@ -40,10 +40,7 @@ fn market() -> MarketContext {
         .interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(f3m)
-        .insert_forward(f1m)
+    MarketContext::new().insert(disc).insert(f3m).insert(f1m)
 }
 
 fn make_leg(forward_curve: &str, start: Date, end: Date, spread_bp: Decimal) -> BasisSwapLeg {
@@ -251,10 +248,7 @@ fn flat_curves_zero_rates() {
         .build()
         .unwrap();
 
-    let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(f3m)
-        .insert_forward(f1m);
+    let ctx = MarketContext::new().insert(disc).insert(f3m).insert(f1m);
 
     let swap = BasisSwap::new(
         "ZERO-RATES",
@@ -290,10 +284,7 @@ fn negative_rates() {
         .build()
         .unwrap();
 
-    let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(f3m)
-        .insert_forward(f1m);
+    let ctx = MarketContext::new().insert(disc).insert(f3m).insert(f1m);
 
     let swap = BasisSwap::new(
         "NEG-RATES",
@@ -423,10 +414,7 @@ fn steep_curve() {
         .build()
         .unwrap();
 
-    let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(f3m)
-        .insert_forward(f1m);
+    let ctx = MarketContext::new().insert(disc).insert(f3m).insert(f1m);
 
     let swap = BasisSwap::new(
         "STEEP-CURVE",
@@ -464,10 +452,7 @@ fn seasoned_swap_requires_fixings() {
         .build()
         .unwrap();
 
-    let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(f3m)
-        .insert_forward(f1m);
+    let ctx = MarketContext::new().insert(disc).insert(f3m).insert(f1m);
 
     let swap = BasisSwap::new(
         "SEASONED-NO-FIX",
@@ -525,9 +510,9 @@ fn seasoned_swap_with_fixings_succeeds() {
     .expect("fixings series");
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(f3m)
-        .insert_forward(f1m)
+        .insert(disc)
+        .insert(f3m)
+        .insert(f1m)
         .insert_series(fix_3m)
         .insert_series(fix_1m);
 

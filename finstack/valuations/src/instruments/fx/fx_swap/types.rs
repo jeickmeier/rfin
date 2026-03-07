@@ -276,9 +276,7 @@ mod tests {
             .build()
             .expect("should build");
 
-        MarketContext::new()
-            .insert_discount(usd_curve)
-            .insert_discount(eur_curve)
+        MarketContext::new().insert(usd_curve).insert(eur_curve)
     }
 
     #[test]

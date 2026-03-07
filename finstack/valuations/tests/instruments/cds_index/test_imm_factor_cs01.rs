@@ -92,9 +92,9 @@ fn index_factor_scales_pv() {
         ("N4", "HZ4"),
         ("N5", "HZ5"),
     ];
-    let mut ctx = MarketContext::new().insert_discount(disc);
+    let mut ctx = MarketContext::new().insert(disc);
     for (_, hid) in names.iter() {
-        ctx = ctx.insert_hazard(flat_hazard(hid, as_of, rec, hz));
+        ctx = ctx.insert(flat_hazard(hid, as_of, rec, hz));
     }
 
     let cons: Vec<CDSIndexConstituentParam> = names

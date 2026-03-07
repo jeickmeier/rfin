@@ -152,7 +152,7 @@ impl CollateralSpec {
 
     /// Calculate the market value of this collateral.
     pub fn market_value(&self, context: &MarketContext) -> Result<Money> {
-        let price_scalar = context.price(&self.market_value_id)?;
+        let price_scalar = context.get_price(&self.market_value_id)?;
         let unit_value = match price_scalar {
             finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
             finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
@@ -1084,7 +1084,7 @@ mod tests {
             ])
             .build()
             .expect("DiscountCurve builder should succeed");
-        let ctx = MarketContext::new().insert_discount(disc_curve);
+        let ctx = MarketContext::new().insert(disc_curve);
 
         // Verify PV stability within 1e-6 tolerance
         let pv_weekend = repo_weekend.pv(&ctx, as_of).expect("PV should compute");

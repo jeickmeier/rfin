@@ -93,9 +93,9 @@ def create_test_market() -> MarketContext:
 
     # Build market context
     market = MarketContext()
-    market.insert_discount(discount_curve)
-    market.insert_forward(forward_curve)
-    market.insert_hazard(hazard_curve)
+    market.insert(discount_curve)
+    market.insert(forward_curve)
+    market.insert(hazard_curve)
 
     return market
 

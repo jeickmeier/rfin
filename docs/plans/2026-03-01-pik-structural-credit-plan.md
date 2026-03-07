@@ -601,7 +601,7 @@ fn bond_price_merton_mc_api() {
     let bond = build_test_bond(issue, maturity);
     let merton = MertonModel::new(200.0, 0.25, 100.0, 0.04).unwrap();
     let config = MertonMcConfig::new(merton).num_paths(1000).seed(42);
-    let market = MarketContext::new().insert_discount(disc);
+    let market = MarketContext::new().insert(disc);
     let result = bond.price_merton_mc(&config, &market, issue).unwrap();
     assert!(result.clean_price_pct > 0.0 && result.clean_price_pct < 200.0);
 }

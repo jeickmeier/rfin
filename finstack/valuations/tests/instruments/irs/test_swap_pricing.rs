@@ -73,8 +73,8 @@ fn create_test_market(base_date: Date) -> MarketContext {
     .expect("fixings series");
 
     MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+        .insert(disc)
+        .insert(fwd)
         .insert_series(fixings)
 }
 

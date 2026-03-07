@@ -18,7 +18,7 @@ impl MetricCalculator for ForwardPricePerShareCalculator {
         let key = format!("{}-FWD_T", equity.ticker);
         let t = context
             .curves
-            .price(&key)
+            .get_price(&key)
             .map(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),

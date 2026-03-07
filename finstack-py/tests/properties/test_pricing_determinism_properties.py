@@ -117,14 +117,14 @@ class TestPricingDeterminism:
         """Pricing the same deposit twice yields identical results."""
         # Setup market context
         market = MarketContext()
-        market.insert_discount(curve)
+        market.insert(curve)
 
         # Create pricer registry
         registry = create_standard_registry()
 
         # Price twice
-        result1 = registry.price(deposit, "discounting", market)
-        result2 = registry.price(deposit, "discounting", market)
+        result1 = registry.get_price(deposit, "discounting", market)
+        result2 = registry.get_price(deposit, "discounting", market)
 
         # Results should be identical
         assert abs(result1.value.amount - result2.value.amount) < 1e-10
@@ -136,15 +136,15 @@ class TestPricingDeterminism:
         """Pricing the same bond twice yields identical results."""
         # Setup market context
         market = MarketContext()
-        market.insert_discount(curve)
+        market.insert(curve)
 
         # Create pricer registry
         registry = create_standard_registry()
 
         # Price twice
         try:
-            result1 = registry.price(bond, "discounting", market)
-            result2 = registry.price(bond, "discounting", market)
+            result1 = registry.get_price(bond, "discounting", market)
+            result2 = registry.get_price(bond, "discounting", market)
 
             # Results should be identical
             assert abs(result1.value.amount - result2.value.amount) < 1e-10
@@ -152,20 +152,20 @@ class TestPricingDeterminism:
         except Exception:  # noqa: BLE001
             # If pricing fails, it should fail consistently
             with pytest.raises(Exception, match=r".*"):
-                registry.price(bond, "discounting", market)
+                registry.get_price(bond, "discounting", market)
 
     @given(deposit_strategy(), discount_curve_strategy())
     @settings(max_examples=50, deadline=None)
     def test_repeated_pricing_stable(self, deposit: Deposit, curve: DiscountCurve) -> None:
         """Pricing multiple times yields stable results."""
         market = MarketContext()
-        market.insert_discount(curve)
+        market.insert(curve)
         registry = create_standard_registry()
 
         # Price 5 times
         results = []
         for _ in range(5):
-            result = registry.price(deposit, "discounting", market)
+            result = registry.get_price(deposit, "discounting", market)
             results.append(result.value.amount)
 
         # All results should be identical
@@ -180,19 +180,19 @@ class TestPricingDeterminism:
             return
 
         market = MarketContext()
-        market.insert_discount(curve)
+        market.insert(curve)
         registry = create_standard_registry()
 
         # Price in original order
         results_forward = []
         for dep in deposits:
-            result = registry.price(dep, "discounting", market)
+            result = registry.get_price(dep, "discounting", market)
             results_forward.append(result.value.amount)
 
         # Price in reverse order
         results_backward = []
         for dep in reversed(deposits):
-            result = registry.price(dep, "discounting", market)
+            result = registry.get_price(dep, "discounting", market)
             results_backward.insert(0, result.value.amount)
 
         # Results should be identical regardless of order
@@ -208,13 +208,13 @@ class TestMarketContextImmutability:
     def test_market_context_reusable(self, curve: DiscountCurve, deposit: Deposit) -> None:
         """Market context can be reused for multiple pricings."""
         market = MarketContext()
-        market.insert_discount(curve)
+        market.insert(curve)
         registry = create_standard_registry()
 
         # Use same market context multiple times
-        result1 = registry.price(deposit, "discounting", market)
-        result2 = registry.price(deposit, "discounting", market)
-        result3 = registry.price(deposit, "discounting", market)
+        result1 = registry.get_price(deposit, "discounting", market)
+        result2 = registry.get_price(deposit, "discounting", market)
+        result3 = registry.get_price(deposit, "discounting", market)
 
         # All results should be identical
         assert abs(result1.value.amount - result2.value.amount) < 1e-10
@@ -230,16 +230,16 @@ class TestMarketContextImmutability:
         # Create two market contexts with curves in different orders
         market1 = MarketContext()
         for curve in curves:
-            market1.insert_discount(curve)
+            market1.insert(curve)
 
         market2 = MarketContext()
         for curve in reversed(curves):
-            market2.insert_discount(curve)
+            market2.insert(curve)
 
         # Both should be able to retrieve the same curves
         for curve in curves:
-            retrieved1 = market1.discount(curve.id)
-            retrieved2 = market2.discount(curve.id)
+            retrieved1 = market1.get_discount(curve.id)
+            retrieved2 = market2.get_discount(curve.id)
 
             # Base dates should match
             assert retrieved1.base_date == retrieved2.base_date
@@ -257,13 +257,13 @@ class TestPricingReproducibility:
         assume(num_iterations >= 2)
 
         market = MarketContext()
-        market.insert_discount(curve)
+        market.insert(curve)
         registry = create_standard_registry()
 
         # Collect results from multiple iterations
         results = []
         for _ in range(num_iterations):
-            result = registry.price(deposit, "discounting", market)
+            result = registry.get_price(deposit, "discounting", market)
             results.append(result.value.amount)
 
         # All results should be identical
@@ -276,14 +276,14 @@ class TestPricingReproducibility:
     def test_bond_pricing_stable(self, bond: Bond, curve: DiscountCurve) -> None:
         """Bond pricing is stable across multiple calls."""
         market = MarketContext()
-        market.insert_discount(curve)
+        market.insert(curve)
         registry = create_standard_registry()
 
         # Price 3 times and check stability
         try:
             results = []
             for _ in range(3):
-                result = registry.price(bond, "discounting", market)
+                result = registry.get_price(bond, "discounting", market)
                 results.append(result.value.amount)
 
             # Check all results are identical
@@ -302,7 +302,7 @@ class TestMetricsDeterminism:
     def test_metrics_deterministic(self, bond: Bond, curve: DiscountCurve) -> None:
         """Metrics computation is deterministic."""
         market = MarketContext()
-        market.insert_discount(curve)
+        market.insert(curve)
         registry = create_standard_registry()
 
         # Compute metrics twice - use metrics applicable to bonds
@@ -324,7 +324,7 @@ class TestMetricsDeterminism:
     def test_bond_metrics_stable(self, bond: Bond, curve: DiscountCurve) -> None:
         """Bond metrics are stable across repeated computations."""
         market = MarketContext()
-        market.insert_discount(curve)
+        market.insert(curve)
         registry = create_standard_registry()
 
         try:

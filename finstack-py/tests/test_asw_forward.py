@@ -33,8 +33,8 @@ def _build_market_and_bond() -> tuple[Bond, MarketContext]:
     )
 
     market = MarketContext()
-    market.insert_discount(disc)
-    market.insert_forward(fwd)
+    market.insert(disc)
+    market.insert(fwd)
 
     bond = (
         Bond

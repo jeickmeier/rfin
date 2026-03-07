@@ -47,9 +47,7 @@ fn test_zero_notional() {
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_NOTIONAL",
@@ -72,9 +70,7 @@ fn test_zero_spread() {
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_SPREAD",
@@ -103,9 +99,7 @@ fn test_negative_spread() {
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "NEG_SPREAD",
@@ -136,9 +130,7 @@ fn test_very_high_spread() {
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "HIGH_SPREAD",
@@ -177,9 +169,7 @@ fn test_zero_recovery_rate() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_RECOVERY",
@@ -216,9 +206,7 @@ fn test_full_recovery_rate() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "FULL_RECOVERY",
@@ -248,9 +236,7 @@ fn test_very_short_tenor() {
     let end = date!(2024 - 01 - 02);
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "ONE_DAY",
@@ -273,9 +259,7 @@ fn test_maturity_equals_valuation_date() {
     let end = as_of; // Maturity = valuation date
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "EXPIRED",
@@ -309,9 +293,7 @@ fn test_valuation_after_maturity() {
     let as_of = date!(2026 - 01 - 01); // After maturity
     let (disc, hazard) = build_curves(start);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "PAST_MATURITY",
@@ -360,9 +342,7 @@ fn test_very_high_hazard_rate() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "HIGH_HAZARD",
@@ -401,9 +381,7 @@ fn test_zero_hazard_rate() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_HAZARD",
@@ -431,9 +409,7 @@ fn test_metrics_with_zero_notional() {
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_METRICS",
@@ -479,7 +455,7 @@ fn test_par_spread_with_mismatched_curves_errors() {
 
     let market = MarketContext::new()
         // Intentionally insert under IDs that *do not* match the instrument's curve IDs.
-        .insert_discount(
+        .insert(
             DiscountCurve::builder("USD_OIS_ACTUAL")
                 .base_date(as_of)
                 .day_count(DayCount::Act360)
@@ -487,7 +463,7 @@ fn test_par_spread_with_mismatched_curves_errors() {
                 .build()
                 .unwrap(),
         )
-        .insert_hazard(
+        .insert(
             HazardCurve::builder("CORP_ACTUAL")
                 .base_date(as_of)
                 .recovery_rate(0.40)
@@ -522,9 +498,7 @@ fn test_numerical_stability_with_extreme_dates() {
     let end = date!(2054 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "LONG_DATED",
@@ -550,9 +524,7 @@ fn test_integration_fallback_with_invalid_params() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "FALLBACK_TEST",
@@ -575,9 +547,7 @@ fn test_very_small_notional() {
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "TINY_NOTIONAL",
@@ -604,9 +574,7 @@ fn test_very_large_notional() {
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "HUGE_NOTIONAL",
@@ -636,7 +604,7 @@ fn test_missing_discount_curve_error() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new().insert_hazard(hazard);
+    let market = MarketContext::new().insert(hazard);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "MISSING_DISC",
@@ -666,7 +634,7 @@ fn test_missing_hazard_curve_error() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new().insert_discount(disc);
+    let market = MarketContext::new().insert(disc);
 
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "MISSING_HAZARD",
@@ -689,9 +657,7 @@ fn test_settlement_delay_zero_is_valid() {
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_DELAY",
@@ -717,9 +683,7 @@ fn test_recovery_rate_bounds_not_enforced() {
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     // Test with negative recovery (invalid)
     let mut cds = crate::finstack_test_utils::cds_buy_protection(

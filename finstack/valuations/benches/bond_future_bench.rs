@@ -107,7 +107,7 @@ fn create_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new().insert_discount(disc)
+    MarketContext::new().insert(disc)
 }
 
 /// Benchmark conversion factor calculation

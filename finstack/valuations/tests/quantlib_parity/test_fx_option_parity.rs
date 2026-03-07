@@ -103,8 +103,8 @@ fn create_market(as_of: Date) -> MarketContext {
     fx.set_quote(BASE, QUOTE, SPOT);
 
     MarketContext::new()
-        .insert_discount(domestic_disc)
-        .insert_discount(foreign_disc)
+        .insert(domestic_disc)
+        .insert(foreign_disc)
         .insert_surface(vol_surface)
         .insert_fx(fx)
 }

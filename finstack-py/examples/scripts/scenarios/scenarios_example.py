@@ -45,11 +45,11 @@ def main() -> None:
     usd_curve = DiscountCurve("USD-OIS", base_date, knots)
 
     market = MarketContext()
-    market.insert_discount(usd_curve)
+    market.insert(usd_curve)
 
     # Add equity prices
-    market.insert_price("SPY", MarketScalar.price(Money(450.0, Currency("USD"))))
-    market.insert_price("QQQ", MarketScalar.price(Money(380.0, Currency("USD"))))
+    market.insert_price("SPY", MarketScalar.get_price(Money(450.0, Currency("USD"))))
+    market.insert_price("QQQ", MarketScalar.get_price(Money(380.0, Currency("USD"))))
 
     print("  - Created USD discount curve")
     print("  - Added SPY price: $450")
@@ -116,7 +116,7 @@ def main() -> None:
     print(f"  - Warnings: {len(report.warnings)}")
 
     # Check shocked curve
-    shocked_curve = market.discount("USD-OIS")
+    shocked_curve = market.get_discount("USD-OIS")
     original_df = 0.98
     shocked_df = shocked_curve.df(1.0)
     print(f"  - Original 1Y DF: {original_df:.6f}")
@@ -128,14 +128,14 @@ def main() -> None:
 
     # Reset market for clean test
     market2 = MarketContext()
-    market2.insert_price("SPY", MarketScalar.price(Money(450.0, Currency("USD"))))
+    market2.insert_price("SPY", MarketScalar.get_price(Money(450.0, Currency("USD"))))
 
     ctx2 = ExecutionContext(market2, model, base_date)
     report2 = engine.apply(equity_crash, ctx2)
 
     print(f"  - Operations applied: {report2.operations_applied}")
 
-    shocked_spy = market2.price("SPY")
+    shocked_spy = market2.get_price("SPY")
     print("  - Original SPY: $450.00")
     print(f"  - Shocked SPY: ${shocked_spy.value.amount:.2f}")
 
@@ -162,7 +162,7 @@ def main() -> None:
 
     # Create fresh market
     market3 = MarketContext()
-    market3.insert_discount(DiscountCurve("USD-OIS", base_date, knots))
+    market3.insert(DiscountCurve("USD-OIS", base_date, knots))
     ctx3 = ExecutionContext(market3, model, base_date)
 
     report3 = engine.apply(node_shock, ctx3)

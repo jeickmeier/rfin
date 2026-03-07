@@ -19,7 +19,7 @@ fn market(as_of: Date) -> MarketContext {
         .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 fn callable_bond(as_of: Date) -> Bond {

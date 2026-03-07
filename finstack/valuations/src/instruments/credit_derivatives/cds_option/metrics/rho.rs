@@ -50,7 +50,7 @@ impl MetricCalculator for RhoCalculator {
         let bumped_disc = disc.with_parallel_bump(RHO_BUMP_BP)?;
 
         // Create bumped market context
-        let bumped_curves = context.curves.as_ref().clone().insert_discount(bumped_disc);
+        let bumped_curves = context.curves.as_ref().clone().insert(bumped_disc);
 
         // Reprice with bumped curve
         let pv_bumped = cds_option.value(&bumped_curves, as_of)?.amount();

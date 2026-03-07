@@ -164,7 +164,7 @@ def run_example() -> None:
             (5.0, 0.85),
         ],
     )
-    market_ctx.insert_discount(usd_ois_curve)
+    market_ctx.insert(usd_ois_curve)
 
     results = evaluator.evaluate_with_market_context(model, market_ctx, date(2025, 1, 1))
 

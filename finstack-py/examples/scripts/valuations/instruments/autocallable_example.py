@@ -26,7 +26,7 @@ def create_market_data(val_date: date) -> MarketContext:
         val_date,
         [(0.0, 1.0), (1.0, 0.95), (2.0, 0.90), (3.0, 0.85)],
     )
-    market.insert_discount(disc_curve)
+    market.insert(disc_curve)
 
     # Volatility surface
     vol_surface = VolSurface(
@@ -41,7 +41,7 @@ def create_market_data(val_date: date) -> MarketContext:
     )
     market.insert_surface(vol_surface)
 
-    market.insert_price("SPX", MarketScalar.price(Money(5000.0, USD)))
+    market.insert_price("SPX", MarketScalar.get_price(Money(5000.0, USD)))
     market.insert_price("SPX.DIV", MarketScalar.unitless(0.015))
 
     return market
@@ -118,7 +118,7 @@ def example_participation_autocallable():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
 
     return autocallable, result
 
@@ -160,7 +160,7 @@ def example_capital_protection_autocallable():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
 
     return autocallable, result
 
@@ -198,7 +198,7 @@ def example_knock_in_autocallable():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
 
     return autocallable, result
 

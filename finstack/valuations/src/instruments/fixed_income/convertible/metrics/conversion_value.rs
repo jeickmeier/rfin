@@ -26,7 +26,7 @@ impl MetricCalculator for ConversionValueCalculator {
             })
         })?;
 
-        let spot_price = context.curves.price(underlying_id)?;
+        let spot_price = context.curves.get_price(underlying_id)?;
         let spot = match spot_price {
             finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
             finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,

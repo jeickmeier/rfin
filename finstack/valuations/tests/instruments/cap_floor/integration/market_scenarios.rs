@@ -94,8 +94,8 @@ fn test_realistic_usd_cap_pricing() {
     };
 
     let market = MarketContext::new()
-        .insert_discount(build_realistic_discount_curve(as_of))
-        .insert_forward(build_realistic_forward_curve(as_of))
+        .insert(build_realistic_discount_curve(as_of))
+        .insert(build_realistic_forward_curve(as_of))
         .insert_surface(build_realistic_vol_surface(as_of));
 
     let pv = cap.value(&market, as_of).unwrap();
@@ -143,8 +143,8 @@ fn test_realistic_otm_floor_pricing() {
     };
 
     let market = MarketContext::new()
-        .insert_discount(build_realistic_discount_curve(as_of))
-        .insert_forward(build_realistic_forward_curve(as_of))
+        .insert(build_realistic_discount_curve(as_of))
+        .insert(build_realistic_forward_curve(as_of))
         .insert_surface(build_realistic_vol_surface(as_of));
 
     let pv = floor.value(&market, as_of).unwrap();
@@ -189,8 +189,8 @@ fn test_all_greeks_with_realistic_market() {
     };
 
     let market = MarketContext::new()
-        .insert_discount(build_realistic_discount_curve(as_of))
-        .insert_forward(build_realistic_forward_curve(as_of))
+        .insert(build_realistic_discount_curve(as_of))
+        .insert(build_realistic_forward_curve(as_of))
         .insert_surface(build_realistic_vol_surface(as_of));
 
     let metrics = vec![
@@ -275,8 +275,8 @@ fn test_semi_annual_vs_quarterly_frequency() {
     };
 
     let market = MarketContext::new()
-        .insert_discount(build_realistic_discount_curve(as_of))
-        .insert_forward(build_realistic_forward_curve(as_of))
+        .insert(build_realistic_discount_curve(as_of))
+        .insert(build_realistic_forward_curve(as_of))
         .insert_surface(build_realistic_vol_surface(as_of));
 
     let quarterly_pv = quarterly_cap.value(&market, as_of).unwrap().amount();

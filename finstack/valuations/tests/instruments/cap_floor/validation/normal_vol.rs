@@ -104,8 +104,8 @@ fn make_caplet(
 
 fn context_from(as_of: Date, fwd_rate: f64, normal_sigma: f64) -> MarketContext {
     MarketContext::new()
-        .insert_discount(flat_disc(0.02, as_of, "DISC"))
-        .insert_forward(flat_fwd(fwd_rate, as_of, "FWD"))
+        .insert(flat_disc(0.02, as_of, "DISC"))
+        .insert(flat_fwd(fwd_rate, as_of, "FWD"))
         .insert_surface(flat_normal_vol_surface(normal_sigma, "VOL"))
 }
 
@@ -295,18 +295,18 @@ fn normal_delta_matches_finite_difference() {
     );
 
     let ctx_base = MarketContext::new()
-        .insert_discount(flat_disc(0.02, as_of, "DISC"))
-        .insert_forward(flat_fwd(fwd_rate, as_of, "FWD"))
+        .insert(flat_disc(0.02, as_of, "DISC"))
+        .insert(flat_fwd(fwd_rate, as_of, "FWD"))
         .insert_surface(flat_normal_vol_surface(normal_sigma, "VOL"));
 
     let ctx_up = MarketContext::new()
-        .insert_discount(flat_disc(0.02, as_of, "DISC"))
-        .insert_forward(flat_fwd(fwd_rate + bump, as_of, "FWD"))
+        .insert(flat_disc(0.02, as_of, "DISC"))
+        .insert(flat_fwd(fwd_rate + bump, as_of, "FWD"))
         .insert_surface(flat_normal_vol_surface(normal_sigma, "VOL"));
 
     let ctx_down = MarketContext::new()
-        .insert_discount(flat_disc(0.02, as_of, "DISC"))
-        .insert_forward(flat_fwd(fwd_rate - bump, as_of, "FWD"))
+        .insert(flat_disc(0.02, as_of, "DISC"))
+        .insert(flat_fwd(fwd_rate - bump, as_of, "FWD"))
         .insert_surface(flat_normal_vol_surface(normal_sigma, "VOL"));
 
     let pv_up = caplet.value(&ctx_up, as_of).unwrap().amount();
@@ -349,18 +349,18 @@ fn normal_vega_matches_finite_difference() {
     );
 
     let ctx_base = MarketContext::new()
-        .insert_discount(flat_disc(0.02, as_of, "DISC"))
-        .insert_forward(flat_fwd(fwd_rate, as_of, "FWD"))
+        .insert(flat_disc(0.02, as_of, "DISC"))
+        .insert(flat_fwd(fwd_rate, as_of, "FWD"))
         .insert_surface(flat_normal_vol_surface(normal_sigma, "VOL"));
 
     let ctx_up = MarketContext::new()
-        .insert_discount(flat_disc(0.02, as_of, "DISC"))
-        .insert_forward(flat_fwd(fwd_rate, as_of, "FWD"))
+        .insert(flat_disc(0.02, as_of, "DISC"))
+        .insert(flat_fwd(fwd_rate, as_of, "FWD"))
         .insert_surface(flat_normal_vol_surface(normal_sigma + vol_bump, "VOL"));
 
     let ctx_down = MarketContext::new()
-        .insert_discount(flat_disc(0.02, as_of, "DISC"))
-        .insert_forward(flat_fwd(fwd_rate, as_of, "FWD"))
+        .insert(flat_disc(0.02, as_of, "DISC"))
+        .insert(flat_fwd(fwd_rate, as_of, "FWD"))
         .insert_surface(flat_normal_vol_surface(normal_sigma - vol_bump, "VOL"));
 
     let pv_up = caplet.value(&ctx_up, as_of).unwrap().amount();

@@ -356,7 +356,7 @@ mod tests {
         portfolio_result.add_netting_set_with_fx(eur_netting_set, eur_usd_rate);
 
         // Verify conversion: 1M EUR * 1.10 = 1.1M USD
-        assert_eq!(portfolio_result.total_initial_margin.amount(), 1_100_000.0);
-        assert_eq!(portfolio_result.total_variation_margin.amount(), 220_000.0);
+        assert!((portfolio_result.total_initial_margin.amount() - 1_100_000.0).abs() < 1e-9);
+        assert!((portfolio_result.total_variation_margin.amount() - 220_000.0).abs() < 1e-9);
     }
 }

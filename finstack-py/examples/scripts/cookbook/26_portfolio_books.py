@@ -37,7 +37,7 @@ from finstack.valuations.instruments import Deposit
 
 def create_simple_market(as_of: date) -> MarketContext:
     market = MarketContext()
-    market.insert_discount(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
+    market.insert(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
     fx = FxMatrix()
     fx.set_quote(Currency("USD"), Currency("USD"), 1.0)
     market.insert_fx(fx)

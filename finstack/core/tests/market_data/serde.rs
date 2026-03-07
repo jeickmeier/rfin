@@ -130,8 +130,8 @@ fn market_context_roundtrip() {
     let fx = FxMatrix::with_config(fx_provider, FxConfig::default());
 
     let ctx = MarketContext::new()
-        .insert_discount(discount)
-        .insert_forward(forward)
+        .insert(discount)
+        .insert(forward)
         .insert_surface(surface)
         .insert_dividends(dividends)
         .insert_fx(fx);
@@ -141,8 +141,8 @@ fn market_context_roundtrip() {
 
     assert!(deserialized.get_discount("USD-OIS").is_ok());
     assert!(deserialized.get_forward("USD-SOFR").is_ok());
-    assert!(deserialized.surface("VOL").is_ok());
-    assert!(deserialized.dividend_schedule("AAPL-DIVS").is_some());
+    assert!(deserialized.get_surface("VOL").is_ok());
+    assert!(deserialized.get_dividend_schedule("AAPL-DIVS").is_ok());
     assert!(deserialized.fx().is_some());
 }
 
@@ -216,11 +216,11 @@ fn market_context_state_is_deterministically_sorted_and_roundtrips_full_snapshot
         .unwrap();
 
     let ctx = MarketContext::new()
-        .insert_discount(discount_b)
-        .insert_discount(discount_a)
-        .insert_hazard(hazard)
-        .insert_hazard(issuer2_haz)
-        .insert_base_correlation(base_corr)
+        .insert(discount_b)
+        .insert(discount_a)
+        .insert(hazard)
+        .insert(issuer2_haz)
+        .insert(base_corr)
         .insert_credit_index("CDX", credit_index)
         .insert_series(series)
         .insert_surface(surface)
@@ -261,11 +261,11 @@ fn market_context_state_is_deterministically_sorted_and_roundtrips_full_snapshot
     assert!(roundtripped.get_discount("B-DISC").is_ok());
     assert!(roundtripped.get_hazard("CDX-HAZ").is_ok());
     assert!(roundtripped.get_base_correlation("CDX-BC").is_ok());
-    assert!(roundtripped.credit_index("CDX").is_ok());
-    assert!(roundtripped.series("TS").is_ok());
-    assert!(roundtripped.surface("VOL").is_ok());
-    assert!(roundtripped.price("EQ-SPOT").is_ok());
-    assert!(roundtripped.collateral("USD-CSA").is_ok());
+    assert!(roundtripped.get_credit_index("CDX").is_ok());
+    assert!(roundtripped.get_series("TS").is_ok());
+    assert!(roundtripped.get_surface("VOL").is_ok());
+    assert!(roundtripped.get_price("EQ-SPOT").is_ok());
+    assert!(roundtripped.get_collateral("USD-CSA").is_ok());
 }
 
 #[test]
@@ -449,12 +449,12 @@ fn market_context_state_roundtrip_hits_more_state_serde_lines() {
         .unwrap();
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
-        .insert_hazard(haz)
-        .insert_hazard(issuer_haz)
-        .insert_inflation(inf)
-        .insert_base_correlation(bc)
+        .insert(disc)
+        .insert(fwd)
+        .insert(haz)
+        .insert(issuer_haz)
+        .insert(inf)
+        .insert(bc)
         .insert_credit_index("CDX", credit_index)
         .insert_inflation_index("US-CPI", idx)
         .insert_series(series)
@@ -475,12 +475,12 @@ fn market_context_state_roundtrip_hits_more_state_serde_lines() {
     assert!(rebuilt.get_forward("USD-SOFR").is_ok());
     assert!(rebuilt.get_hazard("CDX-HAZ").is_ok());
     assert!(rebuilt.get_hazard("ISSUER-HAZ").is_ok());
-    assert!(rebuilt.get_inflation("US-CPI-CURVE").is_ok());
+    assert!(rebuilt.get_inflation_curve("US-CPI-CURVE").is_ok());
     assert!(rebuilt.get_base_correlation("CDX-BC").is_ok());
-    assert!(rebuilt.credit_index("CDX").is_ok());
-    assert!(rebuilt.inflation_index("US-CPI").is_some());
-    assert!(rebuilt.series("TS").is_ok());
-    assert!(rebuilt.surface("VOL").is_ok());
-    assert!(rebuilt.price("EQ-SPOT").is_ok());
-    assert!(rebuilt.collateral("USD-CSA").is_ok());
+    assert!(rebuilt.get_credit_index("CDX").is_ok());
+    assert!(rebuilt.get_inflation_index("US-CPI").is_ok());
+    assert!(rebuilt.get_series("TS").is_ok());
+    assert!(rebuilt.get_surface("VOL").is_ok());
+    assert!(rebuilt.get_price("EQ-SPOT").is_ok());
+    assert!(rebuilt.get_collateral("USD-CSA").is_ok());
 }

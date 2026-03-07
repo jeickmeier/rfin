@@ -42,7 +42,7 @@ fn test_get_historical_prices_falls_back_to_spot_scalar() {
 fn test_get_historical_prices_returns_empty_if_no_data() {
     // Arrange
     let swap = sample_swap(PayReceive::Receive);
-    let ctx = MarketContext::new().insert_discount(
+    let ctx = MarketContext::new().insert(
         finstack_core::market_data::term_structures::DiscountCurve::builder(DISC_ID)
             .base_date(swap.start_date)
             .knots([(0.0, 1.0), (1.0, 0.95)])

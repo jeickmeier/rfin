@@ -78,7 +78,7 @@ impl CmsSwapPricer {
         convexity_scale: f64,
     ) -> Result<f64> {
         let discount_curve = market.get_discount(inst.discount_curve_id.as_ref())?;
-        let vol_surface = market.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = market.get_surface(inst.vol_surface_id.as_str())?;
 
         let mut total_pv = 0.0;
 
@@ -298,8 +298,8 @@ mod tests {
         let as_of = date(2025, 1, 1);
         let swap = floating_leg_swap();
         let market = MarketContext::new()
-            .insert_discount(flat_discount_with_tenor("USD-OIS", as_of, 0.0, 1.0))
-            .insert_forward(flat_forward_with_tenor("USD-LIBOR-3M", as_of, 0.05, 1.0));
+            .insert(flat_discount_with_tenor("USD-OIS", as_of, 0.0, 1.0))
+            .insert(flat_forward_with_tenor("USD-LIBOR-3M", as_of, 0.05, 1.0));
 
         let pv = CmsSwapPricer::new()
             .pv_funding_leg(&swap, &market, as_of)

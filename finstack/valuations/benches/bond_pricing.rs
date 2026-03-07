@@ -62,9 +62,7 @@ fn create_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(curve)
-        .insert_forward(forward_curve)
+    MarketContext::new().insert(curve).insert(forward_curve)
 }
 
 fn bench_bond_pv(c: &mut Criterion) {

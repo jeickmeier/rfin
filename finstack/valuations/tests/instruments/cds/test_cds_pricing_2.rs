@@ -64,9 +64,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard)
+    MarketContext::new().insert(disc).insert(hazard)
 }
 
 #[test]

@@ -98,7 +98,7 @@ fn validate_student_t_step(
     };
 
     let _ = context.get_base_correlation(&p.base_correlation_curve_id)?;
-    let _ = context.credit_index(index_id)?;
+    let _ = context.get_credit_index(index_id)?;
 
     if let Some(curve_id) = &p.discount_curve_id {
         let _ = context.get_discount(curve_id)?;
@@ -315,7 +315,7 @@ fn validate_inflation_step(
     // - currency match
     // - lag match
     // - base CPI match (including any seasonality applied by the index)
-    if let Some(index) = context.inflation_index(p.curve_id.as_str()) {
+    if let Ok(index) = context.get_inflation_index(p.curve_id.as_str()) {
         if index.currency != p.currency {
             return Err(finstack_core::Error::Validation(format!(
                 "Inflation step currency mismatch: params.currency='{}' but InflationIndex.currency='{}'",
@@ -430,7 +430,7 @@ fn validate_base_correlation_step(
     }
 
     // Base correlation calibration requires credit index data to be present in the context.
-    let index_data = context.credit_index(&p.index_id)?;
+    let index_data = context.get_credit_index(&p.index_id)?;
 
     // Market-standard: ensure recovery/currency/series/index are consistent.
     let tranche_quotes: Vec<crate::market::quotes::cds_tranche::CDSTrancheQuote> =
@@ -626,9 +626,9 @@ mod tests {
             .build()
             .expect("credit index");
         let ctx = MarketContext::new()
-            .insert_discount(build_flat_discount_curve(0.03, base_date, "USD-OIS"))
-            .insert_hazard(hazard)
-            .insert_base_correlation(base_corr)
+            .insert(build_flat_discount_curve(0.03, base_date, "USD-OIS"))
+            .insert(hazard)
+            .insert(base_corr)
             .insert_credit_index("CDX.NA.IG", credit_index);
         let quotes = vec![MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
             id: QuoteId::new("TRANCHE-1"),
@@ -683,10 +683,10 @@ mod tests {
             .build()
             .expect("credit index");
         let ctx = MarketContext::new()
-            .insert_discount(build_flat_discount_curve(0.03, base_date, "USD-OIS"))
-            .insert_discount(build_flat_discount_curve(0.025, base_date, "USD-ALT"))
-            .insert_hazard(hazard)
-            .insert_base_correlation(base_corr)
+            .insert(build_flat_discount_curve(0.03, base_date, "USD-OIS"))
+            .insert(build_flat_discount_curve(0.025, base_date, "USD-ALT"))
+            .insert(hazard)
+            .insert(base_corr)
             .insert_credit_index("CDX.NA.IG", credit_index);
         let quotes = vec![MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
             id: QuoteId::new("TRANCHE-1"),

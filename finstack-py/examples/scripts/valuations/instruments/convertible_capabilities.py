@@ -30,10 +30,10 @@ def build_market(as_of: date) -> MarketContext:
             (5.0, 0.9490),
         ],
     )
-    market.insert_discount(disc)
+    market.insert(disc)
 
     # Underlying equity data consumed by convertible pricing
-    market.insert_price("EQUITY-SPOT", MarketScalar.price(Money(150.0, USD)))
+    market.insert_price("EQUITY-SPOT", MarketScalar.get_price(Money(150.0, USD)))
     market.insert_price("EQUITY-DIVYIELD", MarketScalar.unitless(0.015))
 
     vol_surface = VolSurface(

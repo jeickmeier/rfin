@@ -33,9 +33,7 @@ fn build_flat_curves(rate: f64, base_date: Date) -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+    MarketContext::new().insert(disc_curve).insert(fwd_curve)
 }
 
 fn create_standard_swap(

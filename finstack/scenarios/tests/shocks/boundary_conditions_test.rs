@@ -44,7 +44,7 @@ fn test_zero_percent_shock() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 1);
 
-    let price = market.price("SPY").unwrap();
+    let price = market.get_price("SPY").unwrap();
     match price {
         MarketScalar::Price(money) => {
             assert!((money.amount() - 400.0).abs() < 1e-6);
@@ -84,7 +84,7 @@ fn test_negative_shock() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 1);
 
-    let price = market.price("SPY").unwrap();
+    let price = market.get_price("SPY").unwrap();
     match price {
         MarketScalar::Price(money) => {
             assert!((money.amount() - 50.0).abs() < 1e-6);
@@ -124,7 +124,7 @@ fn test_very_large_shock() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 1);
 
-    let price = market.price("SPY").unwrap();
+    let price = market.get_price("SPY").unwrap();
     match price {
         MarketScalar::Price(money) => {
             assert!((money.amount() - 600.0).abs() < 1e-6);
@@ -165,7 +165,7 @@ fn test_negative_100_percent_shock() {
     assert_eq!(report.operations_applied, 1);
 
     // Price should be zero after -100% shock
-    let price = market.price("SPY").unwrap();
+    let price = market.get_price("SPY").unwrap();
     match price {
         MarketScalar::Price(money) => {
             assert!(
@@ -212,7 +212,7 @@ fn test_shock_beyond_negative_100_percent() {
 
     // Document current behavior: price becomes negative
     // This may need validation in a future enhancement
-    let price = market.price("SPY").unwrap();
+    let price = market.get_price("SPY").unwrap();
     match price {
         MarketScalar::Price(money) => {
             // 100 * (1 - 1.5) = -50
@@ -354,7 +354,7 @@ fn test_curve_parallel_shock_zero_bp() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_discount(curve);
+    let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {

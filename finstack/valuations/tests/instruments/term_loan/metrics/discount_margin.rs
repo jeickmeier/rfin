@@ -77,9 +77,7 @@ fn build_market() -> MarketContext {
         .knots([(0.0, 0.045), (3.0, 0.045), (10.0, 0.045)])
         .build()
         .expect("forward curve");
-    MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+    MarketContext::new().insert(disc_curve).insert(fwd_curve)
 }
 
 /// DM should work on non-callable floating-rate loans without a quoted price.

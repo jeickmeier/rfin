@@ -125,8 +125,8 @@ pub fn build_market_context(as_of: Date, params: MarketParams) -> MarketContext 
     let fx_matrix = create_fx_matrix(params.spot);
 
     MarketContext::new()
-        .insert_discount(disc_curve_usd)
-        .insert_discount(disc_curve_eur)
+        .insert(disc_curve_usd)
+        .insert(disc_curve_eur)
         .insert_surface(vol_surface)
         .insert_fx(fx_matrix)
 }
@@ -313,7 +313,7 @@ pub fn finite_diff_vega(
     bump: f64,
 ) -> finstack_core::Result<f64> {
     // Bump volatility surface
-    let vol_surface = market.surface(option.vol_surface_id.clone())?;
+    let vol_surface = market.get_surface(option.vol_surface_id.clone())?;
     let base_vol = vol_surface.value_clamped(0.5, option.strike);
 
     let vol_surface_up = build_flat_vol_surface(base_vol + bump, VOL_ID);

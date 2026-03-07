@@ -20,7 +20,7 @@ fn mc() -> MarketContext {
         .knots(vec![(0.0, 1.0), (1.0, 0.97), (5.0, 0.85)])
         .build()
         .unwrap();
-    MarketContext::new().insert_discount(disc)
+    MarketContext::new().insert(disc)
 }
 
 #[test]

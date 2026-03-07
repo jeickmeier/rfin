@@ -38,8 +38,8 @@ fn test_caplet_intrinsic_after_fixing() {
     let vol_surface = flat_vol_surface("US-CPI-VOL", &[0.25], &[0.02], 0.20);
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_inflation(infl_curve)
+        .insert(disc)
+        .insert(infl_curve)
         .insert_inflation_index("US-CPI-U", index)
         .insert_surface(vol_surface);
 
@@ -64,7 +64,7 @@ fn test_caplet_intrinsic_after_fixing() {
         .build()
         .unwrap();
 
-    let idx = ctx.inflation_index("US-CPI-U").unwrap();
+    let idx = ctx.get_inflation_index("US-CPI-U").unwrap();
     let cpi_start = idx.value_on(start).unwrap();
     let cpi_end = idx.value_on(end).unwrap();
     let accrual = DayCount::Act365F
@@ -99,8 +99,8 @@ fn test_floor_value_with_negative_forward_normal_model() {
     let vol_surface = flat_vol_surface("US-CPI-VOL", &[1.0], &[0.0], 0.01);
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_inflation(infl_curve)
+        .insert(disc)
+        .insert(infl_curve)
         .insert_surface(vol_surface);
 
     let floorlet = InflationCapFloor::builder()

@@ -60,9 +60,7 @@ fn create_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+    MarketContext::new().insert(disc).insert(fwd)
 }
 
 fn bench_bond_cashflow_generation(c: &mut Criterion) {

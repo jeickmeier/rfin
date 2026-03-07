@@ -110,7 +110,7 @@
 //!     .knots([(0.0, 1.0), (1.0, 0.95)])
 //!     .interp(finstack_core::math::interp::InterpStyle::Linear)
 //!     .build()?;
-//! let market = MarketContext::new().insert_discount(disc_curve);
+//! let market = MarketContext::new().insert(disc_curve);
 //!
 //! let periods = vec![
 //!     Period {

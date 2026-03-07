@@ -552,7 +552,7 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for FxOption {
         // Match the existing FX option vanna/volga metric conventions (tests rely on this):
         // - bump a single surface point by ±1% (relative to the surface value at (t, K))
         // - divide by the corresponding absolute Δσ = sigma * bump_pct
-        let surf = market.surface(self.vol_surface_id.as_str())?;
+        let surf = market.get_surface(self.vol_surface_id.as_str())?;
         let sigma = surf.value_clamped(t, self.strike);
         if sigma <= 0.0 {
             return Ok(0.0);
@@ -596,7 +596,7 @@ impl crate::instruments::common_impl::traits::OptionVolgaProvider for FxOption {
             return Ok(0.0);
         }
 
-        let surf = market.surface(self.vol_surface_id.as_str())?;
+        let surf = market.get_surface(self.vol_surface_id.as_str())?;
         let sigma = surf.value_clamped(t, self.strike);
         if sigma <= 0.0 {
             return Ok(0.0);

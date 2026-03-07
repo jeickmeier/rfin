@@ -28,7 +28,7 @@ fn test_dm_fixed_bond_is_rejected_in_strict_mode() {
         .knots([(0.0, 1.0), (5.0, 0.80)])
         .build()
         .unwrap();
-    let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let err = bond
         .price_with_metrics(&market, as_of, &[MetricId::DiscountMargin])
@@ -135,9 +135,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
         .knots([(0.0, 0.03), (10.0, 0.03)])
         .build()
         .unwrap();
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     // Base FRNs for different maturities.
     let frn_ig = Bond::floating(

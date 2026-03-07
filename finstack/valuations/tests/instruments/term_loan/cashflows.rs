@@ -22,7 +22,7 @@ fn build_market_context() -> MarketContext {
         .interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    MarketContext::new().insert_discount(disc)
+    MarketContext::new().insert(disc)
 }
 
 #[test]

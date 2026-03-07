@@ -176,7 +176,7 @@ fn par_rate_pv_based(
 
     // Look up historical fixings for seasoned swaps
     let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
-    let fixings = ctx.curves.series(&fixings_id).ok();
+    let fixings = ctx.curves.get_series(&fixings_id).ok();
 
     // Reuse the pricer's PV logic based on compounding type
     let pv_float = match irs.float.compounding {

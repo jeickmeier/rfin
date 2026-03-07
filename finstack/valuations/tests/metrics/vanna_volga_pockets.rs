@@ -29,7 +29,7 @@ fn bump_scalar_price(
     price_id: &str,
     bump_pct: f64,
 ) -> finstack_core::Result<MarketContext> {
-    let current = context.price(price_id)?;
+    let current = context.get_price(price_id)?;
     let bumped_value = match current {
         MarketScalar::Unitless(v) => MarketScalar::Unitless(v * (1.0 + bump_pct)),
         MarketScalar::Price(m) => {
@@ -69,7 +69,7 @@ fn equity_market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) ->
     let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
 
     MarketContext::new()
-        .insert_discount(flat_discount_with_tenor("USD-OIS", as_of, rate, 5.0))
+        .insert(flat_discount_with_tenor("USD-OIS", as_of, rate, 5.0))
         .insert_surface(flat_vol_surface("EQUITY-VOL", &expiries, &strikes, vol))
         .insert_price("EQUITY-SPOT", MarketScalar::Unitless(spot))
         .insert_price("EQUITY-DIVYIELD", MarketScalar::Unitless(div_yield))
@@ -94,7 +94,7 @@ fn equity_delta_fd(
     let pv_dn = opt.value(&curves_dn, as_of)?.amount();
 
     // Convert bump_pct into absolute spot bump for denominator.
-    let spot = match curves.price(&opt.spot_id)? {
+    let spot = match curves.get_price(&opt.spot_id)? {
         MarketScalar::Unitless(v) => *v,
         MarketScalar::Price(m) => m.amount(),
     };
@@ -214,8 +214,8 @@ fn fx_market(as_of: Date, spot: f64, vol: f64, r_d: f64, r_f: f64) -> MarketCont
     let fx = FxMatrix::new(Arc::new(TestFx { spot }));
     MarketContext::new()
         .insert_fx(fx)
-        .insert_discount(flat_discount_with_tenor("USD-OIS", as_of, r_d, 5.0))
-        .insert_discount(flat_discount_with_tenor("EUR-OIS", as_of, r_f, 5.0))
+        .insert(flat_discount_with_tenor("USD-OIS", as_of, r_d, 5.0))
+        .insert(flat_discount_with_tenor("EUR-OIS", as_of, r_f, 5.0))
         .insert_surface(flat_vol_surface("EURUSD-VOL", &expiries, &strikes, vol))
 }
 
@@ -262,7 +262,7 @@ fn fx_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
     let t = opt
         .day_count
         .year_fraction(as_of, expiry, DayCountCtx::default())?;
-    let surf = market.surface(opt.vol_surface_id.as_str())?;
+    let surf = market.get_surface(opt.vol_surface_id.as_str())?;
     let sigma = surf.value_clamped(t, opt.strike);
     let vol_bump_pct = VOL_BUMP_PCT;
     let delta_sigma = (sigma * vol_bump_pct).abs().max(1e-12);

@@ -126,7 +126,7 @@ fn test_rate_binding() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_discount(curve);
+    let mut market = MarketContext::new().insert(curve);
 
     // Setup model with interest rate node
     let period_plan = build_periods("2025Q1..Q4", None).unwrap();

@@ -21,7 +21,7 @@ fn create_curve(base_date: Date) -> MarketContext {
         .knots([(0.0, 1.0), (5.0, 0.80)])
         .build()
         .unwrap();
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 #[test]
@@ -86,9 +86,7 @@ fn test_accrued_frn_uses_forward_rate() {
         .knots([(0.0, 0.05), (10.0, 0.05)]) // 5% flat
         .build()
         .unwrap();
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     // Floating-rate bond with SOFR 3M (using new CashflowSpec)
     use finstack_core::dates::Tenor;
@@ -139,7 +137,7 @@ fn test_clean_dirty_ex_coupon_parity() {
         .knots([(0.0, 1.0), (5.0, 0.9)])
         .build()
         .unwrap();
-    let market = MarketContext::new().insert_discount(curve);
+    let market = MarketContext::new().insert(curve);
 
     let bond = Bond::fixed(
         "B",

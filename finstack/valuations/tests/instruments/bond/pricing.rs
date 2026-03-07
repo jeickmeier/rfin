@@ -61,7 +61,7 @@ fn test_bond_basic_pricing() {
     .unwrap();
 
     let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv = bond.value(&market, as_of).unwrap();
 
@@ -93,12 +93,12 @@ fn test_bond_price_vs_yield() {
 
     // Low yield → high price
     let low_curve = create_flat_curve(0.04, as_of, "USD-OIS");
-    let market_low = MarketContext::new().insert_discount(low_curve);
+    let market_low = MarketContext::new().insert(low_curve);
     let pv_low = bond.value(&market_low, as_of).unwrap();
 
     // High yield → low price
     let high_curve = create_flat_curve(0.08, as_of, "USD-OIS");
-    let market_high = MarketContext::new().insert_discount(high_curve);
+    let market_high = MarketContext::new().insert(high_curve);
     let pv_high = bond.value(&market_high, as_of).unwrap();
 
     // Verify inverse relationship
@@ -133,7 +133,7 @@ fn test_bond_price_coupon_relationship() {
     .unwrap();
 
     let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv_high = high_coupon.value(&market, as_of).unwrap();
     let pv_low = low_coupon.value(&market, as_of).unwrap();
@@ -173,7 +173,7 @@ fn test_bond_price_maturity_relationship() {
     .unwrap();
 
     let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv_2y = bond_2y.value(&market, as_of).unwrap();
     let pv_10y = bond_10y.value(&market, as_of).unwrap();
@@ -216,7 +216,7 @@ fn test_bond_price_zero_coupon() {
     .unwrap();
 
     let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv = bond.value(&market, as_of).unwrap();
 
@@ -254,7 +254,7 @@ fn test_bond_theta_time_decay() {
     .unwrap();
 
     let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Price at T
     let pv_t0 = bond.value(&market, as_of).unwrap();
@@ -262,7 +262,7 @@ fn test_bond_theta_time_decay() {
     // Price at T+1 day
     let tomorrow = date!(2025 - 01 - 02);
     let curve_t1 = create_flat_curve(0.05, tomorrow, "USD-OIS");
-    let market_t1 = MarketContext::new().insert_discount(curve_t1);
+    let market_t1 = MarketContext::new().insert(curve_t1);
     let pv_t1 = bond.value(&market_t1, tomorrow).unwrap();
 
     // Premium bond should decay toward par (price decrease)
@@ -319,7 +319,7 @@ fn test_bond_settlement_date_impact() {
         .unwrap();
 
     let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv_t0 = bond_t0.value(&market, as_of).unwrap();
     let pv_t2 = bond_t2.value(&market, as_of).unwrap();
@@ -345,7 +345,7 @@ fn test_bond_matured_or_near_zero_value() {
     .unwrap();
 
     let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv = bond.value(&market, as_of).unwrap();
 
@@ -373,7 +373,7 @@ fn test_bond_near_maturity_pricing() {
     .unwrap();
 
     let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv = bond.value(&market, as_of).unwrap();
 
@@ -404,17 +404,17 @@ fn test_bond_curve_parallel_shift() {
 
     // Base curve at 5%
     let curve_base = create_flat_curve(0.05, as_of, "USD-OIS");
-    let market_base = MarketContext::new().insert_discount(curve_base);
+    let market_base = MarketContext::new().insert(curve_base);
     let pv_base = bond.value(&market_base, as_of).unwrap();
 
     // Curve shifted down 100bp to 4%
     let curve_down = create_flat_curve(0.04, as_of, "USD-OIS");
-    let market_down = MarketContext::new().insert_discount(curve_down);
+    let market_down = MarketContext::new().insert(curve_down);
     let pv_down = bond.value(&market_down, as_of).unwrap();
 
     // Curve shifted up 100bp to 6%
     let curve_up = create_flat_curve(0.06, as_of, "USD-OIS");
-    let market_up = MarketContext::new().insert_discount(curve_up);
+    let market_up = MarketContext::new().insert(curve_up);
     let pv_up = bond.value(&market_up, as_of).unwrap();
 
     // Price increases when rates fall
@@ -447,7 +447,7 @@ fn test_bond_price_consistency() {
     .unwrap();
 
     let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Price multiple times should give same result
     let pv1 = bond.value(&market, as_of).unwrap();
@@ -484,7 +484,7 @@ fn test_bond_notional_scaling() {
     .unwrap();
 
     let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv_100 = bond_100.value(&market, as_of).unwrap();
     let pv_1000 = bond_1000.value(&market, as_of).unwrap();
@@ -522,7 +522,7 @@ fn test_bond_different_day_counts() {
             .unwrap();
 
         let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
-        let market = MarketContext::new().insert_discount(disc_curve);
+        let market = MarketContext::new().insert(disc_curve);
 
         let pv = bond.value(&market, as_of).unwrap();
 

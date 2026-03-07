@@ -662,7 +662,7 @@ mod tests {
             .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
-        let market = MarketContext::new().insert_discount(curve);
+        let market = MarketContext::new().insert(curve);
 
         let periods = quarters_2025();
         let options = PeriodDataFrameOptions {
@@ -728,7 +728,7 @@ mod tests {
             .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed");
-        let market = MarketContext::new().insert_discount(curve);
+        let market = MarketContext::new().insert(curve);
 
         let periods = vec![
             Period {
@@ -795,7 +795,7 @@ mod tests {
             .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
-        let market = MarketContext::new().insert_discount(curve);
+        let market = MarketContext::new().insert(curve);
 
         let options = PeriodDataFrameOptions {
             as_of: Some(base),

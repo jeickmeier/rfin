@@ -101,7 +101,7 @@ pub fn market_context_with_index() -> (MarketContext, InflationIndex) {
         .with_interpolation(InflationInterpolation::Linear);
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
+        .insert(disc)
         .insert_inflation_index("US-CPI-U", index.clone());
 
     (ctx, index)
@@ -137,9 +137,7 @@ pub fn market_context_with_curve() -> (MarketContext, InflationCurve) {
         .build()
         .unwrap();
 
-    let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_inflation(curve);
+    let ctx = MarketContext::new().insert(disc).insert(curve);
 
     (
         ctx,
@@ -185,7 +183,7 @@ pub fn uk_market_context() -> (MarketContext, InflationIndex) {
         .with_interpolation(InflationInterpolation::Step);
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
+        .insert(disc)
         .insert_inflation_index("UK-RPI", index.clone());
 
     (ctx, index)

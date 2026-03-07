@@ -223,7 +223,7 @@ def create_simple_market_context() -> "finstack.core.market_data.context.MarketC
             (10.0, 0.90),
         ],
     )
-    ctx.insert_discount(discount_curve)
+    ctx.insert(discount_curve)
 
     # Add a simple forward curve (USD-LIBOR-3M)
     try:
@@ -238,7 +238,7 @@ def create_simple_market_context() -> "finstack.core.market_data.context.MarketC
             ],
             base_date=date(2024, 1, 1),
         )
-        ctx.insert_forward(forward_curve)
+        ctx.insert(forward_curve)
     except Exception:  # noqa: BLE001
         # Forward curve insertion may fail if not supported
         pass
@@ -445,7 +445,7 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                     if needs_market_var:
                         namespace["market"] = test_ctx
                     if needs_curve_var:
-                        namespace["curve"] = test_ctx.discount("USD")
+                        namespace["curve"] = test_ctx.get_discount("USD")
                 except (AttributeError, RuntimeError):
                     # If we can't create the context, don't fail - just continue without it
                     # The test will fail naturally if the variable is needed but missing

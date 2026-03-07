@@ -179,7 +179,7 @@ mod tests {
             .build()
             .expect("valid curve");
 
-        MarketContext::new().insert_discount(disc)
+        MarketContext::new().insert(disc)
     }
 
     #[test]

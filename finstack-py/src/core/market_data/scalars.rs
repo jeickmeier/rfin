@@ -4,10 +4,13 @@
 //! `ScalarTimeSeries` for dated observations with configurable interpolation.
 //! Use `SeriesInterpolation` to control step vs linear behavior between points.
 use crate::core::currency::PyCurrency;
-use crate::core::dates::utils::py_to_date;
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::PyMoney;
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::market_data::scalars::{MarketScalar, ScalarTimeSeries, SeriesInterpolation};
+use finstack_core::market_data::scalars::{
+    InflationIndex, InflationInterpolation, InflationLag, MarketScalar, ScalarTimeSeries,
+    SeriesInterpolation,
+};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyFloat, PyIterator, PyList, PyModule, PyType};
@@ -265,7 +268,7 @@ impl PyMarketScalar {
     fn __repr__(&self) -> String {
         match &self.inner {
             MarketScalar::Unitless(v) => format!("MarketScalar.unitless({v})"),
-            MarketScalar::Price(m) => format!("MarketScalar.price({m})"),
+            MarketScalar::Price(m) => format!("MarketScalar.get_price({m})"),
         }
     }
 }
@@ -296,6 +299,23 @@ impl PyMarketScalar {
 #[derive(Clone)]
 pub struct PyScalarTimeSeries {
     pub(crate) inner: Arc<ScalarTimeSeries>,
+}
+
+/// Inflation index observations with interpolation and lag conventions.
+#[pyclass(
+    module = "finstack.core.market_data.scalars",
+    name = "InflationIndex",
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyInflationIndex {
+    pub(crate) inner: Arc<InflationIndex>,
+}
+
+impl PyInflationIndex {
+    pub(crate) fn new_arc(inner: Arc<InflationIndex>) -> Self {
+        Self { inner }
+    }
 }
 
 impl PyScalarTimeSeries {
@@ -445,6 +465,101 @@ impl PyScalarTimeSeries {
     }
 }
 
+#[pymethods]
+impl PyInflationIndex {
+    #[new]
+    #[pyo3(signature = (id, observations, currency))]
+    #[pyo3(text_signature = "(id, observations, currency)")]
+    fn ctor(
+        py: Python<'_>,
+        id: &str,
+        observations: Bound<'_, PyAny>,
+        currency: &PyCurrency,
+    ) -> PyResult<Self> {
+        let parsed = parse_observations(py, &observations)?;
+        let index = InflationIndex::new(id, parsed, currency.inner).map_err(core_to_py)?;
+        Ok(Self::new_arc(Arc::new(index)))
+    }
+
+    #[getter]
+    fn id(&self) -> String {
+        self.inner.id.clone()
+    }
+
+    #[getter]
+    fn currency(&self) -> PyCurrency {
+        PyCurrency::new(self.inner.currency)
+    }
+
+    #[getter]
+    fn interpolation(&self) -> String {
+        match self.inner.interpolation {
+            InflationInterpolation::Step => "step".to_string(),
+            InflationInterpolation::Linear => "linear".to_string(),
+            _ => "step".to_string(),
+        }
+    }
+
+    #[getter]
+    fn lag_months(&self) -> Option<u8> {
+        match self.inner.lag() {
+            InflationLag::Months(m) => Some(m),
+            _ => None,
+        }
+    }
+
+    #[getter]
+    fn observations(&self, py: Python<'_>) -> PyResult<Vec<(Py<PyAny>, f64)>> {
+        self.inner
+            .observations()
+            .into_iter()
+            .map(|(date, value)| Ok((date_to_py(py, date)?, value)))
+            .collect()
+    }
+
+    #[pyo3(text_signature = "(self, date)")]
+    fn value_on(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
+        let d = py_to_date(&date).context("date")?;
+        self.inner.value_on(d).map_err(core_to_py)
+    }
+
+    #[pyo3(text_signature = "(self, base_date, settle_date)")]
+    fn ratio(&self, base_date: Bound<'_, PyAny>, settle_date: Bound<'_, PyAny>) -> PyResult<f64> {
+        let base = py_to_date(&base_date).context("base_date")?;
+        let settle = py_to_date(&settle_date).context("settle_date")?;
+        self.inner.ratio(base, settle).map_err(core_to_py)
+    }
+
+    #[pyo3(text_signature = "(self, interpolation)")]
+    fn with_interpolation(&self, interpolation: &str) -> PyResult<Self> {
+        let mode = match interpolation.to_ascii_lowercase().as_str() {
+            "step" => InflationInterpolation::Step,
+            "linear" => InflationInterpolation::Linear,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "Unknown inflation interpolation: {other}"
+                )))
+            }
+        };
+        let updated = self.inner.as_ref().clone().with_interpolation(mode);
+        Ok(Self::new_arc(Arc::new(updated)))
+    }
+
+    #[pyo3(text_signature = "(self, months)")]
+    fn with_lag_months(&self, months: u8) -> Self {
+        let updated = self
+            .inner
+            .as_ref()
+            .clone()
+            .with_lag(InflationLag::Months(months));
+        Self::new_arc(Arc::new(updated))
+    }
+
+    fn __repr__(&self) -> String {
+        format!("InflationIndex(id='{}')", self.inner.id)
+    }
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -457,7 +572,13 @@ pub(crate) fn register<'py>(
     module.add_class::<PySeriesInterpolation>()?;
     module.add_class::<PyMarketScalar>()?;
     module.add_class::<PyScalarTimeSeries>()?;
-    let exports = ["SeriesInterpolation", "MarketScalar", "ScalarTimeSeries"];
+    module.add_class::<PyInflationIndex>()?;
+    let exports = [
+        "SeriesInterpolation",
+        "MarketScalar",
+        "ScalarTimeSeries",
+        "InflationIndex",
+    ];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

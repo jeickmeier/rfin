@@ -94,7 +94,7 @@ fn test_cs_cashflows_populated_on_statement_result() {
         .knots([(0.0, 1.0), (5.0, 0.9)])
         .build()
         .expect("curve should build");
-    let market_ctx = MarketContext::new().insert_discount(disc_curve);
+    let market_ctx = MarketContext::new().insert(disc_curve);
 
     let mut evaluator = Evaluator::new();
     let result = evaluator

@@ -23,7 +23,7 @@
 //!
 //! // Use pricer registry for unified pricing
 //! let registry = PricerRegistry::default();
-//! let result = registry.price(&facility, &market, as_of)?;
+//! let result = registry.get_price(&facility, &market, as_of)?;
 //! ```
 //!
 //! # Monte Carlo Pricing (requires `mc` feature)
@@ -100,7 +100,7 @@ mod tests {
             .build()
             .expect("should succeed");
 
-        let market = MarketContext::new().insert_discount(disc_curve);
+        let market = MarketContext::new().insert(disc_curve);
 
         // Test unified pricing
         let pv_unified =
@@ -169,7 +169,7 @@ mod tests {
             .build()
             .expect("should succeed");
 
-        let market = MarketContext::new().insert_discount(disc_curve);
+        let market = MarketContext::new().insert(disc_curve);
 
         // Test unified pricing
         let pv_unified =

@@ -42,7 +42,7 @@ impl MetricCalculator for DividendRiskCalculator {
         // Find the first available dividend yield ID
         let div_yield_id = dividend_candidates
             .iter()
-            .find(|id| context.curves.price(id.as_str()).is_ok())
+            .find(|id| context.curves.get_price(id.as_str()).is_ok())
             .cloned();
 
         let div_yield_id = match div_yield_id {
@@ -51,7 +51,7 @@ impl MetricCalculator for DividendRiskCalculator {
         };
 
         // Get current dividend yield
-        let current_scalar = context.curves.price(&div_yield_id)?;
+        let current_scalar = context.curves.get_price(&div_yield_id)?;
 
         // Extract numeric baseline for robust bump-width handling (clamped at 0 on the downside).
         let q0 = match current_scalar {

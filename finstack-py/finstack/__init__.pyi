@@ -47,7 +47,7 @@ Building market data and pricing instruments:
     >>> from datetime import date
     >>> curve = DiscountCurve.from_rates("USD", date(2024, 1, 1), [(0.5, 0.99), (1.0, 0.98)])
     >>> ctx = MarketContext()
-    >>> ctx.insert_discount(curve)
+    >>> ctx.insert(curve)
     >>> # Use ctx for instrument pricing...
 
 See Also

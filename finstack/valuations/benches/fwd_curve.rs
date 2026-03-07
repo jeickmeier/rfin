@@ -28,7 +28,7 @@ fn bench_forward_curve(c: &mut Criterion) {
         .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
         .build()
         .unwrap();
-    let ctx = MarketContext::new().insert_discount(disc);
+    let ctx = MarketContext::new().insert(disc);
     let quotes = [
         RateQuote::Fra {
             id: QuoteId::new("FRA-3x6"),

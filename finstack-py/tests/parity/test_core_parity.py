@@ -415,6 +415,49 @@ class TestFxMatrixParity:
 class TestMarketContextParity:
     """Test market context operations match Rust."""
 
+    def test_market_context_strict_getter_surface(self) -> None:
+        """Python MarketContext getter surface should match Rust naming."""
+        market = MarketContext()
+
+        for name in [
+            "curve",
+            "get_discount",
+            "get_forward",
+            "get_hazard",
+            "get_inflation_curve",
+            "get_base_correlation",
+            "get_vol_index_curve",
+            "get_price_curve",
+            "get_surface",
+            "get_price",
+            "get_series",
+            "get_inflation_index",
+            "get_fx_delta_vol_surface",
+            "get_credit_index",
+            "get_dividend_schedule",
+            "get_collateral",
+            "fx",
+            "surfaces_snapshot",
+            "prices_snapshot",
+            "series_snapshot",
+            "prices_iter",
+            "series_iter",
+            "inflation_indices_iter",
+            "dividends_iter",
+            "roll_forward",
+            "update_base_correlation_curve",
+        ]:
+            assert hasattr(market, name), f"missing {name}"
+
+        for old_name in [
+            "discount",
+            "forward",
+            "hazard",
+            "inflation",
+            "base_correlation",
+        ]:
+            assert not hasattr(market, old_name), f"unexpected legacy getter {old_name}"
+
     def test_market_context_insert_discount(self) -> None:
         """Test inserting discount curve into market context."""
         market = MarketContext()
@@ -425,11 +468,12 @@ class TestMarketContextParity:
             day_count="act_365f",
         )
 
-        market.insert_discount(curve)
+        market.insert(curve)
 
         # Verify curve can be retrieved
-        retrieved = market.discount("USD-OIS")
+        retrieved = market.get_discount("USD-OIS")
         assert retrieved.id == "USD-OIS"
+        assert not hasattr(market, "discount")
 
     def test_market_context_insert_forward(self) -> None:
         """Test inserting forward curve into market context."""
@@ -442,11 +486,12 @@ class TestMarketContextParity:
             day_count=DayCount.ACT_360,
         )
 
-        market.insert_forward(curve)
+        market.insert(curve)
 
         # Verify curve can be retrieved
-        retrieved = market.forward("USD-SOFR")
+        retrieved = market.get_forward("USD-SOFR")
         assert retrieved.id == "USD-SOFR"
+        assert not hasattr(market, "forward")
 
     def test_market_context_as_of_date(self) -> None:
         """Test market context as_of date."""

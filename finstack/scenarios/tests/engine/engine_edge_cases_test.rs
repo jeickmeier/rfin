@@ -81,7 +81,7 @@ fn test_multiple_operations_same_target_last_wins() {
     assert_eq!(report.operations_applied, 2);
 
     // Both operations applied sequentially
-    let price = market.price("SPY").unwrap();
+    let price = market.get_price("SPY").unwrap();
     match price {
         MarketScalar::Price(money) => {
             let expected = 100.0 * 0.9 * 1.2; // 108
@@ -285,7 +285,7 @@ fn test_rate_binding_missing_node() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_discount(curve);
+    let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let rate_bindings = Some(RateBindingSpec::map_from_legacy(indexmap! {
@@ -396,7 +396,7 @@ fn test_time_roll_with_apply_shocks_true() {
     assert_eq!(report.operations_applied, 2, "Both ops should apply");
 
     // Verify price was shocked
-    let price = market.price("SPY").unwrap();
+    let price = market.get_price("SPY").unwrap();
     match price {
         MarketScalar::Price(money) => {
             assert!((money.amount() - 90.0).abs() < 1e-6);

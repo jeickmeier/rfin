@@ -36,8 +36,8 @@ fn create_test_market() -> MarketContext {
         .expect("price curve should build");
 
     MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_price_curve(price_curve)
+        .insert(discount_curve)
+        .insert(price_curve)
 }
 
 #[test]

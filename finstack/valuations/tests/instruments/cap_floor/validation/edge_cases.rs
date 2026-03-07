@@ -84,8 +84,8 @@ fn test_zero_vol_itm_cap() {
     let vol_surface = build_flat_vol_surface(0.0001, as_of, "USD_CAP_VOL"); // Near-zero vol
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let pv = cap.value(&market, as_of).unwrap().amount();
@@ -128,8 +128,8 @@ fn test_zero_vol_otm_cap() {
     let vol_surface = build_flat_vol_surface(0.0001, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let pv = cap.value(&market, as_of).unwrap().amount();
@@ -176,8 +176,8 @@ fn test_very_high_strike() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let pv = cap.value(&market, as_of).unwrap();
@@ -221,8 +221,8 @@ fn test_very_low_strike_floor() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let pv = floor.value(&market, as_of).unwrap();
@@ -266,8 +266,8 @@ fn test_very_short_maturity() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let pv = caplet.value(&market, as_of).unwrap();
@@ -311,8 +311,8 @@ fn test_expired_cap() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let result = cap.value(&market, as_of);
@@ -361,8 +361,8 @@ fn test_zero_notional() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let pv = cap.value(&market, as_of).unwrap().amount();
@@ -410,8 +410,8 @@ fn test_very_high_vol() {
     let vol_surface = build_flat_vol_surface(2.0, as_of, "USD_CAP_VOL"); // 200% vol!
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let pv = cap.value(&market, as_of).unwrap();

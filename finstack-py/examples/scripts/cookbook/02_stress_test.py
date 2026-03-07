@@ -29,10 +29,10 @@ def create_base_market(as_of: date) -> MarketContext:
     market = MarketContext()
 
     # Discount curves
-    market.insert_discount(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
+    market.insert(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
 
     # Credit curves (for CDS)
-    market.insert_hazard(HazardCurve("ACME.5Y", as_of, [(0.0, 0.015), (10.0, 0.015)], recovery_rate=0.40))
+    market.insert(HazardCurve("ACME.5Y", as_of, [(0.0, 0.015), (10.0, 0.015)], recovery_rate=0.40))
 
     return market
 

@@ -96,8 +96,8 @@ fn test_npv_increases_with_inflation() {
                 .unwrap();
 
         finstack_core::market_data::context::MarketContext::new()
-            .insert_discount(disc)
-            .insert_inflation(curve)
+            .insert(disc)
+            .insert(curve)
     };
 
     // Context with high inflation
@@ -119,8 +119,8 @@ fn test_npv_increases_with_inflation() {
                 .unwrap();
 
         finstack_core::market_data::context::MarketContext::new()
-            .insert_discount(disc)
-            .insert_inflation(curve)
+            .insert(disc)
+            .insert(curve)
     };
 
     // Act
@@ -160,8 +160,8 @@ fn test_npv_decreases_with_higher_discount_rate() {
         .unwrap();
 
     let ctx_low = finstack_core::market_data::context::MarketContext::new()
-        .insert_discount(disc_low)
-        .insert_inflation(inflation_curve);
+        .insert(disc_low)
+        .insert(inflation_curve);
 
     // Rebuild inflation curve for second context
     let inflation_curve2 =
@@ -172,8 +172,8 @@ fn test_npv_decreases_with_higher_discount_rate() {
             .unwrap();
 
     let ctx_high = finstack_core::market_data::context::MarketContext::new()
-        .insert_discount(disc_high)
-        .insert_inflation(inflation_curve2);
+        .insert(disc_high)
+        .insert(inflation_curve2);
 
     // Act
     let pv_low_rate = ilb.value(&ctx_low, as_of).unwrap();
@@ -244,7 +244,7 @@ fn test_npv_with_deflation_protection() {
     .with_interpolation(finstack_core::market_data::scalars::InflationInterpolation::Linear);
 
     let ctx = finstack_core::market_data::context::MarketContext::new()
-        .insert_discount(disc)
+        .insert(disc)
         .insert_inflation_index("US-CPI-U", index);
 
     // Act

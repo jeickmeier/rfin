@@ -106,7 +106,7 @@ fn inflation_quote_time_uses_lagged_fixing_date() {
         }],
     };
 
-    let initial_market = MarketContext::new().insert_discount(create_discount_curve(base_date));
+    let initial_market = MarketContext::new().insert(create_discount_curve(base_date));
     let envelope = CalibrationEnvelope {
         schema: "finstack.calibration/2".to_string(),
         plan,
@@ -115,7 +115,7 @@ fn inflation_quote_time_uses_lagged_fixing_date() {
 
     let result = engine::execute(&envelope).expect("execute");
     let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");
-    let curve = ctx.get_inflation("USD-CPI").expect("inflation curve");
+    let curve = ctx.get_inflation_curve("USD-CPI").expect("inflation curve");
 
     assert_eq!(curve.knots().first().copied(), Some(0.0));
     assert_eq!(curve.knots().len(), 2);
@@ -166,7 +166,7 @@ fn inflation_preflight_rejects_base_cpi_mismatch_with_fixings() {
     };
 
     let initial_market = MarketContext::new()
-        .insert_discount(create_discount_curve(base_date))
+        .insert(create_discount_curve(base_date))
         .insert_inflation_index("USD-CPI", create_us_cpi_fixings_with_seasonality());
 
     let envelope = CalibrationEnvelope {

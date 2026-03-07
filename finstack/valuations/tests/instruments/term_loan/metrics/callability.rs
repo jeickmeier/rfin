@@ -61,7 +61,7 @@ fn test_term_loan_yields_with_callability() {
     });
 
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Compute YTM, YTC, YTW
     let result = loan
@@ -93,7 +93,7 @@ fn test_term_loan_yields_to_horizons() {
     let loan = build_simple_term_loan(as_of, maturity);
 
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Compute YT2Y, YT3Y, YT4Y and YTM for ordering checks
     let result = loan

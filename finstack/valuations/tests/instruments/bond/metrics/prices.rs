@@ -27,7 +27,7 @@ fn test_clean_price_from_quoted() {
         .knots([(0.0, 1.0), (5.0, 0.80)])
         .build()
         .unwrap();
-    let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let result = bond
         .price_with_metrics(&market, as_of, &[MetricId::CleanPrice])

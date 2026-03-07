@@ -63,10 +63,10 @@ fn build_test_curves() -> MarketContext {
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(disc_curve_usd_ois)
-        .insert_discount(disc_curve_manual)
-        .insert_forward(fwd_curve_sofr)
-        .insert_forward(fwd_curve_libor)
+        .insert(disc_curve_usd_ois)
+        .insert(disc_curve_manual)
+        .insert(fwd_curve_sofr)
+        .insert(fwd_curve_libor)
 }
 
 #[test]

@@ -267,7 +267,7 @@ fn test_npv_at_maturity_with_low_realized_vol() {
 fn test_npv_at_maturity_without_prices_is_zero() {
     // Arrange
     let swap = sample_swap(PayReceive::Receive);
-    let ctx = MarketContext::new().insert_discount(
+    let ctx = MarketContext::new().insert(
         finstack_core::market_data::term_structures::DiscountCurve::builder(DISC_ID)
             .base_date(swap.start_date)
             .knots([(0.0, 1.0), (1.0, 0.95)])

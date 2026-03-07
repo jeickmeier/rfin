@@ -326,7 +326,7 @@ fn test_equity_fx_conversion() {
     let eur_curve = build_flat_curve(0.03, base_date, "EUR-OIS");
 
     let market = MarketContext::new()
-        .insert_discount(eur_curve)
+        .insert(eur_curve)
         .insert_price("SAP", MarketScalar::Price(Money::new(100.0, Currency::EUR)));
 
     let price = equity.price_per_share(&market, base_date).unwrap();

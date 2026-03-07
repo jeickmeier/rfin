@@ -62,7 +62,7 @@ fn test_modified_macaulay_duration_relationship() {
     .unwrap();
 
     let curve = create_flat_curve(0.06, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(curve);
+    let market = MarketContext::new().insert(curve);
 
     let result = bond
         .price_with_metrics(
@@ -115,7 +115,7 @@ fn test_yield_dv01_duration_price_relationship() {
         .unwrap();
 
     let curve = create_flat_curve(0.08, as_of, "USD_DISC");
-    let market = MarketContext::new().insert_discount(curve);
+    let market = MarketContext::new().insert(curve);
 
     let result = bond
         .price_with_metrics(

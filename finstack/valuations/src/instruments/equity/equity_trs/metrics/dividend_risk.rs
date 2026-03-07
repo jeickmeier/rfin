@@ -32,7 +32,7 @@ impl MetricCalculator for Dividend01Calculator {
         };
 
         // Get current dividend yield
-        let current_scalar = match context.curves.price(&div_yield_id) {
+        let current_scalar = match context.curves.get_price(&div_yield_id) {
             Ok(scalar) => scalar,
             Err(_) => return Ok(0.0), // Default to 0 if not found
         };

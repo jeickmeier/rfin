@@ -103,7 +103,7 @@ fn bench_portfolio_position_values_access() {
     .expect("DiscountCurve should build");
 
     let mut market = MarketContext::new();
-    market.insert_discount(&curve);
+    market.insert(&curve);
 
     // Build a portfolio with many similar bond positions to exercise
     // result materialization + JS object creation for `positionValues`.

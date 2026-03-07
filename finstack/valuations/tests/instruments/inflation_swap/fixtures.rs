@@ -133,8 +133,8 @@ pub fn standard_market(as_of: Date, inflation_rate: f64, discount_rate: f64) -> 
     );
 
     MarketContext::new()
-        .insert_discount(disc)
-        .insert_inflation(infl_curve)
+        .insert(disc)
+        .insert(infl_curve)
         .insert_inflation_index("US-CPI-U", index)
 }
 
@@ -151,8 +151,8 @@ pub fn realistic_market(as_of: Date) -> MarketContext {
     );
 
     MarketContext::new()
-        .insert_discount(disc)
-        .insert_inflation(infl_curve)
+        .insert(disc)
+        .insert(infl_curve)
         .insert_inflation_index("US-CPI-U", index)
 }
 

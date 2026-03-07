@@ -178,7 +178,7 @@ impl StudentTCalibrator {
             base_correlation_curve.as_ref(),
             params.correlation,
         )?;
-        let credit_index = context.credit_index(&index_id)?.as_ref().clone();
+        let credit_index = context.get_credit_index(&index_id)?.as_ref().clone();
         let rebound_credit_index = CreditIndexData {
             base_correlation_curve: std::sync::Arc::new(flat_base_correlation),
             ..credit_index

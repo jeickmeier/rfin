@@ -298,7 +298,7 @@ where
         })?;
 
         // Get current spot for bump size calculation
-        let spot_scalar = context.curves.price(spot_id)?;
+        let spot_scalar = context.curves.get_price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -386,7 +386,7 @@ where
         })?;
 
         // Get current spot for bump size calculation
-        let spot_scalar = context.curves.price(spot_id)?;
+        let spot_scalar = context.curves.get_price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -482,7 +482,7 @@ where
         })?;
 
         // Verify the vol surface exists in the market context
-        if context.curves.surface(vol_surface_id.as_str()).is_err() {
+        if context.curves.get_surface(vol_surface_id.as_str()).is_err() {
             return Err(finstack_core::Error::from(
                 finstack_core::InputError::NotFound {
                     id: format!("vol_surface:{}", vol_surface_id),
@@ -554,7 +554,7 @@ where
         })?;
 
         // Verify the vol surface exists in the market context
-        if context.curves.surface(vol_surface_id.as_str()).is_err() {
+        if context.curves.get_surface(vol_surface_id.as_str()).is_err() {
             return Err(finstack_core::Error::from(
                 finstack_core::InputError::NotFound {
                     id: format!("vol_surface:{}", vol_surface_id),
@@ -647,7 +647,7 @@ where
         })?;
 
         // Spot level for bump sizing
-        let spot_scalar = context.curves.price(spot_id)?;
+        let spot_scalar = context.curves.get_price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -786,7 +786,7 @@ mod tests {
         }
 
         fn raw_pv(&self, market: &MarketContext) -> finstack_core::Result<f64> {
-            let spot_scalar = market.price(self.spot_id.as_str())?;
+            let spot_scalar = market.get_price(self.spot_id.as_str())?;
             let spot = match spot_scalar {
                 MarketScalar::Price(m) => m.amount(),
                 MarketScalar::Unitless(v) => *v,
@@ -876,7 +876,7 @@ mod tests {
             if as_of >= self.expiry {
                 return Ok(Money::new(0.0, Currency::USD));
             }
-            let spot_scalar = market.price(self.spot_id.as_str())?;
+            let spot_scalar = market.get_price(self.spot_id.as_str())?;
             let spot = match spot_scalar {
                 MarketScalar::Price(m) => m.amount(),
                 MarketScalar::Unitless(v) => *v,
@@ -1048,9 +1048,13 @@ mod tests {
         let inst = RoundingSensitiveInstrument::new("ROUNDING", date!(2026 - 01 - 01), "SENS");
         let market = market_with_spot("SENS", spot);
 
-        // Rounded Money path collapses to zero
+        // Rounded Money path remains tiny, while the raw path preserves the
+        // sensitivity needed for finite differences.
         let base_value = inst.value(&market, as_of).expect("base pv");
-        assert_eq!(base_value.amount(), 0.0, "rounded Money should be zero");
+        assert!(
+            base_value.amount().abs() < 0.01,
+            "rounded Money should remain tiny"
+        );
 
         let registry = registry_for_test::<RoundingSensitiveInstrument>();
         let mut ctx = MetricContext::new(

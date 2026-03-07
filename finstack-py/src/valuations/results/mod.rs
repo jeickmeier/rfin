@@ -348,7 +348,7 @@ impl PyValuationResult {
     ///     dict | None: Detailed trace of computation steps, or None if explanation was disabled.
     ///
     /// Examples:
-    ///     >>> result = pricer.price(bond, market, as_of, explain=True)
+    ///     >>> result = pricer.get_price(bond, market, as_of, explain=True)
     ///     >>> if result.explanation:
     ///     ...     print(result.explanation['type'])
     ///     pricing
@@ -372,7 +372,7 @@ impl PyValuationResult {
     ///     str | None: JSON string of the explanation, or None if disabled.
     ///
     /// Examples:
-    ///     >>> result = pricer.price(bond, market, as_of, explain=True)
+    ///     >>> result = pricer.get_price(bond, market, as_of, explain=True)
     ///     >>> if result.explanation:
     ///     ...     print(result.explain_json())
     fn explain_json(&self) -> PyResult<Option<String>> {

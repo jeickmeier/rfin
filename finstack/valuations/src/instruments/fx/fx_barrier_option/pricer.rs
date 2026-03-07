@@ -98,7 +98,7 @@ impl FxBarrierOptionMcPricer {
             0.0
         };
 
-        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, inst.strike);
 
         // For FX, drift is r_dom - r_for.
@@ -324,7 +324,7 @@ fn resolve_fx_spot(
     as_of: Date,
 ) -> finstack_core::Result<f64> {
     if let Some(spot_id) = inst.fx_spot_id.as_ref() {
-        let spot_scalar = curves.price(spot_id)?;
+        let spot_scalar = curves.get_price(spot_id)?;
         let fx_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -390,7 +390,7 @@ fn collect_fx_barrier_inputs(
 
     let fx_spot = resolve_fx_spot(inst, curves, as_of)?;
 
-    let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+    let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
     let sigma = vol_surface.value_clamped(t, inst.strike);
     if !sigma.is_finite() || sigma < 0.0 {
         return Err(finstack_core::Error::Validation(format!(

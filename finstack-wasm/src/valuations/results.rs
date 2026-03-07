@@ -131,7 +131,7 @@ impl JsValuationResult {
     ///
     /// @example
     /// ```javascript
-    /// const result = pricer.price(bond, market, asOf, true); // explain=true
+    /// const result = pricer.get_price(bond, market, asOf, true); // explain=true
     /// if (result.explanation) {
     ///     const trace = result.explanation;
     ///     console.log('Cashflows traced:', trace.entryCount);

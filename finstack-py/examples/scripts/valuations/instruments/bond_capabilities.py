@@ -34,9 +34,9 @@ def build_market(as_of: date) -> MarketContext:
         base_date=as_of,
     )
     market = MarketContext()
-    market.insert_discount(disc)
-    market.insert_discount(disc_tsy)
-    market.insert_forward(fwd)
+    market.insert(disc)
+    market.insert(disc_tsy)
+    market.insert(fwd)
     return market
 
 
@@ -99,9 +99,9 @@ def main() -> None:
 
     # Price examples
     reg = create_standard_registry()
-    reg.price(bond_custom, "discounting", market, as_of=as_of)
-    reg.price(bond_from_sched, "discounting", market, as_of=as_of)
-    reg.price(bond_frn, "discounting", market, as_of=as_of)
+    reg.get_price(bond_custom, "discounting", market, as_of=as_of)
+    reg.get_price(bond_from_sched, "discounting", market, as_of=as_of)
+    reg.get_price(bond_frn, "discounting", market, as_of=as_of)
 
     # Show first few flows from schedule
     flows = schedule.flows()
@@ -117,7 +117,7 @@ def main() -> None:
         .disc_id("USD-OIS")
         .build()
     )
-    reg.price(zcb, "discounting", market, as_of=as_of)
+    reg.get_price(zcb, "discounting", market, as_of=as_of)
 
     # D) Fixed bond priced off USD-OIS
     fixed = (
@@ -130,7 +130,7 @@ def main() -> None:
         .disc_id("USD-OIS")
         .build()
     )
-    reg.price(fixed, "discounting", market, as_of=as_of)
+    reg.get_price(fixed, "discounting", market, as_of=as_of)
 
     # E) Payment split program: switch 100% PIK for the first year, then 100% cash
     cfb2 = (
@@ -152,7 +152,7 @@ def main() -> None:
         .quoted_clean_price(100.25)
         .build()
     )
-    reg.price(bond_split, "discounting", market, as_of=as_of)
+    reg.get_price(bond_split, "discounting", market, as_of=as_of)
 
     # F) Bond metrics examples — request standard metrics from engine (standard fixed-rate bond)
     metrics = [

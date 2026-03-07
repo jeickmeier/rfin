@@ -203,7 +203,7 @@ def ensure_swaption_surface(
 ) -> bool:
     """Populate a basic swaption surface if calibration did not generate one."""
     try:
-        market.surface("SWAPTION-VOL")
+        market.get_surface("SWAPTION-VOL")
         return False
     except (ValueError, KeyError):
         pass
@@ -250,7 +250,7 @@ def calibrate_forward_curves(
 
         curve_id, tenor_years = tenor_meta[label]
         try:
-            market.discount("USD-OIS")
+            market.get_discount("USD-OIS")
         except (ValueError, KeyError):
             reports[curve_id] = {
                 "success": False,
@@ -272,7 +272,7 @@ def calibrate_forward_curves(
             reports[curve_id] = {"success": False, "error": str(exc)}
             continue
 
-        market.insert_forward(curve)
+        market.insert(curve)
         report_dict = report.to_dict()
         if report_dict.get("max_residual", 0.0) >= 1e11:
             report_dict["note"] = "residual capped by penalty (limited quote coverage)"
@@ -304,7 +304,7 @@ def calibrate_credit_index_structures(
         )
         try:
             curve, report = calibrator.calibrate(index_cds, market)
-            market.insert_hazard(curve)
+            market.insert(curve)
             hazard_curve_id = curve.id
             report_dict = report.to_dict()
             report_dict["success"] = True
@@ -317,12 +317,12 @@ def calibrate_credit_index_structures(
     base_corr_curve = None
     if base_corr_points:
         base_corr_curve = BaseCorrelationCurve(base_corr_id, base_corr_points)
-        market.insert_base_correlation(base_corr_curve)
+        market.insert(base_corr_curve)
         reports[base_corr_id] = {"success": True, "note": f"points: {base_corr_points}"}
 
     if base_corr_curve is not None and hazard_curve_id:
         try:
-            hazard_curve = market.hazard(hazard_curve_id)
+            hazard_curve = market.get_hazard(hazard_curve_id)
             credit_index = CreditIndexData(125, 0.40, hazard_curve, base_corr_curve)
             market.insert_credit_index(index_name, credit_index)
             reports[index_name] = {"success": True, "note": "credit index registered"}
@@ -363,34 +363,34 @@ def summarize_context(
                 pass
 
     with contextlib.suppress(ValueError, KeyError):
-        context.discount("USD-OIS")
+        context.get_discount("USD-OIS")
 
     for curve_id, _sample in [
         ("USD-SOFR-3M-FWD", 2.0),
         ("USD-SOFR-6M-FWD", 2.0),
     ]:
         with contextlib.suppress(ValueError, KeyError):
-            context.forward(curve_id)
+            context.get_forward(curve_id)
 
     with contextlib.suppress(ValueError, KeyError):
-        context.hazard("ACME-Senior")
+        context.get_hazard("ACME-Senior")
 
     for index_id in ["CDX.NA.IG-Senior", "CDX.NA.IG"]:
         try:
-            context.hazard(index_id)
+            context.get_hazard(index_id)
             break
         except (ValueError, KeyError):
             continue
 
     with contextlib.suppress(ValueError, KeyError):
-        context.inflation("US-CPI-U")
+        context.get_inflation_curve("US-CPI-U")
 
     with contextlib.suppress(ValueError, KeyError):
-        context.base_correlation("CDX-IG-BC")
+        context.get_base_correlation("CDX-IG-BC")
 
     for surface_id, _label in [("ACME-VOL", "ACME equity"), ("SWAPTION-VOL", "Swaption")]:
         try:
-            surface = context.surface(surface_id)
+            surface = context.get_surface(surface_id)
             expiries = list(surface.expiries)
             strikes = list(surface.strikes)
             if expiries and strikes:

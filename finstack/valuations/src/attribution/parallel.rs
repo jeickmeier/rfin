@@ -502,8 +502,8 @@ mod tests {
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 
-        let market_t0 = MarketContext::new().insert_discount(curve_t0);
-        let market_t1 = MarketContext::new().insert_discount(curve_t1);
+        let market_t0 = MarketContext::new().insert(curve_t0);
+        let market_t1 = MarketContext::new().insert(curve_t1);
 
         // Extract and verify snapshots work
         let rates_snapshot = MarketSnapshot::extract(&market_t0, CurveRestoreFlags::RATES);

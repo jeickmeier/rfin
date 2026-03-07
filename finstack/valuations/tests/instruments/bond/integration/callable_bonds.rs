@@ -16,7 +16,7 @@ fn create_curve(base_date: Date) -> MarketContext {
         .knots([(0.0, 1.0), (5.0, 0.80)])
         .build()
         .unwrap();
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 #[test]

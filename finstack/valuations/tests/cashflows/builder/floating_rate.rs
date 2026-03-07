@@ -224,7 +224,7 @@ fn test_floating_rate_default_fallback_with_curve() {
         .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
         .build()
         .expect("ForwardCurve builder should succeed");
-    let market = MarketContext::new().insert_forward(fwd);
+    let market = MarketContext::new().insert(fwd);
 
     let mut b = CashFlowSchedule::builder();
     let _ = b.principal(init, issue, maturity).floating_cf(spec);
@@ -341,7 +341,7 @@ fn make_flat_forward_market(
         .knots([(0.0, flat_rate), (5.0, flat_rate)])
         .build()
         .expect("Flat ForwardCurve builder should succeed");
-    MarketContext::new().insert_forward(fwd)
+    MarketContext::new().insert(fwd)
 }
 
 // =============================================================================
@@ -1232,7 +1232,7 @@ fn test_overnight_compounding_weekend_start_no_lost_days() {
         .interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    let market = MarketContext::new().insert_forward(fwd);
+    let market = MarketContext::new().insert(fwd);
 
     let make_spec = |bdc| FloatingCouponSpec {
         rate_spec: FloatingRateSpec {

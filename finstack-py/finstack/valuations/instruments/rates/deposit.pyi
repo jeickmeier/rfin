@@ -89,7 +89,7 @@ class Deposit:
         >>> from finstack.valuations.instruments import Deposit
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> ctx = MarketContext()
-        >>> ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (0.25, 0.995)]))
+        >>> ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (0.25, 0.995)]))
         >>> registry = create_standard_registry()
         >>> deposit = (
         ...     Deposit

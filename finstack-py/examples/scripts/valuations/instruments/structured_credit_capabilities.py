@@ -323,7 +323,7 @@ def build_market(as_of: date) -> MarketContext:
             (5.0, 0.9600),
         ],
     )
-    market.insert_discount(discount_curve)
+    market.insert(discount_curve)
     return market
 
 
@@ -340,7 +340,7 @@ def main() -> None:
     }
 
     for instrument in deals.values():
-        registry.price(instrument, "discounting", market, as_of=as_of)
+        registry.get_price(instrument, "discounting", market, as_of=as_of)
 
 
 if __name__ == "__main__":

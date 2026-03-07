@@ -63,7 +63,7 @@ fn envelope_for_step(
 fn hazard_preflight_rejects_entity_mismatch() {
     let base_date = base_date();
     let discount = usd_discount_curve(base_date);
-    let initial_market = MarketContext::new().insert_discount(discount);
+    let initial_market = MarketContext::new().insert(discount);
 
     let quote = MarketQuote::Cds(CdsQuote::CdsParSpread {
         id: QuoteId::new("CDS-ACME-5Y"),
@@ -106,7 +106,7 @@ fn hazard_preflight_rejects_entity_mismatch() {
 fn inflation_preflight_rejects_invalid_observation_lag() {
     let base_date = base_date();
     let discount = usd_discount_curve(base_date);
-    let initial_market = MarketContext::new().insert_discount(discount);
+    let initial_market = MarketContext::new().insert(discount);
 
     let quote = MarketQuote::Inflation(InflationQuote::InflationSwap {
         maturity: Date::from_calendar_date(2030, Month::January, 2).expect("maturity"),
@@ -148,7 +148,7 @@ fn inflation_preflight_rejects_invalid_observation_lag() {
 fn vol_surface_preflight_rejects_unknown_model() {
     let base_date = base_date();
     let discount = usd_discount_curve(base_date);
-    let initial_market = MarketContext::new().insert_discount(discount);
+    let initial_market = MarketContext::new().insert(discount);
 
     let step = CalibrationStep {
         id: "vol".to_string(),
@@ -178,7 +178,7 @@ fn vol_surface_preflight_rejects_unknown_model() {
 fn swaption_vol_preflight_rejects_invalid_shift() {
     let base_date = base_date();
     let discount = usd_discount_curve(base_date);
-    let initial_market = MarketContext::new().insert_discount(discount);
+    let initial_market = MarketContext::new().insert(discount);
 
     let step = CalibrationStep {
         id: "swaption".to_string(),
@@ -237,8 +237,8 @@ fn base_correlation_preflight_rejects_invalid_attachment_detachment() {
         .expect("credit index data");
 
     let initial_market = MarketContext::new()
-        .insert_hazard(hazard.as_ref().clone())
-        .insert_base_correlation(base_corr.as_ref().clone())
+        .insert(hazard.as_ref().clone())
+        .insert(base_corr.as_ref().clone())
         .insert_credit_index("CDX.NA.IG", index_data);
 
     let tranche_quote = MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
@@ -288,7 +288,7 @@ fn base_correlation_preflight_rejects_invalid_attachment_detachment() {
 fn base_correlation_preflight_requires_credit_index_data() {
     let base_date = base_date();
     let discount = usd_discount_curve(base_date);
-    let initial_market = MarketContext::new().insert_discount(discount);
+    let initial_market = MarketContext::new().insert(discount);
 
     let tranche_quote = MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
         id: QuoteId::new("CDX-IG-0-3"),
@@ -362,8 +362,8 @@ fn base_correlation_preflight_rejects_non_monotone_tranche_points() {
         .expect("credit index data");
 
     let initial_market = MarketContext::new()
-        .insert_hazard(hazard_clone)
-        .insert_base_correlation(base_corr_clone)
+        .insert(hazard_clone)
+        .insert(base_corr_clone)
         .insert_credit_index("CDX.NA.IG", index_data);
 
     let tranche_quote = MarketQuote::CDSTranche(CDSTrancheQuote::CDSTranche {
@@ -429,7 +429,7 @@ fn inflation_preflight_rejects_lag_mismatch_with_index() {
         .with_lag(InflationLag::Months(3));
 
     let initial_market = MarketContext::new()
-        .insert_discount(discount)
+        .insert(discount)
         .insert_inflation_index("USD-CPI", index);
 
     let quote = MarketQuote::Inflation(InflationQuote::InflationSwap {
@@ -469,7 +469,7 @@ fn inflation_preflight_rejects_lag_mismatch_with_index() {
 fn forward_preflight_requires_quotes() {
     let base_date = base_date();
     let discount = usd_discount_curve(base_date);
-    let initial_market = MarketContext::new().insert_discount(discount);
+    let initial_market = MarketContext::new().insert(discount);
 
     let step = CalibrationStep {
         id: "fwd".to_string(),
@@ -499,7 +499,7 @@ fn forward_preflight_requires_quotes() {
 fn vol_surface_requires_quotes_even_when_params_valid() {
     let base_date = base_date();
     let discount = usd_discount_curve(base_date);
-    let initial_market = MarketContext::new().insert_discount(discount);
+    let initial_market = MarketContext::new().insert(discount);
 
     let step = CalibrationStep {
         id: "vol".to_string(),

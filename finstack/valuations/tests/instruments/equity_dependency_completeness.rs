@@ -90,10 +90,10 @@ fn test_commodity_option_equity_dependencies_complete() {
 
     let mut market = MarketContext::new();
     for id in curve_deps.discount_curves.iter() {
-        market = market.insert_discount(build_discount_curve(id.as_str(), 0.03));
+        market = market.insert(build_discount_curve(id.as_str(), 0.03));
     }
     for id in curve_deps.forward_curves.iter() {
-        market = market.insert_forward(build_forward_curve(id.as_str(), 0.25, 0.04));
+        market = market.insert(build_forward_curve(id.as_str(), 0.25, 0.04));
     }
     if let Some(vol_id) = equity_deps.vol_surface_id {
         market = market.insert_surface(build_vol_surface(&vol_id));
@@ -148,10 +148,10 @@ fn test_missing_equity_spot_fails() {
 
     let mut market = MarketContext::new();
     for id in curve_deps.discount_curves.iter() {
-        market = market.insert_discount(build_discount_curve(id.as_str(), 0.03));
+        market = market.insert(build_discount_curve(id.as_str(), 0.03));
     }
     for id in curve_deps.forward_curves.iter() {
-        market = market.insert_forward(build_forward_curve(id.as_str(), 0.25, 0.04));
+        market = market.insert(build_forward_curve(id.as_str(), 0.25, 0.04));
     }
     if let Some(vol_id) = equity_deps.vol_surface_id {
         market = market.insert_surface(build_vol_surface(&vol_id));

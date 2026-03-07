@@ -464,7 +464,7 @@ impl ConvertibleBond {
             .as_ref()
             .ok_or(finstack_core::Error::Internal)?;
 
-        let spot_price = curves.price(underlying_id)?;
+        let spot_price = curves.get_price(underlying_id)?;
         let spot = match spot_price {
             finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
             finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
@@ -484,7 +484,7 @@ impl ConvertibleBond {
             .as_ref()
             .ok_or(finstack_core::Error::Internal)?;
 
-        let spot_price = curves.price(underlying_id)?;
+        let spot_price = curves.get_price(underlying_id)?;
         let spot = match spot_price {
             finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
             finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,

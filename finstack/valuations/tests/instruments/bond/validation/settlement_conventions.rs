@@ -27,7 +27,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
         .interp(InterpStyle::LogLinear)
         .build()
         .expect("Valid curve");
-    MarketContext::new().insert_discount(discount_curve)
+    MarketContext::new().insert(discount_curve)
 }
 
 /// Test that PV is computed from as_of, not settlement date.

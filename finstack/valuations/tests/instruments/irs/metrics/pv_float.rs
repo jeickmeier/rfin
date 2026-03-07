@@ -45,9 +45,9 @@ fn build_curves(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketContext
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(disc_curve_ois)
-        .insert_discount(disc_curve_libor)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve_ois)
+        .insert(disc_curve_libor)
+        .insert(fwd_curve)
 }
 
 fn create_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> InterestRateSwap {

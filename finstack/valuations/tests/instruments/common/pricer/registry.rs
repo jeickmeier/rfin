@@ -26,7 +26,7 @@ fn test_market(as_of: Date) -> MarketContext {
         .knots([(0.0, 1.0), (1.0, 0.99), (5.0, 0.95)])
         .build()
         .expect("DiscountCurve builder should succeed with valid test data");
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 fn assert_pricing_result_eq(

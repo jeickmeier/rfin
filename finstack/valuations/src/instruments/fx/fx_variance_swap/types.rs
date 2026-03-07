@@ -128,7 +128,7 @@ impl FxVarianceSwap {
             return Ok(rate);
         }
         let spot_id = self.series_id();
-        let scalar = context.price(&spot_id).map_err(|_| {
+        let scalar = context.get_price(&spot_id).map_err(|_| {
             finstack_core::Error::Input(finstack_core::InputError::NotFound { id: spot_id })
         })?;
         let spot = match scalar {
@@ -272,7 +272,7 @@ impl FxVarianceSwap {
     /// Get historical prices aligned to observation dates when available.
     pub fn get_historical_prices(&self, context: &MarketContext, as_of: Date) -> Result<Vec<f64>> {
         let series_id = self.series_id();
-        if let Ok(series) = context.series(&series_id) {
+        if let Ok(series) = context.get_series(&series_id) {
             let dates: Vec<Date> = self
                 .observation_dates()
                 .into_iter()
@@ -310,7 +310,7 @@ impl FxVarianceSwap {
         }
 
         let spot = self.spot_rate(context, as_of)?;
-        let surface = context.surface(self.vol_surface_id.as_str())?;
+        let surface = context.get_surface(self.vol_surface_id.as_str())?;
 
         let dom = context.get_discount(self.domestic_discount_curve_id.as_str())?;
         let for_curve = context.get_discount(self.foreign_discount_curve_id.as_str())?;

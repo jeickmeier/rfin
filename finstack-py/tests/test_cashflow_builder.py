@@ -517,7 +517,7 @@ class TestDataFrameConversion:
             cf_schedule.to_dataframe()
 
         market = MarketContext()
-        market.insert_discount(
+        market.insert(
             DiscountCurve(
                 "USD-OIS",
                 issue,

@@ -68,7 +68,7 @@ fn build_market(as_of: Date) -> MarketContext {
         .build()
         .expect("Valid curve");
 
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 fn bench_bermudan_lsmc(c: &mut Criterion) {

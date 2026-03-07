@@ -49,9 +49,7 @@ fn build_test_market() -> MarketContext {
     let fx = FxMatrix::new(Arc::new(StaticFx { rate: 1.10 }));
 
     // Build market context
-    MarketContext::new()
-        .insert_discount(usd_curve)
-        .insert_fx(fx)
+    MarketContext::new().insert(usd_curve).insert_fx(fx)
 }
 
 #[test]

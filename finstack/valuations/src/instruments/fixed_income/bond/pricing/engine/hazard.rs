@@ -67,7 +67,7 @@ use super::discount::BondEngine;
 ///
 /// // Register and use hazard pricer via registry
 /// let registry = PricerRegistry::default();
-/// let result = registry.price(&bond, &market, as_of)?;
+/// let result = registry.get_price(&bond, &market, as_of)?;
 /// ```
 ///
 pub struct HazardBondEngine;
@@ -393,9 +393,7 @@ mod tests {
         let disc = build_flat_discount(issue);
         let hazard_zero = build_flat_hazard("USD-CREDIT", issue, 0.0, 0.4);
 
-        let market = MarketContext::new()
-            .insert_discount(disc)
-            .insert_hazard(hazard_zero);
+        let market = MarketContext::new().insert(disc).insert(hazard_zero);
 
         let pv_rf = BondEngine::price(&bond, &market, issue).expect("RF price should succeed");
         let pv_haz =
@@ -419,11 +417,11 @@ mod tests {
         let hazard_high = build_flat_hazard("USD-CREDIT", issue, 0.05, 0.4);
 
         let market_low = MarketContext::new()
-            .insert_discount(build_flat_discount(issue))
-            .insert_hazard(hazard_low);
+            .insert(build_flat_discount(issue))
+            .insert(hazard_low);
         let market_high = MarketContext::new()
-            .insert_discount(build_flat_discount(issue))
-            .insert_hazard(hazard_high);
+            .insert(build_flat_discount(issue))
+            .insert(hazard_high);
 
         let pv_low =
             HazardBondEngine::price(&bond, &market_low, issue).expect("Low hazard price succeeds");
@@ -448,11 +446,11 @@ mod tests {
         let hazard_high_recovery = build_flat_hazard("USD-CREDIT", issue, 0.03, 1.0);
 
         let market_low_r = MarketContext::new()
-            .insert_discount(build_flat_discount(issue))
-            .insert_hazard(hazard_low_recovery);
+            .insert(build_flat_discount(issue))
+            .insert(hazard_low_recovery);
         let market_high_r = MarketContext::new()
-            .insert_discount(build_flat_discount(issue))
-            .insert_hazard(hazard_high_recovery);
+            .insert(build_flat_discount(issue))
+            .insert(hazard_high_recovery);
 
         let pv_low_r = HazardBondEngine::price(&bond, &market_low_r, issue)
             .expect("Low recovery hazard price succeeds");
@@ -482,8 +480,8 @@ mod tests {
             .build()
             .expect("Base hazard curve builder should succeed in test");
         let market = MarketContext::new()
-            .insert_discount(build_flat_discount(issue))
-            .insert_hazard(hazard);
+            .insert(build_flat_discount(issue))
+            .insert(hazard);
 
         // Use the standard metrics registry and MetricContext to request CS01 and
         // BucketedCs01, ensuring the metrics plumbing works for bonds with hazard curves.
@@ -535,8 +533,8 @@ mod tests {
 
         let bond = build_test_bond(issue, maturity);
         let market = MarketContext::new()
-            .insert_discount(build_flat_discount(issue))
-            .insert_hazard(build_flat_hazard("USD-CREDIT", issue, 0.02, 0.4));
+            .insert(build_flat_discount(issue))
+            .insert(build_flat_hazard("USD-CREDIT", issue, 0.02, 0.4));
 
         // Use a simple clean price quote; the quote engine should handle bonds
         // with hazard curves present in the MarketContext without error.
@@ -564,9 +562,7 @@ mod tests {
         let disc = build_flat_discount(issue);
         let hazard_zero = build_flat_hazard("USD-CREDIT", issue, 0.0, 0.4);
 
-        let market = MarketContext::new()
-            .insert_discount(disc)
-            .insert_hazard(hazard_zero);
+        let market = MarketContext::new().insert(disc).insert(hazard_zero);
 
         let pv_rf = BondEngine::price(&bond, &market, issue).expect("RF price should succeed");
         let pv_haz =
@@ -594,8 +590,8 @@ mod tests {
         let lambda = 0.05;
         let recovery = 0.4;
         let market = MarketContext::new()
-            .insert_discount(build_flat_discount(issue))
-            .insert_hazard(build_flat_hazard("USD-CREDIT", issue, lambda, recovery));
+            .insert(build_flat_discount(issue))
+            .insert(build_flat_hazard("USD-CREDIT", issue, lambda, recovery));
 
         let pv_cash =
             HazardBondEngine::price(&cash_bond, &market, issue).expect("Cash bond price succeeds");
@@ -604,8 +600,8 @@ mod tests {
 
         // With zero recovery, isolate the alive-leg difference.
         let market_no_rec = MarketContext::new()
-            .insert_discount(build_flat_discount(issue))
-            .insert_hazard(build_flat_hazard("USD-CREDIT", issue, lambda, 0.0));
+            .insert(build_flat_discount(issue))
+            .insert(build_flat_hazard("USD-CREDIT", issue, lambda, 0.0));
 
         let pv_cash_norec = HazardBondEngine::price(&cash_bond, &market_no_rec, issue)
             .expect("Cash bond no-recovery price");
@@ -635,11 +631,11 @@ mod tests {
         let bond = build_pik_bond(issue, maturity);
 
         let market_low = MarketContext::new()
-            .insert_discount(build_flat_discount(issue))
-            .insert_hazard(build_flat_hazard("USD-CREDIT", issue, 0.01, 0.4));
+            .insert(build_flat_discount(issue))
+            .insert(build_flat_hazard("USD-CREDIT", issue, 0.01, 0.4));
         let market_high = MarketContext::new()
-            .insert_discount(build_flat_discount(issue))
-            .insert_hazard(build_flat_hazard("USD-CREDIT", issue, 0.05, 0.4));
+            .insert(build_flat_discount(issue))
+            .insert(build_flat_hazard("USD-CREDIT", issue, 0.05, 0.4));
 
         let pv_low =
             HazardBondEngine::price(&bond, &market_low, issue).expect("Low hazard price succeeds");

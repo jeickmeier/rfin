@@ -52,7 +52,7 @@ fn create_option_market(
     .unwrap();
 
     MarketContext::new()
-        .insert_discount(disc)
+        .insert(disc)
         .insert_surface(vol_surface)
         .insert_price(
             "EQUITY-SPOT",

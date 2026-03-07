@@ -46,11 +46,6 @@ impl MarketContext {
         map.get(id).ok_or_else(|| Self::not_found_error(id))
     }
 
-    #[inline]
-    fn get_optional_cloned<T>(&self, map: &HashMap<CurveId, Arc<T>>, id: &str) -> Option<Arc<T>> {
-        map.get(id).cloned()
-    }
-
     /// Helper method to extract curve with type checking and error handling
     fn get_curve_with_type_check<T, F>(
         &self,
@@ -101,7 +96,7 @@ impl MarketContext {
     }
 
     /// Get an inflation curve by identifier.
-    pub fn get_inflation(&self, id: impl AsRef<str>) -> Result<Arc<InflationCurve>> {
+    pub fn get_inflation_curve(&self, id: impl AsRef<str>) -> Result<Arc<InflationCurve>> {
         let id_str = id.as_ref();
         self.get_curve_with_type_check(id_str, "Inflation", |storage| {
             storage.inflation().map(Arc::clone)
@@ -117,7 +112,7 @@ impl MarketContext {
     }
 
     /// Get a volatility index curve by identifier.
-    pub fn get_vol_index(&self, id: impl AsRef<str>) -> Result<Arc<VolatilityIndexCurve>> {
+    pub fn get_vol_index_curve(&self, id: impl AsRef<str>) -> Result<Arc<VolatilityIndexCurve>> {
         let id_str = id.as_ref();
         self.get_curve_with_type_check(id_str, "VolIndex", |storage| {
             storage.vol_index().map(Arc::clone)
@@ -139,9 +134,9 @@ impl MarketContext {
     /// #     .knots([(0.0, 75.0), (0.5, 77.0)])
     /// #     .build()
     /// #     .expect("PriceCurve builder should succeed");
-    /// # let ctx = MarketContext::new().insert_price_curve(curve);
+    /// # let ctx = MarketContext::new().insert(curve);
     /// let price_curve = ctx.get_price_curve("WTI-FORWARD").expect("Price curve should exist");
-    /// assert!(price_curve.price(0.25) > 0.0);
+    /// assert!(price_curve.get_price(0.25) > 0.0);
     /// ```
     pub fn get_price_curve(&self, id: impl AsRef<str>) -> Result<Arc<PriceCurve>> {
         let id_str = id.as_ref();
@@ -162,10 +157,10 @@ impl MarketContext {
     /// #     .build()
     /// #     .expect("... builder should succeed");
     /// # let ctx = MarketContext::new().insert_surface(surface);
-    /// let surface = ctx.surface("IR-Swaption").expect("Surface should exist");
+    /// let surface = ctx.get_surface("IR-Swaption").expect("Surface should exist");
     /// assert!((surface.value_clamped(1.5, 95.0) - 0.2).abs() < 1e-12);
     /// ```
-    pub fn surface(&self, id: impl AsRef<str>) -> Result<Arc<VolSurface>> {
+    pub fn get_surface(&self, id: impl AsRef<str>) -> Result<Arc<VolSurface>> {
         self.get_cloned(&self.surfaces, id.as_ref())
     }
 
@@ -180,11 +175,11 @@ impl MarketContext {
     ///
     /// let ctx = MarketContext::new()
     ///     .insert_price("AAPL", MarketScalar::Price(Money::new(180.0, Currency::USD)));
-    /// if let MarketScalar::Price(price) = ctx.price("AAPL").expect("Price should exist") {
+    /// if let MarketScalar::Price(price) = ctx.get_price("AAPL").expect("Price should exist") {
     ///     assert_eq!(price.currency(), Currency::USD);
     /// }
     /// ```
-    pub fn price(&self, id: impl AsRef<str>) -> Result<&MarketScalar> {
+    pub fn get_price(&self, id: impl AsRef<str>) -> Result<&MarketScalar> {
         self.get_ref(&self.prices, id.as_ref())
     }
 
@@ -205,10 +200,10 @@ impl MarketContext {
     /// #     None,
     /// # ).expect("... creation should succeed");
     /// # let ctx = MarketContext::new().insert_series(series);
-    /// let series = ctx.series("VOL-TS").expect("Series should exist");
+    /// let series = ctx.get_series("VOL-TS").expect("Series should exist");
     /// assert_eq!(series.id().as_str(), "VOL-TS");
     /// ```
-    pub fn series(&self, id: impl AsRef<str>) -> Result<&ScalarTimeSeries> {
+    pub fn get_series(&self, id: impl AsRef<str>) -> Result<&ScalarTimeSeries> {
         self.get_ref(&self.series, id.as_ref())
     }
 
@@ -229,11 +224,11 @@ impl MarketContext {
     /// #     .expect("... creation should succeed")
     /// #     .with_interpolation(InflationInterpolation::Linear);
     /// # let ctx = MarketContext::new().insert_inflation_index("US-CPI", index);
-    /// let idx = ctx.inflation_index("US-CPI").expect("Inflation index should exist");
+    /// let idx = ctx.get_inflation_index("US-CPI").expect("Inflation index should exist");
     /// assert_eq!(idx.id, "US-CPI");
     /// ```
-    pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {
-        self.get_optional_cloned(&self.inflation_indices, id.as_ref())
+    pub fn get_inflation_index(&self, id: impl AsRef<str>) -> Result<Arc<InflationIndex>> {
+        self.get_cloned(&self.inflation_indices, id.as_ref())
     }
 
     /// Clone an FX delta-quoted volatility surface by identifier.
@@ -250,17 +245,17 @@ impl MarketContext {
     /// #     vec![0.005, 0.006, 0.007],
     /// # ).expect("surface should build");
     /// # let ctx = MarketContext::new().insert_fx_delta_vol_surface(surface);
-    /// let surf = ctx.fx_delta_vol_surface("EURUSD-DELTA-VOL")
+    /// let surf = ctx.get_fx_delta_vol_surface("EURUSD-DELTA-VOL")
     ///     .expect("surface should exist");
     /// assert_eq!(surf.id().as_str(), "EURUSD-DELTA-VOL");
     /// ```
-    pub fn fx_delta_vol_surface(&self, id: impl AsRef<str>) -> Option<Arc<FxDeltaVolSurface>> {
-        self.get_optional_cloned(&self.fx_delta_vol_surfaces, id.as_ref())
+    pub fn get_fx_delta_vol_surface(&self, id: impl AsRef<str>) -> Result<Arc<FxDeltaVolSurface>> {
+        self.get_cloned(&self.fx_delta_vol_surfaces, id.as_ref())
     }
 
     /// Clone a dividend schedule by identifier.
-    pub fn dividend_schedule(&self, id: impl AsRef<str>) -> Option<Arc<DividendSchedule>> {
-        self.get_optional_cloned(&self.dividends, id.as_ref())
+    pub fn get_dividend_schedule(&self, id: impl AsRef<str>) -> Result<Arc<DividendSchedule>> {
+        self.get_cloned(&self.dividends, id.as_ref())
     }
 
     /// Clone a credit index aggregate by identifier.
@@ -289,10 +284,10 @@ impl MarketContext {
     /// #     .build()
     /// #     .expect("... builder should succeed");
     /// # let ctx = MarketContext::new().insert_credit_index("CDX-IG", data);
-    /// let idx = ctx.credit_index("CDX-IG").expect("Credit index should exist");
+    /// let idx = ctx.get_credit_index("CDX-IG").expect("Credit index should exist");
     /// assert_eq!(idx.num_constituents, 125);
     /// ```
-    pub fn credit_index(&self, id: impl AsRef<str>) -> Result<Arc<CreditIndexData>> {
+    pub fn get_credit_index(&self, id: impl AsRef<str>) -> Result<Arc<CreditIndexData>> {
         self.get_cloned(&self.credit_indices, id.as_ref())
     }
 
@@ -313,12 +308,12 @@ impl MarketContext {
     ///     .build()
     ///     .expect("... builder should succeed");
     /// let ctx = MarketContext::new()
-    ///     .insert_discount(curve)
+    ///     .insert(curve)
     ///     .map_collateral("USD-CSA", CurveId::from("USD-OIS"));
-    /// let discount = ctx.collateral("USD-CSA").expect("Collateral curve should exist");
+    /// let discount = ctx.get_collateral("USD-CSA").expect("Collateral curve should exist");
     /// assert!(discount.df(0.5) <= 1.0);
     /// ```
-    pub fn collateral(&self, csa_code: &str) -> Result<Arc<dyn Discounting + Send + Sync>> {
+    pub fn get_collateral(&self, csa_code: &str) -> Result<Arc<dyn Discounting + Send + Sync>> {
         let curve_id = self
             .collateral
             .get(csa_code)

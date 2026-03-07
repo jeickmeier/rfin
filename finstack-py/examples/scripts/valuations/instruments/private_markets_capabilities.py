@@ -22,7 +22,7 @@ def build_market(as_of: date) -> MarketContext:
             (7.0, 0.9500),
         ],
     )
-    market.insert_discount(discount_curve)
+    market.insert(discount_curve)
     return market
 
 

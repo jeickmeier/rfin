@@ -1443,7 +1443,7 @@ impl TreePricer {
             calibrate_hull_white_to_swaptions_with_frequency, SwapFrequency, SwaptionQuote,
         };
 
-        let surface = match market_context.surface(swaption_vol_surface_id) {
+        let surface = match market_context.get_surface(swaption_vol_surface_id) {
             Ok(s) => s,
             Err(_) => {
                 tracing::warn!(
@@ -1664,8 +1664,8 @@ mod tests {
                 .build()
                 .expect("Treasury curve should build");
         MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_discount(treasury_curve)
+            .insert(discount_curve)
+            .insert(treasury_curve)
     }
     #[test]
     fn test_bond_valuator_creation() {
@@ -1777,8 +1777,8 @@ mod tests {
             .expect("Curve builder should succeed with valid test data");
 
         let ctx_low = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_hazard(low_hazard);
+            .insert(discount_curve)
+            .insert(low_hazard);
         // Recreate for high scenario to avoid cloning requirements
         let discount_curve2 =
             finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
@@ -1795,8 +1795,8 @@ mod tests {
                 .build()
                 .expect("Curve builder should succeed with valid test data");
         let ctx_high = MarketContext::new()
-            .insert_discount(discount_curve2)
-            .insert_hazard(high_hazard2);
+            .insert(discount_curve2)
+            .insert(high_hazard2);
 
         // Time grid
         let as_of = base_date;
@@ -1851,11 +1851,11 @@ mod tests {
         let vars = StateVariables::default();
 
         let pv_low = tree_low
-            .price(vars.clone(), time_to_maturity, &ctx_low, &valuator_low)
+            .get_price(vars.clone(), time_to_maturity, &ctx_low, &valuator_low)
             .expect("price low");
 
         let pv_high = tree_high
-            .price(vars, time_to_maturity, &ctx_high, &valuator_high)
+            .get_price(vars, time_to_maturity, &ctx_high, &valuator_high)
             .expect("price high");
 
         // With higher hazard, price should be lower (all else equal)

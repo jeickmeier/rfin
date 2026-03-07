@@ -49,7 +49,7 @@ fn create_option_market(as_of: Date, spot: f64, vol: f64, rate: f64) -> MarketCo
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(disc_curve)
+        .insert(disc_curve)
         .insert_surface(vol_surface)
         .insert_price("AAPL", MarketScalar::Price(Money::new(spot, Currency::USD)))
 }
@@ -288,7 +288,7 @@ fn test_bucketed_dv01_sums_to_parallel() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
     let registry = standard_registry();
     let pv = bond.value(&market, as_of).unwrap();
     let mut context = MetricContext::new(
@@ -428,9 +428,7 @@ fn test_bucketed_cs01_sums_to_total_strict() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_hazard(hazard_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(hazard_curve);
 
     let registry = standard_registry();
     let pv = cds.value(&market, as_of).unwrap();
@@ -523,9 +521,7 @@ fn test_bucketed_cs01_sums_to_total_limited_curve_support() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_hazard(hazard_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(hazard_curve);
 
     let registry = standard_registry();
     let pv = cds.value(&market, as_of).unwrap();

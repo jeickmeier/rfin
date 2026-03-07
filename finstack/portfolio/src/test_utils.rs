@@ -28,7 +28,7 @@ pub fn build_test_market() -> MarketContext {
         .build()
         .expect("test curve should build");
 
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 /// Build a test market context with a USD-OIS curve at a specified as-of date.
@@ -44,5 +44,5 @@ pub fn build_test_market_at(as_of: Date) -> MarketContext {
         .build()
         .expect("test curve should build");
 
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }

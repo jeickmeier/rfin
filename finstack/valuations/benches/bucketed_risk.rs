@@ -130,9 +130,7 @@ fn create_ir_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+    MarketContext::new().insert(disc).insert(fwd)
 }
 
 fn create_credit_market() -> MarketContext {
@@ -182,9 +180,7 @@ fn create_credit_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard)
+    MarketContext::new().insert(disc).insert(hazard)
 }
 
 // ============================================================================

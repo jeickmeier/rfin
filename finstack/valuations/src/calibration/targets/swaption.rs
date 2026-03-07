@@ -966,7 +966,7 @@ mod tests {
             .knots([(0.0, 1.0), (30.0, 0.20)])
             .build()
             .expect("discount curve");
-        let ctx = MarketContext::new().insert_discount(disc);
+        let ctx = MarketContext::new().insert(disc);
 
         let expiry_years: f64 = 1.0;
         let tenor_years: f64 = 5.0;
@@ -1048,7 +1048,7 @@ mod tests {
             .knots([(0.0, 1.0), (30.0, 0.20)])
             .build()
             .expect("discount curve");
-        let ctx = MarketContext::new().insert_discount(disc);
+        let ctx = MarketContext::new().insert(disc);
 
         let expiry_years: f64 = 1.0;
         let tenor_years: f64 = 5.0;
@@ -1141,9 +1141,7 @@ mod tests {
                 .knots([(0.0, -0.01), (30.0, -0.01)])
                 .build()
                 .expect("forward curve");
-        let ctx = MarketContext::new()
-            .insert_discount(disc)
-            .insert_forward(fwd_curve);
+        let ctx = MarketContext::new().insert(disc).insert(fwd_curve);
 
         let expiry_years: f64 = 1.0;
         let tenor_years: f64 = 5.0;
@@ -1209,7 +1207,7 @@ mod tests {
             .knots([(0.0, 1.0), (30.0, 0.20)])
             .build()
             .expect("discount curve");
-        let ctx = MarketContext::new().insert_discount(disc);
+        let ctx = MarketContext::new().insert(disc);
 
         let p = params(base_date);
         let leg = SwaptionVolBootstrapper::default_leg_conventions(&p).expect("leg conventions");

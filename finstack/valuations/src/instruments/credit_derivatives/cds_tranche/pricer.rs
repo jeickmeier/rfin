@@ -574,7 +574,10 @@ impl CDSTranchePricer {
         // Validate credit index data is available -- missing data must propagate
         // as an error rather than silently returning zero PV, which would be
         // indistinguishable from a correctly-priced at-par position.
-        if market_ctx.credit_index(&tranche.credit_index_id).is_err() {
+        if market_ctx
+            .get_credit_index(&tranche.credit_index_id)
+            .is_err()
+        {
             return Err(finstack_core::Error::Input(
                 finstack_core::InputError::NotFound {
                     id: format!(
@@ -591,7 +594,7 @@ impl CDSTranchePricer {
         }
 
         // Get the credit index data
-        let index_data_arc = market_ctx.credit_index(&tranche.credit_index_id)?;
+        let index_data_arc = market_ctx.get_credit_index(&tranche.credit_index_id)?;
 
         // Get the discount curve
         let discount_curve = market_ctx.get_discount(tranche.discount_curve_id.as_ref())?;
@@ -2083,7 +2086,7 @@ impl CDSTranchePricer {
         as_of: Date,
     ) -> Result<f64> {
         let discount_curve = market_ctx.get_discount(&tranche.discount_curve_id)?;
-        let index_data = market_ctx.credit_index(&tranche.credit_index_id)?;
+        let index_data = market_ctx.get_credit_index(&tranche.credit_index_id)?;
 
         // Use factored-out settlement date calculation
         let valuation_date = self.calculate_settlement_date(tranche, market_ctx, as_of)?;
@@ -2154,7 +2157,7 @@ impl CDSTranchePricer {
         tranche: &CDSTranche,
         market_ctx: &MarketContext,
     ) -> Result<f64> {
-        let index_data_arc = market_ctx.credit_index(&tranche.credit_index_id)?;
+        let index_data_arc = market_ctx.get_credit_index(&tranche.credit_index_id)?;
         self.calculate_expected_tranche_loss(tranche, index_data_arc.as_ref(), tranche.maturity)
     }
 
@@ -2172,7 +2175,7 @@ impl CDSTranchePricer {
             ));
         }
 
-        let original_index_arc = market_ctx.credit_index(&tranche.credit_index_id)?;
+        let original_index_arc = market_ctx.get_credit_index(&tranche.credit_index_id)?;
 
         // Calculate the hazard rate bump based on configured units
         let delta_lambda = match self.params.cs01_bump_units {
@@ -2216,7 +2219,7 @@ impl CDSTranchePricer {
         as_of: Date,
     ) -> Result<f64> {
         let bump_abs = self.params.corr_bump_abs;
-        let original_index_arc = market_ctx.credit_index(&tranche.credit_index_id)?;
+        let original_index_arc = market_ctx.get_credit_index(&tranche.credit_index_id)?;
 
         // Central difference: (PV_up - PV_down) / (2 * bump) for O(h²) accuracy
         let bumped_corr_curve_up =
@@ -2287,7 +2290,7 @@ impl CDSTranchePricer {
         tranche: &CDSTranche,
         market_ctx: &MarketContext,
     ) -> Result<JumpToDefaultResult> {
-        let index_data = market_ctx.credit_index(&tranche.credit_index_id)?;
+        let index_data = market_ctx.get_credit_index(&tranche.credit_index_id)?;
 
         let attach_frac = tranche.attach_pct / 100.0;
         let detach_frac = tranche.detach_pct / 100.0;
@@ -2404,7 +2407,7 @@ impl CDSTranchePricer {
         as_of: Date,
     ) -> Result<f64> {
         // Get credit index data for loss calculations
-        let index_data = match market_ctx.credit_index(&tranche.credit_index_id) {
+        let index_data = match market_ctx.get_credit_index(&tranche.credit_index_id) {
             Ok(data) => data,
             Err(_) => return Ok(0.0), // No credit data, no accrued
         };
@@ -2474,7 +2477,7 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<Vec<(Date, f64)>> {
-        let index_data = market_ctx.credit_index(&tranche.credit_index_id)?;
+        let index_data = market_ctx.get_credit_index(&tranche.credit_index_id)?;
         let payment_dates = self.generate_payment_schedule(tranche, as_of)?;
         self.build_el_curve(tranche, index_data.as_ref(), &payment_dates)
     }
@@ -2636,7 +2639,7 @@ mod tests {
             .expect("Curve builder should succeed with valid test data");
 
         MarketContext::new()
-            .insert_discount(discount_curve)
+            .insert(discount_curve)
             .insert_credit_index("CDX.NA.IG.42", index_data)
     }
 
@@ -2701,7 +2704,7 @@ mod tests {
             .expect("Curve builder should succeed with valid test data");
 
         MarketContext::new()
-            .insert_discount(discount_curve)
+            .insert(discount_curve)
             .insert_credit_index("CDX.NA.IG.42", index)
     }
 
@@ -2875,7 +2878,7 @@ mod tests {
 
         // Build a context with issuer curves identical to index curve
         let index_data = ctx_base
-            .credit_index("CDX.NA.IG.42")
+            .get_credit_index("CDX.NA.IG.42")
             .expect("Credit index should exist in test context");
         let mut issuer_curves = finstack_core::HashMap::default();
         for i in 0..10 {
@@ -3082,7 +3085,7 @@ mod tests {
             .generate_payment_schedule(&tranche, as_of)
             .expect("Schedule generation should succeed in test");
         let index_data_arc = market_ctx
-            .credit_index(&tranche.credit_index_id)
+            .get_credit_index(&tranche.credit_index_id)
             .expect("Credit index should exist in test context");
         let el_curve = model.build_el_curve(&tranche, &index_data_arc, &schedule);
 
@@ -3169,7 +3172,7 @@ mod tests {
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let index_data_arc = market_ctx
-            .credit_index(&tranche.credit_index_id)
+            .get_credit_index(&tranche.credit_index_id)
             .expect("Credit index should exist in test context");
         let discount_curve = market_ctx
             .get_discount(tranche.discount_curve_id.as_ref())
@@ -3207,7 +3210,7 @@ mod tests {
         let market_ctx = sample_market_context();
         let _as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let index_data_arc = market_ctx
-            .credit_index("CDX.NA.IG.42")
+            .get_credit_index("CDX.NA.IG.42")
             .expect("Credit index should exist in test context");
 
         // Test extreme correlation values that are challenging for numerical stability
@@ -3558,7 +3561,7 @@ mod tests {
         let model = CDSTranchePricer::new();
         let market_ctx = sample_market_context();
         let index_data = market_ctx
-            .credit_index("CDX.NA.IG.42")
+            .get_credit_index("CDX.NA.IG.42")
             .expect("Index should exist");
 
         // Create a large negative bump that could violate monotonicity
@@ -3723,7 +3726,7 @@ mod tests {
         let model = CDSTranchePricer::new();
         let tranche = sample_tranche();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
-        let market_ctx = MarketContext::new().insert_discount(
+        let market_ctx = MarketContext::new().insert(
             sample_market_context()
                 .get_discount("USD-OIS")
                 .expect("sample discount curve")

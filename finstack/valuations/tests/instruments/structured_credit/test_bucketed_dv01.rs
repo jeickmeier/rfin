@@ -69,7 +69,7 @@ fn test_structured_credit_bucketed_dv01_computed() {
     )
     .with_payment_calendar("nyse");
 
-    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, as_of));
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, as_of));
 
     let result = sc
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])

@@ -110,8 +110,8 @@ mod tests {
             .expect("price curve");
 
         MarketContext::new()
-            .insert_discount(disc)
-            .insert_price_curve(price_curve)
+            .insert(disc)
+            .insert(price_curve)
             .insert_surface(flat_vol_surface("NG-VOL", vol))
     }
 

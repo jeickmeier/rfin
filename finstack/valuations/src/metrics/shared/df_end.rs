@@ -78,7 +78,7 @@ mod tests {
         let bond = Bond::example();
         let curve = flat_curve("USD-TREASURY", as_of);
         let expected = curve.df_on_date_curve(bond.maturity).expect("df on date");
-        let market = MarketContext::new().insert_discount(curve);
+        let market = MarketContext::new().insert(curve);
 
         let mut context = context_for_instrument(Arc::new(bond), market, as_of);
         let calc = GenericDfEndCalculator;
@@ -94,7 +94,7 @@ mod tests {
         let curve = flat_curve("USD-OIS", as_of);
         let effective_end = deposit.effective_end_date().expect("effective end date");
         let expected = curve.df_on_date_curve(effective_end).expect("df on date");
-        let market = MarketContext::new().insert_discount(curve);
+        let market = MarketContext::new().insert(curve);
 
         let mut context = context_for_instrument(Arc::new(deposit), market, as_of);
         let calc = GenericDfEndCalculator;

@@ -56,8 +56,8 @@ fn test_black76_futures_based_pricing() {
     let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[80.0, 100.0, 120.0], 0.20);
 
     let market = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_price_curve(price_curve)
+        .insert(discount_curve)
+        .insert(price_curve)
         .insert_surface(vol_surface);
 
     let option = CommodityOption::builder()
@@ -112,8 +112,8 @@ fn test_futures_based_american_matches_european() {
     let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[90.0, 100.0, 110.0], 0.25);
 
     let market = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_price_curve(price_curve)
+        .insert(discount_curve)
+        .insert(price_curve)
         .insert_surface(vol_surface);
 
     let build = |style| {
@@ -168,8 +168,8 @@ fn test_futures_based_bermudan_prices_between_european_and_american() {
     let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[90.0, 100.0, 110.0], 0.25);
 
     let market = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_price_curve(price_curve)
+        .insert(discount_curve)
+        .insert(price_curve)
         .insert_surface(vol_surface);
 
     let build = |style| {
@@ -237,8 +237,8 @@ fn test_spot_based_american_put_above_european() {
     let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[80.0, 100.0, 120.0], 0.30);
 
     let market = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_price_curve(price_curve)
+        .insert(discount_curve)
+        .insert(price_curve)
         .insert_surface(vol_surface)
         .insert_price("CL-SPOT", MarketScalar::Unitless(90.0));
 
@@ -288,8 +288,8 @@ fn test_post_expiry_returns_zero() {
     let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[80.0, 100.0, 120.0], 0.20);
 
     let market = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_price_curve(price_curve)
+        .insert(discount_curve)
+        .insert(price_curve)
         .insert_surface(vol_surface);
 
     // ITM call option (forward 100 > strike 90)
@@ -374,8 +374,8 @@ fn test_at_expiry_returns_intrinsic() {
     let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[80.0, 100.0, 120.0], 0.20);
 
     let market = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_price_curve(price_curve)
+        .insert(discount_curve)
+        .insert(price_curve)
         .insert_surface(vol_surface);
 
     // ITM call: forward 100 > strike 90, intrinsic = 10
@@ -467,8 +467,8 @@ fn test_put_call_parity_european() {
     );
 
     let market = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_price_curve(price_curve)
+        .insert(discount_curve)
+        .insert(price_curve)
         .insert_surface(vol_surface);
 
     // Test put-call parity at multiple strikes (ITM, ATM, OTM)
@@ -566,13 +566,13 @@ fn test_non_flat_vol_surface_skew() {
     let flat_surface = flat_vol_surface("CL-VOL", &expiries, &strikes, 0.25);
 
     let skewed_market = MarketContext::new()
-        .insert_discount(flat_discount_with_tenor("USD-OIS", as_of, 0.03, 1.0))
-        .insert_price_curve(flat_price_curve("CL-FWD", as_of, 80.0, 1.0))
+        .insert(flat_discount_with_tenor("USD-OIS", as_of, 0.03, 1.0))
+        .insert(flat_price_curve("CL-FWD", as_of, 80.0, 1.0))
         .insert_surface(skewed_surface);
 
     let flat_market = MarketContext::new()
-        .insert_discount(flat_discount_with_tenor("USD-OIS", as_of, 0.03, 1.0))
-        .insert_price_curve(flat_price_curve("CL-FWD", as_of, 80.0, 1.0))
+        .insert(flat_discount_with_tenor("USD-OIS", as_of, 0.03, 1.0))
+        .insert(flat_price_curve("CL-FWD", as_of, 80.0, 1.0))
         .insert_surface(flat_surface);
 
     // Build ATM call (strike = 80, same vol in both surfaces)

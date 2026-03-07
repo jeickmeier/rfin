@@ -39,7 +39,7 @@ fn test_scalars_snapshot_extraction() {
     let restored = restore_scalars(&empty_market, &snapshot);
 
     // Verify restoration
-    let aapl_price = restored.price("AAPL").unwrap();
+    let aapl_price = restored.get_price("AAPL").unwrap();
     if let MarketScalar::Price(money) = aapl_price {
         assert_eq!(money.amount(), 180.0);
     } else {
@@ -70,7 +70,7 @@ fn test_market_scalar_freeze_restore() {
     let hybrid_market = restore_scalars(&market_t1, &scalars_t0);
 
     // Verify T₀ price was restored
-    let price = hybrid_market.price("AAPL").unwrap();
+    let price = hybrid_market.get_price("AAPL").unwrap();
     if let MarketScalar::Price(money) = price {
         assert_eq!(money.amount(), 180.0); // Should be T₀ value
     }
@@ -85,7 +85,7 @@ fn test_equity_price_id_uses_restored_scalar_price() {
         .with_shares(1.0);
 
     let market_t0 = MarketContext::new()
-        .insert_discount(
+        .insert(
             finstack_core::market_data::term_structures::DiscountCurve::builder("USD")
                 .base_date(
                     finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
@@ -100,7 +100,7 @@ fn test_equity_price_id_uses_restored_scalar_price() {
             MarketScalar::Price(Money::new(180.0, Currency::USD)),
         );
     let market_t1 = MarketContext::new()
-        .insert_discount(
+        .insert(
             finstack_core::market_data::term_structures::DiscountCurve::builder("USD")
                 .base_date(
                     finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)

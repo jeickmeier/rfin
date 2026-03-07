@@ -111,7 +111,7 @@ fn create_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new().insert_discount(disc)
+    MarketContext::new().insert(disc)
 }
 
 fn create_deal(deal_type: DealType, num_assets: usize) -> StructuredCredit {

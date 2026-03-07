@@ -70,7 +70,7 @@ export const StructuredProductsExample: React.FC<StructuredProductsProps> = (pro
         for (const spot of market.spotPrices) {
           marketCtx.insertPrice(
             spot.id,
-            MarketScalar.price(Money.fromCode(spot.price.amount, spot.price.currency))
+            MarketScalar.get_price(Money.fromCode(spot.price.amount, spot.price.currency))
           );
         }
 

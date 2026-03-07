@@ -32,7 +32,7 @@ fn test_ytm_par_bond() {
         .knots([(0.0, 1.0), (5.0, 0.80)])
         .build()
         .unwrap();
-    let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let result = bond
         .price_with_metrics(&market, as_of, &[MetricId::Ytm])
@@ -80,9 +80,7 @@ fn test_ytm_floating_bond_is_finite_from_price() {
         .knots([(0.0, 0.03), (2.0, 0.035)])
         .build()
         .unwrap();
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let market = MarketContext::new().insert(disc).insert(fwd);
 
     let mut bond = Bond::floating(
         "YTM-FRN",
@@ -142,7 +140,7 @@ fn test_ytm_amortizing_bond_is_finite_from_price() {
         .interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    let market = MarketContext::new().insert_discount(disc);
+    let market = MarketContext::new().insert(disc);
 
     // Amortizing schedule: step down principal once before final maturity.
     let step_date = date!(2026 - 01 - 01);

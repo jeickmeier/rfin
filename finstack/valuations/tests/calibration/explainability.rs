@@ -59,7 +59,7 @@ fn forward_quotes() -> Vec<MarketQuote> {
 fn explanation_not_computed_by_default() {
     let base_date = create_date(2025, Month::January, 15).unwrap();
 
-    let ctx = MarketContext::new().insert_discount(base_discount_curve(base_date));
+    let ctx = MarketContext::new().insert(base_discount_curve(base_date));
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("fwd".to_string(), forward_quotes());
 
@@ -100,7 +100,7 @@ fn explanation_not_computed_by_default() {
 fn explanation_is_present_when_enabled() {
     let base_date = create_date(2025, Month::January, 15).unwrap();
 
-    let ctx = MarketContext::new().insert_discount(base_discount_curve(base_date));
+    let ctx = MarketContext::new().insert(base_discount_curve(base_date));
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("fwd".to_string(), forward_quotes());
 

@@ -51,8 +51,8 @@ fn test_bond_attribution_parallel() {
         .build()
         .unwrap();
 
-    let market_t0 = MarketContext::new().insert_discount(curve_t0);
-    let market_t1 = MarketContext::new().insert_discount(curve_t1);
+    let market_t0 = MarketContext::new().insert(curve_t0);
+    let market_t1 = MarketContext::new().insert(curve_t1);
 
     let config = FinstackConfig::default();
 
@@ -132,7 +132,7 @@ fn test_bond_attribution_structure() {
         .build()
         .unwrap();
 
-    let market_t0 = MarketContext::new().insert_discount(curve);
+    let market_t0 = MarketContext::new().insert(curve);
     let market_t1 = market_t0.clone();
 
     let config = FinstackConfig::default();

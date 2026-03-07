@@ -253,7 +253,7 @@ mod tests {
             .day_count(DayCount::Act365F)
             .knots(vec![(0.0, 1.0), (5.0, 0.85)])
             .build()?;
-        let base_market = MarketContext::new().insert_discount(curve);
+        let base_market = MarketContext::new().insert(curve);
 
         let scenario = MarketScenario::new(
             date!(2024 - 01 - 02),
@@ -292,7 +292,7 @@ mod tests {
             .knots(vec![(0.0, 1.0), (5.0, 0.85), (10.0, 0.70)])
             .build()?;
 
-        let base_market = MarketContext::new().insert_discount(base_curve);
+        let base_market = MarketContext::new().insert(base_curve);
 
         // Create scenario with rate shift
         let scenario = MarketScenario::new(
@@ -364,7 +364,7 @@ mod tests {
         );
 
         let bumped = scenario.apply(&base_market)?;
-        match bumped.price("AAPL")? {
+        match bumped.get_price("AAPL")? {
             MarketScalar::Unitless(v) => assert!((v - 110.0).abs() < 1e-9),
             other => panic!("unexpected scalar variant: {:?}", other),
         }
@@ -398,7 +398,7 @@ mod tests {
         );
 
         let bumped = scenario.apply(&base_market)?;
-        let bumped_surface = bumped.surface("EQ-VOL")?;
+        let bumped_surface = bumped.get_surface("EQ-VOL")?;
         let vol = bumped_surface
             .value_checked(1.0, 100.0)
             .expect("grid point lookup should succeed");

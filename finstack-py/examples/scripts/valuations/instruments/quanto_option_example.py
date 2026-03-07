@@ -26,7 +26,7 @@ def create_market_data(val_date: date) -> MarketContext:
         val_date,
         [(0.0, 1.0), (0.5, 0.975), (1.0, 0.95)],
     )
-    market.insert_discount(usd_disc)
+    market.insert(usd_disc)
 
     # EUR discount curve (not strictly required by the pricer but added for completeness)
     eur_disc = DiscountCurve(
@@ -34,7 +34,7 @@ def create_market_data(val_date: date) -> MarketContext:
         val_date,
         [(0.0, 1.0), (0.5, 0.98), (1.0, 0.96)],
     )
-    market.insert_discount(eur_disc)
+    market.insert(eur_disc)
 
     # Equity volatility surface (expiries in years)
     eq_vol_surface = VolSurface(
@@ -61,7 +61,7 @@ def create_market_data(val_date: date) -> MarketContext:
     market.insert_surface(fx_vol_surface)
 
     # Spot and dividend
-    market.insert_price("SAP", MarketScalar.price(Money(140.0, EUR)))
+    market.insert_price("SAP", MarketScalar.get_price(Money(140.0, EUR)))
     market.insert_price("EURUSD", MarketScalar.unitless(1.10))
     market.insert_price("SAP.DIV", MarketScalar.unitless(0.02))
 
@@ -96,7 +96,7 @@ def example_quanto_call_positive_correlation():
     market = create_market_data(val_date)
     registry = create_standard_registry()
     try:
-        result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
+        result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
     except KeyError:
         # Quanto MC pricer not yet registered; instrument construction validated.
         return option, None
@@ -131,7 +131,7 @@ def example_quanto_put_negative_correlation():
     market = create_market_data(val_date)
     registry = create_standard_registry()
     try:
-        result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
+        result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
     except KeyError:
         return option, None
 
@@ -165,7 +165,7 @@ def example_quanto_call_zero_correlation():
     market = create_market_data(val_date)
     registry = create_standard_registry()
     try:
-        result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
+        result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
     except KeyError:
         return option, None
 

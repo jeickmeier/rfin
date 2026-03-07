@@ -54,8 +54,8 @@ fn build_market(as_of: finstack_core::dates::Date) -> MarketContext {
     let vol_surface = flat_vol_surface("CL-VOL", &[0.5, 1.0, 2.0], &[80.0, 100.0, 120.0], 0.20);
 
     MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_price_curve(price_curve)
+        .insert(discount_curve)
+        .insert(price_curve)
         .insert_surface(vol_surface)
 }
 

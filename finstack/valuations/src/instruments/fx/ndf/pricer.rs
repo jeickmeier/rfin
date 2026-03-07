@@ -94,9 +94,7 @@ mod tests {
         fx_provider.set_quote(Currency::CNY, Currency::USD, 7.25);
         let fx_matrix = FxMatrix::new(fx_provider);
 
-        MarketContext::new()
-            .insert_discount(usd_curve)
-            .insert_fx(fx_matrix)
+        MarketContext::new().insert(usd_curve).insert_fx(fx_matrix)
     }
 
     #[test]

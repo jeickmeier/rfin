@@ -756,7 +756,7 @@ fn extract_equity_state(
         .ok_or(Error::Internal)?;
 
     // Get spot price, preserving the original scalar variant for type-safe bumping
-    let spot_scalar = ctx.price(underlying_id)?.clone();
+    let spot_scalar = ctx.get_price(underlying_id)?.clone();
     let spot = match &spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Price(money) => {
             if money.currency() != bond.notional.currency() {
@@ -840,7 +840,7 @@ fn extract_equity_state(
 
 fn resolve_unitless_scalar(ctx: &MarketContext, candidate_ids: &[String]) -> Result<Option<f64>> {
     for id in candidate_ids {
-        match ctx.price(id) {
+        match ctx.get_price(id) {
             Ok(finstack_core::market_data::scalars::MarketScalar::Unitless(value)) => {
                 return Ok(Some(*value));
             }
@@ -866,7 +866,7 @@ fn resolve_volatility_with_id(
     let mut first_missing: Option<String> = None;
 
     for id in candidate_ids {
-        match ctx.price(id) {
+        match ctx.get_price(id) {
             Ok(finstack_core::market_data::scalars::MarketScalar::Unitless(vol)) => {
                 return Ok((*vol, id.clone()));
             }
@@ -882,7 +882,7 @@ fn resolve_volatility_with_id(
             }
         }
 
-        match ctx.surface(id) {
+        match ctx.get_surface(id) {
             Ok(surface) => {
                 let vol = surface.value_clamped(time_to_maturity, spot);
                 return Ok((vol, id.clone()));
@@ -1388,7 +1388,7 @@ mod tests {
             .expect("should succeed");
 
         MarketContext::new()
-            .insert_discount(discount_curve)
+            .insert(discount_curve)
             .insert_price("AAPL", MarketScalar::Unitless(150.0))
             .insert_price("AAPL-VOL", MarketScalar::Unitless(0.25))
             .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02))
@@ -1493,7 +1493,7 @@ mod tests {
             .expect("should succeed");
 
         let market = MarketContext::new()
-            .insert_discount(discount_curve)
+            .insert(discount_curve)
             .insert_price("AAPL", MarketScalar::Unitless(50.0))
             .insert_price("AAPL-VOL", MarketScalar::Unitless(0.25))
             .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02));

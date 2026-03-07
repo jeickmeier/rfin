@@ -38,9 +38,7 @@ fn build_market(rate: f64, base_date: Date) -> MarketContext {
     let disc_curve = build_flat_discount_curve(rate, base_date);
     let fwd_curve = build_flat_forward_curve(rate, base_date, "USD_LIBOR_3M");
 
-    MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+    MarketContext::new().insert(disc_curve).insert(fwd_curve)
 }
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, id: &str) -> ForwardCurve {
@@ -203,7 +201,7 @@ fn test_bucketed_vs_parallel_dv01_sanity() {
     swap.float.forward_curve_id = "USD_OIS".into();
 
     let disc_curve = build_flat_discount_curve(0.05, as_of);
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01, MetricId::Dv01])
@@ -247,9 +245,7 @@ fn test_bucketed_dv01_per_curve() {
     let swap = create_swap(as_of, end);
     let disc_curve = build_flat_discount_curve(0.05, as_of);
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])

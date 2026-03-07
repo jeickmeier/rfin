@@ -463,8 +463,8 @@ fn create_market_context() -> finstack_core::Result<MarketContext> {
         .build()?;
 
     let market_ctx = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_forward(forward_curve);
+        .insert(discount_curve)
+        .insert(forward_curve);
 
     Ok(market_ctx)
 }

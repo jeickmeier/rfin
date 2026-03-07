@@ -140,7 +140,7 @@ fn create_multi_currency_market(as_of: Date) -> MarketContext {
 
     // USD curve
     let usd_curve = create_usd_discount_curve(as_of);
-    market = market.insert_discount(usd_curve);
+    market = market.insert(usd_curve);
 
     // EUR curve
     let eur_curve = DiscountCurve::builder("EUR-OIS")
@@ -155,7 +155,7 @@ fn create_multi_currency_market(as_of: Date) -> MarketContext {
         ])
         .build()
         .expect("EUR curve should build");
-    market = market.insert_discount(eur_curve);
+    market = market.insert(eur_curve);
 
     // GBP curve
     let gbp_curve = DiscountCurve::builder("GBP-OIS")
@@ -170,7 +170,7 @@ fn create_multi_currency_market(as_of: Date) -> MarketContext {
         ])
         .build()
         .expect("GBP curve should build");
-    market = market.insert_discount(gbp_curve);
+    market = market.insert(gbp_curve);
 
     market
 }

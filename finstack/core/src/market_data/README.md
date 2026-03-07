@@ -221,9 +221,9 @@ let hazard = HazardCurve::builder("USD-CRED")
     ?;
 
 let ctx = MarketContext::new()
-    .insert_discount(disc)
-    .insert_forward(fwd3m)
-    .insert_hazard(hazard);
+    .insert(disc)
+    .insert(fwd3m)
+    .insert(hazard);
 
 assert!(ctx.get_discount("USD-OIS").is_ok());
 assert!(ctx.get_forward("USD-SOFR3M").is_ok());
@@ -274,9 +274,11 @@ let ctx = MarketContext::new()
     .insert_inflation_index("US-CPI", index);
 
 // Lookups are type-safe and validated
-let price = ctx.price("AAPL")?;
-let series = ctx.series("US-CPI-TS")?;
-let cpi = ctx.inflation_index("US-CPI").expect("Inflation index present");
+let price = ctx.get_price("AAPL")?;
+let series = ctx.get_series("US-CPI-TS")?;
+let cpi = ctx
+    .get_inflation_index("US-CPI")
+    .expect("Inflation index present");
 
 assert!(matches!(price, MarketScalar::Price(_)));
 assert_eq!(series.id().as_str(), "US-CPI-TS");
@@ -300,7 +302,7 @@ let curve = DiscountCurve::builder("USD-OIS")
     .build()
     ?;
 
-let ctx = MarketContext::new().insert_discount(curve);
+let ctx = MarketContext::new().insert(curve);
 
 // 100bp parallel bump
 let mut bumps = HashMap::default();

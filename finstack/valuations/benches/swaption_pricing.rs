@@ -107,8 +107,8 @@ fn create_market() -> MarketContext {
     .unwrap();
 
     MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+        .insert(disc)
+        .insert(fwd)
         .insert_surface(vol_surface)
 }
 

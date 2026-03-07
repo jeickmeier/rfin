@@ -53,9 +53,9 @@ fn build_flat_curves(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketCo
     .expect("fixings series");
 
     MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
-        .insert_forward(fwd_curve_6m)
+        .insert(disc_curve)
+        .insert(fwd_curve)
+        .insert(fwd_curve_6m)
         .insert_series(fixings)
 }
 
@@ -160,9 +160,7 @@ fn test_multi_curve_environment() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let swap = create_swap(as_of, end, 0.045, PayReceive::ReceiveFixed);
 
@@ -198,9 +196,7 @@ fn test_forward_starting_swap() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let swap = InterestRateSwap {
         id: "FORWARD_START".into(),
@@ -337,8 +333,8 @@ fn test_swap_seasoned() {
     .expect("fixings series");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_series(fixings);
 
     let swap = InterestRateSwap {

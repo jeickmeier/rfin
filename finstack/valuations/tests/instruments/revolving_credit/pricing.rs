@@ -32,7 +32,7 @@ fn test_pricing_fixed_utilization() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.03, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = facility.value(&market, as_of);
@@ -64,7 +64,7 @@ fn test_pricing_zero_utilization() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.03, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = facility.value(&market, as_of);
@@ -94,7 +94,7 @@ fn test_pricing_full_utilization() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.04, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = facility.value(&market, as_of);

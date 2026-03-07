@@ -977,7 +977,7 @@ mod tests {
             .knots(vec![(0.0, 1.0), (1.0, 0.95)])
             .build()
             .expect("should build");
-        let market = MarketContext::new().insert_discount(curve);
+        let market = MarketContext::new().insert(curve);
 
         // Create an NDF that's past fixing date but without fixing_rate
         let ndf = Ndf::builder()

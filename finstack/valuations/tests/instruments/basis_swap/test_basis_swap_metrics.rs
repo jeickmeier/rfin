@@ -50,9 +50,9 @@ fn market() -> MarketContext {
     )
     .expect("fixings series");
     MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(f3m)
-        .insert_forward(f1m)
+        .insert(disc)
+        .insert(f3m)
+        .insert(f1m)
         .insert_series(fix_3m)
         .insert_series(fix_1m)
 }

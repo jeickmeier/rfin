@@ -133,8 +133,7 @@ fn swaption_vol_step_builds_and_inserts_surface() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let currency = Currency::USD;
 
-    let initial_market =
-        MarketContext::new().insert_discount(create_test_discount_curve(base_date));
+    let initial_market = MarketContext::new().insert(create_test_discount_curve(base_date));
 
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
@@ -201,7 +200,7 @@ fn swaption_vol_step_builds_and_inserts_surface() {
     );
 
     let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");
-    let surface = ctx.surface("USD-SWPT").expect("surface inserted");
+    let surface = ctx.get_surface("USD-SWPT").expect("surface inserted");
 
     // Surface axes are (expiry, tenor) for swaption calibration.
     let v_1y_1y = surface.value_clamped(1.0, 1.0);
@@ -215,8 +214,7 @@ fn calibrated_swaption_surface_is_not_silently_reused_as_strike_surface() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let currency = Currency::USD;
 
-    let initial_market =
-        MarketContext::new().insert_discount(create_test_discount_curve(base_date));
+    let initial_market = MarketContext::new().insert(create_test_discount_curve(base_date));
 
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
@@ -299,8 +297,7 @@ fn swaption_vol_out_of_bounds_targets_error_by_default() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let currency = Currency::USD;
 
-    let initial_market =
-        MarketContext::new().insert_discount(create_test_discount_curve(base_date));
+    let initial_market = MarketContext::new().insert(create_test_discount_curve(base_date));
 
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
@@ -353,8 +350,7 @@ fn swaption_vol_out_of_bounds_targets_can_clamp_when_configured() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let currency = Currency::USD;
 
-    let initial_market =
-        MarketContext::new().insert_discount(create_test_discount_curve(base_date));
+    let initial_market = MarketContext::new().insert(create_test_discount_curve(base_date));
 
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());

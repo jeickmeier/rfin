@@ -35,7 +35,7 @@ fn test_fx_equity_curve_combo() {
 
     let mut market = MarketContext::new()
         .insert_fx(fx_matrix)
-        .insert_discount(curve)
+        .insert(curve)
         .insert_price("SPY", MarketScalar::Price(Money::new(400.0, Currency::USD)));
 
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -82,7 +82,7 @@ fn test_fx_equity_curve_combo() {
     let rate = fx.rate(query).unwrap().rate;
     assert!((rate - 1.155).abs() < 1e-6, "FX should be shocked");
 
-    let price = market.price("SPY").unwrap();
+    let price = market.get_price("SPY").unwrap();
     match price {
         MarketScalar::Price(money) => {
             assert!(
@@ -107,7 +107,7 @@ fn test_statements_rate_bindings_curve() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_discount(curve);
+    let mut market = MarketContext::new().insert(curve);
 
     let period_plan = build_periods("2025Q1..Q2", None).unwrap();
     let periods = period_plan.periods;
@@ -224,7 +224,7 @@ fn test_time_roll_with_market_shocks() {
     assert_eq!(ctx.as_of, expected_date);
 
     // Price shocked
-    let price = market.price("SPY").unwrap();
+    let price = market.get_price("SPY").unwrap();
     match price {
         MarketScalar::Price(money) => {
             assert!((money.amount() - 360.0).abs() < 1e-6);
@@ -242,7 +242,7 @@ fn test_conflicting_operations_last_wins() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_discount(curve);
+    let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {

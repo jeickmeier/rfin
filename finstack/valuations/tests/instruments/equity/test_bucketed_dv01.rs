@@ -53,12 +53,10 @@ fn test_equity_bucketed_dv01_computed() {
         .with_price(150.0);
 
     let usd_curve = build_flat_curve(0.05, as_of, "USD");
-    let market = MarketContext::new()
-        .insert_discount(usd_curve)
-        .insert_price(
-            "AAPL",
-            MarketScalar::Price(Money::new(150.0, Currency::USD)),
-        );
+    let market = MarketContext::new().insert(usd_curve).insert_price(
+        "AAPL",
+        MarketScalar::Price(Money::new(150.0, Currency::USD)),
+    );
 
     let result = equity
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01, MetricId::Dv01])
@@ -92,12 +90,10 @@ fn test_equity_bucketed_dv01_with_market_price() {
     let equity = Equity::new("MSFT", "MSFT", Currency::USD).with_shares(200.0);
 
     let usd_curve = build_flat_curve(0.03, as_of, "USD");
-    let market = MarketContext::new()
-        .insert_discount(usd_curve)
-        .insert_price(
-            "MSFT",
-            MarketScalar::Price(Money::new(350.0, Currency::USD)),
-        );
+    let market = MarketContext::new().insert(usd_curve).insert_price(
+        "MSFT",
+        MarketScalar::Price(Money::new(350.0, Currency::USD)),
+    );
 
     let result = equity
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])

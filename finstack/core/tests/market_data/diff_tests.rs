@@ -51,19 +51,19 @@ fn sample_fx_matrix() -> FxMatrix {
 }
 
 fn market_with_discount(curve: DiscountCurve) -> MarketContext {
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 fn market_with_hazard(curve: HazardCurve) -> MarketContext {
-    MarketContext::new().insert_hazard(curve)
+    MarketContext::new().insert(curve)
 }
 
 fn market_with_inflation(curve: InflationCurve) -> MarketContext {
-    MarketContext::new().insert_inflation(curve)
+    MarketContext::new().insert(curve)
 }
 
 fn market_with_base_correlation(curve: BaseCorrelationCurve) -> MarketContext {
-    MarketContext::new().insert_base_correlation(curve)
+    MarketContext::new().insert(curve)
 }
 
 fn market_with_surface(surface: VolSurface) -> MarketContext {

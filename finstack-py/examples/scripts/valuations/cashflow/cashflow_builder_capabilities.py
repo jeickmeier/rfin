@@ -69,7 +69,7 @@ def format_cashflow_table(cf_schedule, max_rows=None) -> None:
         base_date,
         [(0.0, 1.0), (10.0, 0.7)],  # Simple flat curve
     )
-    market.insert_discount(discount_curve)
+    market.insert(discount_curve)
 
     # Get DataFrame from Rust (all calculations done there)
     df_dict = cf_schedule.to_dataframe(market=market, discount_curve_id="DISCOUNT")

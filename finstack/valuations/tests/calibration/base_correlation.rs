@@ -167,9 +167,9 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     );
 
     let quote_market = MarketContext::new()
-        .insert_discount(create_discount_curve(base_date))
-        .insert_hazard(hazard.as_ref().clone())
-        .insert_base_correlation(target_corr.as_ref().clone())
+        .insert(create_discount_curve(base_date))
+        .insert(hazard.as_ref().clone())
+        .insert(target_corr.as_ref().clone())
         .insert_credit_index(
             "CDX",
             create_credit_index(Arc::clone(&hazard), Arc::clone(&target_corr)),
@@ -193,9 +193,9 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
             .expect("seed base correlation"),
     );
     let initial_market = MarketContext::new()
-        .insert_discount(create_discount_curve(base_date))
-        .insert_hazard(hazard.as_ref().clone())
-        .insert_base_correlation(seed_corr.as_ref().clone())
+        .insert(create_discount_curve(base_date))
+        .insert(hazard.as_ref().clone())
+        .insert(seed_corr.as_ref().clone())
         .insert_credit_index(
             "CDX",
             create_credit_index(Arc::clone(&hazard), Arc::clone(&seed_corr)),
@@ -296,6 +296,6 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     );
 
     // Credit index aggregate is updated to reference the calibrated curve.
-    let index = ctx.credit_index("CDX").expect("credit index");
+    let index = ctx.get_credit_index("CDX").expect("credit index");
     assert_eq!(index.base_correlation_curve.id().as_str(), "CDX_CORR");
 }

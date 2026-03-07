@@ -16,7 +16,7 @@ impl MetricCalculator for EquityDeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let trs: &EquityTotalReturnSwap = context.instrument_as()?;
 
-        let spot = match context.curves.price(&trs.underlying.spot_id)? {
+        let spot = match context.curves.get_price(&trs.underlying.spot_id)? {
             MarketScalar::Unitless(v) => *v,
             MarketScalar::Price(p) => p.amount(),
         };

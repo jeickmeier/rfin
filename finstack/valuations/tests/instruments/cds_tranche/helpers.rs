@@ -73,8 +73,8 @@ pub fn standard_credit_index() -> CreditIndexData {
 /// Create a complete market context with standard curves
 pub fn standard_market_context() -> MarketContext {
     MarketContext::new()
-        .insert_discount(standard_discount_curve())
-        .insert_hazard(standard_hazard_curve())
+        .insert(standard_discount_curve())
+        .insert(standard_hazard_curve())
         .insert_credit_index("CDX.NA.IG.42", standard_credit_index())
 }
 
@@ -131,8 +131,8 @@ pub fn market_context_with_issuers(n: usize) -> MarketContext {
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_hazard(index_curve.as_ref().clone())
+        .insert(discount_curve)
+        .insert(index_curve.as_ref().clone())
         .insert_credit_index("CDX.NA.IG.42", index)
 }
 

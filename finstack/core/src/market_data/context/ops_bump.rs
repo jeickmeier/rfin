@@ -67,7 +67,7 @@ impl MarketContext {
                     }
 
                     let surface =
-                        ctx.surface(surface_id.as_str())
+                        ctx.get_surface(surface_id.as_str())
                             .map_err(|_| InputError::NotFound {
                                 id: surface_id.to_string(),
                             })?;

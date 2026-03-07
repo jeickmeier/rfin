@@ -46,7 +46,7 @@ impl MetricCalculator for DividendRiskCalculator {
         };
 
         // Get current dividend yield
-        let _current_div = match context.curves.price(&div_yield_id) {
+        let _current_div = match context.curves.get_price(&div_yield_id) {
             Ok(scalar) => match scalar {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
@@ -55,7 +55,7 @@ impl MetricCalculator for DividendRiskCalculator {
         };
 
         // Get current scalar to clone its structure
-        let current_scalar = context.curves.price(&div_yield_id)?;
+        let current_scalar = context.curves.get_price(&div_yield_id)?;
 
         // Extract numeric baseline for robust bump-width handling (clamped at 0 on the downside).
         let q0 = match current_scalar {

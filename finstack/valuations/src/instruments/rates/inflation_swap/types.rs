@@ -182,7 +182,7 @@ impl InflationSwap {
         if let Some(lag) = self.lag_override {
             return lag;
         }
-        if let Some(index) = curves.inflation_index(self.inflation_index_id.as_str()) {
+        if let Ok(index) = curves.get_inflation_index(self.inflation_index_id.as_str()) {
             return index.lag();
         }
         // Default to no lag when no index is available
@@ -206,8 +206,10 @@ impl InflationSwap {
         curves: &MarketContext,
         discount_base: Date,
     ) -> finstack_core::Result<f64> {
-        let inflation_index = curves.inflation_index(self.inflation_index_id.as_str());
-        let inflation_curve = curves.get_inflation(self.inflation_index_id.as_str())?;
+        let inflation_index = curves
+            .get_inflation_index(self.inflation_index_id.as_str())
+            .ok();
+        let inflation_curve = curves.get_inflation_curve(self.inflation_index_id.as_str())?;
 
         let i_start = if let Some(base) = self.base_cpi {
             base
@@ -548,7 +550,7 @@ impl YoYInflationSwap {
         if let Some(lag) = self.lag_override {
             return lag;
         }
-        if let Some(index) = curves.inflation_index(self.inflation_index_id.as_str()) {
+        if let Ok(index) = curves.get_inflation_index(self.inflation_index_id.as_str()) {
             return index.lag();
         }
         InflationLag::None
@@ -601,7 +603,7 @@ impl YoYInflationSwap {
         as_of: Date,
         date: Date,
     ) -> finstack_core::Result<f64> {
-        if let Some(index) = curves.inflation_index(self.inflation_index_id.as_str()) {
+        if let Ok(index) = curves.get_inflation_index(self.inflation_index_id.as_str()) {
             if let Ok(value) = index.value_on(date) {
                 return Ok(value);
             }
@@ -609,7 +611,7 @@ impl YoYInflationSwap {
 
         let lag = self.effective_lag(curves);
         let lagged_date = Self::apply_lag(date, lag);
-        let curve = curves.get_inflation(self.inflation_index_id.as_str())?;
+        let curve = curves.get_inflation_curve(self.inflation_index_id.as_str())?;
         InflationSwap::curve_cpi_value(curve.as_ref(), as_of, lagged_date)
     }
 
@@ -859,8 +861,8 @@ mod tests {
         let swap = sample_swap(start, maturity);
         let inflation_curve = sample_inflation_curve(curve_base);
         let market = MarketContext::new()
-            .insert_discount(sample_discount_curve(discount_base))
-            .insert_inflation(inflation_curve.clone());
+            .insert(sample_discount_curve(discount_base))
+            .insert(inflation_curve.clone());
 
         let ratio = swap
             .projected_index_ratio(&market, discount_base)
@@ -884,8 +886,8 @@ mod tests {
         swap.calendar_id = Some("nyse".into());
 
         let market = MarketContext::new()
-            .insert_discount(sample_discount_curve(as_of))
-            .insert_inflation(sample_inflation_curve(d(2024, Month::January, 1)));
+            .insert(sample_discount_curve(as_of))
+            .insert(sample_inflation_curve(d(2024, Month::January, 1)));
 
         let pv = swap.value(&market, as_of).expect("value should compute");
         assert!(

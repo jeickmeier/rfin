@@ -43,7 +43,7 @@ fn create_test_market(as_of: Date) -> MarketContext {
         .build()
         .unwrap();
 
-    market = market.insert_discount(curve);
+    market = market.insert(curve);
 
     // Spot price: 100.0
     market = market.insert_price(

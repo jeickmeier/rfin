@@ -349,7 +349,7 @@ fn test_bermudan_to_european_conversion() {
 #[cfg(all(feature = "mc", feature = "slow"))]
 fn build_market_context() -> MarketContext {
     let curve = test_discount_curve();
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 /// Test LSMC vs Tree: prices should be in same ballpark.
