@@ -43,6 +43,8 @@ mod accrual_context_tests {
                 accrual_start: start,
                 accrual_end: end,
                 payment_date: end,
+                reset_date: None,
+                accrual_year_fraction: 0.0,
             },
         );
         let first_last = finstack_core::HashSet::default();
@@ -119,6 +121,8 @@ mod accrual_context_tests {
                 accrual_start: start,
                 accrual_end: end,
                 payment_date: end,
+                reset_date: None,
+                accrual_year_fraction: 0.0,
             },
         );
 
@@ -181,6 +185,8 @@ mod accrual_context_tests {
                 accrual_start: start,
                 accrual_end: end,
                 payment_date: end,
+                reset_date: None,
+                accrual_year_fraction: 0.0,
             },
         );
         let first_last = finstack_core::HashSet::default();

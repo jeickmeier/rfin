@@ -16,6 +16,11 @@ use finstack_core::dates::{
 use super::calendar::resolve_calendar_strict;
 
 /// Accrual period with payment timing.
+///
+/// This is the canonical period type used across the cashflow builder (schedule
+/// compilation) and rates instruments (enriched with reset dates and year
+/// fractions). Fields that are not relevant in a given context are left at
+/// their defaults (`None` / `0.0`).
 #[derive(Debug, Clone, Copy)]
 pub struct SchedulePeriod {
     /// Accrual start date (inclusive).
@@ -24,6 +29,10 @@ pub struct SchedulePeriod {
     pub accrual_end: Date,
     /// Payment date after applying payment lag.
     pub payment_date: Date,
+    /// Optional reset/fixing date for floating legs.
+    pub reset_date: Option<Date>,
+    /// Accrual year fraction for the period (0.0 when not computed).
+    pub accrual_year_fraction: f64,
 }
 
 /// Period schedule output with business day adjustment tracking.
@@ -121,6 +130,8 @@ pub fn build_dates(
             accrual_start,
             accrual_end,
             payment_date,
+            reset_date: None,
+            accrual_year_fraction: 0.0,
         });
         payment_dates.push(payment_date);
     }

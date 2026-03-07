@@ -93,8 +93,8 @@ pub(super) use fees::emit_fees_on;
 // Re-export helper utilities (internal to builder module)
 pub(super) use helpers::compute_reset_date;
 
-// Re-export public fee emission functions
+// Re-export fee emission functions (used by revolving_credit engine and tests)
 pub use fees::{emit_commitment_fee_on, emit_facility_fee_on, emit_usage_fee_on};
 
-// Re-export public credit event emission
+// Re-export credit event emission (used by credit model tests)
 pub use credit::{emit_default_on, emit_prepayment_on};

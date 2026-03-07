@@ -72,6 +72,7 @@ use super::specs::{
     FloatingCouponSpec, ScheduleParams, StepUpCouponSpec,
 };
 use smallvec::SmallVec;
+use tracing::debug;
 
 // -------------------------------------------------------------------------
 // Pipeline scaffolding — pure-ish stages and fold state
@@ -1351,6 +1352,7 @@ impl CashFlowBuilder {
             principal_events: &principal_events,
         };
         let dates = collect_all_dates(&date_inputs)?;
+        debug!(dates = dates.len(), %issue, %maturity, "cashflow schedule: dates collected");
 
         // 4) Derive amortization setup
         let amort_setup = derive_amortization_setup(&notional, &fixed_schedules, &float_schedules)?;
@@ -1389,6 +1391,7 @@ impl CashFlowBuilder {
         let (flows, mut meta, out_dc) =
             finalize_flows(state.flows, &used_fixed_specs, &used_float_specs);
         meta.issue_date = Some(issue);
+        debug!(flows = flows.len(), "cashflow schedule: build complete");
         Ok(CashFlowSchedule {
             flows,
             notional,

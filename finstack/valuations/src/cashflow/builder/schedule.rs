@@ -102,39 +102,6 @@ pub struct CashFlowSchedule {
 }
 
 impl CashFlowSchedule {
-    /// Convenience wrapper calling [`Self::pv_by_period_with_ctx`] with default `DayCountCtx`.
-    pub fn pv_by_period(
-        &self,
-        periods: &[Period],
-        disc: &dyn Discounting,
-        base: Date,
-        dc: DayCount,
-    ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        self.pv_by_period_with_ctx(periods, disc, base, dc, DayCountCtx::default())
-    }
-
-    /// Convenience wrapper calling [`Self::pv_by_period_with_market_and_ctx`] with default context.
-    #[allow(clippy::too_many_arguments)]
-    pub fn pv_by_period_with_market(
-        &self,
-        periods: &[Period],
-        market: &MarketContext,
-        disc_curve_id: &CurveId,
-        hazard_curve_id: Option<&CurveId>,
-        base: Date,
-        dc: DayCount,
-    ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        self.pv_by_period_with_market_and_ctx(
-            periods,
-            market,
-            disc_curve_id,
-            hazard_curve_id,
-            base,
-            dc,
-            DayCountCtx::default(),
-        )
-    }
-
     /// Create a new cashflow builder (standard Rust pattern).
     ///
     /// This is the recommended entry point for building cashflow schedules.
@@ -379,7 +346,7 @@ impl CashFlowSchedule {
 ///
 /// This is sufficient for detecting the initial funding flow while
 /// allowing for floating-point representation differences.
-fn amounts_approx_equal(a: f64, b: f64) -> bool {
+pub(super) fn amounts_approx_equal(a: f64, b: f64) -> bool {
     let max_abs = a.abs().max(b.abs()).max(1.0);
     (a - b).abs() < max_abs * 1e-9
 }
@@ -411,7 +378,7 @@ fn apply_flow_to_outstanding(
 impl CashFlowSchedule {
     /// Compute pre-period present values with explicit day-count context.
     ///
-    /// Like [`Self::pv_by_period`], but accepts a `DayCountCtx` for conventions
+    /// Like `pv_by_period`, but accepts a `DayCountCtx` for conventions
     /// requiring frequency (Act/Act ISMA) or calendar (Bus/252).
     ///
     /// # Arguments
@@ -441,7 +408,7 @@ impl CashFlowSchedule {
 
     /// Compute pre-period present values with market context and explicit day-count context.
     ///
-    /// Like [`Self::pv_by_period_with_market`], but accepts `DayCountCtx` for full control.
+    /// Compute present values with market context and explicit day-count context.
     ///
     /// When a hazard curve is provided, this function applies credit adjustment with
     /// recovery-of-par semantics: principal-like flows (Amortization, Notional) get
@@ -511,21 +478,6 @@ impl CashFlowSchedule {
         } else {
             self.pv_by_period_with_ctx(periods, disc, date_ctx.base, date_ctx.dc, date_ctx.dc_ctx)
         }
-    }
-
-    /// Convenience wrapper for [`Self::pv_by_period_with_survival_and_ctx`].
-    pub fn pv_by_period_with_survival(
-        &self,
-        periods: &[Period],
-        disc: &dyn Discounting,
-        hazard: Option<&dyn Survival>,
-        recovery_rate: Option<f64>,
-        base: Date,
-        dc: DayCount,
-    ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        let date_ctx =
-            crate::cashflow::aggregation::DateContext::new(base, dc, DayCountCtx::default());
-        self.pv_by_period_with_survival_and_ctx(periods, disc, hazard, recovery_rate, date_ctx)
     }
 }
 

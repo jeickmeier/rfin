@@ -136,8 +136,8 @@
 //!
 //! ### From a Schedule Directly
 //!
-//! For lower-level control, use `CashFlowSchedule::pv_by_period` or
-//! `CashFlowSchedule::pv_by_period_with_market` directly.
+//! For lower-level control, use `CashFlowSchedule::pv_by_period_with_ctx` or
+//! `CashFlowSchedule::pv_by_period_with_market_and_ctx` directly.
 //!
 //! # See Also
 //!

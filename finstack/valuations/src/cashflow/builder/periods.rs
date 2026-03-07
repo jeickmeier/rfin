@@ -11,20 +11,7 @@ use super::calendar::{adjust_date, resolve_calendar_strict};
 use super::date_generation::build_dates;
 use super::emission::compute_reset_date;
 
-/// A standardized accrual/payment period for rates instruments.
-#[derive(Debug, Clone)]
-pub struct SchedulePeriod {
-    /// Start of the accrual period.
-    pub accrual_start: Date,
-    /// End of the accrual period (schedule boundary).
-    pub accrual_end: Date,
-    /// Payment date after applying payment lag.
-    pub payment_date: Date,
-    /// Optional reset/fixing date for floating legs.
-    pub reset_date: Option<Date>,
-    /// Accrual year fraction for the period.
-    pub accrual_year_fraction: f64,
-}
+pub use super::date_generation::SchedulePeriod;
 
 /// Parameters for building schedule periods.
 pub struct BuildPeriodsParams<'a> {

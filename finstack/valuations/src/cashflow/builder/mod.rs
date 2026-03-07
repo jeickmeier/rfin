@@ -80,7 +80,7 @@ pub use builder::{CashFlowBuilder, PrincipalEvent};
 
 // Re-export common types
 pub use dataframe::{PeriodDataFrame, PeriodDataFrameOptions};
-pub use date_generation::{build_dates, PeriodSchedule};
+pub use date_generation::{build_dates, PeriodSchedule, SchedulePeriod};
 pub use rate_helpers::{
     compute_compounded_rate, compute_overnight_rate, compute_simple_average_rate,
     project_floating_rate, project_floating_rate_from_market, FloatingRateParams,
@@ -97,7 +97,8 @@ pub use specs::{
 // Re-export credit rate conversions (hazard-style CPR↔SMM helpers)
 pub use credit_rates::{cpr_to_smm, smm_to_cpr};
 
-// Re-export emission functions
+// Re-export emission functions (internal; used by revolving credit engine and tests)
+#[doc(hidden)]
 pub use emission::{
     emit_commitment_fee_on, emit_default_on, emit_facility_fee_on, emit_prepayment_on,
     emit_usage_fee_on,

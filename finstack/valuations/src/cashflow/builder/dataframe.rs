@@ -12,21 +12,12 @@
 //! - Optional columns (survival_probs, base_rates, spreads, etc.) are conditionally computed
 //! - Facility limits enable undrawn balance calculations for revolving credit facilities
 
-use crate::cashflow::builder::schedule::CashFlowSchedule;
+use crate::cashflow::builder::schedule::{amounts_approx_equal, CashFlowSchedule};
 use crate::cashflow::primitives::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-
-/// Compare two amounts using relative epsilon for floating-point tolerance.
-///
-/// Uses a relative tolerance scaled by the magnitude of the values, with a
-/// minimum absolute tolerance of 1e-9 for values near zero.
-fn amounts_approx_equal(a: f64, b: f64) -> bool {
-    let max_abs = a.abs().max(b.abs()).max(1.0);
-    (a - b).abs() < max_abs * 1e-9
-}
 
 // =============================================================================
 // Helper functions for DataFrame construction (extracted for testability)
