@@ -189,7 +189,7 @@ impl CmsReplicationPricer {
 
         let strike = inst.strike_f64()?;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
-        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
 
         // Payments-per-year for the par annuity closed form.
         // Matches the fixed-leg payment frequency of the underlying CMS swap.

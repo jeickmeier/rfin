@@ -1659,7 +1659,7 @@ mod tests {
                 result.is_err(),
                 "Expected Err for parallel + non-splittable RNG, got Ok"
             );
-            let err = result.unwrap_err();
+            let err = result.expect_err("parallel + non-splittable RNG should return an error");
             let err_str = err.to_string();
             assert!(
                 err_str.contains("splittable RNG"),

@@ -443,7 +443,7 @@ mod tests {
         let discount_fn = |t: f64| (-r_flat * t).exp();
 
         let times: Vec<f64> = vec![0.5, 1.0, 2.0, 3.0, 5.0, 10.0];
-        let params = calibrate_theta_from_curve(kappa, sigma, &discount_fn, &times);
+        let params = calibrate_theta_from_curve(kappa, sigma, discount_fn, &times);
 
         // Check each calibrated θ(t) against the analytical HW formula.
         for &t in &times {

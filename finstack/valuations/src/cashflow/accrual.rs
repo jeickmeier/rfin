@@ -227,64 +227,53 @@ struct PeriodInputs {
     total_yf: f64,
 }
 
-// =============================================================================
-// Helper functions for build_coupon_periods (extracted for clarity)
-// =============================================================================
-
 /// Check if a cashflow kind is a coupon that should be included in accrual.
 fn is_coupon_kind(kind: CFKind, include_pik: bool) -> bool {
     matches!(kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset)
         || (include_pik && kind == CFKind::PIK)
 }
 
-/// Try to merge a cashflow into the last bucket if dates match.
-/// Returns true if merged, false if a new bucket is needed.
-fn try_merge_into_last_bucket(
-    buckets: &mut [CouponBucket],
-    cf: &finstack_core::cashflow::CashFlow,
-) -> bool {
-    let Some(last) = buckets.last_mut() else {
-        return false;
+fn derive_horizon_start(
+    schedule: &CashFlowSchedule,
+    first_bucket: &CouponBucket,
+    dc: DayCount,
+) -> Date {
+    if let Some(issue) = schedule.meta.issue_date {
+        return issue;
+    }
+
+    if let Some(min_date) = schedule.dates().into_iter().min() {
+        if min_date < first_bucket.date {
+            return min_date;
+        }
+    }
+
+    let days_per_year = match dc {
+        DayCount::Thirty360 | DayCount::Act360 => 360.0,
+        _ => 365.0,
     };
 
-    if last.date != cf.date {
-        return false;
-    }
+    // This branch should be unreachable when schedules are built via
+    // `CashFlowBuilder` (which always sets `meta.issue_date`) or the RCF
+    // engine (which now sets `commitment_date`). Reaching it means a new
+    // construction path forgot to populate `meta.issue_date`. The resulting
+    // date is approximate (±1-2 day error for non-30/360 conventions).
+    warn!(
+        first_coupon_date = %first_bucket.date,
+        accrual_factor = first_bucket.accrual_factor,
+        day_count = ?dc,
+        "build_coupon_periods: meta.issue_date not set; deriving from accrual factor \
+         via inverse day count approximation (may be off by 1-2 days). \
+         Set meta.issue_date on the CashFlowSchedule to suppress this warning."
+    );
 
-    // Merge based on cashflow kind
-    if cf.kind == CFKind::PIK {
-        last.pik_amount += cf.amount.amount();
+    if first_bucket.accrual_factor > 0.0
+        && first_bucket.accrual_factor <= MAX_REASONABLE_ACCRUAL_FACTOR
+    {
+        let days_to_subtract = (first_bucket.accrual_factor * days_per_year).round() as i64;
+        first_bucket.date - time::Duration::days(days_to_subtract)
     } else {
-        last.cash_amount += cf.amount.amount();
-        if last.accrual_factor == 0.0 && cf.accrual_factor > 0.0 {
-            last.accrual_factor = cf.accrual_factor;
-        }
-        if last.rate.is_none() {
-            last.rate = cf.rate;
-        }
-    }
-
-    true
-}
-
-/// Create a new coupon bucket from a cashflow.
-fn create_bucket(cf: &finstack_core::cashflow::CashFlow) -> CouponBucket {
-    if cf.kind == CFKind::PIK {
-        CouponBucket {
-            date: cf.date,
-            cash_amount: 0.0,
-            pik_amount: cf.amount.amount(),
-            accrual_factor: 0.0,
-            rate: None,
-        }
-    } else {
-        CouponBucket {
-            date: cf.date,
-            cash_amount: cf.amount.amount(),
-            pik_amount: 0.0,
-            accrual_factor: cf.accrual_factor,
-            rate: cf.rate,
-        }
+        first_bucket.date
     }
 }
 
@@ -299,13 +288,40 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<P
             continue;
         }
 
-        // Try to merge with existing bucket for same date
-        if try_merge_into_last_bucket(&mut buckets, cf) {
-            continue;
+        if let Some(last) = buckets.last_mut() {
+            if last.date == cf.date {
+                if cf.kind == CFKind::PIK {
+                    last.pik_amount += cf.amount.amount();
+                } else {
+                    last.cash_amount += cf.amount.amount();
+                    if last.accrual_factor == 0.0 && cf.accrual_factor > 0.0 {
+                        last.accrual_factor = cf.accrual_factor;
+                    }
+                    if last.rate.is_none() {
+                        last.rate = cf.rate;
+                    }
+                }
+                continue;
+            }
         }
 
-        // Create new bucket
-        buckets.push(create_bucket(cf));
+        buckets.push(if cf.kind == CFKind::PIK {
+            CouponBucket {
+                date: cf.date,
+                cash_amount: 0.0,
+                pik_amount: cf.amount.amount(),
+                accrual_factor: 0.0,
+                rate: None,
+            }
+        } else {
+            CouponBucket {
+                date: cf.date,
+                cash_amount: cf.amount.amount(),
+                pik_amount: 0.0,
+                accrual_factor: cf.accrual_factor,
+                rate: cf.rate,
+            }
+        });
     }
 
     if buckets.is_empty() {
@@ -326,52 +342,7 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<P
     // 3. Otherwise, derive issue date from first coupon's accrual factor using
     //    an inverse day count approximation (least accurate, up to 1-2 day error).
     let first_bucket = &buckets[0];
-    let horizon_start = if let Some(issue) = schedule.meta.issue_date {
-        // Prefer explicit issue date from metadata (set by builder or instrument).
-        issue
-    } else {
-        let schedule_min = schedule.dates().into_iter().min();
-        match schedule_min {
-            Some(min_date) if min_date < first_bucket.date => min_date,
-            _ => {
-                // Derive issue date from first coupon's accrual factor using inverse
-                // day count approximation:
-                //   issue_date ≈ first_coupon_date - (accrual_factor × days_per_year)
-                //
-                // The approximation uses the day count's denominator as days_per_year:
-                // - 30/360, ACT/360: 360 days per year
-                // - ACT/365F, ACT/ACT: 365 days per year (approximation for ACT/ACT)
-                let days_per_year = match dc {
-                    DayCount::Thirty360 => 360.0,
-                    DayCount::Act360 => 360.0,
-                    _ => 365.0,
-                };
-
-                // This branch should be unreachable when schedules are built via
-                // `CashFlowBuilder` (which always sets `meta.issue_date`) or the RCF
-                // engine (which now sets `commitment_date`). Reaching it means a new
-                // construction path forgot to populate `meta.issue_date`. The resulting
-                // date is approximate (±1-2 day error for non-30/360 conventions).
-                warn!(
-                    first_coupon_date = %first_bucket.date,
-                    accrual_factor = first_bucket.accrual_factor,
-                    day_count = ?dc,
-                    "build_coupon_periods: meta.issue_date not set; deriving from accrual factor \
-                     via inverse day count approximation (may be off by 1-2 days). \
-                     Set meta.issue_date on the CashFlowSchedule to suppress this warning."
-                );
-                if first_bucket.accrual_factor > 0.0
-                    && first_bucket.accrual_factor <= MAX_REASONABLE_ACCRUAL_FACTOR
-                {
-                    let days_to_subtract =
-                        (first_bucket.accrual_factor * days_per_year).round() as i64;
-                    first_bucket.date - time::Duration::days(days_to_subtract)
-                } else {
-                    first_bucket.date
-                }
-            }
-        }
-    };
+    let horizon_start = derive_horizon_start(schedule, first_bucket, dc);
 
     let mut prev = horizon_start;
 

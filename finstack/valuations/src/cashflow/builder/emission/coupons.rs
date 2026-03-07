@@ -61,6 +61,82 @@ fn compute_index_maturity(reset_date: Date, index_tenor: Tenor) -> Date {
     }
 }
 
+fn rate_when_curve_missing(
+    index_id: &str,
+    reset_date: Date,
+    spread_bp: f64,
+    fallback: &crate::cashflow::builder::specs::FloatingRateFallback,
+    params: &crate::cashflow::builder::rate_helpers::FloatingRateParams,
+    context_suffix: &str,
+) -> finstack_core::Result<f64> {
+    use crate::cashflow::builder::specs::FloatingRateFallback;
+
+    match fallback {
+        FloatingRateFallback::Error => Err(finstack_core::Error::Input(InputError::NotFound {
+            id: format!(
+                "forward curve '{}' not found for reset date {}{}",
+                index_id, reset_date, context_suffix
+            ),
+        })),
+        FloatingRateFallback::SpreadOnly => {
+            warn!(
+                reset_date = %reset_date,
+                spread_bp = %spread_bp,
+                "No forward curve resolved{context_suffix}, using fallback (spread-only) rate"
+            );
+            Ok(super::super::rate_helpers::project_fallback_rate(params))
+        }
+        FloatingRateFallback::FixedRate(r) => {
+            let index_rate = r.to_f64().unwrap_or(0.0);
+            info!(
+                reset_date = %reset_date,
+                fixed_rate = %r,
+                "No forward curve resolved{context_suffix}, using fixed index rate"
+            );
+            Ok(super::super::rate_helpers::calculate_floating_rate(
+                index_rate, params,
+            ))
+        }
+    }
+}
+
+fn rate_when_projection_fails(
+    error: &finstack_core::Error,
+    reset_date: Date,
+    index_maturity: Date,
+    spread_bp: f64,
+    fallback: &crate::cashflow::builder::specs::FloatingRateFallback,
+    params: &crate::cashflow::builder::rate_helpers::FloatingRateParams,
+) -> finstack_core::Result<f64> {
+    use crate::cashflow::builder::specs::FloatingRateFallback;
+
+    match fallback {
+        FloatingRateFallback::Error => Err(error.clone()),
+        FloatingRateFallback::SpreadOnly => {
+            warn!(
+                reset_date = %reset_date,
+                index_maturity = %index_maturity,
+                spread_bp = %spread_bp,
+                error = %error,
+                "Floating rate projection failed, using fallback (spread-only) rate"
+            );
+            Ok(super::super::rate_helpers::project_fallback_rate(params))
+        }
+        FloatingRateFallback::FixedRate(r) => {
+            let index_rate = r.to_f64().unwrap_or(0.0);
+            info!(
+                reset_date = %reset_date,
+                fixed_rate = %r,
+                error = %error,
+                "Floating rate projection failed, using fixed index rate"
+            );
+            Ok(super::super::rate_helpers::calculate_floating_rate(
+                index_rate, params,
+            ))
+        }
+    }
+}
+
 /// Emit fixed coupon cashflows on a specific date.
 ///
 /// Processes all fixed coupon schedules for the given date, computing coupon
@@ -332,8 +408,6 @@ pub(crate) fn emit_float_coupons_on(
             //   Error      -> propagate immediately (strictest, default)
             //   SpreadOnly -> use spread as total rate (legacy)
             //   FixedRate(r) -> use r as the index component
-            use crate::cashflow::builder::specs::FloatingRateFallback;
-
             let total_rate = if let Some(ref method) = spec.rate_spec.overnight_compounding {
                 // ── Overnight compounding path ──
                 // Sample daily rates from the forward curve and compound them
@@ -362,34 +436,14 @@ pub(crate) fn emit_float_coupons_on(
                     // Apply floor/cap/gearing/spread to the compounded index rate.
                     super::super::rate_helpers::calculate_floating_rate(compounded_index, &params)
                 } else {
-                    // No curve available — use fallback policy.
-                    match &spec.rate_spec.fallback {
-                        FloatingRateFallback::Error => {
-                            return Err(finstack_core::Error::Input(InputError::NotFound {
-                                id: format!(
-                                    "forward curve '{}' not found for reset date {} (overnight compounding)",
-                                    spec.rate_spec.index_id, reset_date
-                                ),
-                            }));
-                        }
-                        FloatingRateFallback::SpreadOnly => {
-                            warn!(
-                                reset_date = %reset_date,
-                                spread_bp = %spread_bp,
-                                "No forward curve resolved (overnight), using fallback (spread-only) rate"
-                            );
-                            super::super::rate_helpers::project_fallback_rate(&params)
-                        }
-                        FloatingRateFallback::FixedRate(r) => {
-                            let index_rate = r.to_f64().unwrap_or(0.0);
-                            info!(
-                                reset_date = %reset_date,
-                                fixed_rate = %r,
-                                "No forward curve resolved (overnight), using fixed index rate"
-                            );
-                            super::super::rate_helpers::calculate_floating_rate(index_rate, &params)
-                        }
-                    }
+                    rate_when_curve_missing(
+                        spec.rate_spec.index_id.as_str(),
+                        reset_date,
+                        spread_bp,
+                        &spec.rate_spec.fallback,
+                        &params,
+                        " (overnight compounding)",
+                    )?
                 }
             } else if let Some(fwd) = resolved_curve.as_deref() {
                 // ── Standard term rate projection path ──
@@ -401,60 +455,24 @@ pub(crate) fn emit_float_coupons_on(
                     &params,
                 ) {
                     Ok(rate) => rate,
-                    Err(e) => match &spec.rate_spec.fallback {
-                        FloatingRateFallback::Error => {
-                            return Err(e);
-                        }
-                        FloatingRateFallback::SpreadOnly => {
-                            warn!(
-                                reset_date = %reset_date,
-                                index_maturity = %index_maturity,
-                                spread_bp = %spread_bp,
-                                error = %e,
-                                "Floating rate projection failed, using fallback (spread-only) rate"
-                            );
-                            super::super::rate_helpers::project_fallback_rate(&params)
-                        }
-                        FloatingRateFallback::FixedRate(r) => {
-                            let index_rate = r.to_f64().unwrap_or(0.0);
-                            info!(
-                                reset_date = %reset_date,
-                                fixed_rate = %r,
-                                error = %e,
-                                "Floating rate projection failed, using fixed index rate"
-                            );
-                            super::super::rate_helpers::calculate_floating_rate(index_rate, &params)
-                        }
-                    },
+                    Err(error) => rate_when_projection_fails(
+                        &error,
+                        reset_date,
+                        index_maturity,
+                        spread_bp,
+                        &spec.rate_spec.fallback,
+                        &params,
+                    )?,
                 }
             } else {
-                match &spec.rate_spec.fallback {
-                    FloatingRateFallback::Error => {
-                        return Err(finstack_core::Error::Input(InputError::NotFound {
-                            id: format!(
-                                "forward curve '{}' not found for reset date {}",
-                                spec.rate_spec.index_id, reset_date
-                            ),
-                        }));
-                    }
-                    FloatingRateFallback::SpreadOnly => {
-                        warn!(
-                            reset_date = %reset_date,
-                            spread_bp = %spread_bp,
-                            "No forward curve resolved, using fallback (spread-only) rate"
-                        );
-                        super::super::rate_helpers::project_fallback_rate(&params)
-                    }
-                    FloatingRateFallback::FixedRate(r) => {
-                        let index_rate = r.to_f64().unwrap_or(0.0);
-                        info!(
-                            reset_date = %reset_date,
-                            fixed_rate = %r,
-                            "No forward curve resolved, using fixed index rate"
-                        );
-                        super::super::rate_helpers::calculate_floating_rate(index_rate, &params)
-                    }
-                }
+                rate_when_curve_missing(
+                    spec.rate_spec.index_id.as_str(),
+                    reset_date,
+                    spread_bp,
+                    &spec.rate_spec.fallback,
+                    &params,
+                    "",
+                )?
             };
 
             // Convert f64 values to Decimal with proper error handling for NaN/Infinity.

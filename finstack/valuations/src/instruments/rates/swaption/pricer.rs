@@ -9,7 +9,7 @@ use crate::pricer::{
 };
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::surfaces::VolSurfaceAxis;
+use finstack_core::market_data::surfaces::{VolSurface, VolSurfaceAxis};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use std::sync::Arc;

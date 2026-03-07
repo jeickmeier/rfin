@@ -158,22 +158,6 @@ fn validate_core_inputs(b: &CashFlowBuilder) -> finstack_core::Result<(Notional,
     Ok((notional, issue, maturity))
 }
 
-type CompiledAndFees = (CompiledSchedules, Vec<PeriodicFee>, Vec<(Date, Money)>);
-
-fn compile_schedules_and_fees(
-    b: &CashFlowBuilder,
-    issue: Date,
-    maturity: Date,
-) -> finstack_core::Result<CompiledAndFees> {
-    // Centralized wrapper so the main build pipeline remains focused on the
-    // high-level orchestration (validate → compile → collect dates → emit).
-    // Keeping this helper avoids repeating the tuple wiring in both
-    // documentation and any future build variants.
-    let compiled = compute_coupon_schedules(b, issue, maturity)?;
-    let (periodic_fees, fixed_fees) = build_fee_schedules(issue, maturity, &b.fees)?;
-    Ok((compiled, periodic_fees, fixed_fees))
-}
-
 fn derive_amortization_setup(
     notional: &Notional,
     fixed_schedules: &[FixedSchedule],
@@ -523,17 +507,6 @@ impl<'a> DateProcessor<'a> {
 
         Ok(state)
     }
-}
-
-fn process_one_date(
-    d: Date,
-    state: BuildState,
-    ctx: &BuildContext,
-    amort_setup: &AmortizationSetup,
-    resolved_curves: &[Option<Arc<ForwardCurve>>],
-) -> finstack_core::Result<BuildState> {
-    let processor = DateProcessor::new(ctx, amort_setup, resolved_curves);
-    processor.process(d, state)
 }
 
 // -------------------------------------------------------------------------
@@ -1334,7 +1307,11 @@ impl CashFlowBuilder {
             },
             periodic_fees,
             fixed_fees,
-        ) = compile_schedules_and_fees(self, issue, maturity)?;
+        ) = {
+            let compiled = compute_coupon_schedules(self, issue, maturity)?;
+            let (periodic_fees, fixed_fees) = build_fee_schedules(issue, maturity, &self.fees)?;
+            (compiled, periodic_fees, fixed_fees)
+        };
 
         // 2b) Normalize principal events (sorted) and validate currency/date bounds
         let mut principal_events = self.principal_events.clone();
@@ -1403,8 +1380,9 @@ impl CashFlowBuilder {
         };
 
         // 6) Fold over dates producing flows deterministically
+        let processor = DateProcessor::new(&ctx, &amort_setup, &resolved_curves);
         for &d in dates.iter().skip(1) {
-            state = process_one_date(d, state, &ctx, &amort_setup, &resolved_curves)?;
+            state = processor.process(d, state)?;
         }
 
         // 7) Finalize flows and produce meta/day count (use actual specs used)

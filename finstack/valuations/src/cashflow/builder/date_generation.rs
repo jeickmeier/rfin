@@ -37,9 +37,39 @@ pub struct PeriodSchedule {
     pub first_or_last: finstack_core::HashSet<Date>,
 }
 
-/// Internal implementation for schedule building with strict error handling.
+/// Build a schedule between start/end with strict error handling.
+///
+/// # Errors
+///
+/// Returns `finstack_core::Error` when:
+/// - `calendar_id` is provided but calendar is not found
+/// - Schedule generation fails due to invalid date ranges
+/// - Business day adjustment fails
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::dates::{Date, Tenor, BusinessDayConvention, StubKind, create_date};
+/// use finstack_valuations::cashflow::builder::date_generation::build_dates;
+/// use time::Month;
+///
+/// let start = create_date(2025, Month::January, 15)?;
+/// let end = create_date(2025, Month::July, 15)?;
+/// let sched = build_dates(
+///     start,
+///     end,
+///     Tenor::quarterly(),
+///     StubKind::None,
+///     BusinessDayConvention::Following,
+///     false,
+///     0,
+///     "weekends_only",
+/// )?;
+/// assert!(sched.dates.len() >= 2);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 #[allow(clippy::too_many_arguments)]
-fn build_dates_impl(
+pub fn build_dates(
     start: Date,
     end: Date,
     freq: Tenor,
@@ -107,60 +137,6 @@ fn build_dates_impl(
         dates: payment_dates,
         first_or_last,
     })
-}
-
-/// Build a schedule between start/end with strict error handling.
-///
-/// # Errors
-///
-/// Returns `finstack_core::Error` when:
-/// - `calendar_id` is provided but calendar is not found
-/// - Schedule generation fails due to invalid date ranges
-/// - Business day adjustment fails
-///
-/// # Example
-///
-/// ```rust
-/// use finstack_core::dates::{Date, Tenor, BusinessDayConvention, StubKind, create_date};
-/// use finstack_valuations::cashflow::builder::date_generation::build_dates;
-/// use time::Month;
-///
-/// let start = create_date(2025, Month::January, 15)?;
-/// let end = create_date(2025, Month::July, 15)?;
-/// let sched = build_dates(
-///     start,
-///     end,
-///     Tenor::quarterly(),
-///     StubKind::None,
-///     BusinessDayConvention::Following,
-///     false,
-///     0,
-///     "weekends_only",
-/// )?;
-/// assert!(sched.dates.len() >= 2);
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-#[allow(clippy::too_many_arguments)]
-pub fn build_dates(
-    start: Date,
-    end: Date,
-    freq: Tenor,
-    stub: StubKind,
-    bdc: BusinessDayConvention,
-    end_of_month: bool,
-    payment_lag_days: i32,
-    calendar_id: &str,
-) -> finstack_core::Result<PeriodSchedule> {
-    build_dates_impl(
-        start,
-        end,
-        freq,
-        stub,
-        bdc,
-        end_of_month,
-        payment_lag_days,
-        calendar_id,
-    )
 }
 
 #[cfg(test)]
