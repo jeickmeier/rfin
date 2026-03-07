@@ -21,6 +21,12 @@ impl RandomStream for SobolRng {
     fn fill_std_normals(&mut self, out: &mut [f64]) {
         SobolRng::fill_std_normals(self, out);
     }
+
+    /// Sobol sequences cannot be split into independent streams.
+    /// Always returns false.
+    fn supports_splitting(&self) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]

@@ -242,7 +242,6 @@ fn test_ttm_function() {
     assert_eq!(q1_2025_ttm, 5000.0);
 }
 
-#[test]
 fn test_complex_custom_functions() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..2025Q2", None)

@@ -197,3 +197,139 @@ fn test_dcf_with_market_context() {
         "Results should match for empty vs None market context"
     );
 }
+
+#[test]
+fn test_dcf_excludes_historical_periods_from_explicit_flows() {
+    let model = ModelBuilder::new("hist-vs-forecast")
+        .periods("2025Q1..Q4", Some("2025Q2"))
+        .expect("valid periods")
+        .value(
+            "ufcf",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
+            ],
+        )
+        .build()
+        .expect("valid model");
+
+    let result = evaluate_dcf(
+        &model,
+        0.10,
+        TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
+        "ufcf",
+        Some(0.0),
+    )
+    .expect("DCF evaluation should succeed");
+
+    let dcf = result
+        .dcf_instrument
+        .expect("dcf instrument should be returned");
+    assert_eq!(
+        dcf.flows.len(),
+        2,
+        "only forecast periods should feed DCF flows"
+    );
+    assert_eq!(dcf.flows[0].1, 120_000.0);
+    assert_eq!(dcf.flows[1].1, 130_000.0);
+}
+
+#[test]
+fn test_dcf_uses_forecast_boundary_for_valuation_date_and_auto_net_debt() {
+    let model = ModelBuilder::new("hist-boundary-dcf")
+        .periods("2025Q1..Q4", Some("2025Q2"))
+        .expect("valid periods")
+        .value(
+            "ufcf",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
+            ],
+        )
+        .value(
+            "total_debt",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(40.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(10.0)),
+            ],
+        )
+        .value(
+            "cash",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(0.0)),
+            ],
+        )
+        .build()
+        .expect("valid model");
+
+    let result = evaluate_dcf(
+        &model,
+        0.10,
+        TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
+        "ufcf",
+        None,
+    )
+    .expect("DCF evaluation should succeed");
+
+    let first_forecast = model
+        .periods
+        .iter()
+        .find(|p| !p.is_actual)
+        .expect("forecast period should exist");
+    let last_actual = model
+        .periods
+        .iter()
+        .filter(|p| p.is_actual)
+        .next_back()
+        .expect("actual period should exist");
+    let dcf = result
+        .dcf_instrument
+        .as_ref()
+        .expect("dcf instrument should be returned");
+
+    assert_eq!(
+        dcf.valuation_date, first_forecast.start,
+        "DCF should discount from the first forecast start date"
+    );
+    assert_eq!(
+        dcf.valuation_date, last_actual.end,
+        "valuation date should align with the last actual balance-sheet boundary"
+    );
+    assert!(
+        (result.net_debt.amount() - 100.0).abs() < 1e-9,
+        "auto net debt should come from the last actual balance sheet, not the terminal forecast period"
+    );
+}

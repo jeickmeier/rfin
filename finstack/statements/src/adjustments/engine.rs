@@ -124,7 +124,7 @@ impl NormalizationEngine {
                 .ok_or_else(|| Error::eval(format!("Cap base node '{}' not found", base_node)))?;
 
             let base_value = base_values.get(&period_id).unwrap_or(&0.0);
-            base_value.abs() * cap.value // Usually caps are based on absolute magnitude or positive EBITDA
+            base_value.max(0.0) * cap.value
         } else {
             // Fixed absolute cap
             cap.value
@@ -249,5 +249,29 @@ mod tests {
                 .expect("Q2 adjusted value present"),
             135.0
         );
+    }
+
+    #[test]
+    fn test_capped_adjustment_does_not_use_negative_ebitda_as_positive_cap_room() {
+        let mut results = StatementResult::new();
+        let mut ebitda = IndexMap::new();
+        ebitda.insert(PeriodId::quarter(2025, 1), -100.0);
+        results.nodes.insert("EBITDA".to_string(), ebitda);
+
+        let mut amounts = IndexMap::new();
+        amounts.insert(PeriodId::quarter(2025, 1), 50.0);
+
+        let adj = Adjustment::fixed("syn", "Synergies", amounts)
+            .with_cap(Some("EBITDA".to_string()), 0.20);
+        let config = NormalizationConfig::new("EBITDA").add_adjustment(adj);
+
+        let normalized = NormalizationEngine::normalize(&results, &config)
+            .expect("normalization should succeed for negative EBITDA case");
+
+        let q1 = &normalized[0];
+        assert_eq!(q1.adjustments[0].raw_amount, 50.0);
+        assert_eq!(q1.adjustments[0].capped_amount, 0.0);
+        assert!(q1.adjustments[0].is_capped);
+        assert_eq!(q1.final_value, -100.0);
     }
 }

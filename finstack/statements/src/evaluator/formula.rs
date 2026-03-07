@@ -108,6 +108,60 @@ fn require_min_args(
     Ok(())
 }
 
+#[inline]
+fn evaluate_non_negative_integer_arg(
+    func_name: &str,
+    expr: &Expr,
+    context: &mut EvaluationContext,
+    node_id: Option<&str>,
+) -> Result<i32> {
+    let value = evaluate_expr(expr, context, node_id)?;
+    if !value.is_finite() {
+        return Err(eval_error(
+            node_id,
+            format!("{func_name}() requires a finite integer argument"),
+        ));
+    }
+    if value.fract().abs() > EPSILON {
+        return Err(eval_error(
+            node_id,
+            format!("{func_name}() requires an integer argument"),
+        ));
+    }
+
+    let integer = value as i32;
+    if integer < 0 {
+        return Err(eval_error(
+            node_id,
+            format!("{func_name}() argument must be non-negative"),
+        ));
+    }
+    Ok(integer)
+}
+
+#[inline]
+fn evaluate_integer_arg(
+    func_name: &str,
+    expr: &Expr,
+    context: &mut EvaluationContext,
+    node_id: Option<&str>,
+) -> Result<i32> {
+    let value = evaluate_expr(expr, context, node_id)?;
+    if !value.is_finite() {
+        return Err(eval_error(
+            node_id,
+            format!("{func_name}() requires a finite integer argument"),
+        ));
+    }
+    if value.fract().abs() > EPSILON {
+        return Err(eval_error(
+            node_id,
+            format!("{func_name}() requires an integer argument"),
+        ));
+    }
+    Ok(value as i32)
+}
+
 /// Evaluate a compiled expression.
 ///
 /// Handles both basic arithmetic operations (evaluated directly) and
@@ -175,6 +229,92 @@ fn collect_rolling_window_values(
 fn collect_all_historical_values(node_name: &str, context: &EvaluationContext) -> Result<Vec<f64>> {
     let sorted = collect_historical_values_sorted(node_name, context)?;
     Ok(sorted.into_values().collect())
+}
+
+/// Build a period-specific evaluation context so an expression can be
+/// re-evaluated historically with the correct current/historical split.
+fn build_context_for_period(
+    target_period: PeriodId,
+    context: &EvaluationContext,
+) -> Result<EvaluationContext> {
+    let historical_results = context
+        .historical_results
+        .iter()
+        .filter(|(period, _)| **period < target_period)
+        .map(|(period, values)| (*period, values.clone()))
+        .collect();
+
+    let current_period_values = if target_period == context.period_id {
+        context
+            .node_to_column
+            .iter()
+            .filter_map(|(node_id, idx)| {
+                context.current_values[*idx].map(|value| (node_id.clone(), value))
+            })
+            .collect()
+    } else {
+        context
+            .historical_results
+            .get(&target_period)
+            .cloned()
+            .unwrap_or_default()
+    };
+
+    let mut period_context = EvaluationContext::new(
+        target_period,
+        context.node_to_column.clone(),
+        historical_results,
+    );
+    period_context.node_value_types = context.node_value_types.clone();
+    period_context.capital_structure_cashflows = context.capital_structure_cashflows.clone();
+
+    for (node_id, value) in current_period_values {
+        period_context.set_value(&node_id, value)?;
+    }
+
+    Ok(period_context)
+}
+
+/// Collect expression values over all available periods in chronological order.
+fn collect_expression_values_sorted(
+    expr: &Expr,
+    context: &EvaluationContext,
+    node_id: Option<&str>,
+) -> Result<BTreeMap<PeriodId, f64>> {
+    let mut periods = BTreeMap::new();
+    for period in context.historical_results.keys() {
+        periods.insert(*period, ());
+    }
+    periods.insert(context.period_id, ());
+
+    let mut values = BTreeMap::new();
+    for (period, _) in periods {
+        let mut period_context = build_context_for_period(period, context)?;
+        let value = evaluate_expr(expr, &mut period_context, node_id)?;
+        values.insert(period, value);
+    }
+
+    Ok(values)
+}
+
+/// Collect expression values for a rolling window in chronological order.
+fn collect_expression_window_values(
+    expr: &Expr,
+    context: &EvaluationContext,
+    window_size: usize,
+    node_id: Option<&str>,
+) -> Result<Vec<f64>> {
+    if window_size == 0 {
+        return Ok(Vec::new());
+    }
+
+    let mut values: Vec<f64> = collect_expression_values_sorted(expr, context, node_id)?
+        .into_values()
+        .rev()
+        .take(window_size)
+        .collect();
+    values.reverse();
+    Ok(values)
 }
 
 /// Collect values for a node over a closed period range [start, end].
@@ -375,10 +515,7 @@ fn evaluate_function(
             require_args("lag", args, 2, node_id)?;
 
             // Get the number of periods to lag
-            let lag_periods = evaluate_expr(&args[1], context, node_id)? as i32;
-            if lag_periods < 0 {
-                return Err(eval_error(node_id, "lag() periods must be non-negative"));
-            }
+            let lag_periods = evaluate_non_negative_integer_arg("lag", &args[1], context, node_id)?;
 
             if lag_periods == 0 {
                 // No lag, just evaluate the expression
@@ -417,7 +554,7 @@ fn evaluate_function(
 
             // Get the lag periods (default to 1)
             let lag_periods = if args.len() == 2 {
-                evaluate_expr(&args[1], context, node_id)? as i32
+                evaluate_non_negative_integer_arg("diff", &args[1], context, node_id)?
             } else {
                 1
             };
@@ -461,7 +598,7 @@ fn evaluate_function(
 
             // Get the lag periods (default to 1)
             let lag_periods = if args.len() == 2 {
-                evaluate_expr(&args[1], context, node_id)? as i32
+                evaluate_non_negative_integer_arg("pct_change", &args[1], context, node_id)?
             } else {
                 1
             };
@@ -597,7 +734,12 @@ fn evaluate_function(
         | Function::RollingCount => {
             require_args(&format!("{:?}", func), args, 2, node_id)?;
 
-            let window = evaluate_expr(&args[1], context, node_id)? as usize;
+            let window = evaluate_non_negative_integer_arg(
+                &format!("{:?}", func),
+                &args[1],
+                context,
+                node_id,
+            )? as usize;
             if window == 0 {
                 return Err(eval_error(node_id, "Window size must be greater than 0"));
             }
@@ -606,8 +748,7 @@ fn evaluate_function(
             let values = if let ExprNode::Column(node_name) = &args[0].node {
                 collect_rolling_window_values(node_name, context, window)?
             } else {
-                // For complex expressions, just use current value
-                vec![evaluate_expr(&args[0], context, node_id)?]
+                collect_expression_window_values(&args[0], context, window, node_id)?
             };
 
             if values.is_empty() {
@@ -638,8 +779,9 @@ fn evaluate_function(
             let values = if let ExprNode::Column(node_name) = &args[0].node {
                 collect_all_historical_values(node_name, context)?
             } else {
-                // For complex expressions, just use current value
-                vec![evaluate_expr(&args[0], context, node_id)?]
+                collect_expression_values_sorted(&args[0], context, node_id)?
+                    .into_values()
+                    .collect()
             };
 
             match func {
@@ -661,8 +803,9 @@ fn evaluate_function(
             let values = if let ExprNode::Column(node_name) = &args[0].node {
                 collect_all_historical_values(node_name, context)?
             } else {
-                // For complex expressions, just use current value
-                vec![evaluate_expr(&args[0], context, node_id)?]
+                collect_expression_values_sorted(&args[0], context, node_id)?
+                    .into_values()
+                    .collect()
             };
 
             if values.is_empty() {
@@ -700,7 +843,7 @@ fn evaluate_function(
         // Other functions
         Function::Shift => {
             require_args("shift", args, 2, node_id)?;
-            let shift_periods = evaluate_expr(&args[1], context, node_id)? as i32;
+            let shift_periods = evaluate_integer_arg("shift", &args[1], context, node_id)?;
 
             if shift_periods == 0 {
                 return evaluate_expr(&args[0], context, node_id);
@@ -812,9 +955,6 @@ fn evaluate_function(
 
             // Collect and sort all values
             let mut all_values = collect_all_historical_values(node_name, context)?;
-            if let Ok(current) = context.get_value(node_name) {
-                all_values.push(current);
-            }
 
             if all_values.is_empty() {
                 return Ok(f64::NAN);
@@ -1089,14 +1229,9 @@ fn evaluate_function(
                 let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
                 Ok(neumaier_sum(filtered.iter().copied()))
             } else {
-                // For complex expressions, annualize by multiplying by periods per year
-                let value = evaluate_expr(&args[0], context, node_id)?;
-                if value.is_nan() {
-                    Ok(f64::NAN)
-                } else {
-                    let annualization_factor = window as f64;
-                    Ok(value * annualization_factor)
-                }
+                let values = collect_expression_window_values(&args[0], context, window, node_id)?;
+                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
+                Ok(neumaier_sum(filtered.iter().copied()))
             }
         }
 
@@ -1189,12 +1324,12 @@ fn evaluate_function(
 
             for arg in args {
                 let value = evaluate_expr(arg, context, node_id)?;
-                if !value.is_nan() && value != 0.0 {
+                if !value.is_nan() {
                     return Ok(value);
                 }
             }
 
-            // If all values are NaN or zero, return the last one
+            // If all values are NaN, return the last one
             evaluate_expr(&args[args.len() - 1], context, node_id)
         }
 

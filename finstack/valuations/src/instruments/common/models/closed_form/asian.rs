@@ -557,11 +557,26 @@ fn compute_arithmetic_mean_first_moment(
     spot * sum / n
 }
 
-/// Compute E[A²] for arithmetic average with discrete fixings.
+/// Compute E[A²] for arithmetic average with discrete fixings using O(n) algorithm.
 ///
-/// E[A²] = (1/n²) * Σᵢ Σⱼ E[S(tᵢ) * S(tⱼ)]
+/// The naive double-sum is O(n²). We reduce to O(n) by decomposing:
 ///
-/// where E[S(tᵢ) * S(tⱼ)] = S² * exp((2r - 2q + σ²) * min(tᵢ, tⱼ)) * exp((r - q) * |tᵢ - tⱼ|)
+/// Σᵢ Σⱼ exp(a·min(tᵢ,tⱼ) + b·|tᵢ-tⱼ|)
+///   = Σᵢ exp(a·tᵢ)                    [diagonal, i=j]
+///   + 2 · Σᵢ<ⱼ exp((a-b)·tᵢ + b·tⱼ) [off-diagonal: both (i,j) and (j,i) give the same value]
+///
+/// where a = 2r - 2q + σ², b = r - q.
+///
+/// The symmetry exp(a·min(tᵢ,tⱼ) + b·|tᵢ-tⱼ|) = exp((a-b)·min + b·max) means the
+/// (i,j) and (j,i) entries with i≠j are equal, so the full double sum equals:
+///   diagonal + 2 · Σᵢ<ⱼ exp((a-b)·tᵢ + b·tⱼ)
+///
+/// The upper-triangle sum factors as:
+///   Σⱼ exp(b·tⱼ) · Σᵢ<ⱼ exp((a-b)·tᵢ)
+///
+/// The inner sum is a prefix sum updated in O(1) per step → total O(n).
+///
+/// Reference: Turnbull & Wakeman (1991), moment expansion for arithmetic Asian options.
 fn compute_arithmetic_mean_second_moment(
     spot: f64,
     time: f64,
@@ -573,22 +588,33 @@ fn compute_arithmetic_mean_second_moment(
     let n = num_fixings as f64;
     let dt = time / n;
 
-    let mut sum = 0.0;
-    for i in 1..=num_fixings {
-        let t_i = (i as f64) * dt;
-        for j in 1..=num_fixings {
-            let t_j = (j as f64) * dt;
-            let t_min = t_i.min(t_j);
-            let t_diff = (t_i - t_j).abs();
+    // Exponent parameters
+    let a = 2.0 * rate - 2.0 * div_yield + vol * vol; // coefficient for min(tᵢ, tⱼ)
+    let b = rate - div_yield; // coefficient for |tᵢ - tⱼ|
+    let a_minus_b = a - b; // = r - 2q + σ²
 
-            // E[S(tᵢ) * S(tⱼ)] = S² * exp((2r - 2q + σ²) * t_min + (r - q) * t_diff)
-            let exponent =
-                (2.0 * rate - 2.0 * div_yield + vol * vol) * t_min + (rate - div_yield) * t_diff;
-            sum += exponent.exp();
-        }
+    let mut diagonal_sum = 0.0;
+    let mut upper_tri_sum = 0.0;
+
+    // prefix_ab: Σᵢ'<k exp((a-b)·tᵢ')  — combined with exp(b·tₖ) for upper triangle
+    let mut prefix_ab = 0.0_f64;
+
+    for k in 1..=num_fixings {
+        let tk = (k as f64) * dt;
+
+        // Diagonal term: i = j = k → exp(a·tₖ)
+        diagonal_sum += (a * tk).exp();
+
+        // Upper triangle: k acts as j, sum over all i < k
+        // Each pair (i,j) with i<j contributes exp((a-b)·tᵢ + b·tⱼ)
+        upper_tri_sum += (b * tk).exp() * prefix_ab;
+
+        // Update prefix sum for next iteration (i=k will be < next j)
+        prefix_ab += (a_minus_b * tk).exp();
     }
 
-    spot * spot * sum / (n * n)
+    // Off-diagonal total = 2 * upper_tri_sum (each unordered pair counted twice)
+    spot * spot * (diagonal_sum + 2.0 * upper_tri_sum) / (n * n)
 }
 
 /// Helper: vanilla call under Black-Scholes.
@@ -945,5 +971,55 @@ mod tests {
             price,
             intrinsic
         );
+    }
+
+    #[test]
+    fn test_second_moment_on_algorithm_matches_brute_force() {
+        // Verify the O(n) algorithm matches the O(n²) brute-force for small n.
+        // Uses a separate brute-force implementation for cross-validation.
+        fn brute_force_second_moment(
+            spot: f64,
+            time: f64,
+            rate: f64,
+            div_yield: f64,
+            vol: f64,
+            n: usize,
+        ) -> f64 {
+            let n_f = n as f64;
+            let dt = time / n_f;
+            let mut sum = 0.0;
+            for i in 1..=n {
+                let ti = (i as f64) * dt;
+                for j in 1..=n {
+                    let tj = (j as f64) * dt;
+                    let t_min = ti.min(tj);
+                    let t_diff = (ti - tj).abs();
+                    let exp = (2.0 * rate - 2.0 * div_yield + vol * vol) * t_min
+                        + (rate - div_yield) * t_diff;
+                    sum += exp.exp();
+                }
+            }
+            spot * spot * sum / (n_f * n_f)
+        }
+
+        let spot = 100.0;
+        let time = 1.0;
+        let rate = 0.05;
+        let div = 0.02;
+        let vol = 0.20;
+
+        for n in [2, 5, 10, 20, 50] {
+            let fast = compute_arithmetic_mean_second_moment(spot, time, rate, div, vol, n);
+            let slow = brute_force_second_moment(spot, time, rate, div, vol, n);
+            let rel_err = (fast - slow).abs() / slow.abs().max(1e-15);
+            assert!(
+                rel_err < 1e-10,
+                "O(n) second moment mismatch for n={}: fast={:.10}, slow={:.10}, rel_err={:.2e}",
+                n,
+                fast,
+                slow,
+                rel_err
+            );
+        }
     }
 }
