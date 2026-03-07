@@ -650,6 +650,40 @@ pub struct BondValuator {
 }
 
 impl BondValuator {
+    fn make_whole_call_price(
+        call: &crate::instruments::fixed_income::bond::CallPut,
+        reference_curve: &dyn finstack_core::market_data::traits::Discounting,
+        time_steps: &[f64],
+        cashflow_vec: &[f64],
+        step: usize,
+        floor_price: f64,
+    ) -> f64 {
+        let call_time = *time_steps.get(step).unwrap_or(&0.0);
+        let spread = call
+            .make_whole
+            .as_ref()
+            .map(|spec| spec.spread_bps / 10_000.0)
+            .unwrap_or(0.0);
+
+        let mut pv_remaining = 0.0;
+        for (future_step, amount) in cashflow_vec.iter().enumerate().skip(step + 1) {
+            let amount = *amount;
+            if amount.abs() <= f64::EPSILON {
+                continue;
+            }
+            let future_time = *time_steps.get(future_step).unwrap_or(&call_time);
+            if future_time <= call_time {
+                continue;
+            }
+
+            let tau = future_time - call_time;
+            let df_ratio = reference_curve.df(future_time) / reference_curve.df(call_time);
+            pv_remaining += amount * df_ratio * (-spread * tau).exp();
+        }
+
+        floor_price.max(pv_remaining)
+    }
+
     /// Create a new bond valuator for tree pricing.
     ///
     /// Builds maps of coupons, call prices, and put prices indexed by tree step.
@@ -846,14 +880,22 @@ impl BondValuator {
                     if step >= num_steps {
                         step = num_steps - 1;
                     }
-                    // Use outstanding principal at exercise step, not original notional.
-                    // TODO(make-whole): When `call.make_whole` is Some(spec), the effective
-                    // call price should be max(price_pct_of_par, PV of remaining cashflows
-                    // at reference_rate + spread). This requires access to the reference
-                    // curve inside the tree backward induction (rate-dependent at each node).
-                    // For now, use the fixed price_pct_of_par which is the floor.
                     let outstanding = outstanding_principal_vec[step];
-                    let call_price = outstanding * (call.price_pct_of_par / 100.0);
+                    let floor_price = outstanding * (call.price_pct_of_par / 100.0);
+                    let call_price = if let Some(spec) = &call.make_whole {
+                        let reference_curve =
+                            market_context.get_discount(&spec.reference_curve_id)?;
+                        Self::make_whole_call_price(
+                            call,
+                            reference_curve.as_ref(),
+                            &time_steps,
+                            &cashflow_vec,
+                            step,
+                            floor_price,
+                        )
+                    } else {
+                        floor_price
+                    };
                     call_vec[step] = Some(call_price);
                 }
             }
@@ -1543,6 +1585,7 @@ mod tests {
     use super::*;
     use crate::instruments::fixed_income::bond::CallPutSchedule;
     use finstack_core::math::interp::InterpStyle;
+    use finstack_core::types::CurveId;
     use time::Month;
     fn create_test_bond() -> Bond {
         use crate::instruments::fixed_income::bond::CashflowSpec;
@@ -1588,6 +1631,22 @@ mod tests {
         bond.call_put = Some(call_put);
         bond
     }
+    fn create_make_whole_callable_bond() -> Bond {
+        let mut bond = create_test_bond();
+        let call_date = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
+        let mut call_put = CallPutSchedule::default();
+        call_put.calls.push(CallPut {
+            date: call_date,
+            price_pct_of_par: 102.0,
+            end_date: None,
+            make_whole: Some(crate::instruments::fixed_income::bond::MakeWholeSpec {
+                reference_curve_id: CurveId::from("USD-TSY"),
+                spread_bps: 25.0,
+            }),
+        });
+        bond.call_put = Some(call_put);
+        bond
+    }
     fn create_test_market_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let discount_curve =
@@ -1597,7 +1656,16 @@ mod tests {
                 .interp(InterpStyle::LogLinear)
                 .build()
                 .expect("DiscountCurve builder should succeed with valid test data");
-        MarketContext::new().insert_discount(discount_curve)
+        let treasury_curve =
+            finstack_core::market_data::term_structures::DiscountCurve::builder("USD-TSY")
+                .base_date(base_date)
+                .knots([(0.0, 1.0), (1.0, 0.985), (5.0, 0.93), (10.0, 0.86)])
+                .interp(InterpStyle::LogLinear)
+                .build()
+                .expect("Treasury curve should build");
+        MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_discount(treasury_curve)
     }
     #[test]
     fn test_bond_valuator_creation() {
@@ -1647,6 +1715,32 @@ mod tests {
         assert!(valuator.call_vec.iter().any(|c| c.is_some()));
         // Verify no put options
         assert!(valuator.put_vec.iter().all(|p| p.is_none()));
+    }
+
+    #[test]
+    fn test_bond_valuator_make_whole_call_exceeds_floor_when_reference_curve_is_low() {
+        let bond = create_make_whole_callable_bond();
+        let market_context = create_test_market_context();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let valuator = BondValuator::new(bond, &market_context, as_of, 5.0, 50)
+            .expect("BondValuator creation should succeed in test");
+
+        let (call_step, call_price) = valuator
+            .call_vec
+            .iter()
+            .enumerate()
+            .find_map(|(idx, price)| price.map(|value| (idx, value)))
+            .expect("call price should be present");
+        let floor_price = valuator.outstanding_principal_vec[call_step] * 1.02;
+
+        assert!(
+            call_price >= floor_price,
+            "make-whole call price should never fall below floor: call_price={call_price}, floor={floor_price}"
+        );
+        assert!(
+            call_price > floor_price,
+            "make-whole call price should exceed floor with lower treasury curve: call_price={call_price}, floor={floor_price}"
+        );
     }
 
     #[test]

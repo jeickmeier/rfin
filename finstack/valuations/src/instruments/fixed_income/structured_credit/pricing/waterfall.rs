@@ -6,9 +6,9 @@
 
 use super::coverage_tests::{CoverageTest, TestContext};
 use crate::instruments::fixed_income::structured_credit::types::{
-    AllocationMode, PaymentCalculation, PaymentRecord, PaymentType, Pool, Recipient, RecipientType,
-    RoundingConvention, TrancheStructure, Waterfall, WaterfallDistribution, WaterfallTier,
-    WaterfallWorkspace,
+    AllocationMode, DiversionRecord, PaymentCalculation, PaymentRecord, PaymentType, Pool,
+    Recipient, RecipientType, RoundingConvention, TrancheStructure, Waterfall,
+    WaterfallDistribution, WaterfallTier, WaterfallWorkspace,
 };
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
@@ -272,6 +272,47 @@ fn execute_waterfall_core(
         .iter()
         .map(|r| (r.test_id.clone(), r.current_ratio, r.is_passing))
         .collect();
+    let mut diverted_amounts: Vec<DiversionRecord> = allocation_output
+        .payment_records
+        .iter()
+        .filter(|record| record.diverted && record.paid_amount.amount() > 0.0)
+        .map(|record| DiversionRecord {
+            source_tier: record.tier_id.clone(),
+            target_tranche: record.recipient_id.clone(),
+            amount: record.paid_amount,
+            reason: diversion_reason
+                .clone()
+                .unwrap_or_else(|| "Waterfall diversion".to_string()),
+        })
+        .collect();
+    if diverted_amounts.is_empty() && diversion_active {
+        let mut per_tranche_max: HashMap<&str, (f64, &'static str)> = HashMap::default();
+        for result in &coverage_test_results {
+            if let Some(cure) = result.cure_amount {
+                if cure.amount() > 0.0 {
+                    let tranche_id = result.test_id.split_once('_').map_or("", |(_, id)| id);
+                    let reason = if result.test_id.starts_with("OC_") {
+                        "OC cure"
+                    } else {
+                        "IC cure"
+                    };
+                    let entry = per_tranche_max.entry(tranche_id).or_insert((0.0, reason));
+                    if cure.amount() > entry.0 {
+                        *entry = (cure.amount(), reason);
+                    }
+                }
+            }
+        }
+        diverted_amounts = per_tranche_max
+            .into_iter()
+            .map(|(tranche_id, (amount, reason))| DiversionRecord {
+                source_tier: "coverage_diversion".to_string(),
+                target_tranche: tranche_id.to_string(),
+                amount: Money::new(amount, waterfall.base_currency),
+                reason: reason.to_string(),
+            })
+            .collect();
+    }
 
     // Build the final distribution result
     let distribution = WaterfallDistribution {
@@ -285,6 +326,7 @@ fn execute_waterfall_core(
         remaining_cash: remaining,
         had_diversions,
         diversion_reason,
+        diverted_amounts,
         recovery_proceeds: context.recovery_proceeds,
         explanation: allocation_output.trace,
     };

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::collections::HashMap;
 use crate::market_data::traits::Discounting;
 use crate::types::CurveId;
 use crate::Result;
@@ -31,6 +32,23 @@ impl MarketContext {
     fn missing_curve_error(&self, id: &str) -> crate::Error {
         let available: Vec<String> = self.curves.keys().map(|k| k.to_string()).collect();
         crate::error::Error::missing_curve_with_suggestions(id, &available)
+    }
+
+    #[inline]
+    fn get_cloned<T>(&self, map: &HashMap<CurveId, Arc<T>>, id: &str) -> Result<Arc<T>> {
+        map.get(id)
+            .cloned()
+            .ok_or_else(|| Self::not_found_error(id))
+    }
+
+    #[inline]
+    fn get_ref<'a, T>(&self, map: &'a HashMap<CurveId, T>, id: &str) -> Result<&'a T> {
+        map.get(id).ok_or_else(|| Self::not_found_error(id))
+    }
+
+    #[inline]
+    fn get_optional_cloned<T>(&self, map: &HashMap<CurveId, Arc<T>>, id: &str) -> Option<Arc<T>> {
+        map.get(id).cloned()
     }
 
     /// Helper method to extract curve with type checking and error handling
@@ -148,11 +166,7 @@ impl MarketContext {
     /// assert!((surface.value_clamped(1.5, 95.0) - 0.2).abs() < 1e-12);
     /// ```
     pub fn surface(&self, id: impl AsRef<str>) -> Result<Arc<VolSurface>> {
-        let id_str = id.as_ref();
-        self.surfaces
-            .get(id_str)
-            .cloned()
-            .ok_or_else(|| Self::not_found_error(id_str))
+        self.get_cloned(&self.surfaces, id.as_ref())
     }
 
     /// Borrow a market price/scalar by identifier.
@@ -171,10 +185,7 @@ impl MarketContext {
     /// }
     /// ```
     pub fn price(&self, id: impl AsRef<str>) -> Result<&MarketScalar> {
-        let id_str = id.as_ref();
-        self.prices
-            .get(id_str)
-            .ok_or_else(|| Self::not_found_error(id_str))
+        self.get_ref(&self.prices, id.as_ref())
     }
 
     /// Borrow a scalar time series by identifier.
@@ -198,10 +209,7 @@ impl MarketContext {
     /// assert_eq!(series.id().as_str(), "VOL-TS");
     /// ```
     pub fn series(&self, id: impl AsRef<str>) -> Result<&ScalarTimeSeries> {
-        let id_str = id.as_ref();
-        self.series
-            .get(id_str)
-            .ok_or_else(|| Self::not_found_error(id_str))
+        self.get_ref(&self.series, id.as_ref())
     }
 
     /// Clone an inflation index by identifier.
@@ -225,7 +233,7 @@ impl MarketContext {
     /// assert_eq!(idx.id, "US-CPI");
     /// ```
     pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {
-        self.inflation_indices.get(id.as_ref()).cloned()
+        self.get_optional_cloned(&self.inflation_indices, id.as_ref())
     }
 
     /// Clone an FX delta-quoted volatility surface by identifier.
@@ -247,12 +255,12 @@ impl MarketContext {
     /// assert_eq!(surf.id().as_str(), "EURUSD-DELTA-VOL");
     /// ```
     pub fn fx_delta_vol_surface(&self, id: impl AsRef<str>) -> Option<Arc<FxDeltaVolSurface>> {
-        self.fx_delta_vol_surfaces.get(id.as_ref()).cloned()
+        self.get_optional_cloned(&self.fx_delta_vol_surfaces, id.as_ref())
     }
 
     /// Clone a dividend schedule by identifier.
     pub fn dividend_schedule(&self, id: impl AsRef<str>) -> Option<Arc<DividendSchedule>> {
-        self.dividends.get(id.as_ref()).cloned()
+        self.get_optional_cloned(&self.dividends, id.as_ref())
     }
 
     /// Clone a credit index aggregate by identifier.
@@ -285,11 +293,7 @@ impl MarketContext {
     /// assert_eq!(idx.num_constituents, 125);
     /// ```
     pub fn credit_index(&self, id: impl AsRef<str>) -> Result<Arc<CreditIndexData>> {
-        let id_str = id.as_ref();
-        self.credit_indices
-            .get(id_str)
-            .cloned()
-            .ok_or_else(|| Self::not_found_error(id_str))
+        self.get_cloned(&self.credit_indices, id.as_ref())
     }
 
     /// Resolve a collateral discount curve for a CSA code.

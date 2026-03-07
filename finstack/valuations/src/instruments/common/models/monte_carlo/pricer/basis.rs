@@ -9,6 +9,14 @@ pub trait BasisFunctions: Send + Sync {
 
     /// Evaluate all basis functions at the given state value.
     fn evaluate(&self, state: f64, out: &mut [f64]);
+
+    /// Evaluate basis functions with an optional auxiliary state variable.
+    ///
+    /// Implementations that only depend on the primary state can ignore `aux`
+    /// and rely on the default behavior.
+    fn evaluate_with_aux(&self, state: f64, _aux: Option<f64>, out: &mut [f64]) {
+        self.evaluate(state, out);
+    }
 }
 
 /// Polynomial basis: {1, x, x², ...}.

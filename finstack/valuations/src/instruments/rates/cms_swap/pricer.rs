@@ -18,7 +18,7 @@ use crate::instruments::common_impl::pricing::time::{
     rate_period_on_dates, relative_df_discount_curve,
 };
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::rates::cms_option::pricer::{convexity_adjustment, CmsOptionPricer};
+use crate::instruments::rates::cms_option::pricer::convexity_adjustment;
 use crate::instruments::rates::cms_swap::types::{CmsSwap, FundingLeg};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -79,12 +79,6 @@ impl CmsSwapPricer {
     ) -> Result<f64> {
         let discount_curve = market.get_discount(inst.discount_curve_id.as_ref())?;
         let vol_surface = market.surface(inst.vol_surface_id.as_str())?;
-        let cms_pricer = CmsOptionPricer::new();
-
-        // Build a temporary CmsOption-like view for forward swap rate calculation.
-        // We reuse CmsOptionPricer::calculate_forward_swap_rate by constructing a
-        // minimal CmsOption with the same curve/convention settings.
-        let cms_option_proxy = build_cms_option_proxy(inst)?;
 
         let mut total_pv = 0.0;
 
@@ -104,13 +98,21 @@ impl CmsSwapPricer {
             let swap_tenor_months = (inst.cms_tenor * 12.0).round() as i32;
             let swap_end = swap_start.add_months(swap_tenor_months);
 
-            let (forward_swap_rate, _annuity) = cms_pricer.calculate_forward_swap_rate(
-                &cms_option_proxy,
-                market,
-                as_of,
-                swap_start,
-                swap_end,
-            )?;
+            let (forward_swap_rate, _annuity) =
+                crate::instruments::rates::shared::forward_swap_rate::calculate_forward_swap_rate(
+                    crate::instruments::rates::shared::forward_swap_rate::ForwardSwapRateInputs {
+                        market,
+                        discount_curve_id: &inst.discount_curve_id,
+                        forward_curve_id: &inst.forward_curve_id,
+                        as_of,
+                        start: swap_start,
+                        end: swap_end,
+                        fixed_freq: inst.resolved_swap_fixed_freq(),
+                        fixed_day_count: inst.resolved_swap_day_count(),
+                        float_freq: inst.resolved_swap_float_freq(),
+                        float_day_count: inst.resolved_swap_float_day_count(),
+                    },
+                )?;
 
             if forward_swap_rate <= 0.0 {
                 return Err(finstack_core::Error::Validation(format!(
@@ -242,44 +244,6 @@ impl Pricer for CmsSwapPricer {
 pub(crate) fn compute_pv(inst: &CmsSwap, market: &MarketContext, as_of: Date) -> Result<Money> {
     let pricer = CmsSwapPricer::new();
     pricer.price_internal(inst, market, as_of)
-}
-
-/// Build a proxy `CmsOption` that carries the curve IDs and swap conventions
-/// needed by `CmsOptionPricer::calculate_forward_swap_rate`.
-///
-/// TODO: Extract forward swap rate calculation to shared utility.
-/// `CmsOptionPricer::calculate_forward_swap_rate` currently requires a `&CmsOption`
-/// (it reads `discount_curve_id`, `forward_curve_id`, and resolved swap conventions
-/// from the instrument). A standalone function taking those parameters directly
-/// would eliminate this proxy and decouple CMS swap pricing from CMS option types.
-fn build_cms_option_proxy(
-    inst: &CmsSwap,
-) -> finstack_core::Result<crate::instruments::rates::cms_option::types::CmsOption> {
-    use crate::instruments::rates::cms_option::types::CmsOption;
-    use rust_decimal::Decimal;
-
-    CmsOption::builder()
-        .id(finstack_core::types::InstrumentId::new("__cms_swap_proxy"))
-        .strike(Decimal::ZERO)
-        .cms_tenor(inst.cms_tenor)
-        .fixing_dates(vec![])
-        .payment_dates(vec![])
-        .accrual_fractions(vec![])
-        .option_type(crate::instruments::OptionType::Call)
-        .notional(Money::new(1.0, inst.notional.currency()))
-        .day_count(inst.cms_day_count)
-        .swap_convention_opt(inst.swap_convention)
-        .swap_fixed_freq_opt(inst.swap_fixed_freq)
-        .swap_float_freq_opt(inst.swap_float_freq)
-        .swap_day_count_opt(inst.swap_day_count)
-        .swap_float_day_count_opt(inst.swap_float_day_count)
-        .discount_curve_id(inst.discount_curve_id.clone())
-        .forward_curve_id(inst.forward_curve_id.clone())
-        .vol_surface_id(inst.vol_surface_id.clone())
-        .pricing_overrides(crate::instruments::PricingOverrides::default())
-        .attributes(crate::instruments::common_impl::traits::Attributes::new())
-        .build()
-        .map_err(|e| finstack_core::Error::Validation(format!("CmsOption proxy construction: {e}")))
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@
 
 use crate::instruments::fixed_income::structured_credit::types::TrancheCashflows;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::cashflow::CFKind;
 use finstack_core::dates::Date;
 use finstack_core::Result;
 
@@ -70,18 +71,51 @@ impl MetricCalculator for WalCalculator {
             return calculate_tranche_wal(details, context.as_of);
         }
 
-        // Fallback: derive an approximate WAL directly from aggregated cashflows when
-        // detailed tranche flows were not cached into the metric context. This keeps the
-        // metric available for simple deals (e.g., single-tranche) without re-running the
-        // structured credit simulation just to populate tranche-level cashflows.
-        //
-        // WARNING: In aggregated mode, interest and principal are combined into a single
-        // flow per date. Using the absolute value here will overstate WAL because interest
-        // payments are incorrectly included as principal. Prefer the primary path above
-        // (detailed tranche cashflows with separate principal_flows) for accurate WAL.
-        //
-        // TODO: Accept flow-type metadata (e.g. CFKind) so interest can be excluded
-        // from the WAL calculation even in the aggregated fallback path.
+        // Fallback: derive WAL from tagged cashflows when detailed tranche-level
+        // cashflows are not cached into the metric context.
+        if let Some(flows) = context.tagged_cashflows.as_ref() {
+            let mut weighted_sum = 0.0;
+            let mut total_principal = 0.0;
+
+            for flow in flows {
+                if flow.date <= context.as_of {
+                    continue;
+                }
+                if !matches!(
+                    flow.kind,
+                    CFKind::Amortization
+                        | CFKind::Notional
+                        | CFKind::PrePayment
+                        | CFKind::DefaultedNotional
+                ) {
+                    continue;
+                }
+
+                let principal = flow.amount.amount().abs();
+                if principal <= 0.0 {
+                    continue;
+                }
+
+                let years = finstack_core::dates::DayCount::Act365F
+                    .year_fraction(
+                        context.as_of,
+                        flow.date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0);
+                weighted_sum += principal * years;
+                total_principal += principal;
+            }
+
+            return if total_principal > 0.0 {
+                Ok(weighted_sum / total_principal)
+            } else {
+                Ok(0.0)
+            };
+        }
+
+        // Final fallback: use aggregate positive flows only.
+        // This path is less accurate because interest and principal are not distinguished.
         if let Some(flows) = context.cashflows.as_ref() {
             let mut weighted_sum = 0.0;
             let mut total_principal = 0.0;
@@ -126,5 +160,105 @@ impl MetricCalculator for WalCalculator {
 
     fn dependencies(&self) -> &[MetricId] {
         &[] // No metric dependencies - uses cashflows from context
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::common_impl::traits::{Attributes, Instrument};
+    use crate::pricer::InstrumentType;
+    use finstack_core::cashflow::{CFKind, CashFlow};
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::money::Money;
+    use std::sync::Arc;
+    use time::Month;
+
+    #[derive(Clone, Debug)]
+    struct DummyInstrument {
+        attrs: Attributes,
+    }
+
+    impl Instrument for DummyInstrument {
+        fn id(&self) -> &str {
+            "dummy"
+        }
+
+        fn key(&self) -> InstrumentType {
+            InstrumentType::StructuredCredit
+        }
+
+        fn value(&self, _ctx: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+            Ok(Money::new(0.0, Currency::USD))
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attrs
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attrs
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+    }
+
+    #[test]
+    fn wal_uses_tagged_principal_flows_only() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let instrument = Arc::new(DummyInstrument {
+            attrs: Attributes::new(),
+        }) as Arc<dyn Instrument>;
+        let curves = Arc::new(MarketContext::new());
+        let base_value = Money::new(0.0, Currency::USD);
+
+        let mut context = MetricContext::new(
+            instrument,
+            curves,
+            as_of,
+            base_value,
+            MetricContext::default_config(),
+        );
+        context.tagged_cashflows = Some(vec![
+            CashFlow {
+                date: Date::from_calendar_date(2026, Month::January, 1).expect("valid date"),
+                reset_date: None,
+                amount: Money::new(10.0, Currency::USD),
+                kind: CFKind::Fixed,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+            CashFlow {
+                date: Date::from_calendar_date(2026, Month::January, 1).expect("valid date"),
+                reset_date: None,
+                amount: Money::new(100.0, Currency::USD),
+                kind: CFKind::Amortization,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+            CashFlow {
+                date: Date::from_calendar_date(2027, Month::January, 1).expect("valid date"),
+                reset_date: None,
+                amount: Money::new(50.0, Currency::USD),
+                kind: CFKind::PrePayment,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+        ]);
+
+        let wal = WalCalculator.calculate(&mut context).expect("wal");
+        let expected = (100.0 * 1.0 + 50.0 * 2.0) / 150.0;
+        assert!(
+            (wal - expected).abs() < 1e-9,
+            "wal={wal}, expected={expected}"
+        );
     }
 }

@@ -260,10 +260,20 @@ impl Money {
         Self::new_finite(amount, currency, cfg)
     }
 
+    #[inline]
+    fn amount_and_currency(self) -> (f64, Currency) {
+        (amount_from_repr(self.amount), self.currency)
+    }
+
+    #[inline]
+    fn try_amount_and_currency(self) -> Result<(f64, Currency), Error> {
+        Ok((try_amount_from_repr(self.amount)?, self.currency))
+    }
+
     /// Amount accessor (by value).
     #[inline]
     pub fn amount(&self) -> f64 {
-        amount_from_repr(self.amount)
+        (*self).into_amount()
     }
 
     /// Currency accessor.
@@ -276,14 +286,14 @@ impl Money {
     #[inline]
     #[must_use]
     pub fn into_amount(self) -> f64 {
-        amount_from_repr(self.amount)
+        self.into_parts().0
     }
 
     /// Consume `self` into `(amount, currency)`.
     #[inline]
     #[must_use]
     pub fn into_parts(self) -> (f64, Currency) {
-        (amount_from_repr(self.amount), self.currency)
+        self.amount_and_currency()
     }
 
     // ---------------------------------------------------------------------
@@ -309,7 +319,7 @@ impl Money {
     /// ```
     #[inline]
     pub fn try_amount(&self) -> Result<f64, Error> {
-        try_amount_from_repr(self.amount)
+        (*self).try_into_amount()
     }
 
     /// Fallible consuming amount accessor.
@@ -330,7 +340,7 @@ impl Money {
     /// ```
     #[inline]
     pub fn try_into_amount(self) -> Result<f64, Error> {
-        try_amount_from_repr(self.amount)
+        self.try_into_parts().map(|(amount, _)| amount)
     }
 
     /// Fallible consuming parts accessor.
@@ -353,7 +363,7 @@ impl Money {
     /// ```
     #[inline]
     pub fn try_into_parts(self) -> Result<(f64, Currency), Error> {
-        Ok((try_amount_from_repr(self.amount)?, self.currency))
+        self.try_amount_and_currency()
     }
 
     // ---------------------------------------------------------------------

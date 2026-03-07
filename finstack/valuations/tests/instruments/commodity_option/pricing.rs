@@ -159,6 +159,74 @@ fn test_futures_based_american_matches_european() {
 }
 
 #[test]
+fn test_futures_based_bermudan_prices_between_european_and_american() {
+    let as_of = date(2025, 1, 1);
+    let expiry = date(2026, 1, 1);
+
+    let discount_curve = flat_discount_with_tenor("USD-OIS", as_of, 0.02, 1.0);
+    let price_curve = flat_price_curve("CL-FWD", as_of, 100.0, 1.0);
+    let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[90.0, 100.0, 110.0], 0.25);
+
+    let market = MarketContext::new()
+        .insert_discount(discount_curve)
+        .insert_price_curve(price_curve)
+        .insert_surface(vol_surface);
+
+    let build = |style| {
+        CommodityOption::builder()
+            .id(InstrumentId::new("CL-CALL-BERM"))
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
+            .strike(100.0)
+            .option_type(OptionType::Call)
+            .exercise_style(style)
+            .exercise_schedule_opt(Some(vec![
+                date(2025, 4, 1),
+                date(2025, 7, 1),
+                date(2025, 10, 1),
+                expiry,
+            ]))
+            .expiry(expiry)
+            .quantity(1.0)
+            .multiplier(1.0)
+            .settlement(SettlementType::Cash)
+            .forward_curve_id(CurveId::new("CL-FWD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .vol_surface_id(CurveId::new("CL-VOL"))
+            .day_count(DayCount::Act365F)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build")
+    };
+
+    let european = build(ExerciseStyle::European);
+    let bermudan = build(ExerciseStyle::Bermudan);
+    let american = build(ExerciseStyle::American);
+
+    let pv_eur = european.value(&market, as_of).expect("price european");
+    let pv_berm = bermudan.value(&market, as_of).expect("price bermudan");
+    let pv_amer = american.value(&market, as_of).expect("price american");
+
+    assert!(
+        pv_berm.amount() + 1e-6 >= pv_eur.amount(),
+        "Bermudan should not price below European: bermudan={}, european={}",
+        pv_berm.amount(),
+        pv_eur.amount()
+    );
+    assert!(
+        pv_berm.amount() <= pv_amer.amount() + 1e-6,
+        "Bermudan should not price above American: bermudan={}, american={}",
+        pv_berm.amount(),
+        pv_amer.amount()
+    );
+}
+
+#[test]
 fn test_spot_based_american_put_above_european() {
     let as_of = date(2025, 1, 1);
     let expiry = date(2026, 1, 1);

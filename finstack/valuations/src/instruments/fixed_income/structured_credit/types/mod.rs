@@ -61,9 +61,9 @@ pub use reinvestment::ReinvestmentManager;
 
 // Waterfall types
 pub use waterfall::{
-    AllocationMode, CoverageTestType, ManagementFeeType, PaymentCalculation, PaymentRecord,
-    PaymentType, Recipient, RecipientType, RoundingConvention, Waterfall, WaterfallBuilder,
-    WaterfallDistribution, WaterfallTier, WaterfallWorkspace,
+    AllocationMode, CoverageTestType, DiversionRecord, ManagementFeeType, PaymentCalculation,
+    PaymentRecord, PaymentType, Recipient, RecipientType, RoundingConvention, Waterfall,
+    WaterfallBuilder, WaterfallDistribution, WaterfallTier, WaterfallWorkspace,
 };
 
 // Result types
@@ -943,6 +943,8 @@ impl TrancheValuationExt for StructuredCredit {
             MetricContext::default_config(),
         );
         metric_context.cashflows = Some(cashflow_result.cashflows.clone());
+        metric_context.tagged_cashflows = Some(cashflow_result.detailed_flows.clone());
+        metric_context.detailed_tranche_cashflows = Some(cashflow_result.clone());
         metric_context.discount_curve_id = Some(self.discount_curve_id.to_owned());
 
         let registry = crate::metrics::standard_registry();

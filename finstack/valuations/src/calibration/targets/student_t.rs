@@ -32,9 +32,17 @@ use crate::calibration::api::schema::StudentTParams;
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::solver::helpers::bracket_solve_1d_with_diagnostics;
 use crate::calibration::CalibrationReport;
+use crate::instruments::common_impl::traits::Attributes;
+use crate::instruments::credit_derivatives::cds_tranche::{
+    CDSTranche, CDSTranchePricer, CDSTranchePricerConfig, TrancheSide,
+};
 use crate::market::quotes::market_quote::MarketQuote;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::market_data::term_structures::CreditIndexData;
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 use std::collections::BTreeMap;
 
@@ -56,6 +64,48 @@ pub struct StudentTCalibrator {
 
 #[allow(dead_code)]
 impl StudentTCalibrator {
+    fn resolve_discount_curve_id(
+        params: &StudentTParams,
+        context: &MarketContext,
+    ) -> Result<CurveId> {
+        if let Some(curve_id) = &params.discount_curve_id {
+            let _ = context.get_discount(curve_id)?;
+            return Ok(curve_id.clone());
+        }
+
+        let mut discount_curves = context.curves_of_type("Discount");
+        let (discount_curve_id, _) = discount_curves.next().ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::InputError::NotFound {
+                id: "discount curve".to_string(),
+            })
+        })?;
+        if discount_curves.next().is_some() {
+            return Err(finstack_core::Error::Validation(
+                "Student-t calibration requires discount_curve_id when multiple discount curves are present"
+                    .to_string(),
+            ));
+        }
+        Ok(discount_curve_id.clone())
+    }
+
+    fn flat_base_correlation_template(
+        template: &finstack_core::market_data::term_structures::BaseCorrelationCurve,
+        correlation: f64,
+    ) -> Result<finstack_core::market_data::term_structures::BaseCorrelationCurve> {
+        let flat_corr = correlation.clamp(0.0, 0.999);
+        let knots: Vec<(f64, f64)> = template
+            .detachment_points()
+            .iter()
+            .copied()
+            .map(|k| (k, flat_corr))
+            .collect();
+        finstack_core::market_data::term_structures::BaseCorrelationCurve::builder(
+            template.id().clone(),
+        )
+        .knots(knots)
+        .build()
+    }
+
     /// Create a new Student-t degrees of freedom calibrator.
     pub fn new(
         params: StudentTParams,
@@ -81,48 +131,115 @@ impl StudentTCalibrator {
     /// contains the calibrated `df` stored under the scalar key
     /// `"{tranche_instrument_id}_STUDENT_T_DF"`.
     pub fn solve(
-        _params: &StudentTParams,
-        _quotes: &[MarketQuote],
-        _context: &MarketContext,
-        _global_config: &CalibrationConfig,
+        params: &StudentTParams,
+        quotes: &[MarketQuote],
+        context: &MarketContext,
+        global_config: &CalibrationConfig,
     ) -> Result<(MarketContext, f64, CalibrationReport)> {
-        Err(finstack_core::Error::Validation(
-            "Student-t calibration step is not implemented: tranche repricing is not yet wired"
-                .to_string(),
-        ))
+        let tranche_quote = quotes
+            .iter()
+            .find_map(|quote| match quote {
+                MarketQuote::CDSTranche(tranche_quote)
+                    if tranche_quote.id().as_str() == params.tranche_instrument_id =>
+                {
+                    Some(tranche_quote.clone())
+                }
+                _ => None,
+            })
+            .ok_or_else(|| {
+                finstack_core::Error::Input(finstack_core::InputError::NotFound {
+                    id: format!("CDS tranche quote '{}'", params.tranche_instrument_id),
+                })
+            })?;
+
+        let (index_id, attachment, detachment, maturity, upfront_pct, running_spread_bp) =
+            match &tranche_quote {
+                crate::market::quotes::cds_tranche::CDSTrancheQuote::CDSTranche {
+                    index,
+                    attachment,
+                    detachment,
+                    maturity,
+                    upfront_pct,
+                    running_spread_bp,
+                    ..
+                } => (
+                    index.clone(),
+                    *attachment,
+                    *detachment,
+                    *maturity,
+                    *upfront_pct,
+                    *running_spread_bp,
+                ),
+            };
+
+        let base_correlation_curve =
+            context.get_base_correlation(&params.base_correlation_curve_id)?;
+        let flat_base_correlation = Self::flat_base_correlation_template(
+            base_correlation_curve.as_ref(),
+            params.correlation,
+        )?;
+        let credit_index = context.credit_index(&index_id)?.as_ref().clone();
+        let rebound_credit_index = CreditIndexData {
+            base_correlation_curve: std::sync::Arc::new(flat_base_correlation),
+            ..credit_index
+        };
+        let pricing_context = context
+            .clone()
+            .insert_credit_index(&index_id, rebound_credit_index);
+
+        let discount_curve_id = Self::resolve_discount_curve_id(params, &pricing_context)?;
+        let discount_curve = pricing_context.get_discount(&discount_curve_id)?;
+        let as_of = discount_curve.base_date();
+
+        let tranche = CDSTranche::builder()
+            .id(InstrumentId::new(params.tranche_instrument_id.clone()))
+            .index_name(index_id.clone())
+            .series(1)
+            .attach_pct(attachment * 100.0)
+            .detach_pct(detachment * 100.0)
+            .notional(Money::new(1.0, finstack_core::currency::Currency::USD))
+            .maturity(maturity)
+            .running_coupon_bp(running_spread_bp)
+            .frequency(Tenor::quarterly())
+            .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .discount_curve_id(discount_curve_id.clone())
+            .credit_index_id(CurveId::from(index_id.as_str()))
+            .side(TrancheSide::SellProtection)
+            .effective_date_opt(None)
+            .accumulated_loss(0.0)
+            .standard_imm_dates(true)
+            .attributes(Attributes::new())
+            .build()?;
+
+        let calibrator = Self::new(params.clone(), pricing_context, global_config.clone());
+        calibrator.calibrate_df(&tranche, upfront_pct, as_of)
     }
 
     /// Run the Brent root-finding calibration over the df domain.
-    fn calibrate_df(&self) -> Result<(MarketContext, f64, CalibrationReport)> {
+    fn calibrate_df(
+        &self,
+        tranche: &CDSTranche,
+        market_upfront: f64,
+        as_of: Date,
+    ) -> Result<(MarketContext, f64, CalibrationReport)> {
         let (df_lo, df_hi) = self.params.df_bounds;
         let initial_df = self.params.initial_df;
         let tolerance = self.config.solver.tolerance();
         let max_iters = self.config.solver.max_iterations();
 
-        // Build the objective function: residual(df) = model_upfront(df) - market_upfront
-        //
-        // TODO: Full implementation requires:
-        //   1. Looking up the tranche instrument from the market context or building
-        //      it from the quote set.
-        //   2. Constructing a StudentTCopula(df) for each trial df.
-        //   3. Pricing the tranche with the copula to get model_upfront.
-        //   4. Comparing against the market upfront quote.
-        //
-        // For now, this is a stub that uses a placeholder objective.
-        // The placeholder returns (df - initial_df) so the solver converges
-        // on the initial guess, demonstrating the framework wiring works.
         let objective = |df: f64| -> f64 {
             if df <= 2.0 || !df.is_finite() {
                 return f64::INFINITY;
             }
-            // TODO: Replace with actual tranche repricing residual:
-            //   let copula = StudentTCopula::new(df);
-            //   let model_upfront = price_tranche_with_copula(&copula, ...);
-            //   let market_upfront = self.params.market_upfront.unwrap_or(0.0);
-            //   (model_upfront - market_upfront) / notional
-            //
-            // Placeholder: identity residual centered on initial_df.
-            df - initial_df
+            let pricer = CDSTranchePricer::with_params(
+                CDSTranchePricerConfig::default().with_student_t_copula(df),
+            );
+            match pricer.calculate_upfront(tranche, &self.base_context, as_of) {
+                Ok(model_upfront) => model_upfront - market_upfront,
+                Err(_) => f64::INFINITY,
+            }
         };
 
         // Generate scan points for bracketing.

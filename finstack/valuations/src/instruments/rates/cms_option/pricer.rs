@@ -37,7 +37,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCountCtx, StubKind};
+use finstack_core::dates::{Date, DateExt, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -173,92 +173,20 @@ impl CmsOptionPricer {
         start: Date,
         end: Date,
     ) -> Result<(f64, f64)> {
-        use crate::instruments::common_impl::pricing::time::{
-            rate_period_on_dates, relative_df_discount_curve,
-        };
-
-        // Returns (rate, annuity)
-        let disc = market.get_discount(inst.discount_curve_id.as_ref())?;
-
-        // Calculate Annuity (Fixed Leg)
-        let swap_fixed_freq = inst.resolved_swap_fixed_freq();
-        let swap_day_count = inst.resolved_swap_day_count();
-        let sched_fixed = crate::cashflow::builder::build_dates(
-            start,
-            end,
-            swap_fixed_freq,
-            StubKind::None,
-            BusinessDayConvention::ModifiedFollowing,
-            false,
-            0,
-            crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
-        )?;
-
-        let mut annuity = 0.0;
-        let mut prev_date = start;
-        // Skip the first date by index (not value equality) to handle BDC-adjusted dates
-        for &d in sched_fixed.dates.iter().skip(1) {
-            let accrual = swap_day_count.year_fraction(prev_date, d, DayCountCtx::default())?;
-            // DF uses curve-consistent relative DF
-            let df = relative_df_discount_curve(disc.as_ref(), as_of, d)?;
-            annuity += accrual * df;
-            prev_date = d;
-        }
-
-        if annuity.abs() < 1e-10 {
-            return Err(finstack_core::Error::Validation(format!(
-                "Annuity is near-zero ({}) for swap from {} to {}; \
-                 check curve or schedule configuration",
-                annuity, start, end
-            )));
-        }
-
-        // Check if single curve or dual curve
-        if inst.forward_curve_id == inst.discount_curve_id {
-            // Single Curve Optimization: S = (DF_start - DF_end) / Annuity
-            let df_start = relative_df_discount_curve(disc.as_ref(), as_of, start)?;
-            let df_end = relative_df_discount_curve(disc.as_ref(), as_of, end)?;
-            let rate = (df_start - df_end) / annuity;
-            Ok((rate, annuity))
-        } else {
-            // Dual Curve: Calculate Float Leg PV
-            let fwd_curve = market.get_forward(inst.forward_curve_id.as_ref())?;
-            let float_day_count = inst.resolved_swap_float_day_count();
-            let swap_float_freq = inst.resolved_swap_float_freq();
-            let sched_float = crate::cashflow::builder::build_dates(
+        crate::instruments::rates::shared::forward_swap_rate::calculate_forward_swap_rate(
+            crate::instruments::rates::shared::forward_swap_rate::ForwardSwapRateInputs {
+                market,
+                discount_curve_id: &inst.discount_curve_id,
+                forward_curve_id: &inst.forward_curve_id,
+                as_of,
                 start,
                 end,
-                swap_float_freq,
-                StubKind::None,
-                BusinessDayConvention::ModifiedFollowing,
-                false,
-                0,
-                crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
-            )?;
-
-            let mut pv_float = 0.0;
-            let mut prev_date = start;
-            for &d in &sched_float.dates {
-                if d == start {
-                    continue;
-                }
-                // Floating accrual uses float day count when provided
-                let accrual =
-                    float_day_count.year_fraction(prev_date, d, DayCountCtx::default())?;
-
-                // Forward rate uses forward curve's time basis
-                let fwd_rate = rate_period_on_dates(fwd_curve.as_ref(), prev_date, d)?;
-
-                // DF uses curve-consistent relative DF
-                let df = relative_df_discount_curve(disc.as_ref(), as_of, d)?;
-
-                pv_float += fwd_rate * accrual * df;
-                prev_date = d;
-            }
-
-            let rate = pv_float / annuity;
-            Ok((rate, annuity))
-        }
+                fixed_freq: inst.resolved_swap_fixed_freq(),
+                fixed_day_count: inst.resolved_swap_day_count(),
+                float_freq: inst.resolved_swap_float_freq(),
+                float_day_count: inst.resolved_swap_float_day_count(),
+            },
+        )
     }
 
     fn black_price(

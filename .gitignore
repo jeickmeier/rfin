@@ -96,6 +96,7 @@ finstack-py/examples/outputs/
 .zencoder/
 .zenflow/
 .codex/
+.worktrees/
 
 # Database files
 *.db

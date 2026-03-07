@@ -36,7 +36,7 @@ mod fees;
 mod helpers;
 
 // Re-export coupon emission (internal to builder module)
-pub(super) use coupons::{emit_fixed_coupons_on, emit_float_coupons_on};
+pub(crate) use coupons::{emit_fixed_coupons_on, emit_float_coupons_on, emit_inflation_coupons};
 
 // Re-export amortization emission and types (internal to builder module)
 pub(super) use amortization::{emit_amortization_on, AmortizationParams};

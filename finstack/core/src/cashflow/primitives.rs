@@ -40,6 +40,7 @@ use crate::money::Money;
 ///
 /// Variants are grouped by category:
 /// - **Interest**: `Fixed`, `FloatReset`, `Stub`
+/// - **Inflation**: `InflationCoupon`
 /// - **Fees**: `Fee`, `CommitmentFee`, `UsageFee`, `FacilityFee`
 /// - **Principal**: `Notional`, `PIK`, `Amortization`, `PrePayment`
 /// - **Revolving**: `RevolvingDraw`, `RevolvingRepayment`
@@ -60,6 +61,13 @@ pub enum CFKind {
     /// The `reset_date` field on [`CashFlow`] indicates when the rate was fixed.
     /// The `rate` field stores the all-in rate (index + spread) if known.
     FloatReset,
+
+    /// Inflation-linked coupon cash-flow.
+    ///
+    /// Periodic coupon payment on an inflation-linked bond or swap leg where the
+    /// real coupon is multiplied by an index ratio (e.g., CPI / base CPI).
+    /// The `rate` field stores the real coupon rate when known.
+    InflationCoupon,
 
     /// Up-front fee or cost paid at inception.
     ///

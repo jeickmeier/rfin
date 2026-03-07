@@ -113,6 +113,12 @@ pub struct CommodityOption {
     #[serde(default)]
     #[builder(default)]
     pub exercise_style: ExerciseStyle,
+    /// Optional Bermudan exercise schedule.
+    ///
+    /// Required when `exercise_style == ExerciseStyle::Bermudan`.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exercise_schedule: Option<Vec<Date>>,
     /// Option expiry date.
     pub expiry: Date,
     /// Contract quantity in units.
@@ -592,11 +598,46 @@ impl Instrument for CommodityOption {
                 tree.price_american(&params)?
             }
             ExerciseStyle::Bermudan => {
-                return Err(finstack_core::Error::Validation(
-                    "Commodity Bermudan option pricing is not implemented; the previous \
-                     American approximation was removed because it materially overstates value"
-                        .to_string(),
-                ));
+                let schedule = self.exercise_schedule.as_ref().ok_or_else(|| {
+                    finstack_core::Error::Validation(
+                        "Commodity Bermudan option requires exercise_schedule".to_string(),
+                    )
+                })?;
+                let steps = self
+                    .pricing_overrides
+                    .model_config
+                    .tree_steps
+                    .unwrap_or(201);
+                let tree = BinomialTree::leisen_reimer_odd(steps);
+                let params = OptionMarketParams {
+                    spot: inputs.spot,
+                    strike: self.strike,
+                    rate: inputs.r,
+                    dividend_yield: inputs.q,
+                    volatility: inputs.sigma,
+                    time_to_expiry: inputs.t,
+                    option_type: self.option_type,
+                };
+                let exercise_times: Vec<f64> = schedule
+                    .iter()
+                    .filter_map(|date| {
+                        let yf = DayCount::Act365F
+                            .year_fraction(as_of, *date, DayCountCtx::default())
+                            .ok()?;
+                        if yf > 0.0 && yf <= inputs.t {
+                            Some(yf)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                if exercise_times.is_empty() {
+                    return Err(finstack_core::Error::Validation(
+                        "Commodity Bermudan option requires at least one future exercise date"
+                            .to_string(),
+                    ));
+                }
+                tree.price_bermudan(&params, &exercise_times)?
             }
         };
 
@@ -942,7 +983,7 @@ mod tests {
     }
 
     #[test]
-    fn bermudan_exercise_is_rejected_instead_of_approximated_as_american() {
+    fn bermudan_exercise_requires_schedule() {
         let mut option = CommodityOption::example();
         option.exercise_style = ExerciseStyle::Bermudan;
         let as_of = Date::from_calendar_date(2025, time::Month::January, 15).expect("valid");
@@ -974,7 +1015,7 @@ mod tests {
             );
         let err = option
             .value(&market, as_of)
-            .expect_err("Bermudan commodity options should fail closed");
-        assert!(err.to_string().contains("not implemented"));
+            .expect_err("Bermudan commodity options should require an exercise schedule");
+        assert!(err.to_string().contains("exercise_schedule"));
     }
 }

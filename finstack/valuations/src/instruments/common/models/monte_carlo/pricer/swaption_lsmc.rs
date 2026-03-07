@@ -30,7 +30,7 @@
 use super::super::payoff::swaption::{BermudanSwaptionPayoff, SwaptionType};
 use super::super::results::MoneyEstimate;
 use super::lsmc::LsmcConfig;
-use super::lsq::regression_with_basis;
+use super::lsq::solve_least_squares;
 use super::swap_rate_utils::{ForwardSwapRate, HullWhiteBondPrice};
 use crate::instruments::common_impl::models::monte_carlo::discretization::exact_hw1f::ExactHullWhite1F;
 use crate::instruments::common_impl::models::monte_carlo::estimate::Estimate;
@@ -273,6 +273,21 @@ impl ExtendedSwaptionBasis {
             include_annuity,
         }
     }
+
+    fn evaluate_with_annuity(&self, swap_rate: f64, annuity: f64, out: &mut [f64]) {
+        debug_assert_eq!(out.len(), self.num_basis());
+
+        let mut power = 1.0;
+        for basis in out.iter_mut().take(self.degree + 1) {
+            *basis = power;
+            power *= swap_rate;
+        }
+
+        if self.include_annuity {
+            out[self.degree + 1] = annuity;
+            out[self.degree + 2] = swap_rate * annuity;
+        }
+    }
 }
 
 impl BasisFunctions for ExtendedSwaptionBasis {
@@ -286,22 +301,48 @@ impl BasisFunctions for ExtendedSwaptionBasis {
     }
 
     fn evaluate(&self, swap_rate: f64, out: &mut [f64]) {
-        debug_assert_eq!(out.len(), self.num_basis());
+        self.evaluate_with_annuity(swap_rate, 1.0, out);
+    }
 
-        // Polynomial basis
-        let mut power = 1.0;
-        for basis in out.iter_mut().take(self.degree + 1) {
-            *basis = power;
-            power *= swap_rate;
-        }
+    fn evaluate_with_aux(&self, state: f64, aux: Option<f64>, out: &mut [f64]) {
+        self.evaluate_with_annuity(state, aux.unwrap_or(1.0), out);
+    }
+}
 
-        // Note: Annuity terms would need to be passed separately
-        // For now, fill with placeholder values
-        if self.include_annuity {
-            out[self.degree + 1] = 1.0; // Placeholder for A
-            out[self.degree + 2] = swap_rate; // Placeholder for S×A
+fn regression_with_aux_basis<B: BasisFunctions>(
+    swap_rates: &[f64],
+    aux_values: &[f64],
+    continuation_values: &[f64],
+    basis: &B,
+) -> Result<Vec<f64>> {
+    debug_assert_eq!(swap_rates.len(), aux_values.len());
+    debug_assert_eq!(swap_rates.len(), continuation_values.len());
+
+    let n = swap_rates.len();
+    let k = basis.num_basis();
+    let mut design = vec![0.0; n * k];
+    let mut basis_vals = vec![0.0; k];
+
+    for i in 0..n {
+        basis.evaluate_with_aux(swap_rates[i], Some(aux_values[i]), &mut basis_vals);
+        for j in 0..k {
+            design[i * k + j] = basis_vals[j];
         }
     }
+
+    let coeffs = solve_least_squares(&design, continuation_values, n, k)?;
+
+    let mut predictions = vec![0.0; n];
+    for i in 0..n {
+        basis.evaluate_with_aux(swap_rates[i], Some(aux_values[i]), &mut basis_vals);
+        predictions[i] = basis_vals
+            .iter()
+            .zip(coeffs.iter())
+            .map(|(basis_val, coeff)| basis_val * coeff)
+            .sum();
+    }
+
+    Ok(predictions)
 }
 
 /// Backward-compatible alias for swaption polynomial basis.
@@ -699,6 +740,7 @@ impl SwaptionLsmcPricer {
 
         // Pre-allocate regression buffers to avoid reallocations
         let mut regression_x = Vec::with_capacity(paths.len() / 2); // Swap rates
+        let mut regression_annuity = Vec::with_capacity(paths.len() / 2);
         let mut regression_y = Vec::with_capacity(paths.len() / 2); // Discounted continuation values
         let mut regression_indices = Vec::with_capacity(paths.len() / 2);
 
@@ -712,6 +754,7 @@ impl SwaptionLsmcPricer {
 
             // Clear buffers for this exercise date (reuse capacity)
             regression_x.clear();
+            regression_annuity.clear();
             regression_y.clear();
             regression_indices.clear();
 
@@ -762,6 +805,7 @@ impl SwaptionLsmcPricer {
                     };
 
                     regression_x.push(swap_rate);
+                    regression_annuity.push(annuity);
                     regression_y.push(discounted_cf);
                     regression_indices.push(i);
                 }
@@ -769,8 +813,12 @@ impl SwaptionLsmcPricer {
 
             // Perform regression if we have enough ITM paths
             if regression_x.len() > basis.num_basis() + 10 {
-                let continuation_values =
-                    regression_with_basis(&regression_x, &regression_y, basis)?;
+                let continuation_values = regression_with_aux_basis(
+                    &regression_x,
+                    &regression_annuity,
+                    &regression_y,
+                    basis,
+                )?;
 
                 // Exercise decision
                 for (j, &i) in regression_indices.iter().enumerate() {
@@ -843,4 +891,21 @@ impl SwaptionLsmcPricer {
 mod tests {
     // Tests for swap rate utilities are now in swap_rate_utils.rs
     // This module focuses on testing the LSMC swaption pricer itself
+
+    use super::ExtendedSwaptionBasis;
+    use crate::instruments::common_impl::models::monte_carlo::pricer::basis::BasisFunctions;
+
+    #[test]
+    fn extended_basis_uses_real_annuity_terms() {
+        let basis = ExtendedSwaptionBasis::new(2, true);
+        let mut values = vec![0.0; basis.num_basis()];
+
+        basis.evaluate_with_annuity(0.05, 3.5, &mut values);
+
+        assert_eq!(values[0], 1.0);
+        assert_eq!(values[1], 0.05);
+        assert_eq!(values[2], 0.05 * 0.05);
+        assert_eq!(values[3], 3.5);
+        assert_eq!(values[4], 0.05 * 3.5);
+    }
 }
