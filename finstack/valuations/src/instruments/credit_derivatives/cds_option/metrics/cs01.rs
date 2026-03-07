@@ -58,18 +58,10 @@ impl MetricCalculator for Cs01HazardCalculator {
         let bumped_hazard_down =
             rebuild_hazard_with_id(&temp_bumped_down, &cds_option.credit_curve_id)?;
 
-        let ctx_up = context
-            .curves
-            .as_ref()
-            .clone()
-            .insert_hazard(bumped_hazard_up);
+        let ctx_up = context.curves.as_ref().clone().insert(bumped_hazard_up);
         let pv_up = cds_option.value(&ctx_up, as_of)?.amount();
 
-        let ctx_down = context
-            .curves
-            .as_ref()
-            .clone()
-            .insert_hazard(bumped_hazard_down);
+        let ctx_down = context.curves.as_ref().clone().insert(bumped_hazard_down);
         let pv_down = cds_option.value(&ctx_down, as_of)?.amount();
 
         let cs01 = (pv_up - pv_down) / (2.0 * CS01_BUMP_BP);
@@ -131,9 +123,7 @@ mod tests {
             .build()
             .expect("Valid hazard curve");
 
-        MarketContext::new()
-            .insert_discount(disc)
-            .insert_hazard(hazard)
+        MarketContext::new().insert(disc).insert(hazard)
     }
 
     #[test]

@@ -160,7 +160,7 @@ impl CliquetOptionMcPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<finstack_core::money::Money> {
-        let spot_scalar = curves.price(&inst.spot_id)?;
+        let spot_scalar = curves.get_price(&inst.spot_id)?;
         let initial_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -176,7 +176,7 @@ impl CliquetOptionMcPricer {
 
         // Get curves
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
-        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
 
         // Dividend yield from scalar id if provided
         //
@@ -184,7 +184,7 @@ impl CliquetOptionMcPricer {
         // and return a unitless scalar. Silent fallback to 0.0 would mask market data
         // configuration errors.
         let div_yield = if let Some(div_id) = &inst.div_yield_id {
-            let ms = curves.price(div_id.as_str()).map_err(|e| {
+            let ms = curves.get_price(div_id.as_str()).map_err(|e| {
                 finstack_core::Error::Validation(format!(
                     "Failed to fetch dividend yield '{}': {}",
                     div_id, e

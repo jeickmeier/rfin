@@ -71,7 +71,7 @@ def main() -> None:
         base_date,
         [(0.0, 1.0), (1.0, 0.9950), (2.0, 0.9880), (3.0, 0.9800)],
     )
-    market.insert_discount(discount_curve)
+    market.insert(discount_curve)
 
     # Forward curve with varying rates: 3.0% → 3.5% → 4.0%
     forward_curve = ForwardCurve(
@@ -85,7 +85,7 @@ def main() -> None:
         ],
         base_date=base_date,
     )
-    market.insert_forward(forward_curve)
+    market.insert(forward_curve)
 
     for _t, _rate in [(0.0, 0.0300), (0.5, 0.0325), (1.0, 0.0350), (2.0, 0.0400)]:
         pass

@@ -94,7 +94,7 @@ impl CDSOptionPricer {
             vol
         } else {
             curves
-                .surface(option.vol_surface_id.as_str())?
+                .get_surface(option.vol_surface_id.as_str())?
                 .value_clamped(t, option.strike.to_f64().unwrap_or(0.0))
         };
 
@@ -552,7 +552,7 @@ impl CDSOptionPricer {
             v
         } else {
             curves
-                .surface(option.vol_surface_id.as_str())
+                .get_surface(option.vol_surface_id.as_str())
                 .ok()
                 .map(|s| s.value_clamped(t, option.strike.to_f64().unwrap_or(0.0)))
                 .unwrap_or(self.config.iv_initial_guess)

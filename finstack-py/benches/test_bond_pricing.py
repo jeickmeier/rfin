@@ -37,7 +37,7 @@ def create_market_data() -> MarketContext:
     curve = DiscountCurve("USD.OIS", base_date, knots)
 
     market = MarketContext()
-    market.insert_discount(curve)
+    market.insert(curve)
     return market
 
 

@@ -29,9 +29,9 @@ def build_equity_market(as_of: date) -> MarketContext:
             (5.0, 0.9480),
         ],
     )
-    market.insert_discount(disc)
+    market.insert(disc)
 
-    spot_scalar = MarketScalar.price(Money(150.0, USD))
+    spot_scalar = MarketScalar.get_price(Money(150.0, USD))
     market.insert_price("EQUITY-SPOT", spot_scalar)
 
     div_scalar = MarketScalar.unitless(0.015)
@@ -67,7 +67,7 @@ def main() -> None:
         .div_yield_id("EQUITY-DIVYIELD")
         .build()
     )
-    registry.price(equity, "discounting", market)
+    registry.get_price(equity, "discounting", market)
 
     call = (
         EquityOption.builder("ACME-CALL-150")
@@ -104,7 +104,7 @@ def main() -> None:
         .div_yield_id("EQUITY-DIVYIELD")
         .build()
     )
-    registry.price(put, "discounting", market)
+    registry.get_price(put, "discounting", market)
 
 
 if __name__ == "__main__":

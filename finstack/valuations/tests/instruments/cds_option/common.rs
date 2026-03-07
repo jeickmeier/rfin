@@ -48,9 +48,7 @@ pub fn standard_market(as_of: Date) -> MarketContext {
     let disc = flat_discount("USD-OIS", as_of, 0.03);
     let credit = flat_hazard("HZ-SN", as_of, RECOVERY_SENIOR_UNSECURED, 0.02);
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(credit)
+    MarketContext::new().insert(disc).insert(credit)
 }
 
 /// Convert basis points (f64) to a Decimal rate.

@@ -718,7 +718,7 @@ mod tests {
 
     fn build_market_with_flat_curve(as_of: Date, curve_id: &CurveId, rate: f64) -> MarketContext {
         let curve = build_flat_discount_curve(curve_id, as_of, rate);
-        MarketContext::new().insert_discount(curve)
+        MarketContext::new().insert(curve)
     }
 
     fn build_metric_context(

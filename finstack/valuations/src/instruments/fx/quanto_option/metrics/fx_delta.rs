@@ -41,7 +41,7 @@ impl MetricCalculator for FxDeltaCalculator {
         })?;
 
         // Get current FX rate for bump size calculation
-        let fx_scalar = context.curves.price(fx_rate_id)?;
+        let fx_scalar = context.curves.get_price(fx_rate_id)?;
         let current_fx = match fx_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),

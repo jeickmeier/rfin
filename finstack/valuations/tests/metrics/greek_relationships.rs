@@ -35,7 +35,7 @@ fn bump_scalar_price(
     price_id: &str,
     bump_pct: f64,
 ) -> finstack_core::Result<MarketContext> {
-    let current = context.price(price_id)?;
+    let current = context.get_price(price_id)?;
     let bumped_value = match current {
         MarketScalar::Unitless(v) => MarketScalar::Unitless(v * (1.0 + bump_pct)),
         MarketScalar::Price(m) => {
@@ -46,7 +46,7 @@ fn bump_scalar_price(
 }
 
 fn delta_fd(option: &EquityOption, market: &MarketContext, as_of: Date) -> f64 {
-    let spot_scalar = market.price(&option.spot_id).unwrap();
+    let spot_scalar = market.get_price(&option.spot_id).unwrap();
     let spot = match spot_scalar {
         MarketScalar::Unitless(v) => *v,
         MarketScalar::Price(m) => m.amount(),
@@ -60,7 +60,7 @@ fn delta_fd(option: &EquityOption, market: &MarketContext, as_of: Date) -> f64 {
 }
 
 fn gamma_fd(option: &EquityOption, market: &MarketContext, as_of: Date) -> f64 {
-    let spot_scalar = market.price(&option.spot_id).unwrap();
+    let spot_scalar = market.get_price(&option.spot_id).unwrap();
     let spot = match spot_scalar {
         MarketScalar::Unitless(v) => *v,
         MarketScalar::Price(m) => m.amount(),
@@ -132,7 +132,7 @@ fn create_market_context(
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(disc_curve)
+        .insert(disc_curve)
         .insert_surface(vol_surface)
         .insert_price("AAPL", MarketScalar::Price(Money::new(spot, Currency::USD)))
         .insert_price("AAPL_DIV", MarketScalar::Unitless(div_yield))

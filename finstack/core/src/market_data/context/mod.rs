@@ -36,7 +36,7 @@
 //!     .build()
 //!     .expect("DiscountCurve builder should succeed");
 //!
-//! let ctx = MarketContext::new().insert_discount(curve);
+//! let ctx = MarketContext::new().insert(curve);
 //! let retrieved = ctx.get_discount("USD-OIS").expect("Discount curve should exist");
 //! assert_eq!(retrieved.id(), &CurveId::from("USD-OIS"));
 //! ```

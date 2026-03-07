@@ -141,7 +141,7 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
     setError(null);
 
     try {
-      market.insertPrice(underlying, MarketScalar.price(Money.fromCode(spotPrice, currency)));
+      market.insertPrice(underlying, MarketScalar.get_price(Money.fromCode(spotPrice, currency)));
       market.insertPrice(`${underlying}-DIVYIELD`, MarketScalar.unitless(0.015));
 
       const calibrationConfig = buildWasmConfig(config, effectiveTolerance);
@@ -182,7 +182,7 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
         Record<string, unknown>,
       ];
 
-      const calibratedSurface = marketCtx.surface(curveId) as unknown as CalibratedVolSurface;
+      const calibratedSurface = marketCtx.getSurface(curveId) as unknown as CalibratedVolSurface;
 
       const atmStrike =
         strikes.find((s) => Math.abs(s - 100) < 5) || strikes[Math.floor(strikes.length / 2)];

@@ -40,10 +40,7 @@ fn market() -> MarketContext {
         .interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(f3m)
-        .insert_forward(f1m)
+    MarketContext::new().insert(disc).insert(f3m).insert(f1m)
 }
 
 #[test]
@@ -282,10 +279,7 @@ fn par_spread_inverted_curves() {
         .build()
         .unwrap();
 
-    let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(f3m)
-        .insert_forward(f1m);
+    let ctx = MarketContext::new().insert(disc).insert(f3m).insert(f1m);
 
     let swap = BasisSwap::new(
         "INVERTED-TEST",

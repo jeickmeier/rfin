@@ -584,9 +584,7 @@ mod tests {
             .build()
             .expect("FRA builder should succeed in test");
 
-        let ctx = MarketContext::new()
-            .insert_discount(disc)
-            .insert_forward(fwd);
+        let ctx = MarketContext::new().insert(disc).insert(fwd);
 
         // FRA 3M x 6M
         let start = base + time::Duration::days(90);
@@ -638,9 +636,7 @@ mod tests {
             .build()
             .expect("FRA builder should succeed in test");
 
-        let ctx = MarketContext::new()
-            .insert_discount(disc)
-            .insert_forward(fwd);
+        let ctx = MarketContext::new().insert(disc).insert(fwd);
 
         let start = base + time::Duration::days(90);
         let end = base + time::Duration::days(180);

@@ -26,7 +26,7 @@ def create_market_data(val_date: date) -> MarketContext:
         val_date,
         [(0.0, 1.0), (1.0, 0.95), (2.0, 0.90)],
     )
-    market.insert_discount(disc_curve)
+    market.insert(disc_curve)
 
     # Volatility surface (expiries in years)
     vol_surface = VolSurface(
@@ -40,7 +40,7 @@ def create_market_data(val_date: date) -> MarketContext:
     )
     market.insert_surface(vol_surface)
 
-    market.insert_price("SPY", MarketScalar.price(Money(500.0, USD)))
+    market.insert_price("SPY", MarketScalar.get_price(Money(500.0, USD)))
     market.insert_price("SPY.DIV", MarketScalar.unitless(0.015))
 
     return market
@@ -84,7 +84,7 @@ def example_narrow_range_accrual():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
 
     return range_accrual, result
 
@@ -112,7 +112,7 @@ def example_wide_range_accrual():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
 
     return range_accrual, result
 
@@ -148,7 +148,7 @@ def example_asymmetric_range_accrual():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
 
     return range_accrual, result
 
@@ -176,7 +176,7 @@ def example_high_coupon_tight_range():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
-    result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.get_price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
 
     return range_accrual, result
 

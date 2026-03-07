@@ -118,7 +118,7 @@ mod tests {
             .knots(vec![(0.0, 1.0), (10.0, 0.999)])
             .build()
             .expect("should succeed");
-        MarketContext::new().insert_discount(disc).insert_price(
+        MarketContext::new().insert(disc).insert_price(
             "BOND_ABC_PRICE",
             MarketScalar::Price(Money::new(1.02, Currency::USD)),
         )
@@ -186,7 +186,7 @@ mod tests {
             .build()
             .expect("should succeed");
         let repo = create_test_repo();
-        let ctx = create_test_context().insert_discount(disc);
+        let ctx = create_test_context().insert(disc);
         let pv = repo.value(&ctx, as_of).expect("should succeed");
         let reg = standard_registry();
         let mut mctx = crate::metrics::MetricContext::new(

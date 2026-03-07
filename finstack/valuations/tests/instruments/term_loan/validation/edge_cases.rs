@@ -43,7 +43,7 @@ fn test_zero_coupon_loan() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = loan.value(&market, as_of);
@@ -83,7 +83,7 @@ fn test_very_short_maturity() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = loan.value(&market, as_of);
@@ -120,7 +120,7 @@ fn test_very_long_maturity() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = loan.value(&market, as_of);
@@ -158,7 +158,7 @@ fn test_negative_rate_environment() {
 
     // Negative discount rate
     let disc_curve = flat_discount_curve(-0.01, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = loan.value(&market, as_of);

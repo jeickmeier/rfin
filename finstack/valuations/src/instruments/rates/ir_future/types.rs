@@ -375,7 +375,7 @@ impl InterestRateFuture {
         let vol_estimate = if let Some(vol_id) = &self.vol_surface_id {
             // Use provided volatility surface
             // Strike for vol lookup is the forward rate (ATM)
-            let surface = context.surface(vol_id)?;
+            let surface = context.get_surface(vol_id)?;
             surface.value_checked(t_fixing, forward_rate)?
         } else {
             return Err(finstack_core::Error::Input(

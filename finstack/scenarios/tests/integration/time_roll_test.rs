@@ -137,7 +137,7 @@ fn test_time_roll_with_bond_carry() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_discount(curve);
+    let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;

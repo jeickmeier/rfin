@@ -37,8 +37,8 @@ def build_market(as_of: date) -> MarketContext:
         base_date=as_of,
     )
     market = MarketContext()
-    market.insert_discount(discount_curve)
-    market.insert_forward(forward_curve)
+    market.insert(discount_curve)
+    market.insert(forward_curve)
     return market
 
 

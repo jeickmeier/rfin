@@ -250,7 +250,7 @@ pub(crate) fn execute_params(
         }
         StepParams::Inflation(p) => {
             let (ctx, report) = InflationBootstrapper::solve(p, quotes, context, global_config)?;
-            let curve = ctx.get_inflation(&p.curve_id)?;
+            let curve = ctx.get_inflation_curve(&p.curve_id)?;
             let output = StepOutput::Curve(curve.clone().into());
             let report = attach_validation_result(
                 report,
@@ -275,7 +275,7 @@ pub(crate) fn execute_params(
                 global_config,
             );
             let credit_index_update = ctx
-                .credit_index(&p.index_id)
+                .get_credit_index(&p.index_id)
                 .ok()
                 .map(|idx| (p.index_id.clone(), idx.as_ref().clone()));
             Ok(StepOutcome {
@@ -450,7 +450,7 @@ pub(crate) fn execute_params(
             let spot = if let Some(spot) = p.spot_override {
                 spot
             } else {
-                match context.price(&p.underlying_ticker)? {
+                match context.get_price(&p.underlying_ticker)? {
                     MarketScalar::Price(money) => money.amount(),
                     MarketScalar::Unitless(value) => *value,
                 }
@@ -658,9 +658,9 @@ mod tests {
             .expect("credit index");
 
         MarketContext::new()
-            .insert_discount(discount)
-            .insert_hazard(hazard)
-            .insert_base_correlation(base_corr)
+            .insert(discount)
+            .insert(hazard)
+            .insert(base_corr)
             .insert_credit_index("CDX.NA.IG", credit_index)
     }
 
@@ -775,8 +775,8 @@ mod tests {
                 convention: SwaptionConventionId::new("USD"),
             }),
         ];
-        let context = MarketContext::new()
-            .insert_discount(build_flat_discount_curve(0.03, base_date, "USD-OIS"));
+        let context =
+            MarketContext::new().insert(build_flat_discount_curve(0.03, base_date, "USD-OIS"));
 
         let outcome = execute_params(&params, &quotes, &context, &CalibrationConfig::default())
             .expect("Hull-White step should calibrate");
@@ -906,8 +906,8 @@ mod tests {
             }),
         ];
 
-        let context = MarketContext::new()
-            .insert_discount(build_flat_discount_curve(0.03, base_date, "USD-OIS"));
+        let context =
+            MarketContext::new().insert(build_flat_discount_curve(0.03, base_date, "USD-OIS"));
 
         let outcome = execute_params(&params, &quotes, &context, &CalibrationConfig::default())
             .expect("SVI step should build a surface");

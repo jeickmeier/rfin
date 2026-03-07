@@ -39,7 +39,7 @@ fn market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) -> Market
         .expect("test discount curve should build");
 
     MarketContext::new()
-        .insert_discount(discount)
+        .insert(discount)
         .insert_surface(flat_vol_surface("SPX-VOL", &expiries, &strikes, vol))
         .insert_price("SPX-SPOT", MarketScalar::Unitless(spot))
         .insert_price("SPX-DIV", MarketScalar::Unitless(div_yield))
@@ -131,9 +131,9 @@ fn geometric_analytical_matches_closed_form_unseasoned() -> finstack_core::Resul
         .year_fraction(as_of, expiry, DayCountCtx::default())?;
     let r = disc_curve.zero(t_disc);
     let sigma = mkt
-        .surface(asian.vol_surface_id.as_str())?
+        .get_surface(asian.vol_surface_id.as_str())?
         .value_clamped(t_vol, asian.strike);
-    let q = match mkt.price("SPX-DIV")? {
+    let q = match mkt.get_price("SPX-DIV")? {
         MarketScalar::Unitless(v) => *v,
         MarketScalar::Price(_) => 0.0,
     };
@@ -338,9 +338,9 @@ fn geometric_closed_form_put_matches_helper() -> finstack_core::Result<()> {
         .year_fraction(as_of, expiry, DayCountCtx::default())?;
     let r = disc_curve.zero(t_disc);
     let sigma = mkt
-        .surface(asian.vol_surface_id.as_str())?
+        .get_surface(asian.vol_surface_id.as_str())?
         .value_clamped(t_vol, asian.strike);
-    let q = match mkt.price("SPX-DIV")? {
+    let q = match mkt.get_price("SPX-DIV")? {
         MarketScalar::Unitless(v) => *v,
         MarketScalar::Price(_) => 0.0,
     };

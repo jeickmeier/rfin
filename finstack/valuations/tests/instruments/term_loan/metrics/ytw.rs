@@ -51,7 +51,7 @@ fn test_ytw_is_minimum_of_ytm_and_ytc() {
     });
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let result = loan.price_with_metrics(
@@ -117,7 +117,7 @@ fn test_ytw_callable_amortizing_loan_coupon_on_call_date() {
     });
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let result = loan
@@ -186,7 +186,7 @@ fn test_ytw_uses_quoted_clean_price_when_present() {
     });
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let base = loan
         .price_with_metrics(&market, as_of, &[MetricId::Ytw])

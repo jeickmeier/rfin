@@ -58,10 +58,7 @@ fn market() -> MarketContext {
         .interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(f3m)
-        .insert_forward(f1m)
+    MarketContext::new().insert(disc).insert(f3m).insert(f1m)
 }
 
 fn make_leg(forward_curve: &str, start: Date, end: Date, spread_bp: Decimal) -> BasisSwapLeg {
@@ -418,10 +415,7 @@ fn annuity_with_payment_lag_differs_from_no_lag() {
         .build()
         .unwrap();
 
-    let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(f3m)
-        .insert_forward(f1m);
+    let ctx = MarketContext::new().insert(disc).insert(f3m).insert(f1m);
 
     let as_of = d(2025, 1, 2);
 

@@ -46,7 +46,7 @@ impl MarketContext {
     ///     .build()
     ///     ?;
     ///
-    /// let ctx = MarketContext::new().insert_discount(curve);
+    /// let ctx = MarketContext::new().insert(curve);
     ///
     /// // Roll 6 months forward
     /// let rolled_ctx = ctx.roll_forward(182)?;

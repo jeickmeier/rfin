@@ -106,7 +106,7 @@ Example:
 
    # Add to market context
    market = MarketContext()
-   market.insert_discount(curve)
+   market.insert(curve)
 
 Math Utilities
 --------------

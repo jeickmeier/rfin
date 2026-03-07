@@ -47,7 +47,7 @@ fn get_fx_spot(inst: &RangeAccrual, curves: &MarketContext) -> f64 {
     let fx_spot_id = inst.quanto.as_ref().and_then(|q| q.fx_spot_id.as_deref());
 
     if let Some(id) = fx_spot_id {
-        match curves.price(id) {
+        match curves.get_price(id) {
             Ok(ms) => match ms {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -82,7 +82,7 @@ impl RangeAccrualMcPricer {
         as_of: Date,
     ) -> Result<finstack_core::money::Money> {
         inst.validate()?;
-        let spot_scalar = curves.price(&inst.spot_id)?;
+        let spot_scalar = curves.get_price(&inst.spot_id)?;
         let initial_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -121,7 +121,7 @@ impl RangeAccrualMcPricer {
         let discount_factor = disc_curve.df_between_dates(as_of, final_date)?;
 
         let mut q = if let Some(div_id) = &inst.div_yield_id {
-            match curves.price(div_id.as_str()) {
+            match curves.get_price(div_id.as_str()) {
                 Ok(ms) => match ms {
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                     finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
@@ -132,12 +132,12 @@ impl RangeAccrualMcPricer {
             0.0
         };
 
-        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, initial_spot);
 
         // Quanto Adjustment using FX spot for vol lookup
         if let Some(quanto) = &inst.quanto {
-            let fx_vol_surface = curves.surface(quanto.fx_vol_surface_id.as_str())?;
+            let fx_vol_surface = curves.get_surface(quanto.fx_vol_surface_id.as_str())?;
             let fx_spot = get_fx_spot(inst, curves);
             let sigma_fx = fx_vol_surface.value_clamped(t, fx_spot);
 
@@ -295,7 +295,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
     use finstack_core::math::special_functions::norm_cdf;
 
     inst.validate()?;
-    let spot_scalar = curves.price(&inst.spot_id)?;
+    let spot_scalar = curves.get_price(&inst.spot_id)?;
     let initial_spot = match spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -313,7 +313,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
     let discount_factor = disc_curve.df_between_dates(as_of, final_date)?;
 
     let q_yield = if let Some(div_id) = &inst.div_yield_id {
-        match curves.price(div_id.as_str()) {
+        match curves.get_price(div_id.as_str()) {
             Ok(ms) => match ms {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
@@ -324,7 +324,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
         0.0
     };
 
-    let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+    let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
 
     // Get FX spot for quanto vol lookup (uses actual spot if available, else 1.0)
     let fx_spot = get_fx_spot(inst, curves);
@@ -355,7 +355,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
         // Quanto drift adjustment specific to this horizon
         let mut drift_adj = 0.0;
         if let Some(quanto) = &inst.quanto {
-            let fx_vol_surface = curves.surface(quanto.fx_vol_surface_id.as_str())?;
+            let fx_vol_surface = curves.get_surface(quanto.fx_vol_surface_id.as_str())?;
             // Vol of Asset (S) for drift adj: use ATM at current spot
             let sig_s = vol_surface.value_clamped(t_obs, initial_spot);
             // Vol of FX for drift adj: use ATM at FX spot

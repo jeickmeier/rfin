@@ -133,7 +133,7 @@ mod tests {
             ])
             .build()
             .expect("discount curve");
-        let market = MarketContext::new().insert_discount(discount_curve);
+        let market = MarketContext::new().insert(discount_curve);
         let start = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
         let end = Date::from_calendar_date(2031, Month::January, 1).expect("valid date");
 

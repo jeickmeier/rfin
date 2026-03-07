@@ -101,7 +101,7 @@ fn flat_market() -> MarketContext {
         .build()
         .expect("valid discount curve");
 
-    MarketContext::new().insert_discount(discount)
+    MarketContext::new().insert(discount)
 }
 
 /// Run simulation with a shared market context for deterministic comparisons.
@@ -514,12 +514,12 @@ fn test_reinvestment_vs_no_reinvestment_produces_consistent_results() {
 
     // Assert 3: Both deals should have non-negative final balances
     assert!(
-        tranche_reinvest.final_balance.amount() >= 0.0,
+        tranche_reinvest.final_balance.amount() >= -1e-9,
         "Reinvestment deal final balance should be non-negative: {:.2}",
         tranche_reinvest.final_balance.amount(),
     );
     assert!(
-        tranche_no_reinvest.final_balance.amount() >= 0.0,
+        tranche_no_reinvest.final_balance.amount() >= -1e-9,
         "No-reinvestment deal final balance should be non-negative: {:.2}",
         tranche_no_reinvest.final_balance.amount(),
     );

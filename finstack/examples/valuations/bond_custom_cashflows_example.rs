@@ -65,7 +65,7 @@ fn example_stepup_bond() -> finstack_core::Result<()> {
         .interp(InterpStyle::Linear)
         .build()?;
 
-    let curves = MarketContext::new().insert_discount(disc_curve);
+    let curves = MarketContext::new().insert(disc_curve);
 
     // Price the bond (PV only)
     let pv = bond.value(&curves, issue)?;
@@ -146,7 +146,7 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
         .interp(InterpStyle::Linear)
         .build()?;
 
-    let curves = MarketContext::new().insert_discount(disc_curve);
+    let curves = MarketContext::new().insert(disc_curve);
 
     // Price the bond (PV only)
     let pv = bond.value(&curves, issue)?;
@@ -209,7 +209,7 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
         .interp(InterpStyle::Linear)
         .build()?;
 
-    let curves = MarketContext::new().insert_discount(disc_curve);
+    let curves = MarketContext::new().insert(disc_curve);
 
     // Price the bond (PV only)
     let pv = bond.value(&curves, issue)?;
@@ -279,7 +279,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         .interp(InterpStyle::Linear)
         .build()?;
 
-    let curves = MarketContext::new().insert_discount(disc_curve);
+    let curves = MarketContext::new().insert(disc_curve);
 
     // Compare pricing
     let regular_pv = regular_bond.value(&curves, issue)?;

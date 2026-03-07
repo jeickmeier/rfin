@@ -86,7 +86,7 @@ impl Evaluator {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let discount_curve: DiscountCurve = unimplemented!("build a discount curve");
     /// let market_ctx = MarketContext::new()
-    ///     .insert_discount(discount_curve);
+    ///     .insert(discount_curve);
     ///
     /// let as_of_date = date!(2025-01-31);
     /// # let model: FinancialModelSpec = unimplemented!("build or load a model");

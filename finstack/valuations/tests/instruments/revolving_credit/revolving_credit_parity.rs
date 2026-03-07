@@ -68,9 +68,9 @@ mod tests {
             .unwrap();
 
         MarketContext::new()
-            .insert_discount(disc_curve)
-            .insert_forward(fwd_curve)
-            .insert_hazard(hazard_curve)
+            .insert(disc_curve)
+            .insert(fwd_curve)
+            .insert(hazard_curve)
     }
 
     /// Create a zero-volatility stochastic spec that mimics deterministic behavior

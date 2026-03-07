@@ -49,10 +49,10 @@ fn main() -> finstack_core::Result<()> {
     // 1. BENEFIT: Ergonomic Builder Pattern
     println!("✅ 1. Ergonomic Builder Pattern");
     let context = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_forward(forward_curve)
-        .insert_hazard(hazard_curve)
-        .insert_base_correlation(base_corr)
+        .insert(discount_curve)
+        .insert(forward_curve)
+        .insert(hazard_curve)
+        .insert(base_corr)
         .insert_price("SPOT_SPY", MarketScalar::Unitless(450.0))
         .insert_price("USD_RATE", MarketScalar::Unitless(0.045));
 

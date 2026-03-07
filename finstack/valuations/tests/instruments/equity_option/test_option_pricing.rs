@@ -51,7 +51,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
     .unwrap();
 
     MarketContext::new()
-        .insert_discount(disc)
+        .insert(disc)
         .insert_surface(vol_surface)
         .insert_price(
             "EQUITY-SPOT",

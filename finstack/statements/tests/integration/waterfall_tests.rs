@@ -89,7 +89,7 @@ fn test_ecf_sweep_basic() {
         .knots([(0.0, 1.0), (5.0, 0.9)])
         .build()
         .expect("curve should build");
-    let market_ctx = MarketContext::new().insert_discount(disc_curve);
+    let market_ctx = MarketContext::new().insert(disc_curve);
 
     // Evaluate model
     let mut evaluator = Evaluator::new();

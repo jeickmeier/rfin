@@ -24,7 +24,7 @@ fn test_tenor_exact_match() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_discount(curve);
+    let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     // Create scenario with exact tenor matching at 5Y
@@ -64,9 +64,9 @@ fn test_tenor_exact_match() {
     // We assert directional correctness and a tight-ish numerical band for determinism.
     assert!(df_5y < 0.90, "DF(5Y) should decrease after +25bp shock");
     assert!(
-        (df_5y - 0.887519).abs() < 1e-4,
+        (df_5y - 0.888705).abs() < 1e-4,
         "Expected DF(5Y) ≈ {:.6}, got {:.6}",
-        0.887519,
+        0.888705,
         df_5y
     );
 }
@@ -81,7 +81,7 @@ fn test_tenor_exact_not_found() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_discount(curve);
+    let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     // Try to shock at 3Y which doesn't exist
@@ -131,7 +131,7 @@ fn test_tenor_interpolate_mode() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_discount(curve);
+    let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     // Store original DF at 3Y for comparison

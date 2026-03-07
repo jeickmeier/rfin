@@ -90,7 +90,7 @@ pub fn create_market_context_with_params(spot: f64, vol: f64, div_yield: f64) ->
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(discount_curve)
+        .insert(discount_curve)
         .insert_price("AAPL", MarketScalar::Unitless(spot))
         .insert_price("AAPL-VOL", MarketScalar::Unitless(vol))
         .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(div_yield))

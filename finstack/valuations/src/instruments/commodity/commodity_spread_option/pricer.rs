@@ -100,10 +100,10 @@ fn kirk_price(
     let _r = disc.zero(t_rate);
 
     // Get vols from surfaces
-    let surface1 = market.surface(inst.leg1_vol_surface_id.as_str())?;
+    let surface1 = market.get_surface(inst.leg1_vol_surface_id.as_str())?;
     let sigma1 = surface1.value_clamped(t, f1);
 
-    let surface2 = market.surface(inst.leg2_vol_surface_id.as_str())?;
+    let surface2 = market.get_surface(inst.leg2_vol_surface_id.as_str())?;
     let sigma2 = surface2.value_clamped(t, f2);
 
     let rho = inst.correlation;
@@ -276,11 +276,11 @@ mod tests {
         let disc = flat_discount_curve("USD-OIS", rate, as_of);
 
         MarketContext::new()
-            .insert_price_curve(leg1_fwd)
-            .insert_price_curve(leg2_fwd)
+            .insert(leg1_fwd)
+            .insert(leg2_fwd)
             .insert_surface(leg1_vol)
             .insert_surface(leg2_vol)
-            .insert_discount(disc)
+            .insert(disc)
     }
 
     fn make_spread_option(

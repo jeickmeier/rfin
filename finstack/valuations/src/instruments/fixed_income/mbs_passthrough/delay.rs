@@ -12,6 +12,7 @@
 //! of the month) to the payment date.
 
 use crate::instruments::fixed_income::mbs_passthrough::AgencyProgram;
+use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{BusinessDayConvention, Date};
 use finstack_core::Result;
 
@@ -107,7 +108,7 @@ pub fn actual_payment_date(
 pub fn payment_date_with_calendar(
     accrual_end: Date,
     agency: AgencyProgram,
-    _calendar_id: Option<&str>,
+    calendar_id: Option<&str>,
     bdc: BusinessDayConvention,
 ) -> Result<Date> {
     use time::Duration;
@@ -115,8 +116,14 @@ pub fn payment_date_with_calendar(
     let delay = agency.payment_lag_days();
     let raw_payment = accrual_end + Duration::days(delay as i64);
 
-    // Simple business day adjustment without calendar lookup
-    // In production, would use calendar_id to look up actual calendar
+    // Use holiday calendar when provided; fall back to weekend-only adjustment.
+    if let Some(cal_id) = calendar_id {
+        if let Some(cal) = calendar_by_id(cal_id) {
+            return finstack_core::dates::adjust(raw_payment, bdc, cal);
+        }
+    }
+
+    // Weekend-only fallback
     match bdc {
         BusinessDayConvention::Following => {
             let weekday = raw_payment.weekday();

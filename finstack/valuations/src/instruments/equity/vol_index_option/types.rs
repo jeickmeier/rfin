@@ -264,10 +264,10 @@ impl VolatilityIndexOption {
         let disc = context.get_discount(&self.discount_curve_id)?;
 
         // Get the vol index curve for forward level
-        let vol_curve = context.get_vol_index(&self.vol_index_curve_id)?;
+        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
 
         // Get the vol-of-vol surface for implied vol
-        let vol_surface = context.surface(&self.vol_of_vol_surface_id)?;
+        let vol_surface = context.get_surface(&self.vol_of_vol_surface_id)?;
 
         // Calculate time to expiry from as_of date
         let t = self
@@ -337,7 +337,7 @@ impl VolatilityIndexOption {
     /// * `context` - Market context with vol index curves
     /// * `as_of` - Valuation date for time to expiry calculation
     pub fn forward_vol(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index(&self.vol_index_curve_id)?;
+        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
         let t = self
             .day_count
             .year_fraction(as_of, self.expiry, DayCountCtx::default())?
@@ -354,8 +354,8 @@ impl VolatilityIndexOption {
     /// # Returns
     /// Delta per contract (change in option value per 1-point change in forward)
     pub fn delta(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index(&self.vol_index_curve_id)?;
-        let vol_surface = context.surface(&self.vol_of_vol_surface_id)?;
+        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
+        let vol_surface = context.get_surface(&self.vol_of_vol_surface_id)?;
         let disc = context.get_discount(&self.discount_curve_id)?;
 
         let t = self
@@ -395,8 +395,8 @@ impl VolatilityIndexOption {
     /// * `context` - Market context with curves and surfaces
     /// * `as_of` - Valuation date for time to expiry calculation
     pub fn gamma(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index(&self.vol_index_curve_id)?;
-        let vol_surface = context.surface(&self.vol_of_vol_surface_id)?;
+        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
+        let vol_surface = context.get_surface(&self.vol_of_vol_surface_id)?;
         let disc = context.get_discount(&self.discount_curve_id)?;
 
         let t = self
@@ -430,8 +430,8 @@ impl VolatilityIndexOption {
     /// # Returns
     /// Change in option value for a 1% change in vol-of-vol
     pub fn vega(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index(&self.vol_index_curve_id)?;
-        let vol_surface = context.surface(&self.vol_of_vol_surface_id)?;
+        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
+        let vol_surface = context.get_surface(&self.vol_of_vol_surface_id)?;
         let disc = context.get_discount(&self.discount_curve_id)?;
 
         let t = self
@@ -468,8 +468,8 @@ impl VolatilityIndexOption {
     /// # Returns
     /// Change in option value for 1 day passing
     pub fn theta(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index(&self.vol_index_curve_id)?;
-        let vol_surface = context.surface(&self.vol_of_vol_surface_id)?;
+        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
+        let vol_surface = context.get_surface(&self.vol_of_vol_surface_id)?;
         let disc = context.get_discount(&self.discount_curve_id)?;
 
         let t = self
@@ -658,8 +658,8 @@ mod tests {
             .expect("valid vol-of-vol surface");
 
         let ctx = MarketContext::new()
-            .insert_discount(disc)
-            .insert_vol_index(vix)
+            .insert(disc)
+            .insert(vix)
             .insert_surface(volvol);
 
         (ctx, base_date)

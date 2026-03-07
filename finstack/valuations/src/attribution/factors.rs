@@ -501,7 +501,7 @@ impl MarketSnapshot {
 
             // Extract inflation curves if flag is set
             if flags.contains(CurveRestoreFlags::INFLATION) {
-                if let Ok(curve) = market.get_inflation(curve_id) {
+                if let Ok(curve) = market.get_inflation_curve(curve_id) {
                     snapshot.inflation_curves.insert(curve_id.clone(), curve);
                 }
             }
@@ -580,37 +580,37 @@ impl MarketSnapshot {
 
         // Insert preserved curves first (these are NOT being restored from snapshot)
         for curve in preserved.discount_curves.values() {
-            new_market = new_market.insert_discount((**curve).clone());
+            new_market = new_market.insert((**curve).clone());
         }
         for curve in preserved.forward_curves.values() {
-            new_market = new_market.insert_forward((**curve).clone());
+            new_market = new_market.insert((**curve).clone());
         }
         for curve in preserved.hazard_curves.values() {
-            new_market = new_market.insert_hazard((**curve).clone());
+            new_market = new_market.insert((**curve).clone());
         }
         for curve in preserved.inflation_curves.values() {
-            new_market = new_market.insert_inflation((**curve).clone());
+            new_market = new_market.insert((**curve).clone());
         }
         for curve in preserved.base_correlation_curves.values() {
-            new_market = new_market.insert_base_correlation((**curve).clone());
+            new_market = new_market.insert((**curve).clone());
         }
 
         // Insert snapshot curves (these ARE being restored)
         // Only insert curves that were actually in the snapshot
         for curve in snapshot.discount_curves.values() {
-            new_market = new_market.insert_discount((**curve).clone());
+            new_market = new_market.insert((**curve).clone());
         }
         for curve in snapshot.forward_curves.values() {
-            new_market = new_market.insert_forward((**curve).clone());
+            new_market = new_market.insert((**curve).clone());
         }
         for curve in snapshot.hazard_curves.values() {
-            new_market = new_market.insert_hazard((**curve).clone());
+            new_market = new_market.insert((**curve).clone());
         }
         for curve in snapshot.inflation_curves.values() {
-            new_market = new_market.insert_inflation((**curve).clone());
+            new_market = new_market.insert((**curve).clone());
         }
         for curve in snapshot.base_correlation_curves.values() {
-            new_market = new_market.insert_base_correlation((**curve).clone());
+            new_market = new_market.insert((**curve).clone());
         }
 
         // Always preserve FX, surfaces, and scalars from current market
@@ -688,7 +688,7 @@ impl MarketExtractable for InflationCurvesSnapshot {
         let mut inflation_curves = HashMap::default();
 
         for curve_id in market.curve_ids() {
-            if let Ok(inflation) = market.get_inflation(curve_id) {
+            if let Ok(inflation) = market.get_inflation_curve(curve_id) {
                 inflation_curves.insert(curve_id.clone(), inflation);
             }
         }
@@ -827,19 +827,19 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
     // Preserve all curves via Arc clone (cheap)
     for curve_id in market.curve_ids() {
         if let Ok(c) = market.get_discount(curve_id) {
-            new_market = new_market.insert_discount((*c).clone());
+            new_market = new_market.insert((*c).clone());
         }
         if let Ok(c) = market.get_forward(curve_id) {
-            new_market = new_market.insert_forward((*c).clone());
+            new_market = new_market.insert((*c).clone());
         }
         if let Ok(c) = market.get_hazard(curve_id) {
-            new_market = new_market.insert_hazard((*c).clone());
+            new_market = new_market.insert((*c).clone());
         }
-        if let Ok(c) = market.get_inflation(curve_id) {
-            new_market = new_market.insert_inflation((*c).clone());
+        if let Ok(c) = market.get_inflation_curve(curve_id) {
+            new_market = new_market.insert((*c).clone());
         }
         if let Ok(c) = market.get_base_correlation(curve_id) {
-            new_market = new_market.insert_base_correlation((*c).clone());
+            new_market = new_market.insert((*c).clone());
         }
     }
 
@@ -889,9 +889,7 @@ mod tests {
         let curve1 = create_test_discount_curve("USD-OIS", base_date);
         let curve2 = create_test_discount_curve("EUR-OIS", base_date);
 
-        let market = MarketContext::new()
-            .insert_discount(curve1)
-            .insert_discount(curve2);
+        let market = MarketContext::new().insert(curve1).insert(curve2);
 
         // Extract snapshot
         let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::RATES);
@@ -1059,9 +1057,9 @@ mod tests {
         let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
 
         let market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve)
-            .insert_hazard(hazard_curve);
+            .insert(discount_curve)
+            .insert(forward_curve)
+            .insert(hazard_curve);
 
         // Extract only discount curves
         let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::DISCOUNT);
@@ -1082,9 +1080,9 @@ mod tests {
         let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
 
         let market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve)
-            .insert_hazard(hazard_curve);
+            .insert(discount_curve)
+            .insert(forward_curve)
+            .insert(hazard_curve);
 
         // Extract rates (discount + forward)
         let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::RATES);
@@ -1108,11 +1106,11 @@ mod tests {
         let base_corr_curve = create_test_base_correlation_curve("CDX-IG", base_date);
 
         let market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve)
-            .insert_hazard(hazard_curve)
-            .insert_inflation(inflation_curve)
-            .insert_base_correlation(base_corr_curve);
+            .insert(discount_curve)
+            .insert(forward_curve)
+            .insert(hazard_curve)
+            .insert(inflation_curve)
+            .insert(base_corr_curve);
 
         // Extract all curve types
         let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::all());
@@ -1136,8 +1134,8 @@ mod tests {
         let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
 
         let market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve);
+            .insert(discount_curve)
+            .insert(forward_curve);
 
         // Extract with empty flags (nothing should be extracted)
         let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::empty());
@@ -1171,9 +1169,9 @@ mod tests {
         let discount_curve3 = create_test_discount_curve("GBP-OIS", base_date);
 
         let market = MarketContext::new()
-            .insert_discount(discount_curve1)
-            .insert_discount(discount_curve2)
-            .insert_discount(discount_curve3);
+            .insert(discount_curve1)
+            .insert(discount_curve2)
+            .insert(discount_curve3);
 
         // Extract only discount curves
         let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::DISCOUNT);
@@ -1193,9 +1191,9 @@ mod tests {
         let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
 
         let market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve)
-            .insert_hazard(hazard_curve);
+            .insert(discount_curve)
+            .insert(forward_curve)
+            .insert(hazard_curve);
 
         // Extract everything except hazard curves
         let flags = CurveRestoreFlags::all() & !CurveRestoreFlags::HAZARD;
@@ -1227,9 +1225,9 @@ mod tests {
         let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
 
         let current_market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve)
-            .insert_hazard(hazard_curve);
+            .insert(discount_curve)
+            .insert(forward_curve)
+            .insert(hazard_curve);
 
         // Create snapshot with a different discount curve
         let new_discount = create_test_discount_curve("EUR-OIS", base_date);
@@ -1261,9 +1259,9 @@ mod tests {
         let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
 
         let current_market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve)
-            .insert_hazard(hazard_curve);
+            .insert(discount_curve)
+            .insert(forward_curve)
+            .insert(hazard_curve);
 
         // Create snapshot with new rates curves
         let new_discount = create_test_discount_curve("EUR-OIS", base_date);
@@ -1302,11 +1300,11 @@ mod tests {
         let base_corr_curve = create_test_base_correlation_curve("CDX-IG", base_date);
 
         let current_market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve)
-            .insert_hazard(hazard_curve)
-            .insert_inflation(inflation_curve)
-            .insert_base_correlation(base_corr_curve);
+            .insert(discount_curve)
+            .insert(forward_curve)
+            .insert(hazard_curve)
+            .insert(inflation_curve)
+            .insert(base_corr_curve);
 
         // Create snapshot with new curves for all types
         let new_discount = create_test_discount_curve("EUR-OIS", base_date);
@@ -1341,14 +1339,14 @@ mod tests {
         assert!(restored.get_discount("EUR-OIS").is_ok());
         assert!(restored.get_forward("EUR-ESTR").is_ok());
         assert!(restored.get_hazard("CORP-B").is_ok());
-        assert!(restored.get_inflation("EU-HICP").is_ok());
+        assert!(restored.get_inflation_curve("EU-HICP").is_ok());
         assert!(restored.get_base_correlation("ITRAXX").is_ok());
 
         // Original curves should be replaced
         assert!(restored.get_discount("USD-OIS").is_err());
         assert!(restored.get_forward("USD-SOFR").is_err());
         assert!(restored.get_hazard("CORP-A").is_err());
-        assert!(restored.get_inflation("US-CPI").is_err());
+        assert!(restored.get_inflation_curve("US-CPI").is_err());
         assert!(restored.get_base_correlation("CDX-IG").is_err());
     }
 
@@ -1361,10 +1359,10 @@ mod tests {
         let inflation_curve = create_test_inflation_curve("US-CPI", base_date);
 
         let current_market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve)
-            .insert_hazard(hazard_curve)
-            .insert_inflation(inflation_curve);
+            .insert(discount_curve)
+            .insert(forward_curve)
+            .insert(hazard_curve)
+            .insert(inflation_curve);
 
         // Create snapshot with only new hazard curve
         let new_hazard = create_test_hazard_curve("CORP-B", base_date);
@@ -1386,7 +1384,7 @@ mod tests {
         // All other curves should be preserved
         assert!(restored.get_discount("USD-OIS").is_ok());
         assert!(restored.get_forward("USD-SOFR").is_ok());
-        assert!(restored.get_inflation("US-CPI").is_ok());
+        assert!(restored.get_inflation_curve("US-CPI").is_ok());
     }
 
     #[test]
@@ -1396,8 +1394,8 @@ mod tests {
         let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
 
         let current_market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve);
+            .insert(discount_curve)
+            .insert(forward_curve);
 
         // Create empty snapshot
         let snapshot = MarketSnapshot::default();
@@ -1446,9 +1444,9 @@ mod tests {
         let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
 
         let current_market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve)
-            .insert_hazard(hazard_curve);
+            .insert(discount_curve)
+            .insert(forward_curve)
+            .insert(hazard_curve);
 
         // Create snapshot with new discount and hazard curves
         let new_discount = create_test_discount_curve("EUR-OIS", base_date);
@@ -1490,12 +1488,12 @@ mod tests {
         let inflation1 = create_test_inflation_curve("US-CPI", base_date);
 
         let market = MarketContext::new()
-            .insert_discount(discount1)
-            .insert_discount(discount2)
-            .insert_forward(forward1)
-            .insert_forward(forward2)
-            .insert_hazard(hazard1)
-            .insert_inflation(inflation1);
+            .insert(discount1)
+            .insert(discount2)
+            .insert(forward1)
+            .insert(forward2)
+            .insert(hazard1)
+            .insert(inflation1);
 
         // Extract rates snapshot
         let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::RATES);
@@ -1503,9 +1501,7 @@ mod tests {
         // Create a different market to restore into
         let hazard2 = create_test_hazard_curve("CORP-B", base_date);
         let inflation2 = create_test_inflation_curve("EU-HICP", base_date);
-        let target_market = MarketContext::new()
-            .insert_hazard(hazard2)
-            .insert_inflation(inflation2);
+        let target_market = MarketContext::new().insert(hazard2).insert(inflation2);
 
         // Restore rates curves
         let restored =
@@ -1519,11 +1515,11 @@ mod tests {
 
         // Verify: should preserve non-rates curves from target
         assert!(restored.get_hazard("CORP-B").is_ok());
-        assert!(restored.get_inflation("EU-HICP").is_ok());
+        assert!(restored.get_inflation_curve("EU-HICP").is_ok());
 
         // Verify: should NOT have original hazard/inflation from source market
         assert!(restored.get_hazard("CORP-A").is_err());
-        assert!(restored.get_inflation("US-CPI").is_err());
+        assert!(restored.get_inflation_curve("US-CPI").is_err());
 
         // Sanity check: restored market should match expectations
         assert!(restored.get_discount("USD-OIS").is_ok());
@@ -1541,11 +1537,11 @@ mod tests {
         let inflation1 = create_test_inflation_curve("US-CPI", base_date);
 
         let market = MarketContext::new()
-            .insert_discount(discount1)
-            .insert_forward(forward1)
-            .insert_hazard(hazard1)
-            .insert_hazard(hazard2)
-            .insert_inflation(inflation1);
+            .insert(discount1)
+            .insert(forward1)
+            .insert(hazard1)
+            .insert(hazard2)
+            .insert(inflation1);
 
         // Extract credit snapshot
         let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::CREDIT);
@@ -1553,9 +1549,7 @@ mod tests {
         // Create a different market to restore into
         let discount2 = create_test_discount_curve("EUR-OIS", base_date);
         let forward2 = create_test_forward_curve("EUR-ESTR", base_date);
-        let target_market = MarketContext::new()
-            .insert_discount(discount2)
-            .insert_forward(forward2);
+        let target_market = MarketContext::new().insert(discount2).insert(forward2);
 
         // Restore credit curves
         let restored =
@@ -1588,10 +1582,10 @@ mod tests {
         let inflation2 = create_test_inflation_curve("EU-HICP", base_date);
 
         let market = MarketContext::new()
-            .insert_discount(discount1)
-            .insert_hazard(hazard1)
-            .insert_inflation(inflation1)
-            .insert_inflation(inflation2);
+            .insert(discount1)
+            .insert(hazard1)
+            .insert(inflation1)
+            .insert(inflation2);
 
         // Extract inflation snapshot
         let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::INFLATION);
@@ -1599,17 +1593,15 @@ mod tests {
         // Create a different market to restore into
         let discount2 = create_test_discount_curve("EUR-OIS", base_date);
         let hazard2 = create_test_hazard_curve("CORP-B", base_date);
-        let target_market = MarketContext::new()
-            .insert_discount(discount2)
-            .insert_hazard(hazard2);
+        let target_market = MarketContext::new().insert(discount2).insert(hazard2);
 
         // Restore inflation curves
         let restored =
             MarketSnapshot::restore_market(&target_market, &snapshot, CurveRestoreFlags::INFLATION);
 
         // Verify: should have inflation curves from snapshot
-        assert!(restored.get_inflation("US-CPI").is_ok());
-        assert!(restored.get_inflation("EU-HICP").is_ok());
+        assert!(restored.get_inflation_curve("US-CPI").is_ok());
+        assert!(restored.get_inflation_curve("EU-HICP").is_ok());
 
         // Verify: should preserve non-inflation curves from target
         assert!(restored.get_discount("EUR-OIS").is_ok());
@@ -1620,7 +1612,7 @@ mod tests {
         assert!(restored.get_hazard("CORP-A").is_err());
 
         // Sanity check: restored market should match expectations
-        assert!(restored.get_inflation("US-CPI").is_ok());
+        assert!(restored.get_inflation_curve("US-CPI").is_ok());
     }
 
     #[test]
@@ -1634,10 +1626,10 @@ mod tests {
         let corr2 = create_test_base_correlation_curve("ITRAXX", base_date);
 
         let market = MarketContext::new()
-            .insert_discount(discount1)
-            .insert_hazard(hazard1)
-            .insert_base_correlation(corr1)
-            .insert_base_correlation(corr2);
+            .insert(discount1)
+            .insert(hazard1)
+            .insert(corr1)
+            .insert(corr2);
 
         // Extract correlation snapshot
         let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::CORRELATION);
@@ -1645,9 +1637,7 @@ mod tests {
         // Create a different market to restore into
         let discount2 = create_test_discount_curve("EUR-OIS", base_date);
         let hazard2 = create_test_hazard_curve("CORP-B", base_date);
-        let target_market = MarketContext::new()
-            .insert_discount(discount2)
-            .insert_hazard(hazard2);
+        let target_market = MarketContext::new().insert(discount2).insert(hazard2);
 
         // Restore correlation curves
         let restored = MarketSnapshot::restore_market(
@@ -1679,8 +1669,7 @@ mod tests {
         // Test with empty source market
         let empty_market = MarketContext::new();
         let snapshot = MarketSnapshot::extract(&empty_market, CurveRestoreFlags::RATES);
-        let target =
-            MarketContext::new().insert_discount(create_test_discount_curve("USD-OIS", base_date));
+        let target = MarketContext::new().insert(create_test_discount_curve("USD-OIS", base_date));
 
         let restored = MarketSnapshot::restore_market(&target, &snapshot, CurveRestoreFlags::RATES);
 
@@ -1688,8 +1677,7 @@ mod tests {
         assert!(restored.get_discount("USD-OIS").is_err());
 
         // Test with empty target market
-        let source =
-            MarketContext::new().insert_discount(create_test_discount_curve("USD-OIS", base_date));
+        let source = MarketContext::new().insert(create_test_discount_curve("USD-OIS", base_date));
         let snapshot2 = MarketSnapshot::extract(&source, CurveRestoreFlags::RATES);
         let empty_target = MarketContext::new();
 
@@ -1713,12 +1701,12 @@ mod tests {
         let corr1 = create_test_base_correlation_curve("CDX-IG", base_date);
 
         let market = MarketContext::new()
-            .insert_discount(discount1)
-            .insert_discount(discount2)
-            .insert_forward(forward1)
-            .insert_hazard(hazard1)
-            .insert_inflation(inflation1)
-            .insert_base_correlation(corr1);
+            .insert(discount1)
+            .insert(discount2)
+            .insert(forward1)
+            .insert(hazard1)
+            .insert(inflation1)
+            .insert(corr1);
 
         // Extract each type of snapshot
         let rates_snap = MarketSnapshot::extract(&market, CurveRestoreFlags::RATES);
@@ -1730,8 +1718,8 @@ mod tests {
         let target_discount = create_test_discount_curve("GBP-OIS", base_date);
         let target_hazard = create_test_hazard_curve("CORP-B", base_date);
         let target = MarketContext::new()
-            .insert_discount(target_discount)
-            .insert_hazard(target_hazard);
+            .insert(target_discount)
+            .insert(target_hazard);
 
         // Restore rates curves
         let after_rates =
@@ -1767,7 +1755,7 @@ mod tests {
             &inflation_snap,
             CurveRestoreFlags::INFLATION,
         );
-        assert!(after_inflation.get_inflation("US-CPI").is_ok()); // restored
+        assert!(after_inflation.get_inflation_curve("US-CPI").is_ok()); // restored
 
         // Restore correlation curves
         let final_market = MarketSnapshot::restore_market(
@@ -1782,7 +1770,7 @@ mod tests {
         assert!(final_market.get_discount("EUR-OIS").is_ok());
         assert!(final_market.get_forward("USD-SOFR").is_ok());
         assert!(final_market.get_hazard("CORP-A").is_ok());
-        assert!(final_market.get_inflation("US-CPI").is_ok());
+        assert!(final_market.get_inflation_curve("US-CPI").is_ok());
         assert!(final_market.get_base_correlation("CDX-IG").is_ok());
         assert!(final_market.get_discount("GBP-OIS").is_err());
         assert!(final_market.get_hazard("CORP-B").is_err());
@@ -1795,7 +1783,7 @@ mod tests {
         let base_date = date!(2025 - 01 - 15);
         let discount = create_test_discount_curve("USD-OIS", base_date);
 
-        let market = MarketContext::new().insert_discount(discount);
+        let market = MarketContext::new().insert(discount);
 
         // Test trait method
         let snapshot = RatesCurvesSnapshot::extract(&market);
@@ -1812,7 +1800,7 @@ mod tests {
     fn test_market_extractable_credit_curves() {
         let base_date = date!(2025 - 01 - 15);
         let hazard = create_test_hazard_curve("CORP-A", base_date);
-        let market = MarketContext::new().insert_hazard(hazard);
+        let market = MarketContext::new().insert(hazard);
 
         // Test trait method
         let snapshot = CreditCurvesSnapshot::extract(&market);
@@ -1828,7 +1816,7 @@ mod tests {
     fn test_market_extractable_inflation_curves() {
         let base_date = date!(2025 - 01 - 15);
         let inflation = create_test_inflation_curve("US-CPI", base_date);
-        let market = MarketContext::new().insert_inflation(inflation);
+        let market = MarketContext::new().insert(inflation);
 
         // Test trait method
         let snapshot = InflationCurvesSnapshot::extract(&market);
@@ -1844,7 +1832,7 @@ mod tests {
     fn test_market_extractable_correlations() {
         let base_date = date!(2025 - 01 - 15);
         let base_corr = create_test_base_correlation_curve("CDX-IG", base_date);
-        let market = MarketContext::new().insert_base_correlation(base_corr);
+        let market = MarketContext::new().insert(base_corr);
 
         // Test trait method
         let snapshot = CorrelationsSnapshot::extract(&market);
@@ -1893,7 +1881,7 @@ mod tests {
         // Verify that trait-based extraction matches the generic helper
         let base_date = date!(2025 - 01 - 15);
         let discount = create_test_discount_curve("USD-OIS", base_date);
-        let market = MarketContext::new().insert_discount(discount);
+        let market = MarketContext::new().insert(discount);
 
         let direct = RatesCurvesSnapshot::extract(&market);
         let generic: RatesCurvesSnapshot = extract(&market);
@@ -1911,7 +1899,7 @@ mod tests {
     fn test_generic_extract_with_type_inference() {
         let base_date = date!(2025 - 01 - 15);
         let discount = create_test_discount_curve("USD-OIS", base_date);
-        let market = MarketContext::new().insert_discount(discount);
+        let market = MarketContext::new().insert(discount);
 
         // Test that type inference works correctly
         let _rates: RatesCurvesSnapshot = extract(&market);
@@ -1937,9 +1925,9 @@ mod tests {
             .expect("ForwardCurve builder should succeed");
 
         let market = MarketContext::new()
-            .insert_discount(discount1)
-            .insert_discount(discount2)
-            .insert_forward(forward);
+            .insert(discount1)
+            .insert(discount2)
+            .insert(forward);
 
         // Extract rates curves
         let snapshot = RatesCurvesSnapshot::extract(&market);

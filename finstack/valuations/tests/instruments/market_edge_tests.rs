@@ -73,9 +73,7 @@ mod cds_market_edge {
 
         let disc = build_discount_curve(0.05, as_of, "USD_OIS");
         let hazard = build_hazard_curve(0.02, 0.40, as_of, "CORP");
-        let market = MarketContext::new()
-            .insert_discount(disc)
-            .insert_hazard(hazard);
+        let market = MarketContext::new().insert(disc).insert(hazard);
 
         let mut buyer = crate::finstack_test_utils::cds_buy_protection(
             "BUYER",
@@ -153,9 +151,7 @@ mod cds_market_edge {
 
         for &h in &hazard_rates {
             let hazard = build_hazard_curve(h, 0.40, as_of, "CORP");
-            let market = MarketContext::new()
-                .insert_discount(disc.clone())
-                .insert_hazard(hazard);
+            let market = MarketContext::new().insert(disc.clone()).insert(hazard);
 
             let cds = crate::finstack_test_utils::cds_buy_protection(
                 "AOD_TEST",
@@ -583,7 +579,7 @@ mod bond_market_edge {
         .unwrap();
 
         let disc = build_discount_curve(0.05, as_of, "USD-OIS");
-        let market = MarketContext::new().insert_discount(disc);
+        let market = MarketContext::new().insert(disc);
 
         // Get dirty price (full PV)
         let dirty = bond.value(&market, as_of).unwrap().amount();

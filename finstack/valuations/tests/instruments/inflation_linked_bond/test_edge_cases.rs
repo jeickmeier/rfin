@@ -162,7 +162,7 @@ fn test_missing_inflation_data() {
         .build()
         .unwrap();
 
-    let ctx = finstack_core::market_data::context::MarketContext::new().insert_discount(disc);
+    let ctx = finstack_core::market_data::context::MarketContext::new().insert(disc);
 
     // Act & Assert
     let result = ilb.value(&ctx, as_of);
@@ -364,7 +364,7 @@ fn test_currency_mismatch_detection() {
         .knots([(0.0, 1.0), (5.0, 0.95)])
         .build()
         .unwrap();
-    ctx_gbp = ctx_gbp.insert_discount(disc);
+    ctx_gbp = ctx_gbp.insert(disc);
 
     let as_of = d(2025, 1, 2);
 

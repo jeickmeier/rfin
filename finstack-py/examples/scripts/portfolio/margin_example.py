@@ -58,7 +58,7 @@ def create_market_context():
         (30.0, 0.13313),  # 30Y
     ]
     discount_curve = DiscountCurve("USD.OIS", as_of, discount_knots)
-    market.insert_discount(discount_curve)
+    market.insert(discount_curve)
 
     # Create hazard curve from hazard rates
     hazard_knots = [
@@ -71,7 +71,7 @@ def create_market_context():
         (10.0, 0.0467),  # 10Y
     ]
     hazard_curve = HazardCurve("ACME.5Y", as_of, hazard_knots, recovery_rate=0.40)
-    market.insert_hazard(hazard_curve)
+    market.insert(hazard_curve)
 
     return market, as_of, usd
 

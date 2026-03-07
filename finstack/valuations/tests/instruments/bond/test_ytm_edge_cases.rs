@@ -30,7 +30,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new().insert_discount(curve)
+    MarketContext::new().insert(curve)
 }
 
 /// Deep discount bond YTM test

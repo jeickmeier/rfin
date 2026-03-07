@@ -55,7 +55,7 @@ use finstack_core::Result;
 fn extract_index_yield(trs: &FIIndexTotalReturnSwap, context: &MarketContext) -> Result<f64> {
     match &trs.underlying.yield_id {
         Some(id) => {
-            let scalar = context.price(id.as_str()).map_err(|_| {
+            let scalar = context.get_price(id.as_str()).map_err(|_| {
                 finstack_core::Error::Validation(format!(
                     "Index yield data '{}' is configured but not found in market context. \
                      Provide the yield scalar or remove yield_id to use zero yield.",

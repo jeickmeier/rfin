@@ -43,7 +43,7 @@ fn test_ytm_par_loan() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let result = loan.price_with_metrics(&market, as_of, &[MetricId::Ytm]);
@@ -102,7 +102,7 @@ fn test_ytm_discount_loan() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.06, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let result = loan.price_with_metrics(&market, as_of, &[MetricId::Ytm]);
@@ -143,7 +143,7 @@ fn test_ytm_uses_quoted_clean_price_when_present() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let base = loan
         .price_with_metrics(&market, as_of, &[MetricId::Ytm])

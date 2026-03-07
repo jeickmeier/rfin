@@ -67,7 +67,7 @@ fn create_market(as_of: Date) -> MarketContext {
         .expect("vol surface should build");
 
     MarketContext::new()
-        .insert_discount(disc_curve)
+        .insert(disc_curve)
         .insert_surface(vol_surface)
         .insert_price("SPOT", MarketScalar::Unitless(SPOT))
         .insert_price("SPOT_DIV", MarketScalar::Unitless(DIV_YIELD))

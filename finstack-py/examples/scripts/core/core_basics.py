@@ -164,7 +164,7 @@ def show_market_data() -> None:
     fx.set_quote(Currency("EUR"), usd, 1.1)
     fx_rate = fx.rate(Currency("EUR"), usd, base, FxConversionPolicy.CASHFLOW_DATE)
 
-    scalar = MarketScalar.price(Money(188.25, usd))
+    scalar = MarketScalar.get_price(Money(188.25, usd))
     series = ScalarTimeSeries(
         "US-CPI",
         [(date(2023, 12, 31), 300.0), (date(2024, 1, 31), 301.5)],
@@ -178,9 +178,9 @@ def show_market_data() -> None:
     dividends = dividends_builder.build()
 
     context = MarketContext()
-    context.insert_discount(discount)
-    context.insert_hazard(hazard)
-    context.insert_base_correlation(base_corr)
+    context.insert(discount)
+    context.insert(hazard)
+    context.insert(base_corr)
     context.insert_surface(surface)
     context.insert_price("AAPL", scalar)
     context.insert_series(series)
@@ -189,7 +189,7 @@ def show_market_data() -> None:
 
     stats = context.stats()
     logger.info("Context stats: %s", stats)
-    discount_curve = context.discount("USD-OIS")
+    discount_curve = context.get_discount("USD-OIS")
     logger.info("Discount df(5y): %.4f", discount_curve.df(5.0))
     logger.info(
         "EUR/USD fx rate (triangulated=%s): %.4f",

@@ -120,8 +120,8 @@ pub fn create_flat_market(as_of: Date, rate: f64, vol: f64) -> MarketContext {
     let vol_surface = build_flat_vol_surface(vol, as_of, "USD_SWAPTION_VOL");
 
     MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface)
 }
 

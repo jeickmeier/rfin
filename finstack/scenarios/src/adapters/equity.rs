@@ -24,7 +24,7 @@ impl ScenarioAdapter for EquityAdapter {
             OperationSpec::EquityPricePct { ids, pct } => {
                 let mut effects = Vec::new();
                 for id in ids {
-                    if ctx.market.price(id).is_ok() {
+                    if ctx.market.get_price(id).is_ok() {
                         let bump = MarketBump::Curve {
                             id: CurveId::from(id.as_str()),
                             spec: BumpSpec {

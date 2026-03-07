@@ -90,13 +90,13 @@ fn test_black_model_symmetry() {
     let vol_surface2 = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market1 = MarketContext::new()
-        .insert_discount(disc_curve1)
-        .insert_forward(fwd1)
+        .insert(disc_curve1)
+        .insert(fwd1)
         .insert_surface(vol_surface1);
 
     let market2 = MarketContext::new()
-        .insert_discount(disc_curve2)
-        .insert_forward(fwd2)
+        .insert(disc_curve2)
+        .insert(fwd2)
         .insert_surface(vol_surface2);
 
     let pv1 = caplet.value(&market1, as_of).unwrap().amount();
@@ -146,8 +146,8 @@ fn test_vega_gamma_relation() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let result = cap
@@ -212,18 +212,18 @@ fn test_delta_by_finite_difference() {
     let vol_surface3 = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market_down = MarketContext::new()
-        .insert_discount(disc_curve1)
-        .insert_forward(fwd_down)
+        .insert(disc_curve1)
+        .insert(fwd_down)
         .insert_surface(vol_surface1);
 
     let market_base = MarketContext::new()
-        .insert_discount(disc_curve2)
-        .insert_forward(fwd_base)
+        .insert(disc_curve2)
+        .insert(fwd_base)
         .insert_surface(vol_surface2);
 
     let market_up = MarketContext::new()
-        .insert_discount(disc_curve3)
-        .insert_forward(fwd_up)
+        .insert(disc_curve3)
+        .insert(fwd_up)
         .insert_surface(vol_surface3);
 
     let pv_down = caplet.value(&market_down, as_of).unwrap().amount();
@@ -300,18 +300,18 @@ fn test_vega_by_finite_difference() {
     let fwd_curve3 = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
 
     let market_down = MarketContext::new()
-        .insert_discount(disc_curve1)
-        .insert_forward(fwd_curve1)
+        .insert(disc_curve1)
+        .insert(fwd_curve1)
         .insert_surface(vol_down);
 
     let market_up = MarketContext::new()
-        .insert_discount(disc_curve2)
-        .insert_forward(fwd_curve2)
+        .insert(disc_curve2)
+        .insert(fwd_curve2)
         .insert_surface(vol_up);
 
     let market_mid = MarketContext::new()
-        .insert_discount(disc_curve3)
-        .insert_forward(fwd_curve3)
+        .insert(disc_curve3)
+        .insert(fwd_curve3)
         .insert_surface(vol_mid);
 
     let pv_down = caplet.value(&market_down, as_of).unwrap().amount();
@@ -378,8 +378,8 @@ fn test_numerical_stability_extreme_params() {
     let vol_surface = build_flat_vol_surface(0.50, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let result = cap

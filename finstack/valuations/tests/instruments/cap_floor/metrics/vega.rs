@@ -88,8 +88,8 @@ fn test_cap_vega_positive() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let result = cap
@@ -136,8 +136,8 @@ fn test_floor_vega_positive() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let result = floor
@@ -163,8 +163,8 @@ fn test_atm_vega_higher_than_otm() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let otm_vega = *otm_cap
@@ -202,8 +202,8 @@ fn test_vega_scales_with_maturity() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let short_vega = *short_cap
@@ -241,8 +241,8 @@ fn test_vega_reasonable_magnitude() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let result = cap

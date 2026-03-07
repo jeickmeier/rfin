@@ -72,7 +72,7 @@ fn build_sc(id: &str, pool_balance: f64) -> StructuredCredit {
 fn stochastic_pricing_zero_notional_returns_zero_result() {
     let sc = build_sc("ABS-ZERO", 0.0);
     let mut market = MarketContext::new();
-    market = market.insert_discount(discount_curve(closing_date()));
+    market = market.insert(discount_curve(closing_date()));
 
     let result = sc
         .price_stochastic_with_mode(&market, closing_date(), PricingMode::Tree)
@@ -91,7 +91,7 @@ fn stochastic_pricing_zero_notional_returns_zero_result() {
 fn stochastic_pricing_is_deterministic_and_returns_tranche_results() {
     let sc = build_sc("ABS-DETERMINISTIC", 1_000_000.0);
     let mut market = MarketContext::new();
-    market = market.insert_discount(discount_curve(closing_date()));
+    market = market.insert(discount_curve(closing_date()));
 
     let as_of = closing_date();
     let first = sc

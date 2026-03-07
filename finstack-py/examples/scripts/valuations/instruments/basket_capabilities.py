@@ -27,11 +27,11 @@ def build_market(as_of: date) -> MarketContext:
             (5.0, 0.9650),
         ],
     )
-    market.insert_discount(discount_curve)
+    market.insert(discount_curve)
 
-    market.insert_price("ACME-SPOT", MarketScalar.price(Money(150.0, USD)))
-    market.insert_price("MEGA-SPOT", MarketScalar.price(Money(95.0, USD)))
-    market.insert_price("UST-10Y-PRICE", MarketScalar.price(Money(101.5, USD)))
+    market.insert_price("ACME-SPOT", MarketScalar.get_price(Money(150.0, USD)))
+    market.insert_price("MEGA-SPOT", MarketScalar.get_price(Money(95.0, USD)))
+    market.insert_price("UST-10Y-PRICE", MarketScalar.get_price(Money(101.5, USD)))
 
     return market
 

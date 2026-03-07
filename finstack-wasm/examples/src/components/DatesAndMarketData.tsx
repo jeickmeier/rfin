@@ -88,13 +88,13 @@ export const MarketDataExample: React.FC<MarketDataExampleProps> = (props) => {
         context.insertSeries(series);
 
         const priceMoney = Money.fromCode(equityPrice.price.amount, equityPrice.price.currency);
-        const equitySpot = MarketScalar.price(priceMoney);
+        const equitySpot = MarketScalar.get_price(priceMoney);
         context.insertPrice(equityPrice.symbol, equitySpot);
 
         const fetchedCurve = context.discount(discountCurve.id);
         const discountFactor = fetchedCurve.df(1.0);
 
-        const fetchedSeries = context.series(cpiSeries.id);
+        const fetchedSeries = context.getSeries(cpiSeries.id);
         const lookThroughDate = new FsDate(
           cpiLookupDate.year,
           cpiLookupDate.month,
@@ -102,7 +102,7 @@ export const MarketDataExample: React.FC<MarketDataExampleProps> = (props) => {
         );
         const cpiLevel = fetchedSeries.valueOn(lookThroughDate);
 
-        const storedSpot = context.price(equityPrice.symbol);
+        const storedSpot = context.getPrice(equityPrice.symbol);
         const moneyValue = storedSpot.value as Money;
         const equitySpotAmount = moneyValue.amount;
 

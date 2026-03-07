@@ -99,7 +99,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
         .expect("should build curve");
 
     MarketContext::new()
-        .insert_discount(discount_curve)
+        .insert(discount_curve)
         .insert_price("EQUITY", MarketScalar::Unitless(100.0)) // ATM
         .insert_price("EQUITY-VOL", MarketScalar::Unitless(0.25)) // 25% vol
         .insert_price("EQUITY-DIVYIELD", MarketScalar::Unitless(0.02)) // 2% div yield

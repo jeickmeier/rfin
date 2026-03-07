@@ -117,8 +117,8 @@ fn test_cap_floor_parity_atm() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let cap_pv = cap.value(&market, as_of).unwrap().amount();
@@ -152,8 +152,8 @@ fn test_cap_floor_parity_itm_cap() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let cap_pv = cap.value(&market, as_of).unwrap().amount();
@@ -183,8 +183,8 @@ fn test_cap_floor_parity_otm_cap() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let cap_pv = cap.value(&market, as_of).unwrap().amount();
@@ -216,8 +216,8 @@ fn test_parity_with_different_vols() {
         let fwd_curve_vol = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
 
         let market = MarketContext::new()
-            .insert_discount(disc_curve_vol)
-            .insert_forward(fwd_curve_vol)
+            .insert(disc_curve_vol)
+            .insert(fwd_curve_vol)
             .insert_surface(vol_surface);
 
         let cap_pv = cap.value(&market, as_of).unwrap().amount();
@@ -296,8 +296,8 @@ fn test_caplet_floorlet_parity() {
     let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     let caplet_pv = caplet.value(&market, as_of).unwrap().amount();

@@ -31,7 +31,7 @@ fn default_pricing_date() -> PyResult<finstack_core::dates::Date> {
 ///
 /// Examples:
 ///     >>> registry = create_standard_registry()
-///     >>> result = registry.price(bond, "discounting", market)
+///     >>> result = registry.get_price(bond, "discounting", market)
 ///     >>> result.present_value
 #[pyclass(
     module = "finstack.valuations.pricer",
@@ -87,12 +87,12 @@ impl PyPricerRegistry {
     ///
     /// Examples:
     ///     >>> registry = create_standard_registry()
-    ///     >>> result = registry.price(bond, "discounting", market)
+    ///     >>> result = registry.get_price(bond, "discounting", market)
     ///     >>> result.present_value.amount
     ///     123.45
     ///     >>> # With explicit as_of date
     ///     >>> from datetime import date
-    ///     >>> result = registry.price(bond, "discounting", market, as_of=date(2024, 6, 15))
+    ///     >>> result = registry.get_price(bond, "discounting", market, as_of=date(2024, 6, 15))
     fn price(
         &self,
         py: Python<'_>,
@@ -379,7 +379,7 @@ pass an explicit dirty price (e.g. 1.0125 * bond.notional.amount)",
 ///
 /// Examples:
 ///     >>> registry = create_standard_registry()
-///     >>> registry.price(bond, "discounting", market)
+///     >>> registry.get_price(bond, "discounting", market)
 ///     <ValuationResult ...>
 #[pyfunction(name = "create_standard_registry")]
 fn create_standard_registry_py() -> PyResult<PyPricerRegistry> {

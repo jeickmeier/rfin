@@ -194,14 +194,14 @@ def test_bond_pricing_treasury() -> None:
     discount_curve = DiscountCurve(
         "USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)], day_count="act_365f"
     )
-    market.insert_discount(discount_curve)
+    market.insert(discount_curve)
 
     # Price the bond
     from finstack.valuations.pricer import create_standard_registry
 
     registry = create_standard_registry()
     # Use "discounting" model key like in test_roundtrips.py
-    result = registry.price(bond, "discounting", market, date(2024, 1, 1))
+    result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
 
     # Basic validation - bond should have a positive value
     assert result.value.amount > 0
@@ -234,7 +234,7 @@ def test_irs_valuation() -> None:
     discount_curve = DiscountCurve(
         "USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)], day_count="act_365f"
     )
-    market.insert_discount(discount_curve)
+    market.insert(discount_curve)
 
     # Create a simple forward curve (flat for testing)
     from finstack.core.market_data.term_structures import ForwardCurve
@@ -247,14 +247,14 @@ def test_irs_valuation() -> None:
         base_date=date(2024, 1, 1),
         day_count=DayCount.ACT_360,
     )
-    market.insert_forward(forward_curve)
+    market.insert(forward_curve)
 
     # Price the swap
     from finstack.valuations.pricer import create_standard_registry
 
     registry = create_standard_registry()
     # Use "discounting" model key like in test_roundtrips.py
-    result = registry.price(irs, "discounting", market, date(2024, 1, 1))
+    result = registry.get_price(irs, "discounting", market, date(2024, 1, 1))
 
     # Basic validation - swap should have a value (could be positive or negative)
     assert result.value.currency.code == "USD"

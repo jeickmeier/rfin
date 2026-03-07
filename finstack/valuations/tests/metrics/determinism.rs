@@ -72,7 +72,7 @@ mod tests {
             .unwrap();
 
         MarketContext::new()
-            .insert_discount(disc_curve)
+            .insert(disc_curve)
             .insert_surface(vol_surface)
             .insert_price("SPOT", MarketScalar::Unitless(spot))
     }

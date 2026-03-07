@@ -290,7 +290,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommoditySwaption {
         {
             impl_vol
         } else {
-            let surface = market.surface(self.vol_surface_id.as_str())?;
+            let surface = market.get_surface(self.vol_surface_id.as_str())?;
             surface.value_clamped(t, self.fixed_price)
         };
 
@@ -363,7 +363,7 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for CommodityS
         {
             impl_vol
         } else {
-            let surface = market.surface(self.vol_surface_id.as_str())?;
+            let surface = market.get_surface(self.vol_surface_id.as_str())?;
             surface.value_clamped(t, self.fixed_price)
         };
         if sigma <= 0.0 {
@@ -445,7 +445,7 @@ impl crate::instruments::common_impl::traits::OptionVegaProvider for CommoditySw
         {
             impl_vol
         } else {
-            let surface = market.surface(self.vol_surface_id.as_str())?;
+            let surface = market.get_surface(self.vol_surface_id.as_str())?;
             surface.value_clamped(t, self.fixed_price)
         };
         if sigma <= 0.0 {

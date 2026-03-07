@@ -36,7 +36,7 @@ def build_market_data(as_of: date) -> MarketContext:
             (10.0, 0.9000),
         ],
     )
-    market.insert_discount(usd_curve)
+    market.insert(usd_curve)
 
     # Forward curve for floating rate instruments
     forward_curve = ForwardCurve(
@@ -45,14 +45,14 @@ def build_market_data(as_of: date) -> MarketContext:
         [(0.0, 0.0450), (1.0, 0.0475), (3.0, 0.0500), (5.0, 0.0525)],
         base_date=as_of,
     )
-    market.insert_forward(forward_curve)
+    market.insert(forward_curve)
 
     # Equity prices
     from finstack.core.market_data.scalars import MarketScalar
     from finstack.core.money import Money
 
-    market.insert_price("AAPL-SPOT", MarketScalar.price(Money(185.0, "USD")))
-    market.insert_price("MSFT-SPOT", MarketScalar.price(Money(420.0, "USD")))
+    market.insert_price("AAPL-SPOT", MarketScalar.get_price(Money(185.0, "USD")))
+    market.insert_price("MSFT-SPOT", MarketScalar.get_price(Money(420.0, "USD")))
 
     return market
 

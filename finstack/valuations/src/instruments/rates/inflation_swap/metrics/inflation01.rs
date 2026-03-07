@@ -89,7 +89,8 @@ impl MetricCalculator for Inflation01Calculator {
         // Use the effective lag (instrument override or index default)
         let inflation_index = context
             .curves
-            .inflation_index(s.inflation_index_id.as_str());
+            .get_inflation_index(s.inflation_index_id.as_str())
+            .ok();
 
         let default_lag = s
             .lag_override

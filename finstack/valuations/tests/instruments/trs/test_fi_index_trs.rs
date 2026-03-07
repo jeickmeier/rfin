@@ -391,7 +391,7 @@ fn test_fi_index_trs_sensitivity_to_interest_rates() {
             .interp(finstack_core::math::interp::InterpStyle::LogLinear)
             .build()
             .unwrap();
-    market_shifted = market_shifted.insert_discount(disc_shifted);
+    market_shifted = market_shifted.insert(disc_shifted);
 
     let fwd_shifted =
         finstack_core::market_data::term_structures::ForwardCurve::builder("USD-SOFR-3M", 0.25)
@@ -400,7 +400,7 @@ fn test_fi_index_trs_sensitivity_to_interest_rates() {
             .interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .unwrap();
-    market_shifted = market_shifted.insert_forward(fwd_shifted);
+    market_shifted = market_shifted.insert(fwd_shifted);
     market_shifted = market_shifted.insert_price("HY-INDEX-YIELD", MarketScalar::Unitless(0.055));
     market_shifted = market_shifted.insert_price("HY-INDEX-DURATION", MarketScalar::Unitless(4.5));
 
@@ -619,8 +619,8 @@ fn test_fi_index_trs_analytical_flat_rate_flat_yield() {
         .unwrap();
 
     let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+        .insert(disc)
+        .insert(fwd)
         .insert_price("HY-INDEX-YIELD", MarketScalar::Unitless(index_yield))
         .insert_price("HY-INDEX-DURATION", MarketScalar::Unitless(4.5));
 
@@ -703,7 +703,7 @@ fn test_fi_index_trs_errors_on_missing_configured_yield() {
 
     // Market context has curves but deliberately omits the yield scalar
     let market = MarketContext::new()
-        .insert_discount(
+        .insert(
             finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
                 .base_date(as_of)
                 .knots(vec![(0.0, 1.0), (1.0, 0.98)])
@@ -711,7 +711,7 @@ fn test_fi_index_trs_errors_on_missing_configured_yield() {
                 .build()
                 .unwrap(),
         )
-        .insert_forward(
+        .insert(
             finstack_core::market_data::term_structures::ForwardCurve::builder("USD-SOFR-3M", 0.25)
                 .base_date(as_of)
                 .knots(vec![(0.0, 0.02), (1.0, 0.02)])

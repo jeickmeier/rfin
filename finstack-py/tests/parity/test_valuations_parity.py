@@ -63,11 +63,11 @@ class TestBondPricingParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75), (10.0, 0.60)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         # Price bond
         registry = create_standard_registry()
-        result = registry.price(bond, "discounting", market, date(2024, 1, 1))
+        result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
 
         # Bond should have positive value
         assert result.value.amount > 0
@@ -103,11 +103,11 @@ class TestBondPricingParity:
             knots,
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         # Price bond
         registry = create_standard_registry()
-        result = registry.price(bond, "discounting", market, date(2024, 1, 1))
+        result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
 
         # Bond should be approximately at par (1,000,000)
         # Allow 1% tolerance due to discrete coupon payments
@@ -137,7 +137,7 @@ class TestBondPricingParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         # Price with metrics
         registry = create_standard_registry()
@@ -194,7 +194,7 @@ class TestSwapPricingParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         forward_curve = ForwardCurve(
             "USD-SOFR",
@@ -203,11 +203,11 @@ class TestSwapPricingParity:
             base_date=date(2024, 1, 1),
             day_count=DayCount.ACT_360,
         )
-        market.insert_forward(forward_curve)
+        market.insert(forward_curve)
 
         # Price swap
         registry = create_standard_registry()
-        result = registry.price(swap, "discounting", market, date(2024, 1, 1))
+        result = registry.get_price(swap, "discounting", market, date(2024, 1, 1))
 
         # Swap should have a value (could be positive or negative)
         assert result.value.currency.code == "USD"
@@ -235,7 +235,7 @@ class TestSwapPricingParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         # Flat 5% forward curve
         forward_curve = ForwardCurve(
@@ -245,10 +245,10 @@ class TestSwapPricingParity:
             base_date=date(2024, 1, 1),
             day_count=DayCount.ACT_360,
         )
-        market.insert_forward(forward_curve)
+        market.insert(forward_curve)
 
         registry = create_standard_registry()
-        result = registry.price(swap, "discounting", market, date(2024, 1, 1))
+        result = registry.get_price(swap, "discounting", market, date(2024, 1, 1))
 
         # Swap should be close to zero value (at-market swap)
         # Allow reasonable tolerance due to day count and compounding
@@ -301,10 +301,10 @@ class TestDepositPricingParity:
             [(0.0, 1.0), (0.25, 0.99), (1.0, 0.95)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         registry = create_standard_registry()
-        result = registry.price(deposit, "discounting", market, date(2024, 1, 1))
+        result = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
 
         # Deposit PV can be positive or negative depending on quote vs curve.
         assert result.value.currency.code == "USD"
@@ -335,10 +335,10 @@ class TestDepositPricingParity:
             knots,
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         registry = create_standard_registry()
-        result = registry.price(deposit, "discounting", market, date(2024, 1, 1))
+        result = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
 
         # For a deposit quoted at the same rate implied by the curve, PV should be close to zero
         # (i.e., no value over par).
@@ -376,12 +376,12 @@ class TestPricerRegistryParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         registry = create_standard_registry()
 
         # Price with discounting model
-        result = registry.price(bond, "discounting", market, date(2024, 1, 1))
+        result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
         assert result.value.amount > 0
 
 
@@ -411,7 +411,7 @@ class TestMetricsParity:
             [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         registry = create_standard_registry()
         metric_keys = ["clean_price", "accrued", "ytm", "duration_mod", "dv01"]
@@ -497,10 +497,10 @@ class TestEdgeCases:
             [(0.0, 1.0), (5.0, 0.75)],
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         registry = create_standard_registry()
-        result = registry.price(bond, "discounting", market, date(2024, 1, 1))
+        result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
 
         # Zero-coupon bond NPV should be notional * df(maturity)
         # NPV ≈ 1,000,000 * 0.75 = 750,000
@@ -528,10 +528,10 @@ class TestEdgeCases:
             [(0.0, 1.0), (0.003, 0.9999)],  # Almost flat for short tenor
             day_count="act_365f",
         )
-        market.insert_discount(discount_curve)
+        market.insert(discount_curve)
 
         registry = create_standard_registry()
-        result = registry.price(deposit, "discounting", market, date(2024, 1, 1))
+        result = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
 
         # At (roughly) market rates, a deposit should have PV close to zero (no value over par).
         assert abs(result.value.amount) / 1_000_000.0 < 0.01

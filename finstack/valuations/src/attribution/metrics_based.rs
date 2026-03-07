@@ -705,7 +705,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     if let Some(inflation01) = val_t0.measures.get(MetricId::Inflation01.as_str()) {
         let mut curve_ids = Vec::new();
         for curve_id in market_t1.curve_ids() {
-            if market_t1.get_inflation(curve_id).is_ok() {
+            if market_t1.get_inflation_curve(curve_id).is_ok() {
                 curve_ids.push(curve_id.clone());
             }
         }
@@ -836,10 +836,8 @@ mod tests {
                 .with_discount_curves(&["USD-OIS"]),
         );
 
-        let market_t0 =
-            MarketContext::new().insert_discount(make_flat_curve("USD-OIS", as_of_t0, 0.02));
-        let market_t1 =
-            MarketContext::new().insert_discount(make_flat_curve("USD-OIS", as_of_t1, 0.0201));
+        let market_t0 = MarketContext::new().insert(make_flat_curve("USD-OIS", as_of_t0, 0.02));
+        let market_t1 = MarketContext::new().insert(make_flat_curve("USD-OIS", as_of_t1, 0.0201));
 
         let mut measures_t0 = IndexMap::new();
         measures_t0.insert(MetricId::custom("bucketed_dv01::USD-OIS"), -400.0);

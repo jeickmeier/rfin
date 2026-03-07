@@ -70,8 +70,8 @@ mod cms_vanna_test {
             .build()?;
 
         let market = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(forward_curve)
+            .insert(discount_curve)
+            .insert(forward_curve)
             .insert_surface(vol_surface);
 
         // 3. Calculate Vanna
@@ -160,8 +160,8 @@ fn test_cms_option_vanna() -> finstack_core::Result<()> {
         .build()?;
 
     let market = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_forward(forward_curve)
+        .insert(discount_curve)
+        .insert(forward_curve)
         .insert_surface(vol_surface);
 
     // 3. Calculate Vanna

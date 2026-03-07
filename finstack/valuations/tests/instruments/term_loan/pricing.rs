@@ -42,7 +42,7 @@ fn test_par_loan_pricing() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = loan.value(&market, as_of);
@@ -83,7 +83,7 @@ fn test_discount_pricing() {
 
     // Market rate higher than coupon rate
     let disc_curve = flat_discount_curve(0.06, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = loan.value(&market, as_of);
@@ -124,7 +124,7 @@ fn test_premium_pricing() {
 
     // Market rate lower than coupon rate
     let disc_curve = flat_discount_curve(0.04, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv = loan.value(&market, as_of);

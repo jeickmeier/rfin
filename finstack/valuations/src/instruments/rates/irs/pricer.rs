@@ -642,7 +642,7 @@ pub(crate) fn compute_pv_raw(
 
     // Look up historical fixings for seasoned swaps (both Simple and Compounded paths)
     let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
-    let fixings = context.series(&fixings_id).ok();
+    let fixings = context.get_series(&fixings_id).ok();
 
     let pv_float = match irs.float.compounding {
         FloatingLegCompounding::Simple => {
@@ -758,8 +758,8 @@ mod tests {
             .expect("fixings series");
 
         let ctx = MarketContext::new()
-            .insert_discount(disc.clone())
-            .insert_forward(fwd)
+            .insert(disc.clone())
+            .insert(fwd)
             .insert_series(fixings);
 
         let swap = InterestRateSwap::builder()
@@ -848,7 +848,7 @@ mod tests {
             .build()
             .expect("discount curve");
 
-        let ctx = MarketContext::new().insert_discount(disc);
+        let ctx = MarketContext::new().insert(disc);
 
         let swap_no_lookback = InterestRateSwap::builder()
             .id(InstrumentId::new("OIS-NO-LOOKBACK"))
@@ -929,7 +929,7 @@ mod tests {
             .build()
             .expect("discount curve");
 
-        let ctx = MarketContext::new().insert_discount(disc);
+        let ctx = MarketContext::new().insert(disc);
 
         // Create swap with an explicitly specified but non-existent fixing calendar
         let swap = InterestRateSwap::builder()
@@ -1010,7 +1010,7 @@ mod tests {
             .build()
             .expect("discount curve");
 
-        let ctx = MarketContext::new().insert_discount(disc);
+        let ctx = MarketContext::new().insert(disc);
 
         // Create swap with NO fixing_calendar_id (defaults should be applied)
         let swap = InterestRateSwap::builder()
@@ -1116,7 +1116,7 @@ mod tests {
             .build()
             .expect("discount curve");
 
-        let _ctx = MarketContext::new().insert_discount(disc.clone());
+        let _ctx = MarketContext::new().insert(disc.clone());
 
         // Create an OIS swap with NO lookback, NO observation shift, NO spread.
         // These are the conditions under which the identity is exact.

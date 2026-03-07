@@ -41,12 +41,13 @@ pub fn calculate_tranche_oas(
 
     let market_price = market_price_pct / 100.0 * tranche.current_face.amount();
 
-    // Price function with spread
-    let price_at_spread = |spread: f64| -> Result<f64> {
-        let tranche_cfs = generate_tranche_cashflows(cmo, as_of, None)?;
-        let discount_curve = market.get_discount(&cmo.discount_curve_id)?;
-        let day_count = DayCount::Thirty360;
+    // Cache cashflows outside the solver loop — they don't depend on spread.
+    let tranche_cfs = generate_tranche_cashflows(cmo, as_of, None)?;
+    let discount_curve = market.get_discount(&cmo.discount_curve_id)?;
+    let day_count = DayCount::Thirty360;
 
+    // Price function with spread (uses cached cashflows)
+    let price_at_spread = |spread: f64| -> Result<f64> {
         let mut pv = 0.0;
         for cf in &tranche_cfs {
             let years = day_count.year_fraction(as_of, cf.payment_date, DayCountCtx::default())?;
@@ -178,7 +179,7 @@ mod tests {
             .build()
             .expect("valid curve");
 
-        MarketContext::new().insert_discount(disc)
+        MarketContext::new().insert(disc)
     }
 
     #[test]

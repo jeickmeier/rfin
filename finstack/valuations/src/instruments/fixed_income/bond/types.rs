@@ -1562,7 +1562,7 @@ mod tests {
             .interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
-        let curves = MarketContext::new().insert_discount(disc_curve);
+        let curves = MarketContext::new().insert(disc_curve);
 
         // Build schedule and verify it uses custom cashflows
         let flows = bond
@@ -1737,7 +1737,7 @@ mod tests {
             .interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
-        let curves = MarketContext::new().insert_discount(disc_curve);
+        let curves = MarketContext::new().insert(disc_curve);
 
         // Build schedules
         let regular_flows = regular_bond
@@ -1773,9 +1773,7 @@ mod tests {
             .interp(InterpStyle::Linear)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
-        let ctx = MarketContext::new()
-            .insert_discount(disc)
-            .insert_forward(fwd);
+        let ctx = MarketContext::new().insert(disc).insert(fwd);
 
         let bond = Bond::floating(
             "FRN-TEST",
@@ -1820,9 +1818,7 @@ mod tests {
             .interp(InterpStyle::Linear)
             .build()
             .expect("ForwardCurve builder should succeed in test");
-        let ctx = MarketContext::new()
-            .insert_discount(disc)
-            .insert_forward(fwd);
+        let ctx = MarketContext::new().insert(disc).insert(fwd);
 
         let mut bond = Bond::floating(
             "FRN-EX-COUPON",
@@ -1939,7 +1935,7 @@ mod tests {
             .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed in test");
-        let ctx = MarketContext::new().insert_discount(disc_curve);
+        let ctx = MarketContext::new().insert(disc_curve);
 
         // Use the full schedule to locate the first coupon end date
         let full_schedule = bond
@@ -2026,9 +2022,7 @@ mod tests {
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
 
-        let market = MarketContext::new()
-            .insert_discount(disc_curve)
-            .insert_forward(fwd_curve);
+        let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
         // Get full schedule to verify it includes FloatReset CFKind
         let full_schedule = frn
@@ -2095,7 +2089,7 @@ mod tests {
             .interp(InterpStyle::Linear)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
-        let market = MarketContext::new().insert_discount(disc_curve);
+        let market = MarketContext::new().insert(disc_curve);
 
         // Get full schedule to check internal representation
         let full_schedule = bond
@@ -2179,7 +2173,7 @@ mod tests {
             .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed in test");
-        let market = MarketContext::new().insert_discount(disc_curve);
+        let market = MarketContext::new().insert(disc_curve);
 
         // Bullet bond: 3-year annual, 1% coupon, full principal at maturity
         let bullet_cashflow_spec = CashflowSpec::fixed(0.01, Tenor::annual(), DayCount::Act365F);
@@ -2281,9 +2275,7 @@ mod tests {
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
 
-        let market = MarketContext::new()
-            .insert_discount(disc)
-            .insert_forward(fwd);
+        let market = MarketContext::new().insert(disc).insert(fwd);
 
         // Build simplified schedule
         let flows = frn
@@ -2488,7 +2480,7 @@ mod tests {
             .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed");
-        let market = MarketContext::new().insert_discount(disc);
+        let market = MarketContext::new().insert(disc);
 
         let frame = bond
             .pricing_cashflows(&market, Some(issue))
@@ -2547,9 +2539,7 @@ mod tests {
             .build()
             .expect("HazardCurve builder should succeed");
 
-        let market = MarketContext::new()
-            .insert_discount(disc)
-            .insert_hazard(hazard);
+        let market = MarketContext::new().insert(disc).insert(hazard);
 
         let frame = bond
             .pricing_cashflows(&market, Some(issue))
@@ -2617,7 +2607,7 @@ mod tests {
             .build()
             .expect("Bond builder should succeed for step-up test");
 
-        let market = MarketContext::new().insert_discount(
+        let market = MarketContext::new().insert(
             DiscountCurve::builder("USD-OIS")
                 .base_date(issue)
                 .knots([(0.0, 1.0), (5.0, 0.90)])
@@ -2660,7 +2650,7 @@ mod tests {
             .build()
             .expect("Bond builder should succeed for fixed test");
 
-        let market = MarketContext::new().insert_discount(
+        let market = MarketContext::new().insert(
             DiscountCurve::builder("USD-OIS")
                 .base_date(issue)
                 .knots([(0.0, 1.0), (5.0, 0.90)])

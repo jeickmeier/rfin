@@ -31,10 +31,10 @@ def create_market_with_rate(as_of_date, rate):
     curve = DiscountCurve("USD-OIS", as_of_date, knots)
 
     market = MarketContext()
-    market.insert_discount(curve)
+    market.insert(curve)
     # Add a flat hazard curve so credit metrics (e.g., CS01) are available.
     hazard = HazardCurve(HAZARD_ID, as_of_date, [(0.0, 0.01), (30.0, 0.01)])
-    market.insert_hazard(hazard)
+    market.insert(hazard)
     return market
 
 

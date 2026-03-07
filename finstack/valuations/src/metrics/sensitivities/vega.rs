@@ -129,7 +129,7 @@ where
 
         let base_pv = context.base_value;
         let base_ctx = context.curves.as_ref();
-        let vol_surface = base_ctx.surface(vol_surface_id.as_str())?;
+        let vol_surface = base_ctx.get_surface(vol_surface_id.as_str())?;
 
         let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
@@ -157,7 +157,7 @@ where
                 .as_ref()
                 .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
             let spot = base_ctx
-                .price(spot_id)
+                .get_price(spot_id)
                 .ok()
                 .map(|scalar| match scalar {
                     MarketScalar::Price(m) => m.amount(),

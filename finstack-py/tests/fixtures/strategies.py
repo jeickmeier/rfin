@@ -255,8 +255,8 @@ def market_context_strategy(
     forward = draw(forward_curve_strategy(currency_code=currency_code, base_date=base_date))
 
     market = MarketContext()
-    market.insert_discount(discount)
-    market.insert_forward(forward)
+    market.insert(discount)
+    market.insert(forward)
 
     return market
 
@@ -291,8 +291,8 @@ def create_flat_market_context(
     )
 
     market = MarketContext()
-    market.insert_discount(discount_curve)
-    market.insert_forward(forward_curve)
+    market.insert(discount_curve)
+    market.insert(forward_curve)
 
     return market
 

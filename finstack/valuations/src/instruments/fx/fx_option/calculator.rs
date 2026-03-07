@@ -149,7 +149,7 @@ impl FxOptionCalculator {
         {
             impl_vol
         } else {
-            let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+            let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
             vol_surface.value_clamped(t_vol, inst.strike)
         };
 
@@ -527,13 +527,13 @@ mod tests {
         let expiries = [0.25, 0.5, 1.0, 2.0];
         let strikes = [0.8, 0.9, 1.0, 1.1, 1.2];
         MarketContext::new()
-            .insert_discount(flat_discount_with_tenor(
+            .insert(flat_discount_with_tenor(
                 DOMESTIC_ID,
                 as_of,
                 r_domestic,
                 1.0,
             ))
-            .insert_discount(flat_discount_with_tenor(FOREIGN_ID, as_of, r_foreign, 1.0))
+            .insert(flat_discount_with_tenor(FOREIGN_ID, as_of, r_foreign, 1.0))
             .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, vol))
             .insert_price("FX_VOL_OVERRIDE", MarketScalar::Unitless(vol))
             .insert_fx(fx)
@@ -809,8 +809,8 @@ mod tests {
         fx.set_quote(BASE, QUOTE, spot);
 
         let ctx = MarketContext::new()
-            .insert_discount(domestic_disc)
-            .insert_discount(foreign_disc)
+            .insert(domestic_disc)
+            .insert(foreign_disc)
             .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, vol))
             .insert_fx(fx);
 

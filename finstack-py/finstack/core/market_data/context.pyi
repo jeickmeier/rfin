@@ -13,11 +13,14 @@ from .term_structures import (
     InflationCurve,
     BaseCorrelationCurve,
     CreditIndexData,
+    PriceCurve,
+    VolatilityIndexCurve,
 )
 from .surfaces import VolSurface
 from .fx import FxMatrix
-from .scalars import MarketScalar, ScalarTimeSeries
+from .scalars import InflationIndex, MarketScalar, ScalarTimeSeries
 from .dividends import DividendSchedule
+from .surfaces import FxDeltaVolSurface
 from ..currency import Currency
 
 class MarketContext:
@@ -52,7 +55,7 @@ class MarketContext:
         >>> from finstack.core.market_data.term_structures import DiscountCurve
         >>> from finstack.core.market_data.fx import FxMatrix
         >>> ctx = MarketContext()
-        >>> ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        >>> ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         >>> fx = FxMatrix()
         >>> fx.set_quote(Currency("EUR"), Currency("USD"), 1.10)
         >>> ctx.insert_fx(fx)
@@ -84,6 +87,19 @@ class MarketContext:
         MarketContext
             Independent copy of the market context.
         """
+        ...
+
+    def insert(
+        self,
+        curve: DiscountCurve
+        | ForwardCurve
+        | HazardCurve
+        | InflationCurve
+        | BaseCorrelationCurve
+        | PriceCurve
+        | VolatilityIndexCurve,
+    ) -> None:
+        """Insert a curve using the generic MarketContext path."""
         ...
 
     def insert_discount(self, curve: DiscountCurve) -> None:
@@ -188,6 +204,8 @@ class MarketContext:
         """
         ...
 
+    def insert_fx_delta_vol_surface(self, surface: FxDeltaVolSurface) -> None: ...
+    def insert_inflation_index(self, id: str, index: InflationIndex) -> None: ...
     def insert_credit_index(self, id: str, data: "CreditIndexData") -> None:
         """Insert credit index data.
 
@@ -212,7 +230,8 @@ class MarketContext:
         """
         ...
 
-    def discount(self, id: str) -> DiscountCurve:
+    def clear_fx(self) -> None: ...
+    def get_discount(self, id: str) -> DiscountCurve:
         """Retrieve a discount curve by identifier.
 
         Parameters
@@ -234,13 +253,13 @@ class MarketContext:
         Examples
         --------
             >>> ctx = MarketContext()
-            >>> ctx.insert_discount(my_curve)
-            >>> curve = ctx.discount("USD")
+            >>> ctx.insert(my_curve)
+            >>> curve = ctx.get_discount("USD")
             >>> df = curve.discount_factor(0.5)  # 6-month discount factor
         """
         ...
 
-    def forward(self, id: str) -> ForwardCurve:
+    def get_forward(self, id: str) -> ForwardCurve:
         """Get a forward curve by ID.
 
         Parameters
@@ -255,12 +274,12 @@ class MarketContext:
 
         Raises
         ------
-        KeyError
+        ConfigurationError
             If curve not found.
         """
         ...
 
-    def hazard(self, id: str) -> HazardCurve:
+    def get_hazard(self, id: str) -> HazardCurve:
         """Get a hazard curve by ID.
 
         Parameters
@@ -275,12 +294,12 @@ class MarketContext:
 
         Raises
         ------
-        KeyError
+        ConfigurationError
             If curve not found.
         """
         ...
 
-    def inflation(self, id: str) -> InflationCurve:
+    def get_inflation_curve(self, id: str) -> InflationCurve:
         """Get an inflation curve by ID.
 
         Parameters
@@ -295,12 +314,12 @@ class MarketContext:
 
         Raises
         ------
-        KeyError
+        ConfigurationError
             If curve not found.
         """
         ...
 
-    def base_correlation(self, id: str) -> BaseCorrelationCurve:
+    def get_base_correlation(self, id: str) -> BaseCorrelationCurve:
         """Get a base correlation curve by ID.
 
         Parameters
@@ -315,12 +334,14 @@ class MarketContext:
 
         Raises
         ------
-        KeyError
+        ConfigurationError
             If curve not found.
         """
         ...
 
-    def surface(self, id: str) -> VolSurface:
+    def get_vol_index_curve(self, id: str) -> VolatilityIndexCurve: ...
+    def get_price_curve(self, id: str) -> PriceCurve: ...
+    def get_surface(self, id: str) -> VolSurface:
         """Get a volatility surface by ID.
 
         Parameters
@@ -335,12 +356,12 @@ class MarketContext:
 
         Raises
         ------
-        KeyError
+        ConfigurationError
             If surface not found.
         """
         ...
 
-    def price(self, id: str) -> MarketScalar:
+    def get_price(self, id: str) -> MarketScalar:
         """Get a market price by ID.
 
         Parameters
@@ -360,7 +381,7 @@ class MarketContext:
         """
         ...
 
-    def series(self, id: str) -> ScalarTimeSeries:
+    def get_series(self, id: str) -> ScalarTimeSeries:
         """Get a time series by ID.
 
         Parameters
@@ -380,7 +401,9 @@ class MarketContext:
         """
         ...
 
-    def credit_index(self, id: str) -> "CreditIndexData":
+    def get_inflation_index(self, id: str) -> InflationIndex: ...
+    def get_fx_delta_vol_surface(self, id: str) -> FxDeltaVolSurface: ...
+    def get_credit_index(self, id: str) -> "CreditIndexData":
         """Get credit index data by ID.
 
         Parameters
@@ -400,7 +423,7 @@ class MarketContext:
         """
         ...
 
-    def dividend_schedule(self, id: str) -> DividendSchedule | None:
+    def get_dividend_schedule(self, id: str) -> DividendSchedule:
         """Get a dividend schedule by ID.
 
         Parameters
@@ -410,11 +433,40 @@ class MarketContext:
 
         Returns
         -------
-        DividendSchedule or None
-            Dividend schedule if found.
+        DividendSchedule
+            Dividend schedule.
+
+        Raises
+        ------
+        KeyError
+            If dividend schedule not found.
         """
         ...
 
+    def get_collateral(self, csa_code: str) -> DiscountCurve: ...
+    def curve(
+        self,
+        id: str,
+    ) -> (
+        DiscountCurve
+        | ForwardCurve
+        | HazardCurve
+        | InflationCurve
+        | BaseCorrelationCurve
+        | PriceCurve
+        | VolatilityIndexCurve
+        | None
+    ): ...
+    def fx(self) -> FxMatrix | None: ...
+    def surfaces_snapshot(self) -> Dict[str, VolSurface]: ...
+    def prices_snapshot(self) -> Dict[str, MarketScalar]: ...
+    def series_snapshot(self) -> Dict[str, ScalarTimeSeries]: ...
+    def prices_iter(self) -> List[tuple[str, MarketScalar]]: ...
+    def series_iter(self) -> List[tuple[str, ScalarTimeSeries]]: ...
+    def inflation_indices_iter(self) -> List[tuple[str, InflationIndex]]: ...
+    def dividends_iter(self) -> List[tuple[str, DividendSchedule]]: ...
+    def roll_forward(self, days: int) -> MarketContext: ...
+    def update_base_correlation_curve(self, id: str, new_curve: BaseCorrelationCurve) -> bool: ...
     def curve_ids(self) -> List[str]:
         """Get all curve identifiers.
 
@@ -440,6 +492,21 @@ class MarketContext:
         """
         ...
 
+    def curves_of_type(
+        self,
+        curve_type: str,
+    ) -> List[
+        tuple[
+            str,
+            DiscountCurve
+            | ForwardCurve
+            | HazardCurve
+            | InflationCurve
+            | BaseCorrelationCurve
+            | PriceCurve
+            | VolatilityIndexCurve,
+        ]
+    ]: ...
     def count_by_type(self) -> Dict[str, int]:
         """Get count of objects by type.
 
@@ -480,6 +547,7 @@ class MarketContext:
         """
         ...
 
+    def replace_surfaces_mut(self, surfaces: List[tuple[str, VolSurface]]) -> None: ...
     def has_fx(self) -> bool:
         """Check if FX data is present.
 

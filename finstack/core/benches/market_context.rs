@@ -94,13 +94,13 @@ fn create_populated_context(num_curves: usize, points_per_curve: usize) -> Marke
 
     for i in 0..num_curves {
         let discount = create_discount_curve(&format!("DISC-{}", i), points_per_curve);
-        ctx = ctx.insert_discount(discount);
+        ctx = ctx.insert(discount);
 
         let forward = create_forward_curve(&format!("FWD-{}", i), points_per_curve);
-        ctx = ctx.insert_forward(forward);
+        ctx = ctx.insert(forward);
 
         let hazard = create_hazard_curve(&format!("HAZ-{}", i), points_per_curve);
-        ctx = ctx.insert_hazard(hazard);
+        ctx = ctx.insert(hazard);
     }
 
     // Add some vol surfaces
@@ -173,7 +173,7 @@ fn bench_context_curve_lookup(c: &mut Criterion) {
     group.bench_function("surface_lookup", |b| {
         b.iter(|| {
             let surface = black_box(&ctx_medium)
-                .surface(black_box("VOL-2"))
+                .get_surface(black_box("VOL-2"))
                 .expect("Surface should exist");
             black_box(surface);
         })

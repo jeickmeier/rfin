@@ -112,10 +112,8 @@ class InterestRateOption:
         ...     .build()
         ... )
         >>> ctx = MarketContext()
-        >>> ctx.insert_discount(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (1.0, 0.97), (6.0, 0.88)]))
-        >>> ctx.insert_forward(
-        ...     ForwardCurve("USD-SOFR-3M", 0.25, [(0.0, 0.03), (3.0, 0.035), (6.0, 0.04)], base_date=as_of)
-        ... )
+        >>> ctx.insert(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (1.0, 0.97), (6.0, 0.88)]))
+        >>> ctx.insert(ForwardCurve("USD-SOFR-3M", 0.25, [(0.0, 0.03), (3.0, 0.035), (6.0, 0.04)], base_date=as_of))
         >>> expiries = [0.5, 1.0, 3.0, 5.0, 7.0]
         >>> strikes = [0.02, 0.03, 0.04]
         >>> grid = [

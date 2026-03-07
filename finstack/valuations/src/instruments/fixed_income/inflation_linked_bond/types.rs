@@ -178,10 +178,10 @@ enum InflationSource {
 
 impl InflationSource {
     fn from_market(curves: &MarketContext, id: &CurveId) -> Result<Self> {
-        if let Some(index) = curves.inflation_index(id.as_str()) {
+        if let Ok(index) = curves.get_inflation_index(id.as_str()) {
             Ok(Self::Index(index))
         } else {
-            let curve = curves.get_inflation(id.as_str())?;
+            let curve = curves.get_inflation_curve(id.as_str())?;
             Ok(Self::Curve(curve))
         }
     }
@@ -1175,9 +1175,7 @@ mod tests {
             .knots([(0.0, 100.0), (1.0, 95.0), (2.0, 90.0)])
             .build()
             .expect("inflation curve should build");
-        MarketContext::new()
-            .insert_discount(discount)
-            .insert_inflation(inflation)
+        MarketContext::new().insert(discount).insert(inflation)
     }
 
     fn sample_bond(deflation_protection: DeflationProtection) -> InflationLinkedBond {

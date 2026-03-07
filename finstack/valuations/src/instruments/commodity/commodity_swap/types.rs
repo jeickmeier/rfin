@@ -520,9 +520,7 @@ mod tests {
             .build()
             .expect("Valid price curve");
 
-        MarketContext::new()
-            .insert_discount(disc)
-            .insert_price_curve(price_curve)
+        MarketContext::new().insert(disc).insert(price_curve)
     }
 
     #[test]

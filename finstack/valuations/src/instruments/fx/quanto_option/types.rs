@@ -164,7 +164,7 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for QuantoOpti
             return Ok(0.0);
         }
 
-        let spot_scalar = market.price(&self.spot_id)?;
+        let spot_scalar = market.get_price(&self.spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -210,7 +210,7 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for QuantoOpti
 
         let base_pv = self.value(market, as_of)?.amount();
 
-        let spot_scalar = market.price(&self.spot_id)?;
+        let spot_scalar = market.get_price(&self.spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -340,7 +340,7 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for QuantoOpti
             return Ok(0.0);
         }
 
-        let spot_scalar = market.price(&self.spot_id)?;
+        let spot_scalar = market.get_price(&self.spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),

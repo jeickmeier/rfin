@@ -91,9 +91,9 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
 
         for (const data of marketData) {
           const spotPrice = Money.fromCode(data.spotPrice.amount, data.spotPrice.currency);
-          market.insertPrice(data.ticker, MarketScalar.price(spotPrice));
-          market.insertPrice(`${data.ticker}-SPOT`, MarketScalar.price(spotPrice));
-          market.insertPrice('EQUITY-SPOT', MarketScalar.price(spotPrice));
+          market.insertPrice(data.ticker, MarketScalar.get_price(spotPrice));
+          market.insertPrice(`${data.ticker}-SPOT`, MarketScalar.get_price(spotPrice));
+          market.insertPrice('EQUITY-SPOT', MarketScalar.get_price(spotPrice));
           market.insertPrice(`${data.ticker}-DIVYIELD`, MarketScalar.unitless(data.dividendYield));
           market.insertPrice('EQUITY-DIVYIELD', MarketScalar.unitless(data.dividendYield));
         }

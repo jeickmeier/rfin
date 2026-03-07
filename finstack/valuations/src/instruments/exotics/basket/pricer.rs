@@ -259,7 +259,7 @@ impl BasketCalculator {
                 boxed_instrument.value(context, as_of)
             }
             ConstituentReference::MarketData { price_id, .. } => {
-                let scalar = context.price(price_id.as_ref())?;
+                let scalar = context.get_price(price_id.as_ref())?;
                 match scalar {
                     finstack_core::market_data::scalars::MarketScalar::Price(money) => Ok(*money),
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {

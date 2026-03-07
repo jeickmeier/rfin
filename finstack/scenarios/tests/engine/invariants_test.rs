@@ -37,7 +37,7 @@ fn test_discount_curve_df_monotonic_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market = market.insert_discount(curve);
+    market = market.insert(curve);
 
     // Apply parallel shock
     let scenario = ScenarioSpec {
@@ -102,7 +102,7 @@ fn test_discount_curve_df_monotonic_after_node_shock() {
         .build()
         .unwrap();
 
-    market = market.insert_discount(curve);
+    market = market.insert(curve);
 
     // Apply node shock (2Y key-rate bump)
     let scenario = ScenarioSpec {
@@ -166,7 +166,7 @@ fn test_forward_curve_rates_finite_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market = market.insert_forward(curve);
+    market = market.insert(curve);
 
     // Apply parallel shock
     let scenario = ScenarioSpec {
@@ -232,7 +232,7 @@ fn test_forward_curve_rates_finite_after_node_shock() {
         .build()
         .unwrap();
 
-    market = market.insert_forward(curve);
+    market = market.insert(curve);
 
     // Apply node shock
     let scenario = ScenarioSpec {
@@ -297,7 +297,7 @@ fn test_base_correlation_bounds_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market = market.insert_base_correlation(curve);
+    market = market.insert(curve);
 
     // Apply parallel shock (additive)
     let scenario = ScenarioSpec {
@@ -355,7 +355,7 @@ fn test_base_correlation_bounds_after_bucket_shock() {
         .build()
         .unwrap();
 
-    market = market.insert_base_correlation(curve);
+    market = market.insert(curve);
 
     // Apply bucket shock to 7% and 15% detachment points
     let scenario = ScenarioSpec {
@@ -444,7 +444,7 @@ fn test_vol_surface_non_negative_after_parallel_shock() {
     engine.apply(&scenario, &mut ctx).unwrap();
 
     // Check that all vol values are non-negative
-    let surface = market.surface("SPX_VOL").unwrap();
+    let surface = market.get_surface("SPX_VOL").unwrap();
     let expiries = surface.expiries().to_vec();
     let strikes = surface.strikes().to_vec();
 
@@ -510,7 +510,7 @@ fn test_vol_surface_non_negative_after_bucket_shock() {
     engine.apply(&scenario, &mut ctx).unwrap();
 
     // Check that all vol values are non-negative
-    let surface = market.surface("SPX_VOL").unwrap();
+    let surface = market.get_surface("SPX_VOL").unwrap();
     let expiries = surface.expiries().to_vec();
     let strikes = surface.strikes().to_vec();
 

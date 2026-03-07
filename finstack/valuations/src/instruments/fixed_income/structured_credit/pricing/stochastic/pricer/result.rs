@@ -26,6 +26,12 @@ pub struct StochasticPricingResult {
     /// ES confidence level used
     pub es_confidence: f64,
 
+    /// Standard error of the mean PV estimate
+    pub pv_std_error: f64,
+
+    /// 95% confidence interval for the mean PV
+    pub pv_confidence_interval: (f64, f64),
+
     /// Number of scenario paths
     pub num_paths: usize,
 
@@ -48,6 +54,8 @@ impl StochasticPricingResult {
             unexpected_loss: Money::new(0.0, currency),
             expected_shortfall: Money::new(0.0, currency),
             es_confidence: 0.95,
+            pv_std_error: 0.0,
+            pv_confidence_interval: (0.0, 0.0),
             num_paths,
             pricing_mode: "Tree".to_string(),
             tranche_results: Vec::new(),

@@ -397,7 +397,7 @@ pub fn project_floating_rate(
 ///     .knots([(0.0, 0.03), (1.0, 0.04)])
 ///     .build()
 ///     .expect("curve");
-/// let market = MarketContext::new().insert_forward(fwd);
+/// let market = MarketContext::new().insert(fwd);
 ///
 /// let params = FloatingRateParams::with_spread(200.0);
 /// let rate = project_floating_rate_from_market(
@@ -600,7 +600,7 @@ mod tests {
             .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
             .build()
             .expect("ForwardCurve builder should succeed with valid test data");
-        MarketContext::new().insert_forward(fwd_curve)
+        MarketContext::new().insert(fwd_curve)
     }
 
     #[test]
@@ -630,7 +630,7 @@ mod tests {
             .knots([(0.0, 0.001), (1.0, 0.001), (5.0, 0.001)]) // 0.1% < 1% floor
             .build()
             .expect("ForwardCurve builder should succeed with valid test data");
-        let market = MarketContext::new().insert_forward(fwd_curve);
+        let market = MarketContext::new().insert(fwd_curve);
 
         let params = FloatingRateParams::with_spread_and_floor(100.0, 100.0); // 100 bps spread, 1% floor
         let rate =
@@ -657,7 +657,7 @@ mod tests {
             .knots([(0.0, 0.08), (1.0, 0.08), (5.0, 0.08)]) // 8% index
             .build()
             .expect("ForwardCurve builder should succeed with valid test data");
-        let market = MarketContext::new().insert_forward(fwd_curve);
+        let market = MarketContext::new().insert(fwd_curve);
 
         let params = FloatingRateParams::with_full(200.0, 1.0, None, Some(500.0)); // 200 bps spread, 5% cap
         let rate =
@@ -684,7 +684,7 @@ mod tests {
             .knots([(0.0, 0.0001), (1.0, 0.0001)]) // 0.01% index (below 1% floor)
             .build()
             .expect("ForwardCurve builder should succeed with valid test data");
-        let market = MarketContext::new().insert_forward(fwd_curve);
+        let market = MarketContext::new().insert(fwd_curve);
 
         let params = FloatingRateParams::with_spread_and_floor(100.0, 100.0); // 100 bps spread, 1% floor
         let rate =
@@ -710,7 +710,7 @@ mod tests {
             .knots([(0.0, 0.03), (1.0, 0.03)]) // 3% index
             .build()
             .expect("ForwardCurve builder should succeed with valid test data");
-        let market = MarketContext::new().insert_forward(fwd_curve);
+        let market = MarketContext::new().insert(fwd_curve);
 
         let params = FloatingRateParams::with_full(100.0, 2.0, None, Some(600.0)); // 100 bps spread, 2x gearing, 6% cap
         let rate =
@@ -736,7 +736,7 @@ mod tests {
             .knots([(0.0, 0.02), (1.0, 0.02)]) // 2% index
             .build()
             .expect("ForwardCurve builder should succeed with valid test data");
-        let market = MarketContext::new().insert_forward(fwd_curve);
+        let market = MarketContext::new().insert(fwd_curve);
 
         let params = FloatingRateParams::with_full(100.0, 1.5, None, None); // 100 bps spread, 1.5x gearing
         let rate =

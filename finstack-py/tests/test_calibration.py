@@ -195,7 +195,7 @@ def test_simple_calibration_flow_and_report() -> None:
     )
 
     # Verify curve is usable in market context
-    curve = market_ctx.discount("USD-OIS")
+    curve = market_ctx.get_discount("USD-OIS")
     assert curve.id == "USD-OIS"
 
     stats = market_ctx.stats()
@@ -223,7 +223,7 @@ def test_calibration_forward_step() -> None:
     """Forward curve step should work when initial market contains discount curve."""
     base_date = dt.date(2024, 1, 2)
     market = MarketContext()
-    market.insert_discount(_make_discount_curve(base_date))
+    market.insert(_make_discount_curve(base_date))
 
     fra = cal.RatesQuote.fra(
         "FRA-1",
@@ -256,7 +256,7 @@ def test_calibration_forward_step() -> None:
         initial_market=market,
     )
     assert report.success
-    curve = market_ctx.forward("USD-SOFR-3M")
+    curve = market_ctx.get_forward("USD-SOFR-3M")
     assert len(curve.points) > 0
 
 
@@ -264,7 +264,7 @@ def test_calibration_hazard_step() -> None:
     """Hazard curve step should work when initial market contains discount curve."""
     base_date = dt.date(2024, 1, 2)
     market = MarketContext()
-    market.insert_discount(_make_discount_curve(base_date))
+    market.insert(_make_discount_curve(base_date))
     cds = cal.CreditQuote.cds_par_spread(
         "CDS-1",
         "ACME",
@@ -306,7 +306,7 @@ def test_calibration_hazard_step() -> None:
             initial_market=market,
         )
         assert report.success
-        curve = market_ctx.hazard("ACME-USD-SENIOR")
+        curve = market_ctx.get_hazard("ACME-USD-SENIOR")
         assert curve.recovery_rate == pytest.approx(0.4)
     except RuntimeError as exc:
         msg = str(exc).lower()
@@ -346,7 +346,7 @@ def test_calibration_inflation_step() -> None:
     """Inflation curve calibration via plan-driven API."""
     base_date = dt.date(2024, 1, 2)
     market = MarketContext()
-    market.insert_discount(_make_discount_curve(base_date))
+    market.insert(_make_discount_curve(base_date))
 
     # Create inflation swap quotes
     inf_quote_1y = cal.InflationQuote.inflation_swap(
@@ -391,7 +391,7 @@ def test_calibration_inflation_step() -> None:
         initial_market=market,
     )
     assert report.success
-    inflation_curve = market_ctx.inflation("USD-CPI")
+    inflation_curve = market_ctx.get_inflation_curve("USD-CPI")
     assert inflation_curve is not None
 
     # Verify CPI levels are reasonable
@@ -405,7 +405,7 @@ def test_calibration_vol_surface_step() -> None:
     """Volatility surface calibration via plan-driven API (swaption/equity)."""
     base_date = dt.date(2024, 1, 2)
     market = MarketContext()
-    market.insert_discount(_make_discount_curve(base_date))
+    market.insert(_make_discount_curve(base_date))
 
     # Create swaption volatility quotes
     vol_quote_1y_5y = cal.VolQuote.swaption_vol(
@@ -461,7 +461,7 @@ def test_calibration_vol_surface_step() -> None:
     # Vol surface calibration may succeed or gracefully fail depending on implementation
     # We accept either outcome as long as it's deterministic
     if report.success:
-        vol_surface = market_ctx.surface("SWAPTION-VOL")
+        vol_surface = market_ctx.get_surface("SWAPTION-VOL")
         assert vol_surface is not None
     else:
         # If calibration fails, verify error message is informative
@@ -496,6 +496,6 @@ def test_calibration_base_correlation_manual() -> None:
 
     # Verify can be inserted into market context
     market = MarketContext()
-    market.insert_base_correlation(curve)
-    retrieved = market.base_correlation("CDX-IG-BC")
+    market.insert(curve)
+    retrieved = market.get_base_correlation("CDX-IG-BC")
     assert retrieved.id == curve.id

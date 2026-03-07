@@ -43,7 +43,7 @@ fn test_dv01_positive_for_asset() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let result = loan.price_with_metrics(&market, as_of, &[MetricId::Dv01]);
@@ -117,7 +117,7 @@ fn test_dv01_increases_with_maturity() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let result_short = loan_short

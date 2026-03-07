@@ -352,6 +352,13 @@ impl PyFxMatrix {
             inner: Arc::new(matrix),
         }
     }
+
+    pub(crate) fn from_inner(inner: Arc<FxMatrix>) -> Self {
+        Self {
+            provider: Arc::new(SimpleFxProvider::new()),
+            inner,
+        }
+    }
 }
 
 #[pymethods]

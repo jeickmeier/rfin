@@ -302,9 +302,9 @@ impl JsYoYInflationSwap {
                 .map_err(|e| js_error(e.to_string()))?;
 
             let mut yoy = 0.0;
-            if let Some(index) = market
+            if let Ok(index) = market
                 .inner()
-                .inflation_index(self.inner.inflation_index_id.as_str())
+                .get_inflation_index(self.inner.inflation_index_id.as_str())
             {
                 let s = index.value_on(prev).unwrap_or(1.0);
                 let e = index.value_on(d).unwrap_or(s);

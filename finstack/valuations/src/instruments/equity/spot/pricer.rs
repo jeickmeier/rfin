@@ -172,7 +172,7 @@ mod tests {
             .build()
             .expect("should succeed");
 
-        MarketContext::new().insert_discount(discount_curve)
+        MarketContext::new().insert(discount_curve)
     }
 
     #[test]

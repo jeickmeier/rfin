@@ -51,13 +51,13 @@ pub fn standard_market_context(base: Date) -> MarketContext {
         STANDARD_HAZARD_RATE,
     );
 
-    MarketContext::new().insert_discount(disc).insert_hazard(hz)
+    MarketContext::new().insert(disc).insert(hz)
 }
 
 /// Create a market context with multiple constituents
 pub fn multi_constituent_market_context(base: Date, num_constituents: usize) -> MarketContext {
     let disc = flat_discount_curve("USD-OIS", base, 0.03);
-    let mut ctx = MarketContext::new().insert_discount(disc);
+    let mut ctx = MarketContext::new().insert(disc);
 
     for i in 0..num_constituents {
         let hz_id = format!("HZ{}", i + 1);
@@ -67,7 +67,7 @@ pub fn multi_constituent_market_context(base: Date, num_constituents: usize) -> 
             RECOVERY_SENIOR_UNSECURED,
             STANDARD_HAZARD_RATE,
         );
-        ctx = ctx.insert_hazard(hz);
+        ctx = ctx.insert(hz);
     }
 
     // Add index-level hazard
@@ -77,7 +77,7 @@ pub fn multi_constituent_market_context(base: Date, num_constituents: usize) -> 
         RECOVERY_SENIOR_UNSECURED,
         STANDARD_HAZARD_RATE,
     );
-    ctx = ctx.insert_hazard(hz_index);
+    ctx = ctx.insert(hz_index);
 
     ctx
 }

@@ -164,7 +164,7 @@ fn test_cs01_preserves_bespoke_index_structure_during_bumps() {
     let tranche = custom_tranche(3.0, 7.0, 500.0, TrancheSide::SellProtection);
     let pricer = CDSTranchePricer::new();
 
-    let index = market.credit_index(&tranche.credit_index_id).unwrap();
+    let index = market.get_credit_index(&tranche.credit_index_id).unwrap();
     let delta_lambda = 1e-4;
     let bumped_curve_up = index
         .index_credit_curve

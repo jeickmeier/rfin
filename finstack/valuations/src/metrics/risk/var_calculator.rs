@@ -703,7 +703,7 @@ fn collect_bucketed_series(
 }
 
 fn spot_from_market(market: &MarketContext, ticker: &str) -> Option<f64> {
-    match market.price(ticker) {
+    match market.get_price(ticker) {
         Ok(MarketScalar::Unitless(v)) => Some(*v),
         Ok(MarketScalar::Price(m)) => Some(m.amount()),
         _ => None,
@@ -846,7 +846,7 @@ mod tests {
         }
 
         fn value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
-            match market.price(&self.price_id)? {
+            match market.get_price(&self.price_id)? {
                 MarketScalar::Price(m) => Ok(*m),
                 MarketScalar::Unitless(v) => Ok(Money::new(*v, self.currency)),
             }
@@ -1185,8 +1185,8 @@ mod tests {
             .expect("valid FX vol surface");
 
         let base_market = MarketContext::new()
-            .insert_discount(usd_disc)
-            .insert_discount(eur_disc)
+            .insert(usd_disc)
+            .insert(eur_disc)
             .insert_surface(vol_surface)
             .insert_price("FX_VOL_OVERRIDE", MarketScalar::Unitless(0.20))
             .insert_fx(fx);

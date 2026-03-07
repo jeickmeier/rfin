@@ -169,7 +169,30 @@ pub fn theoretical_io_value(
 ///
 /// Theoretical PO price (as % of face)
 pub fn theoretical_po_value(face: f64, wam: u32, discount_rate: f64, psa: f64) -> f64 {
+    theoretical_po_value_with_wac(face, wam, discount_rate, psa, 0.0)
+}
+
+/// Theoretical PO strip value with explicit WAC for scheduled amortization.
+///
+/// PO strips receive both scheduled (level-pay) principal and prepaid principal.
+/// Without WAC, only prepayment principal is captured (understating PO value).
+///
+/// # Arguments
+///
+/// * `face` - Face value
+/// * `wam` - Weighted average maturity in months
+/// * `discount_rate` - Discount rate (annual)
+/// * `psa` - Expected prepayment speed
+/// * `wac` - Weighted average coupon (annual mortgage rate)
+pub fn theoretical_po_value_with_wac(
+    face: f64,
+    wam: u32,
+    discount_rate: f64,
+    psa: f64,
+    wac: f64,
+) -> f64 {
     let monthly_rate = discount_rate / 12.0;
+    let monthly_mortgage_rate = wac / 12.0;
 
     let mut value = 0.0;
     let mut remaining = face;
@@ -179,7 +202,21 @@ pub fn theoretical_po_value(face: f64, wam: u32, discount_rate: f64, psa: f64) -
             break;
         }
 
-        // SMM from PSA
+        // Scheduled amortization (level-pay formula)
+        let remaining_months = wam - month + 1;
+        let scheduled = if remaining_months <= 1 {
+            remaining
+        } else if monthly_mortgage_rate > 1e-12 {
+            let factor = (1.0 + monthly_mortgage_rate).powi(remaining_months as i32);
+            let payment = remaining * monthly_mortgage_rate * factor / (factor - 1.0);
+            (payment - remaining * monthly_mortgage_rate)
+                .max(0.0)
+                .min(remaining)
+        } else {
+            remaining / remaining_months as f64
+        };
+
+        // SMM from PSA (applied to post-scheduled balance per Fabozzi Ch. 4)
         let base_cpr = if month <= 30 {
             0.06 * (month as f64 / 30.0)
         } else {
@@ -187,9 +224,10 @@ pub fn theoretical_po_value(face: f64, wam: u32, discount_rate: f64, psa: f64) -
         };
         let cpr = base_cpr * psa;
         let smm = 1.0 - (1.0 - cpr).powf(1.0 / 12.0);
+        let prepayment = (remaining - scheduled).max(0.0) * smm;
 
-        // Principal payment (simplified: just prepay)
-        let principal = remaining * smm;
+        // PO receives all principal: scheduled + prepaid
+        let principal = scheduled + prepayment;
 
         // Discount factor
         let df = 1.0 / (1.0 + monthly_rate).powi(month as i32);

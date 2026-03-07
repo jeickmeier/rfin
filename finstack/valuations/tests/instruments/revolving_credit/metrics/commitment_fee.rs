@@ -50,7 +50,7 @@ fn test_commitment_fee_proportional_to_undrawn() {
         .unwrap();
 
     let disc_curve = flat_discount_curve(0.03, as_of, "USD-OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Act
     let pv_50 = facility_50.value(&market, as_of).unwrap();

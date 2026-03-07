@@ -75,8 +75,8 @@ fn test_pricing_recovery_consistency() {
         .unwrap();
 
     let mut market = MarketContext::new();
-    market = market.insert_discount(discount_curve);
-    market = market.insert_hazard(hazard_curve);
+    market = market.insert(discount_curve);
+    market = market.insert(hazard_curve);
 
     // 3. Price
     let pv = facility.value(&market, as_of).unwrap();
@@ -235,9 +235,7 @@ fn test_floating_rcf_dv01_bumps_forward_curve() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let result = facility
         .price_with_metrics(&market, as_of, &[MetricId::Dv01])
@@ -282,7 +280,7 @@ fn test_upfront_fee_excluded_after_commitment() {
         .knots([(0.0, 1.0), (1.0, 0.97)])
         .build()
         .unwrap();
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let pv = facility.value(&market, after_commitment).unwrap();
     assert!(

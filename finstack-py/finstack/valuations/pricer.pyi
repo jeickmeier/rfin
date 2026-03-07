@@ -41,7 +41,7 @@ class PricerRegistry:
         ... )
         >>> ctx = MarketContext()
         >>> curve = DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.97)])
-        >>> ctx.insert_discount(curve)
+        >>> ctx.insert(curve)
         >>> result = registry.price(bond, "discounting", ctx)
         >>> result.value.currency.code
         'USD'

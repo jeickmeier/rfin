@@ -27,7 +27,7 @@ fn create_test_market() -> MarketContext {
         .expect("should succeed");
 
     MarketContext::new()
-        .insert_discount(discount_curve)
+        .insert(discount_curve)
         .insert_price("SPX-SPOT", MarketScalar::Unitless(4500.0))
         .insert_price("NDX-SPOT", MarketScalar::Unitless(15000.0))
 }

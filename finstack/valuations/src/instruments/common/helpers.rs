@@ -128,7 +128,7 @@ pub fn resolve_optional_dividend_yield(
         return Ok(0.0);
     };
 
-    let scalar = curves.price(div_id.as_str()).map_err(|e| {
+    let scalar = curves.get_price(div_id.as_str()).map_err(|e| {
         finstack_core::Error::Validation(format!(
             "Failed to fetch dividend yield '{}': {}",
             div_id, e
@@ -598,7 +598,7 @@ pub fn collect_black_scholes_inputs_df(
     }
 
     // Spot price (S)
-    let spot_scalar = curves.price(spot_id)?;
+    let spot_scalar = curves.get_price(spot_id)?;
     let spot = match spot_scalar {
         MarketScalar::Unitless(v) => *v,
         MarketScalar::Price(m) => m.amount(),
@@ -608,7 +608,7 @@ pub fn collect_black_scholes_inputs_df(
     let q = resolve_optional_dividend_yield(curves, div_yield_id)?;
 
     // Volatility (sigma) using vol surface's time basis
-    let vol_surface = curves.surface(vol_surface_id)?;
+    let vol_surface = curves.get_surface(vol_surface_id)?;
     let sigma = vol_surface.value_clamped(t_vol, strike);
 
     Ok(BlackScholesInputsDf {

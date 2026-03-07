@@ -167,8 +167,8 @@ fn test_volatility_based_convexity_adjustment() {
     let vol_surface = build_flat_vol_surface(0.20, "USD_SWAPTION_VOL"); // 20% vol
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     // Create future with volatility-based convexity (no explicit adjustment)
@@ -229,8 +229,8 @@ fn test_volatility_based_convexity_increases_with_maturity() {
     let vol_surface = build_flat_vol_surface(0.15, "USD_SWAPTION_VOL"); // 15% vol
 
     let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(vol_surface);
 
     // Near-dated future (6 months forward)
@@ -318,15 +318,15 @@ fn test_volatility_based_convexity_increases_with_vol() {
     // Low volatility market
     let low_vol_surface = build_flat_vol_surface(0.10, "USD_SWAPTION_VOL"); // 10% vol
     let low_vol_market = MarketContext::new()
-        .insert_discount(disc_curve.clone())
-        .insert_forward(fwd_curve.clone())
+        .insert(disc_curve.clone())
+        .insert(fwd_curve.clone())
         .insert_surface(low_vol_surface);
 
     // High volatility market
     let high_vol_surface = build_flat_vol_surface(0.30, "USD_SWAPTION_VOL"); // 30% vol
     let high_vol_market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert(disc_curve)
+        .insert(fwd_curve)
         .insert_surface(high_vol_surface);
 
     // Create future with vol-based convexity

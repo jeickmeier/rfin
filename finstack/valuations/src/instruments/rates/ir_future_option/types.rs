@@ -466,7 +466,7 @@ mod tests {
     fn npv_uses_contract_tick_economics_not_notional_amount() {
         let as_of = date!(2025 - 01 - 15);
         let expiry = date!(2025 - 06 - 16);
-        let market = MarketContext::new().insert_discount(
+        let market = MarketContext::new().insert(
             finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
                 .base_date(as_of)
                 .day_count(DayCount::Act365F)

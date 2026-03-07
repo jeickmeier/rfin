@@ -935,9 +935,8 @@ mod tests {
     fn try_new_handles_very_small_values() {
         let small = 1e-15;
         let m = Money::try_new(small, Currency::USD).expect("Small value should succeed");
-        // Without config, try_new preserves full f64 precision via Decimal::from_f64_retain.
-        // Use try_new_with_config for currency-precision rounding.
-        assert!(m.amount().abs() < 1e-14);
+        // Construction preserves the raw finite amount; formatting/rounding is a separate concern.
+        assert_eq!(m.amount(), small);
     }
 
     #[test]

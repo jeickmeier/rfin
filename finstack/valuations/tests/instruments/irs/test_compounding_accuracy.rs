@@ -41,8 +41,8 @@ fn test_compounding_lookback_sensitivity() {
         .unwrap();
 
     let ctx = MarketContext::new()
-        .insert_discount(disc.clone())
-        .insert_forward(fwd.clone());
+        .insert(disc.clone())
+        .insert(fwd.clone());
 
     // If lookback pushes observations before `as_of`, provide minimal fixings so the test
     // remains focused on the lookback sensitivity (not fixing-data availability).
@@ -165,8 +165,8 @@ fn test_payment_delay_sensitivity() {
     .expect("fixings series");
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+        .insert(disc)
+        .insert(fwd)
         .insert_series(fixings);
 
     let mut irs = InterestRateSwap::example().unwrap();
@@ -213,9 +213,7 @@ fn test_seasoned_compounded_swap_requires_fixings() {
         .build()
         .unwrap();
 
-    let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let ctx = MarketContext::new().insert(disc).insert(fwd);
 
     let irs = InterestRateSwap::builder()
         .id("TEST-SEASONED-COMP".into())
@@ -301,8 +299,8 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
     let fixings = ScalarTimeSeries::new("FIXING:FWD", obs, None).unwrap();
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+        .insert(disc)
+        .insert(fwd)
         .insert_series(fixings);
 
     let irs = InterestRateSwap::builder()
@@ -380,9 +378,7 @@ fn test_compounded_swap_with_spread_near_zero_rates() {
         .build()
         .unwrap();
 
-    let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let ctx = MarketContext::new().insert(disc).insert(fwd);
 
     // Create swap with significant spread (50bp) on near-zero rate
     let irs = InterestRateSwap::builder()
@@ -474,9 +470,7 @@ fn test_compounded_swap_with_spread_negative_rates() {
         .build()
         .unwrap();
 
-    let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
+    let ctx = MarketContext::new().insert(disc).insert(fwd);
 
     // Create swap with spread (100bp) on negative rate
     let irs = InterestRateSwap::builder()
@@ -579,8 +573,8 @@ fn test_observation_shift_before_curve_base_date() {
     let fixings = ScalarTimeSeries::new("FIXING:FWD", obs, None).unwrap();
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd)
+        .insert(disc)
+        .insert(fwd)
         .insert_series(fixings);
 
     // Create a swap that's already partially into its first period

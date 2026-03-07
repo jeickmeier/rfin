@@ -62,9 +62,7 @@ fn test_protection_leg_metric_positive() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = create_test_cds(as_of, end);
     let protection_pv = metric_value(&cds, &market, as_of, MetricId::ProtectionLegPv);
@@ -78,9 +76,7 @@ fn test_premium_leg_metric_positive() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = create_test_cds(as_of, end);
     let premium_pv = metric_value(&cds, &market, as_of, MetricId::PremiumLegPv);
@@ -94,9 +90,7 @@ fn test_par_spread_metric_positive() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     let cds = create_test_cds(as_of, end);
     let par_spread = metric_value(&cds, &market, as_of, MetricId::ParSpread);

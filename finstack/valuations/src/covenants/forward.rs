@@ -272,7 +272,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
 
         // With antithetic variates, generate N/2 draws to produce N total paths.
         let draws_per_date = if antithetic {
-            (total_paths + 1) / 2
+            total_paths.div_ceil(2)
         } else {
             total_paths
         };

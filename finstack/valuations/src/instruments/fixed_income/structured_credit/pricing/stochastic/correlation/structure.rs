@@ -408,6 +408,38 @@ impl CorrelationStructure {
                         }
                     }
                 }
+
+                // Verify positive semi-definiteness via Cholesky decomposition.
+                // If the matrix is not PSD, the Cholesky factor will encounter a
+                // negative diagonal, indicating the matrix cannot represent a valid
+                // correlation structure.
+                let mut l = vec![0.0_f64; n * n];
+                for j in 0..n {
+                    let mut sum = 0.0;
+                    for k in 0..j {
+                        sum += l[j * n + k] * l[j * n + k];
+                    }
+                    let diag = correlations[j * n + j] - sum;
+                    if diag < -1e-10 {
+                        return Err(format!(
+                            "Correlation matrix is not positive semi-definite \
+                             (negative diagonal {diag:.2e} at [{j},{j}])"
+                        ));
+                    }
+                    l[j * n + j] = diag.max(0.0).sqrt();
+                    for i in (j + 1)..n {
+                        let mut s = 0.0;
+                        for k in 0..j {
+                            s += l[i * n + k] * l[j * n + k];
+                        }
+                        l[i * n + j] = if l[j * n + j] > 1e-15 {
+                            (correlations[i * n + j] - s) / l[j * n + j]
+                        } else {
+                            0.0
+                        };
+                    }
+                }
+
                 Ok(())
             }
         }

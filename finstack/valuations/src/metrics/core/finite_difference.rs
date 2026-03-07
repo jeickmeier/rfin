@@ -71,7 +71,7 @@ pub fn bump_scalar_price(
     bump_pct: f64,
 ) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
     let mut bumped = context.clone();
-    let current = bumped.price(price_id)?;
+    let current = bumped.get_price(price_id)?;
 
     let bumped_value = match current {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
@@ -154,7 +154,7 @@ pub fn scale_surface(
     if (scale - 1.0).abs() < 1e-15 {
         return Ok(context.clone());
     }
-    let vol_surface = context.surface(vol_surface_id)?;
+    let vol_surface = context.get_surface(vol_surface_id)?;
     let bumped_surface = vol_surface.scaled(scale);
     Ok(context.clone().insert_surface(bumped_surface))
 }

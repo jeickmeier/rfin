@@ -115,7 +115,7 @@ fn create_market() -> MarketContext {
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(discount_curve)
+        .insert(discount_curve)
         .insert_credit_index("CDX.NA.IG.42", index_data)
 }
 
@@ -197,7 +197,7 @@ fn create_market_with_issuers(num_issuers: usize) -> MarketContext {
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(discount_curve)
+        .insert(discount_curve)
         .insert_credit_index("CDX.NA.IG.42", index_data)
 }
 

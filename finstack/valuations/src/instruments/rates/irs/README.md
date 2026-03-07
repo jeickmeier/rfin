@@ -297,8 +297,8 @@ let fwd_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
     .build()?;
 
 let market = MarketContext::new()
-    .insert_discount(disc_curve)
-    .insert_forward(fwd_curve);
+    .insert(disc_curve)
+    .insert(fwd_curve);
 
 // Price the swap
 let npv = swap.value(&market, date!(2024-01-01))?;
@@ -911,8 +911,8 @@ use finstack_valuations::margin::metrics::{
 };
 
 let market = MarketContext::builder()
-    .insert_discount(discount_curve)
-    .insert_forward(forward_curve)
+    .insert(discount_curve)
+    .insert(forward_curve)
     .build();
 
 let as_of = date!(2024-01-15);

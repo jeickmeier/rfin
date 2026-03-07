@@ -84,9 +84,9 @@
 //!     ?;
 //!
 //! let curves = MarketContext::new()
-//!     .insert_discount(disc)
-//!     .insert_forward(fwd3m)
-//!     .insert_hazard(hazard);
+//!     .insert(disc)
+//!     .insert(fwd3m)
+//!     .insert(hazard);
 //! assert!(curves.get_discount("USD-OIS").is_ok());
 //! # Ok::<(), finstack_core::Error>(())
 //! ```

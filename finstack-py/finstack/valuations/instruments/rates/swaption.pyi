@@ -138,10 +138,8 @@ class Swaption:
         ...     settlement="physical",
         ... )
         >>> ctx = MarketContext()
-        >>> ctx.insert_discount(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (10.0, 0.93)]))
-        >>> ctx.insert_forward(
-        ...     ForwardCurve("USD-SOFR-3M", 0.25, [(0.0, 0.03), (10.0, 0.033)], base_date=date(2024, 1, 1))
-        ... )
+        >>> ctx.insert(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (10.0, 0.93)]))
+        >>> ctx.insert(ForwardCurve("USD-SOFR-3M", 0.25, [(0.0, 0.03), (10.0, 0.033)], base_date=date(2024, 1, 1)))
         >>> expiries = [1.0, 5.0]
         >>> strikes = [0.02, 0.03, 0.04]
         >>> grid = [

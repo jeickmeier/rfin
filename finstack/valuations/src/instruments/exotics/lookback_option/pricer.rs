@@ -73,7 +73,7 @@ impl LookbackOptionMcPricer {
             0.0
         };
 
-        let spot_scalar = curves.price(&inst.spot_id)?;
+        let spot_scalar = curves.get_price(&inst.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -84,7 +84,7 @@ impl LookbackOptionMcPricer {
             inst.div_yield_id.as_ref(),
         )?;
 
-        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
         let strike_val = inst.strike.unwrap_or(spot);
         let sigma = vol_surface.value_clamped(t, strike_val);
 
@@ -289,7 +289,7 @@ fn lookback_spot(
     curves: &MarketContext,
     spot_id: &finstack_core::types::PriceId,
 ) -> finstack_core::Result<f64> {
-    let spot_scalar = curves.price(spot_id)?;
+    let spot_scalar = curves.get_price(spot_id)?;
     Ok(match spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -364,7 +364,7 @@ fn collect_lookback_inputs(
         0.0
     };
 
-    let spot_scalar = curves.price(&inst.spot_id)?;
+    let spot_scalar = curves.get_price(&inst.spot_id)?;
     let spot = match spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -375,7 +375,7 @@ fn collect_lookback_inputs(
         inst.div_yield_id.as_ref(),
     )?;
 
-    let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
+    let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
     let strike_val = inst.strike.unwrap_or(spot);
     let sigma = vol_surface.value_clamped(t, strike_val);
 

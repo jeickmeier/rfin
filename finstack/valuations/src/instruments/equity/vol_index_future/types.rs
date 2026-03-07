@@ -207,7 +207,7 @@ impl VolatilityIndexFuture {
     /// Calculate the raw present value as f64.
     pub fn npv_raw(&self, context: &MarketContext) -> finstack_core::Result<f64> {
         // Get the vol index curve
-        let vol_curve = context.get_vol_index(&self.vol_index_curve_id)?;
+        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
 
         // Calculate time to settlement using the curve's day count
         let t = vol_curve
@@ -242,7 +242,7 @@ impl VolatilityIndexFuture {
 
     /// Get the forward volatility level at settlement.
     pub fn forward_vol(&self, context: &MarketContext) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index(&self.vol_index_curve_id)?;
+        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
         let t = vol_curve
             .day_count()
             .year_fraction(
@@ -369,9 +369,7 @@ mod tests {
             .build()
             .expect("valid VIX curve");
 
-        MarketContext::new()
-            .insert_discount(disc)
-            .insert_vol_index(vix)
+        MarketContext::new().insert(disc).insert(vix)
     }
 
     #[test]

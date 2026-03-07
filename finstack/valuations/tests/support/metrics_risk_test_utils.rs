@@ -26,7 +26,7 @@ pub fn usd_ois_curve(as_of: Date) -> Result<DiscountCurve> {
 /// Market context containing the standard USD-OIS discount curve.
 pub fn usd_ois_market(as_of: Date) -> Result<MarketContext> {
     let curve = usd_ois_curve(as_of)?;
-    Ok(MarketContext::new().insert_discount(curve))
+    Ok(MarketContext::new().insert(curve))
 }
 
 /// Convenience helper for constructing fixed-rate USD bonds for tests.

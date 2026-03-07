@@ -66,7 +66,7 @@ fn test_upfront_fee_sign() {
         .knots([(0.0, 1.0), (1.0, 0.9999)])
         .build()
         .unwrap();
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // Pre-commitment valuation: fee is still in the future, should be included
     let pv_pre = facility.value(&market, as_of).unwrap();
@@ -87,7 +87,7 @@ fn test_upfront_fee_sign() {
         .knots([(0.0, 1.0), (1.0, 0.9999)])
         .build()
         .unwrap();
-    let market2 = MarketContext::new().insert_discount(disc_curve2);
+    let market2 = MarketContext::new().insert(disc_curve2);
     let pv_post = facility.value(&market2, start).unwrap();
     assert!(
         pv_post.amount().abs() < 1.0,
@@ -130,7 +130,7 @@ fn test_mid_period_draw_accrual() {
         .knots([(0.0, 1.0), (0.25, 0.9999)])
         .build()
         .unwrap();
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let schedule =
         _generate_deterministic_cashflows_with_curves_replaced(&facility, &market, start).unwrap();
@@ -218,9 +218,7 @@ fn test_floating_vs_margin_only() {
         .build()
         .unwrap();
 
-    let market_with_curve = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market_with_curve = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     // Price with curves (should include forward rates)
     let pv_with_curves = facility.value(&market_with_curve, start).unwrap();
@@ -299,9 +297,7 @@ fn test_reset_frequency_mismatch() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let schedule =
         _generate_deterministic_cashflows_with_curves_replaced(&facility, &market, start).unwrap();
@@ -390,7 +386,7 @@ fn test_utilization_tier() {
         .knots([(0.0, 1.0), (0.5, 0.9999)])
         .build()
         .unwrap();
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     let schedule_low =
         _generate_deterministic_cashflows_with_curves_replaced(&facility_low_util, &market, start)
@@ -453,7 +449,7 @@ fn test_as_of_filtering() {
         .knots([(0.0, 1.0), (0.5, 0.9999)])
         .build()
         .unwrap();
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = MarketContext::new().insert(disc_curve);
 
     // As-of at Q1 end: no interest/fee cashflows should have date <= as_of
     let schedule =

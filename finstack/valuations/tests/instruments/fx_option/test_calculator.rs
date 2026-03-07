@@ -40,7 +40,7 @@ fn test_npv_matches_garman_kohlhagen() {
         .rate(FxQuery::new(BASE, QUOTE, as_of))
         .expect("spot")
         .rate;
-    let surf = market.surface(VOL_ID).expect("vol surface");
+    let surf = market.get_surface(VOL_ID).expect("vol surface");
     let sigma = surf.value_clamped(t, call.strike);
     assert_approx_eq(spot, params.spot, 1e-10, 1e-10, "Spot");
     assert_approx_eq(params.r_domestic, 0.03, 1e-3, 1e-3, "Domestic rate");
@@ -138,7 +138,7 @@ fn test_surface_vol_used_in_pricing() {
     let r_d = -df_domestic.ln() / t;
     let r_f = -df_foreign.ln() / t;
     let sigma = market
-        .surface(VOL_ID)
+        .get_surface(VOL_ID)
         .expect("vol surface")
         .value_clamped(t, call.strike);
 
@@ -178,12 +178,12 @@ fn test_missing_vol_surface_errors() {
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let params = MarketParams::atm();
     let market = MarketContext::new()
-        .insert_discount(build_flat_discount_curve(
+        .insert(build_flat_discount_curve(
             params.r_domestic,
             as_of,
             DOMESTIC_ID,
         ))
-        .insert_discount(build_flat_discount_curve(
+        .insert(build_flat_discount_curve(
             params.r_foreign,
             as_of,
             FOREIGN_ID,

@@ -28,8 +28,8 @@ fn test_commodity_option_core_greeks_registered() -> finstack_core::Result<()> {
     let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[80.0, 100.0, 120.0], 0.20);
 
     let market = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_forward(forward_curve)
+        .insert(discount_curve)
+        .insert(forward_curve)
         .insert_surface(vol_surface)
         .insert_price("CL-SPOT", MarketScalar::Unitless(100.0));
 
@@ -100,8 +100,8 @@ fn test_forward_based_greeks_with_both_spot_and_price_curve() -> finstack_core::
     let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[80.0, 100.0, 120.0], 0.20);
 
     let market = MarketContext::new()
-        .insert_discount(discount_curve)
-        .insert_price_curve(price_curve)
+        .insert(discount_curve)
+        .insert(price_curve)
         .insert_surface(vol_surface)
         .insert_price("CL-SPOT", MarketScalar::Unitless(95.0)); // Spot different from forward
 

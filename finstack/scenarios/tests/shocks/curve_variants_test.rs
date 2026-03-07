@@ -23,7 +23,7 @@ fn test_forecast_curve_parallel_shock() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_forward(curve);
+    let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {
@@ -69,7 +69,7 @@ fn test_par_cds_parallel_shock() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_hazard(curve);
+    let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {
@@ -124,9 +124,7 @@ fn test_inflation_curve_parallel_shock() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new()
-        .insert_inflation(curve)
-        .insert_discount(ois);
+    let mut market = MarketContext::new().insert(curve).insert(ois);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {
@@ -155,7 +153,7 @@ fn test_inflation_curve_parallel_shock() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify curve was bumped
-    let bumped_curve = market.get_inflation("US_CPI").unwrap();
+    let bumped_curve = market.get_inflation_curve("US_CPI").unwrap();
     let cpi_levels = bumped_curve.cpi_levels();
     assert!(cpi_levels[1] > 306.0, "CPI level should be bumped");
 }
@@ -170,7 +168,7 @@ fn test_forecast_curve_node_shock() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_forward(curve);
+    let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {
@@ -219,9 +217,7 @@ fn test_par_cds_node_shock() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new()
-        .insert_discount(discount)
-        .insert_hazard(curve);
+    let mut market = MarketContext::new().insert(discount).insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {
@@ -283,9 +279,7 @@ fn test_inflation_curve_node_shock() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new()
-        .insert_inflation(curve)
-        .insert_discount(ois);
+    let mut market = MarketContext::new().insert(curve).insert(ois);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {
@@ -325,7 +319,7 @@ fn test_discount_curve_id_preservation() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_discount(curve);
+    let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {
@@ -395,11 +389,11 @@ fn test_all_curve_types_in_one_scenario() {
         .unwrap();
 
     let mut market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_discount(ois) // Added for inflation bump dependency
-        .insert_forward(fwd)
-        .insert_hazard(hazard)
-        .insert_inflation(inflation);
+        .insert(disc)
+        .insert(ois) // Added for inflation bump dependency
+        .insert(fwd)
+        .insert(hazard)
+        .insert(inflation);
 
     let mut model = FinancialModelSpec::new("test", vec![]);
 
@@ -449,5 +443,5 @@ fn test_all_curve_types_in_one_scenario() {
     assert!(market.get_discount("USD_SOFR").is_ok());
     assert!(market.get_forward("USD_LIBOR_3M").is_ok());
     assert!(market.get_hazard("CORP_BBB").is_ok());
-    assert!(market.get_inflation("US_CPI").is_ok());
+    assert!(market.get_inflation_curve("US_CPI").is_ok());
 }

@@ -62,7 +62,7 @@ fn create_convertible_market(
     let discount_curve = create_flat_discount_curve(base_date, risk_free_rate, "USD-OIS");
 
     MarketContext::new()
-        .insert_discount(discount_curve)
+        .insert(discount_curve)
         .insert_price("EQUITY", MarketScalar::Unitless(equity_spot))
         .insert_price("EQUITY-VOL", MarketScalar::Unitless(volatility))
         .insert_price("EQUITY-DIVYIELD", MarketScalar::Unitless(dividend_yield))

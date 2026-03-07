@@ -30,7 +30,7 @@ fn test_z_spread_discount_bond() {
         .knots([(0.0, 1.0), (5.0, 0.80)])
         .build()
         .unwrap();
-    let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let result = bond
         .price_with_metrics(&market, as_of, &[MetricId::ZSpread])
@@ -117,7 +117,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
         .interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    let market = MarketContext::new().insert_discount(disc);
+    let market = MarketContext::new().insert(disc);
 
     let bond_ig = Bond::fixed(
         "ZSPR-CONV-IG",

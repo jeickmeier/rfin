@@ -473,7 +473,7 @@ def main() -> None:
         ois_index_id=str(args.ois_index),
     )
 
-    curve = market.discount("USD-OIS")
+    curve = market.get_discount("USD-OIS")
 
     residuals = top_residuals(disc_report, limit=10)
     if residuals:

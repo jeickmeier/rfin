@@ -33,7 +33,7 @@ fn standard_market(as_of: Date) -> MarketContext {
         .build()
         .unwrap();
 
-    market = market.insert_discount(discount_curve);
+    market = market.insert(discount_curve);
 
     // Add LIBOR Forward Curve (Flat 3% for simplicity, or slightly different)
     // Let's make it 3.5% to have spread
@@ -45,7 +45,7 @@ fn standard_market(as_of: Date) -> MarketContext {
         .build()
         .unwrap();
 
-    market = market.insert_forward(forward_curve);
+    market = market.insert(forward_curve);
 
     // Add Vol Surface (Flat 20%)
     // Manually build a grid
@@ -178,7 +178,7 @@ fn long_tenor_market(as_of: Date) -> MarketContext {
         .build()
         .unwrap();
 
-    market = market.insert_discount(discount_curve);
+    market = market.insert(discount_curve);
 
     // Add Forward Curve with longer tenors
     let fwd_knots = vec![(0.0, 0.035), (10.0, 0.035), (30.0, 0.035), (50.0, 0.035)];
@@ -189,7 +189,7 @@ fn long_tenor_market(as_of: Date) -> MarketContext {
         .build()
         .unwrap();
 
-    market = market.insert_forward(forward_curve);
+    market = market.insert(forward_curve);
 
     // Add Vol Surface with longer expiries
     let strikes = vec![0.01, 0.02, 0.025, 0.03, 0.04, 0.05];
@@ -421,7 +421,7 @@ fn test_cms_option_requires_vol_surface() {
         .build()
         .unwrap();
 
-    market = market.insert_discount(discount_curve);
+    market = market.insert(discount_curve);
 
     let fwd_knots = vec![(0.0, 0.035), (30.0, 0.035)];
     let forward_curve = ForwardCurve::builder(CurveId::new("USD-LIBOR-3M"), 0.25)
@@ -431,7 +431,7 @@ fn test_cms_option_requires_vol_surface() {
         .build()
         .unwrap();
 
-    market = market.insert_forward(forward_curve);
+    market = market.insert(forward_curve);
 
     // Note: NOT adding vol surface
 

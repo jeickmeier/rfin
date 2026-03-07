@@ -83,7 +83,7 @@ def test_curve_shock() -> None:
     curve = DiscountCurve("USD-OIS", base_date, knots)
 
     market = MarketContext()
-    market.insert_discount(curve)
+    market.insert(curve)
     model = FinancialModelSpec("test", [])
 
     # Create and apply scenario
@@ -96,7 +96,7 @@ def test_curve_shock() -> None:
     assert report.operations_applied == 1
 
     # Verify curve was shocked
-    shocked_curve = market.discount("USD-OIS")
+    shocked_curve = market.get_discount("USD-OIS")
     df_1y = shocked_curve.df(1.0)
     assert df_1y < 0.98, f"Expected df < 0.98, got {df_1y}"
 

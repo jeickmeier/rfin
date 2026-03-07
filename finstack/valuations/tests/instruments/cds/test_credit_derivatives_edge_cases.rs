@@ -84,8 +84,8 @@ fn test_recovery01_at_lower_boundary() {
     cds_test.protection.recovery_rate = recovery;
 
     let market = MarketContext::new()
-        .insert_discount(create_discount_curve(base))
-        .insert_hazard(create_hazard_curve(base, recovery));
+        .insert(create_discount_curve(base))
+        .insert(create_hazard_curve(base, recovery));
 
     let result = cds_test
         .price_with_metrics(&market, base, &[MetricId::Recovery01])
@@ -126,8 +126,8 @@ fn test_recovery01_at_upper_boundary() {
     cds_test.protection.recovery_rate = recovery;
 
     let market = MarketContext::new()
-        .insert_discount(create_discount_curve(base))
-        .insert_hazard(create_hazard_curve(base, recovery));
+        .insert(create_discount_curve(base))
+        .insert(create_hazard_curve(base, recovery));
 
     let result = cds_test
         .price_with_metrics(&market, base, &[MetricId::Recovery01])
@@ -166,8 +166,8 @@ fn test_recovery01_symmetry() {
     cds_test.protection.recovery_rate = recovery;
 
     let market = MarketContext::new()
-        .insert_discount(create_discount_curve(base))
-        .insert_hazard(create_hazard_curve(base, recovery));
+        .insert(create_discount_curve(base))
+        .insert(create_hazard_curve(base, recovery));
 
     let result = cds_test
         .price_with_metrics(&market, base, &[MetricId::Recovery01])
@@ -207,8 +207,8 @@ fn test_expected_loss_distressed_credit() {
     cds_test.protection.recovery_rate = recovery;
 
     let market = MarketContext::new()
-        .insert_discount(create_discount_curve(base))
-        .insert_hazard(create_distressed_hazard_curve(base, recovery));
+        .insert(create_discount_curve(base))
+        .insert(create_distressed_hazard_curve(base, recovery));
 
     let result = cds_test
         .price_with_metrics(&market, base, &[MetricId::ExpectedLoss])
@@ -265,9 +265,7 @@ fn test_par_spread_npv_consistency() {
 
     let disc = create_discount_curve(base);
     let hazard = create_hazard_curve(base, recovery);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let market = MarketContext::new().insert(disc).insert(hazard);
 
     // Derive par spread from protection PV and risky annuity (consistent with NPV logic)
     let result = cds_test
@@ -326,8 +324,8 @@ fn test_jtd_recovery_sensitivity() {
         cds_test.protection.recovery_rate = recovery;
 
         let market = MarketContext::new()
-            .insert_discount(create_discount_curve(base))
-            .insert_hazard(create_hazard_curve(base, recovery));
+            .insert(create_discount_curve(base))
+            .insert(create_hazard_curve(base, recovery));
 
         let result = cds_test
             .price_with_metrics(&market, base, &[MetricId::JumpToDefault])

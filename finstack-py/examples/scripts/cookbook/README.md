@@ -183,7 +183,7 @@ curve = DiscountCurve.flat(
     rate=0.05,
     day_count="Act360"
 )
-market.insert_discount(curve)
+market.insert(curve)
 
 # Add FX rates
 fx_matrix = FxMatrix()

@@ -138,7 +138,7 @@ mod tests {
             .interp(InterpStyle::LogLinear)
             .build()
             .expect("valid curve");
-        MarketContext::new().insert_discount(disc)
+        MarketContext::new().insert(disc)
     }
 
     fn bullet_bond(as_of: finstack_core::dates::Date) -> Bond {

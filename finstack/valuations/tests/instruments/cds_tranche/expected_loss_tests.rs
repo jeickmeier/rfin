@@ -179,7 +179,7 @@ fn test_heterogeneous_exact_convolution_expected_loss() {
 fn test_hetero_spa_matches_homogeneous_when_issuers_identical() {
     // Arrange
     let base_market = standard_market_context();
-    let index_data = base_market.credit_index("CDX.NA.IG.42").unwrap();
+    let index_data = base_market.get_credit_index("CDX.NA.IG.42").unwrap();
 
     // Build heterogeneous market with identical issuer curves
     let mut issuer_curves = finstack_core::HashMap::default();

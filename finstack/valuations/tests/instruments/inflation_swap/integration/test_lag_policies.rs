@@ -27,8 +27,8 @@ fn test_lag_override_vs_index_lag() {
     );
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_inflation(infl_curve)
+        .insert(disc)
+        .insert(infl_curve)
         .insert_inflation_index("US-CPI-U", index);
 
     // Swap with no lag override (uses index 3M lag)
@@ -85,8 +85,8 @@ fn test_different_lag_durations() {
     let index = simple_index("US-CPI-U", as_of, 300.0, Currency::USD, InflationLag::None);
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_inflation(infl_curve)
+        .insert(disc)
+        .insert(infl_curve)
         .insert_inflation_index("US-CPI-U", index);
 
     let mut pvs = Vec::new();
@@ -133,8 +133,8 @@ fn test_lag_in_days_vs_months() {
     let index = simple_index("US-CPI-U", as_of, 300.0, Currency::USD, InflationLag::None);
 
     let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_inflation(infl_curve)
+        .insert(disc)
+        .insert(infl_curve)
         .insert_inflation_index("US-CPI-U", index);
 
     // 3 months ≈ 90 days
@@ -191,9 +191,7 @@ fn test_no_index_fallback_to_curve() {
     let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, 0.02).unwrap();
 
     // Context without inflation index
-    let ctx = MarketContext::new()
-        .insert_discount(disc)
-        .insert_inflation(infl_curve);
+    let ctx = MarketContext::new().insert(disc).insert(infl_curve);
 
     let swap = InflationSwapBuilder::new()
         .id("ZCINF-NO-IDX".into())

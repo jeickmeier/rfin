@@ -854,8 +854,8 @@ let hazard_curve = HazardCurve::builder("CORP-HAZARD")
     .build()?;
 
 let market = MarketContext::new()
-    .insert_discount(disc_curve)
-    .insert_hazard(hazard_curve);
+    .insert(disc_curve)
+    .insert(hazard_curve);
 
 // Compute credit-adjusted period PVs
 let pv_map = schedule.pv_by_period_with_market_and_ctx(

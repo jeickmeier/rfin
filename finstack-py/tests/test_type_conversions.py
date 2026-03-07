@@ -270,7 +270,7 @@ class TestNoneAndOptionalHandling:
             steps,
             initial_market=None,
         )
-        assert market.discount("USD-OIS") is not None
+        assert market.get_discount("USD-OIS") is not None
         assert report.success
 
 

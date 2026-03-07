@@ -140,7 +140,7 @@ impl IntensityProcessDefault {
 impl StochasticDefault for IntensityProcessDefault {
     fn conditional_mdr(
         &self,
-        _seasoning: u32,
+        seasoning: u32,
         factors: &[f64],
         _macro_factors: &MacroCreditFactors,
     ) -> f64 {
@@ -149,8 +149,18 @@ impl StochasticDefault for IntensityProcessDefault {
         // Conditional intensity
         let intensity = self.intensity(z);
 
+        // Apply seasoning ramp: linear over first 24 months, then flat at 1.0.
+        // Newly originated loans have lower default rates that ramp up as they season.
+        let ramp_months = 24_u32;
+        let seasoning_factor = if seasoning < ramp_months {
+            seasoning as f64 / ramp_months as f64
+        } else {
+            1.0
+        };
+        let adjusted_intensity = intensity * seasoning_factor;
+
         // Monthly survival probability
-        let monthly_intensity = intensity / 12.0;
+        let monthly_intensity = adjusted_intensity / 12.0;
         let survival_prob = (-monthly_intensity).exp();
 
         // MDR = 1 - survival
@@ -188,8 +198,14 @@ impl StochasticDefault for IntensityProcessDefault {
         "Intensity Process Default Model"
     }
 
-    fn expected_mdr(&self, _seasoning: u32) -> f64 {
-        cdr_to_mdr(self.base_hazard)
+    fn expected_mdr(&self, seasoning: u32) -> f64 {
+        let ramp_months = 24_u32;
+        let seasoning_factor = if seasoning < ramp_months {
+            seasoning as f64 / ramp_months as f64
+        } else {
+            1.0
+        };
+        cdr_to_mdr(self.base_hazard * seasoning_factor)
     }
 }
 
@@ -213,9 +229,11 @@ mod tests {
 
         let mdr = model.conditional_mdr(12, &[0.0], &factors);
 
-        // At Z=0, intensity equals base_hazard
-        // MDR should be approximately base_hazard / 12
-        let expected = 1.0 - (-0.02 / 12.0_f64).exp();
+        // At Z=0, intensity equals base_hazard.
+        // With seasoning ramp (24 months), factor at month 12 = 12/24 = 0.5.
+        // MDR = 1 - exp(-(base_hazard * seasoning_factor) / 12)
+        let seasoning_factor = 12.0 / 24.0;
+        let expected = 1.0 - (-0.02 * seasoning_factor / 12.0_f64).exp();
         assert!(
             (mdr - expected).abs() < 1e-6,
             "MDR {} should equal expected {}",

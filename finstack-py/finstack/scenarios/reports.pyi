@@ -27,7 +27,7 @@ class ApplicationReport:
         ...     CurveKind,
         ... )
         >>> market = MarketContext()
-        >>> market.insert_discount(DiscountCurve("USD-SOFR", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        >>> market.insert(DiscountCurve("USD-SOFR", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         >>> ctx = ExecutionContext(market, FinancialModelSpec("doc_report", []), date(2025, 1, 1))
         >>> ops = [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-SOFR", 25.0)]
         >>> scenario = ScenarioSpec("doc_report", ops, name="Doc Report")

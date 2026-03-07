@@ -97,8 +97,8 @@ fn test_credit_spread_effect_larger_for_otm() {
             .unwrap();
 
         finstack_core::market_data::context::MarketContext::new()
-            .insert_discount(rf_curve)
-            .insert_discount(credit_curve)
+            .insert(rf_curve)
+            .insert(credit_curve)
             .insert_price("AAPL", MarketScalar::Unitless(market_params::SPOT_LOW))
             .insert_price(
                 "AAPL-VOL",

@@ -29,7 +29,7 @@ fn test_duration_zero_coupon() {
         .knots([(0.0, 1.0), (5.0, 0.70)])
         .build()
         .unwrap();
-    let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let result = bond
         .price_with_metrics(&market, as_of, &[MetricId::DurationMac])
@@ -63,7 +63,7 @@ fn test_modified_duration_matches_macaulay_over_yield() {
         .knots([(0.0, 1.0), (10.0, (-(0.05_f64 * 10.0_f64)).exp())])
         .build()
         .unwrap();
-    let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let res = bond
         .price_with_metrics(
@@ -103,7 +103,7 @@ fn test_convexity_matches_numerical_second_derivative() {
         .knots([(0.0, 1.0), (10.0, 0.6)])
         .build()
         .unwrap();
-    let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let res = bond
         .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Convexity])

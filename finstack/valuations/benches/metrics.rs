@@ -41,7 +41,7 @@ fn create_benchmark_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new().insert_discount(discount_curve)
+    MarketContext::new().insert(discount_curve)
 }
 
 /// Create a bond instrument for benchmarking

@@ -117,9 +117,7 @@ fn create_market_single_curve() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard)
+    MarketContext::new().insert(disc).insert(hazard)
 }
 
 fn create_market_constituents(num_names: usize) -> MarketContext {
@@ -141,7 +139,7 @@ fn create_market_constituents(num_names: usize) -> MarketContext {
             ])
             .build()
             .unwrap();
-        market = market.insert_hazard(hazard);
+        market = market.insert(hazard);
     }
 
     market
