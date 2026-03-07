@@ -1070,8 +1070,8 @@ fn extend_forward_for_coupon_period(date: Date, freq: Tenor) -> crate::Result<Da
 // -------------------------------------------------------------------------------------------------
 /// Calculate year fraction for Act/365L convention.
 ///
-/// Act/365L uses 366 as denominator if February 29 falls between start (exclusive) and end (inclusive),
-/// otherwise uses 365.
+/// Act/365L uses 366 as denominator if February 29 falls in the closed interval
+/// `[start, end]`, otherwise uses 365.
 fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
     if start == end {
         return 0.0;
@@ -1079,7 +1079,9 @@ fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
 
     let actual_days = (end - start).whole_days() as f64;
 
-    // Check if Feb 29 falls in the half-open interval [start, end)
+    // ACT/365L uses a closed interval for the leap-day denominator rule,
+    // even though actual days are still counted using the library's
+    // standard [start, end) convention.
     let denominator = if contains_feb_29(start, end) {
         366.0
     } else {
@@ -1089,10 +1091,7 @@ fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
     actual_days / denominator
 }
 
-/// Check if February 29 falls in the half-open interval `[start, end)`.
-///
-/// Consistent with the library's `[start, end)` accrual convention:
-/// start date is included, end date is excluded.
+/// Check if February 29 falls in the closed interval `[start, end]`.
 fn contains_feb_29(start: Date, end: Date) -> bool {
     let start_year = start.year();
     let end_year = end.year();
@@ -1102,8 +1101,7 @@ fn contains_feb_29(start: Date, end: Date) -> bool {
         if time::util::is_leap_year(year) {
             // Try to create Feb 29 for this year
             if let Ok(feb_29) = Date::from_calendar_date(year, Month::February, 29) {
-                // Half-open interval [start, end): start-inclusive, end-exclusive
-                if feb_29 >= start && feb_29 < end {
+                if feb_29 >= start && feb_29 <= end {
                     return true;
                 }
             }

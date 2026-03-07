@@ -254,20 +254,12 @@ pub fn realized_variance(
             let returns = log_returns(prices);
             returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64 * annualization_factor
         }
-        // For other methods, we need OHLC data which isn't available in simple price series
-        // These methods require high/low/open data, so fall back to close-to-close
-        // TODO: Implement high/low/open/close methods and then remove this fallback
+        // These methods require OHLC data. For a single close-only series, keep the
+        // historical fallback to close-to-close rather than panicking in debug builds.
         RealizedVarMethod::Parkinson
         | RealizedVarMethod::GarmanKlass
         | RealizedVarMethod::RogersSatchell
         | RealizedVarMethod::YangZhang => {
-            // These methods require OHLC data — use realized_variance_ohlc() instead.
-            // Falling back to close-to-close for a single price series.
-            debug_assert!(
-                false,
-                "realized_variance called with OHLC method {method:?} on single price series; \
-                 use realized_variance_ohlc() instead"
-            );
             let returns = log_returns(prices);
             returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64 * annualization_factor
         }

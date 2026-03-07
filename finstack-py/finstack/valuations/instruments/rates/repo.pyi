@@ -87,7 +87,7 @@ class Repo:
         ...     Repo
         ...     .builder("REPO-UST-5Y")
         ...     .cash_amount(Money(1_000_000, Currency("USD")))
-        ...     .get_collateral(collateral)
+        ...     .collateral(collateral)
         ...     .repo_rate(0.03)  # 3% repo rate
         ...     .start_date(date(2024, 1, 1))
         ...     .maturity(date(2024, 1, 8))  # 1-week repo

@@ -250,7 +250,7 @@ impl PyFloatCouponParams {
                 index_cap_bp: None,
                 fixing_calendar_id: None,
                 overnight_compounding: None,
-                fallback: Default::default(),
+                fallback: val_builder::FloatingRateFallback::SpreadOnly,
             },
         }
     }
@@ -301,7 +301,7 @@ impl PyFloatingCouponSpec {
                     fixing_calendar_id: Some(calendar_id),
                     end_of_month: schedule.inner.end_of_month,
                     overnight_compounding: None,
-                    fallback: Default::default(),
+                    fallback: params.inner.fallback.clone(),
                     payment_lag_days: schedule.inner.payment_lag_days,
                 },
                 coupon_type: coupon_type

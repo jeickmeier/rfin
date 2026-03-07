@@ -126,6 +126,16 @@ class PricerRegistry:
         """
         ...
 
+    def get_price(
+        self,
+        instrument: Any,
+        model: Any,
+        market: MarketContext,
+        as_of: dt.date | None = None,
+    ) -> ValuationResult:
+        """Backward-compatible alias for :meth:`price`."""
+        ...
+
     def price_batch(
         self,
         instruments: List[Any],
@@ -340,57 +350,55 @@ class PricerRegistry:
         """
         ...
 
-def create_standard_registry() -> PricerRegistry: ...
+def create_standard_registry() -> PricerRegistry:
+    """Create a registry pre-populated with all standard finstack pricers.
 
-"""Create a registry pre-populated with all standard finstack pricers.
+    This factory function creates a PricerRegistry with all built-in pricing
+    engines registered. It supports pricing for bonds, swaps, options, credit
+    instruments, and other standard financial instruments.
 
-This factory function creates a PricerRegistry with all built-in pricing
-engines registered. It supports pricing for bonds, swaps, options, credit
-instruments, and other standard financial instruments.
+    The standard registry includes pricers for:
+    - Fixed-income: Bonds, floating-rate notes, zero-coupon bonds
+    - Derivatives: Interest rate swaps, swaptions, caps/floors
+    - Options: Equity options, FX options, interest rate options
+    - Credit: CDS, CDS indices, credit tranches
+    - Structured products: ABS, RMBS, CMBS, CLO
+    - And more...
 
-The standard registry includes pricers for:
-- Fixed-income: Bonds, floating-rate notes, zero-coupon bonds
-- Derivatives: Interest rate swaps, swaptions, caps/floors
-- Options: Equity options, FX options, interest rate options
-- Credit: CDS, CDS indices, credit tranches
-- Structured products: ABS, RMBS, CMBS, CLO
-- And more...
+    Returns
+    -------
+    PricerRegistry
+        Registry instance with all standard pricers loaded and ready to use.
 
-Returns
--------
-PricerRegistry
-    Registry instance with all standard pricers loaded and ready to use.
+    Examples
+    --------
+    Create and use the standard registry:
 
-Examples
---------
-Create and use the standard registry:
+        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.instruments import Bond
+        >>> registry = create_standard_registry()
+        >>> # Price any standard instrument
+        >>> result = registry.price(bond, "discounting", market_ctx)
+        >>> result = registry.price(swap, "discounting", market_ctx)
+        >>> result = registry.price(option, "black_scholes", market_ctx)
 
-    >>> from finstack.valuations.pricer import create_standard_registry
-    >>> from finstack.valuations.instruments import Bond
-    >>> 
-    >>> registry = create_standard_registry()
-    >>> 
-    >>> # Price any standard instrument
-    >>> result = registry.price(bond, "discounting", market_ctx)
-    >>> result = registry.price(swap, "discounting", market_ctx)
-    >>> result = registry.price(option, "black_scholes", market_ctx)
+    Clone for parallel pricing:
 
-Clone for parallel pricing:
+        >>> base_registry = create_standard_registry()
+        >>> # Clone for each thread
+        >>> thread_registry = base_registry.clone()
 
-    >>> base_registry = create_standard_registry()
-    >>> # Clone for each thread
-    >>> thread_registry = base_registry.clone()
+    Notes
+    -----
+    - The standard registry is sufficient for most use cases
+    - All standard instrument types are supported
+    - Custom pricers can be added to an empty registry if needed
+    - The registry is thread-safe and can be cloned for parallel execution
+    - Use this function rather than creating an empty PricerRegistry() for
+      standard instruments
 
-Notes
------
-- The standard registry is sufficient for most use cases
-- All standard instrument types are supported
-- Custom pricers can be added to an empty registry if needed
-- The registry is thread-safe and can be cloned for parallel execution
-- Use this function rather than creating an empty PricerRegistry() for
-  standard instruments
-
-See Also
---------
-:class:`PricerRegistry`: Registry class for custom configurations
-"""
+    See Also
+    --------
+    :class:`PricerRegistry`: Registry class for custom configurations
+    """
+    ...

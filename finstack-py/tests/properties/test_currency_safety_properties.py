@@ -149,7 +149,11 @@ class TestCurrencySafetyProperties:
         result2 = a + (b + c)
 
         assert result1.currency.code == result2.currency.code
-        assert abs(result1.amount - result2.amount) < 1e-9
+        # Internal Decimal arithmetic is exact, but .amount converts to f64.
+        # At magnitude ~1e9 the f64 ULP is ~1e-7, so use relative tolerance.
+        diff = abs(result1.amount - result2.amount)
+        scale = max(abs(result1.amount), 1.0)
+        assert diff / scale < 1e-12, f"Associativity: diff={diff}, scale={scale}"
 
     @given(money_strategy())
     def test_zero_addition_identity(self, money: Money) -> None:

@@ -120,6 +120,23 @@ impl PyPricerRegistry {
         })
     }
 
+    #[pyo3(signature = (instrument, model, market, as_of=None), text_signature = "(self, instrument, model, market, as_of=None)")]
+    /// Backward-compatible alias for :meth:`price`.
+    ///
+    /// Older examples and tests still call ``get_price(...)``. Keep this alias so
+    /// those call sites continue to work while ``price(...)`` remains the primary
+    /// API name.
+    fn get_price(
+        &self,
+        py: Python<'_>,
+        instrument: Bound<'_, PyAny>,
+        model: Bound<'_, PyAny>,
+        market: &PyMarketContext,
+        as_of: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<PyValuationResult> {
+        self.price(py, instrument, model, market, as_of)
+    }
+
     #[pyo3(signature = (instruments, model, market, as_of=None), text_signature = "(self, instruments, model, market, as_of=None)")]
     /// Price a batch of instruments in parallel.
     ///

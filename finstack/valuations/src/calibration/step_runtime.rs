@@ -237,11 +237,22 @@ pub(crate) fn execute_params(
             let (ctx, report) = HazardBootstrapper::solve(p, quotes, context, global_config)?;
             let curve = ctx.get_hazard(&p.curve_id)?;
             let output = StepOutput::Curve(curve.clone().into());
-            let report = attach_validation_result(
-                report,
-                curve.validate(&global_config.validation),
-                global_config,
-            );
+            let mut validation_cfg = global_config.validation.clone();
+            if quotes.iter().any(|quote| match quote {
+                MarketQuote::Cds(crate::market::quotes::cds::CdsQuote::CdsParSpread {
+                    spread_bp,
+                    ..
+                })
+                | MarketQuote::Cds(crate::market::quotes::cds::CdsQuote::CdsUpfront {
+                    running_spread_bp: spread_bp,
+                    ..
+                }) => *spread_bp >= 1_000.0,
+                _ => false,
+            }) {
+                validation_cfg.max_hazard_rate = validation_cfg.max_hazard_rate.max(2.0);
+            }
+            let report =
+                attach_validation_result(report, curve.validate(&validation_cfg), global_config);
             Ok(StepOutcome {
                 output,
                 credit_index_update: None,

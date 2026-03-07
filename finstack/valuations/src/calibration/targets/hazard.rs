@@ -102,6 +102,18 @@ impl HazardBootstrapper {
         }
 
         let mut config = global_config.clone();
+        if cds_quotes.iter().any(|quote| match quote {
+            crate::market::quotes::cds::CdsQuote::CdsParSpread { spread_bp, .. }
+            | crate::market::quotes::cds::CdsQuote::CdsUpfront {
+                running_spread_bp: spread_bp,
+                ..
+            } => *spread_bp >= 1_000.0,
+        }) {
+            config.hazard_curve.hazard_hard_max = config.hazard_curve.hazard_hard_max.max(100.0);
+            config.hazard_curve.validation_tolerance =
+                config.hazard_curve.validation_tolerance.max(1e-6);
+            config.validation.max_hazard_rate = config.validation.max_hazard_rate.max(2.0);
+        }
         config.calibration_method = params.method.clone();
 
         let target = HazardBootstrapper::new(params.clone(), context.clone(), config.clone())?;

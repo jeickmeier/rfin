@@ -504,9 +504,20 @@ impl crate::instruments::common_impl::traits::Instrument for FxSpot {
 
         let provider = MatrixProvider { m: matrix.as_ref() };
         let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
-        // Use settlement date for the FX conversion when using CashflowDate policy
-        self.effective_notional()
-            .convert(self.quote_currency, settle_date, &provider, policy)
+        let rate = provider.rate(self.base_currency, self.quote_currency, settle_date, policy)?;
+
+        Ok(finstack_core::money::Money::new(
+            self.effective_notional().amount() * rate,
+            self.quote_currency,
+        ))
+    }
+
+    fn value_raw(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        Ok(self.value(market, as_of)?.amount())
     }
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
