@@ -191,7 +191,14 @@ fn evaluate_dcf_impl(
 ) -> Result<(CorporateValuationResult, ExplanationTrace)> {
     // Create evaluator and evaluate the model
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(model)?;
+    let results = evaluator.evaluate_with_market_context(model, market, None)?;
+
+    let first_forecast_period = model.periods.iter().find(|period| !period.is_actual);
+    let last_actual_period = model
+        .periods
+        .iter()
+        .filter(|period| period.is_actual)
+        .next_back();
 
     // Initialize explanation trace
     let mut trace = ExplanationTrace::new("corporate_dcf");
@@ -201,6 +208,9 @@ fn evaluate_dcf_impl(
     let currency = extract_currency_from_model(model)?;
 
     for period in &model.periods {
+        if period.is_actual {
+            continue;
+        }
         if let Some(ufcf_value) = results.get(ufcf_node, &period.id) {
             // Use period end date for the cashflow
             let date = period.end;
@@ -269,15 +279,20 @@ fn evaluate_dcf_impl(
     let net_debt = if let Some(override_val) = net_debt_override {
         override_val
     } else {
-        calculate_net_debt_from_model(model, &results)?
+        calculate_net_debt_from_model(model, &results, last_actual_period.map(|period| period.id))?
     };
 
-    // Determine valuation date (first period start)
-    let valuation_date = model
-        .periods
-        .first()
-        .ok_or_else(|| crate::error::Error::Eval("Model has no periods".into()))?
-        .start;
+    // Determine valuation date. When historical actuals exist, anchor the DCF to the
+    // first forecast boundary so explicit cashflows and bridge values share the same cut.
+    let valuation_date = if let Some(forecast_period) = first_forecast_period {
+        forecast_period.start
+    } else {
+        model
+            .periods
+            .first()
+            .ok_or_else(|| crate::error::Error::Eval("Model has no periods".into()))?
+            .start
+    };
 
     // Create DCF instrument
     // Use a default discount curve ID - DCF uses WACC internally, but still needs a curve ID
@@ -494,21 +509,28 @@ fn extract_currency_from_model(model: &FinancialModelSpec) -> Result<Currency> {
 fn calculate_net_debt_from_model(
     model: &FinancialModelSpec,
     results: &crate::evaluator::StatementResult,
+    balance_sheet_period: Option<finstack_core::dates::PeriodId>,
 ) -> Result<f64> {
-    // Get the last period (most recent balance sheet)
-    let last_period = model
-        .periods
-        .last()
-        .ok_or_else(|| crate::error::Error::Eval("Model has no periods".into()))?;
+    // Use the valuation boundary balance sheet when available; otherwise fall back
+    // to the latest model period for fully forecast-only models.
+    let selected_period_id = if let Some(period_id) = balance_sheet_period {
+        period_id
+    } else {
+        model
+            .periods
+            .last()
+            .ok_or_else(|| crate::error::Error::Eval("Model has no periods".into()))?
+            .id
+    };
 
     // Try to find total debt — warn if not found so users know the value is assumed
     let total_debt = results
-        .get("total_debt", &last_period.id)
-        .or_else(|| results.get("debt", &last_period.id));
+        .get("total_debt", &selected_period_id)
+        .or_else(|| results.get("debt", &selected_period_id));
 
     let cash = results
-        .get("cash", &last_period.id)
-        .or_else(|| results.get("cash_and_equivalents", &last_period.id));
+        .get("cash", &selected_period_id)
+        .or_else(|| results.get("cash_and_equivalents", &selected_period_id));
 
     if total_debt.is_none() {
         tracing::warn!(

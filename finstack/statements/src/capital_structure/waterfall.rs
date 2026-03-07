@@ -113,6 +113,7 @@ pub fn execute_waterfall(
     //
     // This ensures PIK interest accrues on the reduced (post-sweep) balance,
     // matching standard LPA (Loan and Purchase Agreement) conventions.
+    let mut remaining_sweep = sweep_amount;
     for (instrument_id, mut breakdown) in contractual_flows.clone() {
         let currency = breakdown.interest_expense_cash.currency();
 
@@ -171,8 +172,8 @@ pub fn execute_waterfall(
             {
                 // Limit sweep to outstanding balance
                 let max_sweep = opening_balance;
-                if sweep_amount.currency() == currency {
-                    Money::new(sweep_amount.amount().min(max_sweep.amount()), currency)
+                if remaining_sweep.currency() == currency {
+                    Money::new(remaining_sweep.amount().min(max_sweep.amount()), currency)
                 } else {
                     Money::new(0.0, currency)
                 }
@@ -187,6 +188,7 @@ pub fn execute_waterfall(
         breakdown.principal_payment = breakdown
             .principal_payment
             .checked_add(sweep_for_instrument)?;
+        remaining_sweep = remaining_sweep.checked_sub(sweep_for_instrument)?;
 
         // Step 3b: Calculate post-sweep balance (before PIK accrual)
         let post_sweep_balance = opening_balance.checked_sub(breakdown.principal_payment)?;
@@ -496,5 +498,73 @@ mod tests {
         .expect("waterfall should execute");
 
         assert_eq!(state.pik_mode.get("TL-PIK"), Some(&false));
+    }
+
+    #[test]
+    fn test_execute_waterfall_conserves_sweep_across_multiple_instruments() {
+        let period = PeriodId::quarter(2025, 1);
+        let context = build_context(
+            period,
+            &[
+                ("ebitda", 1_000_000.0),
+                ("taxes", 200_000.0),
+                ("capex", 50_000.0),
+            ],
+        );
+
+        let mut contractual_flows: IndexMap<String, CashflowBreakdown> = IndexMap::new();
+        contractual_flows.insert(
+            "TL-1".to_string(),
+            CashflowBreakdown::with_currency(Currency::USD),
+        );
+        contractual_flows.insert(
+            "TL-2".to_string(),
+            CashflowBreakdown::with_currency(Currency::USD),
+        );
+
+        let mut state = CapitalStructureState::new();
+        state
+            .opening_balances
+            .insert("TL-1".to_string(), Money::new(200_000.0, Currency::USD));
+        state
+            .opening_balances
+            .insert("TL-2".to_string(), Money::new(300_000.0, Currency::USD));
+
+        let waterfall = WaterfallSpec {
+            priority_of_payments: vec![
+                PaymentPriority::Fees,
+                PaymentPriority::Interest,
+                PaymentPriority::Amortization,
+                PaymentPriority::Sweep,
+                PaymentPriority::Equity,
+            ],
+            ecf_sweep: Some(EcfSweepSpec {
+                ebitda_node: "ebitda".into(),
+                taxes_node: Some("taxes".into()),
+                capex_node: Some("capex".into()),
+                working_capital_node: None,
+                cash_interest_node: None,
+                sweep_percentage: 0.5,
+                target_instrument_id: None,
+            }),
+            pik_toggle: None,
+        };
+
+        let results = execute_waterfall(
+            &period,
+            &context,
+            &waterfall,
+            &mut state,
+            &contractual_flows,
+        )
+        .expect("waterfall should execute");
+
+        let total_principal = results
+            .values()
+            .map(|breakdown| breakdown.principal_payment.amount())
+            .sum::<f64>();
+
+        // ECF = 1_000_000 - 200_000 - 50_000 = 750,000 => sweep 375,000
+        assert_eq!(total_principal, 375_000.0);
     }
 }

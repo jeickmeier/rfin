@@ -701,7 +701,7 @@ impl ModelBuilder<Ready> {
     /// Build the final model specification.
     ///
     /// This validates the model and returns a `FinancialModelSpec`.
-    pub fn build(self) -> Result<FinancialModelSpec> {
+    pub fn build(mut self) -> Result<FinancialModelSpec> {
         // Validate that we have at least one period
         if self.periods.is_empty() {
             return Err(Error::build("Model must have at least one period"));
@@ -710,6 +710,15 @@ impl ModelBuilder<Ready> {
         // Validate all node IDs don't use reserved prefixes
         for node_id in self.nodes.keys() {
             validate_node_id(node_id)?;
+        }
+
+        for node in self.nodes.values_mut() {
+            if let Some(values) = &node.values {
+                let inferred = crate::types::infer_series_value_type(values.values())?;
+                if node.value_type.is_none() {
+                    node.value_type = inferred;
+                }
+            }
         }
 
         // Create the model spec

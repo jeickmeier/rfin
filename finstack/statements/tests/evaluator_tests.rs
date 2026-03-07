@@ -692,6 +692,169 @@ fn test_shift_function() {
 }
 
 #[test]
+fn test_ttm_function_supports_expression_arguments() {
+    let model = ModelBuilder::new("test")
+        .periods("2024Q1..2025Q1", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2024, 1), AmountOrScalar::scalar(1000.0)),
+                (PeriodId::quarter(2024, 2), AmountOrScalar::scalar(1100.0)),
+                (PeriodId::quarter(2024, 3), AmountOrScalar::scalar(1200.0)),
+                (PeriodId::quarter(2024, 4), AmountOrScalar::scalar(1300.0)),
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1400.0)),
+            ],
+        )
+        .value(
+            "cogs",
+            &[
+                (PeriodId::quarter(2024, 1), AmountOrScalar::scalar(600.0)),
+                (PeriodId::quarter(2024, 2), AmountOrScalar::scalar(650.0)),
+                (PeriodId::quarter(2024, 3), AmountOrScalar::scalar(700.0)),
+                (PeriodId::quarter(2024, 4), AmountOrScalar::scalar(750.0)),
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(800.0)),
+            ],
+        )
+        .compute("ttm_gross_profit", "ttm(revenue - cogs)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    assert_eq!(
+        results
+            .get("ttm_gross_profit", &PeriodId::quarter(2024, 1))
+            .unwrap(),
+        400.0
+    );
+    assert_eq!(
+        results
+            .get("ttm_gross_profit", &PeriodId::quarter(2024, 2))
+            .unwrap(),
+        850.0
+    );
+    assert_eq!(
+        results
+            .get("ttm_gross_profit", &PeriodId::quarter(2024, 3))
+            .unwrap(),
+        1350.0
+    );
+    assert_eq!(
+        results
+            .get("ttm_gross_profit", &PeriodId::quarter(2024, 4))
+            .unwrap(),
+        1900.0
+    );
+    assert_eq!(
+        results
+            .get("ttm_gross_profit", &PeriodId::quarter(2025, 1))
+            .unwrap(),
+        2100.0
+    );
+}
+
+#[test]
+fn test_coalesce_treats_zero_as_present_value() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q3", None)
+        .unwrap()
+        .value(
+            "value1",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(300.0)),
+            ],
+        )
+        .value(
+            "value2",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(50.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(200.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(350.0)),
+            ],
+        )
+        .compute("result", "coalesce(value1, value2)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    assert_eq!(
+        results.get("result", &PeriodId::quarter(2025, 1)),
+        Some(100.0)
+    );
+    assert_eq!(
+        results.get("result", &PeriodId::quarter(2025, 2)),
+        Some(0.0)
+    );
+    assert_eq!(
+        results.get("result", &PeriodId::quarter(2025, 3)),
+        Some(300.0)
+    );
+}
+
+#[test]
+fn test_quantile_does_not_double_count_current_period() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "series",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(20.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(30.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(40.0)),
+            ],
+        )
+        .compute("median", "quantile(series, 0.5)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    assert_eq!(
+        results.get("median", &PeriodId::quarter(2025, 4)),
+        Some(25.0)
+    );
+}
+
+#[test]
+fn test_lag_rejects_non_integer_offsets() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q2", None)
+        .unwrap()
+        .value(
+            "series",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(20.0)),
+            ],
+        )
+        .compute("lagged", "lag(series, 1.5)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let err = evaluator.evaluate(&model).unwrap_err();
+    let message = err.to_string();
+
+    assert!(
+        message.contains("integer"),
+        "expected integer validation error, got: {message}"
+    );
+}
+
+#[test]
 fn test_shift_zero_periods() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..2025Q2", None)

@@ -6,4 +6,4 @@ mod value;
 
 pub use model::{CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec};
 pub use node::{ForecastMethod, ForecastSpec, NodeSpec, NodeType, NodeValueType, SeasonalMode};
-pub use value::AmountOrScalar;
+pub use value::{infer_series_value_type, AmountOrScalar};
