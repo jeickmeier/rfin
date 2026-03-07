@@ -15,8 +15,14 @@ type DecisionSpaceResult = (
     Vec<DecisionItem>,
     Vec<DecisionFeatures>,
     IndexMap<PositionId, f64>,
-    f64,
+    OptimizationDenominators,
 );
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct OptimizationDenominators {
+    pub gross_pv_base: f64,
+    pub gross_notional: f64,
+}
 
 /// Internal representation of a decision variable.
 #[derive(Clone, Debug)]
@@ -66,6 +72,15 @@ fn matches_filter(position: &Position, filter: &PositionFilter) -> bool {
         PositionFilter::ByPositionIds(ids) => ids.contains(&position.position_id),
         PositionFilter::Not(inner) => !matches_filter(position, inner),
     }
+}
+
+fn is_missing_required_metrics(
+    measures: &IndexMap<String, f64>,
+    required_metrics: &[MetricId],
+) -> bool {
+    required_metrics
+        .iter()
+        .any(|metric| !measures.contains_key(metric.as_str()))
 }
 
 /// Build decision items and associated features from the portfolio and trade universe.
@@ -121,19 +136,21 @@ pub(crate) fn build_decision_space(
             ));
         }
 
+        let missing_required_metrics = !required_metrics.is_empty()
+            && is_missing_required_metrics(&measures, required_metrics);
+
         // Decide if position is held / tradeable
-        let is_held = if let Some(ref held) = problem.trade_universe.held_filter {
+        let explicit_hold = if let Some(ref held) = problem.trade_universe.held_filter {
             matches_filter(position, held)
         } else {
             false
         };
 
         let is_tradeable = matches_filter(position, &problem.trade_universe.tradeable_filter);
-
-        if !is_tradeable && !is_held {
-            // Excluded from optimization entirely; still counted in total PV for weights.
-            continue;
-        }
+        let is_excluded = !is_tradeable && !explicit_hold;
+        let freeze_for_missing_metrics = missing_required_metrics
+            && matches!(problem.missing_metric_policy, MissingMetricPolicy::Exclude);
+        let is_held = explicit_hold || is_excluded || freeze_for_missing_metrics;
 
         items.push(DecisionItem {
             position_id: position.position_id.clone(),
@@ -220,11 +237,14 @@ pub(crate) fn build_decision_space(
             .as_ref()
             .map(|r| metrics_to_strings(&r.measures))
             .unwrap_or_default();
+        let missing_required_metrics = !required_metrics.is_empty()
+            && is_missing_required_metrics(&measures, required_metrics);
 
         items.push(DecisionItem {
             position_id: candidate.id.clone(),
             is_existing: false,
-            is_held: false,
+            is_held: missing_required_metrics
+                && matches!(problem.missing_metric_policy, MissingMetricPolicy::Exclude),
             current_quantity: 0.0,
         });
 
@@ -281,5 +301,13 @@ pub(crate) fn build_decision_space(
         }
     }
 
-    Ok((items, features, current_weights, total_pv_base))
+    Ok((
+        items,
+        features,
+        current_weights,
+        OptimizationDenominators {
+            gross_pv_base,
+            gross_notional,
+        },
+    ))
 }

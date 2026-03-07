@@ -3,9 +3,16 @@ mod common;
 use common::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_portfolio::book::BookId;
+use finstack_portfolio::portfolio::PortfolioSpec;
+use finstack_portfolio::position::PositionSpec;
 use finstack_portfolio::types::Entity;
-use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::{Portfolio, PortfolioBuilder, Position, PositionUnit};
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::deposit::Deposit;
+use finstack_valuations::instruments::InstrumentJson;
+use indexmap::IndexMap;
+use serde_json::json;
 use std::sync::Arc;
 use time::Duration;
 
@@ -177,4 +184,74 @@ fn test_portfolio_spec_json_roundtrip() {
 
     // Note: Full reconstruction (from_spec) requires instrument_spec to be Some
     // This will work once we implement to_instrument_json() for all instrument types
+}
+
+#[test]
+fn test_position_from_spec_preserves_book_tags_and_meta() {
+    let mut tags = IndexMap::new();
+    tags.insert("rating".to_string(), "AAA".to_string());
+    let mut meta = IndexMap::new();
+    meta.insert("desk".to_string(), json!("credit"));
+
+    let spec = PositionSpec {
+        position_id: "POS_001".into(),
+        entity_id: "ENTITY_A".into(),
+        instrument_id: "BOND_EXAMPLE".to_string(),
+        instrument_spec: Some(InstrumentJson::Bond(Bond::example())),
+        quantity: 1.0,
+        unit: PositionUnit::Units,
+        book_id: Some(BookId::new("ig")),
+        tags,
+        meta,
+    };
+
+    let reconstructed = Position::from_spec(spec).expect("position should reconstruct from spec");
+
+    assert_eq!(reconstructed.book_id, Some(BookId::new("ig")));
+    assert_eq!(reconstructed.tags.get("rating"), Some(&"AAA".to_string()));
+    assert_eq!(reconstructed.meta.get("desk"), Some(&json!("credit")));
+}
+
+#[test]
+fn test_portfolio_from_spec_preserves_position_metadata() {
+    let as_of = base_date();
+    let mut entities = IndexMap::new();
+    let entity = Entity::new("ENTITY_A");
+    entities.insert(entity.id.clone(), entity);
+
+    let mut tags = IndexMap::new();
+    tags.insert("rating".to_string(), "AAA".to_string());
+    let mut meta = IndexMap::new();
+    meta.insert("desk".to_string(), json!("credit"));
+
+    let spec = PortfolioSpec {
+        id: "TEST".to_string(),
+        name: None,
+        base_ccy: Currency::USD,
+        as_of,
+        entities,
+        positions: vec![PositionSpec {
+            position_id: "POS_001".into(),
+            entity_id: "ENTITY_A".into(),
+            instrument_id: "BOND_EXAMPLE".to_string(),
+            instrument_spec: Some(InstrumentJson::Bond(Bond::example())),
+            quantity: 1.0,
+            unit: PositionUnit::Units,
+            book_id: Some(BookId::new("ig")),
+            tags,
+            meta,
+        }],
+        books: IndexMap::new(),
+        tags: IndexMap::new(),
+        meta: IndexMap::new(),
+    };
+
+    let reconstructed = Portfolio::from_spec(spec).expect("portfolio should reconstruct from spec");
+    let restored = reconstructed
+        .get_position("POS_001")
+        .expect("position should exist after round-trip");
+
+    assert_eq!(restored.book_id, Some(BookId::new("ig")));
+    assert_eq!(restored.tags.get("rating"), Some(&"AAA".to_string()));
+    assert_eq!(restored.meta.get("desk"), Some(&json!("credit")));
 }

@@ -1,15 +1,22 @@
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{create_date, DayCount};
+use finstack_core::dates::{create_date, Date, DayCount};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_portfolio::builder::PortfolioBuilder;
 use finstack_portfolio::optimization::{
-    CandidatePosition, DefaultLpOptimizer, MetricExpr, Objective, PerPositionMetric,
-    PortfolioOptimizationProblem, PortfolioOptimizer, WeightingScheme,
+    CandidatePosition, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective,
+    PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizer, WeightingScheme,
 };
 use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
 use finstack_valuations::instruments::rates::deposit::Deposit;
+use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::metrics::MetricId;
+use finstack_valuations::pricer::InstrumentType;
+use finstack_valuations::results::ValuationResult;
+use indexmap::IndexMap;
+use std::any::Any;
 use std::sync::Arc;
 use time::Month;
 
@@ -31,6 +38,65 @@ fn build_mock_market() -> finstack_core::market_data::context::MarketContext {
     let mut market = MarketContext::new();
     market = market.insert(flat_curve);
     market
+}
+
+#[derive(Clone)]
+struct MetricInstrument {
+    id: String,
+    value: Money,
+    measures: IndexMap<MetricId, f64>,
+    attributes: Attributes,
+}
+
+impl MetricInstrument {
+    fn new(id: &str, value: Money, measures: IndexMap<MetricId, f64>) -> Self {
+        Self {
+            id: id.to_string(),
+            value,
+            measures,
+            attributes: Attributes::new(),
+        }
+    }
+}
+
+impl Instrument for MetricInstrument {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn key(&self) -> InstrumentType {
+        InstrumentType::Basket
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn value(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+        Ok(self.value)
+    }
+
+    fn price_with_metrics(
+        &self,
+        _curves: &MarketContext,
+        as_of: Date,
+        _metrics: &[MetricId],
+    ) -> finstack_core::Result<ValuationResult> {
+        Ok(ValuationResult::stamped(self.id(), as_of, self.value)
+            .with_measures(self.measures.clone()))
+    }
 }
 
 #[test]
@@ -171,4 +237,168 @@ fn test_candidate_batching() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(result.optimal_weights.len(), 10);
 
     Ok(())
+}
+
+#[test]
+fn test_missing_metric_exclude_freezes_position_at_current_weight() {
+    let as_of = create_date(2024, Month::January, 1).unwrap();
+    let mut rich_measures = IndexMap::new();
+    rich_measures.insert(MetricId::Ytm, 0.08);
+
+    let missing_metric = Position::new(
+        "POS_MISSING",
+        "ENT_A",
+        "MISSING",
+        Arc::new(MetricInstrument::new(
+            "MISSING",
+            Money::new(50.0, Currency::USD),
+            IndexMap::new(),
+        )),
+        1.0,
+        PositionUnit::Units,
+    )
+    .unwrap();
+    let rich_metric = Position::new(
+        "POS_RICH",
+        "ENT_A",
+        "RICH",
+        Arc::new(MetricInstrument::new(
+            "RICH",
+            Money::new(50.0, Currency::USD),
+            rich_measures,
+        )),
+        1.0,
+        PositionUnit::Units,
+    )
+    .unwrap();
+
+    let portfolio = PortfolioBuilder::new("PORTFOLIO")
+        .base_ccy(Currency::USD)
+        .as_of(as_of)
+        .entity(Entity::new("ENT_A"))
+        .position(missing_metric)
+        .position(rich_metric)
+        .build()
+        .unwrap();
+
+    let mut problem = PortfolioOptimizationProblem::new(
+        portfolio,
+        Objective::Maximize(MetricExpr::ValueWeightedAverage {
+            metric: PerPositionMetric::Metric(MetricId::Ytm),
+        }),
+    );
+    problem.missing_metric_policy = MissingMetricPolicy::Exclude;
+
+    let market = build_mock_market();
+    let config = FinstackConfig::default();
+    let optimizer = DefaultLpOptimizer::default();
+    let result = optimizer
+        .optimize(&problem, &market, &config)
+        .expect("Exclude policy should freeze missing-metric positions");
+
+    assert_eq!(result.current_weights.get("POS_MISSING"), Some(&0.5));
+    assert_eq!(result.optimal_weights.get("POS_MISSING"), Some(&0.5));
+    assert_eq!(result.optimal_weights.get("POS_RICH"), Some(&0.5));
+}
+
+#[test]
+fn test_pv_native_objective_is_rejected_until_supported() {
+    let portfolio = PortfolioBuilder::new("EMPTY_PORTFOLIO")
+        .base_ccy(Currency::USD)
+        .as_of(create_date(2024, Month::January, 1).unwrap())
+        .build()
+        .unwrap();
+
+    let problem = PortfolioOptimizationProblem::new(
+        portfolio,
+        Objective::Maximize(MetricExpr::WeightedSum {
+            metric: PerPositionMetric::PvNative,
+        }),
+    );
+
+    let market = build_mock_market();
+    let config = FinstackConfig::default();
+    let optimizer = DefaultLpOptimizer::default();
+    let err = optimizer
+        .optimize(&problem, &market, &config)
+        .expect_err("PvNative should be rejected until native-currency semantics are implemented");
+
+    assert!(
+        err.to_string().contains("PvNative"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn test_notional_weighting_implied_quantities_use_notional_denominator() {
+    let as_of = create_date(2024, Month::January, 1).unwrap();
+
+    let pos1 = Position::new(
+        "POS_1",
+        "ENT_A",
+        "INST_1",
+        Arc::new(MetricInstrument::new(
+            "INST_1",
+            Money::new(100.0, Currency::USD),
+            IndexMap::new(),
+        )),
+        1.0,
+        PositionUnit::Notional(Some(Currency::USD)),
+    )
+    .unwrap();
+    let pos2 = Position::new(
+        "POS_2",
+        "ENT_A",
+        "INST_2",
+        Arc::new(MetricInstrument::new(
+            "INST_2",
+            Money::new(50.0, Currency::USD),
+            IndexMap::new(),
+        )),
+        3.0,
+        PositionUnit::Notional(Some(Currency::USD)),
+    )
+    .unwrap();
+
+    let portfolio = PortfolioBuilder::new("NOTIONAL_PORTFOLIO")
+        .base_ccy(Currency::USD)
+        .as_of(as_of)
+        .entity(Entity::new("ENT_A"))
+        .position(pos1)
+        .position(pos2)
+        .build()
+        .unwrap();
+
+    let mut problem = PortfolioOptimizationProblem::new(
+        portfolio,
+        Objective::Maximize(MetricExpr::WeightedSum {
+            metric: PerPositionMetric::Constant(1.0),
+        }),
+    );
+    problem.weighting = WeightingScheme::NotionalWeight;
+    problem = problem
+        .with_constraint(finstack_portfolio::optimization::Constraint::WeightBounds {
+            label: Some("pin_pos_1".to_string()),
+            filter: finstack_portfolio::optimization::PositionFilter::ByPositionIds(vec![
+                "POS_1".into()
+            ]),
+            min: 0.25,
+            max: 0.25,
+        })
+        .with_constraint(finstack_portfolio::optimization::Constraint::WeightBounds {
+            label: Some("pin_pos_2".to_string()),
+            filter: finstack_portfolio::optimization::PositionFilter::ByPositionIds(vec![
+                "POS_2".into()
+            ]),
+            min: 0.75,
+            max: 0.75,
+        });
+
+    let market = build_mock_market();
+    let config = FinstackConfig::default();
+    let optimizer = DefaultLpOptimizer::default();
+    let result = optimizer.optimize(&problem, &market, &config).unwrap();
+
+    assert_eq!(result.implied_quantities.get("POS_1"), Some(&1.0));
+    assert_eq!(result.implied_quantities.get("POS_2"), Some(&3.0));
 }

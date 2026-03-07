@@ -161,6 +161,25 @@ fn test_attribution_fx_translation() {
         "FX translation P&L should be reasonable magnitude (~20k expected), got: {}",
         translation_amount
     );
+
+    let explained_total = attribution.carry.amount()
+        + attribution.rates_curves_pnl.amount()
+        + attribution.credit_curves_pnl.amount()
+        + attribution.inflation_curves_pnl.amount()
+        + attribution.correlations_pnl.amount()
+        + attribution.fx_pnl.amount()
+        + attribution.fx_translation_pnl.amount()
+        + attribution.vol_pnl.amount()
+        + attribution.model_params_pnl.amount()
+        + attribution.market_scalars_pnl.amount()
+        + attribution.residual.amount();
+
+    assert!(
+        (attribution.total_pnl.amount() - explained_total).abs() < 1.0e-8,
+        "portfolio attribution should close exactly: total={}, explained={}",
+        attribution.total_pnl.amount(),
+        explained_total
+    );
 }
 
 #[test]

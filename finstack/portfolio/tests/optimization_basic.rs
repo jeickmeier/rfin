@@ -6,21 +6,83 @@ use common::{base_date, market_with_usd};
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_portfolio::PortfolioOptimizer;
 use finstack_portfolio::{
     optimization::{
-        Constraint, DefaultLpOptimizer, MetricExpr, Objective, PerPositionMetric,
-        PortfolioOptimizationProblem, WeightingScheme,
+        CandidatePosition, Constraint, DefaultLpOptimizer, MetricExpr, Objective,
+        PerPositionMetric, PortfolioOptimizationProblem, PositionFilter, TradeUniverse,
+        WeightingScheme,
     },
     PortfolioBuilder, Position, PositionUnit,
 };
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::PricingOverrides;
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::pricer::InstrumentType;
+use finstack_valuations::results::ValuationResult;
+use std::any::Any;
 use std::sync::Arc;
 use time::{Duration, Month};
+
+#[derive(Clone)]
+struct FixedValueInstrument {
+    id: String,
+    value: Money,
+    attributes: Attributes,
+}
+
+impl FixedValueInstrument {
+    fn new(id: &str, value: Money) -> Self {
+        Self {
+            id: id.to_string(),
+            value,
+            attributes: Attributes::new(),
+        }
+    }
+}
+
+impl Instrument for FixedValueInstrument {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn key(&self) -> InstrumentType {
+        InstrumentType::Basket
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn value(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+        Ok(self.value)
+    }
+
+    fn price_with_metrics(
+        &self,
+        _curves: &MarketContext,
+        as_of: Date,
+        _metrics: &[MetricId],
+    ) -> finstack_core::Result<ValuationResult> {
+        Ok(ValuationResult::stamped(self.id(), as_of, self.value))
+    }
+}
 
 /// Build a simple two‑deposit portfolio for optimization tests.
 fn build_deposit_portfolio() -> finstack_portfolio::Portfolio {
@@ -267,4 +329,129 @@ fn optimize_max_yield_with_ccc_limit() {
         "CCC weight should be <= 20%, got {}",
         ccc_weight
     );
+}
+
+#[test]
+fn optimize_respects_max_position_delta() {
+    let portfolio = build_deposit_portfolio();
+    let market = market_with_usd();
+    let config = FinstackConfig::default();
+
+    let mut problem = PortfolioOptimizationProblem::new(
+        portfolio,
+        Objective::Maximize(MetricExpr::WeightedSum {
+            metric: PerPositionMetric::PvBase,
+        }),
+    );
+    problem = problem.with_constraint(Constraint::MaxPositionDelta {
+        label: Some("cap_single_name_change".to_string()),
+        filter: PositionFilter::All,
+        max_delta: 0.10,
+    });
+
+    let optimizer = DefaultLpOptimizer::default();
+    let result = optimizer
+        .optimize(&problem, &market, &config)
+        .expect("optimization should succeed");
+
+    for delta in result.weight_deltas.values() {
+        assert!(
+            delta.abs() <= 0.10 + 1.0e-9,
+            "weight delta should be bounded by max_position_delta, got {}",
+            delta
+        );
+    }
+}
+
+#[test]
+fn optimize_partial_trade_universe_keeps_excluded_positions_fixed() {
+    let as_of = base_date();
+    let fixed = Position::new(
+        "POS_FIXED",
+        "ENTITY_A",
+        "FIXED",
+        Arc::new(FixedValueInstrument::new(
+            "FIXED",
+            Money::new(80.0, Currency::USD),
+        )),
+        1.0,
+        PositionUnit::Units,
+    )
+    .expect("fixed position should build");
+    let tradeable = Position::new(
+        "POS_TRADE",
+        "ENTITY_A",
+        "TRADE",
+        Arc::new(FixedValueInstrument::new(
+            "TRADE",
+            Money::new(20.0, Currency::USD),
+        )),
+        1.0,
+        PositionUnit::Units,
+    )
+    .expect("tradeable position should build");
+
+    let portfolio = PortfolioBuilder::new("TEST_PORTFOLIO")
+        .base_ccy(Currency::USD)
+        .as_of(as_of)
+        .entity(finstack_portfolio::Entity::new("ENTITY_A"))
+        .position(fixed)
+        .position(tradeable)
+        .build()
+        .expect("portfolio should build");
+
+    let market = market_with_usd();
+    let config = FinstackConfig::default();
+
+    let candidate = CandidatePosition::new(
+        "CANDIDATE",
+        "ENTITY_A",
+        Arc::new(FixedValueInstrument::new(
+            "CANDIDATE",
+            Money::new(30.0, Currency::USD),
+        )),
+        PositionUnit::Units,
+    );
+
+    let problem = PortfolioOptimizationProblem::new(
+        portfolio,
+        Objective::Maximize(MetricExpr::WeightedSum {
+            metric: PerPositionMetric::PvBase,
+        }),
+    )
+    .with_constraint(Constraint::WeightBounds {
+        label: Some("close_tradeable".to_string()),
+        filter: PositionFilter::ByPositionIds(vec!["POS_TRADE".into()]),
+        min: 0.0,
+        max: 0.0,
+    })
+    .with_trade_universe(
+        TradeUniverse::filtered(PositionFilter::ByPositionIds(vec!["POS_TRADE".into()]))
+            .with_candidate(candidate),
+    );
+
+    let optimizer = DefaultLpOptimizer::default();
+    let result = optimizer
+        .optimize(&problem, &market, &config)
+        .expect("partial universe with fixed sleeves should succeed");
+
+    let fixed_weight = result
+        .optimal_weights
+        .get("POS_FIXED")
+        .copied()
+        .expect("fixed sleeve weight should be present");
+    let trade_weight = result
+        .optimal_weights
+        .get("POS_TRADE")
+        .copied()
+        .expect("tradeable position weight should be present");
+    let candidate_weight = result
+        .optimal_weights
+        .get("CANDIDATE")
+        .copied()
+        .expect("candidate weight should be present");
+
+    assert!((fixed_weight - 0.8).abs() < 1.0e-9);
+    assert!(trade_weight.abs() < 1.0e-9);
+    assert!((candidate_weight - 0.2).abs() < 1.0e-9);
 }

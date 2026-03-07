@@ -89,4 +89,20 @@ fn valuation_falls_back_when_metrics_fail() {
     let pv = valuation.get_position_value("P").unwrap();
     assert_eq!(pv.value_native.currency(), Currency::USD);
     assert!((pv.value_native.amount() - 123.45).abs() < 1e-9);
+    assert!(
+        valuation.has_degraded_risk(),
+        "fallback valuation should mark the portfolio as degraded"
+    );
+    assert_eq!(valuation.degraded_positions().len(), 1);
+    assert_eq!(valuation.degraded_positions()[0], "P");
+    assert!(
+        !pv.risk_metrics_complete,
+        "position should be marked as missing requested risk metrics"
+    );
+    assert!(
+        pv.risk_error
+            .as_deref()
+            .is_some_and(|msg| msg.contains("Invalid")),
+        "expected the underlying metrics failure to be surfaced"
+    );
 }
