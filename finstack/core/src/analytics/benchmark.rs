@@ -4,7 +4,7 @@
 //! variance, OnlineCovariance).
 
 use crate::dates::Date;
-use crate::math::stats::{correlation, covariance, mean, variance, OnlineCovariance, OnlineStats};
+use crate::math::stats::{correlation, mean, OnlineCovariance, OnlineStats};
 
 /// Align a benchmark return series to the target date grid via date lookup.
 ///
@@ -107,8 +107,11 @@ pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_f
     if n == 0 {
         return 0.0;
     }
-    let excess: Vec<f64> = (0..n).map(|i| returns[i] - benchmark[i]).collect();
-    let te = variance(&excess).sqrt();
+    let mut os = OnlineStats::new();
+    for i in 0..n {
+        os.update(returns[i] - benchmark[i]);
+    }
+    let te = os.std_dev();
     if annualize {
         te * ann_factor.sqrt()
     } else {
@@ -165,9 +168,12 @@ pub fn information_ratio(
     if n == 0 {
         return 0.0;
     }
-    let excess: Vec<f64> = (0..n).map(|i| returns[i] - benchmark[i]).collect();
-    let er = mean(&excess);
-    let te = variance(&excess).sqrt();
+    let mut os = OnlineStats::new();
+    for i in 0..n {
+        os.update(returns[i] - benchmark[i]);
+    }
+    let er = os.mean();
+    let te = os.std_dev();
     if te == 0.0 {
         return 0.0;
     }
@@ -364,15 +370,17 @@ pub fn greeks(returns: &[f64], benchmark: &[f64], ann_factor: f64) -> GreeksResu
             r_squared: 0.0,
         };
     }
-    let cov = covariance(&returns[..n], &benchmark[..n]);
-    let var_b = variance(&benchmark[..n]);
-    let beta = if var_b > 0.0 { cov / var_b } else { 0.0 };
-    let alpha = (mean(&returns[..n]) - beta * mean(&benchmark[..n])) * ann_factor;
-    let r2 = r_squared(&returns[..n], &benchmark[..n]);
+    let mut oc = OnlineCovariance::new();
+    for i in 0..n {
+        oc.update(returns[i], benchmark[i]);
+    }
+    let beta = oc.optimal_beta();
+    let alpha = (oc.mean_x() - beta * oc.mean_y()) * ann_factor;
+    let c = oc.correlation();
     GreeksResult {
         alpha,
         beta,
-        r_squared: r2,
+        r_squared: c * c,
     }
 }
 
