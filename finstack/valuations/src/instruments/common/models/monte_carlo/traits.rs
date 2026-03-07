@@ -53,6 +53,16 @@ pub trait RandomStream: Send + Sync {
         self.fill_std_normals(&mut buf);
         buf[0]
     }
+
+    /// Returns whether this RNG supports stream splitting for parallel execution.
+    ///
+    /// Returns `true` if `split(stream_id)` produces independent streams for any `stream_id`.
+    /// Returns `false` for quasi-random sequences (e.g., Sobol) that cannot be meaningfully split.
+    ///
+    /// The MC engine checks this before enabling parallel mode.
+    fn supports_splitting(&self) -> bool {
+        true // Default: most PRNGs support splitting
+    }
 }
 
 /// Map of state variables for a path node.

@@ -78,6 +78,13 @@ impl PathDependentPricerConfig {
     /// Enable/disable parallel execution.
     pub fn with_parallel(mut self, parallel: bool) -> Self {
         self.use_parallel = parallel;
+        if parallel && self.use_sobol {
+            tracing::warn!(
+                "PathDependentPricer: Sobol sequences do not support stream splitting; \
+                 automatically disabling parallel mode. Set use_parallel=false explicitly to suppress this warning."
+            );
+            self.use_parallel = false;
+        }
         self
     }
 
@@ -123,6 +130,13 @@ impl PathDependentPricerConfig {
         if use_sobol {
             // Default to enabling Brownian bridge when using Sobol unless explicitly turned off later
             self.use_brownian_bridge = true;
+            if self.use_parallel {
+                tracing::warn!(
+                    "PathDependentPricer: Sobol sequences do not support stream splitting; \
+                     automatically disabling parallel mode. Set use_parallel=false explicitly to suppress this warning."
+                );
+                self.use_parallel = false;
+            }
         }
         self
     }
