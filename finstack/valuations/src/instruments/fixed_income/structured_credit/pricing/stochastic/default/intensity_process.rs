@@ -229,9 +229,11 @@ mod tests {
 
         let mdr = model.conditional_mdr(12, &[0.0], &factors);
 
-        // At Z=0, intensity equals base_hazard
-        // MDR should be approximately base_hazard / 12
-        let expected = 1.0 - (-0.02 / 12.0_f64).exp();
+        // At Z=0, intensity equals base_hazard.
+        // With seasoning ramp (24 months), factor at month 12 = 12/24 = 0.5.
+        // MDR = 1 - exp(-(base_hazard * seasoning_factor) / 12)
+        let seasoning_factor = 12.0 / 24.0;
+        let expected = 1.0 - (-0.02 * seasoning_factor / 12.0_f64).exp();
         assert!(
             (mdr - expected).abs() < 1e-6,
             "MDR {} should equal expected {}",
