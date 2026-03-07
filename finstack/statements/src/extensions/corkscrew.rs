@@ -213,9 +213,7 @@ impl CorkscrewExtension {
                 }
             }
 
-            // Validate the roll-forward using relative tolerance.
-            // Relative tolerance avoids being too strict for large balances or
-            // too loose for small ones: threshold = tol * (1 + |expected|).
+            // Validate the roll-forward using an absolute tolerance.
             let error = (curr_balance - expected_balance).abs();
             validation.max_error = validation.max_error.max(error);
             validation.periods_validated += 1;
@@ -224,8 +222,7 @@ impl CorkscrewExtension {
                 .config
                 .as_ref()
                 .map_or(DEFAULT_CORKSCREW_TOLERANCE, |c| c.tolerance);
-            let relative_threshold = tol * (1.0 + expected_balance.abs());
-            if error > relative_threshold {
+            if error > tol {
                 validation.is_valid = false;
             }
         }
@@ -237,7 +234,7 @@ impl CorkscrewExtension {
     ///
     /// Sums the most recent period's balance for each configured account,
     /// grouped by account type, and checks that Assets = Liabilities + Equity.
-    /// Uses relative tolerance to handle large balances correctly.
+    /// Uses an absolute tolerance matching the configured rounding threshold.
     fn check_articulation(
         &self,
         context: &ExtensionContext,
@@ -271,9 +268,7 @@ impl CorkscrewExtension {
         }
 
         let imbalance = assets - (liabilities + equity);
-        // Use relative tolerance: tol * (1 + max(|A|, |L+E|)) to handle large balances
-        let scale = 1.0 + assets.abs().max((liabilities + equity).abs());
-        let is_balanced = imbalance.abs() <= tolerance * scale;
+        let is_balanced = imbalance.abs() <= tolerance;
 
         Some(ArticulationResult {
             total_imbalance: imbalance.abs(),
@@ -459,6 +454,11 @@ impl Extension for CorkscrewExtension {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::builder::ModelBuilder;
+    use crate::evaluator::Evaluator;
+    use crate::extensions::ExtensionStatus;
+    use crate::types::AmountOrScalar;
+    use finstack_core::dates::PeriodId;
 
     #[test]
     fn test_corkscrew_extension_creation() {
@@ -563,5 +563,78 @@ mod tests {
 
         let deserialized: AccountType = serde_json::from_str(&json).expect("test should succeed");
         assert_eq!(deserialized, AccountType::Asset);
+    }
+
+    #[test]
+    fn test_corkscrew_uses_absolute_tolerance_for_articulation() {
+        let model = ModelBuilder::new("articulation_tolerance")
+            .periods("2025Q1..Q1", None)
+            .expect("valid periods")
+            .value(
+                "assets",
+                &[(
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(1_000_000.00),
+                )],
+            )
+            .value(
+                "liabilities",
+                &[(
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(999_999.98),
+                )],
+            )
+            .value(
+                "equity",
+                &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0))],
+            )
+            .build()
+            .expect("model should build");
+
+        let mut evaluator = Evaluator::new();
+        let results = evaluator
+            .evaluate(&model)
+            .expect("evaluation should succeed");
+
+        let config = CorkscrewConfig {
+            accounts: vec![
+                CorkscrewAccount {
+                    node_id: "assets".into(),
+                    account_type: AccountType::Asset,
+                    changes: vec![],
+                    beginning_balance_node: None,
+                },
+                CorkscrewAccount {
+                    node_id: "liabilities".into(),
+                    account_type: AccountType::Liability,
+                    changes: vec![],
+                    beginning_balance_node: None,
+                },
+                CorkscrewAccount {
+                    node_id: "equity".into(),
+                    account_type: AccountType::Equity,
+                    changes: vec![],
+                    beginning_balance_node: None,
+                },
+            ],
+            tolerance: 0.01,
+            fail_on_error: true,
+        };
+
+        let mut extension = CorkscrewExtension::with_config(config);
+        let context = ExtensionContext::new(&model, &results);
+        let result = extension
+            .execute(&context)
+            .expect("extension should execute");
+
+        assert_eq!(result.status, ExtensionStatus::Failed);
+        assert!(
+            result
+                .errors
+                .iter()
+                .any(|msg| msg.contains("Balance sheet not articulated")),
+            "expected articulation failure, got {:?}",
+            result.errors
+        );
     }
 }

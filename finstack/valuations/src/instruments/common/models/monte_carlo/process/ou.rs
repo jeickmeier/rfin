@@ -16,6 +16,7 @@
 //! yield curve, while the Ornstein-Uhlenbeck (Vasicek) model uses constant θ.
 
 use super::super::traits::StochasticProcess;
+use tracing::warn;
 
 /// Hull-White 1-factor parameters.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -222,7 +223,9 @@ where
 
 /// Compute θ(t) at a specific time using the Hull-White drift formula.
 ///
-/// θ(t) = ∂f/∂t(0,t) + κ·f(0,t) + σ²/(2κ²)·(1 - e^{-κt})²
+/// θ(t) = ∂f/∂t(0,t) + κ·f(0,t) + σ²/(2κ)·(1 - e^{-2κt})
+///
+/// Reference: Brigo & Mercurio (2006), eq. 3.35; Hull & White (1990).
 fn compute_theta_at_time<F>(kappa: f64, sigma: f64, discount_curve_fn: &F, t: f64) -> f64
 where
     F: Fn(f64) -> f64,
@@ -233,14 +236,14 @@ where
     // Compute ∂f/∂t via finite difference
     let df_dt = forward_derivative(discount_curve_fn, t);
 
-    // Volatility term: σ²/(2κ²)·(1 - e^{-κt})²
+    // Volatility term: σ²/(2κ)·(1 - e^{-2κt})
+    // This is Var[r(t)] under HW1F (Brigo & Mercurio eq. 3.35).
+    // Distinct from the CIR++ shift φ(t) = σ²/(2κ²)·(1-e^{-κt})².
     let vol_term = if kappa.abs() > 1e-10 {
-        let exp_minus_kt = (-kappa * t).exp();
-        let one_minus_exp = 1.0 - exp_minus_kt;
-        (sigma * sigma) / (2.0 * kappa * kappa) * one_minus_exp * one_minus_exp
+        (sigma * sigma) / (2.0 * kappa) * (1.0 - (-2.0 * kappa * t).exp())
     } else {
-        // Limit as κ → 0: σ²t²/2
-        (sigma * sigma * t * t) / 2.0
+        // L'Hôpital limit as κ → 0: (1-e^{-2κt})/(2κ) → t
+        sigma * sigma * t
     };
 
     df_dt + kappa * f_t + vol_term
@@ -261,7 +264,8 @@ where
         if df_0 > 0.0 && df_eps > 0.0 {
             -(df_eps.ln() - df_0.ln()) / eps
         } else {
-            0.03 // Fallback to reasonable default
+            warn!(t, "instantaneous_forward: non-positive discount factor near t=0; returning 0.0. Check market data quality.");
+            0.0
         }
     } else {
         // Central difference: f(t) ≈ -[ln P(t+ε) - ln P(t-ε)] / (2ε)
@@ -273,7 +277,8 @@ where
         if df_plus > 0.0 && df_minus > 0.0 {
             -(df_plus.ln() - df_minus.ln()) / (t_plus - t_minus)
         } else {
-            0.03
+            warn!(t, df_plus, df_minus, "instantaneous_forward: non-positive discount factor; returning 0.0. Check market data quality.");
+            0.0
         }
     }
 }
@@ -414,5 +419,48 @@ mod tests {
         assert!((f_0 - 0.05).abs() < 0.01, "f(0,0) ≈ 0.05, got {}", f_0);
         assert!((f_1 - 0.05).abs() < 0.01, "f(0,1) ≈ 0.05, got {}", f_1);
         assert!((f_5 - 0.05).abs() < 0.01, "f(0,5) ≈ 0.05, got {}", f_5);
+    }
+
+    /// Verify that calibrated θ(t) matches the analytical HW1F formula.
+    ///
+    /// For a flat yield curve at rate r_flat:
+    ///   f(0,t) = r_flat,  ∂f/∂t = 0
+    ///
+    /// The HW1F formula (Brigo & Mercurio 2006, eq. 3.35) gives:
+    ///   θ(t) = ∂f/∂t + κ·f(0,t) + σ²/(2κ)·(1 - e^{-2κt})
+    ///         = κ·r_flat + σ²/(2κ)·(1 - e^{-2κt})
+    ///
+    /// This test validates that `calibrate_theta_from_curve` produces θ values
+    /// matching this formula to numerical precision (the only error is from the
+    /// finite-difference approximation of the instantaneous forward rate).
+    #[test]
+    fn test_calibrate_theta_matches_analytical_formula_flat_curve() {
+        let r_flat = 0.05_f64;
+        let kappa = 0.2_f64;
+        let sigma = 0.01_f64;
+
+        // Flat discount curve: P(0,t) = exp(-r_flat * t)
+        let discount_fn = |t: f64| (-r_flat * t).exp();
+
+        let times: Vec<f64> = vec![0.5, 1.0, 2.0, 3.0, 5.0, 10.0];
+        let params = calibrate_theta_from_curve(kappa, sigma, &discount_fn, &times);
+
+        // Check each calibrated θ(t) against the analytical HW formula.
+        for &t in &times {
+            if t < 1e-8 {
+                continue; // Skip t=0 where FD approximation is poorest
+            }
+            let theta_calibrated = params.theta_at_time(t);
+
+            // Analytical: θ(t) = κ·r + σ²/(2κ)·(1 - e^{-2κt})
+            let theta_analytical =
+                kappa * r_flat + (sigma * sigma) / (2.0 * kappa) * (1.0 - (-2.0 * kappa * t).exp());
+
+            let abs_err = (theta_calibrated - theta_analytical).abs();
+            assert!(
+                abs_err < 1e-4,
+                "θ mismatch at t={t}: calibrated={theta_calibrated:.8}, analytical={theta_analytical:.8}, err={abs_err:.2e}"
+            );
+        }
     }
 }

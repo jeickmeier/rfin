@@ -3,6 +3,7 @@
 //! This module implements the waterfall logic for distributing collateral
 //! cashflows to CMO tranches according to their priority and type.
 
+use super::tranches::pac_support::{allocate_pac_support, PacSchedule};
 use super::types::{CmoTranche, CmoTrancheType, CmoWaterfall};
 use finstack_core::money::Money;
 use finstack_core::HashMap;
@@ -51,10 +52,32 @@ pub struct WaterfallPeriodResult {
 /// # Returns
 ///
 /// Waterfall execution result with allocations by tranche
+/// Optional PAC context for waterfall execution.
+#[derive(Debug, Clone, Default)]
+pub struct PacContext {
+    /// PAC schedule for scheduled payment lookup.
+    pub schedule: Option<PacSchedule>,
+    /// Current period index into the schedule.
+    pub period_index: usize,
+    /// Actual PSA speed for collar check.
+    pub actual_psa: f64,
+}
+
+/// Execute waterfall for a single period (backward-compatible entry point).
 pub fn execute_waterfall(
     waterfall: &mut CmoWaterfall,
     available_principal: f64,
     available_interest: f64,
+) -> WaterfallPeriodResult {
+    execute_waterfall_with_pac(waterfall, available_principal, available_interest, None)
+}
+
+/// Execute waterfall with optional PAC schedule context.
+pub fn execute_waterfall_with_pac(
+    waterfall: &mut CmoWaterfall,
+    available_principal: f64,
+    available_interest: f64,
+    pac_context: Option<&PacContext>,
 ) -> WaterfallPeriodResult {
     let mut allocations = Vec::new();
     let mut remaining_principal = available_principal;
@@ -119,6 +142,7 @@ pub fn execute_waterfall(
                 tranches,
                 remaining_principal,
                 waterfall.pro_rata_same_priority,
+                pac_context,
             );
 
             for (id, amount) in allocation {
@@ -174,6 +198,7 @@ fn allocate_principal_to_group(
     tranches: &[&CmoTranche],
     available: f64,
     pro_rata: bool,
+    pac_context: Option<&PacContext>,
 ) -> Vec<(String, f64)> {
     let mut allocations = Vec::new();
     let mut remaining = available;
@@ -183,9 +208,49 @@ fn allocate_principal_to_group(
         .iter()
         .partition(|t| t.tranche_type == CmoTrancheType::Pac);
 
-    // PAC tranches get their scheduled amount (from pac_schedule if available)
-    // Since we don't have direct access to the schedule here, PAC gets balance-limited share
-    // The caller should use allocate_pac_support() for proper PAC handling
+    // When PAC schedule is available, use proper PAC/Support allocation
+    if let Some(ctx) = pac_context {
+        if let Some(ref schedule) = ctx.schedule {
+            let pac_balance: f64 = pac_tranches.iter().map(|t| t.current_face.amount()).sum();
+            let support_balance: f64 = other_tranches.iter().map(|t| t.current_face.amount()).sum();
+            let pac_scheduled = schedule.scheduled_at(ctx.period_index);
+
+            let (pac_alloc, support_alloc) = allocate_pac_support(
+                remaining,
+                pac_balance,
+                support_balance,
+                pac_scheduled,
+                ctx.actual_psa,
+                &schedule.collar,
+            );
+
+            // Distribute PAC allocation pro-rata among PAC tranches
+            if pac_balance > 0.0 && pac_alloc > 0.0 {
+                for tranche in &pac_tranches {
+                    let proportion = tranche.current_face.amount() / pac_balance;
+                    let alloc = pac_alloc * proportion;
+                    allocations.push((tranche.id.clone(), alloc));
+                }
+            }
+            // Distribute support allocation among other tranches
+            if support_alloc > 0.0 {
+                let mut support_remaining = support_alloc;
+                for tranche in &other_tranches {
+                    if support_remaining <= 0.0 {
+                        break;
+                    }
+                    let balance = tranche.current_face.amount();
+                    let alloc = balance.min(support_remaining);
+                    allocations.push((tranche.id.clone(), alloc));
+                    support_remaining -= alloc;
+                }
+            }
+
+            return allocations;
+        }
+    }
+
+    // Fallback: balance-limited allocation when no PAC schedule is available
     for tranche in &pac_tranches {
         if remaining <= 0.0 {
             break;
@@ -194,8 +259,6 @@ fn allocate_principal_to_group(
         if balance <= 0.0 {
             continue;
         }
-        // PAC gets a proportional share, capped by balance
-        // For proper PAC scheduling, use allocate_pac_support() directly
         let allocated = balance.min(remaining);
         allocations.push((tranche.id.clone(), allocated));
         remaining -= allocated;

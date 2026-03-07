@@ -4,7 +4,6 @@ use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::math::solver::{BrentSolver, Solver};
-use std::cell::RefCell;
 
 /// Configuration for Z-spread solver with maturity-aware bracket sizing.
 ///
@@ -242,8 +241,6 @@ impl MetricCalculator for ZSpreadCalculator {
             .collect::<finstack_core::Result<Vec<_>>>()?;
 
         // Objective: PV_z(z) - target_value_ccy = 0
-        let pricing_error: RefCell<Option<finstack_core::Error>> = RefCell::new(None);
-
         let objective = |z: f64| -> f64 {
             // Optimized PV calculation using pre-computed flows
             let mut pv = finstack_core::math::summation::NeumaierAccumulator::new();
@@ -262,12 +259,6 @@ impl MetricCalculator for ZSpreadCalculator {
             .tolerance(self.config.tolerance)
             .initial_bracket_size(Some(bracket));
         let z = solver.solve(objective, 0.0)?;
-
-        // If any pricing error occurred during objective evaluation, surface it instead of
-        // returning a potentially meaningless Z-spread.
-        if let Some(err) = pricing_error.into_inner() {
-            return Err(err);
-        }
 
         Ok(z)
     }

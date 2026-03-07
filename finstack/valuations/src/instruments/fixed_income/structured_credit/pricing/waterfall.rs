@@ -26,10 +26,7 @@ use finstack_core::Result;
 /// Returns the number of decimal places for currency-aware penny-safe allocation.
 #[inline]
 fn currency_decimal_places(currency: Currency) -> u32 {
-    match currency {
-        Currency::JPY => 0,
-        _ => 2,
-    }
+    u32::from(currency.decimals())
 }
 
 /// Returns the scaling factor for converting amounts to smallest currency units.

@@ -341,15 +341,12 @@ impl Evaluator {
                     }
                 }
             } else if let Some(values) = &node_spec.values {
-                // Infer from first value
-                if let Some((_, first_value)) = values.iter().next() {
-                    if let Some(money) = first_value.as_money() {
-                        results.node_value_types.insert(
-                            node_id.clone(),
-                            NodeValueType::Monetary {
-                                currency: money.currency(),
-                            },
-                        );
+                if let Some(inferred_type) = crate::types::infer_series_value_type(values.values())?
+                {
+                    if let NodeValueType::Monetary { currency } = inferred_type {
+                        results
+                            .node_value_types
+                            .insert(node_id.clone(), NodeValueType::Monetary { currency });
 
                         // Populate monetary_nodes from Money values
                         if let Some(period_map) = results.nodes.get(node_id) {
@@ -357,7 +354,7 @@ impl Evaluator {
                             for (period_id, &f64_value) in period_map {
                                 money_map.insert(
                                     *period_id,
-                                    finstack_core::money::Money::new(f64_value, money.currency()),
+                                    finstack_core::money::Money::new(f64_value, currency),
                                 );
                             }
                             results.monetary_nodes.insert(node_id.clone(), money_map);

@@ -3,6 +3,7 @@
 //! SIFMA TBA settlement follows standardized conventions for
 //! notification and settlement dates.
 
+use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::Date;
 use finstack_core::Result;
 use time::{Duration, Month, Weekday};
@@ -76,15 +77,23 @@ pub fn calculate_drop_date(year: i32, month: u8) -> Result<Date> {
 }
 
 /// Subtract business days from a date.
+///
+/// Uses the SIFMA holiday calendar when available; falls back to
+/// weekend-only adjustment otherwise.
 fn subtract_business_days(date: Date, days: u32) -> Result<Date> {
+    let sifma_cal = calendar_by_id("sifma");
+
     let mut result = date;
     let mut remaining = days;
 
     while remaining > 0 {
         result -= Duration::days(1);
-        match result.weekday() {
-            Weekday::Saturday | Weekday::Sunday => continue,
-            _ => remaining -= 1,
+        let is_holiday = match result.weekday() {
+            Weekday::Saturday | Weekday::Sunday => true,
+            _ => sifma_cal.map(|cal| cal.is_holiday(result)).unwrap_or(false),
+        };
+        if !is_holiday {
+            remaining -= 1;
         }
     }
 

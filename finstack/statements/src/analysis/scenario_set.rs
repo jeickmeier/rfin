@@ -427,7 +427,12 @@ fn apply_overrides(
         return Ok(());
     }
 
-    let period_ids: Vec<PeriodId> = model.periods.iter().map(|p| p.id).collect();
+    let forecast_period_ids: Vec<PeriodId> = model
+        .periods
+        .iter()
+        .filter(|p| !p.is_actual)
+        .map(|p| p.id)
+        .collect();
 
     for (node_id, value) in overrides {
         let node = model.get_node_mut(node_id).ok_or_else(|| {
@@ -436,7 +441,7 @@ fn apply_overrides(
 
         let mut values = node.values.clone().unwrap_or_default();
 
-        for period_id in &period_ids {
+        for period_id in &forecast_period_ids {
             values.insert(*period_id, AmountOrScalar::scalar(*value));
         }
 

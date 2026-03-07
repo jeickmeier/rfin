@@ -101,8 +101,8 @@ impl AgencyProgram {
                 (y, m, 25_u8)
             }
             AgencyProgram::GnmaI => {
-                let (y, m) = advance_month(accrual_year, accrual_month);
-                (y, m, 15_u8)
+                // GNMA I pays on the 15th of the accrual month (not M+1)
+                (accrual_year, accrual_month, 15_u8)
             }
             AgencyProgram::Gnma | AgencyProgram::GnmaII => {
                 let (y, m) = advance_month(accrual_year, accrual_month);
@@ -455,7 +455,7 @@ mod tests {
     #[test]
     fn test_payment_date_for_period_gnma_i() {
         let pay = AgencyProgram::GnmaI.payment_date_for_period(2024, Month::March);
-        assert_eq!(pay.month(), Month::April);
+        assert_eq!(pay.month(), Month::March);
         assert_eq!(pay.day(), 15);
     }
 

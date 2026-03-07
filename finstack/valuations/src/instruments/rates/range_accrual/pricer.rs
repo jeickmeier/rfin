@@ -366,21 +366,51 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
         // Forward Price F = S * exp((r - q - drift_adj) * t)
         let forward = initial_spot * ((r_obs - q_yield - drift_adj) * t_obs).exp();
 
-        // Digital Call Probability P(S > K) = N(d2)
-        // d2 = (ln(F/K) - 0.5*sigma^2*t) / (sigma*sqrt(t))
-        let calc_prob_above = |strike: f64| -> finstack_core::Result<f64> {
-            let vol = vol_surface.value_clamped(t_obs, strike);
+        // Digital Call Probability P(S_t > K) via finite-width call spread.
+        //
+        // Using a 25bp spread replaces the analytically thin N(d₂) digital with
+        // a hedgeable call spread that correctly captures the volatility skew
+        // contribution to the digital price.  The formula is:
+        //
+        //   P(S > K) ≈ [Call(K - h/2) - Call(K + h/2)] / h
+        //
+        // where h = DIGITAL_SPREAD_WIDTH = 0.0025 (25 basis points) and
+        // Call(k) is the undiscounted Black-76 call price at strike k.
+        //
+        // For a flat smile this recovers N(d₂) exactly as h → 0.  With a
+        // downward skew (higher vol at lower strikes), P(S > K) is larger
+        // than the flat-smile N(d₂), matching market digital prices.
+        //
+        // Lower node is clamped to DIGITAL_SPREAD_FLOOR to ensure K - h/2 > 0.
+        const DIGITAL_SPREAD_WIDTH: f64 = 0.0025; // 25 bp
+        const DIGITAL_SPREAD_FLOOR: f64 = 1e-6; // prevent negative strikes
+
+        // Undiscounted Black-76 call price: F·N(d1) - K·N(d2)
+        let black_call = |k: f64| -> f64 {
+            let vol = vol_surface.value_clamped(t_obs, k);
             let std_dev = vol * t_obs.sqrt();
             if std_dev < 1e-6 {
-                if forward > strike {
-                    Ok(1.0)
-                } else {
-                    Ok(0.0)
-                }
-            } else {
-                let d2 = ((forward / strike).ln() - 0.5 * vol * vol * t_obs) / std_dev;
-                Ok(norm_cdf(d2))
+                return (forward - k).max(0.0);
             }
+            let d1 = ((forward / k).ln() + 0.5 * vol * vol * t_obs) / std_dev;
+            let d2 = d1 - std_dev;
+            forward * norm_cdf(d1) - k * norm_cdf(d2)
+        };
+
+        // Digital call probability using finite-width call spread.
+        // The spread half-width is clipped so K - h/2 ≥ DIGITAL_SPREAD_FLOOR.
+        let calc_prob_above = |strike: f64| -> finstack_core::Result<f64> {
+            let half_h = DIGITAL_SPREAD_WIDTH / 2.0;
+            let k_lo = (strike - half_h).max(DIGITAL_SPREAD_FLOOR);
+            let k_hi = strike + half_h;
+            // Effective spread width (may be narrower near zero)
+            let spread = k_hi - k_lo;
+            if spread < 1e-12 {
+                // Degenerate: fall back to a binary step on the forward
+                return Ok(if forward > strike { 1.0 } else { 0.0 });
+            }
+            let prob = (black_call(k_lo) - black_call(k_hi)) / spread;
+            Ok(prob.clamp(0.0, 1.0))
         };
 
         let p_lower = calc_prob_above(effective_lower)?;

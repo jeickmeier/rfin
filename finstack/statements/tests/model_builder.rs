@@ -1,6 +1,7 @@
 //! ModelBuilder integration tests.
 #![allow(clippy::expect_used)]
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::types::{AmountOrScalar, NodeType};
@@ -111,4 +112,34 @@ fn test_multiple_nodes() {
     assert!(model.periods[1].is_actual);
     assert!(!model.periods[2].is_actual);
     assert!(!model.periods[3].is_actual);
+}
+
+#[test]
+fn test_value_node_rejects_mixed_currencies_within_one_node() {
+    let result = ModelBuilder::new("test")
+        .periods("2025Q1..Q2", None)
+        .expect("valid period range")
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::amount(100_000.0, Currency::USD),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::amount(90_000.0, Currency::EUR),
+                ),
+            ],
+        )
+        .build();
+
+    assert!(result.is_err());
+    let message = result
+        .expect_err("mixed-currency node should fail")
+        .to_string();
+    assert!(
+        message.contains("Currency mismatch"),
+        "expected currency mismatch error, got: {message}"
+    );
 }

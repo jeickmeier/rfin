@@ -35,6 +35,15 @@ impl RecoveryQueue {
         }
     }
 
+    /// Total pending (unreleased) recovery amount.
+    pub fn pending_amount(&self, base_currency: Currency) -> Money {
+        self.pending
+            .iter()
+            .fold(Money::new(0.0, base_currency), |acc, (_, amt)| {
+                acc.checked_add(*amt).unwrap_or(acc)
+            })
+    }
+
     /// Release all recoveries that have matured based on the lag period.
     ///
     /// Returns the total amount of recoveries released this period.
