@@ -524,6 +524,8 @@ impl Bumpable for InflationCurve {
         };
 
         let bumped_id = match spec.units {
+            // RateBp: 1 bp = 0.0001 (standard basis point convention).
+            // Bumps are applied as absolute shifts to the inflation rate at each knot.
             BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
             BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
             _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
@@ -705,7 +707,8 @@ impl Bumpable for MarketScalar {
                 let new_val = if is_multiplicative {
                     *m * raw_val
                 } else {
-                    // Original logic implies additive bumps on Price are proportional (1 + delta)
+                    // Additive bump on Price: interpreted as proportional shift.
+                    // A raw_val of 0.01 means a +1% price change, not +0.01 absolute.
                     *m * (1.0 + raw_val)
                 };
                 Ok(MarketScalar::Price(new_val))

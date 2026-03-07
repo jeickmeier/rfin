@@ -223,9 +223,22 @@ impl HestonParams {
             }
         };
 
-        // Composite Gauss-Legendre on [ε, 100]: 16th order × 8 panels = 128 points
+        // Adaptive upper bound: higher for low vol-of-vol or short expiry
+        let upper_limit = if self.sigma > 0.0 && t > 0.0 {
+            // Estimate where characteristic function decays below ~1e-12
+            (2.0 * 28.0_f64.ln() / (self.sigma.powi(2) * t))
+                .sqrt()
+                .clamp(50.0, 500.0)
+        } else {
+            100.0
+        };
+        // Composite Gauss-Legendre on [ε, upper_limit]: 16th order × 8 panels = 128 points
         let integral = crate::math::integration::gauss_legendre_integrate_composite(
-            integrand, 1e-8, 100.0, 16, 8,
+            integrand,
+            1e-8,
+            upper_limit,
+            16,
+            8,
         )
         .unwrap_or(0.0);
 

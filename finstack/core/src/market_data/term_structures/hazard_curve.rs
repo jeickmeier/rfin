@@ -450,7 +450,7 @@ impl HazardCurve {
 
         // Create a temporary ID for the bumped curve
         // In practice, the caller will manage IDs when building market contexts
-        let temp_id = "TEMP_BUMPED_HAZARD";
+        let temp_id = format!("{}_bump_{:.4}bp", self.id(), shift * 10_000.0);
 
         HazardCurve::builder(temp_id)
             .base_date(self.base)

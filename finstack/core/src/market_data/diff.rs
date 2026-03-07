@@ -318,14 +318,22 @@ pub fn measure_inflation_curve_shift(
     market_t0: &MarketContext,
     market_t1: &MarketContext,
 ) -> Result<f64> {
+    measure_inflation_curve_shift_at(curve_id, market_t0, market_t1, STANDARD_TENORS)
+}
+
+/// Measure average inflation rate shift at specified tenors (basis points).
+pub fn measure_inflation_curve_shift_at(
+    curve_id: impl AsRef<str>,
+    market_t0: &MarketContext,
+    market_t1: &MarketContext,
+    tenors: &[f64],
+) -> Result<f64> {
     let curve_t0 = market_t0.get_inflation(&curve_id)?;
     let curve_t1 = market_t1.get_inflation(&curve_id)?;
-
-    // Inflation originally used STANDARD_TENORS hardcoded
     Ok(measure_curve_diff_generic(
         curve_t0.as_ref(),
         curve_t1.as_ref(),
-        STANDARD_TENORS,
+        tenors,
     ))
 }
 

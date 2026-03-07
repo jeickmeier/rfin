@@ -95,6 +95,23 @@ pub struct DensityWarning {
 }
 
 impl SabrParams {
+    /// Alpha (α): initial volatility level.
+    pub fn alpha(&self) -> f64 {
+        self.alpha
+    }
+    /// Beta (β): CEV exponent, in [0, 1].
+    pub fn beta(&self) -> f64 {
+        self.beta
+    }
+    /// Rho (ρ): correlation between forward and vol Brownian motions.
+    pub fn rho(&self) -> f64 {
+        self.rho
+    }
+    /// Nu (ν): vol-of-vol.
+    pub fn nu(&self) -> f64 {
+        self.nu
+    }
+
     /// Construct validated SABR parameters.
     ///
     /// # Errors
@@ -179,7 +196,7 @@ impl SabrParams {
         let z = (nu / alpha) * fk_mid * log_fk;
 
         // χ(z) = log[(√(1 - 2ρz + z²) + z - ρ) / (1 - ρ)]
-        let chi_z = chi(z, rho);
+        let chi_z = chi(z, rho).unwrap_or(f64::NAN);
 
         // Numerator: α
         let numerator = alpha;
@@ -250,7 +267,7 @@ impl SabrParams {
 
         // z = (ν/α) * (FK)^((1-β)/2) * ln(F/K)
         let z = (nu / alpha) * fk_mid * log_fk;
-        let chi_z = chi(z, rho);
+        let chi_z = chi(z, rho).unwrap_or(f64::NAN);
 
         let z_over_chi = if chi_z.abs() < 1e-14 { 1.0 } else { z / chi_z };
 
@@ -302,10 +319,6 @@ impl SabrParams {
             let d2c_dk2 = (c_hi - 2.0 * c_mid + c_lo) / (dk * dk);
 
             if d2c_dk2 < -1e-10 {
-                eprintln!(
-                    "SABR: negative implied density d²C/dK² = {:.6} at K={:.6} (F={:.4}, T={:.2})",
-                    d2c_dk2, k, forward, expiry
-                );
                 warnings.push(DensityWarning {
                     strike: k,
                     density: d2c_dk2,
@@ -385,15 +398,17 @@ fn black_call_undiscounted(forward: f64, strike: f64, expiry: f64, vol: f64) -> 
 ///
 /// Uses a Taylor expansion for small z to avoid cancellation.
 #[inline]
-fn chi(z: f64, rho: f64) -> f64 {
+fn chi(z: f64, rho: f64) -> crate::Result<f64> {
     if z.abs() < 1e-10 {
         // Taylor expansion: χ(z) ≈ z + ρz²/2 + (2ρ²-1)z³/6 + ...
-        return z * (1.0 + 0.5 * rho * z);
+        return Ok(z * (1.0 + 0.5 * rho * z));
     }
 
     let discriminant = 1.0 - 2.0 * rho * z + z * z;
     if discriminant < 0.0 {
-        return f64::NAN;
+        return Err(crate::Error::Validation(format!(
+            "SABR chi: negative discriminant {discriminant:.6} for z={z:.6}, rho={rho:.6}"
+        )));
     }
 
     let sqrt_disc = discriminant.sqrt();
@@ -401,10 +416,12 @@ fn chi(z: f64, rho: f64) -> f64 {
     let denominator = 1.0 - rho;
 
     if numerator <= 0.0 || denominator <= 0.0 {
-        return f64::NAN;
+        return Err(crate::Error::Validation(format!(
+            "SABR chi: non-positive log argument (num={numerator:.6}, den={denominator:.6})"
+        )));
     }
 
-    (numerator / denominator).ln()
+    Ok((numerator / denominator).ln())
 }
 
 /// Calibrate SABR parameters from market implied volatilities.
@@ -826,7 +843,7 @@ mod tests {
     #[test]
     fn chi_function_small_z() {
         // For small z, χ(z) ≈ z
-        let result = chi(1e-12, 0.0);
+        let result = chi(1e-12, 0.0).expect("chi should succeed for small z");
         assert!((result - 1e-12).abs() < 1e-20);
     }
 
@@ -834,7 +851,7 @@ mod tests {
     fn chi_function_zero_rho() {
         // For ρ=0, χ(z) = ln(√(1+z²) + z) = arcsinh(z)
         let z = 0.5;
-        let result = chi(z, 0.0);
+        let result = chi(z, 0.0).expect("chi should succeed for rho=0");
         let expected = z.asinh();
         assert!(
             (result - expected).abs() < 1e-10,

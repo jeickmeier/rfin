@@ -294,15 +294,18 @@ impl LevenbergMarquardtSolver {
         let n = params.len();
         let mut jacobian = vec![vec![0.0; n]; 1]; // For scalar objective, Jacobian is 1×n
 
-        let f0 = objective(params);
         let mut params_plus = params.to_vec();
+        let mut params_minus = params.to_vec();
 
         for j in 0..n {
             let h = (params[j].abs() * self.fd_step).max(self.fd_step);
             params_plus[j] = params[j] + h;
+            params_minus[j] = params[j] - h;
             let f_plus = objective(&params_plus);
-            jacobian[0][j] = (f_plus - f0) / h;
-            params_plus[j] = params[j]; // Reset
+            let f_minus = objective(&params_minus);
+            jacobian[0][j] = (f_plus - f_minus) / (2.0 * h);
+            params_plus[j] = params[j];
+            params_minus[j] = params[j];
         }
 
         jacobian
@@ -346,23 +349,24 @@ impl LevenbergMarquardtSolver {
         let n_params = params.len();
         let mut jacobian = vec![vec![0.0; n_params]; n_residuals];
 
-        let mut r0 = vec![0.0; n_residuals];
-        residuals(params, &mut r0);
-        *residual_eval_counter += 1;
-
         let mut params_plus = params.to_vec();
+        let mut params_minus = params.to_vec();
         let mut r_plus = vec![0.0; n_residuals];
+        let mut r_minus = vec![0.0; n_residuals];
 
         for j in 0..n_params {
             let h = (params[j].abs() * self.fd_step).max(self.fd_step);
             params_plus[j] = params[j] + h;
+            params_minus[j] = params[j] - h;
             residuals(&params_plus, &mut r_plus);
-            *residual_eval_counter += 1;
+            residuals(&params_minus, &mut r_minus);
+            *residual_eval_counter += 2;
 
             for i in 0..n_residuals {
-                jacobian[i][j] = (r_plus[i] - r0[i]) / h;
+                jacobian[i][j] = (r_plus[i] - r_minus[i]) / (2.0 * h);
             }
-            params_plus[j] = params[j]; // Reset
+            params_plus[j] = params[j];
+            params_minus[j] = params[j];
         }
 
         jacobian
@@ -504,10 +508,22 @@ impl LevenbergMarquardtSolver {
                 }
             };
 
-            // Check step size for convergence
-            let step_norm: f64 = step.iter().map(|s| s * s).sum::<f64>().sqrt();
-            last_step_norm = step_norm;
-            if step_norm < self.min_step_size {
+            // Try the step: new_params = params + step
+            new_params.copy_from_slice(&params);
+            for (i, &s) in step.iter().enumerate() {
+                new_params[i] += s;
+            }
+            self.apply_bounds(&mut new_params, bounds);
+
+            // Check effective step size (after bounds clipping) for convergence
+            let effective_step_norm: f64 = new_params
+                .iter()
+                .zip(params.iter())
+                .map(|(a, b)| (a - b).powi(2))
+                .sum::<f64>()
+                .sqrt();
+            last_step_norm = effective_step_norm;
+            if effective_step_norm < self.min_step_size {
                 return Ok(LmSolution {
                     params,
                     stats: LmStats {
@@ -522,13 +538,6 @@ impl LevenbergMarquardtSolver {
                     },
                 });
             }
-
-            // Try the step: new_params = params + step
-            new_params.copy_from_slice(&params);
-            for (i, &s) in step.iter().enumerate() {
-                new_params[i] += s;
-            }
-            self.apply_bounds(&mut new_params, bounds);
 
             // Evaluate new parameters
             residuals_func(&new_params, &mut new_resid);
@@ -680,11 +689,11 @@ impl LevenbergMarquardtSolver {
         if initial.is_empty() {
             return Err(InputError::Invalid.into());
         }
-        let mut test_residuals = vec![f64::NAN; initial.len() * 2];
+        let mut test_residuals = vec![f64::MAX; initial.len() * 4];
         residuals(initial, &mut test_residuals);
         let n_residuals = test_residuals
             .iter()
-            .position(|r| r.is_nan())
+            .position(|&r| r == f64::MAX)
             .unwrap_or(test_residuals.len());
 
         let jacobian_func = |p: &[f64], _r: &[f64], eval_counter: &mut usize| -> Vec<Vec<f64>> {

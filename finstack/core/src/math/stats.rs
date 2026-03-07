@@ -112,8 +112,8 @@ pub fn mean_var(xs: &[f64]) -> (f64, f64) {
 /// Matches `OnlineCovariance::covariance()` convention. Returns `0.0` for
 /// fewer than 2 observations.
 pub fn covariance(x: &[f64], y: &[f64]) -> f64 {
-    assert_eq!(x.len(), y.len());
-    let n = x.len();
+    debug_assert_eq!(x.len(), y.len(), "covariance: mismatched slice lengths");
+    let n = x.len().min(y.len());
     if n < 2 {
         return 0.0;
     }
@@ -224,7 +224,10 @@ pub fn quantile(data: &mut [f64], p: f64) -> f64 {
     if hi >= n || frac == 0.0 {
         return v_lo;
     }
-    let v_hi = data[hi..].iter().copied().fold(f64::INFINITY, f64::min);
+    data[lo + 1..].select_nth_unstable_by(0, |a, b| {
+        a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal)
+    });
+    let v_hi = data[lo + 1];
     v_lo + frac * (v_hi - v_lo)
 }
 
@@ -258,8 +261,13 @@ pub fn realized_variance(
         | RealizedVarMethod::GarmanKlass
         | RealizedVarMethod::RogersSatchell
         | RealizedVarMethod::YangZhang => {
-            // These methods require OHLC data, use realized_variance_ohlc instead
-            // For single price series, fall back to close-to-close
+            // These methods require OHLC data — use realized_variance_ohlc() instead.
+            // Falling back to close-to-close for a single price series.
+            debug_assert!(
+                false,
+                "realized_variance called with OHLC method {method:?} on single price series; \
+                 use realized_variance_ohlc() instead"
+            );
             let returns = log_returns(prices);
             returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64 * annualization_factor
         }
@@ -353,6 +361,10 @@ pub fn realized_variance_ohlc(
             (sum / n as f64) * annualization_factor
         }
         RealizedVarMethod::YangZhang => {
+            // Yang-Zhang needs at least 3 OHLC bars (2 overnight returns for variance)
+            if n < 3 {
+                return 0.0;
+            }
             // Yang-Zhang (2000) estimator: includes overnight jumps and opening gaps
             // Combines overnight variance with Rogers-Satchell intraday variance
             // using optimal weighting to minimize bias and variance of the estimator.

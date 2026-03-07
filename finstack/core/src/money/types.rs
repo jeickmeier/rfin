@@ -92,6 +92,9 @@ impl Money {
 
     /// Format the amount with custom decimals and optional currency symbol.
     ///
+    /// Uses Bankers rounding (IEEE 754 round-half-to-even). For other rounding
+    /// modes, use [`format_with_config`].
+    ///
     /// # Arguments
     ///
     /// * `decimals` - Number of decimal places to display
@@ -124,6 +127,8 @@ impl Money {
     }
 
     /// Format with thousands separators and currency.
+    ///
+    /// Uses Bankers rounding. For custom rounding, use [`format_with_config`].
     ///
     /// # Example
     ///
@@ -488,8 +493,13 @@ impl Money {
             .into());
         }
         let new_amount = super::rounding::try_repr_mul_f64(self.amount, rate)?;
+        let rounded = super::rounding::round_decimal(
+            new_amount,
+            to.decimals() as i32,
+            crate::config::RoundingMode::Bankers,
+        );
         Ok(Self {
-            amount: new_amount,
+            amount: rounded,
             currency: to,
         })
     }

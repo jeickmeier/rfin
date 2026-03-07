@@ -316,7 +316,8 @@ impl Expectation {
                 if let Some(tol) = tolerance {
                     tol.is_within(actual, *value)
                 } else {
-                    (actual - value).abs() < 1e-15
+                    // Scale-aware exact comparison: relative tolerance with absolute floor
+                    (actual - value).abs() <= (value.abs() * f64::EPSILON * 8.0).max(1e-15)
                 }
             }
             Expectation::Range { min, max, .. } => {
@@ -361,6 +362,20 @@ pub struct ExpectedValue {
 impl ExpectedValue {
     /// Convert to an Expectation for comparison.
     pub fn to_expectation(&self) -> Expectation {
+        let tol_count = [
+            self.tolerance_abs.is_some(),
+            self.tolerance_bp.is_some(),
+            self.tolerance_pct.is_some(),
+            self.tolerance_rel.is_some(),
+        ]
+        .iter()
+        .filter(|&&b| b)
+        .count();
+        debug_assert!(
+            tol_count <= 1,
+            "ExpectedValue has {tol_count} tolerance fields set; \
+             only the first (priority: abs>bp>pct>rel) is used"
+        );
         let tolerance = self
             .tolerance_abs
             .map(Tolerance::Abs)

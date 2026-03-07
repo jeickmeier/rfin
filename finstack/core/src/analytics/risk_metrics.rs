@@ -128,7 +128,7 @@ pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 ///
 /// # Returns
 ///
-/// Population standard deviation of `returns`, annualized if requested.
+/// Sample standard deviation of `returns` (n-1 denominator), annualized if requested.
 /// Returns `0.0` for an empty slice.
 ///
 /// # Examples
