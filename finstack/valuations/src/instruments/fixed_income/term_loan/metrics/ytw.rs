@@ -9,7 +9,9 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
-use super::irr_helpers::{outstanding_before, solve_irr_to_exercise};
+use super::irr_helpers::{
+    outstanding_before, solve_irr_to_exercise, target_price_from_quote_or_model,
+};
 
 /// Yield-to-worst calculator for callable term loans.
 ///
@@ -59,7 +61,7 @@ impl MetricCalculator for YtwCalculator {
         candidates.push((loan.maturity, final_out));
 
         // Target price: use base PV from context
-        let dirty_now = context.base_value;
+        let dirty_now = target_price_from_quote_or_model(loan, context.base_value);
 
         // Worst yield = min yield across candidates
         let mut y_worst = f64::INFINITY;

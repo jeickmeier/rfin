@@ -743,9 +743,10 @@ impl HazardCurveBuilder {
             return Err(InputError::TooFewPoints.into());
         }
 
-        // Validate knot times and hazard rates: times must be finite/strictly positive; rates non-negative and finite.
+        // Validate knot times and hazard rates: times must be finite/non-negative;
+        // a zero-time anchor is allowed, but all subsequent knots must increase strictly.
         for &(t, lambda) in &self.points {
-            if !t.is_finite() || t <= 0.0 {
+            if !t.is_finite() || t < 0.0 {
                 return Err(InputError::Invalid.into());
             }
             if lambda < 0.0 {
@@ -773,7 +774,11 @@ impl HazardCurveBuilder {
         points.sort_by(|a, b| a.0.total_cmp(&b.0));
         let (kvec, lvec): (Vec<f64>, Vec<f64>) = points.into_iter().unzip();
         if kvec.len() > 1 {
-            crate::math::interp::utils::validate_knots(&kvec)?;
+            for i in 1..kvec.len() {
+                if kvec[i] <= kvec[i - 1] {
+                    return Err(InputError::Invalid.into());
+                }
+            }
         }
         let mut par_pts = self.par_points;
         for &(t, spread) in &par_pts {

@@ -1,9 +1,10 @@
 //! Integration test for swaption volatility calibration (v2).
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use finstack_valuations::calibration::api::engine;
@@ -12,9 +13,15 @@ use finstack_valuations::calibration::api::schema::{
     SwaptionVolConvention, SwaptionVolParams,
 };
 use finstack_valuations::calibration::CalibrationConfig;
+use finstack_valuations::instruments::market::OptionType;
+use finstack_valuations::instruments::rates::swaption::{
+    Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel,
+};
+use finstack_valuations::instruments::{Instrument, PricingOverrides};
 use finstack_valuations::market::conventions::ids::SwaptionConventionId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
+use rust_decimal::Decimal;
 use time::Month;
 
 use super::tolerances;
@@ -201,6 +208,90 @@ fn swaption_vol_step_builds_and_inserts_surface() {
     let v_1y_5y = surface.value_clamped(1.0, 5.0);
     assert!(v_1y_1y.is_finite() && v_1y_1y > 0.0);
     assert!(v_1y_5y.is_finite() && v_1y_5y > 0.0);
+}
+
+#[test]
+fn calibrated_swaption_surface_is_not_silently_reused_as_strike_surface() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let currency = Currency::USD;
+
+    let initial_market =
+        MarketContext::new().insert_discount(create_test_discount_curve(base_date));
+
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
+
+    let plan = CalibrationPlan {
+        id: "plan".to_string(),
+        description: None,
+        quote_sets,
+        settings: Default::default(),
+        steps: vec![CalibrationStep {
+            id: "swpt".to_string(),
+            quote_set: "swpt".to_string(),
+            params: StepParams::SwaptionVol(SwaptionVolParams {
+                surface_id: "USD-SWPT".to_string(),
+                base_date,
+                discount_curve_id: CurveId::from("USD-OIS"),
+                forward_id: None,
+                currency,
+                vol_convention: SwaptionVolConvention::Normal,
+                atm_convention: Default::default(),
+                sabr_beta: 0.0,
+                target_expiries: vec![1.0],
+                target_tenors: vec![1.0, 5.0],
+                sabr_interpolation: Default::default(),
+                calendar_id: Some("weekends_only".to_string()),
+                fixed_day_count: None,
+                swap_index: Some("USD-SOFR-3M".into()),
+                vol_tolerance: None,
+                sabr_tolerance: None,
+                sabr_extrapolation: SurfaceExtrapolationPolicy::Error,
+                allow_sabr_missing_bucket_fallback: false,
+            }),
+        }],
+    };
+
+    let envelope = CalibrationEnvelope {
+        schema: "finstack.calibration/2".to_string(),
+        plan,
+        initial_market: Some((&initial_market).into()),
+    };
+
+    let result = engine::execute(&envelope).expect("execute");
+    let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");
+
+    let swaption = Swaption {
+        id: "SWPT-1Yx5Y".into(),
+        option_type: OptionType::Call,
+        notional: Money::new(1_000_000.0, Currency::USD),
+        strike: Decimal::try_from(0.045).unwrap(),
+        expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+        swap_start: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+        swap_end: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
+        fixed_freq: Tenor::semi_annual(),
+        float_freq: Tenor::quarterly(),
+        day_count: DayCount::Thirty360,
+        exercise_style: SwaptionExercise::European,
+        settlement: SwaptionSettlement::Physical,
+        cash_settlement_method: Default::default(),
+        vol_model: VolatilityModel::Normal,
+        discount_curve_id: "USD-OIS".into(),
+        forward_curve_id: "USD-SOFR-3M".into(),
+        vol_surface_id: "USD-SWPT".into(),
+        pricing_overrides: PricingOverrides::default(),
+        calendar_id: None,
+        sabr_params: None,
+        attributes: Default::default(),
+    };
+
+    let err = swaption.value(&ctx, base_date).expect_err(
+        "tenor-axis calibration surface must not be consumed as strike-axis volatility",
+    );
+    assert!(
+        err.to_string().contains("axis"),
+        "expected explicit axis mismatch error, got: {err}"
+    );
 }
 
 #[test]

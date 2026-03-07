@@ -34,6 +34,12 @@ pub struct FxBarrierOption {
     pub barrier_type: BarrierType,
     /// Option expiry date
     pub expiry: Date,
+    /// Observed barrier state for expired options.
+    ///
+    /// Historical monitoring must be supplied explicitly for expired contracts.
+    #[builder(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_barrier_breached: Option<bool>,
     /// Notional amount in foreign currency
     pub notional: Money,
     /// Base currency (the currency being priced, formerly foreign_currency)
@@ -105,6 +111,7 @@ impl FxBarrierOption {
             .expiry(
                 Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"),
             )
+            .observed_barrier_breached_opt(None)
             .notional(Money::new(1_000_000.0, Currency::EUR)) // Notional in foreign currency (EUR)
             .base_currency(Currency::EUR)
             .quote_currency(Currency::USD)

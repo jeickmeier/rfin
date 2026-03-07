@@ -143,7 +143,7 @@ impl InitialMarginMetric {
         market: &MarketContext,
         as_of: Date,
     ) -> Result<ImResult> {
-        match spec.im_methodology {
+        let mut im_result = match spec.im_methodology {
             ImMethodology::Simm => {
                 let simm = self.simm_calculator.clone().unwrap_or_default();
 
@@ -177,6 +177,21 @@ impl InitialMarginMetric {
                 let calc = self.internal_model_calculator.clone().unwrap_or_default();
                 calc.calculate(instrument, market, as_of)
             }
+        }?;
+
+        Self::apply_im_call_terms(&mut im_result, spec);
+        Ok(im_result)
+    }
+
+    fn apply_im_call_terms(im_result: &mut ImResult, spec: &OtcMarginSpec) {
+        if let Some(im_params) = &spec.csa.im_params {
+            let net_required = (im_result.amount.amount() - im_params.threshold.amount()).max(0.0);
+            if net_required <= im_params.mta.amount() {
+                im_result.amount = Money::new(0.0, im_result.amount.currency());
+                im_result.breakdown.clear();
+            } else {
+                im_result.amount = Money::new(net_required, im_result.amount.currency());
+            }
         }
     }
 
@@ -189,16 +204,7 @@ impl InitialMarginMetric {
         as_of: Date,
     ) -> Result<ImResult> {
         let currency = spec.csa.base_currency;
-        let (mut total_im, mut breakdown) =
-            simm.calculate_from_sensitivities(sensitivities, currency);
-
-        // Apply IM threshold if any
-        if let Some(im_params) = &spec.csa.im_params {
-            if total_im < im_params.threshold.amount() {
-                total_im = 0.0;
-                breakdown.clear();
-            }
-        }
+        let (total_im, breakdown) = simm.calculate_from_sensitivities(sensitivities, currency);
 
         // Get MPOR from spec
         let mpor_days = spec
@@ -407,6 +413,7 @@ mod tests {
         id: String,
         value: Money,
         margin_spec: Option<OtcMarginSpec>,
+        sensitivities: Option<SimmSensitivities>,
         attributes: crate::instruments::common_impl::traits::Attributes,
     }
 
@@ -416,8 +423,14 @@ mod tests {
                 id: "TEST-INST".to_string(),
                 value,
                 margin_spec,
+                sensitivities: None,
                 attributes: crate::instruments::common_impl::traits::Attributes::default(),
             }
+        }
+
+        fn with_sensitivities(mut self, sensitivities: SimmSensitivities) -> Self {
+            self.sensitivities = Some(sensitivities);
+            self
         }
     }
 
@@ -476,7 +489,10 @@ mod tests {
             _market: &MarketContext,
             _as_of: Date,
         ) -> Result<SimmSensitivities> {
-            Ok(SimmSensitivities::new(self.value.currency()))
+            Ok(self
+                .sensitivities
+                .clone()
+                .unwrap_or_else(|| SimmSensitivities::new(self.value.currency())))
         }
 
         fn mtm_for_vm(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
@@ -501,6 +517,10 @@ mod tests {
     fn uses_internal_model_for_internal_model_spec() {
         let mut spec = OtcMarginSpec::usd_bilateral();
         spec.im_methodology = ImMethodology::InternalModel;
+        if let Some(im_params) = spec.csa.im_params.as_mut() {
+            im_params.threshold = Money::new(0.0, Currency::USD);
+            im_params.mta = Money::new(0.0, Currency::USD);
+        }
         let instrument = TestInstrument::new(Money::new(20_000_000.0, Currency::USD), Some(spec));
         let metric = InitialMarginMetric::new();
         let market = MarketContext::new();
@@ -509,5 +529,39 @@ mod tests {
         let im = metric.calculate(&instrument, &market, as_of).expect("im");
         assert_eq!(im.methodology, ImMethodology::InternalModel);
         assert_eq!(im.amount.amount(), 1_000_000.0);
+    }
+
+    #[test]
+    fn simm_im_subtracts_threshold_after_breach() {
+        let mut spec = OtcMarginSpec::usd_bilateral();
+        spec.im_methodology = ImMethodology::Simm;
+        let mut sensitivities = SimmSensitivities::new(Currency::USD);
+        sensitivities.add_ir_delta(Currency::USD, "5Y", 50_000.0);
+        sensitivities.add_equity_delta("AAPL", 100_000.0);
+        sensitivities.add_fx_delta(Currency::EUR, 80_000.0);
+
+        let calc = SimmCalculator::new(crate::margin::calculators::im::simm::SimmVersion::V2_6);
+        let (gross_im, _) = calc.calculate_from_sensitivities(&sensitivities, Currency::USD);
+        assert!(gross_im > 0.0, "test setup must produce non-zero SIMM IM");
+
+        let threshold = gross_im / 2.0;
+        if let Some(im_params) = spec.csa.im_params.as_mut() {
+            im_params.threshold = Money::new(threshold, Currency::USD);
+            im_params.mta = Money::new(0.0, Currency::USD);
+        }
+
+        let instrument = TestInstrument::new(Money::new(1_000_000.0, Currency::USD), Some(spec))
+            .with_sensitivities(sensitivities);
+        let metric = InitialMarginMetric::new();
+        let market = MarketContext::new();
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+
+        let im = metric.calculate(&instrument, &market, as_of).expect("im");
+        let expected = gross_im - threshold;
+        assert!(
+            (im.amount.amount() - expected).abs() < 1e-9,
+            "IM should subtract breached threshold from gross IM: expected {expected}, got {}",
+            im.amount.amount()
+        );
     }
 }

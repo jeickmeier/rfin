@@ -284,18 +284,9 @@ fn price_seasoned_geometric_commodity(
     let k_adj = ln_k_adj.exp();
 
     // Price a fresh geometric Asian on remaining fixings with adjusted strike.
-    // The result is scaled by (m/n) to account for the partial observation.
-    // However, since the adjusted strike already encodes the realized fixings,
-    // we need to scale the payoff: the option on the remaining geometric average
-    // pays off on (G_future vs K_adj), and the full option payoff is
-    // (G_all vs K) = (G_realized^(h/n) * G_future^(m/n) vs K).
-    // The adjusted strike method gives the correct NPV without extra scaling.
-    let fresh_geo = price_geometric_kv_commodity(future_forwards, k_adj, sigma, df, option_type);
-
-    // Scale: the geometric average of ALL fixings = exp((hist_prod_log + future_sum_log) / n)
-    // The fresh geometric prices an option on exp(future_sum_log / m), so we scale by m/n
-    // to convert the payoff from the m-observation average to the n-observation average.
-    fresh_geo * m / n
+    // The adjusted-strike transform already encodes the realized-fixing history,
+    // so the result should not be scaled again by m/n.
+    price_geometric_kv_commodity(future_forwards, k_adj, sigma, df, option_type)
 }
 
 /// Arithmetic Asian pricing with commodity forwards (Turnbull-Wakeman adapted).

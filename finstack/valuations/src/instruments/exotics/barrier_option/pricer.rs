@@ -350,13 +350,11 @@ pub fn npv_with_lrm_greeks(
 
 // ========================= EXPIRED BARRIER HELPER =========================
 
-/// Price an expired barrier option using spot vs barrier to infer terminal payoff.
+/// Price an expired barrier option using explicit observed barrier state.
 ///
-/// At expiry, we use the current spot to determine the barrier state:
-/// - **Knock-out**: if barrier breached (spot crossed barrier), pays rebate; otherwise pays intrinsic.
-/// - **Knock-in**: if barrier breached, pays intrinsic; otherwise pays rebate.
-///
-/// This is a best-effort heuristic when no barrier-crossing history is available.
+/// Terminal spot alone is insufficient to determine whether a barrier was
+/// breached intralife and then later reversed, so expired contracts require
+/// the caller to provide `observed_barrier_breached`.
 /// The intrinsic value is `max(S - K, 0)` for calls and `max(K - S, 0)` for puts,
 /// scaled by notional.
 fn price_expired_barrier(
@@ -371,24 +369,19 @@ fn price_expired_barrier(
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
     };
 
-    let barrier = inst.barrier.amount();
     let ccy = inst.notional.currency();
     let notional = inst.notional.amount();
-
-    let is_up = matches!(
-        inst.barrier_type,
-        BarrierType::UpAndOut | BarrierType::UpAndIn
-    );
     let is_knock_out = matches!(
         inst.barrier_type,
         BarrierType::UpAndOut | BarrierType::DownAndOut
     );
 
-    let barrier_breached = if is_up {
-        spot >= barrier
-    } else {
-        spot <= barrier
-    };
+    let barrier_breached = inst.observed_barrier_breached.ok_or_else(|| {
+        finstack_core::Error::Validation(
+            "Expired barrier option requires `observed_barrier_breached` to determine realized payoff"
+                .to_string(),
+        )
+    })?;
 
     let intrinsic = match inst.option_type {
         crate::instruments::OptionType::Call => (spot - inst.strike).max(0.0) * notional,

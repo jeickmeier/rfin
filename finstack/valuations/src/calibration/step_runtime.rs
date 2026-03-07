@@ -1,6 +1,9 @@
 use crate::calibration::api::schema::{CalibrationStep, StepParams};
 use crate::calibration::config::CalibrationConfig;
-use crate::calibration::hull_white::{calibrate_hull_white_to_swaptions, SwaptionQuote};
+use crate::calibration::hull_white::{
+    calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess, HullWhiteParams,
+    SwapFrequency, SwaptionQuote,
+};
 use crate::calibration::targets::base_correlation::BaseCorrelationBootstrapper;
 use crate::calibration::targets::discount::DiscountCurveTarget;
 use crate::calibration::targets::forward::ForwardCurveTarget;
@@ -9,14 +12,15 @@ use crate::calibration::targets::inflation::InflationBootstrapper;
 use crate::calibration::targets::student_t::StudentTCalibrator;
 use crate::calibration::targets::swaption::SwaptionVolBootstrapper;
 use crate::calibration::targets::vol::VolSurfaceBootstrapper;
-use crate::calibration::CalibrationReport;
+use crate::calibration::validation::ValidationMode;
+use crate::calibration::{CalibrationReport, CurveValidator, SurfaceValidator};
 use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::vol::VolQuote;
 use finstack_core::dates::{DayCount, DayCountCtx};
 use finstack_core::explain::TraceEntry;
 use finstack_core::market_data::context::{CurveStorage, MarketContext};
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::surfaces::{VolSurface, VolSurfaceAxis};
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
@@ -64,6 +68,7 @@ pub(crate) enum StepOutput {
     Curve(CurveStorage),
     Surface(Arc<VolSurface>),
     Scalar { key: String, value: MarketScalar },
+    Scalars(Vec<(String, MarketScalar)>),
 }
 
 fn interpolate_svi_params(
@@ -122,6 +127,24 @@ pub(crate) struct StepOutcome {
     pub report: CalibrationReport,
 }
 
+fn attach_validation_result(
+    report: CalibrationReport,
+    validation: Result<()>,
+    global_config: &CalibrationConfig,
+) -> CalibrationReport {
+    match validation {
+        Ok(()) => report.with_validation_result(true, None),
+        Err(err) => match global_config.validation_mode {
+            ValidationMode::Error => report.with_validation_result(false, Some(err.to_string())),
+            ValidationMode::Warn => {
+                let mut report = report;
+                report.update_metadata("validation_warning", err.to_string());
+                report
+            }
+        },
+    }
+}
+
 /// Compute the output key for batching without executing the step.
 pub(crate) fn output_key(step: &CalibrationStep) -> OutputKey {
     match &step.params {
@@ -158,6 +181,13 @@ pub(crate) fn apply_output(
         StepOutput::Scalar { key, value } => {
             *context = std::mem::take(context).insert_price(&key, value);
         }
+        StepOutput::Scalars(values) => {
+            let mut updated = std::mem::take(context);
+            for (key, value) in values {
+                updated = updated.insert_price(&key, value);
+            }
+            *context = updated;
+        }
     }
 
     if let Some((id, data)) = credit_index_update {
@@ -175,7 +205,13 @@ pub(crate) fn execute_params(
     match params {
         StepParams::Discount(p) => {
             let (ctx, report) = DiscountCurveTarget::solve(p, quotes, context, global_config)?;
-            let output = StepOutput::Curve(ctx.get_discount(&p.curve_id)?.into());
+            let curve = ctx.get_discount(&p.curve_id)?;
+            let output = StepOutput::Curve(curve.clone().into());
+            let report = attach_validation_result(
+                report,
+                curve.validate(&global_config.validation),
+                global_config,
+            );
             Ok(StepOutcome {
                 output,
                 credit_index_update: None,
@@ -184,7 +220,13 @@ pub(crate) fn execute_params(
         }
         StepParams::Forward(p) => {
             let (ctx, report) = ForwardCurveTarget::solve(p, quotes, context, global_config)?;
-            let output = StepOutput::Curve(ctx.get_forward(&p.curve_id)?.into());
+            let curve = ctx.get_forward(&p.curve_id)?;
+            let output = StepOutput::Curve(curve.clone().into());
+            let report = attach_validation_result(
+                report,
+                curve.validate(&global_config.validation),
+                global_config,
+            );
             Ok(StepOutcome {
                 output,
                 credit_index_update: None,
@@ -193,7 +235,13 @@ pub(crate) fn execute_params(
         }
         StepParams::Hazard(p) => {
             let (ctx, report) = HazardBootstrapper::solve(p, quotes, context, global_config)?;
-            let output = StepOutput::Curve(ctx.get_hazard(&p.curve_id)?.into());
+            let curve = ctx.get_hazard(&p.curve_id)?;
+            let output = StepOutput::Curve(curve.clone().into());
+            let report = attach_validation_result(
+                report,
+                curve.validate(&global_config.validation),
+                global_config,
+            );
             Ok(StepOutcome {
                 output,
                 credit_index_update: None,
@@ -202,7 +250,13 @@ pub(crate) fn execute_params(
         }
         StepParams::Inflation(p) => {
             let (ctx, report) = InflationBootstrapper::solve(p, quotes, context, global_config)?;
-            let output = StepOutput::Curve(ctx.get_inflation(&p.curve_id)?.into());
+            let curve = ctx.get_inflation(&p.curve_id)?;
+            let output = StepOutput::Curve(curve.clone().into());
+            let report = attach_validation_result(
+                report,
+                curve.validate(&global_config.validation),
+                global_config,
+            );
             Ok(StepOutcome {
                 output,
                 credit_index_update: None,
@@ -213,7 +267,13 @@ pub(crate) fn execute_params(
             let (ctx, report) =
                 BaseCorrelationBootstrapper::solve(p, quotes, context, global_config)?;
             let curve_id = CurveId::from(format!("{}_CORR", p.index_id));
-            let output = StepOutput::Curve(ctx.get_base_correlation(curve_id.as_str())?.into());
+            let curve = ctx.get_base_correlation(curve_id.as_str())?;
+            let output = StepOutput::Curve(curve.clone().into());
+            let report = attach_validation_result(
+                report,
+                curve.validate(&global_config.validation),
+                global_config,
+            );
             let credit_index_update = ctx
                 .credit_index(&p.index_id)
                 .ok()
@@ -240,6 +300,11 @@ pub(crate) fn execute_params(
                     },
                     global_config.explain.max_entries,
                 );
+            let new_report = attach_validation_result(
+                new_report,
+                surface.validate(&global_config.validation),
+                global_config,
+            );
             Ok(StepOutcome {
                 output: StepOutput::Surface(surface.into()),
                 credit_index_update: None,
@@ -249,6 +314,15 @@ pub(crate) fn execute_params(
         StepParams::SwaptionVol(p) => {
             let (surface, report) =
                 SwaptionVolBootstrapper::solve(p, quotes, context, global_config)?;
+            let report = if surface.secondary_axis() == VolSurfaceAxis::Strike {
+                attach_validation_result(
+                    report,
+                    surface.validate(&global_config.validation),
+                    global_config,
+                )
+            } else {
+                report
+            };
             Ok(StepOutcome {
                 output: StepOutput::Surface(surface.into()),
                 credit_index_update: None,
@@ -307,13 +381,41 @@ pub(crate) fn execute_params(
                 })
                 .collect();
 
-            let (hw_params, report) = calibrate_hull_white_to_swaptions(&df, &hw_quotes)?;
+            let initial_guess = match (p.initial_kappa, p.initial_sigma) {
+                (Some(kappa), Some(sigma)) => Some(HullWhiteParams::new(kappa, sigma)?),
+                (None, None) => None,
+                _ => {
+                    return Err(finstack_core::Error::Validation(
+                        "Hull-White calibration requires both `initial_kappa` and `initial_sigma` when overriding defaults"
+                            .to_string(),
+                    ))
+                }
+            };
+            let frequency = match p.currency {
+                finstack_core::currency::Currency::EUR | finstack_core::currency::Currency::GBP => {
+                    SwapFrequency::Annual
+                }
+                _ => SwapFrequency::SemiAnnual,
+            };
+            let (hw_params, report) =
+                calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
+                    &df,
+                    &hw_quotes,
+                    frequency,
+                    initial_guess,
+                )?;
 
             Ok(StepOutcome {
-                output: StepOutput::Scalar {
-                    key: format!("{}_HW1F", p.curve_id.as_str()),
-                    value: MarketScalar::Unitless(hw_params.kappa),
-                },
+                output: StepOutput::Scalars(vec![
+                    (
+                        format!("{}_HW1F_KAPPA", p.curve_id.as_str()),
+                        MarketScalar::Unitless(hw_params.kappa),
+                    ),
+                    (
+                        format!("{}_HW1F_SIGMA", p.curve_id.as_str()),
+                        MarketScalar::Unitless(hw_params.sigma),
+                    ),
+                ]),
                 credit_index_update: None,
                 report,
             })
@@ -500,12 +602,14 @@ pub(crate) fn execute_params_and_apply(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::calibration::api::schema::{StudentTParams, SviSurfaceParams};
+    use crate::calibration::api::schema::{HullWhiteStepParams, StudentTParams, SviSurfaceParams};
     use crate::instruments::credit_derivatives::cds_tranche::{
         CDSTranche, CDSTranchePricer, CDSTranchePricerConfig, TrancheSide,
     };
     use crate::instruments::Attributes;
-    use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause, OptionConventionId};
+    use crate::market::conventions::ids::{
+        CdsConventionKey, CdsDocClause, OptionConventionId, SwaptionConventionId,
+    };
     use crate::market::quotes::cds_tranche::CDSTrancheQuote;
     use crate::market::quotes::ids::QuoteId;
     use finstack_core::currency::Currency;
@@ -640,6 +744,59 @@ mod tests {
                 );
             }
             _ => panic!("expected scalar output"),
+        }
+    }
+
+    #[test]
+    fn hull_white_step_persists_both_kappa_and_sigma_scalars() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let params = StepParams::HullWhite(HullWhiteStepParams {
+            curve_id: "USD-OIS".into(),
+            currency: Currency::USD,
+            base_date,
+            initial_kappa: Some(0.04),
+            initial_sigma: Some(0.008),
+        });
+        let quotes = vec![
+            MarketQuote::Vol(VolQuote::SwaptionVol {
+                expiry: Date::from_calendar_date(2026, Month::January, 1).expect("expiry"),
+                maturity: Date::from_calendar_date(2031, Month::January, 1).expect("maturity"),
+                strike: 0.03,
+                vol: 0.0050,
+                quote_type: "normal".to_string(),
+                convention: SwaptionConventionId::new("USD"),
+            }),
+            MarketQuote::Vol(VolQuote::SwaptionVol {
+                expiry: Date::from_calendar_date(2027, Month::January, 1).expect("expiry"),
+                maturity: Date::from_calendar_date(2032, Month::January, 1).expect("maturity"),
+                strike: 0.03,
+                vol: 0.0060,
+                quote_type: "normal".to_string(),
+                convention: SwaptionConventionId::new("USD"),
+            }),
+        ];
+        let context = MarketContext::new()
+            .insert_discount(build_flat_discount_curve(0.03, base_date, "USD-OIS"));
+
+        let outcome = execute_params(&params, &quotes, &context, &CalibrationConfig::default())
+            .expect("Hull-White step should calibrate");
+
+        match outcome.output {
+            StepOutput::Scalars(values) => {
+                assert!(
+                    values
+                        .iter()
+                        .any(|(key, _)| key.starts_with("USD-OIS_") && key.ends_with("KAPPA")),
+                    "expected calibrated kappa scalar output"
+                );
+                assert!(
+                    values
+                        .iter()
+                        .any(|(key, _)| key.starts_with("USD-OIS_") && key.ends_with("SIGMA")),
+                    "expected calibrated sigma scalar output"
+                );
+            }
+            _ => panic!("expected multiple scalar outputs for Hull-White calibration"),
         }
     }
 

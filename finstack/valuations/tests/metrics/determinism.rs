@@ -273,6 +273,7 @@ mod tests {
             barrier_type: BarrierType::UpAndOut,
             option_type: OptionType::Call,
             expiry,
+            observed_barrier_breached: None,
             notional: Money::new(1.0, Currency::USD),
             day_count: DayCount::Act365F,
             use_gobet_miri: true,

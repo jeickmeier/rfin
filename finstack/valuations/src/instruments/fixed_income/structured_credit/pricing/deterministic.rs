@@ -92,22 +92,25 @@ pub fn run_simulation(
         .payment_bdc
         .unwrap_or(BusinessDayConvention::ModifiedFollowing);
 
-    // Generate payment schedule with calendar-adjusted dates
-    let schedule = ScheduleBuilder::new(
-        instrument.first_payment_date.max(as_of),
-        instrument.maturity,
-    )?
-    .frequency(instrument.frequency)
-    .build()?;
+    // Generate the full contractual payment schedule, then filter future dates.
+    // Re-anchoring the schedule at `as_of` would shift legal coupon dates for
+    // seasoned deals valued between payment dates.
+    let schedule = ScheduleBuilder::new(instrument.first_payment_date, instrument.maturity)?
+        .frequency(instrument.frequency)
+        .build()?;
 
     let mut adjusted_schedule = schedule;
     for date in &mut adjusted_schedule.dates {
         *date = adjust(*date, convention, calendar)?;
     }
-    let schedule = adjusted_schedule;
+    let schedule_dates: Vec<Date> = adjusted_schedule
+        .dates
+        .into_iter()
+        .filter(|date| *date > as_of)
+        .collect();
 
     // Simulate period-by-period
-    for pay_date in schedule.dates {
+    for pay_date in schedule_dates {
         if state.is_pool_exhausted() {
             break;
         }
@@ -409,11 +412,16 @@ impl<'a> SimulationState<'a> {
 
     fn finalize(mut self) -> HashMap<String, TrancheCashflows> {
         for (tranche_id, res) in self.results.iter_mut() {
-            res.final_balance = self
+            let mut final_balance = self
                 .tranche_balances
                 .get(tranche_id)
                 .copied()
                 .unwrap_or(Money::new(0.0, self.base_ccy));
+            if final_balance.amount() < 0.0 && final_balance.amount().abs() <= WRITEDOWN_DE_MINIMIS
+            {
+                final_balance = Money::new(0.0, self.base_ccy);
+            }
+            res.final_balance = final_balance;
 
             for (date, amount) in &res.interest_flows {
                 if amount.amount() > 0.0 {
@@ -753,6 +761,14 @@ fn simulate_period(
             .pool_outstanding
             .checked_sub(total_principal_from_pool)?
             .checked_sub(pool_flows.default)?;
+    }
+
+    // Numerical cleanup: avoid tiny negative residual balances like -0.00
+    // after repeated principal/default arithmetic.
+    if state.pool_outstanding.amount() < 0.0
+        && state.pool_outstanding.amount().abs() <= WRITEDOWN_DE_MINIMIS
+    {
+        state.pool_outstanding = Money::new(0.0, state.base_ccy);
     }
 
     Ok(())
