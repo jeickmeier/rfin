@@ -15,7 +15,6 @@ use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
 use finstack_core::InputError;
 use rust_decimal::prelude::ToPrimitive;
-use rust_decimal::Decimal;
 use tracing::{info, warn};
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
@@ -42,39 +41,9 @@ pub(crate) fn emit_inflation_coupons(
     }
 }
 
-/// Convert an f64 to Decimal, returning an error for non-finite values.
-///
-/// This prevents silent masking of NaN/Infinity values as zero, which would
-/// result in zero coupons instead of a proper error indicating data corruption.
-fn f64_to_decimal(value: f64, _context: &str) -> finstack_core::Result<Decimal> {
-    use finstack_core::NonFiniteKind;
-
-    if value.is_nan() {
-        return Err(InputError::NonFiniteValue {
-            kind: NonFiniteKind::NaN,
-        }
-        .into());
-    }
-    if value.is_infinite() {
-        let kind = if value.is_sign_positive() {
-            NonFiniteKind::PosInfinity
-        } else {
-            NonFiniteKind::NegInfinity
-        };
-        return Err(InputError::NonFiniteValue { kind }.into());
-    }
-    Decimal::try_from(value).map_err(|_| finstack_core::Error::from(InputError::ConversionOverflow))
-}
-
-/// Convert Decimal to f64, returning an error if conversion fails.
-///
-/// While Decimal values are always finite, the conversion to f64 can fail
-/// for very large values that exceed f64's representable range.
-fn decimal_to_f64(value: Decimal, _context: &str) -> finstack_core::Result<f64> {
-    value
-        .to_f64()
-        .ok_or_else(|| finstack_core::Error::from(InputError::ConversionOverflow))
-}
+// Shared f64 ↔ Decimal conversion helpers live in the parent `emission` module
+// so that `fees.rs` can use them too. Access via `super::`.
+use super::{decimal_to_f64, f64_to_decimal};
 
 /// Compute the index maturity date based on reset date and index tenor.
 ///
@@ -176,6 +145,76 @@ pub(crate) fn emit_fixed_coupons_on(
         }
     }
     Ok(pik_to_add)
+}
+
+/// Sample daily overnight rates from a forward curve for an accrual period.
+///
+/// For each calendar day in `[accrual_start, accrual_end)`, assigns the overnight
+/// rate fixing at the nearest preceding business day. Non-business days before the
+/// first fixing accumulate into the first business day's weight; non-business days
+/// after a fixing accumulate into the preceding fixing's weight.
+///
+/// Returns `(daily_rates, total_days)` where:
+/// - `daily_rates` is a vec of `(rate, weight_days)` per fixing date.
+/// - `total_days` is the total calendar days in the period (used as the denominator
+///   for simple-average compounding methods).
+///
+/// # ISDA 2021 Reference
+///
+/// Per Section 7.1(g): the rate for each Reset Date accrues for the number of
+/// calendar days from that Reset Date to the next Reset Date (or period end).
+fn sample_overnight_rates(
+    accrual_start: Date,
+    accrual_end: Date,
+    fwd: &ForwardCurve,
+    calendar: &dyn finstack_core::dates::HolidayCalendar,
+) -> (Vec<(f64, u32)>, u32) {
+    let fwd_dc = fwd.day_count();
+    let fwd_base = fwd.base_date();
+
+    let mut daily_rates: Vec<(f64, u32)> = Vec::new();
+    let mut pre_first_fixing_days: u32 = 0;
+    let mut current = accrual_start;
+
+    while current < accrual_end {
+        let next = current + time::Duration::days(1);
+        let next_capped = if next > accrual_end {
+            accrual_end
+        } else {
+            next
+        };
+        let days = (next_capped - current).whole_days().max(1) as u32;
+
+        if current.is_business_day(calendar) {
+            let t = if current <= fwd_base {
+                0.0
+            } else {
+                fwd_dc
+                    .year_fraction(
+                        fwd_base,
+                        current,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0)
+            };
+            let rate = fwd.rate(t);
+            // Assign any pre-period non-business days to this first fixing.
+            let total = days + pre_first_fixing_days;
+            pre_first_fixing_days = 0;
+            daily_rates.push((rate, total));
+        } else if daily_rates.is_empty() {
+            // Non-business day before the first fixing: accumulate to assign
+            // to the first fixing's weight once we encounter it.
+            pre_first_fixing_days += days;
+        } else if let Some(last) = daily_rates.last_mut() {
+            // Non-business day after a fixing: add to the preceding fixing.
+            last.1 += days;
+        }
+        current = next_capped;
+    }
+
+    let total_days = (accrual_end - accrual_start).whole_days().max(1) as u32;
+    (daily_rates, total_days)
 }
 
 /// Emit floating coupon cashflows on a specific date.
@@ -300,52 +339,11 @@ pub(crate) fn emit_float_coupons_on(
                 // Sample daily rates from the forward curve and compound them
                 // according to the ISDA 2021 method, then apply floor/cap/gearing/spread.
                 if let Some(fwd) = resolved_curve.as_deref() {
-                    let fwd_dc = fwd.day_count();
-                    let fwd_base = fwd.base_date();
-
-                    // Sample daily overnight rates for each business day in the accrual period.
-                    // Per ISDA 2021 Section 7.1(g), the rate for each Reset Date accrues for
-                    // the number of calendar days from that Reset Date to the next.
-                    let mut daily_rates: Vec<(f64, u32)> = Vec::new();
-                    let mut pre_first_fixing_days: u32 = 0;
-                    let mut current = accrual_start;
-                    while current < accrual_end {
-                        let next = current + time::Duration::days(1);
-                        let next_capped = if next > accrual_end {
-                            accrual_end
-                        } else {
-                            next
-                        };
-                        let days = (next_capped - current).whole_days().max(1) as u32;
-
-                        if current.is_business_day(calendar) {
-                            let t = if current <= fwd_base {
-                                0.0
-                            } else {
-                                fwd_dc
-                                    .year_fraction(
-                                        fwd_base,
-                                        current,
-                                        finstack_core::dates::DayCountCtx::default(),
-                                    )
-                                    .unwrap_or(0.0)
-                            };
-                            let rate = fwd.rate(t);
-                            // Include any non-business days before the first fixing.
-                            let total = days + pre_first_fixing_days;
-                            pre_first_fixing_days = 0;
-                            daily_rates.push((rate, total));
-                        } else if daily_rates.is_empty() {
-                            // Non-business day before the first fixing: accumulate days
-                            // so they are assigned to the first business day's weight.
-                            pre_first_fixing_days += days;
-                        } else if let Some(last) = daily_rates.last_mut() {
-                            last.1 += days;
-                        }
-                        current = next_capped;
-                    }
-
-                    let total_days = (accrual_end - accrual_start).whole_days().max(1) as u32;
+                    // Sample per-business-day overnight rates and their calendar-day weights
+                    // from the forward curve. Extracted to `sample_overnight_rates` for
+                    // independent testability and separation of rate-sampling from compounding.
+                    let (daily_rates, total_days) =
+                        sample_overnight_rates(accrual_start, accrual_end, fwd, calendar);
 
                     // Determine the annualization basis from the floating rate day count.
                     let day_count_basis = match spec.rate_spec.dc {

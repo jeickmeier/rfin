@@ -526,7 +526,11 @@ impl<'a> CashflowEngine<'a> {
             meta: crate::cashflow::builder::CashFlowMeta {
                 calendar_ids: Vec::new(),
                 facility_limit: Some(self.facility.commitment_amount),
-                issue_date: None,
+                // commitment_date is the facility's effective start: the date on which the
+                // initial draw is made and interest accrual begins. Providing it here
+                // eliminates the inverse day count approximation (±1-2 day error) used
+                // by the accrual engine when issue_date is absent.
+                issue_date: Some(self.facility.commitment_date),
             },
         })
     }
@@ -711,7 +715,11 @@ impl<'a> CashflowEngine<'a> {
             meta: crate::cashflow::builder::CashFlowMeta {
                 calendar_ids: Vec::new(),
                 facility_limit: Some(self.facility.commitment_amount),
-                issue_date: None,
+                // commitment_date is the facility's effective start: the date on which the
+                // initial draw is made and interest accrual begins. Providing it here
+                // eliminates the inverse day count approximation (±1-2 day error) used
+                // by the accrual engine when issue_date is absent.
+                issue_date: Some(self.facility.commitment_date),
             },
         })
     }
