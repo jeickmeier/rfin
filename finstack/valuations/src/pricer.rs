@@ -4,6 +4,18 @@
 //! (instrument type, model) pairs to specific pricer implementations.
 //! The system uses enum-based dispatch for type safety rather than string
 //! comparisons.
+//!
+//! # Module structure
+//!
+//! The registration logic is split into asset-class submodules:
+//! - [`rates`]: Bond, IRS, FRA, BasisSwap, Deposit, CapFloor, Swaption, Repo, DCF, IR futures
+//! - [`credit`]: CDS, CDSIndex, CDSTranche, CDSOption, StructuredCredit
+//! - [`equity`]: Equity, EquityOption, EquityTRS, VarianceSwap, EquityIndexFuture, RealEstate, PE fund
+//! - [`fx`]: FxSpot, FxSwap, XccySwap, FxOption, FxVarianceSwap, FxForward, NDF, FX barrier/digital/touch
+//! - [`fixed_income`]: FIIndexTRS, Convertible, InflationLinkedBond, RevolvingCredit, TermLoan, MBS, TBA, CMO
+//! - [`inflation`]: InflationSwap, YoYInflationSwap, InflationCapFloor
+//! - [`exotics`]: Basket, Asian, Barrier, Lookback, Quanto, Autocallable, CMS, Cliquet, RangeAccrual, BermudanSwaption
+//! - [`commodity`]: CommodityForward, CommoditySwap, CommodityOption, CommoditySwaption, CommoditySpreadOption
 
 use crate::instruments::common_impl::traits::Instrument as Priceable;
 use finstack_core::config::{results_meta_now, FinstackConfig};
@@ -1488,6 +1500,11 @@ fn stamp_results_meta(cfg: &FinstackConfig, result: &mut crate::results::Valuati
 
 // ========================= REGISTRATION =========================
 
+// Each submodule defines its own copy of this macro since `use super::*;` does
+// not bring `macro_rules!` macros into scope in separate file modules.
+// The macro is kept here for documentation purposes and to serve as the
+// canonical definition that submodules mirror.
+#[allow(unused_macros)]
 macro_rules! register_pricer {
     ($registry:expr, $inst:ident, $model:ident, $pricer:expr) => {
         $registry.register_pricer(
@@ -1496,6 +1513,17 @@ macro_rules! register_pricer {
         );
     };
 }
+
+// Asset-class submodules — declared after the `register_pricer!` macro for
+// documentation clarity. Each submodule defines its own copy of the macro.
+mod commodity;
+mod credit;
+mod equity;
+mod exotics;
+mod fixed_income;
+mod fx;
+mod inflation;
+mod rates;
 
 /// Register all standard pricers explicitly.
 ///
@@ -1519,734 +1547,44 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
 /// Intended for environments (like WASM) where registering *all* pricers may be
 /// too memory intensive.
 pub fn register_rates_pricers(registry: &mut PricerRegistry) {
-    // Bond pricers
-    register_pricer!(
-        registry,
-        Bond,
-        Discounting,
-        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondDiscountingPricer::default()
-    );
-    register_pricer!(
-        registry,
-        Bond,
-        HazardRate,
-        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondHazardPricer
-    );
-    register_pricer!(
-        registry,
-        Bond,
-        Tree,
-        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondOasPricer
-    );
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        Bond,
-        MertonMc,
-        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondMertonMcPricer
-    );
-
-    // Interest Rate Swaps
-    register_pricer!(
-        registry,
-        IRS,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::InterestRateSwap,
-        >::discounting(InstrumentType::IRS)
-    );
-
-    // FRA
-    register_pricer!(
-        registry,
-        FRA,
-        Discounting,
-        crate::instruments::rates::fra::pricer::SimpleFraDiscountingPricer::default()
-    );
-
-    // Basis Swap
-    register_pricer!(
-        registry,
-        BasisSwap,
-        Discounting,
-        crate::instruments::rates::basis_swap::pricer::SimpleBasisSwapDiscountingPricer::default()
-    );
-
-    // Deposit
-    register_pricer!(
-        registry,
-        Deposit,
-        Discounting,
-        crate::instruments::rates::deposit::pricer::SimpleDepositDiscountingPricer::default()
-    );
-
-    // Interest Rate Future
-    register_pricer!(
-        registry,
-        InterestRateFuture,
-        Discounting,
-        crate::instruments::rates::ir_future::pricer::SimpleIrFutureDiscountingPricer::default()
-    );
-
-    // IR Future Option
-    register_pricer!(
-        registry,
-        IrFutureOption,
-        Discounting,
-        crate::instruments::rates::ir_future_option::pricer::IrFutureOptionPricer::default()
-    );
-
-    // Bond Future
-    register_pricer!(
-        registry,
-        BondFuture,
-        Discounting,
-        crate::instruments::fixed_income::bond_future::pricer::BondFuturePricer
-    );
-
-    // Cap/Floor
-    register_pricer!(
-        registry,
-        CapFloor,
-        Black76,
-        crate::instruments::rates::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::default()
-    );
-    register_pricer!(
-        registry,
-        CapFloor,
-        Discounting,
-        crate::instruments::rates::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::with_model(
-            ModelKey::Discounting
-        )
-    );
-
-    // Swaption
-    register_pricer!(
-        registry,
-        Swaption,
-        Black76,
-        crate::instruments::rates::swaption::pricer::SimpleSwaptionBlackPricer::default()
-    );
-    register_pricer!(
-        registry,
-        Swaption,
-        Discounting,
-        crate::instruments::rates::swaption::pricer::SimpleSwaptionBlackPricer::with_model(
-            ModelKey::Discounting
-        )
-    );
-
-    // Repo
-    register_pricer!(
-        registry,
-        Repo,
-        Discounting,
-        crate::instruments::rates::repo::pricer::SimpleRepoDiscountingPricer::default()
-    );
-
-    // DCF (Discounted Cash Flow)
-    register_pricer!(
-        registry,
-        DCF,
-        Discounting,
-        crate::instruments::equity::dcf_equity::pricer::DcfPricer
-    );
+    rates::register_rates_pricers(registry);
 }
 
 /// Register pricers for credit instruments.
 pub fn register_credit_pricers(registry: &mut PricerRegistry) {
-    // CDS
-    register_pricer!(
-        registry,
-        CDS,
-        HazardRate,
-        crate::instruments::common_impl::GenericInstrumentPricer::cds()
-    );
-    register_pricer!(
-        registry,
-        CDS,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::CreditDefaultSwap,
-        >::new(InstrumentType::CDS, ModelKey::Discounting)
-    );
-
-    // CDS Index
-    register_pricer!(
-        registry,
-        CDSIndex,
-        HazardRate,
-        crate::instruments::credit_derivatives::cds_index::pricer::SimpleCdsIndexHazardPricer::default()
-    );
-    register_pricer!(
-        registry,
-        CDSIndex,
-        Discounting,
-        crate::instruments::credit_derivatives::cds_index::pricer::SimpleCdsIndexHazardPricer::with_model(
-            ModelKey::Discounting
-        )
-    );
-
-    // CDS Tranche
-    register_pricer!(
-        registry,
-        CDSTranche,
-        HazardRate,
-        crate::instruments::credit_derivatives::cds_tranche::pricer::SimpleCDSTrancheHazardPricer::default()
-    );
-    register_pricer!(
-        registry,
-        CDSTranche,
-        Discounting,
-        crate::instruments::credit_derivatives::cds_tranche::pricer::SimpleCDSTrancheHazardPricer::with_model(
-            ModelKey::Discounting
-        )
-    );
-
-    // CDS Option
-    register_pricer!(
-        registry,
-        CDSOption,
-        Black76,
-        crate::instruments::credit_derivatives::cds_option::pricer::SimpleCDSOptionBlackPricer::default()
-    );
-    register_pricer!(
-        registry,
-        CDSOption,
-        Discounting,
-        crate::instruments::credit_derivatives::cds_option::pricer::SimpleCDSOptionBlackPricer::with_model(
-            ModelKey::Discounting
-        )
-    );
-
-    // Structured Credit - unified pricer for ABS, CLO, CMBS, RMBS
-    register_pricer!(
-        registry,
-        StructuredCredit,
-        Discounting,
-        crate::instruments::fixed_income::structured_credit::StructuredCreditDiscountingPricer::default()
-    );
+    credit::register_credit_pricers(registry);
 }
 
 /// Register pricers for equity instruments.
 pub fn register_equity_pricers(registry: &mut PricerRegistry) {
-    // Equity
-    register_pricer!(
-        registry,
-        Equity,
-        Discounting,
-        crate::instruments::equity::spot::pricer::SimpleEquityDiscountingPricer
-    );
-
-    // Equity Option
-    register_pricer!(
-        registry,
-        EquityOption,
-        Black76,
-        crate::instruments::equity::equity_option::pricer::SimpleEquityOptionBlackPricer::default()
-    );
-    register_pricer!(
-        registry,
-        EquityOption,
-        Discounting,
-        crate::instruments::equity::equity_option::pricer::SimpleEquityOptionBlackPricer::with_model(
-            ModelKey::Discounting
-        )
-    );
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        EquityOption,
-        HestonFourier,
-        crate::instruments::equity::equity_option::pricer::EquityOptionHestonFourierPricer
-    );
-
-    // Equity TRS
-    register_pricer!(
-        registry,
-        EquityTotalReturnSwap,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::equity::equity_trs::EquityTotalReturnSwap,
-        >::discounting(InstrumentType::EquityTotalReturnSwap)
-    );
-
-    // Variance Swap
-    register_pricer!(
-        registry,
-        VarianceSwap,
-        Discounting,
-        crate::instruments::equity::variance_swap::pricer::SimpleVarianceSwapDiscountingPricer::default()
-    );
-
-    // Equity Index Future - uses GenericInstrumentPricer
-    register_pricer!(
-        registry,
-        EquityIndexFuture,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::EquityIndexFuture,
-        >::discounting(InstrumentType::EquityIndexFuture)
-    );
-
-    // Real Estate Asset - uses GenericInstrumentPricer (curve dependencies)
-    register_pricer!(
-        registry,
-        RealEstateAsset,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::RealEstateAsset,
-        >::discounting(InstrumentType::RealEstateAsset)
-    );
-
-    // Levered Real Estate Equity - uses GenericInstrumentPricer
-    register_pricer!(
-        registry,
-        LeveredRealEstateEquity,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::LeveredRealEstateEquity,
-        >::discounting(InstrumentType::LeveredRealEstateEquity)
-    );
-
-    // Private Markets Fund
-    register_pricer!(
-        registry,
-        PrivateMarketsFund,
-        Discounting,
-        crate::instruments::equity::pe_fund::pricer::PrivateMarketsFundDiscountingPricer
-    );
+    equity::register_equity_pricers(registry);
 }
 
 /// Register pricers for FX instruments.
 pub fn register_fx_pricers(registry: &mut PricerRegistry) {
-    // FX Spot
-    register_pricer!(
-        registry,
-        FxSpot,
-        Discounting,
-        crate::instruments::fx::fx_spot::pricer::FxSpotPricer
-    );
-
-    // FX Swap
-    register_pricer!(
-        registry,
-        FxSwap,
-        Discounting,
-        crate::instruments::fx::fx_swap::pricer::SimpleFxSwapDiscountingPricer::default()
-    );
-
-    // XCCY Swap
-    register_pricer!(
-        registry,
-        XccySwap,
-        Discounting,
-        crate::instruments::rates::xccy_swap::pricer::SimpleXccySwapDiscountingPricer::default()
-    );
-
-    // FX Option
-    register_pricer!(
-        registry,
-        FxOption,
-        Black76,
-        crate::instruments::fx::fx_option::pricer::SimpleFxOptionBlackPricer::default()
-    );
-    register_pricer!(
-        registry,
-        FxOption,
-        Discounting,
-        crate::instruments::fx::fx_option::pricer::SimpleFxOptionBlackPricer::with_model(
-            ModelKey::Discounting
-        )
-    );
-
-    // FX Variance Swap
-    register_pricer!(
-        registry,
-        FxVarianceSwap,
-        Discounting,
-        crate::instruments::fx::fx_variance_swap::pricer::SimpleFxVarianceSwapDiscountingPricer::default()
-    );
-
-    // FX Forward - uses GenericInstrumentPricer (curve dependencies)
-    register_pricer!(
-        registry,
-        FxForward,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::FxForward,
-        >::discounting(InstrumentType::FxForward)
-    );
-
-    // NDF (Non-Deliverable Forward) - uses GenericInstrumentPricer (curve dependencies)
-    register_pricer!(
-        registry,
-        Ndf,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<crate::instruments::Ndf>::discounting(
-            InstrumentType::Ndf
-        )
-    );
-
-    // FX Barrier Option
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        FxBarrierOption,
-        MonteCarloGBM,
-        crate::instruments::fx::fx_barrier_option::pricer::FxBarrierOptionMcPricer::default()
-    );
-    register_pricer!(
-        registry,
-        FxBarrierOption,
-        FxBarrierBSContinuous,
-        crate::instruments::fx::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer
-    );
-
-    // FX Digital Option
-    register_pricer!(
-        registry,
-        FxDigitalOption,
-        Black76,
-        crate::instruments::fx::fx_digital_option::SimpleFxDigitalOptionPricer::default()
-    );
-    register_pricer!(
-        registry,
-        FxDigitalOption,
-        Discounting,
-        crate::instruments::fx::fx_digital_option::SimpleFxDigitalOptionPricer::with_model(
-            ModelKey::Discounting
-        )
-    );
-
-    // FX Touch Option
-    register_pricer!(
-        registry,
-        FxTouchOption,
-        Black76,
-        crate::instruments::fx::fx_touch_option::SimpleFxTouchOptionPricer::default()
-    );
-    register_pricer!(
-        registry,
-        FxTouchOption,
-        Discounting,
-        crate::instruments::fx::fx_touch_option::SimpleFxTouchOptionPricer::with_model(
-            ModelKey::Discounting
-        )
-    );
+    fx::register_fx_pricers(registry);
 }
 
 /// Register pricers for additional fixed-income instruments (convertibles, MBS,
 /// revolving credit, term loans) not included in the minimal rates set.
 pub fn register_fixed_income_pricers(registry: &mut PricerRegistry) {
-    // FI Index TRS
-    register_pricer!(
-        registry,
-        FIIndexTotalReturnSwap,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap,
-        >::discounting(InstrumentType::FIIndexTotalReturnSwap)
-    );
-
-    // Convertible Bond
-    register_pricer!(
-        registry,
-        Convertible,
-        Discounting,
-        crate::instruments::fixed_income::convertible::pricer::ConvertibleTreePricer
-    );
-
-    // Inflation Linked Bond
-    register_pricer!(
-        registry,
-        InflationLinkedBond,
-        Discounting,
-        crate::instruments::fixed_income::inflation_linked_bond::pricer::SimpleInflationLinkedBondDiscountingPricer::default()
-    );
-
-    // Revolving Credit
-    register_pricer!(
-        registry,
-        RevolvingCredit,
-        Discounting,
-        crate::instruments::fixed_income::revolving_credit::pricer::RevolvingCreditPricer::new(
-            ModelKey::Discounting
-        )
-    );
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        RevolvingCredit,
-        MonteCarloGBM,
-        crate::instruments::fixed_income::revolving_credit::pricer::RevolvingCreditPricer::new(
-            ModelKey::MonteCarloGBM
-        )
-    );
-
-    // Term Loan (including DDTL)
-    register_pricer!(
-        registry,
-        TermLoan,
-        Discounting,
-        crate::instruments::fixed_income::term_loan::pricing::TermLoanDiscountingPricer
-    );
-    register_pricer!(
-        registry,
-        TermLoan,
-        Tree,
-        crate::instruments::fixed_income::term_loan::pricing::TermLoanTreePricer::default()
-    );
-
-    // Agency MBS Passthrough
-    register_pricer!(
-        registry,
-        AgencyMbsPassthrough,
-        Discounting,
-        crate::instruments::fixed_income::mbs_passthrough::AgencyMbsDiscountingPricer
-    );
-
-    // Agency TBA
-    register_pricer!(
-        registry,
-        AgencyTba,
-        Discounting,
-        crate::instruments::fixed_income::tba::AgencyTbaDiscountingPricer
-    );
-
-    // Dollar Roll
-    register_pricer!(
-        registry,
-        DollarRoll,
-        Discounting,
-        crate::instruments::fixed_income::dollar_roll::DollarRollDiscountingPricer
-    );
-
-    // Agency CMO
-    register_pricer!(
-        registry,
-        AgencyCmo,
-        Discounting,
-        crate::instruments::fixed_income::cmo::AgencyCmoDiscountingPricer
-    );
+    fixed_income::register_fixed_income_pricers(registry);
 }
 
 /// Register pricers for inflation instruments (swaps, caps/floors).
 pub fn register_inflation_pricers(registry: &mut PricerRegistry) {
-    // Inflation Swap
-    register_pricer!(
-        registry,
-        InflationSwap,
-        Discounting,
-        crate::instruments::rates::inflation_swap::pricer::SimpleInflationSwapDiscountingPricer::default()
-    );
-
-    // YoY Inflation Swap
-    register_pricer!(
-        registry,
-        YoYInflationSwap,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::rates::inflation_swap::YoYInflationSwap,
-        >::discounting(InstrumentType::YoYInflationSwap)
-    );
-
-    // Inflation Cap/Floor
-    register_pricer!(
-        registry,
-        InflationCapFloor,
-        Black76,
-        crate::instruments::rates::inflation_cap_floor::pricer::SimpleInflationCapFloorPricer::default()
-    );
-    register_pricer!(
-        registry,
-        InflationCapFloor,
-        Normal,
-        crate::instruments::rates::inflation_cap_floor::pricer::SimpleInflationCapFloorPricer::with_model(
-            ModelKey::Normal
-        )
-    );
+    inflation::register_inflation_pricers(registry);
 }
 
 /// Register pricers for exotic instruments (barriers, lookbacks, Asians,
 /// autocallables, quantos, cliquets, range accruals, Bermudan swaptions).
 pub fn register_exotic_pricers(registry: &mut PricerRegistry) {
-    // Basket
-    register_pricer!(
-        registry,
-        Basket,
-        Discounting,
-        crate::instruments::exotics::basket::SimpleBasketDiscountingPricer::default()
-    );
-
-    // Asian Option
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        AsianOption,
-        MonteCarloGBM,
-        crate::instruments::exotics::asian_option::pricer::AsianOptionMcPricer::default()
-    );
-    register_pricer!(
-        registry,
-        AsianOption,
-        AsianGeometricBS,
-        crate::instruments::exotics::asian_option::pricer::AsianOptionAnalyticalGeometricPricer
-    );
-    register_pricer!(
-        registry,
-        AsianOption,
-        AsianTurnbullWakeman,
-        crate::instruments::exotics::asian_option::pricer::AsianOptionSemiAnalyticalTwPricer
-    );
-
-    // Barrier Option
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        BarrierOption,
-        MonteCarloGBM,
-        crate::instruments::exotics::barrier_option::pricer::BarrierOptionMcPricer::default()
-    );
-    register_pricer!(
-        registry,
-        BarrierOption,
-        BarrierBSContinuous,
-        crate::instruments::exotics::barrier_option::pricer::BarrierOptionAnalyticalPricer
-    );
-
-    // Lookback Option
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        LookbackOption,
-        MonteCarloGBM,
-        crate::instruments::exotics::lookback_option::pricer::LookbackOptionMcPricer::default()
-    );
-    register_pricer!(
-        registry,
-        LookbackOption,
-        LookbackBSContinuous,
-        crate::instruments::exotics::lookback_option::pricer::LookbackOptionAnalyticalPricer
-    );
-
-    // Quanto Option
-    register_pricer!(
-        registry,
-        QuantoOption,
-        QuantoBS,
-        crate::instruments::fx::quanto_option::pricer::QuantoOptionAnalyticalPricer
-    );
-
-    // Autocallable
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        Autocallable,
-        MonteCarloGBM,
-        crate::instruments::equity::autocallable::pricer::AutocallableMcPricer::default()
-    );
-
-    // CMS Option
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        CmsOption,
-        MonteCarloHullWhite1F,
-        crate::instruments::rates::cms_option::pricer::CmsOptionPricer::new()
-    );
-
-    // CMS Swap
-    register_pricer!(
-        registry,
-        CmsSwap,
-        Black76,
-        crate::instruments::rates::cms_swap::pricer::CmsSwapPricer::new()
-    );
-
-    // Cliquet Option
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        CliquetOption,
-        MonteCarloGBM,
-        crate::instruments::equity::cliquet_option::pricer::CliquetOptionMcPricer::default()
-    );
-
-    // Range Accrual
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        RangeAccrual,
-        MonteCarloGBM,
-        crate::instruments::rates::range_accrual::pricer::RangeAccrualMcPricer::default()
-    );
-
-    // Bermudan Swaption LSMC (Hull-White 1F Monte Carlo)
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        BermudanSwaption,
-        MonteCarloHullWhite1F,
-        crate::instruments::rates::swaption::pricer::BermudanSwaptionPricer::lsmc_pricer(
-            crate::instruments::rates::swaption::pricer::HullWhiteParams::default()
-        )
-    );
+    exotics::register_exotic_pricers(registry);
 }
 
 /// Register pricers for commodity instruments.
 pub fn register_commodity_pricers(registry: &mut PricerRegistry) {
-    // Commodity Forward
-    register_pricer!(
-        registry,
-        CommodityForward,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::CommodityForward,
-        >::discounting(InstrumentType::CommodityForward)
-    );
-
-    // Commodity Swap
-    register_pricer!(
-        registry,
-        CommoditySwap,
-        Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::CommoditySwap,
-        >::discounting(InstrumentType::CommoditySwap)
-    );
-
-    // Commodity Option
-    register_pricer!(
-        registry,
-        CommodityOption,
-        Black76,
-        crate::instruments::commodity::commodity_option::pricer::CommodityOptionBlackPricer::default()
-    );
-    register_pricer!(
-        registry,
-        CommodityOption,
-        Discounting,
-        crate::instruments::commodity::commodity_option::pricer::CommodityOptionBlackPricer::with_model(
-            ModelKey::Discounting
-        )
-    );
-
-    // Commodity Swaption
-    register_pricer!(
-        registry,
-        CommoditySwaption,
-        Black76,
-        crate::instruments::commodity::commodity_swaption::pricer::CommoditySwaptionBlackPricer::default()
-    );
-
-    // Commodity Spread Option (Kirk's approximation)
-    register_pricer!(
-        registry,
-        CommoditySpreadOption,
-        Black76,
-        crate::instruments::commodity::commodity_spread_option::pricer::CommoditySpreadOptionKirkPricer::default()
-    );
+    commodity::register_commodity_pricers(registry);
 }
 
 /// Create a pricer registry with a minimal set of rates pricers.

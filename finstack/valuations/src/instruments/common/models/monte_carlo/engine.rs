@@ -413,6 +413,16 @@ impl McEngine {
         D: Discretization<P>,
         F: Payoff,
     {
+        // Guard: parallel mode requires a splittable RNG
+        if self.config.use_parallel && !rng.supports_splitting() {
+            return Err(finstack_core::Error::Validation(
+                "Parallel Monte Carlo requires a splittable RNG (e.g., PhiloxRng). \
+                 SobolRng does not support stream splitting — use serial mode (use_parallel: false) \
+                 or switch to PhiloxRng for parallel execution."
+                    .to_string(),
+            ));
+        }
+
         let estimate = if self.config.use_parallel {
             self.price_parallel(
                 rng,
@@ -466,6 +476,16 @@ impl McEngine {
         D: Discretization<P>,
         F: Payoff,
     {
+        // Guard: parallel mode requires a splittable RNG
+        if self.config.use_parallel && !rng.supports_splitting() {
+            return Err(finstack_core::Error::Validation(
+                "Parallel Monte Carlo requires a splittable RNG (e.g., PhiloxRng). \
+                 SobolRng does not support stream splitting — use serial mode (use_parallel: false) \
+                 or switch to PhiloxRng for parallel execution."
+                    .to_string(),
+            ));
+        }
+
         let (estimate, paths) = if self.config.use_parallel {
             self.price_parallel_with_capture(
                 rng,
@@ -1579,5 +1599,118 @@ mod tests {
         assert_eq!(parallel_result.num_paths, 1000);
         #[cfg(feature = "parallel")]
         assert_eq!(serial_result.mean.amount(), parallel_result.mean.amount());
+    }
+
+    /// A minimal RNG that declares it does not support splitting (mimicking SobolRng).
+    #[derive(Clone)]
+    struct NonSplittableRng;
+    impl RandomStream for NonSplittableRng {
+        fn split(&self, _id: u64) -> Self {
+            NonSplittableRng
+        }
+        fn fill_u01(&mut self, out: &mut [f64]) {
+            for x in out {
+                *x = 0.5;
+            }
+        }
+        fn fill_std_normals(&mut self, out: &mut [f64]) {
+            for x in out {
+                *x = 0.0;
+            }
+        }
+        fn supports_splitting(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn test_parallel_with_non_splittable_rng_returns_error() {
+        // Guard: McEngine::price() must return Err when use_parallel=true and
+        // rng.supports_splitting() == false.
+        let engine = McEngine::builder()
+            .num_paths(100)
+            .uniform_grid(1.0, 10)
+            .parallel(true)
+            .build()
+            .expect("McEngine builder should succeed with valid test data");
+
+        let rng = NonSplittableRng;
+        let process = DummyProcess;
+        let disc = DummyDisc;
+        let initial_state = vec![100.0];
+        let payoff = DummyPayoff;
+
+        let result = engine.price(
+            &rng,
+            &process,
+            &disc,
+            &initial_state,
+            &payoff,
+            Currency::USD,
+            1.0,
+        );
+
+        // When the parallel feature is enabled this must be an Err; when it is
+        // disabled the engine falls back to serial, so the guard is never
+        // reached and the call succeeds.
+        #[cfg(feature = "parallel")]
+        {
+            assert!(
+                result.is_err(),
+                "Expected Err for parallel + non-splittable RNG, got Ok"
+            );
+            let err = result.unwrap_err();
+            let err_str = err.to_string();
+            assert!(
+                err_str.contains("splittable RNG"),
+                "Error message should mention splittable RNG, got: {err_str}"
+            );
+        }
+        #[cfg(not(feature = "parallel"))]
+        {
+            // Serial fallback — guard never fires
+            assert!(result.is_ok());
+        }
+    }
+
+    #[test]
+    fn test_price_with_capture_parallel_non_splittable_returns_error() {
+        // Same guard must fire in price_with_capture().
+        let engine = McEngine::builder()
+            .num_paths(100)
+            .uniform_grid(1.0, 10)
+            .parallel(true)
+            .build()
+            .expect("McEngine builder should succeed with valid test data");
+
+        let rng = NonSplittableRng;
+        let process = DummyProcess;
+        let disc = DummyDisc;
+        let initial_state = vec![100.0];
+        let payoff = DummyPayoff;
+        let params = ProcessParams::new("test");
+
+        let result = engine.price_with_capture(
+            &rng,
+            &process,
+            &disc,
+            &initial_state,
+            &payoff,
+            Currency::USD,
+            1.0,
+            params,
+        );
+
+        #[cfg(feature = "parallel")]
+        {
+            assert!(
+                result.is_err(),
+                "Expected Err for parallel + non-splittable RNG in price_with_capture, got Ok"
+            );
+        }
+        #[cfg(not(feature = "parallel"))]
+        {
+            assert!(result.is_ok());
+        }
     }
 }
