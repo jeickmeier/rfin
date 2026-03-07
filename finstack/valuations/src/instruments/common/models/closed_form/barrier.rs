@@ -251,6 +251,10 @@ fn barrier_helper(
     eta: f64, // 1 for call, -1 for put
     phi: f64, // 1 for up, -1 for down
 ) -> f64 {
+    debug_assert!(spot > 0.0, "spot must be positive, got {spot}");
+    debug_assert!(strike > 0.0, "strike must be positive, got {strike}");
+    debug_assert!(barrier > 0.0, "barrier must be positive, got {barrier}");
+
     if time <= 0.0 {
         return 0.0;
     }
