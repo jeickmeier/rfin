@@ -346,6 +346,7 @@ struct MonteCarloWorkspace {
     terminal_indices: Vec<usize>,
     tier_workspace: WaterfallWorkspace,
     pv_sum: f64,
+    pv_sq_sum: f64,
     loss_sum: f64,
     loss_sq_sum: f64,
     losses: Vec<f64>,
@@ -358,6 +359,7 @@ impl MonteCarloWorkspace {
             terminal_indices: Vec::new(),
             tier_workspace: WaterfallWorkspace::default(),
             pv_sum: 0.0,
+            pv_sq_sum: 0.0,
             loss_sum: 0.0,
             loss_sq_sum: 0.0,
             losses: Vec::with_capacity(num_paths),
@@ -399,6 +401,7 @@ impl MonteCarloWorkspace {
 
     fn record_path(&mut self, pv: f64, loss: f64) {
         self.pv_sum += pv;
+        self.pv_sq_sum += pv * pv;
         self.loss_sum += loss;
         self.loss_sq_sum += loss * loss;
         self.losses.push(loss);
@@ -419,6 +422,13 @@ impl MonteCarloWorkspace {
         let pv_money = Money::new(mean_pv, currency);
         let el_money = Money::new(expected_loss, currency);
         let mut result = StochasticPricingResult::new(pv_money, el_money, num_paths);
+
+        // MC convergence diagnostics: standard error and 95% CI for PV
+        let pv_variance = (self.pv_sq_sum / paths) - mean_pv * mean_pv;
+        let pv_std_dev = pv_variance.max(0.0).sqrt();
+        let std_error = pv_std_dev / (num_paths as f64).sqrt();
+        result.pv_std_error = std_error;
+        result.pv_confidence_interval = (mean_pv - 1.96 * std_error, mean_pv + 1.96 * std_error);
 
         if notional > f64::EPSILON {
             result.clean_price = mean_pv / notional * 100.0;

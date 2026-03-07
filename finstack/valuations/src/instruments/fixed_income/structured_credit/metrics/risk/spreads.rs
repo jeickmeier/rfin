@@ -175,9 +175,6 @@ pub struct Cs01Calculator;
 
 impl MetricCalculator for Cs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        // Get base NPV
-        let base_npv = context.base_value.amount();
-
         // Get Z-spread (base spread)
         let base_spread = context
             .computed
@@ -210,24 +207,30 @@ impl MetricCalculator for Cs01Calculator {
         let base_date = disc.base_date();
         let day_count = finstack_core::dates::DayCount::Act365F;
 
-        // Calculate PV with bumped spread
-        let mut bumped_npv = 0.0;
+        // CS01 must be marginal: PV(z) - PV(z + 1bp), not PV(0) - PV(z + 1bp).
+        // Compute both base PV (at Z-spread) and bumped PV (at Z-spread + 1bp).
+        let mut base_npv_acc = finstack_core::math::summation::NeumaierAccumulator::new();
+        let mut bumped_npv_acc = finstack_core::math::summation::NeumaierAccumulator::new();
+
         for (date, amount) in flows {
             if *date <= context.as_of {
                 continue;
             }
 
             let t = day_count.year_fraction(base_date, *date, DayCountCtx::default())?;
-
             let df = disc.df_on_date_curve(*date)?;
-            let df_bumped = df * (-bumped_spread * t).exp();
+            let amt = amount.amount();
 
-            bumped_npv += amount.amount() * df_bumped;
+            let df_base = df * (-base_spread * t).exp();
+            base_npv_acc.add(amt * df_base);
+
+            let df_bumped = df * (-bumped_spread * t).exp();
+            bumped_npv_acc.add(amt * df_bumped);
         }
 
         // CS01 = -(PV_bumped - PV_base)
         // Negative sign because price decreases when spread increases
-        let cs01 = -(bumped_npv - base_npv);
+        let cs01 = -(bumped_npv_acc.total() - base_npv_acc.total());
 
         Ok(cs01)
     }

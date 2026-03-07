@@ -133,6 +133,11 @@ pub fn run_simulation(
                 // to redeem notes in seniority order.
                 let mut available_for_redemption = state.pool_outstanding.amount();
 
+                // Deduct pending recovery queue balance (defaults not yet recovered)
+                let pending_losses = state.recovery_queue.pending_amount(state.base_ccy);
+                available_for_redemption =
+                    (available_for_redemption - pending_losses.amount()).max(0.0);
+
                 // Pay tranches in seniority order (Senior=0 first, Equity=3 last)
                 let mut redemption_order: Vec<usize> = (0..state.tranches.tranches.len()).collect();
                 redemption_order.sort_by_key(|&i| state.tranches.tranches[i].seniority);
@@ -890,7 +895,7 @@ fn calculate_pool_flows(
                 .max(1) as f64;
             let remaining_months = (remaining_days / 30.44).round().max(1.0);
 
-            let period_rate = rate * months_per_period / 12.0;
+            let period_rate = (1.0 + rate).powf(months_per_period / 12.0) - 1.0;
             let remaining_periods_f64 = remaining_months / months_per_period;
             let denom = 1.0 - (1.0 + period_rate).powf(-remaining_periods_f64);
 

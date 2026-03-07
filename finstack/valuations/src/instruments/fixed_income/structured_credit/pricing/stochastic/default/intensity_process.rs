@@ -140,7 +140,7 @@ impl IntensityProcessDefault {
 impl StochasticDefault for IntensityProcessDefault {
     fn conditional_mdr(
         &self,
-        _seasoning: u32,
+        seasoning: u32,
         factors: &[f64],
         _macro_factors: &MacroCreditFactors,
     ) -> f64 {
@@ -149,8 +149,18 @@ impl StochasticDefault for IntensityProcessDefault {
         // Conditional intensity
         let intensity = self.intensity(z);
 
+        // Apply seasoning ramp: linear over first 24 months, then flat at 1.0.
+        // Newly originated loans have lower default rates that ramp up as they season.
+        let ramp_months = 24_u32;
+        let seasoning_factor = if seasoning < ramp_months {
+            seasoning as f64 / ramp_months as f64
+        } else {
+            1.0
+        };
+        let adjusted_intensity = intensity * seasoning_factor;
+
         // Monthly survival probability
-        let monthly_intensity = intensity / 12.0;
+        let monthly_intensity = adjusted_intensity / 12.0;
         let survival_prob = (-monthly_intensity).exp();
 
         // MDR = 1 - survival
@@ -188,8 +198,14 @@ impl StochasticDefault for IntensityProcessDefault {
         "Intensity Process Default Model"
     }
 
-    fn expected_mdr(&self, _seasoning: u32) -> f64 {
-        cdr_to_mdr(self.base_hazard)
+    fn expected_mdr(&self, seasoning: u32) -> f64 {
+        let ramp_months = 24_u32;
+        let seasoning_factor = if seasoning < ramp_months {
+            seasoning as f64 / ramp_months as f64
+        } else {
+            1.0
+        };
+        cdr_to_mdr(self.base_hazard * seasoning_factor)
     }
 }
 

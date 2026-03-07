@@ -132,7 +132,7 @@ pub fn generate_cashflows(
             balance / remaining_months as f64
         };
 
-        let prepayment = balance * smm;
+        let prepayment = (balance - scheduled_principal).max(0.0) * smm;
         let interest = balance * monthly_rate;
         let total_principal = scheduled_principal + prepayment;
         let ending_balance = (balance - total_principal).max(0.0);

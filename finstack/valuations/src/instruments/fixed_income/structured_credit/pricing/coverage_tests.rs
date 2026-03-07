@@ -306,11 +306,22 @@ impl CoverageTest {
 
         let is_passing = ratio >= required_ratio;
 
+        // IC cure amount: additional interest collections needed to restore IC ratio.
+        //   required_collections = total_interest_due × required_ratio
+        //   shortfall = required_collections - actual_collections
+        let cure_amount = if !is_passing && required_ratio > 0.0 {
+            let required_collections = total_interest_due.amount() * required_ratio;
+            let shortfall = (required_collections - context.interest_collections.amount()).max(0.0);
+            Some(Money::new(shortfall, total_interest_due.currency()))
+        } else {
+            None
+        };
+
         Ok(TestResult {
             test_id,
             current_ratio: ratio,
             is_passing,
-            cure_amount: None,
+            cure_amount,
         })
     }
 }
