@@ -382,31 +382,6 @@ impl DagBuilder {
     }
 }
 
-/// Execution analysis for optimization hints.
-///
-/// Note: With Polars removed, this provides basic execution statistics
-/// without vectorization-specific boundary analysis.
-pub struct PushdownAnalyzer;
-
-impl PushdownAnalyzer {
-    /// Analyze an execution plan and provide basic statistics.
-    ///
-    /// Returns a simplified analysis structure with execution cost estimates.
-    pub fn analyze_boundaries(_plan: &ExecutionPlan) -> PushdownBoundaries {
-        let optimized_subtrees = Vec::new();
-        let boundaries = Vec::new();
-
-        // All nodes use scalar execution
-        let speedup = 1.0; // Scalar execution baseline
-
-        PushdownBoundaries {
-            boundaries,
-            optimized_subtrees,
-            estimated_speedup: speedup,
-        }
-    }
-}
-
 /// Analysis of pushdown boundaries in an execution plan.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct PushdownBoundaries {

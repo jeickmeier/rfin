@@ -71,6 +71,11 @@ pub fn validate_correlation_matrix_py(matrix: Vec<Vec<f64>>) -> PyResult<bool> {
     Ok(core_validate_corr(&flat, n).is_ok())
 }
 
+/// # Panics
+///
+/// Cannot panic in practice: the dimension check above (inside the function body) ensures
+/// `chol_flat` and `correlated` are correctly sized before calling `core_apply_correlation`.
+#[allow(clippy::expect_used)]
 #[pyfunction(name = "apply_correlation")]
 #[pyo3(text_signature = "(cholesky, independent)")]
 /// Apply a Cholesky factor to independent shocks to obtain correlated shocks.
@@ -104,7 +109,9 @@ pub fn apply_correlation_py(cholesky: Vec<Vec<f64>>, independent: Vec<f64>) -> P
     }
 
     let mut correlated = vec![0.0; n];
-    core_apply_correlation(&chol_flat, &independent, &mut correlated);
+    // Dimension check already performed above, so this cannot fail.
+    core_apply_correlation(&chol_flat, &independent, &mut correlated)
+        .expect("apply_correlation: dimensions pre-validated");
     Ok(correlated)
 }
 

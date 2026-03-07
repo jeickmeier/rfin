@@ -1273,8 +1273,7 @@ impl DiscountCurveBuilder {
         // Auto-enforce DF(0) = 1.0: if no knot at t=0, prepend one.
         // This matches QuantLib/Bloomberg convention where DF(0) = 1.0 always.
         if !self.points.is_empty() {
-            self.points
-                .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+            self.points.sort_by(|a, b| a.0.total_cmp(&b.0));
             let first_t = self.points[0].0;
             if first_t > 1e-14 {
                 // First knot is after t=0, auto-prepend DF(0)=1.0

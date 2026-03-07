@@ -354,17 +354,13 @@ impl FxDeltaVolSurfaceBuilder {
                 let t = self.expiries[i];
                 let atm = self.atm_vols[i];
                 let fwd = self.spot * ((self.domestic_rate - self.foreign_rate) * t).exp();
-                let k_atm = fwd * (0.5 * atm * atm * t).exp();
+                // k_atm computed for reference; flat surface uses atm vol for all strikes
+                let _k_atm = fwd * (0.5 * atm * atm * t).exp();
 
                 let mut row = Vec::with_capacity(n_strikes);
-                for &k in strikes {
-                    // For ATM-only, clamp to the single known vol
-                    if (k - k_atm).abs() < 1e-10 {
-                        row.push(atm);
-                    } else {
-                        // Flat extrapolation from ATM
-                        row.push(atm);
-                    }
+                for _ in strikes {
+                    // Flat extrapolation from ATM: all strikes use the single known vol
+                    row.push(atm);
                 }
                 builder = builder.row(&row);
             }

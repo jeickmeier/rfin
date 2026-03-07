@@ -528,6 +528,14 @@ pub fn measure_fx_shift(
     let rate_t0 = fx_t0.rate(query_t0)?.rate;
     let rate_t1 = fx_t1.rate(query_t1)?.rate;
 
+    // Guard against division by zero
+    if rate_t0 == 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "Cannot compute FX shift: rate_t0 is zero for {}/{}",
+            base_ccy, quote_ccy
+        )));
+    }
+
     // Percentage change
     let pct_change = (rate_t1 / rate_t0 - 1.0) * 100.0;
 
